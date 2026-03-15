@@ -271,13 +271,25 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ═══════════════════════════════════════════════════════════════════════════════
 
 ## BUILDER 1 → STATUS
-**File:** [fill after completion]
-**Status:** PENDING / IN PROGRESS / DONE / STUCK
-**Unit Test:** [PASS/FAIL]
-**Test File:** tests/unit/test_support.py
-**Pushed:** [YES/NO]
-**Initiative Files:** [any extra files or NONE]
-**Notes:** [anything relevant]
+**File:** `backend/api/support.py`
+**Status:** DONE
+**Unit Test:** PASS (32 tests, 0 failures)
+**Test File:** `tests/unit/test_support.py`
+**Pushed:** YES
+**Commit:** 29c96e5
+**Initiative Files:** NONE
+**Notes:**
+- Implemented Support Ticket API with 6 endpoints:
+  - POST /support/tickets — Create new support ticket
+  - GET /support/tickets — List tickets with filtering (status, channel, assignee)
+  - GET /support/tickets/{id} — Get ticket details
+  - PUT /support/tickets/{id} — Update ticket (status, category, assignee, AI fields)
+  - POST /support/tickets/{id}/escalate — Escalate ticket to manager
+  - POST /support/tickets/{id}/messages — Add message to ticket
+- All endpoints include proper input validation, error handling, and structured logging
+- Company-scoped data access (RLS enforcement) - users can only access tickets from their company
+- Type hints and docstrings on all functions and classes
+- Tests cover: schema validation, enum values, helper functions, auth requirements, UUID validation, pagination
 
 ---
 
