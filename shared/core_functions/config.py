@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     # ─────────────────────────────────────────────────────────────
     training_threshold: int = Field(default=50, alias="TRAINING_THRESHOLD")
 
+    # ─────────────────────────────────────────────────────────────
+    # MONITORING
+    # ─────────────────────────────────────────────────────────────
+    sentry_dsn: Optional[str] = Field(default=None, alias="SENTRY_DSN")
+
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""

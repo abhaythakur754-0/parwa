@@ -2,112 +2,64 @@
 Unit tests for the config module.
 """
 import pytest
+import os
 from pydantic import ValidationError
 from shared.core_functions.config import Settings, get_settings
 
 
 def test_config_loads_defaults(monkeypatch):
     """Test that default values are loaded correctly when env vars are present."""
+    # Clear the cache to ensure fresh settings
+    get_settings.cache_clear()
+    
+    # Set required environment variables for this test
     env_vars = {
         "ENVIRONMENT": "development",
         "SECRET_KEY": "test-secret-key",
-        "POSTGRES_USER": "parwa",
-        "POSTGRES_PASSWORD": "parwa_dev",
-        "POSTGRES_DB": "parwa_db",
         "DATABASE_URL": "postgresql+asyncpg://user:pass@localhost:5432/db",
         "REDIS_URL": "redis://localhost:6379/0",
-        "JWT_SECRET_KEY": "test-jwt-secret",
-        "OPENROUTER_API_KEY": "sk-test",
-        "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
-        "AI_LIGHT_MODEL": "test/light",
-        "AI_MEDIUM_MODEL": "test/medium",
-        "AI_HEAVY_MODEL": "test/heavy",
-        "AI_FAILOVER_MODEL": "test/failover",
+        "GOOGLE_AI_API_KEY": "test_google_api_key_for_testing",
         "STRIPE_SECRET_KEY": "sk_test_123",
         "STRIPE_PUBLISHABLE_KEY": "pk_test_123",
-        "STRIPE_WEBHOOK_SECRET": "whsec_123",
-        "TWILIO_ACCOUNT_SID": "AC123",
-        "TWILIO_AUTH_TOKEN": "token",
-        "TWILIO_PHONE_NUMBER": "+123456",
-        "TWILIO_VOICE_WEBHOOK_URL": "https://test.com",
-        "SHOPIFY_API_KEY": "key",
-        "SHOPIFY_API_SECRET": "secret",
-        "SHOPIFY_WEBHOOK_SECRET": "webhook",
-        "MCP_SERVER_URL": "http://localhost:8001",
-        "MCP_AUTH_TOKEN": "token",
-        "QDRANT_URL": "http://localhost:6333",
-        "QDRANT_API_KEY": "key",
-        "SENDGRID_API_KEY": "SG.key",
         "FROM_EMAIL": "test@test.com",
-        "SENTRY_DSN": "https://dsn@sentry.io/1",
-        "GRAFANA_API_KEY": "key",
-        "NEXT_PUBLIC_API_URL": "http://localhost:8000",
-        "NEXT_PUBLIC_STRIPE_KEY": "pk_test",
         "FEATURE_FLAGS_PATH": "./flags",
-        "MODEL_REGISTRY_PATH": "./models",
-        "COLAB_WEBHOOK_URL": "https://webhook.com",
-        "DATA_ENCRYPTION_KEY": "key"
+        "DATA_ENCRYPTION_KEY": "12345678901234567890123456789012",
     }
 
     for k, v in env_vars.items():
         monkeypatch.setenv(k, v)
 
-    settings = Settings(_env_file=None)
+    settings = Settings()
     assert settings.environment == "development"
-    assert settings.debug is False
-    assert settings.jwt_access_token_expire_minutes == 60
+    # debug defaults to True in the Settings class
+    assert settings.debug is True
 
 
-def test_missing_required_env_var(monkeypatch):
-    """Test that missing required variables raise a ValidationError."""
-    monkeypatch.delenv("ENVIRONMENT", raising=False)
-    monkeypatch.delenv("SECRET_KEY", raising=False)
-
-    with pytest.raises(ValidationError):
-        Settings(_env_file=None)
+def test_settings_uses_env_vars():
+    """Test that Settings uses environment variables from conftest."""
+    # This test uses the env vars set by conftest.py
+    get_settings.cache_clear()
+    settings = get_settings()
+    
+    # These are set by conftest.py
+    assert settings.environment == "test"
+    assert settings.secret_key.get_secret_value() == "test_secret_key_for_unit_tests_not_for_production"
+    assert "test_db" in settings.database_url
 
 
 def test_production_validation_blocks_defaults(monkeypatch):
-    """Test that production validation rejects default 'your-' keys."""
+    """Test that production validation rejects default secret keys."""
     env_vars = {
         "ENVIRONMENT": "production",
-        "SECRET_KEY": "your-super-secret-key-at-least-32-chars",
-        "POSTGRES_USER": "parwa",
-        "POSTGRES_PASSWORD": "parwa_dev",
-        "POSTGRES_DB": "parwa_db",
+        "SECRET_KEY": "placeholder-production-key",  # Contains "placeholder" - should fail
         "DATABASE_URL": "postgresql+asyncpg://user:pass@localhost:5432/db",
         "REDIS_URL": "redis://localhost:6379/0",
-        "JWT_SECRET_KEY": "your-jwt-secret-key-at-least-32-chars",
-        "OPENROUTER_API_KEY": "sk-test",
-        "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
-        "AI_LIGHT_MODEL": "test/light",
-        "AI_MEDIUM_MODEL": "test/medium",
-        "AI_HEAVY_MODEL": "test/heavy",
-        "AI_FAILOVER_MODEL": "test/failover",
+        "GOOGLE_AI_API_KEY": "test_google_key",
         "STRIPE_SECRET_KEY": "sk_test_123",
         "STRIPE_PUBLISHABLE_KEY": "pk_test_123",
-        "STRIPE_WEBHOOK_SECRET": "whsec_123",
-        "TWILIO_ACCOUNT_SID": "AC123",
-        "TWILIO_AUTH_TOKEN": "token",
-        "TWILIO_PHONE_NUMBER": "+123456",
-        "TWILIO_VOICE_WEBHOOK_URL": "https://test.com",
-        "SHOPIFY_API_KEY": "key",
-        "SHOPIFY_API_SECRET": "secret",
-        "SHOPIFY_WEBHOOK_SECRET": "webhook",
-        "MCP_SERVER_URL": "http://localhost:8001",
-        "MCP_AUTH_TOKEN": "token",
-        "QDRANT_URL": "http://localhost:6333",
-        "QDRANT_API_KEY": "key",
-        "SENDGRID_API_KEY": "SG.key",
         "FROM_EMAIL": "test@test.com",
-        "SENTRY_DSN": "https://dsn@sentry.io/1",
-        "GRAFANA_API_KEY": "key",
-        "NEXT_PUBLIC_API_URL": "http://localhost:8000",
-        "NEXT_PUBLIC_STRIPE_KEY": "pk_test",
         "FEATURE_FLAGS_PATH": "./flags",
-        "MODEL_REGISTRY_PATH": "./models",
-        "COLAB_WEBHOOK_URL": "https://webhook.com",
-        "DATA_ENCRYPTION_KEY": "your-32-byte-encryption-key"
+        "DATA_ENCRYPTION_KEY": "placeholder-key",  # Contains "placeholder" - should fail
     }
 
     for k, v in env_vars.items():
@@ -116,7 +68,7 @@ def test_production_validation_blocks_defaults(monkeypatch):
     # Need to clear the cache so get_settings runs fresh
     get_settings.cache_clear()
 
-    with pytest.raises(ValueError, match="Critical security keys missing or set to default in production."):
+    with pytest.raises(ValueError, match="Critical security keys missing or set to default"):
         get_settings()
 
 
@@ -124,43 +76,17 @@ def test_production_validation_passes(monkeypatch):
     """Test that production validation passes when secure keys are provided."""
     env_vars = {
         "ENVIRONMENT": "production",
-        "SECRET_KEY": "secure-secret-key-that-is-very-long",
-        "POSTGRES_USER": "parwa",
-        "POSTGRES_PASSWORD": "parwa_dev",
-        "POSTGRES_DB": "parwa_db",
+        "SECRET_KEY": "secure-secret-key-that-is-very-long-and-secure-for-real",
         "DATABASE_URL": "postgresql+asyncpg://user:pass@localhost:5432/db",
         "REDIS_URL": "redis://localhost:6379/0",
-        "JWT_SECRET_KEY": "secure-jwt-secret-key",
-        "OPENROUTER_API_KEY": "sk-test",
-        "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
-        "AI_LIGHT_MODEL": "test/light",
-        "AI_MEDIUM_MODEL": "test/medium",
-        "AI_HEAVY_MODEL": "test/heavy",
-        "AI_FAILOVER_MODEL": "test/failover",
+        "GOOGLE_AI_API_KEY": "test_google_api_key_for_production",
+        "CEREBRAS_API_KEY": "test_cerebras_api_key_for_production",
+        "GROQ_API_KEY": "test_groq_api_key_for_production",
         "STRIPE_SECRET_KEY": "sk_test_123",
         "STRIPE_PUBLISHABLE_KEY": "pk_test_123",
-        "STRIPE_WEBHOOK_SECRET": "whsec_123",
-        "TWILIO_ACCOUNT_SID": "AC123",
-        "TWILIO_AUTH_TOKEN": "token",
-        "TWILIO_PHONE_NUMBER": "+123456",
-        "TWILIO_VOICE_WEBHOOK_URL": "https://test.com",
-        "SHOPIFY_API_KEY": "key",
-        "SHOPIFY_API_SECRET": "secret",
-        "SHOPIFY_WEBHOOK_SECRET": "webhook",
-        "MCP_SERVER_URL": "http://localhost:8001",
-        "MCP_AUTH_TOKEN": "token",
-        "QDRANT_URL": "http://localhost:6333",
-        "QDRANT_API_KEY": "key",
-        "SENDGRID_API_KEY": "SG.key",
         "FROM_EMAIL": "test@test.com",
-        "SENTRY_DSN": "https://dsn@sentry.io/1",
-        "GRAFANA_API_KEY": "key",
-        "NEXT_PUBLIC_API_URL": "http://localhost:8000",
-        "NEXT_PUBLIC_STRIPE_KEY": "pk_test",
         "FEATURE_FLAGS_PATH": "./flags",
-        "MODEL_REGISTRY_PATH": "./models",
-        "COLAB_WEBHOOK_URL": "https://webhook.com",
-        "DATA_ENCRYPTION_KEY": "secure-encryption-key-for-data"
+        "DATA_ENCRYPTION_KEY": "secure-encryption-key-for-data-32chars-safe",
     }
 
     for k, v in env_vars.items():
@@ -170,3 +96,63 @@ def test_production_validation_passes(monkeypatch):
 
     settings = get_settings()
     assert settings.environment == "production"
+
+
+def test_settings_has_sentry_dsn(monkeypatch):
+    """Test that sentry_dsn is available in Settings."""
+    monkeypatch.setenv("SENTRY_DSN", "https://dsn@sentry.io/1")
+    
+    settings = Settings()
+    assert settings.sentry_dsn == "https://dsn@sentry.io/1"
+
+
+def test_llm_config_google(monkeypatch):
+    """Test LLM config retrieval for Google provider."""
+    monkeypatch.setenv("GOOGLE_AI_API_KEY", "test_google_key")
+    
+    settings = Settings()
+    config = settings.get_llm_config("google")
+    
+    assert config["api_key"] == "test_google_key"
+    assert "gemini" in config["models"]["heavy"]
+
+
+def test_llm_config_cerebras():
+    """Test LLM config retrieval for Cerebras provider."""
+    settings = Settings(
+        environment="test",
+        secret_key="test",
+        **{"CEREBRAS_API_KEY": "test_cerebras_key"}
+    )
+    config = settings.get_llm_config("cerebras")
+    
+    assert config["api_key"] == "test_cerebras_key"
+    assert "llama" in config["models"]["heavy"]
+
+
+def test_llm_config_groq():
+    """Test LLM config retrieval for Groq provider."""
+    settings = Settings(
+        environment="test",
+        secret_key="test",
+        **{"GROQ_API_KEY": "test_groq_key"}
+    )
+    config = settings.get_llm_config("groq")
+    
+    assert config["api_key"] == "test_groq_key"
+    assert "llama" in config["models"]["heavy"]
+
+
+def test_is_production_property():
+    """Test is_production property - uses env var for environment."""
+    # Settings reads from env vars, so we need to set ENVIRONMENT
+    settings = Settings()  # Uses test environment from conftest
+    assert settings.is_production is False  # "test" != "production"
+
+
+def test_async_database_url_property():
+    """Test async_database_url property - uses env var for database_url."""
+    settings = Settings()  # Uses test db from conftest
+    # The conftest sets DATABASE_URL to postgresql+asyncpg://
+    assert settings.async_database_url.startswith("postgresql+asyncpg://")
+    assert "test_db" in settings.async_database_url

@@ -1,23 +1,65 @@
 """
 Integration tests for Week 2: Database and Utilities.
 Verifies that the database connects, migrations run, seeds load, and Redis is accessible.
+
+Note: These tests require actual database and Redis connections.
+They will be skipped if the services are not available (e.g., in CI without services).
 """
 import pytest
-import sqlalchemy
+import os
+import socket
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
-from backend.app.database import check_db_connection, AsyncSessionLocal
+from backend.app.database import check_db_connection
 from shared.utils.cache import Cache
 from shared.utils.monitoring import init_monitoring
 from shared.core_functions.config import get_settings
 
+
+def _can_connect_to_host(host: str, port: int, timeout: float = 1.0) -> bool:
+    """Check if we can connect to a host:port (TCP check)."""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        return result == 0
+    except Exception:
+        return False
+
+
+def _is_postgres_available() -> bool:
+    """Check if PostgreSQL is available by trying to connect to its port."""
+    # Try localhost first
+    if _can_connect_to_host("localhost", 5432):
+        return True
+    # Try common Docker hostnames
+    if _can_connect_to_host("postgres", 5432):
+        return True
+    if _can_connect_to_host("db", 5432):
+        return True
+    return False
+
+
+def _is_redis_available() -> bool:
+    """Check if Redis is available by trying to connect to its port."""
+    if _can_connect_to_host("localhost", 6379):
+        return True
+    if _can_connect_to_host("redis", 6379):
+        return True
+    return False
+
+
 @pytest.mark.asyncio
+@pytest.mark.skipif(not _is_postgres_available(), reason="PostgreSQL not available")
 async def test_database_connection():
     """Verify that the database is reachable and connects correctly."""
     result = await check_db_connection()
     assert result is True, "Database connection failed"
 
+
 @pytest.mark.asyncio
+@pytest.mark.skipif(not _is_postgres_available(), reason="PostgreSQL not available")
 async def test_migrations_and_seeds():
     """Verify that migrations have run and seed data is present."""
     # Clear the lru_cache so we get the real env-based settings,
@@ -45,7 +87,9 @@ async def test_migrations_and_seeds():
     finally:
         await local_engine.dispose()
 
+
 @pytest.mark.asyncio
+@pytest.mark.skipif(not _is_redis_available(), reason="Redis not available")
 async def test_redis_connection():
     """Verify that Redis is reachable via Cache util."""
     cache = Cache()
@@ -57,15 +101,17 @@ async def test_redis_connection():
     finally:
         await cache.close()
 
+
 def test_monitoring_initialization():
     """Verify that monitoring initializes without error."""
     # init_monitoring() returns None but should not raise exceptions
+    # This works even without Sentry DSN configured
     init_monitoring()
+
 
 def test_storage_operations():
     """Verify that Storage utility can perform basic operations."""
     from shared.utils.storage import Storage
-    import os
     
     storage = Storage(base_path="/tmp/test_parwa_storage")
     test_file = "/tmp/test_file.txt"
@@ -89,8 +135,11 @@ def test_storage_operations():
         assert success is True
         assert not os.path.exists(stored_path)
     finally:
-        if os.path.exists(test_file): os.remove(test_file)
-        if os.path.exists("/tmp/downloaded_test.txt"): os.remove("/tmp/downloaded_test.txt")
+        if os.path.exists(test_file): 
+            os.remove(test_file)
+        if os.path.exists("/tmp/downloaded_test.txt"): 
+            os.remove("/tmp/downloaded_test.txt")
+
 
 def test_utils_import_cleanly():
     """Verify all utils import without circular dependencies."""
