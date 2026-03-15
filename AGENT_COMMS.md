@@ -290,11 +290,15 @@ You are the **Assistance Agent**. You help when builders are stuck.
 **Unit Test:** PASS (25 tests, 0 failures)
 **Test File:** `tests/unit/test_licenses.py`
 **Pushed:** YES
-**Commit:** fde092c
+**Commit:** fde092c (initial), 0323a67 (CI fixes)
 **Initiative Files:**
 - `backend/api/__init__.py` (created)
 - `tests/unit/conftest.py` (created)
 - `conftest.py` (updated for test environment)
+- `shared/core_functions/config.py` (added sentry_dsn field)
+- `tests/unit/test_config.py` (fixed for current Settings)
+- `tests/unit/test_monitoring.py` (fixed for current Settings)
+- `tests/integration/test_week2_database.py` (improved skip logic)
 **Notes:**
 - Implemented License Management API with 5 endpoints:
   - POST /licenses/activate — Activate license key
@@ -306,6 +310,10 @@ You are the **Assistance Agent**. You help when builders are stuck.
 - Added license key generation utility (generate_license_key)
 - All endpoints include proper input validation, error handling, and logging
 - Tests use FastAPI dependency override for proper mocking
+- CI Fix: Added sentry_dsn field to Settings class for Sentry monitoring
+- CI Fix: Updated unit tests to match current Settings implementation
+- CI Fix: Integration tests now properly skip when DB/Redis not available
+- All 222 tests pass (4 skipped - integration tests without services)
 
 ---
 
