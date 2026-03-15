@@ -1,0 +1,51 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (Placeholder)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      - name: Install Dependencies (Placeholder)
+        run: |
+          echo "Installing frontend dependencies..."
+          # cd frontend && npm ci
+
+      - name: Build Static Assets (Placeholder)
+        run: |
+          echo "Building static assets..."
+          # cd frontend && npm run build
+
+      - name: Configure AWS Credentials (Placeholder)
+        run: echo "Configuring AWS credentials..."
+
+      - name: Sync to S3 Bucket (Placeholder)
+        run: |
+          echo "Syncing dist folder to S3..."
+          # aws s3 sync frontend/dist/ s3://${{ secrets.FRONTEND_BUCKET_NAME }} --delete
+
+      - name: Invalidate CloudFront Cache (Placeholder)
+        run: |
+          echo "Invalidating CloudFront CDN cache..."
+          # aws cloudfront create-invalidation --distribution-id ${{ secrets.CF_DISTRIBUTION_ID }} --paths "/*"
+
+      - name: Deployment Notification
+        if: always()
+        run: echo "Frontend deployment completed with status ${{ job.status }}."

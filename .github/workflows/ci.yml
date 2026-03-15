@@ -1,0 +1,187 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: parwa_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Setup Environment and Run Migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/parwa_dev
+          REDIS_URL: redis://localhost:6379/0
+          ENVIRONMENT: test
+          SECRET_KEY: fake_secret
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: parwa_dev
+          JWT_SECRET_KEY: fake_jwt
+          OPENROUTER_API_KEY: fake
+          OPENROUTER_BASE_URL: https://openrouter.ai
+          AI_LIGHT_MODEL: fake
+          AI_MEDIUM_MODEL: fake
+          AI_HEAVY_MODEL: fake
+          AI_FAILOVER_MODEL: fake
+          STRIPE_SECRET_KEY: fake
+          STRIPE_PUBLISHABLE_KEY: fake
+          STRIPE_WEBHOOK_SECRET: fake
+          TWILIO_ACCOUNT_SID: fake
+          TWILIO_AUTH_TOKEN: fake
+          TWILIO_PHONE_NUMBER: fake
+          TWILIO_VOICE_WEBHOOK_URL: https://fake
+          SHOPIFY_API_KEY: fake
+          SHOPIFY_API_SECRET: fake
+          SHOPIFY_WEBHOOK_SECRET: fake
+          MCP_SERVER_URL: https://fake
+          MCP_AUTH_TOKEN: fake
+          QDRANT_URL: https://fake
+          QDRANT_API_KEY: fake
+          SENDGRID_API_KEY: fake
+          SENTRY_DSN: https://fake
+          GRAFANA_API_KEY: fake
+          FROM_EMAIL: fake@parwa.ai
+          NEXT_PUBLIC_API_URL: https://fake
+          NEXT_PUBLIC_STRIPE_KEY: fake
+          FEATURE_FLAGS_PATH: feature_flags
+          MODEL_REGISTRY_PATH: models
+          COLAB_WEBHOOK_URL: https://fake
+          DATA_ENCRYPTION_KEY: 12345678901234567890123456789012
+        run: |
+          # Create fake .env for tests
+          echo "ENVIRONMENT=test" > .env
+          echo "SECRET_KEY=fake_secret" >> .env
+          echo "POSTGRES_USER=postgres" >> .env
+          echo "POSTGRES_PASSWORD=postgres" >> .env
+          echo "POSTGRES_DB=parwa_dev" >> .env
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/parwa_dev" >> .env
+          echo "REDIS_URL=redis://localhost:6379/0" >> .env
+          echo "JWT_SECRET_KEY=fake_jwt" >> .env
+          echo "OPENROUTER_API_KEY=fake" >> .env
+          echo "OPENROUTER_BASE_URL=https://openrouter.ai" >> .env
+          echo "AI_LIGHT_MODEL=fake" >> .env
+          echo "AI_MEDIUM_MODEL=fake" >> .env
+          echo "AI_HEAVY_MODEL=fake" >> .env
+          echo "AI_FAILOVER_MODEL=fake" >> .env
+          echo "STRIPE_SECRET_KEY=fake" >> .env
+          echo "STRIPE_PUBLISHABLE_KEY=fake" >> .env
+          echo "STRIPE_WEBHOOK_SECRET=fake" >> .env
+          echo "TWILIO_ACCOUNT_SID=fake" >> .env
+          echo "TWILIO_AUTH_TOKEN=fake" >> .env
+          echo "TWILIO_PHONE_NUMBER=fake" >> .env
+          echo "TWILIO_VOICE_WEBHOOK_URL=https://fake" >> .env
+          echo "SHOPIFY_API_KEY=fake" >> .env
+          echo "SHOPIFY_API_SECRET=fake" >> .env
+          echo "SHOPIFY_WEBHOOK_SECRET=fake" >> .env
+          echo "MCP_SERVER_URL=https://fake" >> .env
+          echo "MCP_AUTH_TOKEN=fake" >> .env
+          echo "QDRANT_URL=https://fake" >> .env
+          echo "QDRANT_API_KEY=fake" >> .env
+          echo "SENDGRID_API_KEY=fake" >> .env
+          echo "SENTRY_DSN=https://fake" >> .env
+          echo "GRAFANA_API_KEY=fake" >> .env
+          echo "FROM_EMAIL=fake@parwa.ai" >> .env
+          echo "NEXT_PUBLIC_API_URL=https://fake" >> .env
+          echo "NEXT_PUBLIC_STRIPE_KEY=fake" >> .env
+          echo "FEATURE_FLAGS_PATH=feature_flags" >> .env
+          echo "MODEL_REGISTRY_PATH=models" >> .env
+          echo "COLAB_WEBHOOK_URL=https://fake" >> .env
+          echo "DATA_ENCRYPTION_KEY=12345678901234567890123456789012" >> .env
+          
+          # Run migrations and seeds
+          python infra/scripts/seed_db.py
+
+      - name: Run Unit and Integration Tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/parwa_dev
+          REDIS_URL: redis://localhost:6379/0
+          ENVIRONMENT: test
+          SECRET_KEY: fake_secret
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: parwa_dev
+          JWT_SECRET_KEY: fake_jwt
+          OPENROUTER_API_KEY: fake
+          OPENROUTER_BASE_URL: https://openrouter.ai
+          AI_LIGHT_MODEL: fake
+          AI_MEDIUM_MODEL: fake
+          AI_HEAVY_MODEL: fake
+          AI_FAILOVER_MODEL: fake
+          STRIPE_SECRET_KEY: fake
+          STRIPE_PUBLISHABLE_KEY: fake
+          STRIPE_WEBHOOK_SECRET: fake
+          TWILIO_ACCOUNT_SID: fake
+          TWILIO_AUTH_TOKEN: fake
+          TWILIO_PHONE_NUMBER: fake
+          TWILIO_VOICE_WEBHOOK_URL: https://fake.parwa.ai
+          SHOPIFY_API_KEY: fake
+          SHOPIFY_API_SECRET: fake
+          SHOPIFY_WEBHOOK_SECRET: fake
+          MCP_SERVER_URL: https://fake.parwa.ai
+          MCP_AUTH_TOKEN: fake
+          QDRANT_URL: https://fake.parwa.ai
+          QDRANT_API_KEY: fake
+          SENDGRID_API_KEY: fake
+          SENTRY_DSN: https://fake@sentry.io/1
+          GRAFANA_API_KEY: fake
+          FROM_EMAIL: fake@parwa.ai
+          NEXT_PUBLIC_API_URL: https://fake.parwa.ai
+          NEXT_PUBLIC_STRIPE_KEY: fake
+          FEATURE_FLAGS_PATH: feature_flags
+          MODEL_REGISTRY_PATH: models
+          COLAB_WEBHOOK_URL: https://fake.parwa.ai
+          DATA_ENCRYPTION_KEY: 12345678901234567890123456789012
+        run: |
+          python -m pytest tests/unit/ tests/integration/ -v --tb=short

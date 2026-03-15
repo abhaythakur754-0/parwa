@@ -1,0 +1,6 @@
+{
+  "max_calls_per_month": 2,
+  "sms_enabled": false,
+  "refund_execution": false,
+  "agent_lightning": false
+}
