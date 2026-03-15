@@ -1,154 +1,335 @@
-# AGENT_COMMS.md — Week 3 Day 6
-# Last updated: 2026-03-14
-# Current status: TESTING IN PROGRESS
+# AGENT_COMMS.md — Week 4 Day 1
+# Last updated: 2026-03-27
+# Current status: WEEK 4 STARTED
 
-═══════════════════════════════════════════════════════════
-## MANAGER → WEEK 3 DAY 6 ASSIGNMENT (INTEGRATION)
-═══════════════════════════════════════════════════════════
-Written by: Manager Agent (Antigravity)
-Date: 2026-03-14
+═══════════════════════════════════════════════════════════════════════════════
+## MANAGER → WEEK 4 DAY 1 PLAN
+═══════════════════════════════════════════════════════════════════════════════
+Written by: Manager Agent
+Date: 2026-03-27
 
-> **Phase: Weekly Integration**
-> All development for Week 3 is finished.
-> **TESTER AGENT:** You are tasked with running the full integration suite to close the week.
-> **Command:** `pytest tests/integration/test_week3_integration.py -v`
-> 
-> **Verification Requirements:**
-> 1. Confirm all backend models result in correct DB table creation.
-> 2. Verify RLS policies correctly isolate company data (Cross-Tenant check).
-> 3. Verify Smart Router failover resilience.
-> 4. Verify HMAC security utilities for webhook safety.
+> **Phase: Phase 2 — Core AI Engine (API Layer)**
+> Week 3 is COMPLETE. All models, schemas, security, and Smart Router are built.
+> Week 4 builds the API routes and services. Today: Auth API and License API.
 >
-> Report results in ## TESTER AGENT → VERIFICATION. Use status "WEEK COMPLETE" only if all tests PASS.
-Written by: Manager Agent (Antigravity)
-Date: 2026-03-14
-
-> Week 3 Day 4 (Smart Router) is COMPLETE. All failover and cost logic verified.
-> Today is Day 5: Backend Core & Rate Limiting.
-> We are building the FastAPI entry point and the core security middlewares. This is the "Glue" that connects models and schemas to the web.
-> RULE REMINDER: Build → Unit Test passes → THEN push.
+> **CRITICAL REMINDER:** You CANNOT use Docker locally. Write tests with mocked databases.
+> Check `.github/workflows/ci.yml` for CI requirements. Code must pass GitHub Actions.
+>
+> **RULE:** Build → Unit Test passes → THEN push (one push only).
 
 ---
 
-### AGENT 1
-**File to Build:** `security/rate_limiter.py`
+═══════════════════════════════════════════════════════════════════════════════
+## AGENT PROMPTS — READ YOUR SECTION CAREFULLY
+═══════════════════════════════════════════════════════════════════════════════
 
-**What Is This File?:**
-Redis-backed rate limiting utility for protects our API endpoints from abuse.
+### BUILDER 1 — YOUR PROMPT
+
+You are **Builder Agent 1**. Your job: build ONE file, run unit test, fix until pass, push ONCE.
+
+**YOUR WORKFLOW:**
+1. `git pull origin main`
+2. Read your task below
+3. Read all dependency files listed
+4. Read BDD scenario from `docs/bdd_scenarios/`
+5. Build the file (type hints, docstrings, error handling)
+6. Run: `pytest [test file] -v`
+7. If FAIL → fix and re-run (stay in loop until PASS)
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 1: Builder 1 - [description]" && git push origin main`
+9. Write status in `## BUILDER 1 → STATUS` below
+
+**CODE QUALITY:**
+- Type hints on ALL function parameters and returns
+- Docstrings on ALL functions and classes
+- Error handling on ALL external calls
+- NEVER call Stripe without pending_approval record
+- NEVER push before test passes
+
+---
+
+### BUILDER 2 — YOUR PROMPT
+
+You are **Builder Agent 2**. Your job: build ONE file, run unit test, fix until pass, push ONCE.
+
+**YOUR WORKFLOW:**
+1. `git pull origin main`
+2. Read your task below
+3. Read all dependency files listed
+4. Read BDD scenario from `docs/bdd_scenarios/`
+5. Build the file (type hints, docstrings, error handling)
+6. Run: `pytest [test file] -v`
+7. If FAIL → fix and re-run (stay in loop until PASS)
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 1: Builder 2 - [description]" && git push origin main`
+9. Write status in `## BUILDER 2 → STATUS` below
+
+**CODE QUALITY:**
+- Type hints on ALL function parameters and returns
+- Docstrings on ALL functions and classes
+- Error handling on ALL external calls
+- NEVER push before test passes
+
+---
+
+### BUILDER 3 — YOUR PROMPT
+
+You are **Builder Agent 3**. Your job: build ONE file, run unit test, fix until pass, push ONCE.
+
+**YOUR WORKFLOW:**
+1. `git pull origin main`
+2. Read your task below
+3. Read all dependency files listed
+4. Read BDD scenario from `docs/bdd_scenarios/`
+5. Build the file (type hints, docstrings, error handling)
+6. Run: `pytest [test file] -v`
+7. If FAIL → fix and re-run (stay in loop until PASS)
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 1: Builder 3 - [description]" && git push origin main`
+9. Write status in `## BUILDER 3 → STATUS` below
+
+**CODE QUALITY:**
+- Type hints on ALL function parameters and returns
+- Docstrings on ALL functions and classes
+- Error handling on ALL external calls
+- NEVER push before test passes
+
+---
+
+### BUILDER 4 — YOUR PROMPT
+
+You are **Builder Agent 4**. Your job: build ONE file, run unit test, fix until pass, push ONCE.
+
+**YOUR WORKFLOW:**
+1. `git pull origin main`
+2. Read your task below
+3. Read all dependency files listed
+4. Read BDD scenario from `docs/bdd_scenarios/`
+5. Build the file (type hints, docstrings, error handling)
+6. Run: `pytest [test file] -v`
+7. If FAIL → fix and re-run (stay in loop until PASS)
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 1: Builder 4 - [description]" && git push origin main`
+9. Write status in `## BUILDER 4 → STATUS` below
+
+**CODE QUALITY:**
+- Type hints on ALL function parameters and returns
+- Docstrings on ALL functions and classes
+- Error handling on ALL external calls
+- NEVER push before test passes
+
+---
+
+### TESTER AGENT — YOUR PROMPT
+
+You are the **Tester Agent**. You are the last line of defense.
+
+**YOUR RULE:** Builder says DONE means nothing. Tester says PASS means done.
+
+**YOUR WORKFLOW:**
+1. Wait until all 4 builders report DONE in their status sections
+2. For each file, verify:
+   - File exists at correct path
+   - Unit test passes: `pytest [test file] -v`
+   - Type hints present on all functions
+   - Docstrings present on all functions/classes
+   - Error handling on external calls
+   - No hardcoded secrets
+   - Git push confirmed
+3. Run daily integration test: `pytest tests/integration/test_week4_backend_api.py -v`
+4. Write results in `## TESTER AGENT → VERIFICATION` below
+5. If any FAIL, write specific error and fix needed in `TESTER_ERRORS.md`
+
+**CRITICAL TESTS:**
+- RLS CROSS-TENANT: client_A JWT cannot query client_B data → Expected: 0 rows
+- REFUND GATE: Stripe NOT called without pending_approval → Expected: No Stripe call
+- If these fail → STOP EVERYTHING → Alert Manager
+
+---
+
+### ASSISTANCE AGENT — YOUR PROMPT
+
+You are the **Assistance Agent**. You help when builders are stuck.
+
+**WHEN ACTIVATED:**
+- Builder writes `## BUILDER N → STUCK`
+- Manager writes `## MANAGER → NEED ASSISTANCE`
+
+**YOUR JOB:**
+- Diagnose the error
+- Provide step-by-step solution
+- Give code examples if needed
+- Write response in `## ASSISTANCE AGENT → RESPONSE`
+
+**NEVER:** Write code for builders. Guide them to the solution.
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## MANAGER → DAY 1 TASK ASSIGNMENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+### AGENT 1
+
+**File:** `backend/api/auth.py`
+**What:** Authentication API routes — login, register, refresh, logout
+**Depends On:**
+- `backend/models/user.py` (Wk3)
+- `shared/core_functions/security.py` (Wk1)
+- `shared/core_functions/config.py` (Wk1)
+- `backend/app/database.py` (Wk2)
+**Test File:** `tests/unit/test_auth.py`
+**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Authentication section
+**Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `RateLimiter` class.
-- `is_allowed(key: str, limit: int, window: int) -> bool` function.
-- Integrated with Redis (from `shared/utils/cache.py`).
-
-**Depends On:**
-- `shared/core_functions/config.py` (Wk1)
-- `shared/utils/cache.py` (Wk2)
-
-**Expected Output:**
-Rate limiter correctly rejects requests exceeding the threshold.
-
-**Unit Test File:** `tests/unit/test_security.py`
-- Test: Consecutive calls within window increment counter.
-- Test: Limit exceeded returns `False`.
-
-**BDD Scenario:** `docs/bdd_scenarios/parwa_bdd.md` — Rate Limiting section.
+- `POST /auth/register` — Create new user with hashed password
+- `POST /auth/login` — Validate credentials, return JWT
+- `POST /auth/refresh` — Refresh JWT token
+- `POST /auth/logout` — Invalidate token (Redis blacklist)
+- Input validation on all endpoints
+- Rate limiting on login endpoint (use `security/rate_limiter.py`)
 
 ---
 
 ### AGENT 2
-**File to Build:** `security/feature_flags.py`
 
-**What Is This File?:**
-Utility to check feature status per-company or globally.
+**File:** `backend/api/licenses.py`
+**What:** License management API routes — activate, validate, list
+**Depends On:**
+- `backend/models/license.py` (Wk3)
+- `backend/models/subscription.py` (Wk3)
+- `shared/core_functions/config.py` (Wk1)
+- `backend/app/database.py` (Wk2)
+**Test File:** `tests/unit/test_licenses.py`
+**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — License Management section
+**Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `FeatureManager` class.
-- `is_enabled(feature_name: str, company_id: UUID) -> bool`.
-- Loads flags from `feature_flags/*.json` (Wk1) and caches in Redis.
-
-**Depends On:**
-- `shared/utils/cache.py`
-- `shared/core_functions/config.py`
-
-**Expected Output:**
-Ability to toggle features like "Agent Lightning" or "Smart Router" dynamically.
-
-**Unit Test File:** `tests/unit/test_security.py`
-- Test: Override flag for specific company works.
+- `POST /licenses/activate` — Activate license key for company
+- `GET /licenses/validate` — Validate license status
+- `GET /licenses/` — List all licenses for authenticated company
+- `PUT /licenses/{id}` — Update license settings
+- Check license expiry before validation
+- Tier enforcement (Mini vs PARWA vs PARWA High)
 
 ---
 
 ### AGENT 3
-**Actual Output:** Successfully initialized the FastAPI application with a dedicated `/health` endpoint and shared dependencies. Implemented a robust `get_db` async generator in `dependencies.py` for automated session lifecycle management. Verified app liveness and dependency injection with unit tests.
-- File Built: `backend/app/main.py` + `backend/app/dependencies.py`
-- Unit Test: PASS (via `tests/unit/test_app.py`)
-- Commit: 379826e781a327247b464669133dfbc
 
----
-
-### AGENT 4
-**File to Build:** `backend/app/middleware.py` AND `backend/app/config.py`
-
-**What Is This File?:**
-Global application configuration and custom middlewares (Logging, RLS context, Error handling).
+**File:** `backend/core/auth.py`
+**What:** Core authentication logic — JWT handling, password hashing, token validation
+**Depends On:**
+- `shared/core_functions/security.py` (Wk1)
+- `shared/core_functions/config.py` (Wk1)
+- `shared/utils/cache.py` (Wk2) — for token blacklist
+**Test File:** `tests/unit/test_auth_core.py`
+**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Authentication section
+**Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `middleware.py`: `ContextMiddleware` to inject correlation IDs and `app.current_company_id` for RLS.
-- `config.py`: Specialized app-level settings (FastAPI specific).
-
-**Depends On:**
-- `shared/utils/logger.py`
-- `shared/utils/error_handlers.py`
-
-**Expected Output:**
-Middleware correctly traces requests and sets SQL context variables.
-
-**Unit Test File:** `tests/unit/test_app.py`
-- Test: Middleware attaches X-Correlation-ID to Response.
+- `create_access_token(user_id: UUID, expires_delta: timedelta) -> str`
+- `verify_token(token: str) -> dict`
+- `hash_password(password: str) -> str`
+- `verify_password(plain: str, hashed: str) -> bool`
+- `blacklist_token(token: str) -> None` — Redis-based
+- `is_token_blacklisted(token: str) -> bool`
+- JWT decoding with proper error handling
 
 ---
-
-═══════════════════════════════════════════════════════════
-## AGENT STATUS
-═══════════════════════════════════════════════════════════
-### AGENT 2
-**Actual Output:** Implemented the `FeatureManager` in `security/feature_flags.py`. The utility supports global tiered flags (loaded from JSON) and per-company overrides with Redis caching. Precedence: Override > Cache > JSON.
-- File Built: `security/feature_flags.py`
-- Unit Test: PASS (10 tests in `tests/unit/test_security.py`)
-- Commit: ca6ef4d
 
 ### AGENT 4
-**Actual Output:** Successfully implemented global `ContextMiddleware` for request tracing and RLS support. Created `AppConfig` for FastAPI settings. Verified headers and request state injection with unit tests.
-- File Built: `backend/app/middleware.py` + `backend/app/config.py`
-- Unit Test: PASS
-- Commit: b5d9450
 
-### AGENT 1
-**Actual Output:** Completed. `RateLimiter` implemented with Redis increment/expire logic. Verified sliding-window/fixed-window isolation via unit tests.
-- File Built: `security/rate_limiter.py`
-- Unit Test: PASS
-- Commit: d82f1b4
+**File:** `backend/core/license_manager.py`
+**What:** Core license management logic — validation, tier checking, expiry handling
+**Depends On:**
+- `backend/models/license.py` (Wk3)
+- `backend/models/subscription.py` (Wk3)
+- `shared/core_functions/config.py` (Wk1)
+**Test File:** `tests/unit/test_license_manager.py`
+**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — License Management section
+**Pass Criteria:** Unit test passes, pushed to GitHub, CI green
+
+**Responsibilities:**
+- `validate_license(license_key: str) -> LicenseValidationResult`
+- `get_license_tier(company_id: UUID) -> str` — "mini", "parwa", "parwa_high"
+- `check_feature_allowed(company_id: UUID, feature: str) -> bool`
+- `is_license_expired(license: License) -> bool`
+- `get_license_limits(tier: str) -> dict` — max_calls, max_users, etc.
+- Feature gating based on tier
 
 ---
 
-═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER STATUS — UPDATE AFTER COMPLETING YOUR TASK
+═══════════════════════════════════════════════════════════════════════════════
+
+## BUILDER 1 → STATUS
+**File:** [fill after completion]
+**Status:** PENDING / IN PROGRESS / DONE / STUCK
+**Unit Test:** [PASS/FAIL]
+**Test File:** tests/unit/test_auth.py
+**Pushed:** [YES/NO]
+**Initiative Files:** [any extra files or NONE]
+**Notes:** [anything relevant]
+
+---
+
+## BUILDER 2 → STATUS
+**File:** [fill after completion]
+**Status:** PENDING / IN PROGRESS / DONE / STUCK
+**Unit Test:** [PASS/FAIL]
+**Test File:** tests/unit/test_licenses.py
+**Pushed:** [YES/NO]
+**Initiative Files:** [any extra files or NONE]
+**Notes:** [anything relevant]
+
+---
+
+## BUILDER 3 → STATUS
+**File:** [fill after completion]
+**Status:** PENDING / IN PROGRESS / DONE / STUCK
+**Unit Test:** [PASS/FAIL]
+**Test File:** tests/unit/test_auth_core.py
+**Pushed:** [YES/NO]
+**Initiative Files:** [any extra files or NONE]
+**Notes:** [anything relevant]
+
+---
+
+## BUILDER 4 → STATUS
+**File:** [fill after completion]
+**Status:** PENDING / IN PROGRESS / DONE / STUCK
+**Unit Test:** [PASS/FAIL]
+**Test File:** tests/unit/test_license_manager.py
+**Pushed:** [YES/NO]
+**Initiative Files:** [any extra files or NONE]
+**Notes:** [anything relevant]
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
 ## TESTER AGENT → VERIFICATION
-═══════════════════════════════════════════════════════════
-**Task:** Verify all 4 agents' Actual Output for Backend Core & Rate Limiting. Run all regression tests.
+═══════════════════════════════════════════════════════════════════════════════
 
-**Verification Result:** Week 3 Day 5 verified. 
-- `backend/app/main.py`: Verified. Healthy liveness check.
-- `backend/app/middleware.py`: Verified. Tracing and RLS context injected correctly.
-- `security/feature_flags.py`: Verified. Correct precedence logic.
-- `security/rate_limiter.py`: Verified. Atomic Redis-backed counts.
-
-Total Project Tests: 161. All PASS (Unit + Integration).
+**Status:** PENDING — Waiting for all builders to report DONE
 
 ---
 
-═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════════════════
 ## MANAGER → ADVICE
-═══════════════════════════════════════════════════════════
-Tester Note: Backend core is now stable. In Week 4, we will begin mounting routers for specific entities (Users, Tickets, etc.). The middleware is set up to handle the boilerplate tracing and multi-tenant isolation automatically.
+═══════════════════════════════════════════════════════════════════════════════
 
+[Manager will provide guidance here if builders report STUCK]
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## ASSISTANCE AGENT → RESPONSE
+═══════════════════════════════════════════════════════════════════════════════
+
+[Assistance Agent will provide help here when activated]
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## TEAM DISCUSSION
+═══════════════════════════════════════════════════════════════════════════════
+
+[Architectural concerns and decisions documented here]
