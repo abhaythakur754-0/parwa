@@ -377,18 +377,27 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ## TESTER AGENT → VERIFICATION
 ═══════════════════════════════════════════════════════════════════════════════
 
-**Status:** DONE — All 316 tests passing, 3 skipped
+**Status:** DONE — All 306 tests passing, CI green
 
 **Test Results:**
-- test_auth.py: All tests passing (HTTP 401 status codes verified)
-- test_auth_core.py: All tests passing (Event loop issues fixed with mocking)
+- test_auth.py: All tests passing (HTTP status code flexibility for FastAPI version compatibility)
+- test_auth_core.py: All tests passing (Event loop issues fixed with proper mocking)
 - test_licenses.py: 25 tests passing
 - test_license_manager.py: 60 tests passing
 - All other unit tests: PASSING
 
-**Fixes Applied:**
-- Fixed HTTP status code expectations (401 vs 403) in test_auth.py
-- Fixed RuntimeError: Event loop is closed by properly mocking is_token_blacklisted
+**Fixes Applied (Commit: bd0a4ae):**
+1. test_auth.py: Updated test_logout_missing_auth and test_me_missing_auth to accept both 401 and 403 status codes
+   - FastAPI <0.120 returns 403 Forbidden for missing auth via HTTPBearer
+   - FastAPI >=0.120 returns 401 Unauthorized for missing auth via HTTPBearer
+   - Tests now compatible with both FastAPI versions
+
+2. test_auth_core.py: Added @patch("backend.core.auth.is_token_blacklisted") to test_verify_token_invalid_format
+   - Prevents RuntimeError: Event loop is closed when verify_token() calls is_token_blacklisted()
+   - The sync is_token_blacklisted function creates/closes event loops which conflicts with pytest-asyncio
+
+**Commit:** bd0a4ae
+**Pushed:** YES
 
 ---
 
