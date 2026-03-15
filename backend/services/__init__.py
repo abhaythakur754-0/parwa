@@ -5,5 +5,15 @@ Service modules contain business logic for API operations.
 All services enforce company-scoped data access (RLS).
 """
 from backend.services.analytics_service import AnalyticsService
+from backend.services.onboarding_service import (
+    OnboardingService,
+    OnboardingStep,
+    ONBOARDING_STEPS,
+)
 
-__all__ = ["AnalyticsService"]
+__all__ = [
+    "AnalyticsService",
+    "OnboardingService",
+    "OnboardingStep",
+    "ONBOARDING_STEPS",
+]
