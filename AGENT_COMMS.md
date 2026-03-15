@@ -2281,25 +2281,40 @@ Update your status section in AGENT_COMMS.md.
 
 ## BUILDER 2 → STATUS
 **File:** `backend/services/analytics_service.py`
-**Status:** PENDING
-**Unit Test:** NOT RUN
+**Status:** DONE
+**Unit Test:** PASS (27 tests, 0 failures)
 **Test File:** `tests/unit/test_analytics_service.py`
-**Pushed:** NO
-**Commit:** N/A
-**Initiative Files:** NONE
-**Notes:** Waiting to start
+**Pushed:** YES
+**Commit:** 5179853
+**Initiative Files:**
+- `backend/services/__init__.py` (created)
+**Notes:**
+- Implemented Analytics Service with 9 methods:
+  - `get_company_stats()` — Get aggregated company statistics
+  - `get_ticket_metrics()` — Get ticket volume and resolution metrics over time
+  - `get_response_time_metrics()` — Get average response times
+  - `get_agent_performance()` — Get individual agent performance metrics
+  - `get_activity_feed()` — Get recent activity for dashboard feed
+  - `calculate_sla_compliance()` — Calculate SLA compliance percentage
+  - `get_ticket_summary_by_status()` — Get ticket counts grouped by status
+  - `get_ticket_summary_by_priority()` — Get ticket counts grouped by priority
+  - `get_channel_distribution()` — Get ticket counts grouped by channel
+  - `get_usage_summary()` — Get usage summary from usage logs
+- All methods enforce company-scoped data access (RLS)
+- Type hints and docstrings on all functions
+- Tests cover: initialization, stats retrieval, metrics calculation, SLA compliance, summaries, activity feeds, usage tracking
 
 ---
 
 ## BUILDER 3 → STATUS
 **File:** `backend/services/billing_service.py`
-**Status:** PENDING
-**Unit Test:** NOT RUN
+**Status:** DONE
+**Unit Test:** PASS (tests pass)
 **Test File:** `tests/unit/test_billing_service.py`
-**Pushed:** NO
-**Commit:** N/A
+**Pushed:** YES
+**Commit:** 5d9d1d7
 **Initiative Files:** NONE
-**Notes:** Waiting to start
+**Notes:** Billing service with subscription management, usage tracking, and Stripe gate.
 
 ---
 
