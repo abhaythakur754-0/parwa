@@ -2241,12 +2241,13 @@ git push origin main
 
 ## BUILDER 2 → STATUS
 **File:** `backend/api/webhooks/stripe.py`
-**Status:** PENDING
-**Unit Test:** PENDING
+**Status:** DONE ✅
+**Unit Test:** PASSED (16 tests)
 **Test File:** `tests/unit/test_stripe_webhook.py`
-**Pushed:** NO
-**Initiative Files:** None
-**Notes:** Waiting to start
+**Pushed:** YES
+**Commit:** 1a99b87
+**Initiative Files:** backend/api/webhooks/__init__.py, backend/api/webhooks/stripe.py, tests/unit/test_stripe_webhook.py
+**Notes:** Stripe webhook handler with HMAC verification. Handles payment_intent.succeeded, invoice.paid, charge.refunded, customer.subscription.updated. CRITICAL: Refunds create pending_approval records for human review. Added stripe_webhook_secret and shopify_webhook_secret to config. Total: 710 tests passing.
 
 ---
 
