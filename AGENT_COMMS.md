@@ -2320,13 +2320,28 @@ Update your status section in AGENT_COMMS.md.
 
 ## BUILDER 4 → STATUS
 **File:** `backend/services/onboarding_service.py`
-**Status:** PENDING
-**Unit Test:** NOT RUN
+**Status:** DONE
+**Unit Test:** PASS (39 tests, 0 failures)
 **Test File:** `tests/unit/test_onboarding_service.py`
-**Pushed:** NO
-**Commit:** N/A
-**Initiative Files:** NONE
-**Notes:** Waiting to start
+**Pushed:** YES
+**Commit:** 048ef90
+**Initiative Files:** `backend/services/__init__.py`
+**Notes:**
+- Implemented OnboardingService with 10 methods:
+  - start_onboarding — Initialize onboarding for new company
+  - complete_onboarding_step — Mark onboarding step as complete
+  - get_onboarding_status — Get current onboarding progress
+  - setup_company_defaults — Set up default settings for new company
+  - create_admin_user — Create first admin user for company
+  - initialize_subscription — Set up initial subscription
+  - send_welcome_email — Trigger welcome email (mocked)
+  - validate_onboarding_data — Validate onboarding form data
+  - get_onboarding_progress_percentage — Calculate progress percentage
+  - _log_audit — Log audit trail entry
+- All methods include proper input validation, error handling, and structured logging
+- Company-scoped data access (RLS enforcement)
+- Type hints and docstrings on all functions and classes
+- Tests cover: initialization, enums, start_onboarding, complete_step, get_status, setup_defaults, create_admin_user, initialize_subscription, send_welcome_email, validate_data, progress_percentage, email_validation
 
 ---
 
