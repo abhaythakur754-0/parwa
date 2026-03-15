@@ -1267,13 +1267,21 @@ git push origin main
 
 ## BUILDER 3 → STATUS
 **File:** `backend/api/integrations.py`
-**Status:** PENDING
-**Unit Test:** NOT RUN
+**Status:** DONE ✅
+**Unit Test:** PASSED (36 tests)
 **Test File:** `tests/unit/test_integrations_api.py`
-**Pushed:** NO
-**Commit:** N/A
-**Initiative Files:** NONE
-**Notes:** Waiting to start
+**Pushed:** YES
+**Commit:** 4b33801
+**Initiative Files:** backend/api/integrations.py, tests/unit/test_integrations_api.py
+**Notes:** Integrations API with third-party service endpoints:
+- GET /integrations — List available integrations
+- GET /integrations/{type}/status — Get integration status
+- POST /integrations/{type}/connect — Connect integration
+- DELETE /integrations/{type}/disconnect — Disconnect integration
+- GET /integrations/{type}/settings — Get integration settings
+- PUT /integrations/{type}/settings — Update integration settings
+Supported integrations: shopify, stripe, twilio, zendesk, email
+All 36 tests passing.
 
 ---
 
