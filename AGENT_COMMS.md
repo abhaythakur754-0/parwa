@@ -2324,13 +2324,22 @@ Update your status section in AGENT_COMMS.md.
 
 ## BUILDER 3 → STATUS
 **File:** `backend/services/billing_service.py`
-**Status:** DONE
-**Unit Test:** PASS (tests pass)
+**Status:** DONE ✅
+**Unit Test:** PASS (43 tests)
 **Test File:** `tests/unit/test_billing_service.py`
 **Pushed:** YES
 **Commit:** 5d9d1d7
-**Initiative Files:** NONE
-**Notes:** Billing service with subscription management, usage tracking, and Stripe gate.
+**Initiative Files:** 
+- `backend/services/billing_service.py`
+- `backend/services/__init__.py` (updated exports)
+- `tests/unit/test_billing_service.py`
+**Notes:** Billing service completed with:
+- BillingService class with all required methods
+- SubscriptionTier, SubscriptionStatus enums
+- TIER_PRICING and TIER_LIMITS configurations
+- PendingApproval workflow (critical: never calls Stripe without approval)
+- 43 unit tests passing covering all methods
+- Company-scoped RLS compliance
 
 ---
 
