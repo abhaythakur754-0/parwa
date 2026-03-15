@@ -16,6 +16,12 @@ from shared.utils.monitoring import init_monitoring
 from shared.core_functions.config import get_settings
 
 
+# Check if we're in CI environment
+def is_ci_environment() -> bool:
+    """Check if running in CI (GitHub Actions, etc.)."""
+    return os.environ.get("CI", "").lower() in ("true", "1", "yes")
+
+
 def _can_connect_to_host(host: str, port: int, timeout: float = 1.0) -> bool:
     """Check if we can connect to a host:port (TCP check)."""
     try:
@@ -30,6 +36,10 @@ def _can_connect_to_host(host: str, port: int, timeout: float = 1.0) -> bool:
 
 def _is_postgres_available() -> bool:
     """Check if PostgreSQL is available by trying to connect to its port."""
+    # Skip in CI environment unless explicitly enabled
+    if is_ci_environment() and not os.environ.get("ENABLE_INTEGRATION_TESTS"):
+        return False
+    
     # Try localhost first
     if _can_connect_to_host("localhost", 5432):
         return True
@@ -43,6 +53,10 @@ def _is_postgres_available() -> bool:
 
 def _is_redis_available() -> bool:
     """Check if Redis is available by trying to connect to its port."""
+    # Skip in CI environment unless explicitly enabled
+    if is_ci_environment() and not os.environ.get("ENABLE_INTEGRATION_TESTS"):
+        return False
+    
     if _can_connect_to_host("localhost", 6379):
         return True
     if _can_connect_to_host("redis", 6379):

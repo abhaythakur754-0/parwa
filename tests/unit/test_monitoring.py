@@ -2,6 +2,7 @@
 Unit tests for the monitoring module.
 """
 import pytest
+import os
 from unittest.mock import patch, MagicMock
 from shared.utils.monitoring import init_monitoring, capture_exception, track_performance
 from shared.core_functions.config import Settings
@@ -10,6 +11,7 @@ from shared.core_functions.config import Settings
 @pytest.fixture
 def mock_settings_with_dsn():
     """Settings with Sentry DSN configured."""
+    # Use SENTRY_DSN alias to set the field
     return Settings(
         environment="development",
         secret_key="test_secret_key_for_monitoring",
@@ -25,9 +27,13 @@ def mock_settings_with_dsn():
 
 
 @pytest.fixture
-def mock_settings_no_dsn():
-    """Settings without Sentry DSN."""
-    return Settings(
+def mock_settings_no_dsn(monkeypatch):
+    """Settings without Sentry DSN - explicitly set to None."""
+    # Remove SENTRY_DSN from environment to ensure it's not picked up
+    monkeypatch.delenv("SENTRY_DSN", raising=False)
+    
+    # Create settings and explicitly verify sentry_dsn is None
+    settings = Settings(
         environment="development",
         secret_key="test_secret_key_for_monitoring",
         database_url="postgresql://test_user:test_password@localhost/test_db",
@@ -38,6 +44,9 @@ def mock_settings_no_dsn():
         from_email="test@test.com",
         data_encryption_key="12345678901234567890123456789012",
     )
+    # Ensure sentry_dsn is None
+    assert settings.sentry_dsn is None, f"Expected sentry_dsn to be None, got {settings.sentry_dsn}"
+    return settings
 
 
 @patch("shared.utils.monitoring.sentry_sdk.init")
@@ -45,9 +54,7 @@ def test_init_monitoring_with_dsn(mock_sentry_init, mock_settings_with_dsn):
     """Test that Sentry is initialized when DSN is configured."""
     with patch("shared.utils.monitoring.get_settings", return_value=mock_settings_with_dsn):
         init_monitoring()
-        # Note: environment comes from the fixture which is "development"
-        # but the conftest sets ENVIRONMENT=test which may override
-        # Just verify that sentry_sdk.init was called with the DSN
+        # Verify that sentry_sdk.init was called with the DSN
         assert mock_sentry_init.called
         call_args = mock_sentry_init.call_args
         assert call_args.kwargs["dsn"] == "http://public@localhost/1"

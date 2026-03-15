@@ -10,6 +10,8 @@ os.environ["DATABASE_URL"] = "postgresql+asyncpg://test:test@localhost:5432/test
 os.environ["SECRET_KEY"] = "test_secret_key_for_unit_tests_not_for_production"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 os.environ["ENVIRONMENT"] = "test"
+# Explicitly unset SENTRY_DSN for unit tests - tests that need it will set it explicitly
+os.environ.pop("SENTRY_DSN", None)
 
 
 def pytest_configure(config):
@@ -18,3 +20,5 @@ def pytest_configure(config):
     os.environ["SECRET_KEY"] = "test_secret_key_for_unit_tests_not_for_production"
     os.environ["REDIS_URL"] = "redis://localhost:6379/0"
     os.environ["ENVIRONMENT"] = "test"
+    # Explicitly unset SENTRY_DSN for unit tests
+    os.environ.pop("SENTRY_DSN", None)
