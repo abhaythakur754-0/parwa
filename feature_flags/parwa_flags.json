@@ -1,0 +1,7 @@
+{
+  "max_calls_per_month": 100,
+  "sms_enabled": true,
+  "refund_execution": false,
+  "agent_lightning": true,
+  "peer_review": true
+}
