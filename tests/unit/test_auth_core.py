@@ -93,8 +93,10 @@ class TestVerifyToken:
         with pytest.raises(ValueError, match="Token must not be empty"):
             verify_token(None)
 
-    def test_verify_token_invalid_format(self):
+    @patch("backend.core.auth.is_token_blacklisted")
+    def test_verify_token_invalid_format(self, mock_blacklisted):
         """Test that invalid token format raises ValueError."""
+        mock_blacklisted.return_value = False
         with pytest.raises(ValueError, match="Invalid token"):
             verify_token("not-a-valid-token")
 

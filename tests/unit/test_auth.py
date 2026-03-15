@@ -148,16 +148,16 @@ class TestAuthEndpoints:
         assert response.status_code == 422
 
     def test_logout_missing_auth(self, client):
-        """Test logout without auth header returns 401."""
+        """Test logout without auth header returns 401 or 403."""
         response = client.post("/auth/logout")
-        # HTTPBearer returns 401 for missing auth in this configuration
-        assert response.status_code == 401
+        # HTTPBearer returns 403 Forbidden in FastAPI <0.120, 401 Unauthorized in >=0.120
+        assert response.status_code in (401, 403)
 
     def test_me_missing_auth(self, client):
-        """Test profile endpoint without auth returns 401."""
+        """Test profile endpoint without auth returns 401 or 403."""
         response = client.get("/auth/me")
-        # HTTPBearer returns 401 for missing auth in this configuration
-        assert response.status_code == 401
+        # HTTPBearer returns 403 Forbidden in FastAPI <0.120, 401 Unauthorized in >=0.120
+        assert response.status_code in (401, 403)
 
 
 class TestAuthLoginWithMocks:
