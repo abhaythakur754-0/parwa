@@ -318,13 +318,27 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ---
 
 ## BUILDER 3 → STATUS
-**File:** [fill after completion]
-**Status:** PENDING / IN PROGRESS / DONE / STUCK
-**Unit Test:** [PASS/FAIL]
-**Test File:** tests/unit/test_auth_core.py
-**Pushed:** [YES/NO]
-**Initiative Files:** [any extra files or NONE]
-**Notes:** [anything relevant]
+**File:** `backend/core/auth.py`
+**Status:** DONE
+**Unit Test:** PASS (36 tests, 0 failures)
+**Test File:** `tests/unit/test_auth_core.py`
+**Pushed:** YES
+**Commit:** b524936
+**Initiative Files:**
+- `backend/core/__init__.py` (created)
+**Notes:**
+- Implemented Core Authentication Module with all required functions:
+  - `create_access_token(user_id: UUID, expires_delta: timedelta) -> str`
+  - `verify_token(token: str) -> dict`
+  - `hash_password(password: str) -> str`
+  - `verify_password(plain: str, hashed: str) -> bool`
+  - `blacklist_token(token: str) -> None` — Redis-based
+  - `is_token_blacklisted(token: str) -> bool`
+  - Async versions: `blacklist_token_async`, `is_token_blacklisted_async`
+- All functions include proper type hints, docstrings, and error handling
+- Token blacklisting uses Redis with 24-hour TTL
+- Fail-open behavior for Redis unavailability
+- All 258 tests pass (4 skipped - integration tests without services)
 
 ---
 
