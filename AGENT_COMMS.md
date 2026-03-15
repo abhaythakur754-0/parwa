@@ -317,13 +317,25 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ---
 
 ## BUILDER 4 → STATUS
-**File:** [fill after completion]
-**Status:** PENDING / IN PROGRESS / DONE / STUCK
-**Unit Test:** [PASS/FAIL]
-**Test File:** tests/unit/test_compliance_api.py
-**Pushed:** [YES/NO]
-**Initiative Files:** [any extra files or NONE]
-**Notes:** [anything relevant]
+**File:** `backend/api/compliance.py`
+**Status:** DONE
+**Unit Test:** PASS (37 tests, 0 failures)
+**Test File:** `tests/unit/test_compliance_api.py`
+**Pushed:** YES
+**Commit:** 47f7115
+**Initiative Files:** NONE
+**Notes:**
+- Implemented Compliance API with 6 endpoints:
+  - POST /compliance/gdpr/export — Request GDPR data export
+  - POST /compliance/gdpr/delete — Request GDPR data deletion
+  - GET /compliance/requests — List compliance requests with filtering
+  - GET /compliance/audit-log — Get audit log entries with filtering
+  - GET /compliance/audit-log/{id} — Get specific audit entry
+  - POST /compliance/retention/check — Check data retention status
+- All endpoints include proper input validation, error handling, and structured logging
+- Company-scoped data access (RLS enforcement)
+- Type hints and docstrings on all functions and classes
+- Tests cover: schemas, enums, helper functions, auth requirements, UUID validation, pagination, filtering
 
 ---
 
