@@ -344,13 +344,32 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ---
 
 ## BUILDER 4 → STATUS
-**File:** [fill after completion]
-**Status:** PENDING / IN PROGRESS / DONE / STUCK
-**Unit Test:** [PASS/FAIL]
-**Test File:** tests/unit/test_license_manager.py
-**Pushed:** [YES/NO]
-**Initiative Files:** [any extra files or NONE]
-**Notes:** [anything relevant]
+**File:** `backend/core/license_manager.py`
+**Status:** DONE
+**Unit Test:** PASS (60 tests, 0 failures)
+**Test File:** `tests/unit/test_license_manager.py`
+**Pushed:** YES
+**Commit:** fcb1324
+**Initiative Files:** NONE
+**Notes:**
+- Implemented Core License Management Module with all required functions:
+  - `validate_license(license_key: str) -> LicenseValidationResult`
+  - `validate_license_object(license_obj: License) -> LicenseValidationResult`
+  - `get_license_tier(company_id: UUID) -> str` — returns "mini", "parwa", "parwa_high"
+  - `get_license_tier_from_license(license_obj) -> str`
+  - `check_feature_allowed(company_id: UUID, feature: str) -> bool`
+  - `check_feature_allowed_for_tier(tier: str, feature: str) -> bool`
+  - `is_license_expired(license: License) -> bool`
+  - `is_license_expired_by_date(expires_at: datetime) -> bool`
+  - `get_license_limits(tier: str) -> dict` — max_calls, max_users, etc.
+  - `get_all_tier_limits() -> dict`
+  - `validate_subscription(subscription: Subscription) -> bool`
+  - `get_tier_from_subscription(subscription) -> str`
+  - `compare_tiers(tier1, tier2) -> int`, `is_upgrade()`, `is_downgrade()`
+- Added TIER_LIMITS configuration for mini, parwa, parwa_high tiers
+- Added FEATURE_TIER_ACCESS mapping for feature gating
+- All functions include proper type hints, docstrings, and error handling
+- All 316 tests pass (60 new license_manager tests)
 
 ---
 
