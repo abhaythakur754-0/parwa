@@ -305,13 +305,14 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ---
 
 ## BUILDER 3 → STATUS
-**File:** [fill after completion]
-**Status:** PENDING / IN PROGRESS / DONE / STUCK
-**Unit Test:** [PASS/FAIL]
-**Test File:** tests/unit/test_billing.py
-**Pushed:** [YES/NO]
-**Initiative Files:** [any extra files or NONE]
-**Notes:** [anything relevant]
+**File:** `backend/api/billing.py`
+**Status:** DONE
+**Unit Test:** PASS (22/22 tests)
+**Test File:** `tests/unit/test_billing.py`
+**Pushed:** YES
+**Commit:** 7989098
+**Initiative Files:** NONE
+**Notes:** Built 6 billing endpoints: GET /billing/subscription, PUT /billing/subscription, GET /billing/invoices, GET /billing/invoices/{id}, POST /billing/payment-method, GET /billing/usage. All with company-scoped data access (RLS). Type hints and docstrings on all functions. Error handling on all external calls. CRITICAL: Stripe is NEVER called without a pending_approval record - payment processing is mocked. Manager/admin role validation for sensitive operations (subscription update, payment method). Plan tier pricing configuration included (mini=$1000, parwa=$2500, parwa_high=$4500/month).
 
 ---
 
