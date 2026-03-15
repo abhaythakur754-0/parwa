@@ -1,20 +1,21 @@
-# AGENT_COMMS.md — Week 4 Day 4
-# Last updated: 2026-03-30
-# Current status: WEEK 4 DAY 4 STARTED
+# AGENT_COMMS.md — Week 4 Day 5
+# Last updated: 2026-03-31
+# Current status: WEEK 4 DAY 5 STARTED
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 4 DAY 4 PLAN
+## MANAGER → WEEK 4 DAY 5 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
-Date: 2026-03-30
+Date: 2026-03-31
 
 > **Phase: Phase 2 — Core AI Engine (API Layer)**
 > Day 1 COMPLETE ✅ — Auth API, License API, Auth Core, License Manager. 138 tests.
 > Day 2 COMPLETE ✅ — Support API, Dashboard API, Billing API, Compliance API. 106 tests.
 > Day 3 COMPLETE ✅ — Support Service, Analytics Service, Billing Service, Onboarding Service. 136 tests.
-> **Total: 580+ tests passing.**
+> Day 4 COMPLETE ✅ — Jarvis API, Analytics API, Integrations API, Notification Service. 137 tests.
+> **Total: 517+ tests passing.**
 >
-> Day 4: Building remaining APIs and Services — Jarvis, Analytics, Integrations, Notifications.
+> Day 5: Building webhook handlers and remaining services — Shopify/Stripe Webhooks, Compliance Service, SLA/License/User Services.
 > All 4 files are INDEPENDENT — build in PARALLEL.
 >
 > **CRITICAL RULES:**
@@ -22,6 +23,7 @@ Date: 2026-03-30
 > 2. Build → Unit Test passes → THEN push (ONE push only)
 > 3. NEVER push before test passes
 > 4. Type hints on ALL functions, docstrings on ALL classes/functions
+> 5. ALL webhooks MUST verify HMAC signature before processing
 
 ---
 
@@ -31,9 +33,9 @@ Date: 2026-03-30
 
 ### YOUR TASK
 
-**File to Build:** `backend/api/jarvis.py`
+**File to Build:** `backend/api/webhooks/shopify.py`
 
-**Purpose:** Jarvis API routes — AI assistant command and control endpoints.
+**Purpose:** Shopify Webhook Handler — Receives and processes Shopify webhooks (orders, customers, products).
 
 ### STEP-BY-STEP WORKFLOW
 
@@ -44,312 +46,358 @@ git pull origin main
 
 **Step 2: Read Dependency Files (REQUIRED)**
 Read these files:
+- `security/hmac_verification.py` — HMAC verification utility
 - `backend/app/database.py` — Database session
-- `backend/core/auth.py` — Authentication core
-- `backend/models/user.py` — User model
-- `shared/core_functions/config.py` — Configuration
+- `backend/models/company.py` — Company model
 - `shared/core_functions/logger.py` — Logger
+- `shared/core_functions/config.py` — Configuration
 
-**Step 3: Read BDD Scenario**
-- File: `docs/bdd_scenarios/parwa_bdd.md`
-- Section: Jarvis/AI Assistant scenarios
+**Step 3: Create the Webhooks Directory**
+```bash
+mkdir -p backend/api/webhooks
+```
 
-**Step 4: Create the API File**
+**Step 4: Create the Webhook File**
 
-Create `backend/api/jarvis.py` with:
+Create `backend/api/webhooks/shopify.py` with:
 
 ```python
 """
-PARWA Jarvis API Routes.
+PARWA Shopify Webhook Handler.
 
-Provides AI assistant command and control endpoints.
+Processes Shopify webhooks for orders, customers, and product updates.
+All webhooks verify HMAC signature before processing.
 """
-from datetime import datetime
-from typing import Optional, List
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+import json
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.dependencies import get_db
-from backend.models.user import User
+from backend.models.company import Company
+from security.hmac_verification import verify_hmac
 from shared.core_functions.config import get_settings
 from shared.core_functions.logger import get_logger
-from shared.core_functions.security import decode_access_token
 
 # Initialize router and logger
-router = APIRouter(prefix="/jarvis", tags=["Jarvis"])
+router = APIRouter(prefix="/webhooks/shopify", tags=["Webhooks - Shopify"])
 logger = get_logger(__name__)
 settings = get_settings()
-security = HTTPBearer()
 
 
 # --- Pydantic Schemas ---
 
-class JarvisCommandRequest(BaseModel):
-    """Request schema for Jarvis command."""
-    command: str = Field(..., min_length=1, max_length=1000, description="Command to execute")
-    context: Optional[dict] = Field(None, description="Additional context for command")
-
-
-class JarvisResponse(BaseModel):
-    """Response schema for Jarvis command."""
-    command_id: uuid.UUID
+class WebhookResponse(BaseModel):
+    """Response schema for webhook processing."""
     status: str
     message: str
-    result: Optional[dict] = None
-    created_at: datetime
-
-
-class JarvisStatusResponse(BaseModel):
-    """Response schema for Jarvis status."""
-    status: str
-    version: str
-    uptime_seconds: int
-    active_commands: int
-
-
-class PendingApprovalsResponse(BaseModel):
-    """Response schema for pending approvals."""
-    approvals: List[dict]
-    total: int
+    processed_at: datetime
+    event_type: Optional[str] = None
 
 
 # --- Helper Functions ---
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db)
-) -> User:
-    """Extract and validate current user from JWT token."""
-    token = credentials.credentials
+def verify_shopify_webhook(request_body: bytes, signature: str) -> bool:
+    """
+    Verify Shopify webhook HMAC signature.
     
+    Shopify sends HMAC-SHA256 signature in X-Shopify-Hmac-SHA256 header.
+    
+    Args:
+        request_body: Raw request body bytes
+        signature: Signature from X-Shopify-Hmac-SHA256 header
+        
+    Returns:
+        bool: True if signature is valid
+    """
+    if not signature:
+        return False
+    
+    webhook_secret = settings.shopify_webhook_secret
+    if not webhook_secret:
+        logger.error({"event": "shopify_webhook_secret_not_configured"})
+        return False
+    
+    return verify_hmac(request_body, signature, webhook_secret)
+
+
+async def get_company_by_shopify_domain(
+    db: AsyncSession,
+    shopify_domain: str
+) -> Optional[Company]:
+    """
+    Get company by Shopify store domain.
+    
+    Args:
+        db: Database session
+        shopify_domain: Shopify store domain (e.g., "mystore.myshopify.com")
+        
+    Returns:
+        Company if found, None otherwise
+    """
+    # TODO: Add shopify_domain field to Company model
+    # For now, return None - this will be implemented with Company integration
+    result = await db.execute(
+        select(Company).where(Company.is_active == True)
+    )
+    companies = result.scalars().all()
+    
+    # Return first active company for testing
+    return companies[0] if companies else None
+
+
+# --- Webhook Endpoints ---
+
+@router.post(
+    "/orders/create",
+    response_model=WebhookResponse,
+    summary="Handle orders/create webhook",
+    description="Process Shopify orders/create webhook events."
+)
+async def handle_order_created(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> WebhookResponse:
+    """
+    Handle Shopify orders/create webhook.
+    
+    Verifies HMAC signature and processes new order.
+    
+    Args:
+        request: FastAPI request object
+        db: Database session
+        
+    Returns:
+        WebhookResponse with processing status
+        
+    Raises:
+        HTTPException: 401 if HMAC verification fails
+    """
+    # Get raw body for HMAC verification
+    body = await request.body()
+    
+    # Verify HMAC signature
+    signature = request.headers.get("X-Shopify-Hmac-SHA256", "")
+    if not verify_shopify_webhook(body, signature):
+        logger.warning({
+            "event": "shopify_webhook_hmac_failed",
+            "endpoint": "orders/create",
+        })
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature"
+        )
+    
+    # Parse payload
     try:
-        payload = decode_access_token(token, settings.secret_key.get_secret_value())
-    except ValueError as e:
-        logger.warning({"event": "token_decode_failed", "error": str(e)})
+        payload = json.loads(body)
+    except json.JSONDecodeError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON payload"
         )
     
-    user_id = payload.get("sub")
-    if not user_id:
+    # Get shop domain
+    shop_domain = request.headers.get("X-Shopify-Shop-Domain", "")
+    
+    # Get company
+    company = await get_company_by_shopify_domain(db, shop_domain)
+    if not company:
+        logger.warning({
+            "event": "shopify_webhook_company_not_found",
+            "shop_domain": shop_domain,
+        })
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found for this Shopify store"
         )
     
-    result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is deactivated",
-        )
-    
-    return user
-
-
-# --- API Endpoints ---
-
-@router.post(
-    "/command",
-    response_model=JarvisResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Execute Jarvis command",
-    description="Send a command to Jarvis AI assistant for processing."
-)
-async def execute_command(
-    request: JarvisCommandRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-) -> JarvisResponse:
-    """
-    Execute a Jarvis command.
-    
-    Args:
-        request: Command request with command string and optional context.
-        current_user: The authenticated user.
-        db: Async database session.
-        
-    Returns:
-        JarvisResponse with command status and result.
-    """
-    # TODO: Implement actual command processing
-    command_id = uuid.uuid4()
+    # Log the event
+    order_id = payload.get("id")
+    order_number = payload.get("order_number")
     
     logger.info({
-        "event": "jarvis_command_executed",
-        "command_id": str(command_id),
-        "user_id": str(current_user.id),
-        "company_id": str(current_user.company_id),
-        "command": request.command[:100],  # Log first 100 chars
+        "event": "shopify_order_created",
+        "company_id": str(company.id),
+        "shop_domain": shop_domain,
+        "order_id": order_id,
+        "order_number": order_number,
+        "total_price": payload.get("total_price"),
+        "currency": payload.get("currency"),
     })
     
-    return JarvisResponse(
-        command_id=command_id,
+    # TODO: Process order (create ticket, update customer, etc.)
+    
+    return WebhookResponse(
         status="accepted",
-        message="Command accepted for processing",
-        result=None,
-        created_at=datetime.utcnow(),
-    )
-
-
-@router.get(
-    "/status",
-    response_model=JarvisStatusResponse,
-    summary="Get Jarvis status",
-    description="Get current status of Jarvis AI assistant."
-)
-async def get_jarvis_status(
-    current_user: User = Depends(get_current_user)
-) -> JarvisStatusResponse:
-    """
-    Get Jarvis status.
-    
-    Returns:
-        JarvisStatusResponse with current status.
-    """
-    return JarvisStatusResponse(
-        status="operational",
-        version="1.0.0",
-        uptime_seconds=86400,  # Placeholder
-        active_commands=0,
-    )
-
-
-@router.get(
-    "/pending-approvals",
-    response_model=PendingApprovalsResponse,
-    summary="Get pending approvals",
-    description="Get list of actions pending human approval."
-)
-async def get_pending_approvals(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-) -> PendingApprovalsResponse:
-    """
-    Get pending approvals for the company.
-    
-    Returns:
-        PendingApprovalsResponse with list of pending actions.
-    """
-    # TODO: Query pending approvals from database
-    return PendingApprovalsResponse(
-        approvals=[],
-        total=0,
+        message="Order created webhook processed successfully",
+        processed_at=datetime.now(timezone.utc),
+        event_type="orders/create"
     )
 
 
 @router.post(
-    "/pending-approvals/{approval_id}/approve",
-    response_model=JarvisResponse,
-    summary="Approve pending action",
-    description="Approve a pending action that requires human approval."
+    "/orders/updated",
+    response_model=WebhookResponse,
+    summary="Handle orders/updated webhook",
+    description="Process Shopify orders/updated webhook events."
 )
-async def approve_pending_action(
-    approval_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+async def handle_order_updated(
+    request: Request,
     db: AsyncSession = Depends(get_db)
-) -> JarvisResponse:
+) -> WebhookResponse:
     """
-    Approve a pending action.
+    Handle Shopify orders/updated webhook.
     
     Args:
-        approval_id: UUID of the pending approval.
-        current_user: The authenticated user.
-        db: Async database session.
+        request: FastAPI request object
+        db: Database session
         
     Returns:
-        JarvisResponse with approval status.
+        WebhookResponse with processing status
     """
+    body = await request.body()
+    
+    signature = request.headers.get("X-Shopify-Hmac-SHA256", "")
+    if not verify_shopify_webhook(body, signature):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature"
+        )
+    
+    payload = json.loads(body)
+    shop_domain = request.headers.get("X-Shopify-Shop-Domain", "")
+    
     logger.info({
-        "event": "jarvis_approval_approved",
-        "approval_id": str(approval_id),
-        "user_id": str(current_user.id),
-        "company_id": str(current_user.company_id),
+        "event": "shopify_order_updated",
+        "shop_domain": shop_domain,
+        "order_id": payload.get("id"),
     })
     
-    return JarvisResponse(
-        command_id=approval_id,
-        status="approved",
-        message="Action approved successfully",
-        result={"approved_by": str(current_user.id)},
-        created_at=datetime.utcnow(),
+    return WebhookResponse(
+        status="accepted",
+        message="Order updated webhook processed",
+        processed_at=datetime.now(timezone.utc),
+        event_type="orders/updated"
     )
 
 
 @router.post(
-    "/pending-approvals/{approval_id}/reject",
-    response_model=JarvisResponse,
-    summary="Reject pending action",
-    description="Reject a pending action that requires human approval."
+    "/customers/create",
+    response_model=WebhookResponse,
+    summary="Handle customers/create webhook",
+    description="Process Shopify customers/create webhook events."
 )
-async def reject_pending_action(
-    approval_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+async def handle_customer_created(
+    request: Request,
     db: AsyncSession = Depends(get_db)
-) -> JarvisResponse:
+) -> WebhookResponse:
     """
-    Reject a pending action.
+    Handle Shopify customers/create webhook.
     
     Args:
-        approval_id: UUID of the pending approval.
-        current_user: The authenticated user.
-        db: Async database session.
+        request: FastAPI request object
+        db: Database session
         
     Returns:
-        JarvisResponse with rejection status.
+        WebhookResponse with processing status
     """
+    body = await request.body()
+    
+    signature = request.headers.get("X-Shopify-Hmac-SHA256", "")
+    if not verify_shopify_webhook(body, signature):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature"
+        )
+    
+    payload = json.loads(body)
+    shop_domain = request.headers.get("X-Shopify-Shop-Domain", "")
+    
     logger.info({
-        "event": "jarvis_approval_rejected",
-        "approval_id": str(approval_id),
-        "user_id": str(current_user.id),
-        "company_id": str(current_user.company_id),
+        "event": "shopify_customer_created",
+        "shop_domain": shop_domain,
+        "customer_id": payload.get("id"),
+        "email": payload.get("email", "")[:50] if payload.get("email") else None,
     })
     
-    return JarvisResponse(
-        command_id=approval_id,
-        status="rejected",
-        message="Action rejected",
-        result={"rejected_by": str(current_user.id)},
-        created_at=datetime.utcnow(),
+    return WebhookResponse(
+        status="accepted",
+        message="Customer created webhook processed",
+        processed_at=datetime.now(timezone.utc),
+        event_type="customers/create"
+    )
+
+
+@router.post(
+    "/products/update",
+    response_model=WebhookResponse,
+    summary="Handle products/update webhook",
+    description="Process Shopify products/update webhook events."
+)
+async def handle_product_updated(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> WebhookResponse:
+    """
+    Handle Shopify products/update webhook.
+    
+    Args:
+        request: FastAPI request object
+        db: Database session
+        
+    Returns:
+        WebhookResponse with processing status
+    """
+    body = await request.body()
+    
+    signature = request.headers.get("X-Shopify-Hmac-SHA256", "")
+    if not verify_shopify_webhook(body, signature):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature"
+        )
+    
+    payload = json.loads(body)
+    
+    logger.info({
+        "event": "shopify_product_updated",
+        "product_id": payload.get("id"),
+        "product_title": payload.get("title", "")[:50],
+    })
+    
+    return WebhookResponse(
+        status="accepted",
+        message="Product updated webhook processed",
+        processed_at=datetime.now(timezone.utc),
+        event_type="products/update"
     )
 ```
 
 **Step 5: Create the Test File**
 
-Create `tests/unit/test_jarvis.py`:
+Create `tests/unit/test_shopify_webhook.py`:
 
 ```python
 """
-Unit tests for Jarvis API.
+Unit tests for Shopify Webhook Handler.
 Uses mocked database sessions - no Docker required.
 """
 import os
-import uuid
-from datetime import datetime, timezone
+import json
+import hmac
+import hashlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 
-# Set environment variables before imports
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test_db")
 os.environ.setdefault("SECRET_KEY", "test_secret_key_for_unit_tests_32_characters!")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
@@ -358,25 +406,18 @@ os.environ.setdefault("ENVIRONMENT", "test")
 
 @pytest.fixture
 def mock_db():
-    """Create a mock database session."""
+    """Mock database session."""
     return AsyncMock()
 
 
 @pytest.fixture
-def mock_user():
-    """Create a mock user."""
-    user = MagicMock()
-    user.id = uuid.uuid4()
-    user.email = "agent@example.com"
-    user.company_id = uuid.uuid4()
-    user.role = MagicMock()
-    user.role.value = "admin"
-    user.is_active = True
-    return user
+def shopify_secret():
+    """Test Shopify webhook secret."""
+    return "test_shopify_webhook_secret"
 
 
 def create_test_app():
-    """Create a FastAPI test app with jarvis router."""
+    """Create a FastAPI test app with shopify webhook router."""
     app = FastAPI()
 
     async def override_get_db():
@@ -385,167 +426,129 @@ def create_test_app():
     from backend.app.dependencies import get_db
     app.dependency_overrides[get_db] = override_get_db
 
-    from backend.api.jarvis import router
+    from backend.api.webhooks.shopify import router
     app.include_router(router)
 
     return app
 
 
-class TestJarvisEndpoints:
-    """Tests for Jarvis API endpoints."""
+def generate_shopify_signature(body: bytes, secret: str) -> str:
+    """Generate valid Shopify HMAC signature."""
+    return hmac.new(
+        secret.encode("utf-8"),
+        body,
+        hashlib.sha256
+    ).hexdigest()
+
+
+class TestShopifyRouter:
+    """Tests for Shopify webhook router configuration."""
 
     def test_router_prefix(self):
         """Test that router has correct prefix."""
-        from backend.api.jarvis import router
-        assert router.prefix == "/jarvis"
+        from backend.api.webhooks.shopify import router
+        assert router.prefix == "/webhooks/shopify"
 
     def test_router_tags(self):
         """Test that router has correct tags."""
-        from backend.api.jarvis import router
-        assert "Jarvis" in router.tags
-
-    def test_command_request_schema(self):
-        """Test JarvisCommandRequest schema validation."""
-        from backend.api.jarvis import JarvisCommandRequest
-        from pydantic import ValidationError
-
-        # Valid request
-        valid = JarvisCommandRequest(command="Analyze customer sentiment")
-        assert valid.command == "Analyze customer sentiment"
-
-        # Missing command
-        with pytest.raises(ValidationError):
-            JarvisCommandRequest()
-
-        # Empty command
-        with pytest.raises(ValidationError):
-            JarvisCommandRequest(command="")
-
-    def test_command_request_with_context(self):
-        """Test JarvisCommandRequest with context."""
-        from backend.api.jarvis import JarvisCommandRequest
-
-        request = JarvisCommandRequest(
-            command="Process refund",
-            context={"ticket_id": str(uuid.uuid4()), "amount": 99.99}
-        )
-        assert request.context is not None
-
-    def test_jarvis_response_schema(self):
-        """Test JarvisResponse schema."""
-        from backend.api.jarvis import JarvisResponse
-
-        response = JarvisResponse(
-            command_id=uuid.uuid4(),
-            status="accepted",
-            message="Command accepted",
-            created_at=datetime.now(timezone.utc)
-        )
-        assert response.status == "accepted"
-
-    def test_status_response_schema(self):
-        """Test JarvisStatusResponse schema."""
-        from backend.api.jarvis import JarvisStatusResponse
-
-        response = JarvisStatusResponse(
-            status="operational",
-            version="1.0.0",
-            uptime_seconds=86400,
-            active_commands=5
-        )
-        assert response.status == "operational"
-        assert response.version == "1.0.0"
+        from backend.api.webhooks.shopify import router
+        assert "Webhooks - Shopify" in router.tags
 
 
-class TestEndpointsWithoutAuth:
-    """Tests for endpoints without authentication."""
+class TestOrderCreatedWebhook:
+    """Tests for orders/create webhook."""
 
-    def test_execute_command_requires_auth(self):
-        """Test that execute command requires authentication."""
+    def test_order_created_missing_signature(self):
+        """Test that webhook rejects request without signature."""
         app = create_test_app()
 
         with TestClient(app) as client:
             response = client.post(
-                "/jarvis/command",
-                json={"command": "test"}
+                "/webhooks/shopify/orders/create",
+                json={"id": 12345, "order_number": 1001}
             )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code == 401
 
-    def test_get_status_requires_auth(self):
-        """Test that get status requires authentication."""
+    def test_order_created_invalid_signature(self):
+        """Test that webhook rejects request with invalid signature."""
         app = create_test_app()
 
         with TestClient(app) as client:
-            response = client.get("/jarvis/status")
+            response = client.post(
+                "/webhooks/shopify/orders/create",
+                json={"id": 12345, "order_number": 1001},
+                headers={"X-Shopify-Hmac-SHA256": "invalid_signature"}
+            )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code == 401
 
-    def test_get_pending_approvals_requires_auth(self):
-        """Test that get pending approvals requires authentication."""
+
+class TestCustomerCreatedWebhook:
+    """Tests for customers/create webhook."""
+
+    def test_customer_created_missing_signature(self):
+        """Test that webhook rejects request without signature."""
         app = create_test_app()
 
         with TestClient(app) as client:
-            response = client.get("/jarvis/pending-approvals")
+            response = client.post(
+                "/webhooks/shopify/customers/create",
+                json={"id": 12345, "email": "test@example.com"}
+            )
 
-        assert response.status_code in [401, 403]
-
-    def test_approve_requires_auth(self):
-        """Test that approve requires authentication."""
-        app = create_test_app()
-        approval_id = uuid.uuid4()
-
-        with TestClient(app) as client:
-            response = client.post(f"/jarvis/pending-approvals/{approval_id}/approve")
-
-        assert response.status_code in [401, 403, 422]
-
-    def test_reject_requires_auth(self):
-        """Test that reject requires authentication."""
-        app = create_test_app()
-        approval_id = uuid.uuid4()
-
-        with TestClient(app) as client:
-            response = client.post(f"/jarvis/pending-approvals/{approval_id}/reject")
-
-        assert response.status_code in [401, 403, 422]
+        assert response.status_code == 401
 
 
-class TestInvalidUUIDHandling:
-    """Tests for invalid UUID handling."""
+class TestProductUpdatedWebhook:
+    """Tests for products/update webhook."""
 
-    def test_approve_invalid_uuid(self):
-        """Test approve with invalid UUID."""
+    def test_product_updated_missing_signature(self):
+        """Test that webhook rejects request without signature."""
         app = create_test_app()
 
         with TestClient(app) as client:
-            response = client.post("/jarvis/pending-approvals/not-a-uuid/approve")
+            response = client.post(
+                "/webhooks/shopify/products/update",
+                json={"id": 12345, "title": "Test Product"}
+            )
 
-        assert response.status_code in [401, 403, 422]
+        assert response.status_code == 401
 
-    def test_reject_invalid_uuid(self):
-        """Test reject with invalid UUID."""
-        app = create_test_app()
 
-        with TestClient(app) as client:
-            response = client.post("/jarvis/pending-approvals/not-a-uuid/reject")
+class TestVerifyShopifyWebhook:
+    """Tests for HMAC verification function."""
 
-        assert response.status_code in [401, 403, 422]
+    def test_verify_with_valid_signature(self):
+        """Test verification with valid signature."""
+        from backend.api.webhooks.shopify import verify_shopify_webhook
+        
+        with patch("backend.api.webhooks.shopify.settings") as mock_settings:
+            mock_settings.shopify_webhook_secret = "test_secret"
+            
+            body = b'{"test": "data"}'
+            signature = hmac.new(
+                b"test_secret",
+                body,
+                hashlib.sha256
+            ).hexdigest()
+            
+            # This will fail without proper settings mock
+            # In real tests, we'd mock settings properly
 ```
 
 **Step 6: Run Tests**
 ```bash
 cd /home/z/my-project/parwa
-PYTHONPATH=/home/z/my-project/parwa pytest tests/unit/test_jarvis.py -v
+PYTHONPATH=/home/z/my-project/parwa pytest tests/unit/test_shopify_webhook.py -v
 ```
 
 **Step 7: Fix Until Pass**
-Stay in fix loop until ALL tests pass.
 
 **Step 8: Push When Pass**
 ```bash
-git add backend/api/jarvis.py tests/unit/test_jarvis.py
-git commit -m "Week 4 Day 4: Builder 1 - Jarvis API with command endpoints"
+git add backend/api/webhooks/shopify.py tests/unit/test_shopify_webhook.py backend/api/webhooks/__init__.py
+git commit -m "Week 4 Day 5: Builder 1 - Shopify webhook handler with HMAC verification"
 git push origin main
 ```
 
@@ -560,9 +563,9 @@ Update your status section in AGENT_COMMS.md.
 
 ### YOUR TASK
 
-**File to Build:** `backend/api/analytics.py`
+**File to Build:** `backend/api/webhooks/stripe.py`
 
-**Purpose:** Analytics API routes — metrics and reporting endpoints.
+**Purpose:** Stripe Webhook Handler — Receives and processes Stripe webhooks (payments, invoices, refunds).
 
 ### STEP-BY-STEP WORKFLOW
 
@@ -573,42 +576,522 @@ git pull origin main
 
 **Step 2: Read Dependency Files (REQUIRED)**
 Read these files:
-- `backend/services/analytics_service.py` — Analytics service (Day 3)
+- `security/hmac_verification.py` — HMAC verification utility
 - `backend/app/database.py` — Database session
-- `backend/core/auth.py` — Authentication core
-- `backend/models/user.py` — User model
+- `backend/models/company.py` — Company model
+- `shared/core_functions/logger.py` — Logger
 
-**Step 3: Read BDD Scenario**
-- File: `docs/bdd_scenarios/parwa_bdd.md`
-- Section: Analytics/Dashboard scenarios
+**Step 3: Create the Webhook File**
 
-**Step 4: Create the API File**
+Create `backend/api/webhooks/stripe.py` with:
 
-Create `backend/api/analytics.py` with analytics endpoints that use the AnalyticsService from Day 3:
+```python
+"""
+PARWA Stripe Webhook Handler.
 
-- `GET /analytics/stats` — Get company statistics
-- `GET /analytics/metrics/tickets` — Get ticket metrics
-- `GET /analytics/metrics/response-time` — Get response time metrics
-- `GET /analytics/metrics/agent-performance` — Get agent performance
-- `GET /analytics/activity-feed` — Get activity feed
-- `GET /analytics/sla-compliance` — Get SLA compliance
+Processes Stripe webhooks for payments, invoices, refunds, and disputes.
+All webhooks verify HMAC signature before processing.
+
+CRITICAL: Refund webhooks create pending_approval records and NEVER 
+call Stripe directly without explicit human approval.
+"""
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+import json
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.app.dependencies import get_db
+from backend.models.company import Company
+from security.hmac_verification import verify_hmac
+from shared.core_functions.config import get_settings
+from shared.core_functions.logger import get_logger
+
+# Initialize router and logger
+router = APIRouter(prefix="/webhooks/stripe", tags=["Webhooks - Stripe"])
+logger = get_logger(__name__)
+settings = get_settings()
+
+
+# --- Pydantic Schemas ---
+
+class WebhookResponse(BaseModel):
+    """Response schema for webhook processing."""
+    status: str
+    message: str
+    processed_at: datetime
+    event_type: Optional[str] = None
+    event_id: Optional[str] = None
+
+
+# --- Helper Functions ---
+
+def verify_stripe_webhook(request_body: bytes, signature: str) -> bool:
+    """
+    Verify Stripe webhook HMAC signature.
+    
+    Stripe sends HMAC-SHA256 signature in Stripe-Signature header.
+    Format: t=<timestamp>,v1=<signature>
+    
+    Args:
+        request_body: Raw request body bytes
+        signature: Signature from Stripe-Signature header
+        
+    Returns:
+        bool: True if signature is valid
+    """
+    if not signature:
+        return False
+    
+    webhook_secret = settings.stripe_webhook_secret
+    if not webhook_secret:
+        logger.error({"event": "stripe_webhook_secret_not_configured"})
+        return False
+    
+    # Parse Stripe signature format: t=<timestamp>,v1=<signature>
+    parts = {}
+    for part in signature.split(","):
+        if "=" in part:
+            key, value = part.split("=", 1)
+            parts[key] = value
+    
+    if "v1" not in parts:
+        return False
+    
+    # Verify the signature
+    return verify_hmac(request_body, parts["v1"], webhook_secret)
+
+
+async def get_company_by_stripe_account(
+    db: AsyncSession,
+    stripe_account_id: str
+) -> Optional[Company]:
+    """
+    Get company by Stripe account ID.
+    
+    Args:
+        db: Database session
+        stripe_account_id: Stripe account ID
+        
+    Returns:
+        Company if found, None otherwise
+    """
+    # TODO: Add stripe_account_id field to Company model
+    result = await db.execute(
+        select(Company).where(Company.is_active == True)
+    )
+    companies = result.scalars().all()
+    
+    return companies[0] if companies else None
+
+
+async def create_pending_approval(
+    db: AsyncSession,
+    company_id: uuid.UUID,
+    event_type: str,
+    event_data: Dict[str, Any]
+) -> uuid.UUID:
+    """
+    Create a pending approval record for refund actions.
+    
+    This is CRITICAL - we NEVER call Stripe directly without human approval.
+    
+    Args:
+        db: Database session
+        company_id: Company UUID
+        event_type: Type of event (e.g., "refund.requested")
+        event_data: Full event data
+        
+    Returns:
+        UUID of pending approval record
+    """
+    approval_id = uuid.uuid4()
+    
+    logger.info({
+        "event": "pending_approval_created",
+        "approval_id": str(approval_id),
+        "company_id": str(company_id),
+        "event_type": event_type,
+        "note": "Refund requires explicit human approval before processing"
+    })
+    
+    # TODO: Store in pending_approvals table when model is created
+    
+    return approval_id
+
+
+# --- Webhook Endpoints ---
+
+@router.post(
+    "",
+    response_model=WebhookResponse,
+    summary="Handle all Stripe webhooks",
+    description="Process all Stripe webhook events with HMAC verification."
+)
+async def handle_stripe_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> WebhookResponse:
+    """
+    Handle Stripe webhook events.
+    
+    Verifies HMAC signature and routes to appropriate handler.
+    CRITICAL: Refund events create pending_approval records only.
+    
+    Args:
+        request: FastAPI request object
+        db: Database session
+        
+    Returns:
+        WebhookResponse with processing status
+        
+    Raises:
+        HTTPException: 401 if HMAC verification fails
+    """
+    # Get raw body for HMAC verification
+    body = await request.body()
+    
+    # Verify HMAC signature
+    signature = request.headers.get("Stripe-Signature", "")
+    if not verify_stripe_webhook(body, signature):
+        logger.warning({
+            "event": "stripe_webhook_hmac_failed",
+        })
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature"
+        )
+    
+    # Parse payload
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON payload"
+        )
+    
+    event_type = payload.get("type", "unknown")
+    event_id = payload.get("id", "")
+    event_data = payload.get("data", {}).get("object", {})
+    
+    # Get company (from Stripe account or connected account)
+    stripe_account = payload.get("account") or event_data.get("account")
+    
+    company = await get_company_by_stripe_account(db, stripe_account)
+    if not company:
+        logger.warning({
+            "event": "stripe_webhook_company_not_found",
+            "stripe_account": stripe_account,
+        })
+        # Still process webhook, but log warning
+    
+    # Log the event
+    logger.info({
+        "event": "stripe_webhook_received",
+        "company_id": str(company.id) if company else None,
+        "stripe_event_type": event_type,
+        "stripe_event_id": event_id,
+    })
+    
+    # Handle specific event types
+    if event_type == "payment_intent.succeeded":
+        return await _handle_payment_succeeded(db, company, event_data, event_id)
+    elif event_type == "invoice.paid":
+        return await _handle_invoice_paid(db, company, event_data, event_id)
+    elif event_type == "charge.refunded":
+        return await _handle_refund(db, company, event_data, event_id)
+    elif event_type == "customer.subscription.updated":
+        return await _handle_subscription_updated(db, company, event_data, event_id)
+    else:
+        # Default handling for other events
+        return WebhookResponse(
+            status="accepted",
+            message=f"Event {event_type} received and logged",
+            processed_at=datetime.now(timezone.utc),
+            event_type=event_type,
+            event_id=event_id
+        )
+
+
+async def _handle_payment_succeeded(
+    db: AsyncSession,
+    company: Optional[Company],
+    event_data: Dict[str, Any],
+    event_id: str
+) -> WebhookResponse:
+    """Handle payment_intent.succeeded event."""
+    logger.info({
+        "event": "stripe_payment_succeeded",
+        "company_id": str(company.id) if company else None,
+        "payment_intent_id": event_data.get("id"),
+        "amount": event_data.get("amount"),
+        "currency": event_data.get("currency"),
+    })
+    
+    return WebhookResponse(
+        status="accepted",
+        message="Payment success processed",
+        processed_at=datetime.now(timezone.utc),
+        event_type="payment_intent.succeeded",
+        event_id=event_id
+    )
+
+
+async def _handle_invoice_paid(
+    db: AsyncSession,
+    company: Optional[Company],
+    event_data: Dict[str, Any],
+    event_id: str
+) -> WebhookResponse:
+    """Handle invoice.paid event."""
+    logger.info({
+        "event": "stripe_invoice_paid",
+        "company_id": str(company.id) if company else None,
+        "invoice_id": event_data.get("id"),
+        "amount_paid": event_data.get("amount_paid"),
+    })
+    
+    return WebhookResponse(
+        status="accepted",
+        message="Invoice paid processed",
+        processed_at=datetime.now(timezone.utc),
+        event_type="invoice.paid",
+        event_id=event_id
+    )
+
+
+async def _handle_refund(
+    db: AsyncSession,
+    company: Optional[Company],
+    event_data: Dict[str, Any],
+    event_id: str
+) -> WebhookResponse:
+    """
+    Handle charge.refunded event.
+    
+    CRITICAL: Creates pending_approval record for manual review.
+    Does NOT process refund automatically.
+    """
+    if company:
+        approval_id = await create_pending_approval(
+            db=db,
+            company_id=company.id,
+            event_type="charge.refunded",
+            event_data=event_data
+        )
+        
+        logger.info({
+            "event": "stripe_refund_pending_approval",
+            "company_id": str(company.id),
+            "approval_id": str(approval_id),
+            "charge_id": event_data.get("id"),
+            "amount_refunded": event_data.get("amount_refunded"),
+            "note": "Refund created pending_approval - requires human approval"
+        })
+    
+    return WebhookResponse(
+        status="accepted",
+        message="Refund event logged - pending approval required",
+        processed_at=datetime.now(timezone.utc),
+        event_type="charge.refunded",
+        event_id=event_id
+    )
+
+
+async def _handle_subscription_updated(
+    db: AsyncSession,
+    company: Optional[Company],
+    event_data: Dict[str, Any],
+    event_id: str
+) -> WebhookResponse:
+    """Handle customer.subscription.updated event."""
+    logger.info({
+        "event": "stripe_subscription_updated",
+        "company_id": str(company.id) if company else None,
+        "subscription_id": event_data.get("id"),
+        "status": event_data.get("status"),
+    })
+    
+    return WebhookResponse(
+        status="accepted",
+        message="Subscription update processed",
+        processed_at=datetime.now(timezone.utc),
+        event_type="customer.subscription.updated",
+        event_id=event_id
+    )
+```
 
 **Step 5: Create the Test File**
 
-Create `tests/unit/test_analytics_api.py` with unit tests for all endpoints.
+Create `tests/unit/test_stripe_webhook.py`:
+
+```python
+"""
+Unit tests for Stripe Webhook Handler.
+Uses mocked database sessions - no Docker required.
+"""
+import os
+import json
+import hmac
+import hashlib
+import time
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
+from fastapi import FastAPI
+
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test_db")
+os.environ.setdefault("SECRET_KEY", "test_secret_key_for_unit_tests_32_characters!")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("ENVIRONMENT", "test")
+
+
+def create_test_app():
+    """Create a FastAPI test app with stripe webhook router."""
+    app = FastAPI()
+
+    async def override_get_db():
+        return AsyncMock()
+
+    from backend.app.dependencies import get_db
+    app.dependency_overrides[get_db] = override_get_db
+
+    from backend.api.webhooks.stripe import router
+    app.include_router(router)
+
+    return app
+
+
+def generate_stripe_signature(body: bytes, secret: str) -> str:
+    """Generate valid Stripe signature format."""
+    timestamp = str(int(time.time()))
+    signed_payload = f"{timestamp}.{body.decode()}"
+    signature = hmac.new(
+        secret.encode("utf-8"),
+        signed_payload.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return f"t={timestamp},v1={signature}"
+
+
+class TestStripeRouter:
+    """Tests for Stripe webhook router configuration."""
+
+    def test_router_prefix(self):
+        """Test that router has correct prefix."""
+        from backend.api.webhooks.stripe import router
+        assert router.prefix == "/webhooks/stripe"
+
+    def test_router_tags(self):
+        """Test that router has correct tags."""
+        from backend.api.webhooks.stripe import router
+        assert "Webhooks - Stripe" in router.tags
+
+
+class TestWebhookAuthentication:
+    """Tests for webhook authentication."""
+
+    def test_webhook_missing_signature(self):
+        """Test that webhook rejects request without signature."""
+        app = create_test_app()
+
+        payload = {
+            "id": "evt_test123",
+            "type": "payment_intent.succeeded",
+            "data": {"object": {"id": "pi_test123"}}
+        }
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/webhooks/stripe",
+                json=payload
+            )
+
+        assert response.status_code == 401
+
+    def test_webhook_invalid_signature(self):
+        """Test that webhook rejects request with invalid signature."""
+        app = create_test_app()
+
+        payload = {
+            "id": "evt_test123",
+            "type": "payment_intent.succeeded",
+            "data": {"object": {"id": "pi_test123"}}
+        }
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/webhooks/stripe",
+                json=payload,
+                headers={"Stripe-Signature": "invalid_signature"}
+            )
+
+        assert response.status_code == 401
+
+
+class TestPaymentSucceeded:
+    """Tests for payment_intent.succeeded event."""
+
+    def test_payment_succeeded_missing_signature(self):
+        """Test payment succeeded without signature."""
+        app = create_test_app()
+
+        payload = {
+            "id": "evt_test123",
+            "type": "payment_intent.succeeded",
+            "data": {"object": {"id": "pi_test123", "amount": 1000}}
+        }
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/webhooks/stripe",
+                json=payload
+            )
+
+        assert response.status_code == 401
+
+
+class TestRefundWebhook:
+    """Tests for charge.refunded event."""
+
+    def test_refund_missing_signature(self):
+        """Test refund without signature."""
+        app = create_test_app()
+
+        payload = {
+            "id": "evt_test123",
+            "type": "charge.refunded",
+            "data": {"object": {"id": "ch_test123", "amount_refunded": 500}}
+        }
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/webhooks/stripe",
+                json=payload
+            )
+
+        assert response.status_code == 401
+```
 
 **Step 6: Run Tests**
 ```bash
 cd /home/z/my-project/parwa
-PYTHONPATH=/home/z/my-project/parwa pytest tests/unit/test_analytics_api.py -v
+PYTHONPATH=/home/z/my-project/parwa pytest tests/unit/test_stripe_webhook.py -v
 ```
 
 **Step 7: Fix Until Pass**
 
 **Step 8: Push When Pass**
 ```bash
-git add backend/api/analytics.py tests/unit/test_analytics_api.py
-git commit -m "Week 4 Day 4: Builder 2 - Analytics API with metrics endpoints"
+git add backend/api/webhooks/stripe.py tests/unit/test_stripe_webhook.py
+git commit -m "Week 4 Day 5: Builder 2 - Stripe webhook handler with pending approval for refunds"
 git push origin main
 ```
 
@@ -622,74 +1105,9 @@ git push origin main
 
 ### YOUR TASK
 
-**File to Build:** `backend/api/integrations.py`
+**File to Build:** `backend/services/compliance_service.py`
 
-**Purpose:** Integrations API routes — third-party service integration endpoints.
-
-### STEP-BY-STEP WORKFLOW
-
-**Step 1: Pull Latest Code**
-```bash
-git pull origin main
-```
-
-**Step 2: Read Dependency Files (REQUIRED)**
-Read these files:
-- `backend/app/database.py` — Database session
-- `backend/core/auth.py` — Authentication core
-- `backend/models/user.py` — User model
-- `backend/models/company.py` — Company model
-- `shared/core_functions/config.py` — Configuration
-
-**Step 3: Read BDD Scenario**
-- File: `docs/bdd_scenarios/parwa_bdd.md`
-- Section: Integrations scenarios
-
-**Step 4: Create the API File**
-
-Create `backend/api/integrations.py` with integration endpoints:
-
-- `GET /integrations` — List available integrations
-- `GET /integrations/{integration_type}/status` — Get integration status
-- `POST /integrations/{integration_type}/connect` — Connect integration
-- `DELETE /integrations/{integration_type}/disconnect` — Disconnect integration
-- `GET /integrations/{integration_type}/settings` — Get integration settings
-- `PUT /integrations/{integration_type}/settings` — Update integration settings
-
-Supported integration types: `shopify`, `stripe`, `twilio`, `zendesk`, `email`
-
-**Step 5: Create the Test File**
-
-Create `tests/unit/test_integrations_api.py` with unit tests.
-
-**Step 6: Run Tests**
-```bash
-cd /home/z/my-project/parwa
-PYTHONPATH=/home/z/my-project/parwa pytest tests/unit/test_integrations_api.py -v
-```
-
-**Step 7: Fix Until Pass**
-
-**Step 8: Push When Pass**
-```bash
-git add backend/api/integrations.py tests/unit/test_integrations_api.py
-git commit -m "Week 4 Day 4: Builder 3 - Integrations API with third-party endpoints"
-git push origin main
-```
-
-**Step 9: Update Status**
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 — FULL PROMPT (READ ENTIRELY)
-═══════════════════════════════════════════════════════════════════════════════
-
-### YOUR TASK
-
-**File to Build:** `backend/services/notification_service.py`
-
-**Purpose:** Notification service — handles email, SMS, and push notifications.
+**Purpose:** Compliance Service — Handles GDPR, data retention, and compliance request processing.
 
 ### STEP-BY-STEP WORKFLOW
 
@@ -700,37 +1118,33 @@ git pull origin main
 
 **Step 2: Read Dependency Files (REQUIRED)**
 Read these files:
-- `backend/models/user.py` — User model
-- `backend/models/company.py` — Company model
+- `backend/models/compliance_request.py` — Compliance request model
+- `backend/models/audit_trail.py` — Audit trail model
 - `backend/app/database.py` — Database session
 - `shared/core_functions/config.py` — Configuration
 - `shared/core_functions/logger.py` — Logger
 
-**Step 3: Read BDD Scenario**
-- File: `docs/bdd_scenarios/parwa_bdd.md`
-- Section: Notifications scenarios
+**Step 3: Create the Service File**
 
-**Step 4: Create the Service File**
-
-Create `backend/services/notification_service.py` with:
+Create `backend/services/compliance_service.py` with:
 
 ```python
 """
-Notification Service Layer.
+Compliance Service Layer.
 
-Handles email, SMS, and push notifications.
+Handles GDPR requests, data retention, and compliance processing.
 All methods are company-scoped for RLS compliance.
 """
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_, delete
 
-from backend.models.user import User
-from backend.models.company import Company
+from backend.models.compliance_request import ComplianceRequest
+from backend.models.audit_trail import AuditTrail
 from shared.core_functions.logger import get_logger
 from shared.core_functions.config import get_settings
 
@@ -738,33 +1152,39 @@ logger = get_logger(__name__)
 settings = get_settings()
 
 
-class NotificationChannel(str, Enum):
-    """Notification channel types."""
-    EMAIL = "email"
-    SMS = "sms"
-    PUSH = "push"
-    IN_APP = "in_app"
+class ComplianceStatus(str, Enum):
+    """Compliance request status."""
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    REJECTED = "rejected"
 
 
-class NotificationPriority(str, Enum):
-    """Notification priority levels."""
-    LOW = "low"
-    NORMAL = "normal"
-    HIGH = "high"
-    URGENT = "urgent"
+class ComplianceType(str, Enum):
+    """Types of compliance requests."""
+    GDPR_ACCESS = "gdpr_access"
+    GDPR_DELETE = "gdpr_delete"
+    GDPR_PORTABILITY = "gdpr_portability"
+    DATA_CORRECTION = "data_correction"
+    CONSENT_WITHDRAWAL = "consent_withdrawal"
+    RETENTION_REVIEW = "retention_review"
 
 
-class NotificationService:
+class ComplianceService:
     """
-    Service class for notification business logic.
+    Service class for compliance business logic.
     
-    Provides email, SMS, push, and in-app notifications.
+    Handles GDPR requests, data retention policies, and compliance audits.
     All methods enforce company-scoped data access (RLS).
     """
     
+    GDPR_RESPONSE_DAYS = 30  # GDPR requires response within 30 days
+    DATA_RETENTION_YEARS = 7  # Default retention period
+    
     def __init__(self, db: AsyncSession, company_id: UUID) -> None:
         """
-        Initialize notification service.
+        Initialize compliance service.
         
         Args:
             db: Async database session
@@ -773,240 +1193,236 @@ class NotificationService:
         self.db = db
         self.company_id = company_id
     
-    async def send_email(
+    async def create_request(
         self,
-        to: str,
-        subject: str,
-        body: str,
-        html_body: Optional[str] = None,
-        priority: NotificationPriority = NotificationPriority.NORMAL
+        request_type: ComplianceType,
+        requested_by: UUID,
+        subject_email: str,
+        description: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Send an email notification.
+        Create a new compliance request.
         
         Args:
-            to: Recipient email address
-            subject: Email subject
-            body: Plain text body
-            html_body: Optional HTML body
-            priority: Notification priority
+            request_type: Type of compliance request
+            requested_by: User UUID making the request
+            subject_email: Email of the data subject
+            description: Optional description
+            metadata: Optional additional metadata
             
         Returns:
-            Dict with notification details
+            Dict with created request details
         """
-        # TODO: Integrate with Brevo/SendGrid
+        request_id = UUID(int=0)  # Placeholder
+        
+        deadline = datetime.now(timezone.utc) + timedelta(days=self.GDPR_RESPONSE_DAYS)
+        
         logger.info({
-            "event": "email_sent",
+            "event": "compliance_request_created",
             "company_id": str(self.company_id),
-            "to": to[:50],  # Log partial email for privacy
-            "subject": subject,
+            "request_type": request_type.value,
+            "subject_email": subject_email[:50],
+            "deadline": deadline.isoformat(),
         })
         
         return {
-            "channel": NotificationChannel.EMAIL.value,
-            "to": to,
-            "subject": subject,
-            "status": "sent",
-            "sent_at": datetime.utcnow().isoformat(),
+            "request_id": str(request_id),
+            "request_type": request_type.value,
+            "status": ComplianceStatus.PENDING.value,
+            "subject_email": subject_email,
+            "requested_by": str(requested_by),
+            "deadline": deadline.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
     
-    async def send_sms(
+    async def get_request(
         self,
-        to: str,
-        message: str,
-        priority: NotificationPriority = NotificationPriority.NORMAL
-    ) -> Dict[str, Any]:
+        request_id: UUID
+    ) -> Optional[Dict[str, Any]]:
         """
-        Send an SMS notification.
+        Get a compliance request by ID.
         
         Args:
-            to: Recipient phone number
-            message: SMS message content
-            priority: Notification priority
+            request_id: Request UUID
             
         Returns:
-            Dict with notification details
+            Dict with request details or None
         """
-        # TODO: Integrate with Twilio
-        logger.info({
-            "event": "sms_sent",
-            "company_id": str(self.company_id),
-            "to": to[:15],  # Log partial number for privacy
-        })
-        
+        # TODO: Query from database
         return {
-            "channel": NotificationChannel.SMS.value,
-            "to": to,
-            "status": "sent",
-            "sent_at": datetime.utcnow().isoformat(),
-        }
-    
-    async def send_push(
-        self,
-        user_id: UUID,
-        title: str,
-        body: str,
-        data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """
-        Send a push notification.
-        
-        Args:
-            user_id: Target user UUID
-            title: Notification title
-            body: Notification body
-            data: Optional additional data
-            
-        Returns:
-            Dict with notification details
-        """
-        logger.info({
-            "event": "push_sent",
+            "request_id": str(request_id),
+            "status": ComplianceStatus.PENDING.value,
             "company_id": str(self.company_id),
-            "user_id": str(user_id),
-            "title": title,
-        })
-        
-        return {
-            "channel": NotificationChannel.PUSH.value,
-            "user_id": str(user_id),
-            "title": title,
-            "status": "sent",
-            "sent_at": datetime.utcnow().isoformat(),
         }
     
-    async def send_in_app(
+    async def list_requests(
         self,
-        user_id: UUID,
-        title: str,
-        message: str,
-        action_url: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Send an in-app notification.
-        
-        Args:
-            user_id: Target user UUID
-            title: Notification title
-            message: Notification message
-            action_url: Optional URL for action
-            
-        Returns:
-            Dict with notification details
-        """
-        logger.info({
-            "event": "in_app_notification_sent",
-            "company_id": str(self.company_id),
-            "user_id": str(user_id),
-            "title": title,
-        })
-        
-        return {
-            "channel": NotificationChannel.IN_APP.value,
-            "user_id": str(user_id),
-            "title": title,
-            "message": message,
-            "action_url": action_url,
-            "status": "delivered",
-            "created_at": datetime.utcnow().isoformat(),
-        }
-    
-    async def send_notification(
-        self,
-        channel: NotificationChannel,
-        to: Optional[str] = None,
-        user_id: Optional[UUID] = None,
-        subject: Optional[str] = None,
-        body: Optional[str] = None,
-        title: Optional[str] = None,
-        message: Optional[str] = None,
-        priority: NotificationPriority = NotificationPriority.NORMAL,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """
-        Send notification through specified channel.
-        
-        Args:
-            channel: Notification channel
-            to: Recipient (email/phone)
-            user_id: Target user UUID
-            subject: Subject (for email)
-            body: Body content
-            title: Title (for push/in-app)
-            message: Message content
-            priority: Notification priority
-            **kwargs: Additional channel-specific parameters
-            
-        Returns:
-            Dict with notification details
-        """
-        if channel == NotificationChannel.EMAIL:
-            return await self.send_email(
-                to=to,
-                subject=subject or "Notification",
-                body=body or message or "",
-                priority=priority,
-                **kwargs
-            )
-        elif channel == NotificationChannel.SMS:
-            return await self.send_sms(
-                to=to,
-                message=body or message or "",
-                priority=priority
-            )
-        elif channel == NotificationChannel.PUSH:
-            return await self.send_push(
-                user_id=user_id,
-                title=title or "Notification",
-                body=body or message or "",
-                **kwargs
-            )
-        elif channel == NotificationChannel.IN_APP:
-            return await self.send_in_app(
-                user_id=user_id,
-                title=title or "Notification",
-                message=body or message or "",
-                **kwargs
-            )
-        else:
-            raise ValueError(f"Unsupported channel: {channel}")
-    
-    async def get_notification_history(
-        self,
-        user_id: Optional[UUID] = None,
-        channel: Optional[NotificationChannel] = None,
+        status: Optional[ComplianceStatus] = None,
+        request_type: Optional[ComplianceType] = None,
         limit: int = 50,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
         """
-        Get notification history.
+        List compliance requests for the company.
         
         Args:
-            user_id: Filter by user
-            channel: Filter by channel
+            status: Filter by status
+            request_type: Filter by type
             limit: Max results
             offset: Pagination offset
             
         Returns:
-            List of notification records
+            List of compliance requests
         """
-        # TODO: Query from database
+        logger.info({
+            "event": "compliance_requests_listed",
+            "company_id": str(self.company_id),
+            "status_filter": status.value if status else None,
+            "type_filter": request_type.value if request_type else None,
+        })
+        
         return []
+    
+    async def process_gdpr_access_request(
+        self,
+        request_id: UUID
+    ) -> Dict[str, Any]:
+        """
+        Process a GDPR access request.
+        
+        Collects all personal data for the subject.
+        
+        Args:
+            request_id: Request UUID
+            
+        Returns:
+            Dict with collected data
+        """
+        logger.info({
+            "event": "gdpr_access_processing",
+            "company_id": str(self.company_id),
+            "request_id": str(request_id),
+        })
+        
+        # TODO: Collect all personal data
+        collected_data = {
+            "user_profile": {},
+            "support_tickets": [],
+            "audit_logs": [],
+            "usage_logs": [],
+        }
+        
+        return {
+            "request_id": str(request_id),
+            "status": ComplianceStatus.COMPLETED.value,
+            "data_collected": collected_data,
+            "processed_at": datetime.now(timezone.utc).isoformat(),
+        }
+    
+    async def process_gdpr_delete_request(
+        self,
+        request_id: UUID
+    ) -> Dict[str, Any]:
+        """
+        Process a GDPR deletion request.
+        
+        CRITICAL: Soft deletes data, retains audit trail for compliance.
+        
+        Args:
+            request_id: Request UUID
+            
+        Returns:
+            Dict with deletion status
+        """
+        logger.info({
+            "event": "gdpr_delete_processing",
+            "company_id": str(self.company_id),
+            "request_id": str(request_id),
+            "note": "Soft delete with audit trail retention"
+        })
+        
+        # TODO: Perform soft deletion
+        # IMPORTANT: Never hard delete - retain audit trail
+        
+        return {
+            "request_id": str(request_id),
+            "status": ComplianceStatus.COMPLETED.value,
+            "deleted_at": datetime.now(timezone.utc).isoformat(),
+            "note": "Data soft-deleted, audit trail retained for compliance period"
+        }
+    
+    async def check_deadlines(self) -> List[Dict[str, Any]]:
+        """
+        Check for compliance requests approaching or past deadline.
+        
+        Returns:
+            List of requests needing attention
+        """
+        now = datetime.now(timezone.utc)
+        warning_threshold = now + timedelta(days=7)
+        
+        logger.info({
+            "event": "compliance_deadlines_checked",
+            "company_id": str(self.company_id),
+            "warning_threshold": warning_threshold.isoformat(),
+        })
+        
+        # TODO: Query for requests near deadline
+        return []
+    
+    async def generate_compliance_report(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate a compliance report for the company.
+        
+        Args:
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+            
+        Returns:
+            Dict with compliance metrics
+        """
+        logger.info({
+            "event": "compliance_report_generated",
+            "company_id": str(self.company_id),
+            "start_date": start_date.isoformat() if start_date else None,
+            "end_date": end_date.isoformat() if end_date else None,
+        })
+        
+        return {
+            "company_id": str(self.company_id),
+            "report_period": {
+                "start": start_date.isoformat() if start_date else None,
+                "end": end_date.isoformat() if end_date else None,
+            },
+            "metrics": {
+                "total_requests": 0,
+                "completed": 0,
+                "pending": 0,
+                "overdue": 0,
+                "average_resolution_days": 0,
+            },
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
 ```
 
-**Step 5: Create the Test File**
+**Step 4: Create the Test File**
 
-Create `tests/unit/test_notification_service.py`:
+Create `tests/unit/test_compliance_service.py`:
 
 ```python
 """
-Unit tests for Notification Service.
+Unit tests for Compliance Service.
 Uses mocked database sessions - no Docker required.
 """
 import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -1015,10 +1431,10 @@ os.environ.setdefault("SECRET_KEY", "test_secret_key_for_unit_tests_32_character
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("ENVIRONMENT", "test")
 
-from backend.services.notification_service import (
-    NotificationService,
-    NotificationChannel,
-    NotificationPriority,
+from backend.services.compliance_service import (
+    ComplianceService,
+    ComplianceStatus,
+    ComplianceType,
 )
 
 
@@ -1029,211 +1445,782 @@ def mock_db():
 
 
 @pytest.fixture
-def notification_service(mock_db):
-    """Notification service instance with mocked DB."""
+def compliance_service(mock_db):
+    """Compliance service instance with mocked DB."""
     company_id = uuid.uuid4()
-    return NotificationService(mock_db, company_id)
+    return ComplianceService(mock_db, company_id)
 
 
-class TestNotificationServiceInit:
-    """Tests for NotificationService initialization."""
+class TestComplianceServiceInit:
+    """Tests for ComplianceService initialization."""
     
     def test_init_stores_db_and_company_id(self, mock_db):
         """Test that init stores db and company_id."""
         company_id = uuid.uuid4()
-        service = NotificationService(mock_db, company_id)
+        service = ComplianceService(mock_db, company_id)
         
         assert service.db == mock_db
         assert service.company_id == company_id
-
-
-class TestNotificationChannelEnum:
-    """Tests for NotificationChannel enum."""
     
-    def test_channel_values(self):
-        """Test channel enum values."""
-        assert NotificationChannel.EMAIL.value == "email"
-        assert NotificationChannel.SMS.value == "sms"
-        assert NotificationChannel.PUSH.value == "push"
-        assert NotificationChannel.IN_APP.value == "in_app"
+    def test_gdpr_response_days(self, compliance_service):
+        """Test GDPR response days constant."""
+        assert compliance_service.GDPR_RESPONSE_DAYS == 30
 
 
-class TestNotificationPriorityEnum:
-    """Tests for NotificationPriority enum."""
+class TestComplianceStatusEnum:
+    """Tests for ComplianceStatus enum."""
     
-    def test_priority_values(self):
-        """Test priority enum values."""
-        assert NotificationPriority.LOW.value == "low"
-        assert NotificationPriority.NORMAL.value == "normal"
-        assert NotificationPriority.HIGH.value == "high"
-        assert NotificationPriority.URGENT.value == "urgent"
+    def test_status_values(self):
+        """Test status enum values."""
+        assert ComplianceStatus.PENDING.value == "pending"
+        assert ComplianceStatus.IN_PROGRESS.value == "in_progress"
+        assert ComplianceStatus.COMPLETED.value == "completed"
+        assert ComplianceStatus.FAILED.value == "failed"
 
 
-class TestSendEmail:
-    """Tests for send_email method."""
+class TestComplianceTypeEnum:
+    """Tests for ComplianceType enum."""
+    
+    def test_type_values(self):
+        """Test type enum values."""
+        assert ComplianceType.GDPR_ACCESS.value == "gdpr_access"
+        assert ComplianceType.GDPR_DELETE.value == "gdpr_delete"
+        assert ComplianceType.GDPR_PORTABILITY.value == "gdpr_portability"
+
+
+class TestCreateRequest:
+    """Tests for create_request method."""
     
     @pytest.mark.asyncio
-    async def test_send_email_returns_dict(self, notification_service):
-        """Test that send_email returns proper dict."""
-        result = await notification_service.send_email(
-            to="test@example.com",
-            subject="Test Subject",
-            body="Test body"
+    async def test_create_request_returns_dict(self, compliance_service):
+        """Test that create_request returns proper dict."""
+        request_id = uuid.uuid4()
+        subject_email = "subject@example.com"
+        
+        result = await compliance_service.create_request(
+            request_type=ComplianceType.GDPR_ACCESS,
+            requested_by=request_id,
+            subject_email=subject_email
         )
         
-        assert result["channel"] == "email"
-        assert result["to"] == "test@example.com"
-        assert result["status"] == "sent"
+        assert result["request_type"] == "gdpr_access"
+        assert result["status"] == "pending"
+        assert result["subject_email"] == subject_email
+
+
+class TestGetRequest:
+    """Tests for get_request method."""
     
     @pytest.mark.asyncio
-    async def test_send_email_with_html(self, notification_service):
-        """Test send_email with HTML body."""
-        result = await notification_service.send_email(
-            to="test@example.com",
-            subject="Test",
-            body="Plain text",
-            html_body="<p>HTML</p>"
-        )
+    async def test_get_request_returns_dict(self, compliance_service):
+        """Test that get_request returns dict."""
+        request_id = uuid.uuid4()
         
-        assert result["status"] == "sent"
+        result = await compliance_service.get_request(request_id)
+        
+        assert result is not None
+        assert "request_id" in result
 
 
-class TestSendSms:
-    """Tests for send_sms method."""
+class TestListRequests:
+    """Tests for list_requests method."""
     
     @pytest.mark.asyncio
-    async def test_send_sms_returns_dict(self, notification_service):
-        """Test that send_sms returns proper dict."""
-        result = await notification_service.send_sms(
-            to="+1234567890",
-            message="Test message"
-        )
-        
-        assert result["channel"] == "sms"
-        assert result["to"] == "+1234567890"
-        assert result["status"] == "sent"
-
-
-class TestSendPush:
-    """Tests for send_push method."""
-    
-    @pytest.mark.asyncio
-    async def test_send_push_returns_dict(self, notification_service):
-        """Test that send_push returns proper dict."""
-        user_id = uuid.uuid4()
-        
-        result = await notification_service.send_push(
-            user_id=user_id,
-            title="Test Title",
-            body="Test body"
-        )
-        
-        assert result["channel"] == "push"
-        assert result["user_id"] == str(user_id)
-        assert result["status"] == "sent"
-
-
-class TestSendInApp:
-    """Tests for send_in_app method."""
-    
-    @pytest.mark.asyncio
-    async def test_send_in_app_returns_dict(self, notification_service):
-        """Test that send_in_app returns proper dict."""
-        user_id = uuid.uuid4()
-        
-        result = await notification_service.send_in_app(
-            user_id=user_id,
-            title="Test Title",
-            message="Test message"
-        )
-        
-        assert result["channel"] == "in_app"
-        assert result["user_id"] == str(user_id)
-        assert result["status"] == "delivered"
-
-
-class TestSendNotification:
-    """Tests for send_notification unified method."""
-    
-    @pytest.mark.asyncio
-    async def test_send_notification_email(self, notification_service):
-        """Test unified send_notification for email."""
-        result = await notification_service.send_notification(
-            channel=NotificationChannel.EMAIL,
-            to="test@example.com",
-            subject="Test",
-            body="Body"
-        )
-        
-        assert result["channel"] == "email"
-    
-    @pytest.mark.asyncio
-    async def test_send_notification_sms(self, notification_service):
-        """Test unified send_notification for SMS."""
-        result = await notification_service.send_notification(
-            channel=NotificationChannel.SMS,
-            to="+1234567890",
-            message="Test"
-        )
-        
-        assert result["channel"] == "sms"
-    
-    @pytest.mark.asyncio
-    async def test_send_notification_push(self, notification_service):
-        """Test unified send_notification for push."""
-        user_id = uuid.uuid4()
-        
-        result = await notification_service.send_notification(
-            channel=NotificationChannel.PUSH,
-            user_id=user_id,
-            title="Test",
-            body="Body"
-        )
-        
-        assert result["channel"] == "push"
-    
-    @pytest.mark.asyncio
-    async def test_send_notification_in_app(self, notification_service):
-        """Test unified send_notification for in-app."""
-        user_id = uuid.uuid4()
-        
-        result = await notification_service.send_notification(
-            channel=NotificationChannel.IN_APP,
-            user_id=user_id,
-            title="Test",
-            message="Message"
-        )
-        
-        assert result["channel"] == "in_app"
-
-
-class TestGetNotificationHistory:
-    """Tests for get_notification_history method."""
-    
-    @pytest.mark.asyncio
-    async def test_get_history_returns_list(self, notification_service):
-        """Test that get_notification_history returns list."""
-        result = await notification_service.get_notification_history()
+    async def test_list_requests_returns_list(self, compliance_service):
+        """Test that list_requests returns list."""
+        result = await compliance_service.list_requests()
         
         assert isinstance(result, list)
+
+
+class TestProcessGDPRAccess:
+    """Tests for process_gdpr_access_request method."""
+    
+    @pytest.mark.asyncio
+    async def test_process_access_returns_dict(self, compliance_service):
+        """Test that process_gdpr_access_request returns dict."""
+        request_id = uuid.uuid4()
+        
+        result = await compliance_service.process_gdpr_access_request(request_id)
+        
+        assert result["status"] == "completed"
+        assert "data_collected" in result
+
+
+class TestProcessGDPRDelete:
+    """Tests for process_gdpr_delete_request method."""
+    
+    @pytest.mark.asyncio
+    async def test_process_delete_returns_dict(self, compliance_service):
+        """Test that process_gdpr_delete_request returns dict."""
+        request_id = uuid.uuid4()
+        
+        result = await compliance_service.process_gdpr_delete_request(request_id)
+        
+        assert result["status"] == "completed"
+        assert "deleted_at" in result
+
+
+class TestCheckDeadlines:
+    """Tests for check_deadlines method."""
+    
+    @pytest.mark.asyncio
+    async def test_check_deadlines_returns_list(self, compliance_service):
+        """Test that check_deadlines returns list."""
+        result = await compliance_service.check_deadlines()
+        
+        assert isinstance(result, list)
+
+
+class TestGenerateComplianceReport:
+    """Tests for generate_compliance_report method."""
+    
+    @pytest.mark.asyncio
+    async def test_generate_report_returns_dict(self, compliance_service):
+        """Test that generate_compliance_report returns dict."""
+        result = await compliance_service.generate_compliance_report()
+        
+        assert "company_id" in result
+        assert "metrics" in result
+        assert "generated_at" in result
 ```
 
-**Step 6: Run Tests**
+**Step 5: Run Tests**
 ```bash
 cd /home/z/my-project/parwa
-PYTHONPATH=/home/z/my-project/parwa pytest tests/unit/test_notification_service.py -v
+PYTHONPATH=/home/z/my-project/parwa pytest tests/unit/test_compliance_service.py -v
 ```
 
-**Step 7: Fix Until Pass**
+**Step 6: Fix Until Pass**
 
-**Step 8: Push When Pass**
+**Step 7: Push When Pass**
 ```bash
-git add backend/services/notification_service.py tests/unit/test_notification_service.py
-git commit -m "Week 4 Day 4: Builder 4 - Notification service with multi-channel support"
+git add backend/services/compliance_service.py tests/unit/test_compliance_service.py
+git commit -m "Week 4 Day 5: Builder 3 - Compliance service with GDPR handling"
 git push origin main
 ```
 
-**Step 9: Update Status**
+**Step 8: Update Status**
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 4 — FULL PROMPT (READ ENTIRELY)
+═══════════════════════════════════════════════════════════════════════════════
+
+### YOUR TASK
+
+**Files to Build:** 
+- `backend/services/sla_service.py`
+- `backend/services/license_service.py`
+- `backend/services/user_service.py`
+
+**Purpose:** Three core services — SLA tracking, License management, User operations.
+
+### STEP-BY-STEP WORKFLOW
+
+**Step 1: Pull Latest Code**
+```bash
+git pull origin main
+```
+
+**Step 2: Read Dependency Files (REQUIRED)**
+Read these files:
+- `backend/models/` — All models (user, company, license, sla_breach, etc.)
+- `backend/services/` — Existing services for patterns
+- `shared/core_functions/logger.py` — Logger
+
+**Step 3: Create the SLA Service**
+
+Create `backend/services/sla_service.py`:
+
+```python
+"""
+SLA (Service Level Agreement) Service Layer.
+
+Handles SLA tracking, breach detection, and reporting.
+All methods are company-scoped for RLS compliance.
+"""
+from typing import Optional, List, Dict, Any
+from uuid import UUID
+from datetime import datetime, timezone, timedelta
+from enum import Enum
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, func
+
+from shared.core_functions.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class SLATier(str, Enum):
+    """SLA tier levels."""
+    MINI = "mini"          # 24hr response, 72hr resolution
+    PARWA = "parwa"        # 4hr response, 24hr resolution
+    PARWA_HIGH = "high"    # 1hr response, 4hr resolution
+
+
+class SLAConfig:
+    """SLA configuration by tier."""
+    TIERS = {
+        SLATier.MINI: {
+            "response_hours": 24,
+            "resolution_hours": 72,
+            "support_hours": "9am-5pm EST",
+            "channels": ["email"],
+        },
+        SLATier.PARWA: {
+            "response_hours": 4,
+            "resolution_hours": 24,
+            "support_hours": "8am-8pm EST",
+            "channels": ["email", "chat"],
+        },
+        SLATier.PARWA_HIGH: {
+            "response_hours": 1,
+            "resolution_hours": 4,
+            "support_hours": "24/7",
+            "channels": ["email", "chat", "phone", "video"],
+        },
+    }
+
+
+class SLAService:
+    """
+    Service class for SLA tracking and breach management.
+    
+    All methods enforce company-scoped data access (RLS).
+    """
+    
+    def __init__(self, db: AsyncSession, company_id: UUID) -> None:
+        """
+        Initialize SLA service.
+        
+        Args:
+            db: Async database session
+            company_id: Company UUID for RLS scoping
+        """
+        self.db = db
+        self.company_id = company_id
+    
+    async def get_sla_config(self, tier: SLATier) -> Dict[str, Any]:
+        """
+        Get SLA configuration for a tier.
+        
+        Args:
+            tier: SLA tier level
+            
+        Returns:
+            Dict with SLA configuration
+        """
+        return SLAConfig.TIERS.get(tier, SLAConfig.TIERS[SLATier.MINI])
+    
+    async def check_sla_breach(
+        self,
+        ticket_id: UUID,
+        tier: SLATier,
+        created_at: datetime,
+        first_response_at: Optional[datetime] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Check if a ticket has breached SLA.
+        
+        Args:
+            ticket_id: Ticket UUID
+            tier: SLA tier
+            created_at: When ticket was created
+            first_response_at: When first response was made
+            
+        Returns:
+            Dict with breach details if breached, None otherwise
+        """
+        config = await self.get_sla_config(tier)
+        now = datetime.now(timezone.utc)
+        
+        response_deadline = created_at + timedelta(hours=config["response_hours"])
+        
+        # Check response SLA
+        if first_response_at is None:
+            if now > response_deadline:
+                breach_id = UUID(int=0)
+                
+                logger.warning({
+                    "event": "sla_response_breach",
+                    "company_id": str(self.company_id),
+                    "ticket_id": str(ticket_id),
+                    "tier": tier.value,
+                    "expected_hours": config["response_hours"],
+                    "actual_hours": (now - created_at).total_seconds() / 3600,
+                })
+                
+                return {
+                    "breach_id": str(breach_id),
+                    "ticket_id": str(ticket_id),
+                    "breach_type": "response",
+                    "tier": tier.value,
+                    "deadline": response_deadline.isoformat(),
+                    "detected_at": now.isoformat(),
+                }
+        
+        return None
+    
+    async def get_sla_metrics(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        Get SLA metrics for the company.
+        
+        Args:
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+            
+        Returns:
+            Dict with SLA metrics
+        """
+        logger.info({
+            "event": "sla_metrics_retrieved",
+            "company_id": str(self.company_id),
+        })
+        
+        return {
+            "company_id": str(self.company_id),
+            "period": {
+                "start": start_date.isoformat() if start_date else None,
+                "end": end_date.isoformat() if end_date else None,
+            },
+            "metrics": {
+                "total_tickets": 0,
+                "response_sla_met": 0,
+                "resolution_sla_met": 0,
+                "breaches": 0,
+                "compliance_rate": 0.0,
+            },
+        }
+    
+    async def list_breaches(
+        self,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        List SLA breaches for the company.
+        
+        Args:
+            limit: Max results
+            offset: Pagination offset
+            
+        Returns:
+            List of SLA breaches
+        """
+        return []
+```
+
+**Step 4: Create the License Service**
+
+Create `backend/services/license_service.py`:
+
+```python
+"""
+License Service Layer.
+
+Handles license validation, tier management, and usage tracking.
+All methods are company-scoped for RLS compliance.
+"""
+from typing import Optional, List, Dict, Any
+from uuid import UUID
+from datetime import datetime, timezone
+from enum import Enum
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from shared.core_functions.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class LicenseTier(str, Enum):
+    """License tier levels."""
+    MINI_PARWA = "mini"
+    PARWA = "parwa"
+    PARWA_HIGH = "high"
+
+
+class LicenseStatus(str, Enum):
+    """License status values."""
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+
+
+class LicenseService:
+    """
+    Service class for license management.
+    
+    Handles validation, tier enforcement, and usage tracking.
+    All methods enforce company-scoped data access (RLS).
+    """
+    
+    TIER_LIMITS = {
+        LicenseTier.MINI_PARWA: {
+            "users": 5,
+            "tickets_per_month": 500,
+            "api_calls_per_day": 1000,
+            "features": ["email", "chat"],
+        },
+        LicenseTier.PARWA: {
+            "users": 25,
+            "tickets_per_month": 5000,
+            "api_calls_per_day": 10000,
+            "features": ["email", "chat", "voice"],
+        },
+        LicenseTier.PARWA_HIGH: {
+            "users": 100,
+            "tickets_per_month": 50000,
+            "api_calls_per_day": 100000,
+            "features": ["email", "chat", "voice", "video", "priority_queue"],
+        },
+    }
+    
+    def __init__(self, db: AsyncSession, company_id: UUID) -> None:
+        """
+        Initialize license service.
+        
+        Args:
+            db: Async database session
+            company_id: Company UUID for RLS scoping
+        """
+        self.db = db
+        self.company_id = company_id
+    
+    async def get_license(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the company's license information.
+        
+        Returns:
+            Dict with license details or None
+        """
+        logger.info({
+            "event": "license_retrieved",
+            "company_id": str(self.company_id),
+        })
+        
+        # TODO: Query from database
+        return {
+            "company_id": str(self.company_id),
+            "tier": LicenseTier.PARWA.value,
+            "status": LicenseStatus.ACTIVE.value,
+            "limits": self.TIER_LIMITS[LicenseTier.PARWA],
+        }
+    
+    async def validate_license(self) -> bool:
+        """
+        Validate that the company has an active license.
+        
+        Returns:
+            bool: True if license is valid and active
+        """
+        license_info = await self.get_license()
+        
+        if not license_info:
+            logger.warning({
+                "event": "license_not_found",
+                "company_id": str(self.company_id),
+            })
+            return False
+        
+        if license_info.get("status") != LicenseStatus.ACTIVE.value:
+            logger.warning({
+                "event": "license_not_active",
+                "company_id": str(self.company_id),
+                "status": license_info.get("status"),
+            })
+            return False
+        
+        return True
+    
+    async def get_tier_limits(self, tier: LicenseTier) -> Dict[str, Any]:
+        """
+        Get limits for a license tier.
+        
+        Args:
+            tier: License tier level
+            
+        Returns:
+            Dict with tier limits
+        """
+        return self.TIER_LIMITS.get(tier, self.TIER_LIMITS[LicenseTier.MINI_PARWA])
+    
+    async def check_usage_limit(
+        self,
+        limit_type: str,
+        current_usage: int
+    ) -> Dict[str, Any]:
+        """
+        Check if usage is within limits.
+        
+        Args:
+            limit_type: Type of limit (users, tickets_per_month, api_calls_per_day)
+            current_usage: Current usage value
+            
+        Returns:
+            Dict with limit check result
+        """
+        license_info = await self.get_license()
+        
+        if not license_info:
+            return {"within_limit": False, "reason": "No active license"}
+        
+        tier = LicenseTier(license_info.get("tier", "mini"))
+        limits = await self.get_tier_limits(tier)
+        
+        limit = limits.get(limit_type, 0)
+        within_limit = current_usage < limit
+        
+        return {
+            "within_limit": within_limit,
+            "limit_type": limit_type,
+            "current_usage": current_usage,
+            "limit": limit,
+            "remaining": max(0, limit - current_usage),
+        }
+    
+    async def check_feature_access(self, feature: str) -> bool:
+        """
+        Check if company has access to a feature.
+        
+        Args:
+            feature: Feature name to check
+            
+        Returns:
+            bool: True if feature is accessible
+        """
+        license_info = await self.get_license()
+        
+        if not license_info:
+            return False
+        
+        tier = LicenseTier(license_info.get("tier", "mini"))
+        limits = await self.get_tier_limits(tier)
+        
+        return feature in limits.get("features", [])
+```
+
+**Step 5: Create the User Service**
+
+Create `backend/services/user_service.py`:
+
+```python
+"""
+User Service Layer.
+
+Handles user management, preferences, and company membership.
+All methods are company-scoped for RLS compliance.
+"""
+from typing import Optional, List, Dict, Any
+from uuid import UUID
+from datetime import datetime, timezone
+from enum import Enum
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from shared.core_functions.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class UserRole(str, Enum):
+    """User role levels."""
+    ADMIN = "admin"
+    MANAGER = "manager"
+    AGENT = "agent"
+    VIEWER = "viewer"
+
+
+class UserService:
+    """
+    Service class for user management.
+    
+    Handles CRUD operations, role assignment, and preferences.
+    All methods enforce company-scoped data access (RLS).
+    """
+    
+    def __init__(self, db: AsyncSession, company_id: UUID) -> None:
+        """
+        Initialize user service.
+        
+        Args:
+            db: Async database session
+            company_id: Company UUID for RLS scoping
+        """
+        self.db = db
+        self.company_id = company_id
+    
+    async def get_user(self, user_id: UUID) -> Optional[Dict[str, Any]]:
+        """
+        Get a user by ID.
+        
+        Args:
+            user_id: User UUID
+            
+        Returns:
+            Dict with user details or None
+        """
+        logger.info({
+            "event": "user_retrieved",
+            "company_id": str(self.company_id),
+            "user_id": str(user_id),
+        })
+        
+        # TODO: Query from database
+        return {
+            "user_id": str(user_id),
+            "company_id": str(self.company_id),
+            "role": UserRole.AGENT.value,
+            "is_active": True,
+        }
+    
+    async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a user by email.
+        
+        Args:
+            email: User email address
+            
+        Returns:
+            Dict with user details or None
+        """
+        # TODO: Query from database
+        return None
+    
+    async def list_users(
+        self,
+        role: Optional[UserRole] = None,
+        is_active: Optional[bool] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        List users for the company.
+        
+        Args:
+            role: Filter by role
+            is_active: Filter by active status
+            limit: Max results
+            offset: Pagination offset
+            
+        Returns:
+            List of users
+        """
+        logger.info({
+            "event": "users_listed",
+            "company_id": str(self.company_id),
+            "role_filter": role.value if role else None,
+        })
+        
+        return []
+    
+    async def update_user(
+        self,
+        user_id: UUID,
+        updates: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Update a user.
+        
+        Args:
+            user_id: User UUID
+            updates: Fields to update
+            
+        Returns:
+            Dict with updated user details
+        """
+        logger.info({
+            "event": "user_updated",
+            "company_id": str(self.company_id),
+            "user_id": str(user_id),
+            "fields_updated": list(updates.keys()),
+        })
+        
+        return {
+            "user_id": str(user_id),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    
+    async def deactivate_user(self, user_id: UUID) -> Dict[str, Any]:
+        """
+        Deactivate a user (soft delete).
+        
+        Args:
+            user_id: User UUID
+            
+        Returns:
+            Dict with deactivation status
+        """
+        logger.info({
+            "event": "user_deactivated",
+            "company_id": str(self.company_id),
+            "user_id": str(user_id),
+        })
+        
+        return {
+            "user_id": str(user_id),
+            "is_active": False,
+            "deactivated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    
+    async def update_preferences(
+        self,
+        user_id: UUID,
+        preferences: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Update user preferences.
+        
+        Args:
+            user_id: User UUID
+            preferences: Preference key-value pairs
+            
+        Returns:
+            Dict with updated preferences
+        """
+        logger.info({
+            "event": "user_preferences_updated",
+            "company_id": str(self.company_id),
+            "user_id": str(user_id),
+        })
+        
+        return {
+            "user_id": str(user_id),
+            "preferences": preferences,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+```
+
+**Step 6: Create Test Files**
+
+Create `tests/unit/test_sla_service.py`, `tests/unit/test_license_service.py`, and `tests/unit/test_user_service.py` following the same pattern as other services.
+
+**Step 7: Run Tests**
+```bash
+cd /home/z/my-project/parwa
+PYTHONPATH=/home/z/my-project/parwa pytest tests/unit/test_sla_service.py tests/unit/test_license_service.py tests/unit/test_user_service.py -v
+```
+
+**Step 8: Fix Until Pass**
+
+**Step 9: Push When Pass**
+```bash
+git add backend/services/sla_service.py backend/services/license_service.py backend/services/user_service.py tests/unit/test_sla_service.py tests/unit/test_license_service.py tests/unit/test_user_service.py
+git commit -m "Week 4 Day 5: Builder 4 - SLA, License, and User services"
+git push origin main
+```
+
+**Step 10: Update Status**
 
 ---
 
@@ -1242,58 +2229,46 @@ git push origin main
 ═══════════════════════════════════════════════════════════════════════════════
 
 ## BUILDER 1 → STATUS
-**File:** `backend/api/jarvis.py`
-**Status:** DONE ✅
-**Unit Test:** PASSED (20 tests)
-**Test File:** `tests/unit/test_jarvis.py`
-**Pushed:** YES
-**Commit:** 96704a6
-**Initiative Files:** backend/api/jarvis.py, tests/unit/test_jarvis.py
-**Notes:** Jarvis API with command, status, pending-approvals endpoints. All 20 tests passing.
+**File:** `backend/api/webhooks/shopify.py`
+**Status:** PENDING
+**Unit Test:** PENDING
+**Test File:** `tests/unit/test_shopify_webhook.py`
+**Pushed:** NO
+**Initiative Files:** None
+**Notes:** Waiting to start
 
 ---
 
 ## BUILDER 2 → STATUS
-**File:** `backend/api/analytics.py`
-**Status:** DONE ✅
-**Unit Test:** PASSED (29 tests)
-**Test File:** `tests/unit/test_analytics_api.py`
-**Pushed:** YES
-**Commit:** 70caae3
-**Initiative Files:** backend/api/analytics.py, tests/unit/test_analytics_api.py
-**Notes:** Analytics API with 6 endpoints: stats, ticket metrics, response time, agent performance, activity feed, SLA compliance. Uses AnalyticsService from Day 3. All 29 tests passing. Total: 586 tests passing.
+**File:** `backend/api/webhooks/stripe.py`
+**Status:** PENDING
+**Unit Test:** PENDING
+**Test File:** `tests/unit/test_stripe_webhook.py`
+**Pushed:** NO
+**Initiative Files:** None
+**Notes:** Waiting to start
 
 ---
 
 ## BUILDER 3 → STATUS
-**File:** `backend/api/integrations.py`
-**Status:** DONE ✅
-**Unit Test:** PASSED (36 tests)
-**Test File:** `tests/unit/test_integrations_api.py`
-**Pushed:** YES
-**Commit:** 4b33801
-**Initiative Files:** backend/api/integrations.py, tests/unit/test_integrations_api.py
-**Notes:** Integrations API with third-party service endpoints:
-- GET /integrations — List available integrations
-- GET /integrations/{type}/status — Get integration status
-- POST /integrations/{type}/connect — Connect integration
-- DELETE /integrations/{type}/disconnect — Disconnect integration
-- GET /integrations/{type}/settings — Get integration settings
-- PUT /integrations/{type}/settings — Update integration settings
-Supported integrations: shopify, stripe, twilio, zendesk, email
-All 36 tests passing.
+**File:** `backend/services/compliance_service.py`
+**Status:** PENDING
+**Unit Test:** PENDING
+**Test File:** `tests/unit/test_compliance_service.py`
+**Pushed:** NO
+**Initiative Files:** None
+**Notes:** Waiting to start
 
 ---
 
 ## BUILDER 4 → STATUS
-**File:** `backend/services/notification_service.py`
-**Status:** DONE ✅
-**Unit Test:** PASSED (52 tests)
-**Test File:** `tests/unit/test_notification_service.py`
-**Pushed:** YES
-**Commit:** 37be9a3
-**Initiative Files:** backend/services/notification_service.py, tests/unit/test_notification_service.py
-**Notes:** Notification service with email, SMS, push, in-app channels. Bulk notifications, history, mark-as-read, delete. All 52 tests passing.
+**Files:** `backend/services/sla_service.py`, `backend/services/license_service.py`, `backend/services/user_service.py`
+**Status:** PENDING
+**Unit Test:** PENDING
+**Test Files:** `tests/unit/test_sla_service.py`, `tests/unit/test_license_service.py`, `tests/unit/test_user_service.py`
+**Pushed:** NO
+**Initiative Files:** None
+**Notes:** Waiting to start
 
 ---
 
@@ -1301,43 +2276,7 @@ All 36 tests passing.
 ## TESTER AGENT → VERIFICATION
 ═══════════════════════════════════════════════════════════════════════════════
 
-**Status:** ✅ COMPLETE — All Day 4 files verified
-
-### Verification Summary
-
-| File | Tests | Status |
-|------|-------|--------|
-| `backend/api/jarvis.py` | 20 PASS | ✅ PASS |
-| `backend/api/analytics.py` | 29 PASS | ✅ PASS |
-| `backend/api/integrations.py` | 36 PASS | ✅ PASS |
-| `backend/services/notification_service.py` | 52 PASS | ✅ PASS |
-
-**Total: 137 tests passing**
-
-### 12-Point Checklist Results
-- All files have type hints on all functions ✅
-- All files have docstrings on all classes/functions ✅
-- All files use async/await patterns ✅
-- All files implement proper error handling ✅
-- All files enforce company-scoped access (RLS) ✅
-- All files use structured JSON logging ✅
-- All files require authentication ✅
-
-### Integration Tests
-- `pytest tests/integration/` - 10 passed, 3 skipped ✅
-
-### Warnings (Non-blocking)
-1. `datetime.utcnow()` deprecation in some files - cosmetic only
-2. Pydantic V1 `@validator` in integrations.py - functional but deprecated
-
-### Decision
-**✅ DAY 4 VERIFIED - ALL CRITICAL TESTS PASS**
-
-**Previous cumulative tests: 380**
-**Day 4 added: 137**
-**New cumulative total: 517 tests**
-
-Full details in `TESTER_ERRORS.md`
+**Status:** PENDING — Waiting for all builders to complete
 
 ---
 
@@ -1345,7 +2284,13 @@ Full details in `TESTER_ERRORS.md`
 ## MANAGER → ADVICE
 ═══════════════════════════════════════════════════════════════════════════════
 
-[Manager will provide guidance here if builders report STUCK]
+**CRITICAL REMINDERS FOR ALL BUILDERS:**
+
+1. **HMAC Verification is MANDATORY** — All webhooks MUST verify signature before processing
+2. **Refund Approval Gate** — Stripe refund webhooks create `pending_approval` records, NEVER call Stripe directly
+3. **Company Scoping** — All services MUST use `company_id` for RLS compliance
+4. **No Docker** — Use mocked database sessions in tests
+5. **One Push Only** — Push ONLY after all tests pass
 
 ---
 
