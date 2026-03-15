@@ -70,8 +70,10 @@ class TestCreateAccessToken:
 class TestVerifyToken:
     """Tests for verify_token function."""
 
-    def test_verify_token_valid(self):
+    @patch("backend.core.auth.is_token_blacklisted")
+    def test_verify_token_valid(self, mock_blacklisted):
         """Test verifying a valid token."""
+        mock_blacklisted.return_value = False
         user_id = uuid4()
         token = create_access_token(user_id, timedelta(hours=1))
 
@@ -314,8 +316,11 @@ class TestIsTokenBlacklistedAsync:
 class TestIntegration:
     """Integration tests for auth flow."""
 
-    def test_full_auth_flow(self):
+    @patch("backend.core.auth.is_token_blacklisted")
+    def test_full_auth_flow(self, mock_blacklisted):
         """Test the complete authentication flow."""
+        mock_blacklisted.return_value = False
+        
         # 1. Create a user ID
         user_id = uuid4()
 
@@ -365,8 +370,11 @@ class TestIntegration:
         assert verify_password(password, hash1) is True
         assert verify_password(password, hash2) is True
 
-    def test_token_has_required_claims(self):
+    @patch("backend.core.auth.is_token_blacklisted")
+    def test_token_has_required_claims(self, mock_blacklisted):
         """Test that token contains required claims."""
+        mock_blacklisted.return_value = False
+        
         user_id = uuid4()
         token = create_access_token(user_id, timedelta(hours=1))
 

@@ -150,11 +150,13 @@ class TestAuthEndpoints:
     def test_logout_missing_auth(self, client):
         """Test logout without auth header returns 401."""
         response = client.post("/auth/logout")
+        # HTTPBearer returns 401 for missing auth in this configuration
         assert response.status_code == 401
 
     def test_me_missing_auth(self, client):
         """Test profile endpoint without auth returns 401."""
         response = client.get("/auth/me")
+        # HTTPBearer returns 401 for missing auth in this configuration
         assert response.status_code == 401
 
 
