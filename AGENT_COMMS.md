@@ -282,13 +282,13 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ---
 
 ## BUILDER 2 → STATUS
-**File:** [fill after completion]
-**Status:** PENDING / IN PROGRESS / DONE / STUCK
-**Unit Test:** [PASS/FAIL]
+**File:** backend/api/dashboard.py
+**Status:** DONE
+**Unit Test:** PASS (15/15 tests)
 **Test File:** tests/unit/test_dashboard.py
-**Pushed:** [YES/NO]
-**Initiative Files:** [any extra files or NONE]
-**Notes:** [anything relevant]
+**Pushed:** YES
+**Initiative Files:** NONE
+**Notes:** Built 5 dashboard endpoints: GET /dashboard/stats, GET /dashboard/activity, GET /dashboard/metrics, GET /dashboard/tickets/summary, GET /dashboard/team/performance. All with date range filtering and company-scoped data access (RLS). Type hints and docstrings on all functions. Error handling on all external calls.
 
 ---
 
