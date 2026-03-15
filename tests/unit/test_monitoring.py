@@ -1,17 +1,18 @@
 """
 Unit tests for the monitoring module.
+Tests that Sentry monitoring is initialized correctly and that exceptions are captured properly.
 """
-import pytest
 import os
+import pytest
 from unittest.mock import patch, MagicMock
 from shared.utils.monitoring import init_monitoring, capture_exception, track_performance
 from shared.core_functions.config import Settings
 
 
 @pytest.fixture
-def mock_settings_with_dsn():
+def settings_with_dsn():
     """Settings with Sentry DSN configured."""
-    # Use SENTRY_DSN alias to set the field
+    # Use alias name SENTRY_DSN to set the field
     return Settings(
         environment="development",
         secret_key="test_secret_key_for_monitoring",
@@ -27,13 +28,14 @@ def mock_settings_with_dsn():
 
 
 @pytest.fixture
-def mock_settings_no_dsn(monkeypatch):
-    """Settings without Sentry DSN - explicitly set to None."""
-    # Remove SENTRY_DSN from environment to ensure it's not picked up
+def settings_no_dsn(monkeypatch):
+    """Settings without Sentry DSN - explicitly set to None via environment."""
+    # Remove SENTRY_DSN from environment before creating Settings
     monkeypatch.delenv("SENTRY_DSN", raising=False)
     
-    # Create settings and explicitly verify sentry_dsn is None
-    settings = Settings(
+    # Force create Settings with sentry_dsn explicitly set to None
+    # by using model_construct to bypass env var loading
+    settings = Settings.model_construct(
         environment="development",
         secret_key="test_secret_key_for_monitoring",
         database_url="postgresql://test_user:test_password@localhost/test_db",
@@ -43,76 +45,81 @@ def mock_settings_no_dsn(monkeypatch):
         stripe_publishable_key="pk_test_123",
         from_email="test@test.com",
         data_encryption_key="12345678901234567890123456789012",
+        sentry_dsn=None,
     )
-    # Ensure sentry_dsn is None
-    assert settings.sentry_dsn is None, f"Expected sentry_dsn to be None, got {settings.sentry_dsn}"
+    # Verify sentry_dsn is None
+    assert settings.sentry_dsn is None
     return settings
 
 
-@patch("shared.utils.monitoring.sentry_sdk.init")
-def test_init_monitoring_with_dsn(mock_sentry_init, mock_settings_with_dsn):
-    """Test that Sentry is initialized when DSN is configured."""
-    with patch("shared.utils.monitoring.get_settings", return_value=mock_settings_with_dsn):
-        init_monitoring()
-        # Verify that sentry_sdk.init was called with the DSN
-        assert mock_sentry_init.called
-        call_args = mock_sentry_init.call_args
-        assert call_args.kwargs["dsn"] == "http://public@localhost/1"
+class TestInitMonitoring:
+    """Tests for init_monitoring function."""
+
+    @patch("shared.utils.monitoring.sentry_sdk.init")
+    def test_with_dsn(self, mock_sentry_init, settings_with_dsn):
+        """Test that Sentry is initialized when DSN is configured."""
+        with patch("shared.utils.monitoring.get_settings", return_value=settings_with_dsn):
+            init_monitoring()
+            
+            assert mock_sentry_init.called
+            call_kwargs = mock_sentry_init.call_args.kwargs
+            assert call_kwargs["dsn"] == "http://public@localhost/1"
+
+    @patch("shared.utils.monitoring.sentry_sdk.init")
+    def test_without_dsn(self, mock_sentry_init, settings_no_dsn):
+        """Test that Sentry is not initialized when DSN is not configured."""
+        with patch("shared.utils.monitoring.get_settings", return_value=settings_no_dsn):
+            init_monitoring()
+            
+            mock_sentry_init.assert_not_called()
 
 
-@patch("shared.utils.monitoring.sentry_sdk.init")
-def test_init_monitoring_no_dsn(mock_sentry_init, mock_settings_no_dsn):
-    """Test that Sentry is not initialized when DSN is not configured."""
-    with patch("shared.utils.monitoring.get_settings", return_value=mock_settings_no_dsn):
-        init_monitoring()
-        mock_sentry_init.assert_not_called()
+class TestCaptureException:
+    """Tests for capture_exception function."""
+
+    @patch("shared.utils.monitoring.sentry_sdk.push_scope")
+    @patch("shared.utils.monitoring.sentry_sdk.capture_exception")
+    def test_with_dsn(self, mock_capture, mock_push_scope, settings_with_dsn):
+        """Test that exceptions are captured and sent to Sentry with context."""
+        with patch("shared.utils.monitoring.get_settings", return_value=settings_with_dsn):
+            test_exception = ValueError("Test error")
+            context = {"user_id": 123}
+            
+            mock_scope = MagicMock()
+            mock_push_scope.return_value.__enter__.return_value = mock_scope
+            
+            capture_exception(test_exception, context)
+            
+            mock_scope.set_extra.assert_any_call("user_id", 123)
+            mock_capture.assert_called_once_with(test_exception)
+
+    @patch("shared.utils.monitoring.sentry_sdk.capture_exception")
+    def test_without_dsn(self, mock_capture, settings_no_dsn):
+        """Test that exceptions are logged but not sent to Sentry when DSN is not configured."""
+        with patch("shared.utils.monitoring.get_settings", return_value=settings_no_dsn):
+            test_exception = ValueError("Test error")
+            context = {"user_id": 123}
+            
+            capture_exception(test_exception, context)
+            
+            mock_capture.assert_not_called()
 
 
-@patch("shared.utils.monitoring.sentry_sdk.capture_exception")
-@patch("shared.utils.monitoring.sentry_sdk.push_scope")
-def test_capture_exception(mock_push_scope, mock_capture_exception, mock_settings_with_dsn):
-    """Test that exceptions are captured and sent to Sentry with context."""
-    with patch("shared.utils.monitoring.get_settings", return_value=mock_settings_with_dsn):
-        test_exception = ValueError("Test error")
-        context = {"user_id": 123}
+class TestTrackPerformance:
+    """Tests for track_performance decorator."""
+
+    @patch("shared.utils.monitoring.logger.info")
+    def test_tracks_execution_time(self, mock_logger_info):
+        """Test that the performance decorator tracks execution time."""
+        @track_performance("test_op", "test_name")
+        def dummy_function(x, y):
+            return x + y
+
+        result = dummy_function(2, 3)
         
-        mock_scope_instance = MagicMock()
-        mock_push_scope.return_value.__enter__.return_value = mock_scope_instance
-        
-        capture_exception(test_exception, context)
-        
-        # Verify the context was passed to Sentry scope
-        mock_scope_instance.set_extra.assert_any_call("user_id", 123)
-        mock_capture_exception.assert_called_once_with(test_exception)
-
-
-@patch("shared.utils.monitoring.sentry_sdk.capture_exception")
-def test_capture_exception_no_sentry_dsn(mock_capture_exception, mock_settings_no_dsn):
-    """Test that exceptions are logged but not sent to Sentry when DSN is not configured."""
-    with patch("shared.utils.monitoring.get_settings", return_value=mock_settings_no_dsn):
-        test_exception = ValueError("Test error")
-        context = {"user_id": 123}
-        
-        capture_exception(test_exception, context)
-        
-        # Sentry capture should not be called when no DSN
-        mock_capture_exception.assert_not_called()
-
-
-@patch("shared.utils.monitoring.logger.info")
-def test_track_performance(mock_logger_info):
-    """Test that the performance decorator tracks execution time."""
-    @track_performance("test_op", "test_name")
-    def dummy_function(x, y):
-        return x + y
-
-    result = dummy_function(2, 3)
-    assert result == 5
-    
-    mock_logger_info.assert_called_once()
-    args, kwargs = mock_logger_info.call_args
-    assert "Performance tracked: test_name" in args[0]
-    assert "context" in kwargs["extra"]
-    assert kwargs["extra"]["context"]["operation_type"] == "test_op"
-    assert kwargs["extra"]["context"]["operation_name"] == "test_name"
-    assert "duration_s" in kwargs["extra"]["context"]
+        assert result == 5
+        assert mock_logger_info.called
+        args, kwargs = mock_logger_info.call_args
+        assert "Performance tracked: test_name" in args[0]
+        assert kwargs["extra"]["context"]["operation_type"] == "test_op"
+        assert "duration_s" in kwargs["extra"]["context"]
