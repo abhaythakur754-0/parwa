@@ -1,19 +1,20 @@
-# AGENT_COMMS.md — Week 4 Day 2
-# Last updated: 2026-03-28
-# Current status: WEEK 4 DAY 2 STARTED
+# AGENT_COMMS.md — Week 4 Day 3
+# Last updated: 2026-03-29
+# Current status: WEEK 4 DAY 3 STARTED
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 4 DAY 2 PLAN
+## MANAGER → WEEK 4 DAY 3 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
-Date: 2026-03-28
+Date: 2026-03-29
 
 > **Phase: Phase 2 — Core AI Engine (API Layer)**
-> Day 1 is COMPLETE ✅ — Auth API, License API, Auth Core, License Manager all built.
-> 316 tests passing. All builders verified.
+> Day 1 is COMPLETE ✅ — Auth API, License API, Auth Core, License Manager built. 138 tests.
+> Day 2 is COMPLETE ✅ — Support API, Dashboard API, Billing API, Compliance API built. 106 tests.
+> 422 total tests passing. All builders verified.
 >
-> Day 2: Building Support, Dashboard, Billing, and Compliance APIs.
-> All 4 API routes are independent — build in parallel.
+> Day 3: Building Support, Analytics, Billing, and Onboarding Services.
+> All 4 service files are independent — build in parallel.
 >
 > **CRITICAL REMINDER:** You CANNOT use Docker locally. Write tests with mocked databases.
 > Check `.github/workflows/ci.yml` for CI requirements. Code must pass GitHub Actions.
@@ -38,7 +39,7 @@ You are **Builder Agent 1**. Your job: build ONE file, run unit test, fix until 
 5. Build the file (type hints, docstrings, error handling)
 6. Run: `pytest [test file] -v`
 7. If FAIL → fix and re-run (stay in loop until PASS)
-8. If PASS → `git add [file] && git commit -m "Week 4 Day 2: Builder 1 - [description]" && git push origin main`
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 3: Builder 1 - [description]" && git push origin main`
 9. Write status in `## BUILDER 1 → STATUS` below
 
 **CODE QUALITY:**
@@ -62,7 +63,7 @@ You are **Builder Agent 2**. Your job: build ONE file, run unit test, fix until 
 5. Build the file (type hints, docstrings, error handling)
 6. Run: `pytest [test file] -v`
 7. If FAIL → fix and re-run (stay in loop until PASS)
-8. If PASS → `git add [file] && git commit -m "Week 4 Day 2: Builder 2 - [description]" && git push origin main`
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 3: Builder 2 - [description]" && git push origin main`
 9. Write status in `## BUILDER 2 → STATUS` below
 
 **CODE QUALITY:**
@@ -85,7 +86,7 @@ You are **Builder Agent 3**. Your job: build ONE file, run unit test, fix until 
 5. Build the file (type hints, docstrings, error handling)
 6. Run: `pytest [test file] -v`
 7. If FAIL → fix and re-run (stay in loop until PASS)
-8. If PASS → `git add [file] && git commit -m "Week 4 Day 2: Builder 3 - [description]" && git push origin main`
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 3: Builder 3 - [description]" && git push origin main`
 9. Write status in `## BUILDER 3 → STATUS` below
 
 **CODE QUALITY:**
@@ -108,7 +109,7 @@ You are **Builder Agent 4**. Your job: build ONE file, run unit test, fix until 
 5. Build the file (type hints, docstrings, error handling)
 6. Run: `pytest [test file] -v`
 7. If FAIL → fix and re-run (stay in loop until PASS)
-8. If PASS → `git add [file] && git commit -m "Week 4 Day 2: Builder 4 - [description]" && git push origin main`
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 3: Builder 4 - [description]" && git push origin main`
 9. Write status in `## BUILDER 4 → STATUS` below
 
 **CODE QUALITY:**
@@ -165,104 +166,109 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → DAY 2 TASK ASSIGNMENTS
+## MANAGER → DAY 3 TASK ASSIGNMENTS
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### AGENT 1
 
-**File:** `backend/api/support.py`
-**What:** Support ticket API routes — create, list, update, escalate tickets
+**File:** `backend/services/support_service.py`
+**What:** Support ticket service layer — business logic for ticket operations
 **Depends On:**
 - `backend/models/support_ticket.py` (Wk3)
 - `backend/models/user.py` (Wk3)
 - `backend/models/company.py` (Wk3)
 - `backend/app/database.py` (Wk2)
-- `backend/core/auth.py` (Wk4 Day 1)
-**Test File:** `tests/unit/test_support.py`
+- `backend/api/support.py` (Wk4 Day 2)
+**Test File:** `tests/unit/test_support_service.py`
 **BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Support Ticket section
 **Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `POST /support/tickets` — Create new support ticket
-- `GET /support/tickets` — List tickets with filtering (status, priority, assignee)
-- `GET /support/tickets/{id}` — Get ticket details
-- `PUT /support/tickets/{id}` — Update ticket (status, priority, assignee)
-- `POST /support/tickets/{id}/escalate` — Escalate ticket to manager
-- `POST /support/tickets/{id}/messages` — Add message to ticket
-- Input validation on all endpoints
+- `create_ticket()` — Create new support ticket with validation
+- `get_ticket_by_id()` — Fetch ticket with company-scoped access
+- `list_tickets()` — List tickets with filtering and pagination
+- `update_ticket()` — Update ticket status, priority, assignee
+- `escalate_ticket()` — Escalate ticket to higher tier support
+- `add_message()` — Add message to ticket conversation
+- `calculate_sla_status()` — Check if ticket is within SLA bounds
 - Company-scoped data access (RLS enforcement)
+- Audit trail logging for all operations
 
 ---
 
 ### AGENT 2
 
-**File:** `backend/api/dashboard.py`
-**What:** Dashboard API routes — stats, metrics, activity feed
+**File:** `backend/services/analytics_service.py`
+**What:** Analytics service layer — business logic for metrics and reporting
 **Depends On:**
 - `backend/models/*.py` (all models from Wk3)
 - `backend/app/database.py` (Wk2)
-- `backend/core/auth.py` (Wk4 Day 1)
-**Test File:** `tests/unit/test_dashboard.py`
+- `backend/api/dashboard.py` (Wk4 Day 2)
+**Test File:** `tests/unit/test_analytics_service.py`
 **BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Dashboard section
 **Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `GET /dashboard/stats` — Get company statistics (tickets, users, SLA)
-- `GET /dashboard/activity` — Get recent activity feed
-- `GET /dashboard/metrics` — Get KPI metrics (response time, resolution rate)
-- `GET /dashboard/tickets/summary` — Get ticket summary by status/priority
-- `GET /dashboard/team/performance` — Get team performance metrics
-- Date range filtering on all metrics endpoints
+- `get_company_stats()` — Get aggregated company statistics
+- `get_ticket_metrics()` — Get ticket volume and resolution metrics
+- `get_response_time_metrics()` — Get average response times
+- `get_agent_performance()` — Get individual agent performance data
+- `get_activity_feed()` — Get recent activity for dashboard
+- `calculate_sla_compliance()` — Calculate SLA compliance percentage
+- Date range filtering on all metrics methods
 - Company-scoped data access
 
 ---
 
 ### AGENT 3
 
-**File:** `backend/api/billing.py`
-**What:** Billing API routes — subscriptions, invoices, payment methods
+**File:** `backend/services/billing_service.py`
+**What:** Billing service layer — subscription and payment business logic
 **Depends On:**
 - `backend/models/subscription.py` (Wk3)
 - `backend/models/company.py` (Wk3)
 - `backend/app/database.py` (Wk2)
-- `backend/core/auth.py` (Wk4 Day 1)
-**Test File:** `tests/unit/test_billing.py`
+- `backend/api/billing.py` (Wk4 Day 2)
+**Test File:** `tests/unit/test_billing_service.py`
 **BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Billing section
 **Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `GET /billing/subscription` — Get current subscription details
-- `PUT /billing/subscription` — Update subscription tier
-- `GET /billing/invoices` — List invoices
-- `GET /billing/invoices/{id}` — Get invoice details
-- `POST /billing/payment-method` — Add payment method (mocked)
-- `GET /billing/usage` — Get current usage vs limits
+- `get_subscription()` — Get current subscription details
+- `update_subscription_tier()` — Handle tier upgrade/downgrade
+- `get_invoices()` — List invoices for company
+- `get_usage()` — Get current usage vs tier limits
+- `check_usage_limits()` — Validate if action is within limits
+- `calculate_billing()` — Calculate monthly billing amount
+- `create_pending_approval()` — Create approval record for payment actions
 - **CRITICAL:** Never call Stripe without pending_approval record
-- Tier upgrade/downgrade logic
+- Tier pricing configuration (mini=$1000, parwa=$2500, parwa_high=$4500/month)
 
 ---
 
 ### AGENT 4
 
-**File:** `backend/api/compliance.py`
-**What:** Compliance API routes — GDPR requests, data export, audit logs
+**File:** `backend/services/onboarding_service.py`
+**What:** Onboarding service layer — new client setup business logic
 **Depends On:**
-- `backend/models/compliance_request.py` (Wk3)
-- `backend/models/audit_trail.py` (Wk3)
+- `backend/models/company.py` (Wk3)
+- `backend/models/user.py` (Wk3)
+- `backend/models/subscription.py` (Wk3)
 - `backend/app/database.py` (Wk2)
-- `backend/core/auth.py` (Wk4 Day 1)
-**Test File:** `tests/unit/test_compliance_api.py`
-**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Compliance section
+**Test File:** `tests/unit/test_onboarding_service.py`
+**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Onboarding section
 **Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `POST /compliance/gdpr/export` — Request data export (GDPR)
-- `POST /compliance/gdpr/delete` — Request data deletion (GDPR)
-- `GET /compliance/requests` — List compliance requests
-- `GET /compliance/audit-log` — Get audit log entries
-- `GET /compliance/audit-log/{id}` — Get specific audit entry
-- `POST /compliance/retention/check` — Check data retention status
-- Request status tracking (pending, processing, completed)
+- `start_onboarding()` — Initialize onboarding for new company
+- `complete_onboarding_step()` — Mark step as complete
+- `get_onboarding_status()` — Get current onboarding progress
+- `setup_company_defaults()` — Set up default settings for new company
+- `create_admin_user()` — Create first admin user for company
+- `initialize_subscription()` — Set up initial subscription
+- `send_welcome_email()` — Trigger welcome email (mocked)
+- `validate_onboarding_data()` — Validate onboarding form data
+- Company-scoped operations
 
 ---
 
@@ -271,71 +277,50 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ═══════════════════════════════════════════════════════════════════════════════
 
 ## BUILDER 1 → STATUS
-**File:** `backend/api/support.py`
-**Status:** DONE
-**Unit Test:** PASS (32 tests, 0 failures)
-**Test File:** `tests/unit/test_support.py`
-**Pushed:** YES
-**Commit:** 29c96e5
+**File:** `backend/services/support_service.py`
+**Status:** PENDING
+**Unit Test:** NOT RUN
+**Test File:** `tests/unit/test_support_service.py`
+**Pushed:** NO
+**Commit:** N/A
 **Initiative Files:** NONE
-**Notes:**
-- Implemented Support Ticket API with 6 endpoints:
-  - POST /support/tickets — Create new support ticket
-  - GET /support/tickets — List tickets with filtering (status, channel, assignee)
-  - GET /support/tickets/{id} — Get ticket details
-  - PUT /support/tickets/{id} — Update ticket (status, category, assignee, AI fields)
-  - POST /support/tickets/{id}/escalate — Escalate ticket to manager
-  - POST /support/tickets/{id}/messages — Add message to ticket
-- All endpoints include proper input validation, error handling, and structured logging
-- Company-scoped data access (RLS enforcement) - users can only access tickets from their company
-- Type hints and docstrings on all functions and classes
-- Tests cover: schema validation, enum values, helper functions, auth requirements, UUID validation, pagination
+**Notes:** Waiting to start
 
 ---
 
 ## BUILDER 2 → STATUS
-**File:** backend/api/dashboard.py
-**Status:** DONE
-**Unit Test:** PASS (15/15 tests)
-**Test File:** tests/unit/test_dashboard.py
-**Pushed:** YES
+**File:** `backend/services/analytics_service.py`
+**Status:** PENDING
+**Unit Test:** NOT RUN
+**Test File:** `tests/unit/test_analytics_service.py`
+**Pushed:** NO
+**Commit:** N/A
 **Initiative Files:** NONE
-**Notes:** Built 5 dashboard endpoints: GET /dashboard/stats, GET /dashboard/activity, GET /dashboard/metrics, GET /dashboard/tickets/summary, GET /dashboard/team/performance. All with date range filtering and company-scoped data access (RLS). Type hints and docstrings on all functions. Error handling on all external calls.
+**Notes:** Waiting to start
 
 ---
 
 ## BUILDER 3 → STATUS
-**File:** `backend/api/billing.py`
-**Status:** DONE
-**Unit Test:** PASS (22/22 tests)
-**Test File:** `tests/unit/test_billing.py`
-**Pushed:** YES
-**Commit:** 7989098
+**File:** `backend/services/billing_service.py`
+**Status:** PENDING
+**Unit Test:** NOT RUN
+**Test File:** `tests/unit/test_billing_service.py`
+**Pushed:** NO
+**Commit:** N/A
 **Initiative Files:** NONE
-**Notes:** Built 6 billing endpoints: GET /billing/subscription, PUT /billing/subscription, GET /billing/invoices, GET /billing/invoices/{id}, POST /billing/payment-method, GET /billing/usage. All with company-scoped data access (RLS). Type hints and docstrings on all functions. Error handling on all external calls. CRITICAL: Stripe is NEVER called without a pending_approval record - payment processing is mocked. Manager/admin role validation for sensitive operations (subscription update, payment method). Plan tier pricing configuration included (mini=$1000, parwa=$2500, parwa_high=$4500/month).
+**Notes:** Waiting to start
 
 ---
 
 ## BUILDER 4 → STATUS
-**File:** `backend/api/compliance.py`
-**Status:** DONE
-**Unit Test:** PASS (37 tests, 0 failures)
-**Test File:** `tests/unit/test_compliance_api.py`
-**Pushed:** YES
-**Commit:** 47f7115
+**File:** `backend/services/onboarding_service.py`
+**Status:** PENDING
+**Unit Test:** NOT RUN
+**Test File:** `tests/unit/test_onboarding_service.py`
+**Pushed:** NO
+**Commit:** N/A
 **Initiative Files:** NONE
-**Notes:**
-- Implemented Compliance API with 6 endpoints:
-  - POST /compliance/gdpr/export — Request GDPR data export
-  - POST /compliance/gdpr/delete — Request GDPR data deletion
-  - GET /compliance/requests — List compliance requests with filtering
-  - GET /compliance/audit-log — Get audit log entries with filtering
-  - GET /compliance/audit-log/{id} — Get specific audit entry
-  - POST /compliance/retention/check — Check data retention status
-- All endpoints include proper input validation, error handling, and structured logging
-- Company-scoped data access (RLS enforcement)
-- Type hints and docstrings on all functions and classes
-- Tests cover: schemas, enums, helper functions, auth requirements, UUID validation, pagination, filtering
+**Notes:** Waiting to start
 
 ---
 
@@ -343,164 +328,7 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ## TESTER AGENT → VERIFICATION
 ═══════════════════════════════════════════════════════════════════════════════
 
-**Status:** ✅ ALL VERIFICATIONS PASSED
-
-**Verification Date:** 2026-03-28
-**Tester:** Tester Agent
-
----
-
-### STEP 1: FILE EXISTENCE CHECK ✅
-
-| Builder | File | Status | Size |
-|---------|------|--------|------|
-| Builder 1 | `backend/api/support.py` | ✅ EXISTS | 19,200 bytes |
-| Builder 2 | `backend/api/dashboard.py` | ✅ EXISTS | 26,450 bytes |
-| Builder 3 | `backend/api/billing.py` | ✅ EXISTS | 28,002 bytes |
-| Builder 4 | `backend/api/compliance.py` | ✅ EXISTS | 22,278 bytes |
-
-**Test Files:**
-| Test File | Status | Size |
-|-----------|--------|------|
-| `tests/unit/test_support.py` | ✅ EXISTS | 16,536 bytes |
-| `tests/unit/test_dashboard.py` | ✅ EXISTS | 17,902 bytes |
-| `tests/unit/test_billing.py` | ✅ EXISTS | 26,323 bytes |
-| `tests/unit/test_compliance_api.py` | ✅ EXISTS | 19,279 bytes |
-
----
-
-### STEP 2: UNIT TEST RESULTS ✅
-
-| Builder | Test File | Tests | Status |
-|---------|-----------|-------|--------|
-| Builder 1 | `tests/unit/test_support.py` | 32 | ✅ ALL PASS |
-| Builder 2 | `tests/unit/test_dashboard.py` | 15 | ✅ ALL PASS |
-| Builder 3 | `tests/unit/test_billing.py` | 22 | ✅ ALL PASS |
-| Builder 4 | `tests/unit/test_compliance_api.py` | 37 | ✅ ALL PASS |
-| **Total Day 2 Tests** | | **106** | ✅ **ALL PASS** |
-
-**Test Details:**
-
-**test_support.py (32 tests):**
-- TestTicketEnums: 4 tests ✅
-- TestSupportAPIEndpoints: 12 tests ✅
-- TestHelperFunctions: 4 tests ✅
-- TestEndpointsWithoutAuth: 6 tests ✅
-- TestInvalidUUIDHandling: 4 tests ✅
-- TestPaginationValidation: 2 tests ✅
-
-**test_dashboard.py (15 tests):**
-- TestDashboardEndpointsAuthRequired: 5 tests ✅
-- TestDashboardInputValidation: 2 tests ✅
-- TestDashboardStatsWithAuth: 1 test ✅
-- TestActivityFeedWithAuth: 1 test ✅
-- TestKPIMetricsWithAuth: 1 test ✅
-- TestTicketSummaryWithAuth: 1 test ✅
-- TestTeamPerformanceWithAuth: 1 test ✅
-- TestDateFiltering: 1 test ✅
-- Helper functions: 2 tests ✅
-
-**test_billing.py (22 tests):**
-- TestBillingEndpointsAuthRequired: 6 tests ✅
-- TestHelperFunctions: 6 tests ✅
-- TestSubscriptionEndpoints: 2 tests ✅
-- TestSubscriptionUpdate: 2 tests ✅
-- TestPaymentMethodEndpoint: 2 tests ✅
-- TestUsageEndpoint: 2 tests ✅
-- Helper functions: 2 tests ✅
-
-**test_compliance_api.py (37 tests):**
-- TestComplianceEnums: 2 tests ✅
-- TestComplianceAPIEndpoints: 11 tests ✅
-- TestHelperFunctions: 4 tests ✅
-- TestEndpointsWithoutAuth: 6 tests ✅
-- TestInvalidUUIDHandling: 1 test ✅
-- TestPaginationValidation: 4 tests ✅
-- TestRequestTypeFiltering: 2 tests ✅
-- TestAuditLogFiltering: 4 tests ✅
-- TestRetentionCheckValidation: 1 test ✅
-- TestListResponseSchemas: 2 tests ✅
-
----
-
-### STEP 3: INTEGRATION TEST RESULTS ✅
-
-| Test File | Tests | Status |
-|-----------|-------|--------|
-| `test_rls.py` | 2 | ✅ PASS |
-| `test_week1_foundation.py` | 5 | ✅ PASS |
-| `test_week2_database.py` | 5 (3 skipped) | ✅ PASS |
-| **Total Integration** | **10 passed, 3 skipped** | ✅ **PASS** |
-
-**RLS Tests:**
-- ✅ test_rls_sql_syntax_and_completeness PASSED
-- ✅ test_rls_logic_separation PASSED
-
----
-
-### STEP 4: FULL TEST SUITE ✅
-
-```
-================== 422 passed, 3 skipped, 18 warnings in 3.28s ==================
-```
-
-**Test Summary:**
-- Total tests: 425
-- Passed: 422
-- Skipped: 3 (database/Redis integration tests - services not available)
-- Failed: 0
-
----
-
-### STEP 5: CODE QUALITY CHECKS ✅
-
-| Check | support.py | dashboard.py | billing.py | compliance.py |
-|-------|------------|--------------|------------|---------------|
-| Functions with type hints | 8/8 ✅ | 7/7 ✅ | 11/11 ✅ | 8/8 ✅ |
-| Docstrings present | 23 ✅ | 27 ✅ | 36 ✅ | 27 ✅ |
-| No hardcoded passwords | ✅ | ✅ | ✅ | ✅ |
-| No hardcoded API keys | ✅ | ✅ | ✅ | ✅ |
-| No Stripe keys | ✅ | ✅ | ✅ | ✅ |
-| No hardcoded secrets | ✅ | ✅ | ✅ | ✅ |
-
----
-
-### STEP 6: CRITICAL TESTS ✅
-
-| Test | Expected | Status |
-|------|----------|--------|
-| RLS CROSS-TENANT: client_A JWT cannot query client_B data | 0 rows | ✅ VERIFIED |
-| REFUND GATE: Stripe NOT called without pending_approval | No Stripe call | ✅ VERIFIED |
-
-**Evidence from billing.py:**
-```python
-# Line 5: CRITICAL: Stripe is NEVER called without a pending_approval record
-# Line 390: CRITICAL: Stripe is NOT called directly. A pending_approval record must exist
-# Line 447: # NOTE: We do NOT call Stripe here. The pending_approval workflow handles payment.
-# Line 678: # In production, this would create a pending_approval record before any Stripe call
-```
-
----
-
-### CONCLUSION
-
-**✅ ALL BUILDERS VERIFIED SUCCESSFULLY**
-
-- All 4 builder files exist at correct paths
-- All unit tests pass (106/106 for Day 2)
-- All integration tests pass (10/10, 3 skipped for missing services)
-- Full test suite passes (422 passed, 3 skipped)
-- Code quality standards met:
-  - Type hints on all functions
-  - Docstrings on all functions/classes
-  - Error handling on external calls
-- No security issues found (no hardcoded secrets)
-- Critical tests verified:
-  - RLS cross-tenant isolation ✅
-  - Stripe gate (no calls without pending_approval) ✅
-- Git push confirmed
-
-**Week 4 Day 2 is COMPLETE** ✅
+**Status:** PENDING — Waiting for all builders to complete
 
 ---
 
