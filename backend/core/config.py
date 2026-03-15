@@ -294,9 +294,19 @@ class ConfigManager:
         if self._config is not None:
             return self._config
         
+        # Normalize environment value (map common aliases)
+        env_raw = os.getenv("ENVIRONMENT", "development").lower()
+        env_mapping = {
+            "test": "testing",
+            "dev": "development",
+            "prod": "production",
+            "stage": "staging",
+        }
+        env_normalized = env_mapping.get(env_raw, env_raw)
+        
         # Load from environment variables
         self._config = AppConfig(
-            environment=os.getenv("ENVIRONMENT", "development"),
+            environment=env_normalized,
             debug=os.getenv("DEBUG", "false").lower() == "true",
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             host=os.getenv("HOST", "0.0.0.0"),

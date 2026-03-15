@@ -530,6 +530,29 @@ class TestEnvironmentVariables:
             assert config.api_keys.get_key("google_ai_key") == "google_test_key"
             assert config.api_keys.get_key("cerebras_key") == "cerebras_test_key"
             assert config.api_keys.get_key("groq_key") == "groq_test_key"
+    
+    def test_environment_alias_mapping(self):
+        """Test that environment aliases are mapped correctly"""
+        # Test "test" -> "testing"
+        with patch.dict(os.environ, {"ENVIRONMENT": "test"}):
+            manager = ConfigManager()
+            manager._config = None
+            config = manager.load()
+            assert config.environment == Environment.TESTING
+        
+        # Test "dev" -> "development"
+        with patch.dict(os.environ, {"ENVIRONMENT": "dev"}):
+            manager = ConfigManager()
+            manager._config = None
+            config = manager.load()
+            assert config.environment == Environment.DEVELOPMENT
+        
+        # Test "prod" -> "production"
+        with patch.dict(os.environ, {"ENVIRONMENT": "prod"}):
+            manager = ConfigManager()
+            manager._config = None
+            config = manager.load()
+            assert config.environment == Environment.PRODUCTION
 
 
 # Run tests if executed directly
