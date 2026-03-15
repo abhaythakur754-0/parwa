@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     # ─────────────────────────────────────────────────────────────
     stripe_secret_key: Optional[SecretStr] = Field(default=None, alias="STRIPE_SECRET_KEY")
     stripe_publishable_key: Optional[str] = Field(default=None, alias="STRIPE_PUBLISHABLE_KEY")
+    stripe_webhook_secret: Optional[SecretStr] = Field(default=None, alias="STRIPE_WEBHOOK_SECRET")
+
+    # ─────────────────────────────────────────────────────────────
+    # SHOPIFY
+    # ─────────────────────────────────────────────────────────────
+    shopify_webhook_secret: Optional[SecretStr] = Field(default=None, alias="SHOPIFY_WEBHOOK_SECRET")
 
     # ─────────────────────────────────────────────────────────────
     # SMS/VOICE (Bird)
