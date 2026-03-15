@@ -1,16 +1,19 @@
-# AGENT_COMMS.md — Week 4 Day 1
-# Last updated: 2026-03-27
-# Current status: WEEK 4 STARTED
+# AGENT_COMMS.md — Week 4 Day 2
+# Last updated: 2026-03-28
+# Current status: WEEK 4 DAY 2 STARTED
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 4 DAY 1 PLAN
+## MANAGER → WEEK 4 DAY 2 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
-Date: 2026-03-27
+Date: 2026-03-28
 
 > **Phase: Phase 2 — Core AI Engine (API Layer)**
-> Week 3 is COMPLETE. All models, schemas, security, and Smart Router are built.
-> Week 4 builds the API routes and services. Today: Auth API and License API.
+> Day 1 is COMPLETE ✅ — Auth API, License API, Auth Core, License Manager all built.
+> 316 tests passing. All builders verified.
+>
+> Day 2: Building Support, Dashboard, Billing, and Compliance APIs.
+> All 4 API routes are independent — build in parallel.
 >
 > **CRITICAL REMINDER:** You CANNOT use Docker locally. Write tests with mocked databases.
 > Check `.github/workflows/ci.yml` for CI requirements. Code must pass GitHub Actions.
@@ -35,7 +38,7 @@ You are **Builder Agent 1**. Your job: build ONE file, run unit test, fix until 
 5. Build the file (type hints, docstrings, error handling)
 6. Run: `pytest [test file] -v`
 7. If FAIL → fix and re-run (stay in loop until PASS)
-8. If PASS → `git add [file] && git commit -m "Week 4 Day 1: Builder 1 - [description]" && git push origin main`
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 2: Builder 1 - [description]" && git push origin main`
 9. Write status in `## BUILDER 1 → STATUS` below
 
 **CODE QUALITY:**
@@ -59,7 +62,7 @@ You are **Builder Agent 2**. Your job: build ONE file, run unit test, fix until 
 5. Build the file (type hints, docstrings, error handling)
 6. Run: `pytest [test file] -v`
 7. If FAIL → fix and re-run (stay in loop until PASS)
-8. If PASS → `git add [file] && git commit -m "Week 4 Day 1: Builder 2 - [description]" && git push origin main`
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 2: Builder 2 - [description]" && git push origin main`
 9. Write status in `## BUILDER 2 → STATUS` below
 
 **CODE QUALITY:**
@@ -82,7 +85,7 @@ You are **Builder Agent 3**. Your job: build ONE file, run unit test, fix until 
 5. Build the file (type hints, docstrings, error handling)
 6. Run: `pytest [test file] -v`
 7. If FAIL → fix and re-run (stay in loop until PASS)
-8. If PASS → `git add [file] && git commit -m "Week 4 Day 1: Builder 3 - [description]" && git push origin main`
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 2: Builder 3 - [description]" && git push origin main`
 9. Write status in `## BUILDER 3 → STATUS` below
 
 **CODE QUALITY:**
@@ -105,7 +108,7 @@ You are **Builder Agent 4**. Your job: build ONE file, run unit test, fix until 
 5. Build the file (type hints, docstrings, error handling)
 6. Run: `pytest [test file] -v`
 7. If FAIL → fix and re-run (stay in loop until PASS)
-8. If PASS → `git add [file] && git commit -m "Week 4 Day 1: Builder 4 - [description]" && git push origin main`
+8. If PASS → `git add [file] && git commit -m "Week 4 Day 2: Builder 4 - [description]" && git push origin main`
 9. Write status in `## BUILDER 4 → STATUS` below
 
 **CODE QUALITY:**
@@ -162,97 +165,104 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → DAY 1 TASK ASSIGNMENTS
+## MANAGER → DAY 2 TASK ASSIGNMENTS
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### AGENT 1
 
-**File:** `backend/api/auth.py`
-**What:** Authentication API routes — login, register, refresh, logout
+**File:** `backend/api/support.py`
+**What:** Support ticket API routes — create, list, update, escalate tickets
 **Depends On:**
+- `backend/models/support_ticket.py` (Wk3)
 - `backend/models/user.py` (Wk3)
-- `shared/core_functions/security.py` (Wk1)
-- `shared/core_functions/config.py` (Wk1)
+- `backend/models/company.py` (Wk3)
 - `backend/app/database.py` (Wk2)
-**Test File:** `tests/unit/test_auth.py`
-**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Authentication section
+- `backend/core/auth.py` (Wk4 Day 1)
+**Test File:** `tests/unit/test_support.py`
+**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Support Ticket section
 **Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `POST /auth/register` — Create new user with hashed password
-- `POST /auth/login` — Validate credentials, return JWT
-- `POST /auth/refresh` — Refresh JWT token
-- `POST /auth/logout` — Invalidate token (Redis blacklist)
+- `POST /support/tickets` — Create new support ticket
+- `GET /support/tickets` — List tickets with filtering (status, priority, assignee)
+- `GET /support/tickets/{id}` — Get ticket details
+- `PUT /support/tickets/{id}` — Update ticket (status, priority, assignee)
+- `POST /support/tickets/{id}/escalate` — Escalate ticket to manager
+- `POST /support/tickets/{id}/messages` — Add message to ticket
 - Input validation on all endpoints
-- Rate limiting on login endpoint (use `security/rate_limiter.py`)
+- Company-scoped data access (RLS enforcement)
 
 ---
 
 ### AGENT 2
 
-**File:** `backend/api/licenses.py`
-**What:** License management API routes — activate, validate, list
+**File:** `backend/api/dashboard.py`
+**What:** Dashboard API routes — stats, metrics, activity feed
 **Depends On:**
-- `backend/models/license.py` (Wk3)
-- `backend/models/subscription.py` (Wk3)
-- `shared/core_functions/config.py` (Wk1)
+- `backend/models/*.py` (all models from Wk3)
 - `backend/app/database.py` (Wk2)
-**Test File:** `tests/unit/test_licenses.py`
-**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — License Management section
+- `backend/core/auth.py` (Wk4 Day 1)
+**Test File:** `tests/unit/test_dashboard.py`
+**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Dashboard section
 **Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `POST /licenses/activate` — Activate license key for company
-- `GET /licenses/validate` — Validate license status
-- `GET /licenses/` — List all licenses for authenticated company
-- `PUT /licenses/{id}` — Update license settings
-- Check license expiry before validation
-- Tier enforcement (Mini vs PARWA vs PARWA High)
+- `GET /dashboard/stats` — Get company statistics (tickets, users, SLA)
+- `GET /dashboard/activity` — Get recent activity feed
+- `GET /dashboard/metrics` — Get KPI metrics (response time, resolution rate)
+- `GET /dashboard/tickets/summary` — Get ticket summary by status/priority
+- `GET /dashboard/team/performance` — Get team performance metrics
+- Date range filtering on all metrics endpoints
+- Company-scoped data access
 
 ---
 
 ### AGENT 3
 
-**File:** `backend/core/auth.py`
-**What:** Core authentication logic — JWT handling, password hashing, token validation
+**File:** `backend/api/billing.py`
+**What:** Billing API routes — subscriptions, invoices, payment methods
 **Depends On:**
-- `shared/core_functions/security.py` (Wk1)
-- `shared/core_functions/config.py` (Wk1)
-- `shared/utils/cache.py` (Wk2) — for token blacklist
-**Test File:** `tests/unit/test_auth_core.py`
-**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Authentication section
+- `backend/models/subscription.py` (Wk3)
+- `backend/models/company.py` (Wk3)
+- `backend/app/database.py` (Wk2)
+- `backend/core/auth.py` (Wk4 Day 1)
+**Test File:** `tests/unit/test_billing.py`
+**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Billing section
 **Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `create_access_token(user_id: UUID, expires_delta: timedelta) -> str`
-- `verify_token(token: str) -> dict`
-- `hash_password(password: str) -> str`
-- `verify_password(plain: str, hashed: str) -> bool`
-- `blacklist_token(token: str) -> None` — Redis-based
-- `is_token_blacklisted(token: str) -> bool`
-- JWT decoding with proper error handling
+- `GET /billing/subscription` — Get current subscription details
+- `PUT /billing/subscription` — Update subscription tier
+- `GET /billing/invoices` — List invoices
+- `GET /billing/invoices/{id}` — Get invoice details
+- `POST /billing/payment-method` — Add payment method (mocked)
+- `GET /billing/usage` — Get current usage vs limits
+- **CRITICAL:** Never call Stripe without pending_approval record
+- Tier upgrade/downgrade logic
 
 ---
 
 ### AGENT 4
 
-**File:** `backend/core/license_manager.py`
-**What:** Core license management logic — validation, tier checking, expiry handling
+**File:** `backend/api/compliance.py`
+**What:** Compliance API routes — GDPR requests, data export, audit logs
 **Depends On:**
-- `backend/models/license.py` (Wk3)
-- `backend/models/subscription.py` (Wk3)
-- `shared/core_functions/config.py` (Wk1)
-**Test File:** `tests/unit/test_license_manager.py`
-**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — License Management section
+- `backend/models/compliance_request.py` (Wk3)
+- `backend/models/audit_trail.py` (Wk3)
+- `backend/app/database.py` (Wk2)
+- `backend/core/auth.py` (Wk4 Day 1)
+**Test File:** `tests/unit/test_compliance_api.py`
+**BDD:** `docs/bdd_scenarios/parwa_bdd.md` — Compliance section
 **Pass Criteria:** Unit test passes, pushed to GitHub, CI green
 
 **Responsibilities:**
-- `validate_license(license_key: str) -> LicenseValidationResult`
-- `get_license_tier(company_id: UUID) -> str` — "mini", "parwa", "parwa_high"
-- `check_feature_allowed(company_id: UUID, feature: str) -> bool`
-- `is_license_expired(license: License) -> bool`
-- `get_license_limits(tier: str) -> dict` — max_calls, max_users, etc.
-- Feature gating based on tier
+- `POST /compliance/gdpr/export` — Request data export (GDPR)
+- `POST /compliance/gdpr/delete` — Request data deletion (GDPR)
+- `GET /compliance/requests` — List compliance requests
+- `GET /compliance/audit-log` — Get audit log entries
+- `GET /compliance/audit-log/{id}` — Get specific audit entry
+- `POST /compliance/retention/check` — Check data retention status
+- Request status tracking (pending, processing, completed)
 
 ---
 
@@ -261,115 +271,46 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ═══════════════════════════════════════════════════════════════════════════════
 
 ## BUILDER 1 → STATUS
-**File:** `backend/api/auth.py`
-**Status:** DONE
-**Unit Test:** PASS (17 tests, 0 failures)
-**Test File:** `tests/unit/test_auth.py`
-**Pushed:** YES
-**Commit:** 978572d
-**Initiative Files:**
-- `backend/api/__init__.py` (updated with docstring)
-- `tests/unit/conftest.py` (updated with test environment setup)
-**Notes:**
-- Implemented Authentication API with 5 endpoints:
-  - POST /auth/register — Create new user with hashed password
-  - POST /auth/login — Validate credentials, return JWT (with rate limiting)
-  - POST /auth/refresh — Refresh JWT token
-  - POST /auth/logout — Invalidate token (Redis blacklist)
-  - GET /auth/me — Get current user profile
-- Added rate limiting on login endpoint (5 attempts/minute per IP)
-- Implemented Redis-based token blacklisting for logout
-- All endpoints include proper input validation, error handling, and structured logging
-- Tests use FastAPI dependency override for proper mocking
-- Test coverage includes: validation errors, authentication success/failure, rate limiting, token refresh, logout, profile retrieval
+**File:** [fill after completion]
+**Status:** PENDING / IN PROGRESS / DONE / STUCK
+**Unit Test:** [PASS/FAIL]
+**Test File:** tests/unit/test_support.py
+**Pushed:** [YES/NO]
+**Initiative Files:** [any extra files or NONE]
+**Notes:** [anything relevant]
 
 ---
 
 ## BUILDER 2 → STATUS
-**File:** `backend/api/licenses.py`
-**Status:** DONE
-**Unit Test:** PASS (25 tests, 0 failures)
-**Test File:** `tests/unit/test_licenses.py`
-**Pushed:** YES
-**Commit:** fde092c (initial), 0323a67 (CI fixes)
-**Initiative Files:**
-- `backend/api/__init__.py` (created)
-- `tests/unit/conftest.py` (created)
-- `conftest.py` (updated for test environment)
-- `shared/core_functions/config.py` (added sentry_dsn field)
-- `tests/unit/test_config.py` (fixed for current Settings)
-- `tests/unit/test_monitoring.py` (fixed for current Settings)
-- `tests/integration/test_week2_database.py` (improved skip logic)
-**Notes:**
-- Implemented License Management API with 5 endpoints:
-  - POST /licenses/activate — Activate license key
-  - GET /licenses/validate — Validate license status
-  - GET /licenses/ — List all licenses for company
-  - PUT /licenses/{id} — Update license settings
-  - GET /licenses/tier-limits/{tier} — Get tier limits
-- Added TIER_LIMITS configuration for mini, parwa, parwa_high tiers
-- Added license key generation utility (generate_license_key)
-- All endpoints include proper input validation, error handling, and logging
-- Tests use FastAPI dependency override for proper mocking
-- CI Fix: Added sentry_dsn field to Settings class for Sentry monitoring
-- CI Fix: Updated unit tests to match current Settings implementation
-- CI Fix: Integration tests now properly skip when DB/Redis not available
-- All 222 tests pass (4 skipped - integration tests without services)
+**File:** [fill after completion]
+**Status:** PENDING / IN PROGRESS / DONE / STUCK
+**Unit Test:** [PASS/FAIL]
+**Test File:** tests/unit/test_dashboard.py
+**Pushed:** [YES/NO]
+**Initiative Files:** [any extra files or NONE]
+**Notes:** [anything relevant]
 
 ---
 
 ## BUILDER 3 → STATUS
-**File:** `backend/core/auth.py`
-**Status:** DONE
-**Unit Test:** PASS (36 tests, 0 failures)
-**Test File:** `tests/unit/test_auth_core.py`
-**Pushed:** YES
-**Commit:** b524936
-**Initiative Files:**
-- `backend/core/__init__.py` (created)
-**Notes:**
-- Implemented Core Authentication Module with all required functions:
-  - `create_access_token(user_id: UUID, expires_delta: timedelta) -> str`
-  - `verify_token(token: str) -> dict`
-  - `hash_password(password: str) -> str`
-  - `verify_password(plain: str, hashed: str) -> bool`
-  - `blacklist_token(token: str) -> None` — Redis-based
-  - `is_token_blacklisted(token: str) -> bool`
-  - Async versions: `blacklist_token_async`, `is_token_blacklisted_async`
-- All functions include proper type hints, docstrings, and error handling
-- Token blacklisting uses Redis with 24-hour TTL
-- Fail-open behavior for Redis unavailability
-- All 258 tests pass (4 skipped - integration tests without services)
+**File:** [fill after completion]
+**Status:** PENDING / IN PROGRESS / DONE / STUCK
+**Unit Test:** [PASS/FAIL]
+**Test File:** tests/unit/test_billing.py
+**Pushed:** [YES/NO]
+**Initiative Files:** [any extra files or NONE]
+**Notes:** [anything relevant]
 
 ---
 
 ## BUILDER 4 → STATUS
-**File:** `backend/core/license_manager.py`
-**Status:** DONE
-**Unit Test:** PASS (60 tests, 0 failures)
-**Test File:** `tests/unit/test_license_manager.py`
-**Pushed:** YES
-**Commit:** fcb1324
-**Initiative Files:** NONE
-**Notes:**
-- Implemented Core License Management Module with all required functions:
-  - `validate_license(license_key: str) -> LicenseValidationResult`
-  - `validate_license_object(license_obj: License) -> LicenseValidationResult`
-  - `get_license_tier(company_id: UUID) -> str` — returns "mini", "parwa", "parwa_high"
-  - `get_license_tier_from_license(license_obj) -> str`
-  - `check_feature_allowed(company_id: UUID, feature: str) -> bool`
-  - `check_feature_allowed_for_tier(tier: str, feature: str) -> bool`
-  - `is_license_expired(license: License) -> bool`
-  - `is_license_expired_by_date(expires_at: datetime) -> bool`
-  - `get_license_limits(tier: str) -> dict` — max_calls, max_users, etc.
-  - `get_all_tier_limits() -> dict`
-  - `validate_subscription(subscription: Subscription) -> bool`
-  - `get_tier_from_subscription(subscription) -> str`
-  - `compare_tiers(tier1, tier2) -> int`, `is_upgrade()`, `is_downgrade()`
-- Added TIER_LIMITS configuration for mini, parwa, parwa_high tiers
-- Added FEATURE_TIER_ACCESS mapping for feature gating
-- All functions include proper type hints, docstrings, and error handling
-- All 316 tests pass (60 new license_manager tests)
+**File:** [fill after completion]
+**Status:** PENDING / IN PROGRESS / DONE / STUCK
+**Unit Test:** [PASS/FAIL]
+**Test File:** tests/unit/test_compliance_api.py
+**Pushed:** [YES/NO]
+**Initiative Files:** [any extra files or NONE]
+**Notes:** [anything relevant]
 
 ---
 
@@ -377,96 +318,7 @@ You are the **Assistance Agent**. You help when builders are stuck.
 ## TESTER AGENT → VERIFICATION
 ═══════════════════════════════════════════════════════════════════════════════
 
-**Status:** ✅ ALL VERIFICATIONS PASSED
-
-**Verification Date:** 2026-03-27
-**Tester Commit:** bd0a4ae (CI fixes), 93821ea (docs update)
-
----
-
-### FILE EXISTENCE CHECK ✅
-
-| Builder | File | Status |
-|---------|------|--------|
-| Builder 1 | `backend/api/auth.py` | ✅ EXISTS (17,247 bytes) |
-| Builder 2 | `backend/api/licenses.py` | ✅ EXISTS (14,665 bytes) |
-| Builder 3 | `backend/core/auth.py` | ✅ EXISTS (7,437 bytes) |
-| Builder 4 | `backend/core/license_manager.py` | ✅ EXISTS (14,367 bytes) |
-
----
-
-### UNIT TEST RESULTS ✅
-
-| Test File | Tests | Status |
-|-----------|-------|--------|
-| `tests/unit/test_auth.py` | 17 | ✅ PASS |
-| `tests/unit/test_auth_core.py` | 36 | ✅ PASS |
-| `tests/unit/test_licenses.py` | 25 | ✅ PASS |
-| `tests/unit/test_license_manager.py` | 60 | ✅ PASS |
-| **Total Builder Tests** | **138** | ✅ **ALL PASS** |
-
-**Full Test Suite:** 316 passed, 3 skipped, 17 warnings
-
----
-
-### CODE QUALITY CHECKS ✅
-
-| Check | Status |
-|-------|--------|
-| Type hints on all functions | ✅ PASS |
-| Docstrings on all functions/classes | ✅ PASS |
-| Error handling on external calls | ✅ PASS |
-| No hardcoded secrets | ✅ PASS |
-
-**Type Hints Summary:**
-- `backend/api/auth.py`: 8 async functions with typed parameters (Pydantic models)
-- `backend/api/licenses.py`: 7 async functions with typed parameters
-- `backend/core/auth.py`: 8 functions with full type hints (params + return)
-- `backend/core/license_manager.py`: 15 functions with full type hints
-
----
-
-### INTEGRATION TEST RESULTS ✅
-
-| Test File | Tests | Status |
-|-----------|-------|--------|
-| `test_week1_foundation.py` | 5 | ✅ PASS |
-| `test_week2_database.py` | 5 (3 skipped - no DB/Redis) | ✅ PASS |
-| `test_rls.py` | 2 | ✅ PASS |
-| **Total Integration** | **10 passed, 3 skipped** | ✅ **PASS** |
-
-**RLS Tests:**
-- ✅ RLS SQL syntax and completeness verified
-- ✅ RLS logic separation verified (tenant isolation)
-
----
-
-### CRITICAL TESTS ✅
-
-| Test | Expected | Status |
-|------|----------|--------|
-| RLS CROSS-TENANT: client_A JWT cannot query client_B data | 0 rows | ✅ VERIFIED |
-| No Stripe calls without pending_approval | No call | ✅ N/A (no payment code yet) |
-
----
-
-### FIXES APPLIED
-
-**Commit bd0a4ae:**
-1. `test_auth.py`: Updated `test_logout_missing_auth` and `test_me_missing_auth` to accept both 401 and 403 status codes for FastAPI version compatibility
-2. `test_auth_core.py`: Added `@patch` decorator to `test_verify_token_invalid_format` to prevent event loop closure errors
-
----
-
-### CONCLUSION
-
-**ALL BUILDERS VERIFIED SUCCESSFULLY**
-- All 4 builder files exist at correct paths
-- All unit tests pass (138/138)
-- All integration tests pass (10/10, 3 skipped for missing services)
-- Code quality standards met
-- No security issues found
-- Git push confirmed
+**Status:** PENDING — Waiting for all builders to report DONE
 
 ---
 
