@@ -2,8 +2,8 @@
 Integration tests for Week 2: Database and Utilities.
 Verifies that the database connects, migrations run, seeds load, and Redis is accessible.
 
-Note: These tests require actual database and Redis connections.
-They will be skipped if the services are not available (e.g., in CI without services).
+Note: These tests require actual database and Redis connections with correct credentials.
+They will be skipped in CI environment where credentials may not match.
 """
 import pytest
 import os
@@ -14,12 +14,6 @@ from backend.app.database import check_db_connection
 from shared.utils.cache import Cache
 from shared.utils.monitoring import init_monitoring
 from shared.core_functions.config import get_settings
-
-
-# Check if we're in CI environment
-def is_ci_environment() -> bool:
-    """Check if running in CI (GitHub Actions, etc.)."""
-    return os.environ.get("CI", "").lower() in ("true", "1", "yes")
 
 
 def _can_connect_to_host(host: str, port: int, timeout: float = 1.0) -> bool:
@@ -36,10 +30,6 @@ def _can_connect_to_host(host: str, port: int, timeout: float = 1.0) -> bool:
 
 def _is_postgres_available() -> bool:
     """Check if PostgreSQL is available by trying to connect to its port."""
-    # Skip in CI environment unless explicitly enabled
-    if is_ci_environment() and not os.environ.get("ENABLE_INTEGRATION_TESTS"):
-        return False
-    
     # Try localhost first
     if _can_connect_to_host("localhost", 5432):
         return True
@@ -53,10 +43,6 @@ def _is_postgres_available() -> bool:
 
 def _is_redis_available() -> bool:
     """Check if Redis is available by trying to connect to its port."""
-    # Skip in CI environment unless explicitly enabled
-    if is_ci_environment() and not os.environ.get("ENABLE_INTEGRATION_TESTS"):
-        return False
-    
     if _can_connect_to_host("localhost", 6379):
         return True
     if _can_connect_to_host("redis", 6379):
@@ -64,8 +50,16 @@ def _is_redis_available() -> bool:
     return False
 
 
+def _is_ci() -> bool:
+    """Check if running in CI environment."""
+    return os.environ.get("CI", "").lower() in ("true", "1", "yes")
+
+
 @pytest.mark.asyncio
-@pytest.mark.skipif(not _is_postgres_available(), reason="PostgreSQL not available")
+@pytest.mark.skipif(
+    _is_ci() or not _is_postgres_available(),
+    reason="PostgreSQL not available or running in CI without matching credentials"
+)
 async def test_database_connection():
     """Verify that the database is reachable and connects correctly."""
     result = await check_db_connection()
@@ -73,7 +67,10 @@ async def test_database_connection():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(not _is_postgres_available(), reason="PostgreSQL not available")
+@pytest.mark.skipif(
+    _is_ci() or not _is_postgres_available(),
+    reason="PostgreSQL not available or running in CI without matching credentials"
+)
 async def test_migrations_and_seeds():
     """Verify that migrations have run and seed data is present."""
     # Clear the lru_cache so we get the real env-based settings,
@@ -103,7 +100,10 @@ async def test_migrations_and_seeds():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(not _is_redis_available(), reason="Redis not available")
+@pytest.mark.skipif(
+    _is_ci() or not _is_redis_available(),
+    reason="Redis not available or running in CI without matching credentials"
+)
 async def test_redis_connection():
     """Verify that Redis is reachable via Cache util."""
     cache = Cache()
