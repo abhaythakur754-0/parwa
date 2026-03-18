@@ -126,7 +126,7 @@ class TestConfidenceWeights:
     def test_weights_sum_to_100_percent(self):
         """Test that weights sum to exactly 100% (1.0)."""
         total = sum(WEIGHTS.values())
-        assert total == 1.0
+        assert total == pytest.approx(1.0)
 
     def test_response_quality_weight_is_40_percent(self):
         """Test response_quality weight is 40%."""
