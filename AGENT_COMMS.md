@@ -1,6 +1,6 @@
 # AGENT_COMMS.md — Week 6 Day 1-5
-# Last updated: Manager Agent
-# Current status: WEEK 6 DAY 1 READY TO START
+# Last updated: Builder 3 Agent (Zai)
+# Current status: WEEK 6 DAY 3 COMPLETE - Builder 3 DONE
 
 ═══════════════════════════════════════════════════════════════════════════════
 ## MANAGER → WEEK 6 PLAN
@@ -145,9 +145,58 @@ Written by: Manager Agent
 |---------|-----|--------|-------|-------|--------|
 | Builder 1 | Day 1 | PENDING | T1 chain (4 files) | NOT RUN | NO |
 | Builder 2 | Day 2 | PENDING | T2 chain (6 files) | NOT RUN | NO |
-| Builder 3 | Day 3 | PENDING | Confidence (2 files) | NOT RUN | NO |
+| Builder 3 | Day 3 | ✅ DONE | Confidence (2 files + __init__) | 97 PASS | YES |
 | Builder 4 | Day 4 | PENDING | Sentiment (2 files) | NOT RUN | NO |
 | Builder 5 | Day 5 | PENDING | Cold start (2 files) | NOT RUN | NO |
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 3 (DAY 3) → STATUS
+═══════════════════════════════════════════════════════════════════════════════
+Date: Week 6 Day 3 Complete
+Agent: Builder 3 (Zai)
+
+### File 1: shared/confidence/thresholds.py
+- Status: ✅ DONE
+- Unit Test: PASS
+- GitHub CI: GREEN ✅
+- Commit: 006d6c8
+- Notes: GRADUATE=95%, ESCALATE=70% thresholds, ConfidenceAction enum
+
+### File 2: shared/confidence/scorer.py
+- Status: ✅ DONE
+- Unit Test: PASS
+- GitHub CI: GREEN ✅
+- Commit: 006d6c8
+- Notes: Weighted avg scoring (40%+30%+20%+10%=100%)
+
+### File 3: shared/confidence/__init__.py
+- Status: ✅ DONE (Initiative)
+- Notes: Module initialization with exports
+
+### File 4: tests/unit/test_confidence_scorer.py
+- Status: ✅ DONE
+- Unit Test: 55 PASS, 0 FAIL
+- GitHub CI: GREEN ✅
+- Commit: 006d6c8
+- Notes: Thresholds, weights, scoring, integration tests
+
+### File 5: tests/unit/test_compliance.py
+- Status: ✅ DONE (Enhanced)
+- Unit Test: 26 PASS, 0 FAIL
+- GitHub CI: GREEN ✅
+- Commit: 006d6c8
+- Notes: Enhanced with edge cases, integration tests
+
+### File 6: tests/unit/test_audit_trail.py
+- Status: ✅ DONE (Enhanced)
+- Unit Test: 16 PASS, 0 FAIL
+- GitHub CI: GREEN ✅
+- Commit: 006d6c8
+- Notes: Enhanced with edge cases, integration tests
+
+### Overall Day Status: ✅ DONE — All files pushed, 97 tests PASS, CI GREEN
 
 ---
 
