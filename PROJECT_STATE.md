@@ -55,8 +55,6 @@
 - KB: document ingest and retrieve round trip works
 - MCP client: initialises and connects to registry
 
-**Notes:** Phase 2 core infrastructure complete. Ready for TRIVYA techniques.
-
 ---
 
 ## Week 4 Summary | COMPLETE ✅
@@ -64,14 +62,12 @@
 **Total Tests:** 649+ tests passing
 
 **Days Completed:**
-- Day 1: Auth API, License API, Auth Core, License Manager — 138 tests
-- Day 2: Support API, Dashboard API, Billing API, Compliance API — 106 tests
-- Day 3: Support Service, Analytics Service, Billing Service, Onboarding Service — 136 tests
-- Day 4: Jarvis API, Analytics API, Integrations API, Notification Service — 137 tests
-- Day 5: Shopify/Stripe Webhooks, Compliance Service, SLA/License/User Services — 132 tests
+- Day 1: Auth API, License API, Auth Core, License Manager
+- Day 2: Support API, Dashboard API, Billing API, Compliance API
+- Day 3: Support Service, Analytics Service, Billing Service, Onboarding Service
+- Day 4: Jarvis API, Analytics API, Integrations API, Notification Service
+- Day 5: Shopify/Stripe Webhooks, Compliance Service, SLA/License/User Services
 - Day 6: AI/ML Integration Layer
-
-**Notes:** Phase 2 API layer complete.
 
 ---
 
