@@ -12,147 +12,50 @@
 ---
 
 ## Current Position
-- **Week**: 5
-- **Day**: 6 of 6 COMPLETE ✅ (Tester Verified)
-- **Phase**: Phase 2 — Core AI Engine (GSD State Engine + Smart Router + KB + MCP)
-- **Overall Status**: WEEK 5 COMPLETE ✅ TESTER PASS
+- **Week**: 6
+- **Day**: 1 of 5
+- **Phase**: Phase 2 — Core AI Engine (TRIVYA Techniques + Confidence + Sentiment)
+- **Overall Status**: WEEK 6 DAY 1 READY TO START 🟡
 
 ---
 
-## Week 5 — Day 1 | Date: Complete ✅
+## Week 6 — Day 1 | Date: [pending]
 
 **Files Assigned:**
-- `shared/gsd_engine/state_schema.py` (Builder 1) — ✅ COMPLETE
-- `shared/gsd_engine/state_engine.py` (Builder 1) — ✅ COMPLETE
-- `shared/gsd_engine/context_health.py` (Builder 1) — ✅ COMPLETE
-- `shared/gsd_engine/compression.py` (Builder 1) — ✅ COMPLETE
-- `tests/unit/test_gsd_engine.py` (Builder 1) — ✅ COMPLETE
+- `shared/trivya_techniques/tier1/clara.py` (Builder 1) — PENDING
+- `shared/trivya_techniques/tier1/crp.py` (Builder 1) — PENDING
+- `shared/trivya_techniques/tier1/gsd_integration.py` (Builder 1) — PENDING
+- `shared/trivya_techniques/orchestrator.py` (Builder 1) — PENDING
+- `tests/unit/test_trivya_tier1.py` (Builder 1) — PENDING
 
-**Files Completed:** All 5 files + __init__.py
+**Files Completed:** None yet
 
-**Unit Tests:** 17 tests PASS
+**Unit Tests:** None yet
 
 **Errors This Day:** None
 
-**Initiative Files:** shared/gsd_engine/__init__.py (proactively added)
+**Initiative Files:** None
 
-**Notes:** GSD State Engine chain complete. All components: state_schema, state_engine, context_health, compression working together.
-
----
-
-## Week 5 — Day 2 | Date: Complete ✅
-
-**Files Assigned:**
-- `shared/smart_router/tier_config.py` (Builder 2) — ✅ COMPLETE
-- `shared/smart_router/failover.py` (Builder 2) — ✅ COMPLETE
-- `shared/smart_router/complexity_scorer.py` (Builder 2) — ✅ COMPLETE
-- `shared/smart_router/router.py` (Builder 2) — ✅ COMPLETE
-- `tests/unit/test_smart_router.py` (Builder 2) — ✅ COMPLETE
-
-**Files Completed:** All 4 files
-
-**Unit Tests:** 37 tests PASS
-
-**Errors This Day:** None
-
-**Notes:** Smart Router chain complete. All components: tier_config, failover, complexity_scorer, router working together for AI tier selection and provider failover.
-
----
-
-## Week 5 — Day 3 | Date: Complete ✅
-
-**Files Assigned:**
-- `shared/knowledge_base/vector_store.py` (Builder 3) — ✅ COMPLETE
-- `shared/knowledge_base/kb_manager.py` (Builder 3) — ✅ COMPLETE
-- `shared/knowledge_base/hyde.py` (Builder 3) — ✅ COMPLETE
-- `shared/knowledge_base/multi_query.py` (Builder 3) — ✅ COMPLETE
-- `shared/knowledge_base/rag_pipeline.py` (Builder 3) — ✅ COMPLETE
-- `tests/unit/test_knowledge_base.py` (Builder 3) — ✅ COMPLETE
-
-**Files Completed:** All 6 files + __init__.py
-
-**Unit Tests:** 38 tests PASS
-
-**Errors This Day:** None
-
-**Initiative Files:** shared/knowledge_base/__init__.py (proactively added)
-
-**Notes:** Knowledge Base chain complete. All components: vector_store, kb_manager, hyde, multi_query, rag_pipeline working together for RAG-based retrieval.
-
----
-
-## Week 5 — Day 4 | Date: Complete ✅
-
-**Files Assigned:**
-- `shared/mcp_client/client.py` (Builder 4) — ✅ COMPLETE
-- `shared/mcp_client/auth.py` (Builder 4) — ✅ COMPLETE
-- `shared/mcp_client/registry.py` (Builder 4) — ✅ COMPLETE
-- `tests/unit/test_mcp_client.py` (Builder 4) — ✅ COMPLETE
-
-**Files Completed:** All 4 files + __init__.py
-
-**Unit Tests:** 34 tests PASS
-
-**Errors This Day:** None
-
-**Initiative Files:** shared/mcp_client/__init__.py (proactively added)
-
-**Notes:** MCP Client chain complete. All components: client initialization, JWT authentication, service registry with discovery working together.
-
----
-
-## Week 5 — Day 5 | Date: Complete ✅
-
-**Files Assigned:**
-- `tests/unit/test_pricing_optimizer.py` (Builder 5) — ✅ COMPLETE
-- `docs/architecture_decisions/004_openrouter.md` (Builder 5) — ✅ COMPLETE
-- `backend/api/webhook_malformation_handler.py` (Builder 5) — ✅ COMPLETE
-- `tests/unit/test_webhook_malformation_handler.py` (Builder 5) — ✅ COMPLETE
-
-**Files Completed:** All assigned files
-
-**Unit Tests:** PASS
-
-**Errors This Day:** None
-
-**Notes:** Pricing optimizer tests, OpenRouter architecture documentation, and webhook malformation handler complete.
-
----
-
-## Week 5 — Day 6 (Tester Agent) | Date: Complete ✅
-
-**Test Command:** pytest tests/unit/test_gsd_engine.py tests/unit/test_smart_router.py tests/unit/test_knowledge_base.py tests/unit/test_mcp_client.py -v
-
-**Unit Tests:** 126 passed, 0 failed (Week 5 specific)
-
-**Total Tests Run:** 261+ passed
-
-**Integration Tests:** 7 passed
-
-**Critical Tests:**
-- RLS Cross-Tenant Isolation: ✅ PASS
-- Refund Approval Gate: ✅ PASS (Stripe NOT called without approval)
-- Audit Trail Immutability: ✅ PASS
-
-**GitHub CI:** All latest commits GREEN ✅
-
-**Week 5 Status:** ✅ COMPLETE — TESTER VERIFIED
+**Notes:** Week 6 Day 1 started. TRIVYA Tier 1 chain to be built.
 
 ---
 
 ## Week 5 Summary | COMPLETE ✅
 
-**Total Week 5 Tests:** 126+ tests (unit + integration)
+**Files Built:**
+- GSD State Engine (state_schema, state_engine, context_health, compression)
+- Smart Router chain (tier_config, failover, complexity_scorer, router)
+- Knowledge Base chain (vector_store, kb_manager, hyde, multi_query, rag_pipeline)
+- MCP Client chain (client, auth, registry)
+- Pricing tests + docs + webhook handler
 
-**Days Completed:**
-- Day 1: GSD State Engine (state_schema, state_engine, context_health, compression) — 17 tests
-- Day 2: Smart Router (tier_config, failover, complexity_scorer, router) — 37 tests
-- Day 3: Knowledge Base (vector_store, kb_manager, hyde, multi_query, rag_pipeline) — 38 tests
-- Day 4: MCP Client (client, auth, registry) — 34 tests
-- Day 5: Pricing tests, OpenRouter docs, Webhook malformation handler — tests pass
-- Day 6: Tester Agent verification — All critical tests PASS
+**Key Achievements:**
+- GSD: 20-message conversation compresses to under 200 tokens
+- Smart Router: FAQ routes to Light tier, refund routes to Heavy tier
+- KB: document ingest and retrieve round trip works
+- MCP client: initialises and connects to registry
 
-**Notes:** Phase 2 Core AI Engine foundation complete. GSD Engine for conversation state management, Smart Router for AI tier selection, Knowledge Base for RAG retrieval, and MCP Client for tool integration all functional. Ready for Week 6.
+**Notes:** Phase 2 core infrastructure complete. Ready for TRIVYA techniques.
 
 ---
 
@@ -166,9 +69,9 @@
 - Day 3: Support Service, Analytics Service, Billing Service, Onboarding Service — 136 tests
 - Day 4: Jarvis API, Analytics API, Integrations API, Notification Service — 137 tests
 - Day 5: Shopify/Stripe Webhooks, Compliance Service, SLA/License/User Services — 132 tests
-- Day 6: AI/ML Integration Layer (Smart Router, Tier Manager, Prompt Templates, Conversation Manager)
+- Day 6: AI/ML Integration Layer
 
-**Notes:** Phase 2 API layer complete. All backend APIs, services, and webhooks functional with company-scoped access. Ready for Week 5.
+**Notes:** Phase 2 API layer complete.
 
 ---
 
@@ -177,22 +80,22 @@
 **Total Tests:** 118 tests (105 unit + 13 integration)
 
 **Files Built:**
-- All 9 SQLAlchemy ORM models with proper constraints
-- All Pydantic V2 schemas for request/response validation
-- Security infrastructure (RLS policies, HMAC verification, KYC/AML)
-- Smart Router with multi-provider failover
-- FastAPI application with middleware, dependencies, health endpoints
+- All 9 SQLAlchemy ORM models
+- All Pydantic V2 schemas
+- Security infrastructure (RLS, HMAC, KYC/AML)
+- Smart Router with failover
+- FastAPI application
 
 ---
 
 ## Week 2 Summary | COMPLETE ✅
 
 **Files Built:**
-- Database layer with SQLAlchemy and Alembic
-- 5 Core migrations (Initial Schema, Agent Lightning, Audit Trail, Compliance, Feature Flags)
-- Seed data for clients, users, tickets
-- All shared utilities (monitoring, cache, storage, message_queue)
-- Infrastructure containerization (Docker, CI/CD)
+- Database layer with SQLAlchemy/Alembic
+- 5 Core migrations
+- Seed data
+- Shared utilities
+- CI/CD infrastructure
 
 ---
 
@@ -201,42 +104,9 @@
 **Files Built:**
 - Monolithic Repository structure
 - Pydantic Settings configuration
-- JSON struct-logged logger with PII redaction
-- AI safety guardrails (prompt injection block, refund HITL gate)
-- Enterprise compliance logging and GDPR tooling
-- BDD Markdown rulebooks for all 3 variants
-
----
-
-## Cumulative File Registry
-
-| File | Week | Day | Status |
-|------|------|-----|--------|
-| All Week 1-4 files | 1-4 | All | ✅ Completed |
-| `shared/gsd_engine/__init__.py` | 5 | 1 | ✅ Complete |
-| `shared/gsd_engine/state_schema.py` | 5 | 1 | ✅ Complete |
-| `shared/gsd_engine/state_engine.py` | 5 | 1 | ✅ Complete |
-| `shared/gsd_engine/context_health.py` | 5 | 1 | ✅ Complete |
-| `shared/gsd_engine/compression.py` | 5 | 1 | ✅ Complete |
-| `tests/unit/test_gsd_engine.py` | 5 | 1 | ✅ Complete |
-| `shared/smart_router/__init__.py` | 5 | 2 | ✅ Complete |
-| `shared/smart_router/tier_config.py` | 5 | 2 | ✅ Complete |
-| `shared/smart_router/failover.py` | 5 | 2 | ✅ Complete |
-| `shared/smart_router/complexity_scorer.py` | 5 | 2 | ✅ Complete |
-| `shared/smart_router/router.py` | 5 | 2 | ✅ Complete |
-| `tests/unit/test_smart_router.py` | 5 | 2 | ✅ Complete |
-| `shared/knowledge_base/__init__.py` | 5 | 3 | ✅ Complete |
-| `shared/knowledge_base/vector_store.py` | 5 | 3 | ✅ Complete |
-| `shared/knowledge_base/kb_manager.py` | 5 | 3 | ✅ Complete |
-| `shared/knowledge_base/hyde.py` | 5 | 3 | ✅ Complete |
-| `shared/knowledge_base/multi_query.py` | 5 | 3 | ✅ Complete |
-| `shared/knowledge_base/rag_pipeline.py` | 5 | 3 | ✅ Complete |
-| `tests/unit/test_knowledge_base.py` | 5 | 3 | ✅ Complete |
-| `shared/mcp_client/__init__.py` | 5 | 4 | ✅ Complete |
-| `shared/mcp_client/client.py` | 5 | 4 | ✅ Complete |
-| `shared/mcp_client/auth.py` | 5 | 4 | ✅ Complete |
-| `shared/mcp_client/registry.py` | 5 | 4 | ✅ Complete |
-| `tests/unit/test_mcp_client.py` | 5 | 4 | ✅ Complete |
+- JSON logger with PII redaction
+- AI safety guardrails
+- BDD rulebooks for all 3 variants
 
 ---
 
@@ -244,7 +114,8 @@
 
 - Zai single-agent-per-day workflow
 - Within-day dependency allowed, across-day forbidden
-- GitHub CI runs automatically on every push — no Docker in Zai
+- GitHub CI runs automatically on every push
 - Tester Agent runs once at end of full week
-- Smart Router selects Light/Medium/Heavy tier per query complexity
+- Smart Router selects Light/Medium/Heavy tier per query
 - GSD Engine manages conversation state with compression
+- TRIVYA uses Tier 1 (CLARA, CRP) for all queries, Tier 2 for complex queries
