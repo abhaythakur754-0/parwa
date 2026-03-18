@@ -12,21 +12,21 @@
 ---
 
 ## Current Position
-- **Week**: 5
+- **Week**: 6
 - **Day**: 1 of 5
-- **Phase**: Phase 2 — Core AI Engine (GSD State Engine + Smart Router + KB + MCP)
-- **Overall Status**: WEEK 5 DAY 1 READY TO START 🟡
+- **Phase**: Phase 2 — Core AI Engine (TRIVYA Techniques + Confidence + Sentiment)
+- **Overall Status**: WEEK 6 DAY 1 READY TO START 🟡
 
 ---
 
-## Week 5 — Day 1 | Date: [pending]
+## Week 6 — Day 1 | Date: [pending]
 
 **Files Assigned:**
-- `shared/gsd_engine/state_schema.py` (Builder 1) — PENDING
-- `shared/gsd_engine/state_engine.py` (Builder 1) — PENDING
-- `shared/gsd_engine/context_health.py` (Builder 1) — PENDING
-- `shared/gsd_engine/compression.py` (Builder 1) — PENDING
-- `tests/unit/test_gsd_engine.py` (Builder 1) — PENDING
+- `shared/trivya_techniques/tier1/clara.py` (Builder 1) — PENDING
+- `shared/trivya_techniques/tier1/crp.py` (Builder 1) — PENDING
+- `shared/trivya_techniques/tier1/gsd_integration.py` (Builder 1) — PENDING
+- `shared/trivya_techniques/orchestrator.py` (Builder 1) — PENDING
+- `tests/unit/test_trivya_tier1.py` (Builder 1) — PENDING
 
 **Files Completed:** None yet
 
@@ -36,7 +36,26 @@
 
 **Initiative Files:** None
 
-**Notes:** Week 5 Day 1 started. GSD State Engine chain to be built.
+**Notes:** Week 6 Day 1 started. TRIVYA Tier 1 chain to be built.
+
+---
+
+## Week 5 Summary | COMPLETE ✅
+
+**Files Built:**
+- GSD State Engine (state_schema, state_engine, context_health, compression)
+- Smart Router chain (tier_config, failover, complexity_scorer, router)
+- Knowledge Base chain (vector_store, kb_manager, hyde, multi_query, rag_pipeline)
+- MCP Client chain (client, auth, registry)
+- Pricing tests + docs + webhook handler
+
+**Key Achievements:**
+- GSD: 20-message conversation compresses to under 200 tokens
+- Smart Router: FAQ routes to Light tier, refund routes to Heavy tier
+- KB: document ingest and retrieve round trip works
+- MCP client: initialises and connects to registry
+
+**Notes:** Phase 2 core infrastructure complete. Ready for TRIVYA techniques.
 
 ---
 
@@ -52,7 +71,7 @@
 - Day 5: Shopify/Stripe Webhooks, Compliance Service, SLA/License/User Services — 132 tests
 - Day 6: AI/ML Integration Layer (Smart Router, Tier Manager, Prompt Templates, Conversation Manager)
 
-**Notes:** Phase 2 API layer complete. All backend APIs, services, and webhooks functional with company-scoped access. Ready for Week 5.
+**Notes:** Phase 2 API layer complete. All backend APIs, services, and webhooks functional with company-scoped access.
 
 ---
 
@@ -96,23 +115,22 @@
 
 | File | Week | Day | Status |
 |------|------|-----|--------|
-| All Week 1-4 files | 1-4 | All | ✅ Completed |
-| `shared/gsd_engine/state_schema.py` | 5 | 1 | ⏳ Pending |
-| `shared/gsd_engine/state_engine.py` | 5 | 1 | ⏳ Pending |
-| `shared/gsd_engine/context_health.py` | 5 | 1 | ⏳ Pending |
-| `shared/gsd_engine/compression.py` | 5 | 1 | ⏳ Pending |
-| `shared/smart_router/tier_config.py` | 5 | 2 | ⏳ Pending |
-| `shared/smart_router/failover.py` | 5 | 2 | ⏳ Pending |
-| `shared/smart_router/complexity_scorer.py` | 5 | 2 | ⏳ Pending |
-| `shared/smart_router/router.py` | 5 | 2 | ⏳ Pending |
-| `shared/knowledge_base/vector_store.py` | 5 | 3 | ⏳ Pending |
-| `shared/knowledge_base/kb_manager.py` | 5 | 3 | ⏳ Pending |
-| `shared/knowledge_base/hyde.py` | 5 | 3 | ⏳ Pending |
-| `shared/knowledge_base/multi_query.py` | 5 | 3 | ⏳ Pending |
-| `shared/knowledge_base/rag_pipeline.py` | 5 | 3 | ⏳ Pending |
-| `shared/mcp_client/client.py` | 5 | 4 | ⏳ Pending |
-| `shared/mcp_client/auth.py` | 5 | 4 | ⏳ Pending |
-| `shared/mcp_client/registry.py` | 5 | 4 | ⏳ Pending |
+| All Week 1-5 files | 1-5 | All | ✅ Completed |
+| `shared/trivya_techniques/tier1/clara.py` | 6 | 1 | ⏳ Pending |
+| `shared/trivya_techniques/tier1/crp.py` | 6 | 1 | ⏳ Pending |
+| `shared/trivya_techniques/tier1/gsd_integration.py` | 6 | 1 | ⏳ Pending |
+| `shared/trivya_techniques/orchestrator.py` | 6 | 1 | ⏳ Pending |
+| `shared/trivya_techniques/tier2/trigger_detector.py` | 6 | 2 | ⏳ Pending |
+| `shared/trivya_techniques/tier2/chain_of_thought.py` | 6 | 2 | ⏳ Pending |
+| `shared/trivya_techniques/tier2/react.py` | 6 | 2 | ⏳ Pending |
+| `shared/trivya_techniques/tier2/reverse_thinking.py` | 6 | 2 | ⏳ Pending |
+| `shared/trivya_techniques/tier2/step_back.py` | 6 | 2 | ⏳ Pending |
+| `shared/trivya_techniques/tier2/thread_of_thought.py` | 6 | 2 | ⏳ Pending |
+| `shared/confidence/thresholds.py` | 6 | 3 | ⏳ Pending |
+| `shared/confidence/scorer.py` | 6 | 3 | ⏳ Pending |
+| `shared/sentiment/analyzer.py` | 6 | 4 | ⏳ Pending |
+| `shared/sentiment/routing_rules.py` | 6 | 4 | ⏳ Pending |
+| `shared/knowledge_base/cold_start.py` | 6 | 5 | ⏳ Pending |
 
 ---
 
@@ -124,3 +142,4 @@
 - Tester Agent runs once at end of full week
 - Smart Router selects Light/Medium/Heavy tier per query complexity
 - GSD Engine manages conversation state with compression
+- TRIVYA uses Tier 1 (CLARA, CRP) for all queries, Tier 2 for complex queries
