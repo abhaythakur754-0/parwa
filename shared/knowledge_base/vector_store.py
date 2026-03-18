@@ -373,7 +373,9 @@ class VectorStore:
         similarity = dot_product / (magnitude1 * magnitude2)
 
         # Normalize to 0-1 range (cosine similarity can be -1 to 1)
-        return (similarity + 1) / 2
+        # Clamp to [0, 1] to handle floating point precision errors
+        normalized = (similarity + 1) / 2
+        return max(0.0, min(1.0, normalized))
 
     def _matches_filter(
         self,
