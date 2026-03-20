@@ -80,10 +80,13 @@ class TestShopifyClient:
     @pytest.mark.asyncio
     async def test_connect_missing_api_key(self):
         """Test connection fails without API key."""
-        client = ShopifyClient(store_url="test.myshopify.com", api_key=None)
-        result = await client.connect()
-        assert result is False
-        assert client.state == ShopifyClientState.ERROR
+        with patch("shared.integrations.shopify_client.settings") as mock_settings:
+            mock_settings.shopify_api_key = None
+            mock_settings.shopify_api_secret = None
+            client = ShopifyClient(store_url="test.myshopify.com", api_key=None)
+            result = await client.connect()
+            assert result is False
+            assert client.state == ShopifyClientState.ERROR
 
     @pytest.mark.asyncio
     async def test_disconnect(self, shopify_client):
@@ -504,18 +507,28 @@ class TestTwilioClient:
     @pytest.mark.asyncio
     async def test_connect_missing_account_sid(self):
         """Test connection fails without Account SID."""
-        client = TwilioClient(account_sid=None, auth_token="test")
-        result = await client.connect()
-        assert result is False
-        assert client.state == TwilioClientState.ERROR
+        with patch("shared.integrations.twilio_client.settings") as mock_settings:
+            mock_settings.twilio_account_sid = None
+            mock_settings.twilio_auth_token = None
+            mock_settings.twilio_api_key = None
+            mock_settings.twilio_phone_number = None
+            client = TwilioClient(account_sid=None, auth_token="test")
+            result = await client.connect()
+            assert result is False
+            assert client.state == TwilioClientState.ERROR
 
     @pytest.mark.asyncio
     async def test_connect_missing_auth_token(self):
         """Test connection fails without Auth Token."""
-        client = TwilioClient(account_sid="ACtest", auth_token=None)
-        result = await client.connect()
-        assert result is False
-        assert client.state == TwilioClientState.ERROR
+        with patch("shared.integrations.twilio_client.settings") as mock_settings:
+            mock_settings.twilio_account_sid = "ACtest"
+            mock_settings.twilio_auth_token = None
+            mock_settings.twilio_api_key = None
+            mock_settings.twilio_phone_number = None
+            client = TwilioClient(account_sid="ACtest", auth_token=None)
+            result = await client.connect()
+            assert result is False
+            assert client.state == TwilioClientState.ERROR
 
     @pytest.mark.asyncio
     async def test_send_sms(self, twilio_client):
@@ -554,14 +567,22 @@ class TestTwilioClient:
     @pytest.mark.asyncio
     async def test_send_sms_missing_from_number(self):
         """Test SMS fails without sender number."""
-        client = TwilioClient(
-            account_sid="ACtest",
-            auth_token="test",
-            phone_number=None,
-        )
-        await client.connect()
-        with pytest.raises(ValueError, match="Sender phone number"):
-            await client.send_sms(to="+19876543210", body="Test")
+        with patch("shared.integrations.twilio_client.settings") as mock_settings:
+            mock_settings.twilio_account_sid = "ACtest"
+            mock_settings.twilio_auth_token = MagicMock()
+            mock_settings.twilio_auth_token.get_secret_value = MagicMock(
+                return_value="test_token"
+            )
+            mock_settings.twilio_api_key = None
+            mock_settings.twilio_phone_number = None
+            client = TwilioClient(
+                account_sid="ACtest",
+                auth_token="test",
+                phone_number=None,
+            )
+            await client.connect()
+            with pytest.raises(ValueError, match="Sender phone number"):
+                await client.send_sms(to="+19876543210", body="Test")
 
     @pytest.mark.asyncio
     async def test_get_message_status(self, twilio_client):
