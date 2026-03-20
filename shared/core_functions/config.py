@@ -61,10 +61,35 @@ class Settings(BaseSettings):
     # ─────────────────────────────────────────────────────────────
     # SHOPIFY
     # ─────────────────────────────────────────────────────────────
+    shopify_api_key: Optional[SecretStr] = Field(default=None, alias="SHOPIFY_API_KEY")
+    shopify_api_secret: Optional[SecretStr] = Field(default=None, alias="SHOPIFY_API_SECRET")
+    shopify_store_url: Optional[str] = Field(default=None, alias="SHOPIFY_STORE_URL")
     shopify_webhook_secret: Optional[SecretStr] = Field(default=None, alias="SHOPIFY_WEBHOOK_SECRET")
 
     # ─────────────────────────────────────────────────────────────
-    # SMS/VOICE (Bird)
+    # PADDLE (Merchant of Record)
+    # ─────────────────────────────────────────────────────────────
+    paddle_client_token: Optional[SecretStr] = Field(default=None, alias="PADDLE_CLIENT_TOKEN")
+    paddle_api_key: Optional[SecretStr] = Field(default=None, alias="PADDLE_API_KEY")
+    paddle_webhook_secret: Optional[SecretStr] = Field(default=None, alias="PADDLE_WEBHOOK_SECRET")
+
+    # ─────────────────────────────────────────────────────────────
+    # TWILIO (SMS/Voice)
+    # ─────────────────────────────────────────────────────────────
+    twilio_account_sid: Optional[str] = Field(default=None, alias="TWILIO_ACCOUNT_SID")
+    twilio_auth_token: Optional[SecretStr] = Field(default=None, alias="TWILIO_AUTH_TOKEN")
+    twilio_api_key: Optional[SecretStr] = Field(default=None, alias="TWILIO_API_KEY")
+    twilio_phone_number: Optional[str] = Field(default=None, alias="TWILIO_PHONE_NUMBER")
+
+    # ─────────────────────────────────────────────────────────────
+    # ZENDESK (Ticketing)
+    # ─────────────────────────────────────────────────────────────
+    zendesk_email: Optional[str] = Field(default=None, alias="ZENDESK_EMAIL")
+    zendesk_api_key: Optional[SecretStr] = Field(default=None, alias="ZENDESK_API_KEY")
+    zendesk_subdomain: Optional[str] = Field(default=None, alias="ZENDESK_SUBDOMAIN")
+
+    # ─────────────────────────────────────────────────────────────
+    # SMS/VOICE (Bird) - Legacy
     # ─────────────────────────────────────────────────────────────
     bird_api_key: Optional[SecretStr] = Field(default=None, alias="BIRD_API_KEY")
     bird_access_key: Optional[str] = Field(default=None, alias="BIRD_ACCESS_KEY")
