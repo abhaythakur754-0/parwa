@@ -733,12 +733,344 @@ pytest tests/unit/test_mini_workflows.py -v
 
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
+<<<<<<< HEAD
 | Builder 1 | Day 1 | ⏳ PENDING | Base agents (11 files) | - | NO |
 | Builder 2 | Day 2 | ⏳ WAITING D1 | Refund + Config (6 files) | - | NO |
 | Builder 3 | Day 3 | ⏳ WAITING D1 | Mini agents (6 files) | - | NO |
 | Builder 4 | Day 4 | ⏳ WAITING D1 | Mini agents (5 files) | - | NO |
 | Builder 5 | Day 5 | ⏳ WAITING D3-D4 | Tools + Workflows (13 files) | - | NO |
 | Tester | Day 6 | ⏳ WAITING ALL | Full validation | - | NO |
+=======
+| Builder 1 | Day 1 | ✅ DONE | Base + Knowledge (7 files) | PASS (45 tests) | YES |
+| Builder 2 | Day 2 | ✅ DONE | Integrations (6 files) | PASS (39 tests) | YES |
+| Builder 3 | Day 3 | ✅ DONE | E-commerce + CRM + Analytics + Monitoring (6 files) | PASS (57 tests) | YES |
+| Builder 4 | Day 4 | ✅ DONE | Compliance + Guardrails (8 files) | PASS (83 tests) | YES |
+| Builder 5 | Day 5 | ✅ DONE | Monitoring + Integration Tests (4 files) | PASS (38 tests) | YES |
+| Tester | Day 6 | ✅ DONE | Full validation | PASS (262 tests) | YES |
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 2 → DAY 2 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Builder 2 - Week 8 Day 2
+
+**File 1:** `mcp_servers/integrations/__init__.py`
+- Status: ✅ DONE
+- GitHub CI: GREEN ✅
+- Commit: 14b982c
+- Notes: Module init with EmailServer, VoiceServer, ChatServer, TicketingServer exports
+
+**File 2:** `mcp_servers/integrations/email_server.py`
+- Status: ✅ DONE
+- GitHub CI: GREEN ✅
+- Commit: 54cf779
+- Notes: EmailServer with send_email, send_bulk_emails, get_email_status, get_templates tools
+- Features: Brevo integration, template support, bulk sending, delivery tracking
+
+**File 3:** `mcp_servers/integrations/voice_server.py`
+- Status: ✅ DONE
+- GitHub CI: GREEN ✅
+- Commit: bc80a0d
+- Notes: VoiceServer with make_call, send_sms, get_call_status, validate_phone_number tools
+- Features: Twilio integration, SMS/Voice, phone validation
+
+**File 4:** `mcp_servers/integrations/chat_server.py`
+- Status: ✅ DONE
+- GitHub CI: GREEN ✅
+- Commit: 6d453f3
+- Notes: ChatServer with send_message, create_conversation, get_conversation_history, mark_read tools
+- Features: In-memory conversation management, message history, read receipts
+
+**File 5:** `mcp_servers/integrations/ticketing_server.py`
+- Status: ✅ DONE
+- GitHub CI: GREEN ✅
+- Commit: cd0af7b
+- Notes: TicketingServer with create_ticket, update_ticket, get_ticket, add_comment, search_tickets tools
+- Features: Zendesk integration, ticket management, comment handling
+
+**File 6:** `tests/unit/test_mcp_integrations.py`
+- Status: ✅ DONE
+- Unit Test: 39 tests PASS
+- GitHub CI: GREEN ✅
+- Commit: 7c578e9
+- Notes: Complete test coverage for all 4 integration servers + integration tests
+
+**Tests Verified:**
+- All 4 servers start correctly
+- All servers respond within 2 seconds (CRITICAL)
+- EmailServer sends emails via mocked Brevo
+- VoiceServer sends SMS via mocked Twilio
+- ChatServer creates conversations and sends messages
+- TicketingServer creates and manages tickets
+- Multi-channel workflow works end-to-end
+
+**Overall Day Status:** ✅ DONE — 6 files built, 39 tests passing, pushed to GitHub
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 3 → DAY 3 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Builder 3 - Week 8 Day 3
+
+**File 1:** `mcp_servers/integrations/ecommerce_server.py`
+- Status: ✅ DONE
+- Notes: EcommerceServer with get_order, get_customer, search_products, get_inventory, create_refund_request tools
+- Features:
+  - Order and customer lookup
+  - Product search with filtering
+  - Inventory management
+  - CRITICAL: Refund requests create pending_approval (NEVER executes directly)
+
+**File 2:** `mcp_servers/integrations/crm_server.py`
+- Status: ✅ DONE
+- Notes: CRMServer with get_contact, search_contacts, create_contact, update_contact, get_interaction_history tools
+- Features: Contact management, search, interaction tracking
+
+**File 3:** `mcp_servers/tools/analytics_server.py`
+- Status: ✅ DONE
+- Notes: AnalyticsServer with get_metrics, get_dashboard_data, run_report, get_realtime_stats tools
+- Features: Metrics retrieval, dashboards, reports (sales/support/customers/products), real-time stats
+
+**File 4:** `mcp_servers/tools/monitoring_server.py`
+- Status: ✅ DONE
+- Notes: MonitoringServer with get_service_status, get_alerts, acknowledge_alert, get_metrics tools
+- Features: Service health monitoring, alert management, system/application metrics
+
+**File 5:** `mcp_servers/integrations/__init__.py` (updated)
+- Status: ✅ DONE
+- Notes: Added EcommerceServer and CRMServer exports
+
+**File 6:** `mcp_servers/tools/__init__.py` (updated)
+- Status: ✅ DONE
+- Notes: Added AnalyticsServer and MonitoringServer exports
+
+**File 7:** `tests/unit/test_mcp_tools.py`
+- Status: ✅ DONE
+- Unit Test: 57 tests PASS
+- Notes: Complete test coverage for all 4 Day 3 servers
+- Critical Tests:
+  - EcommerceServer.create_refund_request creates pending_approval (NOT direct execution)
+  - All servers respond within 2 seconds (CRITICAL requirement)
+  - Integration tests verify workflow across servers
+
+**Tests Verified:**
+- All 4 servers start correctly
+- All servers respond within 2 seconds (CRITICAL)
+- EcommerceServer retrieves orders, products, inventory
+- CRMServer manages contacts and interactions
+- AnalyticsServer generates metrics and reports
+- MonitoringServer tracks service health and alerts
+- Refund request creates pending_approval (CRITICAL: never auto-executes)
+
+**Overall Day Status:** ✅ DONE — 6 files built, 57 tests passing, pushed to GitHub
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 4 → DAY 4 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Builder 4 - Week 8 Day 4
+
+**File 1:** `mcp_servers/tools/__init__.py`
+- Status: ✅ DONE
+- Notes: Module init with NotificationServer, ComplianceServer, SLAServer exports
+
+**File 2:** `mcp_servers/tools/notification_server.py`
+- Status: ✅ DONE
+- Notes: NotificationServer with send_notification, send_bulk_notifications, get_notification_preferences, update_preferences tools
+- Features: Multi-channel support (email/sms/push/in_app/webhook), user preferences, bulk notifications
+
+**File 3:** `mcp_servers/tools/compliance_server.py`
+- Status: ✅ DONE
+- Notes: ComplianceServer with check_compliance, get_jurisdiction_rules, gdpr_export, gdpr_delete tools
+- Features: GDPR compliance, jurisdiction rules, consent checking, audit logging
+
+**File 4:** `mcp_servers/tools/sla_server.py`
+- Status: ✅ DONE
+- Notes: SLAServer with calculate_sla, get_breach_predictions, escalate_ticket tools
+- Features: Multi-tier SLA, breach prediction, ticket escalation, mock ticket seeding
+
+**File 5:** `shared/guardrails/__init__.py`
+- Status: ✅ DONE
+- Notes: Guardrails module init with GuardrailsManager, GuardrailResult, ApprovalEnforcer exports
+
+**File 6:** `shared/guardrails/guardrails.py`
+- Status: ✅ DONE
+- Notes: CRITICAL - GuardrailsManager for AI output safety
+- Features:
+  - Hallucination detection (fabricated info blocking)
+  - Competitor mention blocking (configurable list)
+  - PII exposure detection (email/phone/SSN/credit card masking)
+  - Response sanitization
+
+**File 7:** `shared/guardrails/approval_enforcer.py`
+- Status: ✅ DONE
+- Notes: CRITICAL - ApprovalEnforcer for refund approval gate
+- Features:
+  - Refunds ALWAYS require approval (never auto-approve)
+  - Pending approval creation
+  - Approval verification
+  - Bypass attempt blocking and tracking
+  - Audit trail for all operations
+
+**File 8:** `tests/unit/test_mcp_servers.py`
+- Status: ✅ DONE
+- Unit Test: 38 tests PASS
+- Notes: Complete test coverage for NotificationServer, ComplianceServer, SLAServer
+
+**File 9:** `tests/unit/test_guardrails.py`
+- Status: ✅ DONE
+- Unit Test: 45 tests PASS
+- Notes: Complete test coverage for GuardrailsManager and ApprovalEnforcer
+- Critical Tests:
+  - Hallucination blocked on fabricated info
+  - Competitor mention blocked
+  - PII exposure detected
+  - Refund bypass attempt blocked
+  - Pending_approval created for refund (NOT executed)
+
+**Tests Verified:**
+- All 3 MCP servers start correctly
+- All servers respond within 2 seconds (CRITICAL)
+- NotificationServer sends notifications via multiple channels
+- ComplianceServer performs GDPR export/delete
+- SLAServer calculates SLA and predicts breaches
+- Guardrails block hallucinations, competitors, PII
+- ApprovalEnforcer creates pending_approval for refunds (NEVER executes directly)
+
+**Overall Day Status:** ✅ DONE — 8 files built, 83 tests passing, pushed to GitHub
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 5 → DAY 5 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Builder 5 - Week 8 Day 5
+
+**File 1:** `monitoring/prometheus.yml`
+- Status: ✅ DONE
+- Notes: Prometheus configuration for all MCP servers
+- Features:
+  - Scrape configs for all 10 MCP servers
+  - Backend API and GSD engine monitoring
+  - Redis and PostgreSQL exporters
+  - Node exporter for system metrics
+
+**File 2:** `monitoring/alerts.yml`
+- Status: ✅ DONE
+- Notes: Prometheus alert rules for service health
+- Features:
+  - Service availability alerts
+  - MCP server response time alerts
+  - Guardrails violation alerts (hallucination, competitor, PII)
+  - SLA breach predictions
+  - System resource alerts
+
+**File 3:** `tests/integration/test_week8_mcp.py`
+- Status: ✅ DONE
+- Unit Test: 22 tests PASS
+- Notes: Complete integration tests for all MCP servers
+- Tests:
+  - All servers start and respond within 2 seconds
+  - Knowledge servers integration (FAQ, RAG, KB)
+  - Notification and compliance workflows
+  - Guardrails integration (hallucination, competitor, PII blocking)
+  - Approval enforcer (refund bypass blocked, pending_approval created)
+
+**File 4:** `tests/integration/test_week2_gsd_kb.py`
+- Status: ✅ DONE
+- Unit Test: 16 tests PASS
+- Notes: Full AI pipeline integration tests
+- Tests:
+  - GSD state management and context health
+  - Smart router complexity scoring and routing
+  - Knowledge base ingestion and retrieval
+  - TRIVYA T1 orchestrator integration
+  - Full pipeline response time validation
+
+**Tests Verified:**
+- All 6 MCP servers (without external dependencies) start correctly
+- All servers respond within 2 seconds (CRITICAL)
+- Guardrails block hallucinations, competitors, PII
+- ApprovalEnforcer never allows direct refund execution
+- Full pipeline: Knowledge → Notification → Compliance → SLA works
+- GSD → TRIVYA → MCP → Guardrails pipeline functional
+
+**Overall Day Status:** ✅ DONE — 4 files built, 38 integration tests passing, pushed to GitHub
+
+**⚠️ TESTER: You may now start. Pull latest and run full Week 8 validation.**
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 1 → DAY 1 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Builder 1 - Week 8 Day 1
+
+**File 1:** `mcp_servers/__init__.py`
+- Status: ✅ DONE
+- Notes: Module init with BaseMCPServer, MCPServerState, ToolDefinition, ToolResult exports
+
+**File 2:** `mcp_servers/base_server.py`
+- Status: ✅ DONE
+- Notes: CRITICAL base class - all MCP servers inherit from this
+- Features:
+  - Server lifecycle (start/stop/health_check)
+  - Tool registration and routing
+  - Parameter validation against JSON schema
+  - Rate limiting (100 calls/minute)
+  - 2-second response time enforcement
+  - JSON logging
+
+**File 3:** `mcp_servers/knowledge/__init__.py`
+- Status: ✅ DONE
+- Notes: Knowledge submodule init with FAQServer, RAGServer, KBServer exports
+
+**File 4:** `mcp_servers/knowledge/faq_server.py`
+- Status: ✅ DONE
+- Notes: FAQServer with search_faqs, get_faq_by_id, get_faq_categories tools
+- Features: Relevance scoring, category filtering, 8 mock FAQs
+
+**File 5:** `mcp_servers/knowledge/rag_server.py`
+- Status: ✅ DONE
+- Notes: RAGServer with retrieve, ingest, get_collection_stats tools
+- Features: Mock retrieval, document ingestion, collection statistics
+
+**File 6:** `mcp_servers/knowledge/kb_server.py`
+- Status: ✅ DONE
+- Notes: KBServer with search, get_article, get_related_articles tools
+- Features: Relevance scoring, category/tag filtering, related articles, 8 mock articles
+
+**File 7:** `tests/unit/test_mcp_knowledge.py`
+- Status: ✅ DONE
+- Unit Test: 45 tests PASS
+- Notes: Complete test coverage including response time validation
+
+**Tests Verified:**
+- BaseMCPServer initializes correctly
+- All servers respond within 2 seconds (CRITICAL)
+- FAQ search returns relevant results
+- RAG retrieve and ingest work
+- KB search and related articles work
+- Tool registration and routing works
+- Parameter validation enforced
+
+**Overall Day Status:** ✅ DONE — 7 files built, 45 tests passing, pushed to GitHub
+
+**⚠️ BUILDERS 2-4: You may now start. Pull latest and begin Day 2-4 work.**
+>>>>>>> 9264bab6b4c2d821fbbaf7783c7524e44bd96cc7
 
 ---
 
@@ -789,6 +1121,7 @@ Day 6: Tester → Full validation → Report PASS/FAIL
 ## MINI PARWA LIMITS SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
+<<<<<<< HEAD
 | Feature | Mini PARWA Limit |
 |---------|------------------|
 | Concurrent Calls | 2 max |
@@ -797,3 +1130,175 @@ Day 6: Tester → Full validation → Report PASS/FAIL
 | Escalation Threshold | Confidence < 70% |
 | AI Tier | Light only |
 | Refund Processing | Creates pending_approval only |
+=======
+| Service | Env Var Name |
+|---------|--------------|
+| Paddle Client Token | `PADDLE_CLIENT_TOKEN` |
+| Paddle API Key | `PADDLE_API_KEY` |
+| Twilio SID | `TWILIO_ACCOUNT_SID` |
+| Twilio Token | `TWILIO_AUTH_TOKEN` |
+| Brevo | `BREVO_API_KEY` |
+| GitHub | `GITHUB_TOKEN` |
+| Shopify | `SHOPIFY_ACCESS_TOKEN` |
+
+═══════════════════════════════════════════════════════════════════════════════
+## TESTER → WEEK 8 REPORT
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Tester Agent - Week 8 Day 6
+
+=== INDIVIDUAL FILE CHECKS ===
+
+**Builder 1 (Day 1) - Base Server + Knowledge MCP:**
+- `mcp_servers/__init__.py` → ✅ PASS
+- `mcp_servers/base_server.py` → ✅ PASS (CRITICAL - all servers inherit from this)
+- `mcp_servers/knowledge/__init__.py` → ✅ PASS
+- `mcp_servers/knowledge/faq_server.py` → ✅ PASS
+- `mcp_servers/knowledge/rag_server.py` → ✅ PASS
+- `mcp_servers/knowledge/kb_server.py` → ✅ PASS
+- `tests/unit/test_mcp_knowledge.py` → ✅ PASS (45 tests)
+- Type hints: ✅ Present on all functions
+- Docstrings: ✅ Present on all classes/functions
+- Response time: ✅ All servers < 2 seconds
+
+**Builder 2 (Day 2) - Integration MCP Servers:**
+- `mcp_servers/integrations/__init__.py` → ✅ PASS
+- `mcp_servers/integrations/email_server.py` → ✅ PASS
+- `mcp_servers/integrations/voice_server.py` → ✅ PASS
+- `mcp_servers/integrations/chat_server.py` → ✅ PASS
+- `mcp_servers/integrations/ticketing_server.py` → ✅ PASS
+- `tests/unit/test_mcp_integrations.py` → ✅ PASS (39 tests)
+
+**Builder 3 (Day 3) - E-commerce + CRM + Analytics:**
+- `mcp_servers/integrations/ecommerce_server.py` → ✅ PASS (Refund creates pending_approval)
+- `mcp_servers/integrations/crm_server.py` → ✅ PASS
+- `mcp_servers/tools/__init__.py` → ✅ PASS
+- `mcp_servers/tools/analytics_server.py` → ✅ PASS
+- `mcp_servers/tools/monitoring_server.py` → ✅ PASS
+- `tests/unit/test_mcp_tools.py` → ✅ PASS (57 tests)
+
+**Builder 4 (Day 4) - Compliance + Guardrails:**
+- `mcp_servers/tools/notification_server.py` → ✅ PASS
+- `mcp_servers/tools/compliance_server.py` → ✅ PASS
+- `mcp_servers/tools/sla_server.py` → ✅ PASS
+- `shared/guardrails/__init__.py` → ✅ PASS
+- `shared/guardrails/guardrails.py` → ✅ PASS (CRITICAL)
+- `shared/guardrails/approval_enforcer.py` → ✅ PASS (CRITICAL)
+- `tests/unit/test_mcp_servers.py` → ✅ PASS (38 tests)
+- `tests/unit/test_guardrails.py` → ✅ PASS (45 tests)
+
+**Builder 5 (Day 5) - Monitoring + Integration Tests:**
+- `monitoring/prometheus.yml` → ✅ PASS
+- `monitoring/alerts.yml` → ✅ PASS
+- `tests/integration/test_week8_mcp.py` → ✅ PASS (22 tests)
+- `tests/integration/test_week2_gsd_kb.py` → ✅ PASS (16 tests)
+
+=== UNIT TEST SUITE ===
+
+**Week 8 Specific Tests:**
+- `test_mcp_knowledge.py`: 45 passed ✅
+- `test_mcp_integrations.py`: 39 passed ✅
+- `test_mcp_tools.py`: 57 passed ✅
+- `test_mcp_servers.py`: 38 passed ✅
+- `test_guardrails.py`: 45 passed ✅
+- `test_week8_mcp.py` (integration): 22 passed ✅
+- `test_week2_gsd_kb.py` (integration): 16 passed ✅
+
+**Week 8 Total: 262 tests PASSING ✅**
+
+=== CRITICAL TESTS ===
+
+**MCP Server Response Time:** ✅ PASS
+- All 11 MCP servers respond within 2 seconds (CRITICAL requirement)
+- TestAllMCPServersStart::test_all_servers_respond_within_2_seconds: PASS
+- TestMCPServerResponseTime::test_parallel_server_calls_within_limit: PASS
+
+**Hallucination Blocking:** ✅ PASS
+- Guardrails detect and block fabricated information
+- TestGuardrailsManager::test_check_hallucination_with_indicators: PASS
+- TestGuardrailsIntegration::test_hallucination_blocking_in_ai_response: PASS
+
+**Competitor Mention Blocking:** ✅ PASS
+- Configurable competitor name blocking
+- TestGuardrailsManager::test_check_competitor_mention_blocked: PASS
+- TestGuardrailsIntegration::test_competitor_blocking_in_ai_response: PASS
+
+**PII Exposure Detection:** ✅ PASS
+- Email, phone, SSN, credit card masking
+- TestGuardrailsManager::test_check_pii_exposure_*: ALL PASS
+
+**Refund Approval Gate:** ✅ PASS
+- Refunds NEVER auto-approve
+- TestApprovalEnforcer::test_create_pending_approval_never_auto_approves_refund: PASS
+- TestApprovalEnforcer::test_cannot_execute_directly: PASS
+- TestApprovalEnforcerIntegration::test_refund_bypass_blocked: PASS
+- TestApprovalEnforcerIntegration::test_no_direct_execution_method: PASS
+
+**Full Pipeline Integration:** ✅ PASS
+- GSD → TRIVYA → MCP → Guardrails pipeline works
+- TestFullAIPipeline::test_complex_refund_query_pipeline: PASS
+- TestFullPipelineIntegration::test_customer_support_full_workflow: PASS
+
+=== GITHUB CI STATUS ===
+
+Latest CI Runs: ✅ ALL SUCCESS
+- CI Pipeline | main | success | docs: Update AGENT_COMMS.md - Builder 3 Day 3 COMPLETE
+- CI Pipeline | main | success | feat(mcp): Add Builder 3 Day 3
+- CI Pipeline | main | success | docs: update AGENT_COMMS.md with Builder 5 Day 5 completion
+- CI Pipeline | main | success | test(integration): add full AI pipeline integration tests
+- CI Pipeline | main | success | docs: update AGENT_COMMS.md with Builder 4 Day 4 completion
+
+All Week 8 commits: CI GREEN ✅
+
+=== OBSERVATIONS ===
+
+1. **MCP Architecture Validated:**
+   - BaseMCPServer inheritance works correctly
+   - All 11 MCP servers start and respond properly
+   - Tool registration and routing functional
+
+2. **Guardrails Protect AI Outputs:**
+   - Hallucination blocking: WORKING
+   - Competitor mention blocking: WORKING
+   - PII exposure detection: WORKING
+
+3. **Approval Gate Enforced:**
+   - Refunds require approval: VERIFIED
+   - No direct execution method exists: VERIFIED
+   - Bypass attempts are blocked and logged: VERIFIED
+
+4. **Response Time Requirements Met:**
+   - All MCP servers < 2 seconds: VERIFIED
+   - Full pipeline performance: VERIFIED
+
+5. **Code Quality:**
+   - All Week 8 files have type hints ✅
+   - All Week 8 files have docstrings ✅
+   - No hardcoded secrets ✅
+   - Proper error handling ✅
+
+=== WEEK 8 VERDICT ===
+
+## ✅ OVERALL: PASS
+
+**Reasoning:**
+- All 5 Builders reported DONE ✅
+- All Week 8 specific tests (262 tests) PASS ✅
+- All critical tests (MCP response time, Guardrails, Refund gate) PASS ✅
+- GitHub CI GREEN on all Week 8 commits ✅
+- No hardcoded secrets found ✅
+- All files present at correct paths ✅
+- Type hints and docstrings present ✅
+
+**Week 8 is COMPLETE. The PARWA Core AI Engine is now fully functional with:**
+- 11 MCP servers for tool orchestration
+- Guardrails for AI output safety
+- Approval enforcer for sensitive operations
+- Full GSD → TRIVYA → MCP → Guardrails pipeline
+
+**Ready for Week 9 (Variants Phase).**
+
+---
+
+>>>>>>> 9264bab6b4c2d821fbbaf7783c7524e44bd96cc7
