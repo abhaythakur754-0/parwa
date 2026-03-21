@@ -6,6 +6,10 @@ This package contains the Mini PARWA agent implementations:
 - MiniEmailAgent: Email processing and intent extraction
 - MiniChatAgent: Chat session management
 - MiniSMSAgent: SMS message processing
+- MiniVoiceAgent: Voice call handling (max 2 concurrent calls)
+- MiniTicketAgent: Support ticket creation and management
+- MiniEscalationAgent: Human handoff triggering
+- MiniRefundAgent: Refund processing with $50 limit
 
 All Mini agents:
 - Route to 'light' tier for AI processing
@@ -16,10 +20,18 @@ from variants.mini.agents.faq_agent import MiniFAQAgent
 from variants.mini.agents.email_agent import MiniEmailAgent
 from variants.mini.agents.chat_agent import MiniChatAgent
 from variants.mini.agents.sms_agent import MiniSMSAgent
+from variants.mini.agents.voice_agent import MiniVoiceAgent
+from variants.mini.agents.ticket_agent import MiniTicketAgent
+from variants.mini.agents.escalation_agent import MiniEscalationAgent
+from variants.mini.agents.refund_agent import MiniRefundAgent
 
 __all__ = [
     "MiniFAQAgent",
     "MiniEmailAgent",
     "MiniChatAgent",
     "MiniSMSAgent",
+    "MiniVoiceAgent",
+    "MiniTicketAgent",
+    "MiniEscalationAgent",
+    "MiniRefundAgent",
 ]
