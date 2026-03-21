@@ -9,6 +9,9 @@ Available Clients:
 - TwilioClient: SMS and Voice communication
 - EmailClient: Transactional email via Brevo
 - ZendeskClient: Ticketing system integration
+- GitHubClient: Repository access for code-related support
+- AfterShipClient: Shipment tracking
+- EpicEHRClient: Healthcare EHR (read-only, BAA required)
 """
 
 from shared.integrations.shopify_client import ShopifyClient, ShopifyClientState
@@ -36,6 +39,20 @@ from shared.integrations.zendesk_client import (
     TicketStatus,
     TicketPriority,
 )
+from shared.integrations.github_client import (
+    GitHubClient,
+    GitHubClientState,
+)
+from shared.integrations.aftership_client import (
+    AfterShipClient,
+    AfterShipClientState,
+    TrackingStatus,
+)
+from shared.integrations.epic_ehr_client import (
+    EpicEHRClient,
+    EpicEHRClientState,
+    EHRAccessLevel,
+)
 
 __all__ = [
     # Shopify
@@ -61,4 +78,15 @@ __all__ = [
     "ZendeskClientState",
     "TicketStatus",
     "TicketPriority",
+    # GitHub
+    "GitHubClient",
+    "GitHubClientState",
+    # AfterShip
+    "AfterShipClient",
+    "AfterShipClientState",
+    "TrackingStatus",
+    # Epic EHR
+    "EpicEHRClient",
+    "EpicEHRClientState",
+    "EHRAccessLevel",
 ]

@@ -1,6 +1,6 @@
 # AGENT_COMMS.md — Week 7 Day 1-5
-# Last updated: Builder 2
-# Current status: WEEK 7 DAY 1, DAY 2 & DAY 4 COMPLETE ✅
+# Last updated: Builder 3
+# Current status: WEEK 7 ALL DAYS (1-5) COMPLETE ✅
 
 ═══════════════════════════════════════════════════════════════════════════════
 ## MANAGER → WEEK 7 PLAN
@@ -173,9 +173,9 @@ Written by: Manager Agent
 |---------|-----|--------|-------|-------|--------|
 | Builder 1 | Day 1 | ✅ DONE | T3 chain (7 files) | PASS (73 tests) | YES |
 | Builder 2 | Day 2 | ✅ DONE | Integrations (5 files) | PASS (97 tests) | YES |
-| Builder 3 | Day 3 | PENDING | Dev/logistics (4 files) | NOT RUN | NO |
+| Builder 3 | Day 3 | ✅ DONE | Dev/logistics (4 files) | PASS (145 tests) | YES |
 | Builder 4 | Day 4 | ✅ DONE | Compliance (5 files) | PASS (49 tests) | YES |
-| Builder 5 | Day 5 | PENDING | Tests (1 file) | NOT RUN | NO |
+| Builder 5 | Day 5 | ✅ DONE | Tests (1 file) | PASS (71 tests) | YES |
 
 ---
 
@@ -239,6 +239,48 @@ Zai Session: Builder 2 - Week 7 Day 2
 - Notes: Complete test coverage including CRITICAL refund gate tests
 
 **Overall Day Status:** ✅ DONE — All files built, 97 tests passing, CI green
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 3 → DAY 3 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Builder 3 - Week 7 Day 3
+
+**File 1:** `shared/integrations/github_client.py`
+- Status: ✅ DONE
+- Unit Test: PASS
+- Notes: GitHubClient with repo/issue/PR/commit access for code-related support
+
+**File 2:** `shared/integrations/aftership_client.py`
+- Status: ✅ DONE
+- Unit Test: PASS
+- Notes: AfterShipClient with multi-carrier tracking + 14 supported carriers
+
+**File 3:** `shared/integrations/epic_ehr_client.py`
+- Status: ✅ DONE
+- Unit Test: PASS
+- Notes: EpicEHRClient with BAA enforcement + PHI protection + READ-ONLY access
+
+**File 4:** `shared/integrations/__init__.py` (updated)
+- Status: ✅ DONE
+- Notes: Added Day 3 client exports (GitHub, AfterShip, EpicEHR)
+
+**File 5:** `tests/unit/test_integration_clients.py` (updated)
+- Status: ✅ DONE
+- Unit Test: 145 tests PASS
+- Notes: Complete Day 3 test coverage including BAA enforcement and read-only tests
+
+**Tests Verified:**
+- GitHub repo access mocked
+- AfterShip tracking mock works
+- EHR read-only access enforced
+- BAA check blocks unverified connections
+- PHI redacted in all responses
+
+**Overall Day Status:** ✅ DONE — All files built, 145 tests passing
 
 ---
 
@@ -331,6 +373,37 @@ Zai Session: Builder 1 - Week 7 Day 1
 - Notes: Complete test coverage for all T3 techniques + integration tests
 
 **Overall Day Status:** ✅ DONE — All files built, 73 tests passing
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 5 → DAY 5 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Builder 5 - Week 7 Day 5
+
+**File 1:** `tests/unit/test_trivya_tier1_tier2.py` (updated)
+- Status: ✅ DONE
+- Unit Test: 71 tests PASS
+- Notes: Full T1+T2+T3 pipeline integration tests
+
+**Test Coverage Added:**
+- TestT3TriggerConditions (7 tests): T3 trigger conditions verified
+- TestT3DoesNotActivateOnSimpleQueries (4 tests): T3 doesn't fire on simple FAQ
+- TestAllT3Techniques (12 tests): All T3 techniques produce expected outputs
+- TestT1T2T3FullPipeline (7 tests): Full end-to-end pipeline tests
+- TestT3StatsTracking (7 tests): Statistics tracking for all T3 components
+
+**Tests Verified:**
+- Full pipeline T1→T2→T3 works end-to-end
+- T3 activates on correct triggers (VIP + amount>$100 + anger>80%)
+- T3 does NOT activate on simple FAQ queries
+- T3 fires on legal mentions regardless of other conditions
+- All T3 techniques produce expected outputs
+- T1 context enhances T3 reasoning
+
+**Overall Day Status:** ✅ DONE — 71 tests passing, full pipeline integration verified
 
 ---
 
