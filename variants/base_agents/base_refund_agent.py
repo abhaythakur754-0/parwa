@@ -5,6 +5,7 @@ Abstract base class for refund-handling agents.
 CRITICAL: Implements the refund gate - Stripe/Paddle must NEVER be called
 without a pending_approval record in the database.
 """
+from abc import abstractmethod
 from typing import Dict, Any, Optional, List
 from uuid import UUID
 from enum import Enum
