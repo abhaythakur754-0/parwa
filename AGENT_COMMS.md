@@ -1,26 +1,26 @@
-# AGENT_COMMS.md — Week 8 Day 1-6
+# AGENT_COMMS.md — Week 9 Day 1-6
 # Last updated: Manager Agent
-# Current status: WEEK 8 TASKS WRITTEN — AWAITING BUILDERS
+# Current status: WEEK 9 TASKS WRITTEN — AWAITING BUILDERS
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 8 PLAN
+## MANAGER → WEEK 9 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
 Date: 2026-03-21
 
-> **Phase: Phase 2 — Core AI Engine (MCP Servers + Guardrails)**
+> **Phase: Phase 3 — Variants & Integrations (Mini PARWA + Base Agents)**
 >
-> **⚠️ CRITICAL: Week 8 is SEQUENTIAL — NOT fully parallel!**
-> - Day 1 builds `base_server.py` which ALL other MCP servers inherit from
-> - Days 2-4 MUST wait for Day 1 to complete and push before starting
-> - This is an intentional exception due to inheritance requirements
+> **⚠️ CRITICAL: Week 9 is SEQUENTIAL — NOT fully parallel!**
+> - Day 1 builds `base_agent.py` which ALL other agents inherit from
+> - Days 2, 3, 4 MUST wait for Day 1 to complete and push before starting
+> - Day 5 MUST wait for Days 3-4 to complete (depends on Mini agents)
 >
-> **Week 8 Goals:**
-> - Day 1: Base server + Knowledge MCP servers (faq, rag, kb)
-> - Day 2: Voice + Chat + Email + Ticketing MCP servers
-> - Day 3: E-commerce + CRM + Analytics MCP servers
-> - Day 4: Notification + Compliance + SLA MCPs + Guardrails chain
-> - Day 5: Monitoring setup + Integration tests
+> **Week 9 Goals:**
+> - Day 1: Base agent abstract + 7 base agent types (sequential within day)
+> - Day 2: Base refund agent + Mini config + anti-arbitrage config
+> - Day 3: Mini FAQ + Email + Chat + SMS agents
+> - Day 4: Mini Voice + Ticket + Escalation + Refund agents
+> - Day 5: Mini tools + workflows (10 files)
 > - Day 6: Tester Agent runs full week validation
 >
 > **CRITICAL RULES:**
@@ -29,109 +29,149 @@ Date: 2026-03-21
 > 3. No Docker — use mocked sessions in tests
 > 4. Build → Unit Test passes → THEN push (ONE push per file)
 > 5. Type hints on ALL functions, docstrings on ALL classes/functions
-> 6. All MCP servers must respond to tool calls within 2 seconds
-> 7. Guardrails must block hallucinations and competitor mentions
+> 6. **REFUND GATE IS SACRED** — Stripe/Paddle must NEVER be called without pending_approval
+> 7. Mini FAQ must route to Light tier
+> 8. Escalation must trigger human handoff
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — Base Server + Knowledge MCP Servers
+## BUILDER 1 (DAY 1) — Base Agent Abstract + Core Base Agents
 ═══════════════════════════════════════════════════════════════════════════════
 
 **⚠️ YOU MUST COMPLETE AND PUSH BEFORE BUILDERS 2-4 CAN START**
 
 ### Field 1: Files to Build (in order)
-1. `mcp_servers/__init__.py`
-2. `mcp_servers/base_server.py`
-3. `mcp_servers/knowledge/__init__.py`
-4. `mcp_servers/knowledge/faq_server.py`
-5. `mcp_servers/knowledge/rag_server.py`
-6. `mcp_servers/knowledge/kb_server.py`
-7. `tests/unit/test_mcp_knowledge.py`
+1. `variants/__init__.py`
+2. `variants/base_agents/__init__.py`
+3. `variants/base_agents/base_agent.py`
+4. `variants/base_agents/base_faq_agent.py`
+5. `variants/base_agents/base_email_agent.py`
+6. `variants/base_agents/base_chat_agent.py`
+7. `variants/base_agents/base_sms_agent.py`
+8. `variants/base_agents/base_voice_agent.py`
+9. `variants/base_agents/base_ticket_agent.py`
+10. `variants/base_agents/base_escalation_agent.py`
+11. `tests/unit/test_base_agents.py`
 
 ### Field 2: What is each file?
-1. `mcp_servers/__init__.py` — Module init for MCP servers package
-2. `mcp_servers/base_server.py` — Abstract base class for all MCP servers with common functionality
-3. `mcp_servers/knowledge/__init__.py` — Module init for knowledge servers
-4. `mcp_servers/knowledge/faq_server.py` — MCP server for FAQ lookups
-5. `mcp_servers/knowledge/rag_server.py` — MCP server for RAG-based retrieval
-6. `mcp_servers/knowledge/kb_server.py` — MCP server for knowledge base operations
-7. `tests/unit/test_mcp_knowledge.py` — Unit tests for all knowledge MCP servers
+1. `variants/__init__.py` — Module init for variants package
+2. `variants/base_agents/__init__.py` — Module init for base agents
+3. `variants/base_agents/base_agent.py` — Abstract base class for all PARWA agents
+4. `variants/base_agents/base_faq_agent.py` — Base class for FAQ-handling agents
+5. `variants/base_agents/base_email_agent.py` — Base class for email-processing agents
+6. `variants/base_agents/base_chat_agent.py` — Base class for chat agents
+7. `variants/base_agents/base_sms_agent.py` — Base class for SMS agents
+8. `variants/base_agents/base_voice_agent.py` — Base class for voice/call agents
+9. `variants/base_agents/base_ticket_agent.py` — Base class for ticket management agents
+10. `variants/base_agents/base_escalation_agent.py` — Base class for escalation agents
+11. `tests/unit/test_base_agents.py` — Unit tests for all base agents
 
 ### Field 3: Responsibilities
 
-**mcp_servers/base_server.py:**
-- `BaseMCPServer` abstract class with:
-  - `__init__(self, name: str, config: dict)` — Initialize server with name and config
-  - `async start(self) -> None` — Start the server
-  - `async stop(self) -> None` — Stop the server gracefully
-  - `async handle_tool_call(self, tool_name: str, params: dict) -> dict` — Route tool calls
-  - `async health_check(self) -> dict` — Return server health status
-  - `register_tool(self, name: str, handler: Callable)` — Register a tool handler
-  - `_validate_params(self, params: dict, schema: dict) -> bool` — Validate tool params
+**variants/base_agents/base_agent.py:**
+- `BaseAgent` abstract class with:
+  - `__init__(self, agent_id: str, config: dict, company_id: UUID)` — Initialize agent
+  - `async process(self, input_data: dict) -> AgentResponse` — Abstract method to process input
+  - `async health_check(self) -> dict` — Return agent health status
+  - `get_confidence(self, result: dict) -> float` — Calculate confidence score
+  - `should_escalate(self, confidence: float, context: dict) -> bool` — Determine if escalation needed
+  - `log_action(self, action: str, details: dict) -> None` — Log agent actions
+  - `validate_input(self, input_data: dict, schema: dict) -> bool` — Validate input against schema
+  - `get_tier(self) -> str` — Return "light", "medium", or "heavy"
+  - `get_variant(self) -> str` — Return "mini", "parwa", or "parwa_high"
 
-**mcp_servers/knowledge/faq_server.py:**
-- `FAQServer(BaseMCPServer)` with:
-  - `search_faqs(query: str, limit: int = 5) -> list[dict]` — Search FAQ database
-  - `get_faq_by_id(faq_id: str) -> dict` — Get specific FAQ
-  - `get_faq_categories() -> list[str]` — List all FAQ categories
+**variants/base_agents/base_faq_agent.py:**
+- `BaseFAQAgent(BaseAgent)` with:
+  - `async search_faq(self, query: str) -> list[dict]` — Search FAQ database
+  - `async get_faq_answer(self, faq_id: str) -> dict` — Get specific FAQ answer
+  - `async process(self, input_data: dict) -> AgentResponse` — Process FAQ query
 
-**mcp_servers/knowledge/rag_server.py:**
-- `RAGServer(BaseMCPServer)` with:
-  - `retrieve(query: str, top_k: int = 5) -> list[dict]` — RAG retrieval
-  - `ingest(documents: list[dict]) -> int` — Ingest documents
-  - `get_collection_stats() -> dict` — Get collection statistics
+**variants/base_agents/base_email_agent.py:**
+- `BaseEmailAgent(BaseAgent)` with:
+  - `async parse_email(self, email_content: str) -> dict` — Parse email content
+  - `async extract_intent(self, parsed_email: dict) -> str` — Extract user intent
+  - `async process(self, input_data: dict) -> AgentResponse` — Process email
 
-**mcp_servers/knowledge/kb_server.py:**
-- `KBServer(BaseMCPServer)` with:
-  - `search(query: str, filters: dict = None) -> list[dict]` — Search knowledge base
-  - `get_article(article_id: str) -> dict` — Get specific article
-  - `get_related_articles(article_id: str, limit: int = 3) -> list[dict]` — Get related content
+**variants/base_agents/base_chat_agent.py:**
+- `BaseChatAgent(BaseAgent)` with:
+  - `async handle_message(self, message: str, context: dict) -> dict` — Handle chat message
+  - `async get_conversation_context(self, session_id: str) -> dict` — Get conversation context
+  - `async process(self, input_data: dict) -> AgentResponse` — Process chat input
+
+**variants/base_agents/base_sms_agent.py:**
+- `BaseSMSAgent(BaseAgent)` with:
+  - `async parse_sms(self, sms_content: str) -> dict` — Parse SMS content
+  - `async send_response(self, to: str, message: str) -> dict` — Send SMS response
+  - `async process(self, input_data: dict) -> AgentResponse` — Process SMS
+
+**variants/base_agents/base_voice_agent.py:**
+- `BaseVoiceAgent(BaseAgent)` with:
+  - `async transcribe(self, audio_url: str) -> str` — Transcribe voice to text
+  - `async synthesize(self, text: str) -> str` — Synthesize text to voice
+  - `async process(self, input_data: dict) -> AgentResponse` — Process voice input
+
+**variants/base_agents/base_ticket_agent.py:**
+- `BaseTicketAgent(BaseAgent)` with:
+  - `async create_ticket(self, data: dict) -> dict` — Create support ticket
+  - `async update_ticket(self, ticket_id: str, updates: dict) -> dict` — Update ticket
+  - `async process(self, input_data: dict) -> AgentResponse` — Process ticket request
+
+**variants/base_agents/base_escalation_agent.py:**
+- `BaseEscalationAgent(BaseAgent)` with:
+  - `async check_escalation_needed(self, context: dict) -> bool` — Check if escalation needed
+  - `async escalate(self, ticket_id: str, reason: str, context: dict) -> dict` — Escalate to human
+  - `async process(self, input_data: dict) -> AgentResponse` — Process escalation check
 
 ### Field 4: Depends On
+- `shared/confidence/scorer.py` (Wk6)
+- `shared/confidence/thresholds.py` (Wk6)
 - `shared/core_functions/config.py` (Wk1)
 - `shared/core_functions/logger.py` (Wk1)
 - `shared/core_functions/security.py` (Wk3)
-- `shared/knowledge_base/rag_pipeline.py` (Wk5)
-- `shared/knowledge_base/kb_manager.py` (Wk5)
 
 ### Field 5: Expected Output
-- `base_server.py` starts without errors and responds to health check
-- FAQ server returns relevant FAQs for queries
-- RAG server retrieves documents and tracks collection stats
-- KB server searches and returns articles
-- All servers respond within 2 seconds
+- `base_agent.py` initializes correctly with all abstract methods
+- All base agent types inherit from `BaseAgent` correctly
+- `get_tier()` returns appropriate tier for each agent type
+- `get_variant()` returns appropriate variant
+- `should_escalate()` correctly determines escalation based on confidence
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_mcp_knowledge.py`
-  - Test: BaseMCPServer initializes correctly
-  - Test: BaseMCPServer health_check returns valid status
-  - Test: FAQServer.search_faqs returns list of dicts
-  - Test: RAGServer.retrieve returns documents with scores
-  - Test: KBServer.search returns articles
-  - Test: All servers respond within 2 seconds
-  - Test: Tool registration and routing works
+- `tests/unit/test_base_agents.py`
+  - Test: BaseAgent initializes with correct agent_id and company_id
+  - Test: BaseAgent.health_check returns valid status
+  - Test: BaseFAQAgent inherits from BaseAgent
+  - Test: BaseEmailAgent inherits from BaseAgent
+  - Test: BaseChatAgent inherits from BaseAgent
+  - Test: BaseSMSAgent inherits from BaseAgent
+  - Test: BaseVoiceAgent inherits from BaseAgent
+  - Test: BaseTicketAgent inherits from BaseAgent
+  - Test: BaseEscalationAgent inherits from BaseAgent
+  - Test: get_confidence returns float between 0 and 1
+  - Test: should_escalate returns True when confidence < threshold
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/parwa_bdd.md` — Scenario: AI retrieves relevant knowledge
+- `docs/bdd_scenarios/mini_parwa_bdd.md` — Scenario: Agent processes FAQ query
+- `docs/bdd_scenarios/parwa_bdd.md` — Scenario: Agent escalates to human
 
 ### Field 8: Error Handling
-- `ConnectionError` — Log error, return {"status": "error", "message": "Service unavailable"}
-- `TimeoutError` — Log error, return {"status": "error", "message": "Request timeout"}
-- `ValueError` — Log error, return {"status": "error", "message": "Invalid parameters"}
-- `Exception` — Log error with traceback, return generic error message
+- `ValueError` — Return {"status": "error", "message": "Invalid input"}
+- `ConnectionError` — Return {"status": "error", "message": "Service unavailable"}
+- `TimeoutError` — Return {"status": "error", "message": "Request timeout"}
+- All exceptions logged with context
 
 ### Field 9: Security Requirements
 - Validate all input parameters before processing
-- No hardcoded credentials — read from environment variables
-- Rate limiting on tool calls (100 per minute per server)
-- Health check should not expose sensitive config
+- Company isolation — agents must only access company-scoped data
+- No hardcoded credentials
+- Audit log all agent actions
 
 ### Field 10: Integration Points
-- `shared/knowledge_base/rag_pipeline.py` — RAGServer uses this
-- `shared/knowledge_base/kb_manager.py` — KBServer uses this
-- `shared/core_functions/config.py` — All servers read config
-- `shared/core_functions/logger.py` — All servers log events
+- `shared/confidence/scorer.py` — Confidence calculation
+- `shared/core_functions/config.py` — Configuration
+- `shared/core_functions/logger.py` — Logging
+- `shared/core_functions/security.py` — Security utilities
 
 ### Field 11: Code Quality
 - Type hints on ALL functions and methods
@@ -148,218 +188,217 @@ Date: 2026-03-21
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
-- All 7 files built and pushed to GitHub
-- All unit tests pass (`pytest tests/unit/test_mcp_knowledge.py -v`)
+- All 11 files built and pushed to GitHub
+- All unit tests pass (`pytest tests/unit/test_base_agents.py -v`)
 - GitHub CI shows GREEN for all commits
 - Each file has its own commit with descriptive message
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — Voice + Chat + Email + Ticketing MCP Servers
+## BUILDER 2 (DAY 2) — Base Refund Agent + Mini Config
 ═══════════════════════════════════════════════════════════════════════════════
 
-**⚠️ WAIT FOR BUILDER 1 TO PUSH base_server.py BEFORE STARTING**
+**⚠️ WAIT FOR BUILDER 1 TO PUSH base_agent.py BEFORE STARTING**
 
 ### Field 1: Files to Build (in order)
-1. `mcp_servers/integrations/__init__.py`
-2. `mcp_servers/integrations/email_server.py`
-3. `mcp_servers/integrations/voice_server.py`
-4. `mcp_servers/integrations/chat_server.py`
-5. `mcp_servers/integrations/ticketing_server.py`
-6. `tests/unit/test_mcp_integrations.py` (update this file)
+1. `variants/base_agents/base_refund_agent.py`
+2. `variants/mini/__init__.py`
+3. `variants/mini/config.py`
+4. `variants/mini/anti_arbitrage_config.py`
+5. `tests/unit/test_base_refund_agent.py`
+6. `tests/unit/test_mini_config.py`
 
 ### Field 2: What is each file?
-1. `mcp_servers/integrations/__init__.py` — Module init for integration servers
-2. `mcp_servers/integrations/email_server.py` — MCP server for email operations
-3. `mcp_servers/integrations/voice_server.py` — MCP server for voice/SMS operations
-4. `mcp_servers/integrations/chat_server.py` — MCP server for chat operations
-5. `mcp_servers/integrations/ticketing_server.py` — MCP server for ticket management
-6. `tests/unit/test_mcp_integrations.py` — Unit tests for integration MCP servers
+1. `variants/base_agents/base_refund_agent.py` — Base class for refund-handling agents with approval gate
+2. `variants/mini/__init__.py` — Module init for Mini PARWA variant
+3. `variants/mini/config.py` — Configuration for Mini PARWA variant
+4. `variants/mini/anti_arbitrage_config.py` — Anti-arbitrage pricing configuration for Mini
+5. `tests/unit/test_base_refund_agent.py` — Unit tests for base refund agent
+6. `tests/unit/test_mini_config.py` — Unit tests for Mini config
 
 ### Field 3: Responsibilities
 
-**mcp_servers/integrations/email_server.py:**
-- `EmailServer(BaseMCPServer)` with:
-  - `send_email(to: str, subject: str, body: str, template_id: str = None) -> dict`
-  - `send_bulk_emails(recipients: list[str], subject: str, body: str) -> dict`
-  - `get_email_status(email_id: str) -> dict`
-  - `get_templates() -> list[dict]`
+**variants/base_agents/base_refund_agent.py:**
+- `BaseRefundAgent(BaseAgent)` with:
+  - `async verify_refund_eligibility(self, order_id: str) -> dict` — Check if refund eligible
+  - `async create_pending_approval(self, refund_data: dict) -> dict` — **CRITICAL: Creates pending_approval record, does NOT call Stripe/Paddle**
+  - `async check_approval_status(self, approval_id: str) -> str` — Check approval status
+  - `async process(self, input_data: dict) -> AgentResponse` — Process refund request
+  - `get_refund_recommendation(self, refund_data: dict) -> str` — Return "APPROVE", "REVIEW", or "DENY"
 
-**mcp_servers/integrations/voice_server.py:**
-- `VoiceServer(BaseMCPServer)` with:
-  - `make_call(to: str, message: str, voice: str = "default") -> dict`
-  - `send_sms(to: str, message: str) -> dict`
-  - `get_call_status(call_id: str) -> dict`
-  - `validate_phone_number(phone: str) -> dict`
+**variants/mini/config.py:**
+- `MiniConfig` class with:
+  - `max_concurrent_calls: int = 2` — Mini supports max 2 concurrent calls
+  - `supported_channels: list[str] = ["faq", "email", "chat", "sms"]` — Supported channels
+  - `escalation_threshold: float = 0.70` — Escalate when confidence < 70%
+  - `refund_limit: float = 50.0` — Max refund amount Mini can recommend
+  - `get_variant_name() -> str` — Returns "Mini PARWA"
 
-**mcp_servers/integrations/chat_server.py:**
-- `ChatServer(BaseMCPServer)` with:
-  - `send_message(conversation_id: str, message: str) -> dict`
-  - `create_conversation(participants: list[str]) -> dict`
-  - `get_conversation_history(conversation_id: str, limit: int = 50) -> list[dict]
-  - `mark_read(conversation_id: str, message_ids: list[str]) -> dict`
-
-**mcp_servers/integrations/ticketing_server.py:**
-- `TicketingServer(BaseMCPServer)` with:
-  - `create_ticket(subject: str, description: str, priority: str = "normal") -> dict`
-  - `update_ticket(ticket_id: str, updates: dict) -> dict`
-  - `get_ticket(ticket_id: str) -> dict`
-  - `add_comment(ticket_id: str, comment: str, author: str) -> dict`
-  - `search_tickets(query: dict) -> list[dict]`
+**variants/mini/anti_arbitrage_config.py:**
+- `AntiArbitrageConfig` class with:
+  - `mini_hourly_rate: float` — Mini PARWA hourly cost
+  - `manager_hourly_rate: float` — Human manager hourly cost
+  - `calculate_manager_time(self, complexity: float) -> float` — Calculate time saved
+  - `calculate_roi(self, queries_handled: int, manager_time_saved: float) -> float` — Calculate ROI
+  - `validate_pricing(self, subscription_tier: str) -> bool` — Validate pricing is anti-arbitrage
 
 ### Field 4: Depends On
-- `mcp_servers/base_server.py` (Wk8 D1) — **MUST WAIT FOR BUILDER 1**
-- `shared/integrations/email_client.py` (Wk7)
-- `shared/integrations/twilio_client.py` (Wk7)
+- `variants/base_agents/base_agent.py` (Wk9 D1) — **MUST WAIT FOR BUILDER 1**
 - `shared/core_functions/config.py` (Wk1)
+- `shared/core_functions/pricing_optimizer.py` (Wk1)
+- `shared/compliance/jurisdiction.py` (Wk7)
 
 ### Field 5: Expected Output
-- EmailServer sends emails via Brevo (mocked in tests)
-- VoiceServer makes calls/sends SMS via Twilio (mocked)
-- ChatServer handles conversation operations
-- TicketingServer creates and manages tickets
-- All servers respond within 2 seconds
+- `base_refund_agent.py` creates pending_approval records, NEVER calls Stripe/Paddle directly
+- `MiniConfig` loads with correct limits (2 concurrent calls, $50 refund limit)
+- `AntiArbitrageConfig` calculates ROI correctly
+- Refund recommendation returns APPROVE/REVIEW/DENY
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_mcp_integrations.py`
-  - Test: EmailServer.send_email returns message_id
-  - Test: VoiceServer.send_sms returns sid
-  - Test: ChatServer.create_conversation returns conversation_id
-  - Test: TicketingServer.create_ticket returns ticket_id
-  - Test: All servers respond within 2 seconds
+- `tests/unit/test_base_refund_agent.py`
+  - Test: BaseRefundAgent creates pending_approval record
+  - Test: **CRITICAL: Stripe/Paddle NOT called directly**
+  - Test: get_refund_recommendation returns APPROVE for valid refund
+  - Test: get_refund_recommendation returns DENY for fraud indicators
+  - Test: get_refund_recommendation returns REVIEW for edge cases
+- `tests/unit/test_mini_config.py`
+  - Test: MiniConfig loads with correct defaults
+  - Test: max_concurrent_calls = 2
+  - Test: escalation_threshold = 0.70
+  - Test: refund_limit = 50.0
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/parwa_bdd.md` — Scenario: Multi-channel support
+- `docs/bdd_scenarios/mini_parwa_bdd.md` — Scenario: Refund request creates pending approval
+- `docs/bdd_scenarios/parwa_bdd.md` — Scenario: Refund gate enforced
 
 ### Field 8: Error Handling
-- `ConnectionError` — Return {"status": "error", "message": "Integration unavailable"}
-- `RateLimitError` — Return {"status": "error", "message": "Rate limit exceeded"}
-- `ValidationError` — Return {"status": "error", "message": "Invalid input"}
-- All external calls wrapped in try/except
+- `RefundError` — Log and return {"status": "error", "message": "Refund processing failed"}
+- `ApprovalError` — Log and return {"status": "error", "message": "Approval creation failed"}
+- **NEVER** allow refund to proceed without approval
 
 ### Field 9: Security Requirements
-- Never expose API keys in responses
-- Validate phone numbers before processing
-- Validate email addresses before sending
-- Rate limit all integration calls
+- **CRITICAL:** Refund gate — Stripe/Paddle must NEVER be called without pending_approval
+- All refund attempts must be logged for audit
+- Anti-fraud checks before creating approval
 
 ### Field 10: Integration Points
-- `shared/integrations/email_client.py` — EmailServer uses Brevo client
-- `shared/integrations/twilio_client.py` — VoiceServer uses Twilio client
-- `shared/core_functions/config.py` — All servers read config
+- `variants/base_agents/base_agent.py` — Inheritance
+- `shared/core_functions/config.py` — Configuration
+- `shared/core_functions/pricing_optimizer.py` — Pricing calculations
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
-- Docstrings on all classes/methods
+- Docstrings required
 - PEP 8 compliant
 - Max 40 lines per function
 
 ### Field 12: GitHub CI Requirements
-- pytest must pass
-- flake8 must pass
-- black --check must pass
-- CI must be green
+- pytest pass
+- flake8 pass
+- black --check pass
+- CI green
 
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
 - All 6 files built and pushed
 - All unit tests pass
+- **CRITICAL: Refund gate test passes (Stripe NOT called)**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — E-commerce + CRM + Analytics MCP Servers
+## BUILDER 3 (DAY 3) — Mini FAQ + Email + Chat + SMS Agents
 ═══════════════════════════════════════════════════════════════════════════════
 
-**⚠️ WAIT FOR BUILDER 1 TO PUSH base_server.py BEFORE STARTING**
+**⚠️ WAIT FOR BUILDER 1 TO PUSH base_agent.py BEFORE STARTING**
 
 ### Field 1: Files to Build (in order)
-1. `mcp_servers/integrations/ecommerce_server.py`
-2. `mcp_servers/integrations/crm_server.py`
-3. `mcp_servers/tools/__init__.py`
-4. `mcp_servers/tools/analytics_server.py`
-5. `mcp_servers/tools/monitoring_server.py`
-6. `tests/unit/test_mcp_tools.py`
+1. `variants/mini/agents/__init__.py`
+2. `variants/mini/agents/faq_agent.py`
+3. `variants/mini/agents/email_agent.py`
+4. `variants/mini/agents/chat_agent.py`
+5. `variants/mini/agents/sms_agent.py`
+6. `tests/unit/test_mini_agents.py`
 
 ### Field 2: What is each file?
-1. `mcp_servers/integrations/ecommerce_server.py` — MCP server for e-commerce operations
-2. `mcp_servers/integrations/crm_server.py` — MCP server for CRM operations
-3. `mcp_servers/tools/__init__.py` — Module init for tool servers
-4. `mcp_servers/tools/analytics_server.py` — MCP server for analytics
-5. `mcp_servers/tools/monitoring_server.py` — MCP server for monitoring
-6. `tests/unit/test_mcp_tools.py` — Unit tests for tool MCP servers
+1. `variants/mini/agents/__init__.py` — Module init for Mini agents
+2. `variants/mini/agents/faq_agent.py` — Mini PARWA FAQ agent (routes to Light tier)
+3. `variants/mini/agents/email_agent.py` — Mini PARWA email agent
+4. `variants/mini/agents/chat_agent.py` — Mini PARWA chat agent
+5. `variants/mini/agents/sms_agent.py` — Mini PARWA SMS agent
+6. `tests/unit/test_mini_agents.py` — Unit tests for Mini agents
 
 ### Field 3: Responsibilities
 
-**mcp_servers/integrations/ecommerce_server.py:**
-- `EcommerceServer(BaseMCPServer)` with:
-  - `get_order(order_id: str) -> dict`
-  - `get_customer(customer_id: str) -> dict`
-  - `search_products(query: str, limit: int = 10) -> list[dict]`
-  - `get_inventory(product_id: str = None) -> dict`
-  - `create_refund_request(order_id: str, amount: float, reason: str) -> dict` — **Creates pending_approval, does NOT execute refund**
+**variants/mini/agents/faq_agent.py:**
+- `MiniFAQAgent(BaseFAQAgent)` with:
+  - `get_tier() -> str` — Returns "light" (Mini always uses Light tier)
+  - `get_variant() -> str` — Returns "mini"
+  - `async process(self, input_data: dict) -> AgentResponse` — Process FAQ, escalate if complex
+  - `should_escalate(self, confidence: float, context: dict) -> bool` — Escalate if confidence < 70%
 
-**mcp_servers/integrations/crm_server.py:**
-- `CRMServer(BaseMCPServer)` with:
-  - `get_contact(contact_id: str) -> dict`
-  - `search_contacts(query: str) -> list[dict]`
-  - `create_contact(data: dict) -> dict`
-  - `update_contact(contact_id: str, data: dict) -> dict`
-  - `get_interaction_history(contact_id: str) -> list[dict]`
+**variants/mini/agents/email_agent.py:**
+- `MiniEmailAgent(BaseEmailAgent)` with:
+  - `get_tier() -> str` — Returns "light"
+  - `get_variant() -> str` — Returns "mini"
+  - `async process(self, input_data: dict) -> AgentResponse` — Process email, escalate if needed
 
-**mcp_servers/tools/analytics_server.py:**
-- `AnalyticsServer(BaseMCPServer)` with:
-  - `get_metrics(metric_names: list[str], time_range: dict) -> dict`
-  - `get_dashboard_data(dashboard_id: str) -> dict`
-  - `run_report(report_type: str, params: dict) -> dict`
-  - `get_realtime_stats() -> dict`
+**variants/mini/agents/chat_agent.py:**
+- `MiniChatAgent(BaseChatAgent)` with:
+  - `get_tier() -> str` — Returns "light"
+  - `get_variant() -> str` — Returns "mini"
+  - `async process(self, input_data: dict) -> AgentResponse` — Process chat message
 
-**mcp_servers/tools/monitoring_server.py:**
-- `MonitoringServer(BaseMCPServer)` with:
-  - `get_service_status() -> dict`
-  - `get_alerts(severity: str = None) -> list[dict]`
-  - `acknowledge_alert(alert_id: str) -> dict`
-  - `get_metrics() -> dict`
+**variants/mini/agents/sms_agent.py:**
+- `MiniSMSAgent(BaseSMSAgent)` with:
+  - `get_tier() -> str` — Returns "light"
+  - `get_variant() -> str` — Returns "mini"
+  - `async process(self, input_data: dict) -> AgentResponse` — Process SMS
 
 ### Field 4: Depends On
-- `mcp_servers/base_server.py` (Wk8 D1) — **MUST WAIT FOR BUILDER 1**
-- `shared/integrations/shopify_client.py` (Wk7)
-- `shared/core_functions/config.py` (Wk1)
+- `variants/base_agents/base_faq_agent.py` (Wk9 D1)
+- `variants/base_agents/base_email_agent.py` (Wk9 D1)
+- `variants/base_agents/base_chat_agent.py` (Wk9 D1)
+- `variants/base_agents/base_sms_agent.py` (Wk9 D1)
+- `variants/mini/config.py` (Wk9 D2)
 
 ### Field 5: Expected Output
-- EcommerceServer retrieves orders/products from Shopify (mocked)
-- CRMServer manages contacts
-- AnalyticsServer returns metrics and reports
-- MonitoringServer returns service status
-- All servers respond within 2 seconds
+- All Mini agents inherit from correct base agents
+- `get_tier()` returns "light" for all Mini agents
+- `get_variant()` returns "mini"
+- Agents escalate when confidence < 70%
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_mcp_tools.py`
-  - Test: EcommerceServer.get_order returns order data
-  - Test: EcommerceServer.create_refund_request creates pending_approval (NOT refund)
-  - Test: CRMServer.get_contact returns contact
-  - Test: AnalyticsServer.get_metrics returns data
-  - Test: MonitoringServer.get_service_status returns status
+- `tests/unit/test_mini_agents.py`
+  - Test: MiniFAQAgent.get_tier() returns "light"
+  - Test: MiniFAQAgent.get_variant() returns "mini"
+  - Test: MiniFAQAgent routes simple FAQ to Light tier
+  - Test: MiniFAQAgent escalates complex queries
+  - Test: MiniEmailAgent processes email correctly
+  - Test: MiniChatAgent handles chat message
+  - Test: MiniSMSAgent processes SMS
+  - Test: All Mini agents escalate when confidence < 70%
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/parwa_bdd.md` — Scenario: Order lookup and refund request
+- `docs/bdd_scenarios/mini_parwa_bdd.md` — Scenario: FAQ query handled by Mini
+- `docs/bdd_scenarios/mini_parwa_bdd.md` — Scenario: Complex query escalated
 
 ### Field 8: Error Handling
-- `ConnectionError` — Return error with service name
-- `NotFoundError` — Return {"status": "error", "message": "Resource not found"}
-- `RateLimitError` — Return rate limit message
-- **CRITICAL:** Refund request never calls Stripe/Paddle directly
+- Standard error handling with logging
+- All errors return AgentResponse with status="error"
+- Escalate on unrecoverable errors
 
 ### Field 9: Security Requirements
-- Refund gate: create_refund_request ONLY creates pending_approval record
-- Never expose customer PII in logs
-- Validate all product IDs before lookup
+- Input validation on all agent inputs
+- Company isolation enforced
+- No PII in logs
 
 ### Field 10: Integration Points
-- `shared/integrations/shopify_client.py` — EcommerceServer uses Shopify
-- `shared/core_functions/config.py` — All servers read config
+- Base agents from Day 1
+- Mini config from Day 2
+- Smart Router (Wk5) for tier routing
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
@@ -378,120 +417,110 @@ Builder 3 reports DONE when:
 - All 6 files built and pushed
 - All unit tests pass
 - GitHub CI GREEN
-- Refund gate test passes (pending_approval created, NOT executed)
+- Mini agents route to Light tier
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — Notification + Compliance + SLA MCPs + Guardrails
+## BUILDER 4 (DAY 4) — Mini Voice + Ticket + Escalation + Refund Agents
 ═══════════════════════════════════════════════════════════════════════════════
 
-**⚠️ WAIT FOR BUILDER 1 TO PUSH base_server.py BEFORE STARTING**
+**⚠️ WAIT FOR BUILDER 1 TO PUSH base_agent.py BEFORE STARTING**
 
 ### Field 1: Files to Build (in order)
-1. `mcp_servers/tools/notification_server.py`
-2. `mcp_servers/tools/compliance_server.py`
-3. `mcp_servers/tools/sla_server.py`
-4. `shared/guardrails/__init__.py`
-5. `shared/guardrails/guardrails.py`
-6. `shared/guardrails/approval_enforcer.py`
-7. `tests/unit/test_mcp_servers.py`
-8. `tests/unit/test_guardrails.py`
+1. `variants/mini/agents/voice_agent.py`
+2. `variants/mini/agents/ticket_agent.py`
+3. `variants/mini/agents/escalation_agent.py`
+4. `variants/mini/agents/refund_agent.py`
+5. `tests/unit/test_mini_agents.py` (update with new tests)
 
 ### Field 2: What is each file?
-1. `mcp_servers/tools/notification_server.py` — MCP server for notifications
-2. `mcp_servers/tools/compliance_server.py` — MCP server for compliance checks
-3. `mcp_servers/tools/sla_server.py` — MCP server for SLA management
-4. `shared/guardrails/__init__.py` — Module init for guardrails
-5. `shared/guardrails/guardrails.py` — AI output guardrails (hallucination, competitor blocking)
-6. `shared/guardrails/approval_enforcer.py` — Approval gate enforcer for refunds
-7. `tests/unit/test_mcp_servers.py` — Combined tests for all MCP servers
-8. `tests/unit/test_guardrails.py` — Tests for guardrails
+1. `variants/mini/agents/voice_agent.py` — Mini PARWA voice agent (max 2 concurrent calls)
+2. `variants/mini/agents/ticket_agent.py` — Mini PARWA ticket agent
+3. `variants/mini/agents/escalation_agent.py` — Mini PARWA escalation agent (triggers human handoff)
+4. `variants/mini/agents/refund_agent.py` — Mini PARWA refund agent ($50 limit, creates pending_approval)
+5. `tests/unit/test_mini_agents.py` — Unit tests updated for new agents
 
 ### Field 3: Responsibilities
 
-**mcp_servers/tools/notification_server.py:**
-- `NotificationServer(BaseMCPServer)` with:
-  - `send_notification(user_id: str, message: str, channel: str) -> dict`
-  - `send_bulk_notifications(user_ids: list[str], message: str) -> dict`
-  - `get_notification_preferences(user_id: str) -> dict`
-  - `update_preferences(user_id: str, preferences: dict) -> dict`
+**variants/mini/agents/voice_agent.py:**
+- `MiniVoiceAgent(BaseVoiceAgent)` with:
+  - `get_tier() -> str` — Returns "light"
+  - `get_variant() -> str` — Returns "mini"
+  - `max_concurrent_calls: int = 2` — Mini supports max 2 calls
+  - `async process(self, input_data: dict) -> AgentResponse` — Process voice call
+  - `can_accept_call(self) -> bool` — Check if can accept new call
 
-**mcp_servers/tools/compliance_server.py:**
-- `ComplianceServer(BaseMCPServer)` with:
-  - `check_compliance(action: str, context: dict) -> dict`
-  - `get_jurisdiction_rules(jurisdiction: str) -> dict`
-  - `gdpr_export(user_id: str) -> dict`
-  - `gdpr_delete(user_id: str) -> dict`
+**variants/mini/agents/ticket_agent.py:**
+- `MiniTicketAgent(BaseTicketAgent)` with:
+  - `get_tier() -> str` — Returns "light"
+  - `get_variant() -> str` — Returns "mini"
+  - `async process(self, input_data: dict) -> AgentResponse` — Create ticket
+  - `async create_ticket(self, data: dict) -> dict` — Create support ticket
 
-**mcp_servers/tools/sla_server.py:**
-- `SLAServer(BaseMCPServer)` with:
-  - `calculate_sla(ticket_id: str) -> dict`
-  - `get_breach_predictions() -> list[dict]`
-  - `escalate_ticket(ticket_id: str, reason: str) -> dict`
+**variants/mini/agents/escalation_agent.py:**
+- `MiniEscalationAgent(BaseEscalationAgent)` with:
+  - `get_tier() -> str` — Returns "light"
+  - `get_variant() -> str` — Returns "mini"
+  - `async process(self, input_data: dict) -> AgentResponse` — Check and trigger escalation
+  - `async escalate(self, ticket_id: str, reason: str, context: dict) -> dict` — **Triggers human handoff**
+  - `get_escalation_channel(self, context: dict) -> str` — Determine escalation channel
 
-**shared/guardrails/guardrails.py:**
-- `GuardrailsManager` class with:
-  - `check_hallucination(response: str, context: dict) -> dict` — Detects fabricated info
-  - `check_competitor_mention(response: str) -> dict` — Blocks competitor names
-  - `check_pii_exposure(response: str) -> dict` — Detects PII leaks
-  - `sanitize_response(response: str, rules: list[str]) -> str` — Applies all guardrails
-  - `get_blocked_patterns() -> list[str]` — Returns blocked patterns
-
-**shared/guardrails/approval_enforcer.py:**
-- `ApprovalEnforcer` class with:
-  - `check_approval_required(action: str, amount: float = None) -> bool`
-  - `create_pending_approval(action: str, context: dict) -> dict` — Creates approval record
-  - `verify_approval(approval_id: str) -> dict` — Verifies approval status
-  - `block_bypass_attempt(action: str, context: dict) -> dict` — Logs and blocks
-  - `get_approval_status(approval_id: str) -> str` — Returns pending/approved/denied
+**variants/mini/agents/refund_agent.py:**
+- `MiniRefundAgent(BaseRefundAgent)` with:
+  - `get_tier() -> str` — Returns "light"
+  - `get_variant() -> str` — Returns "mini"
+  - `refund_limit: float = 50.0` — Max refund Mini can recommend
+  - `async process(self, input_data: dict) -> AgentResponse` — Process refund request
+  - `async create_pending_approval(self, refund_data: dict) -> dict` — **Creates pending_approval, NEVER calls Stripe/Paddle**
+  - `validate_refund_amount(self, amount: float) -> bool` — Check if within $50 limit
 
 ### Field 4: Depends On
-- `mcp_servers/base_server.py` (Wk8 D1)
-- `shared/compliance/gdpr_engine.py` (Wk7)
-- `shared/compliance/sla_calculator.py` (Wk7)
-- `shared/core_functions/config.py` (Wk1)
-- `shared/smart_router/router.py` (Wk5)
-- `shared/trivya_techniques/` (Wk6-7)
+- `variants/base_agents/base_voice_agent.py` (Wk9 D1)
+- `variants/base_agents/base_ticket_agent.py` (Wk9 D1)
+- `variants/base_agents/base_escalation_agent.py` (Wk9 D1)
+- `variants/base_agents/base_refund_agent.py` (Wk9 D2)
+- `variants/mini/config.py` (Wk9 D2)
 
 ### Field 5: Expected Output
-- NotificationServer sends notifications via configured channels
-- ComplianceServer checks GDPR and jurisdiction rules
-- SLAServer calculates breaches and escalations
-- Guardrails block hallucinations, competitor mentions, PII exposure
-- ApprovalEnforcer creates pending_approval for refunds, blocks bypass attempts
+- Voice agent respects 2 concurrent call limit
+- Ticket agent creates tickets correctly
+- Escalation agent triggers human handoff
+- Refund agent creates pending_approval for amounts <= $50
+- Refund agent escalates amounts > $50
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_mcp_servers.py`
-  - Test: NotificationServer.send_notification returns notification_id
-  - Test: ComplianceServer.check_compliance returns compliance status
-  - Test: SLAServer.calculate_sla returns SLA data
-- `tests/unit/test_guardrails.py`
-  - Test: hallucination blocked on fabricated info
-  - Test: competitor mention blocked
-  - Test: PII exposure detected
-  - Test: refund bypass attempt blocked
-  - Test: pending_approval created for refund
+- `tests/unit/test_mini_agents.py` (update)
+  - Test: MiniVoiceAgent can_accept_call respects limit
+  - Test: MiniTicketAgent creates ticket
+  - Test: MiniEscalationAgent triggers human handoff
+  - Test: MiniRefundAgent creates pending_approval for $30 refund
+  - Test: MiniRefundAgent escalates $100 refund (over $50 limit)
+  - Test: **CRITICAL: MiniRefundAgent never calls Stripe/Paddle**
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/parwa_bdd.md` — Scenario: Refund approval gate
-- `docs/bdd_scenarios/parwa_bdd.md` — Scenario: AI safety guardrails
+- `docs/bdd_scenarios/mini_parwa_bdd.md` — Scenario: Voice call handled
+- `docs/bdd_scenarios/mini_parwa_bdd.md` — Scenario: Escalation triggers human handoff
+- `docs/bdd_scenarios/mini_parwa_bdd.md` — Scenario: Refund under $50 approved
+- `docs/bdd_scenarios/mini_parwa_bdd.md` — Scenario: Refund over $50 escalated
 
 ### Field 8: Error Handling
-- `ComplianceError` — Return blocked status with reason
-- `ApprovalError` — Log attempt, return blocked status
-- `NotificationError` — Queue for retry, return queued status
+- Standard error handling with logging
+- Voice call errors: log and return error response
+- Escalation errors: log and retry via alternative channel
+- Refund errors: log and create pending_approval for manual review
 
 ### Field 9: Security Requirements
-- **CRITICAL:** ApprovalEnforcer must NEVER allow direct refund execution
-- All PII must be detected and masked by guardrails
-- Competitor names list must be configurable (not hardcoded)
-- Audit log all guardrail blocks
+- **CRITICAL:** Refund gate enforced — no direct Stripe/Paddle calls
+- Voice call limit enforced (2 max)
+- Audit log all escalations
+- Audit log all refund requests
 
 ### Field 10: Integration Points
-- `shared/compliance/gdpr_engine.py` — ComplianceServer uses GDPR
-- `shared/compliance/sla_calculator.py` — SLAServer uses SLA calculator
-- `shared/smart_router/router.py` — Guardrails integrate with router
+- Base agents from Days 1-2
+- Mini config from Day 2
+- Twilio client (Wk7) for voice
+- Ticket system (Wk4) for tickets
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
@@ -507,135 +536,192 @@ Builder 3 reports DONE when:
 
 ### Field 13: Pass Criteria
 Builder 4 reports DONE when:
-- All 8 files built and pushed
+- All 5 files built and pushed
 - All unit tests pass
+- **CRITICAL: Refund gate test passes**
 - GitHub CI GREEN
-- **Refund bypass test passes** (blocked)
-- Hallucination test passes (blocked)
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — Monitoring Setup + Integration Tests
+## BUILDER 5 (DAY 5) — Mini Tools + Workflows
 ═══════════════════════════════════════════════════════════════════════════════
 
-**⚠️ WAIT FOR BUILDERS 1-4 TO COMPLETE BEFORE STARTING**
+**⚠️ WAIT FOR BUILDERS 3-4 TO COMPLETE BEFORE STARTING**
 
 ### Field 1: Files to Build (in order)
-1. `monitoring/prometheus.yml`
-2. `tests/integration/test_week8_mcp.py`
-3. `tests/integration/test_week2_gsd_kb.py` (update for full pipeline)
+1. `variants/mini/tools/__init__.py`
+2. `variants/mini/tools/faq_search.py`
+3. `variants/mini/tools/order_lookup.py`
+4. `variants/mini/tools/ticket_create.py`
+5. `variants/mini/tools/notification.py`
+6. `variants/mini/tools/refund_verification_tools.py`
+7. `variants/mini/workflows/__init__.py`
+8. `variants/mini/workflows/inquiry.py`
+9. `variants/mini/workflows/ticket_creation.py`
+10. `variants/mini/workflows/escalation.py`
+11. `variants/mini/workflows/order_status.py`
+12. `variants/mini/workflows/refund_verification.py`
+13. `tests/unit/test_mini_workflows.py`
 
 ### Field 2: What is each file?
-1. `monitoring/prometheus.yml` — Prometheus configuration for all services
-2. `tests/integration/test_week8_mcp.py` — Integration tests for all MCP servers
-3. `tests/integration/test_week2_gsd_kb.py` — Full AI pipeline integration test
+1. `variants/mini/tools/__init__.py` — Module init for Mini tools
+2. `variants/mini/tools/faq_search.py` — FAQ search tool
+3. `variants/mini/tools/order_lookup.py` — Order lookup tool (Shopify)
+4. `variants/mini/tools/ticket_create.py` — Ticket creation tool
+5. `variants/mini/tools/notification.py` — Notification tool (Twilio)
+6. `variants/mini/tools/refund_verification_tools.py` — Refund verification (creates pending_approval)
+7. `variants/mini/workflows/__init__.py` — Module init for workflows
+8. `variants/mini/workflows/inquiry.py` — Inquiry handling workflow
+9. `variants/mini/workflows/ticket_creation.py` — Ticket creation workflow
+10. `variants/mini/workflows/escalation.py` — Escalation workflow
+11. `variants/mini/workflows/order_status.py` — Order status workflow
+12. `variants/mini/workflows/refund_verification.py` — Refund verification workflow
+13. `tests/unit/test_mini_workflows.py` — Unit tests for workflows
 
 ### Field 3: Responsibilities
 
-**monitoring/prometheus.yml:**
-- Scrape configs for all MCP servers
-- Scrape configs for backend API
-- Scrape configs for GSD engine
-- Alert rules for service health
+**variants/mini/tools/faq_search.py:**
+- `FAQSearchTool` with:
+  - `async search(self, query: str, limit: int = 5) -> list[dict]` — Search FAQs
+  - `async get_by_id(self, faq_id: str) -> dict` — Get FAQ by ID
 
-**tests/integration/test_week8_mcp.py:**
-- Test all 11 MCP servers start without errors
-- Test MCP client connects to all servers
-- Test each server responds within 2 seconds
-- Test full chain: GSD → TRIVYA → MCP → integration client
-- Test guardrails block hallucinations
-- Test refund bypass intercepted
+**variants/mini/tools/order_lookup.py:**
+- `OrderLookupTool` with:
+  - `async lookup(self, order_id: str) -> dict` — Lookup order by ID
+  - `async lookup_by_customer(self, customer_id: str) -> list[dict]` — Get customer orders
 
-**tests/integration/test_week2_gsd_kb.py:**
-- Full AI pipeline test
-- GSD compression works
-- Smart Router routes correctly
-- Knowledge base retrieval works
-- MCP servers integrate with TRIVYA
+**variants/mini/tools/ticket_create.py:**
+- `TicketCreateTool` with:
+  - `async create(self, subject: str, description: str, priority: str) -> dict` — Create ticket
+
+**variants/mini/tools/notification.py:**
+- `NotificationTool` with:
+  - `async send_sms(self, to: str, message: str) -> dict` — Send SMS notification
+  - `async send_email(self, to: str, subject: str, body: str) -> dict` — Send email notification
+
+**variants/mini/tools/refund_verification_tools.py:**
+- `RefundVerificationTool` with:
+  - `async verify_eligibility(self, order_id: str) -> dict` — Check refund eligibility
+  - `async create_approval_request(self, refund_data: dict) -> dict` — **Creates pending_approval, NEVER processes refund**
+  - `get_recommendation(self, refund_data: dict) -> str` — Return APPROVE/REVIEW/DENY
+
+**variants/mini/workflows/inquiry.py:**
+- `InquiryWorkflow` with:
+  - `async execute(self, inquiry_data: dict) -> dict` — Handle customer inquiry
+  - Steps: Classify → Search FAQ → Respond or Escalate
+
+**variants/mini/workflows/ticket_creation.py:**
+- `TicketCreationWorkflow` with:
+  - `async execute(self, ticket_data: dict) -> dict` — Create ticket workflow
+  - Steps: Validate → Create → Notify
+
+**variants/mini/workflows/escalation.py:**
+- `EscalationWorkflow` with:
+  - `async execute(self, context: dict) -> dict` — Escalation workflow
+  - Steps: Log escalation → Notify human → Update ticket
+
+**variants/mini/workflows/order_status.py:**
+- `OrderStatusWorkflow` with:
+  - `async execute(self, order_id: str) -> dict` — Get order status
+  - Steps: Lookup order → Format response → Return
+
+**variants/mini/workflows/refund_verification.py:**
+- `RefundVerificationWorkflow` with:
+  - `async execute(self, refund_data: dict) -> dict` — Refund verification workflow
+  - Steps: Verify eligibility → Check amount limit → Create pending_approval → Return recommendation
 
 ### Field 4: Depends On
-- All MCP servers (Wk8 D1-D4)
-- All guardrails (Wk8 D4)
-- GSD engine (Wk5)
-- TRIVYA techniques (Wk6-7)
-- Smart Router (Wk5)
+- Mini agents from Days 3-4
+- `shared/integrations/shopify_client.py` (Wk7)
+- `shared/integrations/twilio_client.py` (Wk7)
+- `shared/integrations/email_client.py` (Wk7)
 
 ### Field 5: Expected Output
-- Prometheus config valid and scrapes all services
-- All MCP servers start and respond
-- Full pipeline test passes
-- Guardrail tests pass
+- All tools work with mocked external services
+- All workflows complete their steps
+- Refund workflow creates pending_approval, never processes refund
+- Escalation workflow triggers human handoff
 
 ### Field 6: Unit Test Files
-- `tests/integration/test_week8_mcp.py` — MCP integration tests
-- `tests/integration/test_week2_gsd_kb.py` — Full pipeline tests
+- `tests/unit/test_mini_workflows.py`
+  - Test: InquiryWorkflow handles FAQ inquiry
+  - Test: InquiryWorkflow escalates complex inquiry
+  - Test: TicketCreationWorkflow creates ticket
+  - Test: EscalationWorkflow triggers human handoff
+  - Test: OrderStatusWorkflow returns order status
+  - Test: RefundVerificationWorkflow creates pending_approval
+  - Test: **CRITICAL: RefundVerificationWorkflow never calls Stripe/Paddle**
 
 ### Field 7: BDD Scenario
-- All scenarios from Weeks 1-8 validated end-to-end
+- `docs/bdd_scenarios/mini_parwa_bdd.md` — All Mini PARWA scenarios
 
 ### Field 8: Error Handling
-- Test failures logged with clear error messages
-- Timeout handling for server startup
+- Standard error handling with logging
+- Workflow failures log and return error status
+- Refund failures create pending_approval for manual review
 
 ### Field 9: Security Requirements
-- Tests should use mocked credentials
-- No real API calls in tests
-- Verify no secrets in Prometheus config
+- **CRITICAL:** No direct refund processing
+- All external calls use proper clients
+- Audit log all workflow actions
 
 ### Field 10: Integration Points
-- All MCP servers (Wk8 D1-D4)
-- All guardrails (Wk8 D4)
-- GSD engine, TRIVYA, Smart Router (Wk5-7)
+- Mini agents (Days 3-4)
+- Shopify client (Wk7)
+- Twilio client (Wk7)
+- Email client (Wk7)
 
 ### Field 11: Code Quality
-- Clear test descriptions
-- Proper test isolation
-- Mocked external dependencies
+- Type hints on ALL functions
+- Docstrings required
+- PEP 8 compliant
+- Max 40 lines per function
 
 ### Field 12: GitHub CI Requirements
-- All integration tests pass
+- pytest pass
+- flake8 pass
+- black --check pass
 - CI green
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
-- Prometheus config created
-- All integration tests pass
-- Full pipeline test passes
+- All 13 files built and pushed
+- All unit tests pass
+- **CRITICAL: Refund workflow never calls Stripe/Paddle**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 8 INSTRUCTIONS (DAY 6)
+## TESTER → WEEK 9 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
 
 ### Test Command
 ```bash
-pytest tests/integration/test_week8_mcp.py -v
-pytest tests/unit/test_mcp_knowledge.py -v
-pytest tests/unit/test_mcp_integrations.py -v
-pytest tests/unit/test_mcp_tools.py -v
-pytest tests/unit/test_mcp_servers.py -v
-pytest tests/unit/test_guardrails.py -v
+pytest tests/integration/test_week9_mini_variant.py -v
+pytest tests/unit/test_base_agents.py -v
+pytest tests/unit/test_base_refund_agent.py -v
+pytest tests/unit/test_mini_config.py -v
+pytest tests/unit/test_mini_agents.py -v
+pytest tests/unit/test_mini_workflows.py -v
 ```
 
 ### Critical Tests to Verify
-1. All 11 MCP servers start without errors
-2. MCP client connects to all servers via registry
-3. Each MCP server responds within 2 seconds
-4. Full chain: GSD → TRIVYA → MCP → integration client completes
-5. Guardrails: hallucination blocked
-6. Guardrails: competitor mention blocked
-7. Approval enforcer: refund bypass attempt intercepted
-8. Prometheus config valid
+1. Mini PARWA: FAQ query routes to Light tier
+2. Mini PARWA: refund request creates pending_approval — Stripe/Paddle NOT called
+3. Mini PARWA: escalation triggers human handoff
+4. All 8 base agents initialise without errors
+5. Refund gate: CRITICAL — Stripe/Paddle must not be called without approval
+6. Mini anti-arbitrage: 2x Mini cost shows manager time correctly
+7. Voice agent: max 2 concurrent calls enforced
 
-### Week 8 PASS Criteria
-- All MCP servers running and responding
-- Full AI engine: GSD → TRIVYA → MCP functional
-- Guardrails protecting all AI outputs
+### Week 9 PASS Criteria
+- Mini PARWA variant fully functional
+- Refund gate verified: Stripe/Paddle NOT called without approval
+- All base agents working
 - All unit tests pass
 - GitHub CI pipeline green
 
@@ -647,12 +733,12 @@ pytest tests/unit/test_guardrails.py -v
 
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
-| Builder 1 | Day 1 | ⏳ PENDING | Base + Knowledge (7 files) | - | NO |
-| Builder 2 | Day 2 | ⏳ WAITING D1 | Integrations (6 files) | - | NO |
-| Builder 3 | Day 3 | ⏳ WAITING D1 | Tools (6 files) | - | NO |
-| Builder 4 | Day 4 | ⏳ WAITING D1 | Compliance + Guardrails (8 files) | - | NO |
-| Builder 5 | Day 5 | ⏳ WAITING D1-D4 | Monitoring + Tests (3 files) | - | NO |
-| Tester | Day 6 | ⏳ WAITING D1-D5 | Full validation | - | NO |
+| Builder 1 | Day 1 | ⏳ PENDING | Base agents (11 files) | - | NO |
+| Builder 2 | Day 2 | ⏳ WAITING D1 | Refund + Config (6 files) | - | NO |
+| Builder 3 | Day 3 | ⏳ WAITING D1 | Mini agents (6 files) | - | NO |
+| Builder 4 | Day 4 | ⏳ WAITING D1 | Mini agents (5 files) | - | NO |
+| Builder 5 | Day 5 | ⏳ WAITING D3-D4 | Tools + Workflows (13 files) | - | NO |
+| Tester | Day 6 | ⏳ WAITING ALL | Full validation | - | NO |
 
 ---
 
@@ -662,15 +748,16 @@ pytest tests/unit/test_guardrails.py -v
 
 **CRITICAL REMINDERS:**
 
-1. **Week 8 is SEQUENTIAL** — Day 1 MUST complete before Days 2-4 start
+1. **Week 9 is SEQUENTIAL** — Day 1 MUST complete before Days 2-4 start
 2. Within-day dependencies OK — build files in order listed
 3. No Docker — mock everything in tests
 4. One push per file — only after tests pass
 5. Type hints + docstrings required on all functions
-6. **All MCP servers must respond within 2 seconds**
-7. **Guardrails must block hallucinations and competitor mentions**
-8. **Refund gate is sacred** — never allow direct refund execution
-9. API Keys in env vars — never hardcode credentials
+6. **REFUND GATE IS SACRED** — Stripe/Paddle must NEVER be called without pending_approval
+7. Mini FAQ routes to Light tier
+8. Mini refund limit: $50 (escalate higher amounts)
+9. Mini voice: max 2 concurrent calls
+10. Mini escalates when confidence < 70%
 
 ---
 
@@ -679,13 +766,13 @@ pytest tests/unit/test_guardrails.py -v
 ═══════════════════════════════════════════════════════════════════════════════
 
 ```
-Week 8 Sequential Execution:
+Week 9 Sequential Execution:
 
-Day 1: Builder 1 → Build base_server.py + Knowledge servers → PUSH
+Day 1: Builder 1 → Build base_agent.py + 7 base agents → PUSH
          ↓
-Day 2-4: Builders 2, 3, 4 → Pull Day 1 → Build in PARALLEL → PUSH
+Days 2-4: Builders 2, 3, 4 → Pull Day 1 → Build in PARALLEL → PUSH
          ↓
-Day 5: Builder 5 → Pull all → Integration tests → PUSH
+Day 5: Builder 5 → Pull Days 3-4 → Build tools + workflows → PUSH
          ↓
 Day 6: Tester → Full validation → Report PASS/FAIL
 ```
@@ -694,20 +781,19 @@ Day 6: Tester → Full validation → Report PASS/FAIL
 
 **Builders 2-4: WAIT for Builder 1 to report DONE and push.**
 
-**Builder 5: WAIT for Builders 1-4 to report DONE.**
+**Builder 5: WAIT for Builders 3-4 to report DONE.**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## API CREDENTIALS (Store in .env, Never Hardcode)
+## MINI PARWA LIMITS SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
-| Service | Env Var Name |
-|---------|--------------|
-| Paddle Client Token | `PADDLE_CLIENT_TOKEN` |
-| Paddle API Key | `PADDLE_API_KEY` |
-| Twilio SID | `TWILIO_ACCOUNT_SID` |
-| Twilio Token | `TWILIO_AUTH_TOKEN` |
-| Brevo | `BREVO_API_KEY` |
-| GitHub | `GITHUB_TOKEN` |
-| Shopify | `SHOPIFY_ACCESS_TOKEN` |
+| Feature | Mini PARWA Limit |
+|---------|------------------|
+| Concurrent Calls | 2 max |
+| Supported Channels | FAQ, Email, Chat, SMS |
+| Refund Limit | $50 (escalate higher) |
+| Escalation Threshold | Confidence < 70% |
+| AI Tier | Light only |
+| Refund Processing | Creates pending_approval only |
