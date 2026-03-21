@@ -1064,9 +1064,13 @@ def _get_manager_time_module():
     """Helper to import manager_time_calculator module directly."""
     import sys
     import importlib.util
+    import os
+    # Get the correct path relative to this test file
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    module_path = os.path.join(base_dir, "backend", "services", "manager_time_calculator.py")
     spec = importlib.util.spec_from_file_location(
         "manager_time_calculator",
-        "/home/z/my-project/agentpayv2/backend/services/manager_time_calculator.py"
+        module_path
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
