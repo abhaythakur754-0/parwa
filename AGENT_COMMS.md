@@ -1,6 +1,6 @@
 # AGENT_COMMS.md — Week 8 Day 1-6
-# Last updated: Builder 1
-# Current status: WEEK 8 DAY 1 COMPLETE ✅ — BUILDERS 2-4 MAY NOW START
+# Last updated: Builder 2
+# Current status: WEEK 8 DAY 1 & DAY 2 COMPLETE ✅
 
 ═══════════════════════════════════════════════════════════════════════════════
 ## MANAGER → WEEK 8 PLAN
@@ -648,11 +648,72 @@ pytest tests/unit/test_guardrails.py -v
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
 | Builder 1 | Day 1 | ✅ DONE | Base + Knowledge (7 files) | PASS (45 tests) | YES |
-| Builder 2 | Day 2 | ⏳ READY | Integrations (6 files) | - | NO |
+| Builder 2 | Day 2 | ✅ DONE | Integrations (6 files) | PASS (39 tests) | YES |
 | Builder 3 | Day 3 | ⏳ READY | Tools (6 files) | - | NO |
 | Builder 4 | Day 4 | ⏳ READY | Compliance + Guardrails (8 files) | - | NO |
 | Builder 5 | Day 5 | ⏳ WAITING D1-D4 | Monitoring + Tests (3 files) | - | NO |
 | Tester | Day 6 | ⏳ WAITING D1-D5 | Full validation | - | NO |
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 2 → DAY 2 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Builder 2 - Week 8 Day 2
+
+**File 1:** `mcp_servers/integrations/__init__.py`
+- Status: ✅ DONE
+- GitHub CI: GREEN ✅
+- Commit: 14b982c
+- Notes: Module init with EmailServer, VoiceServer, ChatServer, TicketingServer exports
+
+**File 2:** `mcp_servers/integrations/email_server.py`
+- Status: ✅ DONE
+- GitHub CI: GREEN ✅
+- Commit: 54cf779
+- Notes: EmailServer with send_email, send_bulk_emails, get_email_status, get_templates tools
+- Features: Brevo integration, template support, bulk sending, delivery tracking
+
+**File 3:** `mcp_servers/integrations/voice_server.py`
+- Status: ✅ DONE
+- GitHub CI: GREEN ✅
+- Commit: bc80a0d
+- Notes: VoiceServer with make_call, send_sms, get_call_status, validate_phone_number tools
+- Features: Twilio integration, SMS/Voice, phone validation
+
+**File 4:** `mcp_servers/integrations/chat_server.py`
+- Status: ✅ DONE
+- GitHub CI: GREEN ✅
+- Commit: 6d453f3
+- Notes: ChatServer with send_message, create_conversation, get_conversation_history, mark_read tools
+- Features: In-memory conversation management, message history, read receipts
+
+**File 5:** `mcp_servers/integrations/ticketing_server.py`
+- Status: ✅ DONE
+- GitHub CI: GREEN ✅
+- Commit: cd0af7b
+- Notes: TicketingServer with create_ticket, update_ticket, get_ticket, add_comment, search_tickets tools
+- Features: Zendesk integration, ticket management, comment handling
+
+**File 6:** `tests/unit/test_mcp_integrations.py`
+- Status: ✅ DONE
+- Unit Test: 39 tests PASS
+- GitHub CI: GREEN ✅
+- Commit: 7c578e9
+- Notes: Complete test coverage for all 4 integration servers + integration tests
+
+**Tests Verified:**
+- All 4 servers start correctly
+- All servers respond within 2 seconds (CRITICAL)
+- EmailServer sends emails via mocked Brevo
+- VoiceServer sends SMS via mocked Twilio
+- ChatServer creates conversations and sends messages
+- TicketingServer creates and manages tickets
+- Multi-channel workflow works end-to-end
+
+**Overall Day Status:** ✅ DONE — 6 files built, 39 tests passing, pushed to GitHub
 
 ---
 
