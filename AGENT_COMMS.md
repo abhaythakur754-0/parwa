@@ -1,6 +1,6 @@
 # AGENT_COMMS.md — Week 8 Day 1-6
-# Last updated: Builder 4
-# Current status: WEEK 8 DAY 1, 2 & 4 COMPLETE ✅
+# Last updated: Builder 5
+# Current status: WEEK 8 DAY 1, 2, 4 & 5 COMPLETE ✅
 
 ═══════════════════════════════════════════════════════════════════════════════
 ## MANAGER → WEEK 8 PLAN
@@ -651,7 +651,7 @@ pytest tests/unit/test_guardrails.py -v
 | Builder 2 | Day 2 | ✅ DONE | Integrations (6 files) | PASS (39 tests) | YES |
 | Builder 3 | Day 3 | ⏳ READY | Tools (6 files) | - | NO |
 | Builder 4 | Day 4 | ✅ DONE | Compliance + Guardrails (8 files) | PASS (83 tests) | YES |
-| Builder 5 | Day 5 | ⏳ WAITING D1-D4 | Monitoring + Tests (3 files) | - | NO |
+| Builder 5 | Day 5 | ✅ DONE | Monitoring + Integration Tests (4 files) | PASS (38 tests) | YES |
 | Tester | Day 6 | ⏳ WAITING D1-D5 | Full validation | - | NO |
 
 ---
@@ -793,7 +793,67 @@ Zai Session: Builder 4 - Week 8 Day 4
 
 **Overall Day Status:** ✅ DONE — 8 files built, 83 tests passing, pushed to GitHub
 
-**⚠️ BUILDERS 5: You may now start. Pull latest and begin Day 5 work.**
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 5 → DAY 5 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Builder 5 - Week 8 Day 5
+
+**File 1:** `monitoring/prometheus.yml`
+- Status: ✅ DONE
+- Notes: Prometheus configuration for all MCP servers
+- Features:
+  - Scrape configs for all 10 MCP servers
+  - Backend API and GSD engine monitoring
+  - Redis and PostgreSQL exporters
+  - Node exporter for system metrics
+
+**File 2:** `monitoring/alerts.yml`
+- Status: ✅ DONE
+- Notes: Prometheus alert rules for service health
+- Features:
+  - Service availability alerts
+  - MCP server response time alerts
+  - Guardrails violation alerts (hallucination, competitor, PII)
+  - SLA breach predictions
+  - System resource alerts
+
+**File 3:** `tests/integration/test_week8_mcp.py`
+- Status: ✅ DONE
+- Unit Test: 22 tests PASS
+- Notes: Complete integration tests for all MCP servers
+- Tests:
+  - All servers start and respond within 2 seconds
+  - Knowledge servers integration (FAQ, RAG, KB)
+  - Notification and compliance workflows
+  - Guardrails integration (hallucination, competitor, PII blocking)
+  - Approval enforcer (refund bypass blocked, pending_approval created)
+
+**File 4:** `tests/integration/test_week2_gsd_kb.py`
+- Status: ✅ DONE
+- Unit Test: 16 tests PASS
+- Notes: Full AI pipeline integration tests
+- Tests:
+  - GSD state management and context health
+  - Smart router complexity scoring and routing
+  - Knowledge base ingestion and retrieval
+  - TRIVYA T1 orchestrator integration
+  - Full pipeline response time validation
+
+**Tests Verified:**
+- All 6 MCP servers (without external dependencies) start correctly
+- All servers respond within 2 seconds (CRITICAL)
+- Guardrails block hallucinations, competitors, PII
+- ApprovalEnforcer never allows direct refund execution
+- Full pipeline: Knowledge → Notification → Compliance → SLA works
+- GSD → TRIVYA → MCP → Guardrails pipeline functional
+
+**Overall Day Status:** ✅ DONE — 4 files built, 38 integration tests passing, pushed to GitHub
+
+**⚠️ TESTER: You may now start. Pull latest and run full Week 8 validation.**
 
 ---
 
