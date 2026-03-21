@@ -7,15 +7,15 @@
 
 - Phase 1: Foundation (Wk 1-4) → ✅ COMPLETE
 - Phase 2: Core AI Engine (Wk 5-8) → ✅ COMPLETE
-- Phase 3: Variants (Wk 9-14) → ✅ COMPLETE (Mini PARWA)
+- Phase 3: Variants (Wk 9-14) → 🟡 IN PROGRESS (Mini PARWA ✅, PARWA Junior next)
 
 ---
 
 ## Current Position
-- **Week**: 9
-- **Day**: ALL COMPLETE
-- **Phase**: Phase 3 — Variants & Integrations (Mini PARWA)
-- **Overall Status**: WEEK 9 COMPLETE ✅
+- **Week**: 10
+- **Day**: 0 (Tasks written, Builders not yet started)
+- **Phase**: Phase 3 — Variants & Integrations (PARWA Junior Variant)
+- **Overall Status**: WEEK 9 COMPLETE ✅ → WEEK 10 TASKS WRITTEN
 
 ---
 
@@ -24,59 +24,7 @@
 **Summary:** Mini PARWA variant fully implemented with agents, tools, and workflows.
 
 **Total Files:** 40 files built
-**Total Tests:** 180+ tests passing
-
-**Files Built by Builder:**
-
-### Builder 1 - Base Agents (12 files)
-- variants/__init__.py
-- variants/base_agents/__init__.py
-- variants/base_agents/base_agent.py
-- variants/base_agents/base_faq_agent.py
-- variants/base_agents/base_email_agent.py
-- variants/base_agents/base_chat_agent.py
-- variants/base_agents/base_sms_agent.py
-- variants/base_agents/base_voice_agent.py
-- variants/base_agents/base_ticket_agent.py
-- variants/base_agents/base_escalation_agent.py
-- variants/base_agents/base_refund_agent.py
-- tests/unit/test_base_agents.py (50 tests)
-
-### Builder 2 - Mini Config (4 files)
-- variants/mini/__init__.py
-- variants/mini/config.py
-- variants/mini/anti_arbitrage_config.py
-- tests/unit/test_mini_config.py (28 tests)
-
-### Builder 3 - Mini Communication Agents (5 files)
-- variants/mini/agents/__init__.py
-- variants/mini/agents/faq_agent.py
-- variants/mini/agents/email_agent.py
-- variants/mini/agents/chat_agent.py
-- variants/mini/agents/sms_agent.py
-
-### Builder 4 - Mini Operations Agents (5 files)
-- variants/mini/agents/voice_agent.py
-- variants/mini/agents/ticket_agent.py
-- variants/mini/agents/escalation_agent.py
-- variants/mini/agents/refund_agent.py
-- tests/unit/test_base_refund_agent.py (19 tests)
-- tests/unit/test_mini_agents.py (shared - 82 tests)
-
-### Builder 5 - Mini Tools + Workflows (13 files)
-- variants/mini/tools/__init__.py
-- variants/mini/tools/faq_search.py
-- variants/mini/tools/order_lookup.py
-- variants/mini/tools/ticket_create.py
-- variants/mini/tools/notification.py
-- variants/mini/tools/refund_verification_tools.py
-- variants/mini/workflows/__init__.py
-- variants/mini/workflows/inquiry.py
-- variants/mini/workflows/ticket_creation.py
-- variants/mini/workflows/escalation.py
-- variants/mini/workflows/order_status.py
-- variants/mini/workflows/refund_verification.py
-- tests/unit/test_mini_workflows.py (51 tests)
+**Total Tests:** 230 tests passing
 
 **Key Achievements:**
 - 8 Mini agents: FAQ, Email, Chat, SMS, Voice, Ticket, Escalation, Refund
@@ -89,20 +37,29 @@
 
 ---
 
-## Parallel Execution Structure
+## Week 10 — Mini Tasks + PARWA Junior Variant
 
-```
-PHASE 1 (PARALLEL):
-├── Builder 1: Base Agents (12 files)
-└── Builder 2: Mini Config (4 files)
+**Week 10 Goals:**
+- Day 1: Mini Tasks (answer_faq, process_email, handle_chat, make_call, create_ticket, escalate, verify_refund)
+- Day 2: PARWA Config + Core Agents (8 agents for Junior variant)
+- Day 3: PARWA Unique Agents + Tools (learning_agent, safety_agent, tools)
+- Day 4: PARWA Workflows + Tasks
+- Day 5: PARWA Tests + Manager Time Calculator
+- Day 6: Tester Agent runs validation
 
-PHASE 2 (PARALLEL after Phase 1):
-├── Builder 3: Mini Communication Agents (5 files)
-└── Builder 4: Mini Operations Agents (5 files)
+**PARWA Junior Capabilities:**
+- Resolves 70-80% of issues autonomously
+- Verifies refunds (never executes)
+- Recommends APPROVE/REVIEW/DENY with full reasoning
+- Learns from negative feedback (negative_reward records)
+- Uses Medium tier for complex queries
+- Safety agent blocks competitor mentions
 
-PHASE 3 (SEQUENTIAL after Phase 2):
-└── Builder 5: Mini Tools + Workflows (13 files)
-```
+**CRITICAL TESTS:**
+- PARWA refund recommendation includes APPROVE/REVIEW/DENY with reasoning
+- Learning agent creates negative_reward record on rejection
+- Safety agent blocks competitor mentions
+- Mini still works alongside PARWA (no conflicts)
 
 ---
 
@@ -134,7 +91,6 @@ PHASE 3 (SEQUENTIAL after Phase 2):
 ## Key Decisions
 
 - Zai single-agent-per-day workflow
-- **Week 9: 3-Phase parallel execution** (Phase 1 parallel, Phase 2 parallel, Phase 3 sequential)
 - GitHub CI runs automatically on every push
 - Tester Agent runs once at end of full week
 - **Payment Processor: Paddle** (Merchant of Record)
@@ -143,3 +99,4 @@ PHASE 3 (SEQUENTIAL after Phase 2):
 - TRIVYA T1 always fires, T2 on complex, T3 on high-stakes scenarios
 - **Guardrails:** Hallucination blocking, competitor mention blocking, refund bypass prevention
 - **Mini PARWA limits:** 2 concurrent calls, $50 refund max, 70% escalation threshold
+- **PARWA Junior:** Medium tier, APPROVE/REVIEW/DENY recommendations, learning agent
