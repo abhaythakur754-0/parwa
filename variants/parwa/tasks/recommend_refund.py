@@ -145,7 +145,6 @@ class RecommendRefundTask:
                 metadata={
                     "variant": "parwa",
                     "tier": "medium",
-                    "workflow_status": workflow_result.status.value,
                     **workflow_result.metadata,
                 },
             )

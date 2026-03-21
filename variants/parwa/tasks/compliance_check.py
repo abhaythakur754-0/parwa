@@ -18,10 +18,7 @@ from enum import Enum
 
 from variants.parwa.config import ParwaConfig, get_parwa_config
 from shared.core_functions.logger import get_logger
-from shared.core_functions.compliance import ComplianceChecker
-from shared.compliance.gdpr_engine import GDPREngine
-from shared.compliance.jurisdiction import JurisdictionManager
-from shared.compliance.healthcare_guard import HealthcareGuard
+from shared.core_functions.compliance import mask_pii, generate_portability_report
 
 logger = get_logger(__name__)
 
@@ -95,24 +92,14 @@ class ComplianceCheckTask:
     def __init__(
         self,
         parwa_config: Optional[ParwaConfig] = None,
-        gdpr_engine: Optional[GDPREngine] = None,
-        jurisdiction_manager: Optional[JurisdictionManager] = None,
-        healthcare_guard: Optional[HealthcareGuard] = None,
     ) -> None:
         """
         Initialize compliance check task.
 
         Args:
             parwa_config: PARWA Junior configuration
-            gdpr_engine: GDPR engine instance
-            jurisdiction_manager: Jurisdiction manager instance
-            healthcare_guard: Healthcare guard instance
         """
         self._config = parwa_config or get_parwa_config()
-        self._gdpr_engine = gdpr_engine or GDPREngine()
-        self._jurisdiction_manager = jurisdiction_manager or JurisdictionManager()
-        self._healthcare_guard = healthcare_guard or HealthcareGuard()
-        self._compliance_checker = ComplianceChecker()
 
     async def execute(self, input_data: Dict[str, Any]) -> ComplianceCheckResult:
         """
