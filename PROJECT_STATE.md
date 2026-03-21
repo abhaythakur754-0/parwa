@@ -12,46 +12,54 @@
 ---
 
 ## Current Position
-- **Week**: 7
-- **Day**: 1 & 4 COMPLETE
-- **Phase**: Phase 2 — Core AI Engine (TRIVYA Tier 3 + Integrations + Compliance)
-- **Overall Status**: WEEK 7 DAY 1 & DAY 4 COMPLETE ✅
+- **Week**: 8
+- **Day**: 0 (Tasks written, Builders not yet started)
+- **Phase**: Phase 2 — Core AI Engine (MCP Servers + Guardrails)
+- **Overall Status**: WEEK 7 COMPLETE ✅ → WEEK 8 TASKS WRITTEN
 
 ---
 
-## Week 7 — Day 1 | Date: 2026-03-21 | Builder 1 COMPLETE ✅
+## Week 7 — COMPLETE ✅
 
-**Files Completed:**
-- `shared/trivya_techniques/tier3/trigger_detector.py` (Builder 1) — ✅ DONE
-- `shared/trivya_techniques/tier3/gst.py` (Builder 1) — ✅ DONE
-- `shared/trivya_techniques/tier3/universe_of_thoughts.py` (Builder 1) — ✅ DONE
-- `shared/trivya_techniques/tier3/tree_of_thoughts.py` (Builder 1) — ✅ DONE
-- `shared/trivya_techniques/tier3/self_consistency.py` (Builder 1) — ✅ DONE
-- `shared/trivya_techniques/tier3/reflexion.py` (Builder 1) — ✅ DONE
-- `shared/trivya_techniques/tier3/least_to_most.py` (Builder 1) — ✅ DONE
-- `tests/unit/test_trivya_tier3.py` (Builder 1) — ✅ DONE
+**Summary:** TRIVYA Tier 3, All Integration Clients, Compliance Layer built and tested.
 
-**Unit Tests:** 73 tests passing
+**Total Tests:** 338 Week 7 tests passing
+
+**Files Built:**
+- TRIVYA Tier 3 chain (7 advanced reasoning techniques + trigger detector)
+- E-commerce + Comms integrations (Shopify, Paddle, Twilio, Email, Zendesk)
+- Dev + Logistics integrations (GitHub, AfterShip, Epic EHR)
+- Compliance layer (Jurisdiction, SLA, GDPR, Healthcare Guard)
+- Full T1+T2+T3 pipeline integration tests
+
+**Key Achievements:**
+- T3 activates on VIP + amount>$100 + anger>80% scenarios
+- Paddle refund gate enforced (no direct refunds without approval)
+- BAA enforcement for Epic EHR (read-only, PHI protected)
+- GDPR export/erasure/masking working
+- 10 jurisdictions with compliance rules
 
 ---
 
-## Week 7 — Day 4 | Date: 2026-03-21 | Builder 4 COMPLETE ✅
+## Week 8 — MCP Servers + Guardrails
 
-**Files Completed:**
-- `shared/compliance/jurisdiction.py` (Builder 4) — ✅ DONE
-- `shared/compliance/sla_calculator.py` (Builder 4) — ✅ DONE
-- `shared/compliance/gdpr_engine.py` (Builder 4) — ✅ DONE
-- `shared/compliance/healthcare_guard.py` (Builder 4) — ✅ DONE
-- `shared/compliance/__init__.py` (Builder 4) — ✅ DONE
-- `tests/unit/test_compliance_layer.py` (Builder 4) — ✅ DONE
+**IMPORTANT:** Week 8 is a **SEQUENTIAL week** — NOT fully parallel.
+- Day 1 builds `base_server.py` which ALL other servers depend on.
+- Days 2-4 MUST wait for Day 1 to complete and push before starting.
+- This is an intentional exception to the parallel rule due to inheritance requirements.
 
-**Unit Tests:** 49 tests passing
+**Week 8 Goals:**
+- Day 1: Base server + Knowledge MCP servers (faq, rag, kb)
+- Day 2: Voice + Chat + Email + Ticketing MCP servers
+- Day 3: E-commerce + CRM + Analytics MCP servers
+- Day 4: Notification + Compliance + SLA MCPs + Guardrails chain
+- Day 5: Monitoring setup + Integration tests
+- Day 6: Tester Agent runs full week validation
 
-**Key Features:**
-- JurisdictionManager: 10 jurisdictions (US/TCPA, IN/DPDPA, EU/GDPR, etc.)
-- SLACalculator: 4-tier breach detection (Critical/High/Standard/Low)
-- GDPREngine: Export, erasure, PII masking, anonymization
-- HealthcareGuard: BAA verification, PHI detection/protection
+**Critical Files:**
+- `mcp_servers/base_server.py` — ALL other MCP servers inherit from this
+- `shared/guardrails/guardrails.py` — AI output protection
+- `shared/guardrails/approval_enforcer.py` — Refund bypass prevention
 
 ---
 
@@ -105,9 +113,11 @@
 
 - Zai single-agent-per-day workflow
 - Within-day dependency allowed, across-day forbidden
+- **Week 8 Exception:** Sequential execution due to base_server.py inheritance
 - GitHub CI runs automatically on every push
 - Tester Agent runs once at end of full week
 - **Payment Processor: Paddle** (Merchant of Record - handles tax, subscriptions, chargebacks)
 - Smart Router selects Light/Medium/Heavy tier per query
 - GSD Engine manages conversation state with compression
 - TRIVYA T1 always fires, T2 on complex, T3 on high-stakes scenarios
+- **Guardrails:** Hallucination blocking, competitor mention blocking, refund bypass prevention
