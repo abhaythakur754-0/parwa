@@ -7,9 +7,13 @@ Tests for:
 - TwilioClient: SMS and Voice communication
 - EmailClient: Transactional email via Brevo
 - ZendeskClient: Ticketing system integration
+- GitHubClient: Repository access for code-related support
+- AfterShipClient: Shipment tracking
+- EpicEHRClient: Healthcare EHR (read-only, BAA required)
 
-CRITICAL: Paddle refund gate tests ensure no refunds can be processed
-without a valid pending_approval record.
+CRITICAL: 
+- Paddle refund gate tests ensure no refunds can be processed without approval.
+- Epic EHR tests ensure BAA verification and read-only enforcement.
 """
 import pytest
 from datetime import datetime, timezone
@@ -42,6 +46,20 @@ from shared.integrations.zendesk_client import (
     ZendeskClientState,
     TicketStatus,
     TicketPriority,
+)
+from shared.integrations.github_client import (
+    GitHubClient,
+    GitHubClientState,
+)
+from shared.integrations.aftership_client import (
+    AfterShipClient,
+    AfterShipClientState,
+    TrackingStatus,
+)
+from shared.integrations.epic_ehr_client import (
+    EpicEHRClient,
+    EpicEHRClientState,
+    EHRAccessLevel,
 )
 
 
@@ -1172,3 +1190,421 @@ class TestIntegrationClientsIntegration:
                 reason="Test",
                 pending_approval=correct_approval,
             )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GITHUB CLIENT TESTS (Day 3)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestGitHubClient:
+    """Tests for GitHub client."""
+
+    @pytest.fixture
+    def github_client(self):
+        """Create a GitHub client instance."""
+        return GitHubClient(token="test_github_token")
+
+    @pytest.mark.asyncio
+    async def test_connect_success(self, github_client):
+        """Test successful connection to GitHub."""
+        result = await github_client.connect()
+        assert result is True
+        assert github_client.state == GitHubClientState.CONNECTED
+        assert github_client.is_connected is True
+
+    @pytest.mark.asyncio
+    async def test_connect_missing_token(self):
+        """Test connection fails without token."""
+        client = GitHubClient(token=None)
+        result = await client.connect()
+        assert result is False
+        assert client.state == GitHubClientState.ERROR
+
+    @pytest.mark.asyncio
+    async def test_disconnect(self, github_client):
+        """Test disconnection."""
+        await github_client.connect()
+        await github_client.disconnect()
+        assert github_client.state == GitHubClientState.DISCONNECTED
+
+    @pytest.mark.asyncio
+    async def test_get_repository(self, github_client):
+        """Test getting repository info."""
+        await github_client.connect()
+        repo = await github_client.get_repository("owner", "repo")
+        assert repo["name"] == "repo"
+        assert repo["owner"]["login"] == "owner"
+        assert "stars" in repo
+
+    @pytest.mark.asyncio
+    async def test_get_repository_not_connected(self, github_client):
+        """Test getting repo fails when not connected."""
+        with pytest.raises(ValueError, match="not connected"):
+            await github_client.get_repository("owner", "repo")
+
+    @pytest.mark.asyncio
+    async def test_get_repository_missing_owner(self, github_client):
+        """Test getting repo fails without owner."""
+        await github_client.connect()
+        with pytest.raises(ValueError, match="Owner and repo name are required"):
+            await github_client.get_repository("", "repo")
+
+    @pytest.mark.asyncio
+    async def test_get_issue(self, github_client):
+        """Test getting an issue."""
+        await github_client.connect()
+        issue = await github_client.get_issue("owner", "repo", 123)
+        assert issue["number"] == 123
+        assert issue["state"] == "open"
+        assert "title" in issue
+
+    @pytest.mark.asyncio
+    async def test_get_issue_invalid_number(self, github_client):
+        """Test getting issue fails with invalid number."""
+        await github_client.connect()
+        with pytest.raises(ValueError, match="Valid issue number"):
+            await github_client.get_issue("owner", "repo", 0)
+
+    @pytest.mark.asyncio
+    async def test_search_issues(self, github_client):
+        """Test searching issues."""
+        await github_client.connect()
+        results = await github_client.search_issues("owner", "repo", "bug", limit=10)
+        assert isinstance(results, list)
+
+    @pytest.mark.asyncio
+    async def test_search_issues_invalid_limit(self, github_client):
+        """Test search fails with invalid limit."""
+        await github_client.connect()
+        with pytest.raises(ValueError, match="between 1 and 100"):
+            await github_client.search_issues("owner", "repo", "bug", limit=200)
+
+    @pytest.mark.asyncio
+    async def test_get_pull_request(self, github_client):
+        """Test getting a PR."""
+        await github_client.connect()
+        pr = await github_client.get_pull_request("owner", "repo", 456)
+        assert pr["number"] == 456
+        assert "head" in pr
+        assert "base" in pr
+
+    @pytest.mark.asyncio
+    async def test_get_commit(self, github_client):
+        """Test getting a commit."""
+        await github_client.connect()
+        commit = await github_client.get_commit("owner", "repo", "abc123def")
+        assert "sha" in commit
+        assert "message" in commit
+        assert "author" in commit
+
+    @pytest.mark.asyncio
+    async def test_list_branches(self, github_client):
+        """Test listing branches."""
+        await github_client.connect()
+        branches = await github_client.list_branches("owner", "repo")
+        assert isinstance(branches, list)
+        assert len(branches) > 0
+
+    @pytest.mark.asyncio
+    async def test_get_release(self, github_client):
+        """Test getting release info."""
+        await github_client.connect()
+        release = await github_client.get_release("owner", "repo", "v1.0.0")
+        assert release["tag_name"] == "v1.0.0"
+
+    @pytest.mark.asyncio
+    async def test_health_check(self, github_client):
+        """Test health check."""
+        await github_client.connect()
+        health = await github_client.health_check()
+        assert health["healthy"] is True
+        assert health["state"] == GitHubClientState.CONNECTED.value
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AFTERSHIP CLIENT TESTS (Day 3)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestAfterShipClient:
+    """Tests for AfterShip tracking client."""
+
+    @pytest.fixture
+    def aftership_client(self):
+        """Create an AfterShip client instance."""
+        return AfterShipClient(api_key="test_aftership_key")
+
+    @pytest.mark.asyncio
+    async def test_connect_success(self, aftership_client):
+        """Test successful connection to AfterShip."""
+        result = await aftership_client.connect()
+        assert result is True
+        assert aftership_client.state == AfterShipClientState.CONNECTED
+
+    @pytest.mark.asyncio
+    async def test_connect_missing_api_key(self):
+        """Test connection fails without API key."""
+        client = AfterShipClient(api_key=None)
+        result = await client.connect()
+        assert result is False
+        assert client.state == AfterShipClientState.ERROR
+
+    @pytest.mark.asyncio
+    async def test_disconnect(self, aftership_client):
+        """Test disconnection."""
+        await aftership_client.connect()
+        await aftership_client.disconnect()
+        assert aftership_client.state == AfterShipClientState.DISCONNECTED
+
+    @pytest.mark.asyncio
+    async def test_track_shipment(self, aftership_client):
+        """Test tracking a shipment."""
+        await aftership_client.connect()
+        tracking = await aftership_client.track_shipment("TRK123456789")
+        assert tracking["tracking_number"] == "TRK123456789"
+        assert "status" in tracking
+        assert "checkpoint" in tracking
+
+    @pytest.mark.asyncio
+    async def test_track_shipment_not_connected(self, aftership_client):
+        """Test tracking fails when not connected."""
+        with pytest.raises(ValueError, match="not connected"):
+            await aftership_client.track_shipment("TRK123")
+
+    @pytest.mark.asyncio
+    async def test_track_shipment_missing_number(self, aftership_client):
+        """Test tracking fails without tracking number."""
+        await aftership_client.connect()
+        with pytest.raises(ValueError, match="Tracking number is required"):
+            await aftership_client.track_shipment("")
+
+    @pytest.mark.asyncio
+    async def test_create_tracking(self, aftership_client):
+        """Test creating a tracking."""
+        await aftership_client.connect()
+        result = await aftership_client.create_tracking(
+            tracking_number="TRK999",
+            carrier="fedex",
+            title="Test Package"
+        )
+        assert result["tracking_number"] == "TRK999"
+        assert result["carrier"] == "fedex"
+
+    @pytest.mark.asyncio
+    async def test_get_couriers(self, aftership_client):
+        """Test getting supported couriers."""
+        await aftership_client.connect()
+        couriers = await aftership_client.get_couriers()
+        assert isinstance(couriers, list)
+        assert len(couriers) > 0
+
+    @pytest.mark.asyncio
+    async def test_detect_carrier(self, aftership_client):
+        """Test carrier detection."""
+        await aftership_client.connect()
+        carriers = await aftership_client.detect_carrier("TRK123456789")
+        assert isinstance(carriers, list)
+
+    @pytest.mark.asyncio
+    async def test_get_last_checkpoint(self, aftership_client):
+        """Test getting last checkpoint."""
+        await aftership_client.connect()
+        checkpoint = await aftership_client.get_last_checkpoint("TRK123")
+        assert "checkpoint" in checkpoint
+
+    @pytest.mark.asyncio
+    async def test_list_trackings(self, aftership_client):
+        """Test listing trackings."""
+        await aftership_client.connect()
+        result = await aftership_client.list_trackings(page=1, limit=10)
+        assert "trackings" in result
+        assert "page" in result
+
+    @pytest.mark.asyncio
+    async def test_list_trackings_invalid_limit(self, aftership_client):
+        """Test listing fails with invalid limit."""
+        await aftership_client.connect()
+        with pytest.raises(ValueError, match="between 1 and 100"):
+            await aftership_client.list_trackings(limit=200)
+
+    @pytest.mark.asyncio
+    async def test_health_check(self, aftership_client):
+        """Test health check."""
+        await aftership_client.connect()
+        health = await aftership_client.health_check()
+        assert health["healthy"] is True
+        assert "supported_carriers" in health
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EPIC EHR CLIENT TESTS (Day 3)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestEpicEHRClient:
+    """Tests for Epic EHR client with BAA enforcement."""
+
+    @pytest.fixture
+    def epic_client(self):
+        """Create an Epic EHR client instance with BAA verified."""
+        return EpicEHRClient(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            fhir_base_url="https://fhir.epic.com",
+            baa_verified=True
+        )
+
+    @pytest.fixture
+    def epic_client_no_baa(self):
+        """Create an Epic EHR client without BAA."""
+        return EpicEHRClient(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            baa_verified=False
+        )
+
+    @pytest.mark.asyncio
+    async def test_connect_success(self, epic_client):
+        """Test successful connection to Epic EHR."""
+        result = await epic_client.connect()
+        assert result is True
+        assert epic_client.state == EpicEHRClientState.CONNECTED
+
+    @pytest.mark.asyncio
+    async def test_connect_without_baa_blocked(self, epic_client_no_baa):
+        """CRITICAL: Connection must fail without BAA verification."""
+        result = await epic_client_no_baa.connect()
+        assert result is False
+        assert epic_client_no_baa.state == EpicEHRClientState.BAA_REQUIRED
+
+    @pytest.mark.asyncio
+    async def test_connect_missing_credentials(self):
+        """Test connection fails without credentials."""
+        client = EpicEHRClient(client_id=None, client_secret=None, baa_verified=True)
+        result = await client.connect()
+        assert result is False
+        assert client.state == EpicEHRClientState.ERROR
+
+    @pytest.mark.asyncio
+    async def test_disconnect(self, epic_client):
+        """Test disconnection."""
+        await epic_client.connect()
+        await epic_client.disconnect()
+        assert epic_client.state == EpicEHRClientState.DISCONNECTED
+
+    @pytest.mark.asyncio
+    async def test_get_patient_by_mrn(self, epic_client):
+        """Test getting patient by MRN."""
+        await epic_client.connect()
+        patient = await epic_client.get_patient_by_mrn("MRN123456")
+        assert patient["resourceType"] == "Patient"
+        assert "mrn" in patient
+
+    @pytest.mark.asyncio
+    async def test_get_patient_phi_redacted(self, epic_client):
+        """CRITICAL: PHI must be redacted in responses."""
+        await epic_client.connect()
+        patient = await epic_client.get_patient_by_mrn("MRN123456")
+        # Sensitive fields should be redacted
+        assert patient["name"] == "[REDACTED]"
+        assert patient["dob"] == "[REDACTED]"
+        assert patient["phone"] == "[REDACTED]"
+
+    @pytest.mark.asyncio
+    async def test_get_patient_missing_mrn(self, epic_client):
+        """Test getting patient fails without MRN."""
+        await epic_client.connect()
+        with pytest.raises(ValueError, match="MRN is required"):
+            await epic_client.get_patient_by_mrn("")
+
+    @pytest.mark.asyncio
+    async def test_get_patient_visits(self, epic_client):
+        """Test getting patient visits."""
+        await epic_client.connect()
+        visits = await epic_client.get_patient_visits("patient_123")
+        assert isinstance(visits, list)
+
+    @pytest.mark.asyncio
+    async def test_get_patient_medications(self, epic_client):
+        """Test getting patient medications."""
+        await epic_client.connect()
+        meds = await epic_client.get_patient_medications("patient_123")
+        assert isinstance(meds, list)
+
+    @pytest.mark.asyncio
+    async def test_get_patient_allergies(self, epic_client):
+        """Test getting patient allergies."""
+        await epic_client.connect()
+        allergies = await epic_client.get_patient_allergies("patient_123")
+        assert isinstance(allergies, list)
+
+    @pytest.mark.asyncio
+    async def test_get_lab_results(self, epic_client):
+        """Test getting lab results."""
+        await epic_client.connect()
+        labs = await epic_client.get_lab_results("patient_123")
+        assert isinstance(labs, list)
+
+    @pytest.mark.asyncio
+    async def test_get_conditions(self, epic_client):
+        """Test getting patient conditions."""
+        await epic_client.connect()
+        conditions = await epic_client.get_conditions("patient_123")
+        assert isinstance(conditions, list)
+
+    # CRITICAL READ-ONLY ENFORCEMENT TESTS
+
+    @pytest.mark.asyncio
+    async def test_create_patient_blocked(self, epic_client):
+        """CRITICAL: Patient creation must be blocked (read-only)."""
+        await epic_client.connect()
+        with pytest.raises(PermissionError, match="READ-ONLY"):
+            await epic_client.create_patient()
+
+    @pytest.mark.asyncio
+    async def test_update_patient_blocked(self, epic_client):
+        """CRITICAL: Patient updates must be blocked (read-only)."""
+        await epic_client.connect()
+        with pytest.raises(PermissionError, match="READ-ONLY"):
+            await epic_client.update_patient()
+
+    @pytest.mark.asyncio
+    async def test_delete_patient_blocked(self, epic_client):
+        """CRITICAL: Patient deletion must be blocked (read-only)."""
+        await epic_client.connect()
+        with pytest.raises(PermissionError, match="READ-ONLY"):
+            await epic_client.delete_patient()
+
+    @pytest.mark.asyncio
+    async def test_create_order_blocked(self, epic_client):
+        """CRITICAL: Order creation must be blocked (read-only)."""
+        await epic_client.connect()
+        with pytest.raises(PermissionError, match="READ-ONLY"):
+            await epic_client.create_order()
+
+    @pytest.mark.asyncio
+    async def test_is_read_only(self, epic_client):
+        """Test that client reports read-only status."""
+        await epic_client.connect()
+        assert epic_client.is_read_only is True
+
+    @pytest.mark.asyncio
+    async def test_baa_verified_property(self, epic_client):
+        """Test BAA verification property."""
+        assert epic_client.baa_verified is True
+
+    def test_redact_phi(self, epic_client):
+        """Test PHI redaction functionality."""
+        text = "SSN: 123-45-6789, Phone: 555-123-4567"
+        redacted = epic_client._redact_phi(text)
+        assert "123-45-6789" not in redacted
+        assert "555-123-4567" not in redacted
+        assert "[SSN_REDACTED]" in redacted
+        assert "[PHONE_REDACTED]" in redacted
+
+    @pytest.mark.asyncio
+    async def test_health_check(self, epic_client):
+        """Test health check."""
+        await epic_client.connect()
+        health = await epic_client.health_check()
+        assert health["healthy"] is True
+        assert health["read_only"] is True
+        assert health["baa_verified"] is True
