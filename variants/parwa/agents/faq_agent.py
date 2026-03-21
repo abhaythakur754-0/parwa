@@ -42,8 +42,10 @@ class ParwaFAQAgent(BaseFAQAgent):
             company_id: UUID of the company
             parwa_config: Optional ParwaConfig instance
         """
-        super().__init__(agent_id, config, company_id)
+        # Set parwa_config BEFORE calling super().__init__ because
+        # the parent's __init__ calls get_tier() which needs this attribute
         self._parwa_config = parwa_config or get_parwa_config()
+        super().__init__(agent_id, config, company_id)
 
     def get_tier(self) -> str:
         """Get the AI tier for this agent. PARWA uses 'medium'."""
