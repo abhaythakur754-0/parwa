@@ -1,6 +1,6 @@
 # AGENT_COMMS.md — Week 8 Day 1-6
-# Last updated: Manager Agent
-# Current status: WEEK 8 TASKS WRITTEN — AWAITING BUILDERS
+# Last updated: Builder 1
+# Current status: WEEK 8 DAY 1 COMPLETE ✅ — BUILDERS 2-4 MAY NOW START
 
 ═══════════════════════════════════════════════════════════════════════════════
 ## MANAGER → WEEK 8 PLAN
@@ -647,12 +647,73 @@ pytest tests/unit/test_guardrails.py -v
 
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
-| Builder 1 | Day 1 | ⏳ PENDING | Base + Knowledge (7 files) | - | NO |
-| Builder 2 | Day 2 | ⏳ WAITING D1 | Integrations (6 files) | - | NO |
-| Builder 3 | Day 3 | ⏳ WAITING D1 | Tools (6 files) | - | NO |
-| Builder 4 | Day 4 | ⏳ WAITING D1 | Compliance + Guardrails (8 files) | - | NO |
+| Builder 1 | Day 1 | ✅ DONE | Base + Knowledge (7 files) | PASS (45 tests) | YES |
+| Builder 2 | Day 2 | ⏳ READY | Integrations (6 files) | - | NO |
+| Builder 3 | Day 3 | ⏳ READY | Tools (6 files) | - | NO |
+| Builder 4 | Day 4 | ⏳ READY | Compliance + Guardrails (8 files) | - | NO |
 | Builder 5 | Day 5 | ⏳ WAITING D1-D4 | Monitoring + Tests (3 files) | - | NO |
 | Tester | Day 6 | ⏳ WAITING D1-D5 | Full validation | - | NO |
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 1 → DAY 1 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-21
+Zai Session: Builder 1 - Week 8 Day 1
+
+**File 1:** `mcp_servers/__init__.py`
+- Status: ✅ DONE
+- Notes: Module init with BaseMCPServer, MCPServerState, ToolDefinition, ToolResult exports
+
+**File 2:** `mcp_servers/base_server.py`
+- Status: ✅ DONE
+- Notes: CRITICAL base class - all MCP servers inherit from this
+- Features:
+  - Server lifecycle (start/stop/health_check)
+  - Tool registration and routing
+  - Parameter validation against JSON schema
+  - Rate limiting (100 calls/minute)
+  - 2-second response time enforcement
+  - JSON logging
+
+**File 3:** `mcp_servers/knowledge/__init__.py`
+- Status: ✅ DONE
+- Notes: Knowledge submodule init with FAQServer, RAGServer, KBServer exports
+
+**File 4:** `mcp_servers/knowledge/faq_server.py`
+- Status: ✅ DONE
+- Notes: FAQServer with search_faqs, get_faq_by_id, get_faq_categories tools
+- Features: Relevance scoring, category filtering, 8 mock FAQs
+
+**File 5:** `mcp_servers/knowledge/rag_server.py`
+- Status: ✅ DONE
+- Notes: RAGServer with retrieve, ingest, get_collection_stats tools
+- Features: Mock retrieval, document ingestion, collection statistics
+
+**File 6:** `mcp_servers/knowledge/kb_server.py`
+- Status: ✅ DONE
+- Notes: KBServer with search, get_article, get_related_articles tools
+- Features: Relevance scoring, category/tag filtering, related articles, 8 mock articles
+
+**File 7:** `tests/unit/test_mcp_knowledge.py`
+- Status: ✅ DONE
+- Unit Test: 45 tests PASS
+- Notes: Complete test coverage including response time validation
+
+**Tests Verified:**
+- BaseMCPServer initializes correctly
+- All servers respond within 2 seconds (CRITICAL)
+- FAQ search returns relevant results
+- RAG retrieve and ingest work
+- KB search and related articles work
+- Tool registration and routing works
+- Parameter validation enforced
+
+**Overall Day Status:** ✅ DONE — 7 files built, 45 tests passing, pushed to GitHub
+
+**⚠️ BUILDERS 2-4: You may now start. Pull latest and begin Day 2-4 work.**
 
 ---
 
