@@ -14,6 +14,8 @@ Agents:
 - ParwaTicketAgent: Support ticket management
 - ParwaEscalationAgent: Human handoff and escalation
 - ParwaRefundAgent: Refund processing with APPROVE/REVIEW/DENY reasoning
+- ParwaLearningAgent: Learning and feedback collection (creates negative_reward)
+- ParwaSafetyAgent: Safety checks and content validation
 
 PARWA Junior agents differ from Mini agents in:
 - Support for medium AI tier
@@ -22,6 +24,7 @@ PARWA Junior agents differ from Mini agents in:
 - Higher refund limits ($500 vs $50)
 - Lower escalation threshold (60% vs 70%)
 - APPROVE/REVIEW/DENY recommendations with reasoning
+- Learning capabilities with negative_reward records
 """
 from variants.parwa.agents.faq_agent import ParwaFAQAgent
 from variants.parwa.agents.email_agent import ParwaEmailAgent
@@ -31,6 +34,8 @@ from variants.parwa.agents.voice_agent import ParwaVoiceAgent
 from variants.parwa.agents.ticket_agent import ParwaTicketAgent
 from variants.parwa.agents.escalation_agent import ParwaEscalationAgent
 from variants.parwa.agents.refund_agent import ParwaRefundAgent
+from variants.parwa.agents.learning_agent import ParwaLearningAgent
+from variants.parwa.agents.safety_agent import ParwaSafetyAgent
 
 __all__ = [
     "ParwaFAQAgent",
@@ -41,4 +46,6 @@ __all__ = [
     "ParwaTicketAgent",
     "ParwaEscalationAgent",
     "ParwaRefundAgent",
+    "ParwaLearningAgent",
+    "ParwaSafetyAgent",
 ]
