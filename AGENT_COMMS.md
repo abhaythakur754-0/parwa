@@ -603,9 +603,9 @@ pytest tests/unit/test_parwa_workflows.py -v
 |---------|-----|--------|-------|-------|--------|
 | Builder 1 | Day 1 | ✅ DONE | Mini Tasks (9 files) | 35 pass | YES |
 | Builder 2 | Day 2 | ✅ DONE | PARWA Config + Agents (12 files) | 132 pass | YES |
-| Builder 3 | Day 3 | ⏳ PENDING | PARWA Unique Agents (6 files) | - | NO |
-| Builder 4 | Day 4 | ⏳ PENDING | PARWA Workflows (8 files) | - | NO |
-| Builder 5 | Day 5 | ⏳ PENDING | Tests + Calculator (3 files) | - | NO |
+| Builder 3 | Day 3 | ✅ DONE | PARWA Unique Agents (6 files) | 96 pass | YES |
+| Builder 4 | Day 4 | ✅ DONE | PARWA Workflows (8 files) | 33 pass | YES |
+| Builder 5 | Day 5 | ✅ DONE | Tests + Calculator (3 files) | 96 pass | YES |
 | Tester | Day 6 | ⏳ WAITING ALL | Full validation | - | NO |
 
 ---
@@ -702,6 +702,58 @@ Date: 2026-03-21
 - [x] Refund recommendation includes reasoning
 - [x] All existing tests pass (132 passed)
 - [x] Python syntax valid for all files
+
+---
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 4 DONE REPORT
+═══════════════════════════════════════════════════════════════════════════════
+Written by: Builder 4 Agent
+Date: 2026-03-21
+
+### Files Built and Pushed:
+1. ✅ `variants/parwa/workflows/__init__.py` — Module init for PARWA workflows
+2. ✅ `variants/parwa/workflows/refund_recommendation.py` — RefundRecommendationWorkflow (APPROVE/REVIEW/DENY + reasoning)
+3. ✅ `variants/parwa/workflows/knowledge_update.py` — KnowledgeUpdateWorkflow
+4. ✅ `variants/parwa/workflows/safety_workflow.py` — SafetyWorkflow (competitor blocking)
+5. ✅ `variants/parwa/tasks/__init__.py` — Module init for PARWA tasks
+6. ✅ `variants/parwa/tasks/recommend_refund.py` — RecommendRefundTask (creates pending_approval)
+7. ✅ `variants/parwa/tasks/update_knowledge.py` — UpdateKnowledgeTask
+8. ✅ `variants/parwa/tasks/compliance_check.py` — ComplianceCheckTask
+
+### Verification Results:
+- RefundRecommendationWorkflow returns APPROVE/REVIEW/DENY with full reasoning ✅
+- SafetyWorkflow blocks competitor mentions ✅
+- SafetyWorkflow blocks prompt injection ✅
+- KnowledgeUpdateWorkflow updates KB correctly ✅
+- All workflows return variant="parwa", tier="medium" ✅
+- CRITICAL: Refund workflow NEVER calls Paddle ✅
+- Tests: 33 passed ✅
+
+### Key Implementation Details:
+1. **RefundRecommendationWorkflow**: 
+   - Returns {decision, reasoning, confidence, pending_approval_id}
+   - $500 PARWA limit, $100 auto-approve threshold, $250 review threshold
+   - Full reasoning with supporting_factors, risk_factors, policy_references
+
+2. **SafetyWorkflow**:
+   - Steps: Check competitor → Check hallucination → Sanitize
+   - Returns {safe: bool, issues: list, sanitized_response: str}
+
+3. **KnowledgeUpdateWorkflow**:
+   - Updates KB after successful resolutions
+   - Tracks positive/negative feedback
+
+4. **CRITICAL GATES**:
+   - All refund workflows create pending_approval
+   - NEVER call Paddle directly
+   - All responses pass through safety workflow
+
+### Pass Criteria Met:
+- [x] All 8 files built and pushed
+- [x] GitHub CI GREEN
+- [x] Refund workflow returns APPROVE/REVIEW/DENY with reasoning
+- [x] Safety workflow blocks competitor mentions
+- [x] CRITICAL: No direct Paddle calls
 
 ---
 
