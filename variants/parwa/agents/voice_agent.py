@@ -44,8 +44,10 @@ class ParwaVoiceAgent(BaseVoiceAgent):
             company_id: UUID of the company
             parwa_config: Optional ParwaConfig instance
         """
-        super().__init__(agent_id, config, company_id)
+        # Set parwa_config BEFORE calling super().__init__ because
+        # the parent's __init__ calls get_tier() which needs this attribute
         self._parwa_config = parwa_config or get_parwa_config()
+        super().__init__(agent_id, config, company_id)
         # Set max concurrent calls to PARWA limit (5)
         self._max_concurrent = self.PARWA_MAX_CONCURRENT_CALLS
 
