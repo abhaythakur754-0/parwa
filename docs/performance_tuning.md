@@ -2,578 +2,449 @@
 
 ## Overview
 
-This guide provides comprehensive performance tuning recommendations for the PARWA platform. Use this as a reference for optimizing system performance, troubleshooting latency issues, and ensuring SLA compliance.
+This guide provides comprehensive performance tuning recommendations for PARWA production deployments. Follow these guidelines to optimize system performance and meet SLA requirements.
 
 ## Table of Contents
 
-1. [Performance SLAs](#performance-slas)
+1. [Performance Targets](#performance-targets)
 2. [Database Optimization](#database-optimization)
 3. [Caching Strategies](#caching-strategies)
 4. [Connection Pooling](#connection-pooling)
 5. [Known Bottlenecks](#known-bottlenecks)
-6. [Monitoring and Profiling](#monitoring-and-profiling)
-7. [Quick Reference](#quick-reference)
+6. [Monitoring & Profiling](#monitoring--profiling)
 
 ---
 
-## Performance SLAs
+## Performance Targets
 
-### Target Metrics
+### SLA Requirements
 
 | Metric | Target | Critical Threshold |
 |--------|--------|-------------------|
-| API P95 Latency | < 300ms | 500ms |
-| API P99 Latency | < 500ms | 1000ms |
-| Database Query Avg | < 50ms | 100ms |
-| Database Query P95 | < 100ms | 200ms |
-| Cache Hit Rate | > 85% | 70% |
-| Error Rate | < 0.1% | 1% |
-| Throughput | > 200 RPS | 100 RPS |
+| P95 Latency | < 500ms | > 500ms triggers alert |
+| P99 Latency | < 1000ms | > 1000ms triggers alert |
+| Error Rate | < 0.1% | > 1% triggers alert |
+| Availability | 99.9% | < 99.9% SLO breach |
+| Throughput | 1000 req/s | Per tenant |
 
-### Client-Specific SLAs
+### Key Performance Indicators
 
-| Client Tier | Concurrent Users | P95 Latency |
-|-------------|------------------|-------------|
-| Mini | 10 | < 500ms |
-| Junior | 50 | < 500ms |
-| Senior | 100 | < 500ms |
+```
+# Monitor these metrics
+- http_request_duration_seconds (histogram)
+- http_requests_total (counter)
+- db_query_duration_seconds (histogram)
+- cache_hit_rate (gauge)
+- active_connections (gauge)
+```
 
 ---
 
 ## Database Optimization
 
-### Index Recommendations
+### Index Strategy
 
-#### Critical Indexes (Always Create)
-
-```sql
--- Client isolation
-CREATE INDEX CONCURRENTLY idx_tickets_client_id ON tickets(client_id);
-CREATE INDEX CONCURRENTLY idx_approvals_client_id ON approvals(client_id);
-CREATE INDEX CONCURRENTLY idx_analytics_client_id ON analytics(client_id);
-
--- Status filtering
-CREATE INDEX CONCURRENTLY idx_tickets_status ON tickets(status);
-CREATE INDEX CONCURRENTLY idx_approvals_status ON approvals(status);
-
--- Time-based queries
-CREATE INDEX CONCURRENTLY idx_tickets_created_at ON tickets(created_at);
-CREATE INDEX CONCURRENTLY idx_analytics_created_at ON analytics(created_at);
-
--- User lookups
-CREATE INDEX CONCURRENTLY idx_users_email ON users(email);
-CREATE INDEX CONCURRENTLY idx_users_tenant_id ON users(tenant_id);
-
--- Audit trail
-CREATE INDEX CONCURRENTLY idx_audit_logs_tenant_id ON audit_logs(tenant_id);
-CREATE INDEX CONCURRENTLY idx_audit_logs_timestamp ON audit_logs(timestamp);
-```
-
-#### Composite Indexes for Common Queries
+**Essential Indexes:**
 
 ```sql
--- Ticket listing by client and status
-CREATE INDEX CONCURRENTLY idx_tickets_client_status 
-ON tickets(client_id, status) 
-INCLUDE (subject, priority, created_at);
+-- Tickets table
+CREATE INDEX idx_tickets_tenant_status ON tickets(tenant_id, status);
+CREATE INDEX idx_tickets_tenant_created ON tickets(tenant_id, created_at DESC);
+CREATE INDEX idx_tickets_customer ON tickets(customer_id);
+CREATE INDEX idx_tickets_priority ON tickets(priority) WHERE status = 'open';
 
--- Approval queue queries
-CREATE INDEX CONCURRENTLY idx_approvals_client_status_created 
-ON approvals(client_id, status, created_at DESC);
+-- Customers table
+CREATE INDEX idx_customers_tenant_email ON customers(tenant_id, email);
+CREATE INDEX idx_customers_tenant_id ON customers(tenant_id);
 
--- Analytics date range queries
-CREATE INDEX CONCURRENTLY idx_analytics_client_date 
-ON analytics(client_id, created_at DESC);
+-- Approvals table
+CREATE INDEX idx_approvals_tenant_status ON approvals(tenant_id, status);
+CREATE INDEX idx_approvals_created ON approvals(created_at DESC);
+
+-- Audit logs (time-series)
+CREATE INDEX idx_audit_logs_tenant_time ON audit_logs(tenant_id, timestamp DESC);
 ```
 
-#### Partial Indexes for Performance
+**Partial Indexes for Common Queries:**
 
 ```sql
--- Only index active tickets
-CREATE INDEX CONCURRENTLY idx_tickets_active 
-ON tickets(client_id, updated_at) 
-WHERE status NOT IN ('closed', 'resolved');
+-- Open tickets only (most common query)
+CREATE INDEX idx_tickets_open ON tickets(tenant_id, created_at DESC)
+WHERE status IN ('open', 'pending');
 
--- Only pending approvals
-CREATE INDEX CONCURRENTLY idx_approvals_pending 
-ON approvals(client_id, created_at) 
-WHERE status = 'pending';
+-- High priority tickets
+CREATE INDEX idx_tickets_high_priority ON tickets(tenant_id, priority)
+WHERE priority IN ('high', 'urgent') AND status = 'open';
 ```
 
-### Query Optimization Patterns
+### Query Optimization
 
-#### Avoid N+1 Queries
+**Avoid N+1 Queries:**
 
 ```python
-# ❌ Bad: N+1 query pattern
+# Bad: N+1 query pattern
 for ticket in tickets:
-    customer = db.query(Customer).get(ticket.customer_id)  # N queries
-    
-# ✅ Good: Eager loading
-tickets = db.query(Ticket).options(joinedload(Ticket.customer)).all()
+    customer = await db.get_customer(ticket.customer_id)
+
+# Good: Eager loading
+tickets = await db.query(
+    "SELECT t.*, c.* FROM tickets t "
+    "LEFT JOIN customers c ON t.customer_id = c.id "
+    "WHERE t.tenant_id = $1",
+    tenant_id
+)
 ```
 
-#### Use Batch Operations
+**Use Query Batching:**
 
 ```python
-# ❌ Bad: Individual inserts
-for item in items:
-    db.add(item)
-    db.commit()  # N commits
+# Bad: Multiple round trips
+for id in ticket_ids:
+    ticket = await db.get_ticket(id)
 
-# ✅ Good: Batch insert
-db.bulk_insert_mappings(Item, items)
-db.commit()  # Single commit
+# Good: Batch query
+tickets = await db.query(
+    "SELECT * FROM tickets WHERE id = ANY($1)",
+    ticket_ids
+)
 ```
 
-#### Optimize Pagination
-
-```python
-# ❌ Bad: OFFSET with large pages
-SELECT * FROM tickets ORDER BY id LIMIT 20 OFFSET 10000;
-
-# ✅ Good: Cursor-based pagination
-SELECT * FROM tickets WHERE id > last_seen_id ORDER BY id LIMIT 20;
-```
-
-### Query Plan Analysis
+### Connection Settings
 
 ```sql
--- Enable query timing
-EXPLAIN ANALYZE SELECT * FROM tickets WHERE client_id = 'client_001' AND status = 'open';
-
--- Check for sequential scans
-SELECT schemaname, tablename, attname, n_distinct, correlation
-FROM pg_stats
-WHERE schemaname = 'public'
-ORDER BY tablename;
-
--- Find missing indexes
-SELECT 
-    schemaname,
-    tablename,
-    attname,
-    n_distinct,
-    CASE 
-        WHEN n_distinct > 100 THEN 'index_recommended'
-        ELSE 'ok'
-    END as recommendation
-FROM pg_stats
-WHERE schemaname = 'public'
-AND n_distinct > 100;
-```
-
-### Database Configuration
-
-```sql
--- Connection pooling (pgbouncer)
+-- PostgreSQL configuration
 max_connections = 200
-default_pool_size = 50
-min_pool_size = 10
-reserve_pool_size = 5
-
--- Memory settings
 shared_buffers = 256MB
+effective_cache_size = 1GB
 work_mem = 16MB
 maintenance_work_mem = 128MB
-effective_cache_size = 1GB
-
--- Query planning
-random_page_cost = 1.1  -- For SSD
+random_page_cost = 1.1  -- For SSDs
 effective_io_concurrency = 200
+```
 
--- WAL settings
-wal_buffers = 64MB
-checkpoint_completion_target = 0.9
+### RLS Performance
+
+Row Level Security can impact query performance. Optimize with:
+
+```sql
+-- Create efficient RLS policies
+CREATE POLICY tenant_isolation ON tickets
+    USING (tenant_id = current_setting('app.tenant_id')::uuid);
+
+-- Add index on RLS column
+CREATE INDEX idx_tickets_rls ON tickets(tenant_id);
+
+-- Use SECURITY DEFINER for complex policies
+CREATE FUNCTION current_tenant() RETURNS uuid AS $$
+    SELECT current_setting('app.tenant_id', true)::uuid;
+$$ LANGUAGE sql SECURITY DEFINER;
 ```
 
 ---
 
 ## Caching Strategies
 
-### Redis Configuration
+### Redis Cache Architecture
 
-```redis
-# Memory management
-maxmemory 2gb
-maxmemory-policy allkeys-lru
-
-# Persistence (optional for cache)
-save ""  # Disable RDB for pure cache
-appendonly no
-
-# Performance
-tcp-keepalive 300
-timeout 0
-tcp-backlog 511
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     CACHE LAYERS                             │
+│                                                              │
+│  L1: In-Memory (per process)                                │
+│  ├── Session data (5 min TTL)                               │
+│  └── User preferences (1 hour TTL)                          │
+│                                                              │
+│  L2: Redis (shared)                                          │
+│  ├── FAQ lookups (1 hour TTL)                               │
+│  ├── Customer profiles (30 min TTL)                         │
+│  ├── Product catalog (2 hour TTL)                           │
+│  └── API responses (5 min TTL)                              │
+│                                                              │
+│  L3: CDN (static assets)                                     │
+│  └── Static files, images (24 hour TTL)                     │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Caching Patterns
-
-#### 1. Cache-Aside Pattern
+### Cache Key Strategy
 
 ```python
-def get_tickets(client_id: str):
-    cache_key = f"tickets:{client_id}"
-    
-    # Try cache first
-    cached = redis.get(cache_key)
-    if cached:
-        return json.loads(cached)
-    
-    # Cache miss - query database
-    tickets = db.query(Ticket).filter_by(client_id=client_id).all()
-    
-    # Store in cache
-    redis.setex(cache_key, 300, json.dumps(tickets))  # 5 min TTL
-    return tickets
-```
+# Namespace keys by tenant
+cache_key = f"tenant:{tenant_id}:faq:{faq_id}"
 
-#### 2. Write-Through Pattern
+# Version keys for easy invalidation
+cache_key = f"tenant:{tenant_id}:products:v2:{product_id}"
 
-```python
-def update_ticket(ticket_id: str, data: dict):
-    # Update database
-    ticket = db.query(Ticket).get(ticket_id)
-    ticket.update(data)
-    db.commit()
-    
-    # Update cache
-    cache_key = f"ticket:{ticket_id}"
-    redis.setex(cache_key, 300, json.dumps(ticket.to_dict()))
-```
-
-#### 3. Cache Invalidation
-
-```python
-def invalidate_client_cache(client_id: str):
-    """Invalidate all cache entries for a client."""
-    pattern = f"*:{client_id}*"
-    keys = redis.keys(pattern)
-    if keys:
-        redis.delete(*keys)
-```
-
-### Cache Key Design
-
-```python
-# Good cache key design
-f"tickets:{client_id}:page:{page}:status:{status}"
-f"approval:{approval_id}"
-f"analytics:{client_id}:{date}:metrics"
-
-# Use consistent prefixes for easy invalidation
-f"parwa:{client_id}:tickets:list"
-f"parwa:{client_id}:user:{user_id}"
+# Pattern for bulk invalidation
+# Delete: tenant:client_001:products:*
 ```
 
 ### Cache Warming
 
 ```python
-async def warm_client_cache(client_id: str):
-    """Pre-populate cache on client onboarding."""
-    # Warm tickets
-    tickets = await get_tickets(client_id)
-    redis.setex(f"tickets:{client_id}", 300, json.dumps(tickets))
+async def warm_cache():
+    """Pre-populate cache on startup."""
+    # Top FAQs
+    faqs = await get_top_faqs(limit=100)
+    for faq in faqs:
+        await cache.set(f"faq:{faq.id}", faq, ttl=3600)
     
-    # Warm knowledge base
-    kb = await load_knowledge_base(client_id)
-    redis.setex(f"kb:{client_id}", 3600, json.dumps(kb))
-    
-    # Warm analytics
-    analytics = await get_analytics_summary(client_id)
-    redis.setex(f"analytics:{client_id}", 300, json.dumps(analytics))
+    # Active customers
+    customers = await get_active_customers(limit=1000)
+    for customer in customers:
+        await cache.set(f"customer:{customer.id}", customer, ttl=1800)
+```
+
+### Cache Hit Rate Optimization
+
+```python
+# Target: > 85% cache hit rate
+
+# Monitor hit rate
+hit_rate = cache.hits / (cache.hits + cache.misses)
+
+# Alert if below threshold
+if hit_rate < 0.85:
+    alert("Cache hit rate below 85%")
 ```
 
 ---
 
 ## Connection Pooling
 
-### Database Connection Pool (PgBouncer)
+### Pool Sizing Formula
 
-```ini
-[databases]
-parwa = host=postgres port=5432 dbname=parwa
+```
+connections = (core_count * 2) + effective_spindle_count
 
-[pgbouncer]
-listen_addr = 0.0.0.0
-listen_port = 6432
-auth_type = md5
-auth_file = /etc/pgbouncer/users.txt
-pool_mode = transaction
-max_client_conn = 500
-default_pool_size = 50
-min_pool_size = 10
-reserve_pool_size = 5
-reserve_pool_timeout = 3
-max_db_connections = 200
+For a 4-core server with SSD:
+connections = (4 * 2) + 1 = 9 connections per service instance
+
+With 10 backend replicas:
+total = 9 * 10 = 90 connections (well under 200 limit)
 ```
 
-### Application Connection Pool
+### Pool Configuration
 
 ```python
-# SQLAlchemy configuration
-SQLALCHEMY_POOL_SIZE = 20
-SQLALCHEMY_MAX_OVERFLOW = 10
-SQLALCHEMY_POOL_TIMEOUT = 30
-SQLALCHEMY_POOL_RECYCLE = 3600
-SQLALCHEMY_POOL_PRE_PING = True
-
-# Connection string
-DATABASE_URL = "postgresql://user:pass@pgbouncer:6432/parwa"
+# SQLAlchemy async pool
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_size=10,           # Normal pool size
+    max_overflow=20,        # Additional connections under load
+    pool_timeout=30,        # Wait time for connection
+    pool_recycle=1800,      # Recycle connections after 30 min
+    pool_pre_ping=True,     # Validate connections before use
+    echo_pool=False,        # Don't log pool events in production
+)
 ```
 
 ### Redis Connection Pool
 
 ```python
-import redis
-from redis.connection import ConnectionPool
+# Redis connection pool
+import redis.asyncio as redis
 
-pool = ConnectionPool(
+redis_pool = redis.ConnectionPool(
     host='redis',
     port=6379,
+    db=0,
     max_connections=50,
     socket_timeout=5,
     socket_connect_timeout=5,
-    retry_on_timeout=True
+    retry_on_timeout=True,
 )
 
-redis_client = redis.Redis(connection_pool=pool)
-```
-
-### HTTP Connection Pool
-
-```python
-import httpx
-
-# Async client with connection pooling
-async_client = httpx.AsyncClient(
-    limits=httpx.Limits(
-        max_connections=100,
-        max_keepalive_connections=20,
-        keepalive_expiry=30.0
-    ),
-    timeout=httpx.Timeout(10.0, connect=5.0)
-)
+redis_client = redis.Redis(connection_pool=redis_pool)
 ```
 
 ---
 
 ## Known Bottlenecks
 
-### 1. N+1 Queries in Ticket List
+### 1. Full-Text Search Without Index
 
-**Location:** `backend/app/services/ticket_service.py`
+**Problem:** LIKE queries with leading wildcards don't use indexes.
 
-**Symptom:** Slow ticket listing with many tickets per page
-
-**Solution:**
-```python
-# Use joinedload for relations
-tickets = db.query(Ticket).options(
-    joinedload(Ticket.customer),
-    joinedload(Ticket.assignee)
-).filter_by(client_id=client_id).all()
-```
-
-### 2. Missing Index on Analytics Table
-
-**Location:** `analytics` table
-
-**Symptom:** Slow analytics dashboard loading
-
-**Solution:**
 ```sql
-CREATE INDEX CONCURRENTLY idx_analytics_client_created 
-ON analytics(client_id, created_at DESC);
+-- Bad: Can't use index
+WHERE subject LIKE '%refund%'
+
+-- Good: Uses trigram index
+CREATE EXTENSION pg_trgm;
+CREATE INDEX idx_tickets_subject_trgm ON tickets USING gin(subject gin_trgm_ops);
+WHERE subject ILIKE '%refund%'
 ```
 
-### 3. Redis Memory Fragmentation
+### 2. JSONB Column Queries
 
-**Location:** Redis cache
+**Problem:** JSONB queries without GIN index are slow.
 
-**Symptom:** Higher memory usage than expected
+```sql
+-- Add GIN index for JSONB
+CREATE INDEX idx_tickets_metadata ON tickets USING gin(metadata);
 
-**Solution:**
-```redis
-# Enable memory fragmentation info
-CONFIG SET activedefrag yes
-CONFIG SET active-defrag-cycle-min 1
-CONFIG SET active-defrag-cycle-max 25
+-- Or specific path index
+CREATE INDEX idx_tickets_priority ON tickets((metadata->>'priority'));
 ```
 
-### 4. Large JSON Payloads
+### 3. Large Result Sets
 
-**Location:** Jarvis command responses
+**Problem:** Returning too many rows causes memory issues.
 
-**Symptom:** Slow response times for complex queries
+**Solution:** Always paginate large queries.
 
-**Solution:**
 ```python
-# Paginate large responses
-def get_jarvis_response(command: str):
-    response = jarvis.process(command)
-    if len(response) > 10000:
-        return {
-            "summary": response[:500],
-            "full_response": response,
-            "truncated": True
-        }
-    return response
+# Use cursor-based pagination for large datasets
+async def get_tickets_cursor(cursor: UUID = None, limit: int = 100):
+    query = "SELECT * FROM tickets WHERE tenant_id = $1"
+    params = [tenant_id]
+    
+    if cursor:
+        query += " AND id < $2"
+        params.append(cursor)
+    
+    query += " ORDER BY id DESC LIMIT $2"
+    params.append(limit)
+    
+    return await db.query(query, params)
 ```
 
-### 5. Connection Leaks
+### 4. Synchronous External API Calls
 
-**Location:** Background workers
+**Problem:** Blocking on external APIs slows down the entire system.
 
-**Symptom:** Database connection pool exhaustion
+**Solution:** Use async clients and timeouts.
 
-**Solution:**
 ```python
-# Always use context managers
-def process_task():
-    with SessionLocal() as db:
-        # Work here
-        pass
-    # Connection automatically closed
+import httpx
+
+async with httpx.AsyncClient(timeout=30.0) as client:
+    response = await client.get("https://api.openai.com/v1/...")
+```
+
+### 5. WebSocket Connection Memory
+
+**Problem:** Each WebSocket connection consumes memory.
+
+**Solution:** Implement connection limits and cleanup.
+
+```python
+# Limit connections per tenant
+MAX_WS_CONNECTIONS_PER_TENANT = 100
+
+# Implement heartbeat and cleanup
+async def cleanup_inactive_connections():
+    while True:
+        await asyncio.sleep(60)
+        for conn in websocket_connections:
+            if conn.last_ping < time.time() - 300:
+                await conn.close()
 ```
 
 ---
 
-## Monitoring and Profiling
+## Monitoring & Profiling
 
-### Performance Metrics to Monitor
+### Key Metrics to Monitor
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `http_request_duration_seconds` | API latency histogram | P95 > 500ms |
-| `pg_stat_activity_count` | DB connections | > 150 |
-| `redis_memory_used_bytes` | Cache memory | > 85% max |
-| `redis_keyspace_hits/misses` | Cache hit rate | < 70% |
-| `container_cpu_usage_seconds` | CPU usage | > 90% |
-| `container_memory_usage_bytes` | Memory usage | > 85% |
+```yaml
+# Prometheus queries for dashboard
 
-### Profiling Tools
+# P95 latency
+histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
 
-#### Python Profiling
+# Error rate
+sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))
 
-```python
-import cProfile
-import pstats
+# Database connections
+pg_stat_activity_count
 
-def profile_function():
-    profiler = cProfile.Profile()
-    profiler.enable()
-    
-    # Function to profile
-    result = expensive_operation()
-    
-    profiler.disable()
-    stats = pstats.Stats(profiler)
-    stats.sort_stats('cumulative')
-    stats.print_stats(20)
-    
-    return result
+# Cache hit rate
+rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+
+# Queue depth
+redis_llen{queue="arq:queue"}
 ```
 
-#### Database Query Logging
+### Performance Profiling
 
 ```python
-# Enable SQLAlchemy query logging
+# Enable query logging for slow queries
 import logging
-logging.basicConfig()
-logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+
+# Profile specific endpoints
+from time import perf_counter
+
+@app.middleware("http")
+async def add_timing_header(request: Request, call_next):
+    start = perf_counter()
+    response = await call_next(request)
+    duration_ms = (perf_counter() - start) * 1000
+    response.headers["X-Process-Time"] = f"{duration_ms:.2f}ms"
+    return response
 ```
 
-#### APM Integration
+### Load Testing
 
-```python
-# OpenTelemetry tracing
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-
-tracer = trace.get_tracer(__name__)
-
-async def process_request(request):
-    with tracer.start_as_current_span("process_request"):
-        # Traced code
-        result = await handle_request(request)
-        return result
+```bash
+# Using Locust for load testing
+locust -f tests/performance/test_real_client_load.py \
+    --host https://api.parwa.ai \
+    --users 100 \
+    --spawn-rate 10 \
+    --run-time 5m \
+    --headless
 ```
 
-### Performance Debugging Checklist
+### Performance Test Checklist
 
-1. [ ] Check slow query log
-2. [ ] Verify indexes are being used (EXPLAIN ANALYZE)
-3. [ ] Check cache hit rate
-4. [ ] Review connection pool stats
-5. [ ] Profile application code
-6. [ ] Check for memory leaks
-7. [ ] Verify network latency
-8. [ ] Review background job queue depth
+- [ ] P95 latency < 500ms under normal load
+- [ ] P95 latency < 500ms with 100 concurrent users
+- [ ] Database queries use appropriate indexes
+- [ ] Cache hit rate > 85%
+- [ ] No memory leaks under sustained load
+- [ ] Connection pool not exhausted under peak load
+- [ ] External API timeouts handled gracefully
+- [ ] WebSocket connections cleaned up properly
 
 ---
 
 ## Quick Reference
 
-### Performance Commands
+### Emergency Performance Tuning
+
+```sql
+-- Kill long-running queries
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE state = 'active'
+AND query_start < now() - interval '5 minutes';
+
+-- Check for table bloat
+SELECT schemaname, tablename, 
+       pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+LIMIT 10;
+
+-- Analyze tables for query planner
+ANALYZE tickets;
+ANALYZE customers;
+ANALYZE approvals;
+```
+
+### Redis Performance Check
 
 ```bash
-# Check database query times
-psql -c "SELECT query, calls, total_time/calls as avg_time 
-         FROM pg_stat_statements ORDER BY avg_time DESC LIMIT 10;"
+# Check Redis memory usage
+redis-cli info memory | grep used_memory_human
 
-# Check connection count
-psql -c "SELECT count(*) FROM pg_stat_activity;"
+# Monitor Redis commands
+redis-cli monitor
 
-# Check index usage
-psql -c "SELECT schemaname, tablename, indexname, idx_scan 
-         FROM pg_stat_user_indexes ORDER BY idx_scan ASC;"
-
-# Redis memory usage
-redis-cli info memory
-
-# Redis slow log
+# Check slow log
 redis-cli slowlog get 10
-
-# Check pod resource usage
-kubectl top pods -n parwa
-
-# Check HPA status
-kubectl get hpa -n parwa
 ```
 
-### Emergency Performance Fixes
-
-```bash
-# Clear Redis cache if corrupted
-redis-cli FLUSHALL
-
-# Restart slow workers
-kubectl rollout restart deployment/parwa-worker -n parwa
-
-# Scale backend if overloaded
-kubectl scale deployment/parwa-backend --replicas=10 -n parwa
-
-# Kill long-running queries
-psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity 
-         WHERE state = 'active' AND query_start < now() - interval '5 minutes';"
-```
-
-### Configuration Files
-
-| File | Location | Purpose |
-|------|----------|---------|
-| PostgreSQL | `/etc/postgresql/postgresql.conf` | DB settings |
-| Redis | `/etc/redis/redis.conf` | Cache settings |
-| PgBouncer | `/etc/pgbouncer/pgbouncer.ini` | Connection pool |
-| Nginx | `/etc/nginx/nginx.conf` | Web server tuning |
-
----
-
-## Support
-
-For performance support, contact:
-- **Slack**: #parwa-performance
-- **Email**: performance@parwa.ai
-- **Runbooks**: https://docs.parwa.ai/runbooks
+For additional support, contact the Platform team at platform@parwa.ai.
