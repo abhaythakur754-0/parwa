@@ -580,3 +580,39 @@ class PaddleClient:
                 if self._last_request else None
             ),
         }
+
+
+# Singleton instance for reuse
+_paddle_client_instance: Optional[PaddleClient] = None
+
+
+def get_paddle_client() -> PaddleClient:
+    """
+    Get or create a singleton PaddleClient instance.
+
+    This function provides a factory pattern for obtaining a PaddleClient
+    instance. It creates a new instance on first call and returns the same
+    instance on subsequent calls.
+
+    Returns:
+        PaddleClient instance configured from environment settings
+    """
+    global _paddle_client_instance
+
+    if _paddle_client_instance is None:
+        _paddle_client_instance = PaddleClient()
+
+    return _paddle_client_instance
+
+
+async def reset_paddle_client() -> None:
+    """
+    Reset the singleton PaddleClient instance.
+
+    Useful for testing or when reconnection is needed.
+    """
+    global _paddle_client_instance
+
+    if _paddle_client_instance is not None:
+        await _paddle_client_instance.disconnect()
+        _paddle_client_instance = None
