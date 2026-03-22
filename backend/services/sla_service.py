@@ -437,3 +437,133 @@ class SLAService:
         }
         
         return escalation_matrix.get(phase, ["agent"])
+
+    # ========================================================================
+    # AGENT_COMMS Required Methods
+    # ========================================================================
+
+    async def check_sla(self, ticket_id: str) -> Dict[str, Any]:
+        """
+        Check SLA status for a ticket.
+
+        Args:
+            ticket_id: Ticket identifier
+
+        Returns:
+            Dict with SLA status
+        """
+        logger.info({
+            "event": "sla_check",
+            "company_id": str(self.company_id),
+            "ticket_id": ticket_id,
+        })
+
+        # In production, would query ticket from database
+        # For now, return a default status
+        now = datetime.now(timezone.utc)
+
+        return {
+            "ticket_id": ticket_id,
+            "company_id": str(self.company_id),
+            "status": "on_track",
+            "checked_at": now.isoformat(),
+            "response_deadline": None,
+            "resolution_deadline": None,
+            "is_breached": False,
+            "is_warning": False,
+            "time_remaining_hours": None,
+        }
+
+    async def detect_breach(self, ticket_id: str) -> Dict[str, Any]:
+        """
+        Detect SLA breach for a ticket.
+
+        Args:
+            ticket_id: Ticket identifier
+
+        Returns:
+            Dict with breach detection result
+        """
+        logger.info({
+            "event": "sla_breach_detection",
+            "company_id": str(self.company_id),
+            "ticket_id": ticket_id,
+        })
+
+        now = datetime.now(timezone.utc)
+
+        # Check if there's an existing breach
+        # In production, would query from database
+        breach_detected = False
+        breach_details = None
+
+        return {
+            "ticket_id": ticket_id,
+            "company_id": str(self.company_id),
+            "breach_detected": breach_detected,
+            "breach_details": breach_details,
+            "detected_at": now.isoformat(),
+        }
+
+    async def log_breach(
+        self,
+        ticket_id: str,
+        breach_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Log an SLA breach.
+
+        Args:
+            ticket_id: Ticket identifier
+            breach_data: Breach details
+
+        Returns:
+            Dict with logged breach record
+        """
+        now = datetime.now(timezone.utc)
+        breach_id = str(UUID(int=hash(f"{ticket_id}{now.isoformat()}") % (2**128)))
+
+        breach_record = {
+            "breach_id": breach_id,
+            "ticket_id": ticket_id,
+            "company_id": str(self.company_id),
+            "breach_type": breach_data.get("breach_type", "unknown"),
+            "phase": breach_data.get("phase", 1),
+            "hours_overdue": breach_data.get("hours_overdue", 0),
+            "logged_at": now.isoformat(),
+        }
+
+        logger.warning({
+            "event": "sla_breach_logged",
+            "company_id": str(self.company_id),
+            "ticket_id": ticket_id,
+            "breach_id": breach_id,
+            "breach_type": breach_data.get("breach_type"),
+        })
+
+        return breach_record
+
+    async def get_sla_metrics_for_company(
+        self,
+        company_id: str,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        Get SLA metrics for a specific company.
+
+        Args:
+            company_id: Company identifier
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+
+        Returns:
+            Dict with SLA metrics
+        """
+        logger.info({
+            "event": "sla_metrics_for_company",
+            "company_id": company_id,
+        })
+
+        # Use existing get_sla_metrics
+        return await self.get_sla_metrics(start_date, end_date)
