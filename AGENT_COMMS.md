@@ -1,21 +1,21 @@
-# AGENT_COMMS.md — Week 12 Day 1-6
+# AGENT_COMMS.md — Week 13 Day 1-6
 # Last updated: Manager Agent
-# Current status: WEEK 12 TASKS WRITTEN — AWAITING BUILDERS
+# Current status: WEEK 13 TASKS WRITTEN — AWAITING BUILDERS
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 12 PLAN
+## MANAGER → WEEK 13 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
 Date: 2026-03-22
 
-> **Phase: Phase 3 — Variants & Integrations (Backend Services)**
+> **Phase: Phase 3 — Variants & Integrations (Agent Lightning + Workers)**
 >
-> **Week 12 Goals:**
-> - Day 1: Industry Configs + Jarvis Commands + Voice Handler (7 files)
-> - Day 2: Approval + Escalation Services (5 files)
-> - Day 3: Webhook Handlers + Automation + NLP (5 files)
-> - Day 4: E2E Tests - Onboarding, Refund, Jarvis, Escalation (4 files)
-> - Day 5: More E2E + NLP Provisioner + Voice Tests (5 files)
+> **Week 13 Goals:**
+> - Day 1: Data Export + Model Registry (4 files)
+> - Day 2: Training Pipeline (4 files)
+> - Day 3: Fine Tune + Validation + Monitoring (4 files)
+> - Day 4: Background Workers (5 files)
+> - Day 5: Remaining Workers + Quality Coach (7 files)
 > - Day 6: Tester Agent runs full week validation
 >
 > **CRITICAL RULES:**
@@ -24,144 +24,101 @@ Date: 2026-03-22
 > 3. No Docker — use mocked sessions in tests
 > 4. Build → Unit Test passes → THEN push (ONE push per file)
 > 5. Type hints on ALL functions, docstrings on ALL classes/functions
-> 6. **REFUND GATE IS SACRED** — Stripe called EXACTLY once after approval, NEVER before
-> 7. Jarvis pause_refunds must set Redis key within 500ms
-> 8. Escalation 4-phase must fire at exact 24h/48h/72h thresholds
-> 9. Voice calls answered in < 6 seconds, never IVR-only
-> 10. GDPR: PII anonymized, row preserved
+> 6. **Agent Lightning uses Unsloth + Colab FREE tier**
+> 7. validate.py: BLOCKS deployment at <90% accuracy
+> 8. validate.py: ALLOWS deployment at 91%+ accuracy
+> 9. All 8 workers must register with ARQ without errors
+> 10. Burst mode: activates instantly, billing updated, auto-expires
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — Industry Configs + Jarvis Commands + Voice Handler
+## BUILDER 1 (DAY 1) — Data Export + Model Registry
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `backend/core/jarvis_commands.py`
-2. `backend/core/industry_configs/__init__.py`
-3. `backend/core/industry_configs/ecommerce.py`
-4. `backend/core/industry_configs/saas.py`
-5. `backend/core/industry_configs/healthcare.py`
-6. `backend/core/industry_configs/logistics.py`
-7. `backend/api/incoming_calls.py`
-8. `backend/services/voice_handler.py`
+1. `agent_lightning/__init__.py`
+2. `agent_lightning/data/__init__.py`
+3. `agent_lightning/data/export_mistakes.py`
+4. `agent_lightning/data/export_approvals.py`
+5. `agent_lightning/data/dataset_builder.py`
+6. `agent_lightning/deployment/__init__.py`
+7. `agent_lightning/deployment/model_registry.py`
 
 ### Field 2: What is each file?
-1. `backend/core/jarvis_commands.py` — Jarvis command handlers for admin operations
-2. `backend/core/industry_configs/__init__.py` — Module init for industry configs
-3. `backend/core/industry_configs/ecommerce.py` — E-commerce industry configuration
-4. `backend/core/industry_configs/saas.py` — SaaS industry configuration
-5. `backend/core/industry_configs/healthcare.py` — Healthcare industry configuration (BAA required)
-6. `backend/core/industry_configs/logistics.py` — Logistics industry configuration
-7. `backend/api/incoming_calls.py` — API endpoint for incoming voice calls
-8. `backend/services/voice_handler.py` — Voice call handling service
+1. `agent_lightning/__init__.py` — Module init for Agent Lightning
+2. `agent_lightning/data/__init__.py` — Module init for data export
+3. `agent_lightning/data/export_mistakes.py` — Export training mistakes from DB
+4. `agent_lightning/data/export_approvals.py` — Export approval decisions for training
+5. `agent_lightning/data/dataset_builder.py` — Build JSONL dataset from exports
+6. `agent_lightning/deployment/__init__.py` — Module init for deployment
+7. `agent_lightning/deployment/model_registry.py` — Model version registry
 
 ### Field 3: Responsibilities
 
-**backend/core/jarvis_commands.py:**
-- `JarvisCommands` class with:
-  - `async pause_refunds(self, company_id: str) -> dict` — **CRITICAL: Set Redis key within 500ms**
-  - `async resume_refunds(self, company_id: str) -> dict` — Resume refund processing
-  - `async get_system_status(self, company_id: str) -> dict` — Get system status
-  - `async force_escalation(self, ticket_id: str, reason: str) -> dict` — Force ticket escalation
-  - Uses Redis for fast command execution
+**agent_lightning/data/export_mistakes.py:**
+- `ExportMistakes` class with:
+  - `async export(self, company_id: str, limit: int = 100) -> list[dict]` — Export mistakes
+  - `async get_negative_rewards(self, company_id: str) -> list[dict]` — Get negative reward records
+  - `async get_correction_data(self, interaction_id: str) -> dict` — Get correction data
+  - **Test: Mistakes exported in correct format for training**
 
-**backend/core/industry_configs/ecommerce.py:**
-- `EcommerceConfig` class with:
-  - `industry_type: str = "ecommerce"`
-  - `supported_channels: list[str] = ["faq", "email", "chat", "sms", "voice"]`
-  - `refund_policy_days: int = 30`
-  - `sla_response_hours: int = 4`
-  - `get_config() -> dict` — Return full config
+**agent_lightning/data/export_approvals.py:**
+- `ExportApprovals` class with:
+  - `async export(self, company_id: str, limit: int = 100) -> list[dict]` — Export approvals
+  - `async get_approved_refunds(self, company_id: str) -> list[dict]` — Get approved refunds
+  - `async get_rejected_refunds(self, company_id: str) -> list[dict]` — Get rejected refunds
+  - **Test: Approvals exported with reasoning**
 
-**backend/core/industry_configs/saas.py:**
-- `SaaSConfig` class with:
-  - `industry_type: str = "saas"`
-  - `supported_channels: list[str] = ["faq", "email", "chat"]`
-  - `refund_policy_days: int = 14`
-  - `sla_response_hours: int = 2`
-  - `get_config() -> dict` — Return full config
+**agent_lightning/data/dataset_builder.py:**
+- `DatasetBuilder` class with:
+  - `async build(self, company_id: str) -> str` — Build JSONL dataset
+  - `async merge_exports(self, mistakes: list, approvals: list) -> list[dict]` — Merge data
+  - `async validate_format(self, dataset: list) -> bool` — Validate JSONL format
+  - **CRITICAL: Test: JSONL dataset built correctly with 50+ entries**
+  - Returns path to JSONL file
 
-**backend/core/industry_configs/healthcare.py:**
-- `HealthcareConfig` class with:
-  - `industry_type: str = "healthcare"`
-  - `requires_baa: bool = True` — **CRITICAL: BAA required**
-  - `phi_handling: str = "restricted"`
-  - `supported_channels: list[str] = ["faq", "email", "voice"]`
-  - `sla_response_hours: int = 1` — Faster SLA for healthcare
-  - `check_baa(self, company_id: str) -> bool` — Verify BAA exists
-  - `get_config() -> dict` — Return full config
-
-**backend/core/industry_configs/logistics.py:**
-- `LogisticsConfig` class with:
-  - `industry_type: str = "logistics"`
-  - `supported_channels: list[str] = ["faq", "email", "chat", "sms", "voice"]`
-  - `tracking_integration: bool = True`
-  - `sla_response_hours: int = 6`
-  - `get_config() -> dict` — Return full config
-
-**backend/api/incoming_calls.py:**
-- FastAPI router for incoming calls:
-  - `POST /calls/incoming` — Handle incoming call
-  - **CRITICAL: Must answer in < 6 seconds**
-  - Never IVR-only — always connect to agent or human
-  - Returns call_id and agent assignment
-
-**backend/services/voice_handler.py:**
-- `VoiceHandler` class with:
-  - `async handle_call(self, call_data: dict) -> dict` — Handle incoming call
-  - `async route_to_agent(self, call_id: str, variant: str) -> dict` — Route to appropriate agent
-  - `async get_call_status(self, call_id: str) -> dict` — Get call status
-  - **5-step call flow: Answer → Greet → Route → Handle → End**
+**agent_lightning/deployment/model_registry.py:**
+- `ModelRegistry` class with:
+  - `async register_model(self, version: str, metrics: dict) -> dict` — Register new model version
+  - `async get_current_model(self) -> dict` — Get current deployed model
+  - `async list_versions(self, limit: int = 10) -> list[dict]` — List model versions
+  - `async set_active(self, version: str) -> dict` — Set active model version
+  - **Test: Model version registered correctly**
 
 ### Field 4: Depends On
+- `backend/models/training_data.py` (Wk3)
 - `shared/core_functions/config.py` (Wk1)
-- `shared/core_functions/cache.py` (Wk1)
-- `shared/core_functions/security.py` (Wk1-3)
-- `shared/compliance/healthcare_guard.py` (Wk7)
-- All variants (Wks 9-11)
 
 ### Field 5: Expected Output
-- Jarvis pause_refunds sets Redis key within 500ms
-- All industry configs load correctly
-- Healthcare config enforces BAA check
-- Incoming calls answered in < 6 seconds
-- Voice handler runs 5-step call flow
+- Mistakes exported in correct format
+- Approvals exported with reasoning
+- JSONL dataset built with 50+ entries
+- Model registry tracks versions
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_jarvis_commands.py`
-  - Test: pause_refunds Redis key set within 500ms
-  - Test: resume_refunds removes key
-  - Test: get_system_status returns data
-- `tests/unit/test_industry_configs.py`
-  - Test: Ecommerce config loads
-  - Test: SaaS config loads
-  - Test: Healthcare config + BAA check
-  - Test: Logistics config loads
-- `tests/unit/test_voice_handler.py`
-  - Test: Answer < 6 seconds
-  - Test: Never IVR-only
-  - Test: 5-step call flow
+- `tests/unit/test_agent_lightning_data.py`
+  - Test: Mistakes exported in correct format
+  - Test: Approvals exported with reasoning
+  - Test: JSONL dataset built correctly
+  - Test: Model version registered
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/backend_services_bdd.md` — Jarvis and voice scenarios
+- `docs/bdd_scenarios/agent_lightning_bdd.md` — Training scenarios
 
 ### Field 8: Error Handling
-- Redis connection errors → fallback to memory cache
-- Industry config errors → use default config
-- Voice errors → escalate to human immediately
+- Export errors → log and continue with partial data
+- Dataset build errors → raise with clear message
+- Registry errors → log and retry
 
 ### Field 9: Security Requirements
-- **CRITICAL:** Jarvis commands require admin auth
-- BAA check for healthcare clients
-- Call recording disclosure for voice
-- Audit all Jarvis commands
+- Training data company-isolated
+- Model versions immutable
+- Registry access controlled
 
 ### Field 10: Integration Points
-- Redis cache (Wk1)
-- Healthcare guard (Wk7)
-- All variants (Wks 9-11)
-- Twilio client (Wk7)
+- Training data model (Wk3)
+- Config (Wk1)
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
@@ -177,120 +134,95 @@ Date: 2026-03-22
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
-- All 8 files built and pushed
-- **CRITICAL: pause_refunds Redis key within 500ms**
-- All industry configs load
-- Voice answer < 6 seconds
+- All 7 files built and pushed
+- **CRITICAL: JSONL dataset with 50+ entries**
+- Model registry working
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — Approval + Escalation Services
+## BUILDER 2 (DAY 2) — Training Pipeline
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `backend/services/approval_service.py`
-2. `backend/services/escalation_ladder.py`
-3. `backend/services/escalation_service.py`
-4. `backend/services/license_service.py`
-5. `backend/services/sla_service.py`
+1. `agent_lightning/training/__init__.py`
+2. `agent_lightning/training/trainer.py`
+3. `agent_lightning/training/unsloth_optimizer.py`
+4. `agent_lightning/deployment/deploy_model.py`
+5. `agent_lightning/deployment/rollback.py`
 
 ### Field 2: What is each file?
-1. `backend/services/approval_service.py` — Approval workflow for refunds
-2. `backend/services/escalation_ladder.py` — 4-phase escalation ladder
-3. `backend/services/escalation_service.py` — Escalation handling service
-4. `backend/services/license_service.py` — License validation service
-5. `backend/services/sla_service.py` — SLA breach detection service
+1. `agent_lightning/training/__init__.py` — Module init for training
+2. `agent_lightning/training/trainer.py` — Main trainer class (Unsloth + Colab FREE)
+3. `agent_lightning/training/unsloth_optimizer.py` — Unsloth optimization for fast training
+4. `agent_lightning/deployment/deploy_model.py` — Deploy model to registry
+5. `agent_lightning/deployment/rollback.py` — Rollback to previous model version
 
 ### Field 3: Responsibilities
 
-**backend/services/approval_service.py:**
-- `ApprovalService` class with:
-  - `async create_pending_approval(self, ticket_id: str, amount: float) -> dict` — Create pending approval
-  - `async approve(self, approval_id: str, approver_id: str) -> dict` — **CRITICAL: Stripe called EXACTLY once**
-  - `async reject(self, approval_id: str, reason: str) -> dict` — Reject approval
-  - `async get_approval_status(self, approval_id: str) -> dict` — Get status
-  - **CRITICAL: Stripe NOT called until approve() is called**
+**agent_lightning/training/trainer.py:**
+- `Trainer` class with:
+  - `async train(self, dataset_path: str, config: dict) -> dict` — Run training
+  - `async evaluate(self, model_path: str) -> dict` — Evaluate model
+  - `get_training_config(self) -> dict` — Get default config
+  - **Uses Unsloth + Colab FREE tier for cost-effective training**
+  - **Test: Trainer initialises correctly**
 
-**backend/services/escalation_ladder.py:**
-- `EscalationLadder` class with:
-  - `phases: list[dict]` — 4 phases: [24h, 48h, 72h, final]
-  - `get_current_phase(self, ticket_created_at: datetime) -> int` — Get current phase
-  - `get_next_escalation(self, ticket_id: str) -> dict` — Get next escalation action
-  - `async escalate(self, ticket_id: str, phase: int) -> dict` — Escalate to phase
-  - **CRITICAL: Phases fire at exact 24h/48h/72h thresholds**
+**agent_lightning/training/unsloth_optimizer.py:**
+- `UnslothOptimizer` class with:
+  - `apply_optimizations(self, model_config: dict) -> dict` — Apply Unsloth optimizations
+  - `get_memory_footprint(self) -> float` — Get memory usage
+  - `optimize_for_colab_free(self) -> dict` — Optimize for Colab FREE tier
+  - **Test: Unsloth optimizer applies correctly**
 
-**backend/services/escalation_service.py:**
-- `EscalationService` class with:
-  - `async check_stuck_tickets(self) -> list[dict]` — Find stuck tickets
-  - `async escalate_ticket(self, ticket_id: str, reason: str) -> dict` — Escalate ticket
-  - `async notify_escalation(self, ticket_id: str, level: str) -> dict` — Send notifications
-  - `async auto_escalate(self) -> dict` — Run automatic escalation check
+**agent_lightning/deployment/deploy_model.py:**
+- `ModelDeployer` class with:
+  - `async deploy(self, model_path: str, version: str) -> dict` — Deploy model
+  - `async verify_deployment(self, version: str) -> bool` — Verify deployment
+  - `async promote_to_production(self, version: str) -> dict` — Promote to production
+  - **Test: Model deployed to registry**
 
-**backend/services/license_service.py:**
-- `LicenseService` class with:
-  - `async check_license(self, company_id: str) -> dict` — Check license validity
-  - `async get_license_limits(self, company_id: str) -> dict` — Get license limits
-  - `async validate_feature(self, company_id: str, feature: str) -> bool` — Validate feature access
-  - `async increment_usage(self, company_id: str) -> dict` — Increment usage count
-
-**backend/services/sla_service.py:**
-- `SLAService` class with:
-  - `async check_sla(self, ticket_id: str) -> dict` — Check SLA status
-  - `async detect_breach(self, ticket_id: str) -> dict` — Detect SLA breach
-  - `async log_breach(self, ticket_id: str, breach_data: dict) -> dict` — Log breach
-  - `async get_sla_metrics(self, company_id: str) -> dict` — Get SLA metrics
+**agent_lightning/deployment/rollback.py:**
+- `ModelRollback` class with:
+  - `async rollback(self, target_version: str) -> dict` — Rollback to version
+  - `async get_previous_version(self) -> dict` — Get previous stable version
+  - `async verify_rollback(self, version: str) -> bool` — Verify rollback success
+  - **Test: Rollback restores previous version**
 
 ### Field 4: Depends On
-- `backend/models/support_ticket.py` (Wk3)
-- `backend/models/sla_breach.py` (Wk3)
-- `backend/models/license.py` (Wk3)
-- `shared/integrations/paddle_client.py` (Wk7)
-- `shared/compliance/sla_calculator.py` (Wk7)
+- `shared/core_functions/config.py` (Wk1)
+- `agent_lightning/deployment/model_registry.py` (Day 1)
 
 ### Field 5: Expected Output
-- Approval service creates pending_approval, Stripe NOT called until approved
-- Escalation ladder fires at exact 24h/48h/72h thresholds
-- License service validates correctly
-- SLA service detects breaches
+- Trainer initializes with Unsloth config
+- Unsloth optimizer applies optimizations
+- Model deployment works end-to-end
+- Rollback restores previous version
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_approval_service.py`
-  - Test: pending_approval created
-  - Test: Stripe NOT called before approval
-  - Test: Stripe called EXACTLY once after approval
-- `tests/unit/test_escalation_ladder.py`
-  - Test: Phase 1 fires at 24h
-  - Test: Phase 2 fires at 48h
-  - Test: Phase 3 fires at 72h
-  - Test: Phase 4 is final
-- `tests/unit/test_license_service.py`
-  - Test: License check works
-  - Test: Feature validation works
-- `tests/unit/test_sla_service.py`
-  - Test: SLA breach detected
+- `tests/unit/test_agent_lightning_training.py`
+  - Test: Trainer initializes correctly
+  - Test: Unsloth optimizer applies
+  - Test: Model deployed to registry
+  - Test: Rollback restores previous version
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/backend_services_bdd.md` — Approval and escalation scenarios
+- `docs/bdd_scenarios/agent_lightning_bdd.md` — Training pipeline scenarios
 
 ### Field 8: Error Handling
-- Approval errors → log and notify admin
-- Escalation errors → retry with backoff
-- License errors → restrict access
-- SLA errors → alert immediately
+- Training errors → log and notify
+- Deployment errors → rollback automatically
+- Rollback errors → alert immediately
 
 ### Field 9: Security Requirements
-- **CRITICAL:** Stripe called only after explicit approval
-- Approval audit trail immutable
-- Escalation actions logged
-- License validation on every request
+- Model artifacts stored securely
+- Deployment requires approval
+- Rollback logged in audit trail
 
 ### Field 10: Integration Points
-- Support ticket model (Wk3)
-- Paddle client (Wk7)
-- SLA calculator (Wk7)
-- Notification service (Wk4)
+- Config (Wk1)
+- Model registry (Day 1)
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
@@ -307,111 +239,100 @@ Builder 1 reports DONE when:
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
 - All 5 files built and pushed
-- **CRITICAL: Stripe called EXACTLY once after approval**
-- **CRITICAL: Escalation 4-phase at 24h/48h/72h**
+- Trainer uses Unsloth + Colab FREE
+- Model deployment works
+- Rollback works
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — Webhook Handlers + Automation + NLP
+## BUILDER 3 (DAY 3) — Fine Tune + Validation + Monitoring
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `backend/api/webhooks/twilio.py`
-2. `backend/api/automation.py`
-3. `backend/services/non_financial_undo.py`
-4. `backend/nlp/__init__.py`
-5. `backend/nlp/command_parser.py`
+1. `agent_lightning/training/fine_tune.py`
+2. `agent_lightning/training/validate.py`
+3. `agent_lightning/monitoring/__init__.py`
+4. `agent_lightning/monitoring/drift_detector.py`
+5. `agent_lightning/monitoring/accuracy_tracker.py`
 
 ### Field 2: What is each file?
-1. `backend/api/webhooks/twilio.py` — Twilio webhook handler
-2. `backend/api/automation.py` — Automation API endpoints
-3. `backend/services/non_financial_undo.py` — Undo service for non-financial actions
-4. `backend/nlp/__init__.py` — Module init for NLP
-5. `backend/nlp/command_parser.py` — Natural language command parser
+1. `agent_lightning/training/fine_tune.py` — Fine-tuning pipeline
+2. `agent_lightning/training/validate.py` — Model validation before deployment
+3. `agent_lightning/monitoring/__init__.py` — Module init for monitoring
+4. `agent_lightning/monitoring/drift_detector.py` — Detect model drift
+5. `agent_lightning/monitoring/accuracy_tracker.py` — Track accuracy per category
 
 ### Field 3: Responsibilities
 
-**backend/api/webhooks/twilio.py:**
-- Twilio webhook handler:
-  - `POST /webhooks/twilio/voice` — Handle voice webhook
-  - `POST /webhooks/twilio/sms` — Handle SMS webhook
-  - `POST /webhooks/twilio/status` — Handle status callback
-  - **CRITICAL: Bad HMAC returns 401**
-  - Validates Twilio signature
+**agent_lightning/training/fine_tune.py:**
+- `FineTuner` class with:
+  - `async fine_tune(self, base_model: str, dataset: str) -> dict` — Run fine-tuning
+  - `async get_hyperparameters(self) -> dict` — Get default hyperparameters
+  - `async save_checkpoint(self, step: int) -> dict` — Save training checkpoint
+  - **Test: Fine-tune runs on test dataset**
 
-**backend/api/automation.py:**
-- Automation API router:
-  - `POST /automation/trigger` — Trigger automation
-  - `POST /automation/schedule` — Schedule automation
-  - `GET /automation/status/{id}` — Get automation status
-  - Works with all 3 variants (Mini, PARWA, PARWA High)
+**agent_lightning/training/validate.py:**
+- `ModelValidator` class with:
+  - `async validate(self, model_path: str) -> dict` — Validate model accuracy
+  - `async check_accuracy_threshold(self, accuracy: float) -> bool` — **CRITICAL: Check if accuracy >= 90%**
+  - `async run_test_suite(self, model_path: str) -> dict` — Run test suite
+  - **CRITICAL: BLOCKS deployment at <90% accuracy**
+  - **CRITICAL: ALLOWS deployment at 91%+ accuracy**
+  - Returns {accuracy, passed, category_scores}
 
-**backend/services/non_financial_undo.py:**
-- `NonFinancialUndoService` class with:
-  - `async undo_action(self, action_id: str) -> dict` — Undo non-financial action
-  - `async get_undoable_actions(self, company_id: str) -> list[dict]` — Get undoable actions
-  - `async log_action(self, action: dict) -> dict` — Log action for potential undo
-  - **CRITICAL: Non-money action undone, logged in audit trail**
-  - Cannot undo financial transactions
+**agent_lightning/monitoring/drift_detector.py:**
+- `DriftDetector` class with:
+  - `async detect_drift(self, model_version: str) -> dict` — Detect model drift
+  - `async compare_distributions(self, baseline: dict, current: dict) -> dict` — Compare distributions
+  - `async alert_on_drift(self, drift_score: float) -> dict` — Alert on significant drift
+  - **Test: Drift detected after model change**
 
-**backend/nlp/command_parser.py:**
-- `CommandParser` class with:
-  - `parse(self, text: str) -> dict` — Parse natural language command
-  - **Test: "Add 2 Mini" → {action: "provision", count: 2, type: "mini"}**
-  - **Test: "Pause all refunds" → {action: "pause_refunds", scope: "all"}**
-  - **Test: "Escalate ticket 123" → {action: "escalate", ticket_id: "123"}**
-  - Returns structured command from natural language
+**agent_lightning/monitoring/accuracy_tracker.py:**
+- `AccuracyTracker` class with:
+  - `async track(self, model_version: str, metrics: dict) -> dict` — Track accuracy metrics
+  - `async get_by_category(self, model_version: str) -> dict` — Get accuracy by category
+  - `async get_trend(self, days: int = 30) -> list[dict]` — Get accuracy trend
+  - **Test: Accuracy tracked per category**
 
 ### Field 4: Depends On
-- `security/hmac_verification.py` (Wk3)
-- All agents (Wks 9-11)
-- `shared/core_functions/audit_trail.py` (Wk1)
-- Redis cache (Wk1)
+- `agent_lightning/training/trainer.py` (Day 2)
+- `agent_lightning/training/unsloth_optimizer.py` (Day 2)
+- `agent_lightning/deployment/model_registry.py` (Day 1)
 
 ### Field 5: Expected Output
-- Twilio webhooks validate HMAC
-- Automation endpoint works with all variants
-- Non-financial actions can be undone
-- NLP parser extracts structured commands
+- Fine-tuning pipeline works end-to-end
+- Validation blocks deployment at <90% accuracy
+- Validation allows deployment at 91%+ accuracy
+- Drift detection works
+- Accuracy tracked per category
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_twilio_webhook.py`
-  - Test: Bad HMAC returns 401
-  - Test: Valid webhook processed
-- `tests/unit/test_automation.py`
-  - Test: Automation trigger works
-  - Test: Works with all variants
-- `tests/unit/test_non_financial_undo.py`
-  - Test: Non-money action undone
-  - Test: Financial action cannot be undone
-  - Test: Action logged in audit trail
-- `tests/unit/test_command_parser.py`
-  - Test: "Add 2 Mini" → provision command
-  - Test: "Pause all refunds" → pause command
-  - Test: "Escalate ticket 123" → escalate command
+- `tests/unit/test_agent_lightning_validation.py`
+  - Test: Fine-tune runs on test dataset
+  - **Test: BLOCKS deployment at 89% accuracy**
+  - **Test: ALLOWS deployment at 91% accuracy**
+  - Test: Drift detected after model change
+  - Test: Accuracy tracked per category
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/backend_services_bdd.md` — Webhook and NLP scenarios
+- `docs/bdd_scenarios/agent_lightning_bdd.md` — Validation scenarios
 
 ### Field 8: Error Handling
-- Webhook HMAC errors → return 401
-- Automation errors → log and retry
-- Undo errors → log and notify
-- NLP parse errors → return help message
+- Fine-tune errors → log and retry
+- Validation errors → block deployment
+- Drift detection errors → alert and continue
 
 ### Field 9: Security Requirements
-- **CRITICAL:** All webhooks validate HMAC
-- Automation requires auth
-- Undo actions logged
-- NLP commands validated
+- Validation results logged
+- Drift alerts to admins
+- Accuracy data company-isolated
 
 ### Field 10: Integration Points
-- HMAC verification (Wk3)
-- All variants (Wks 9-11)
-- Audit trail (Wk1)
-- Redis cache (Wk1)
+- Trainer (Day 2)
+- Unsloth optimizer (Day 2)
+- Model registry (Day 1)
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
@@ -428,91 +349,119 @@ Builder 2 reports DONE when:
 ### Field 13: Pass Criteria
 Builder 3 reports DONE when:
 - All 5 files built and pushed
-- Bad HMAC returns 401
-- NLP parser works correctly
+- **CRITICAL: Validation blocks at <90% accuracy**
+- **CRITICAL: Validation allows at 91%+ accuracy**
+- Drift detection works
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — E2E Tests
+## BUILDER 4 (DAY 4) — Background Workers
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `tests/e2e/__init__.py`
-2. `tests/e2e/test_onboarding_flow.py`
-3. `tests/e2e/test_refund_workflow.py`
-4. `tests/e2e/test_jarvis_commands.py`
-5. `tests/e2e/test_stuck_ticket_escalation.py`
+1. `workers/__init__.py`
+2. `workers/worker.py`
+3. `workers/batch_approval.py`
+4. `workers/training_job.py`
+5. `workers/cleanup.py`
+6. `backend/services/burst_mode.py`
 
 ### Field 2: What is each file?
-1. `tests/e2e/__init__.py` — Module init for E2E tests
-2. `tests/e2e/test_onboarding_flow.py` — E2E onboarding flow test
-3. `tests/e2e/test_refund_workflow.py` — E2E refund workflow test
-4. `tests/e2e/test_jarvis_commands.py` — E2E Jarvis commands test
-5. `tests/e2e/test_stuck_ticket_escalation.py` — E2E stuck ticket escalation test
+1. `workers/__init__.py` — Module init for workers
+2. `workers/worker.py` — Base ARQ worker class
+3. `workers/batch_approval.py` — Batch approval processing worker
+4. `workers/training_job.py` — Training job worker
+5. `workers/cleanup.py` — Cleanup worker for GDPR compliance
+6. `backend/services/burst_mode.py` — Burst mode service for traffic spikes
 
 ### Field 3: Responsibilities
 
-**tests/e2e/test_onboarding_flow.py:**
-- E2E test for full onboarding:
-  - Test: Signup → Onboarding → Live
-  - Steps: Create account → Select plan → Configure → Go live
-  - Verifies all setup steps complete
+**workers/worker.py:**
+- `BaseWorker` class with:
+  - `async start(self) -> None` — Start worker
+  - `async register(self) -> dict` — Register with ARQ
+  - `async process(self, job: dict) -> dict` — Process job
+  - `async stop(self) -> None` — Stop worker gracefully
+  - **Test: ARQ worker registers correctly**
 
-**tests/e2e/test_refund_workflow.py:**
-- E2E test for refund workflow:
-  - **CRITICAL: Stripe called EXACTLY once after approval, NEVER before**
-  - Steps: Create ticket → Request refund → Pending approval → Approve → Stripe call
-  - Verifies audit trail hash chain validates
-  - Verifies refund gate is enforced
+**workers/batch_approval.py:**
+- `BatchApprovalWorker` class with:
+  - `async process_batch(self, approval_ids: list[str]) -> dict` — Process batch of approvals
+  - `async get_pending_approvals(self) -> list[dict]` — Get pending approvals
+  - `async notify_results(self, results: list[dict]) -> dict` — Notify approval results
+  - **Test: Batch processes correctly**
 
-**tests/e2e/test_jarvis_commands.py:**
-- E2E test for Jarvis commands:
-  - **CRITICAL: pause_refunds Redis key set within 500ms**
-  - Test: Pause refunds → Verify Redis key → Resume → Verify key removed
-  - Test: System status returns correctly
-  - Test: Force escalation works
+**workers/training_job.py:**
+- `TrainingJobWorker` class with:
+  - `async run_training(self, job_config: dict) -> dict` — Run training job
+  - `async monitor_progress(self, job_id: str) -> dict` — Monitor training progress
+  - `async notify_completion(self, job_id: str, result: dict) -> dict` — Notify completion
+  - **Test: Training job triggered**
 
-**tests/e2e/test_stuck_ticket_escalation.py:**
-- E2E test for escalation:
-  - **CRITICAL: 4-phase fires at 24h/48h/72h thresholds**
-  - Test: Ticket stuck for 24h → Phase 1 escalation
-  - Test: Ticket stuck for 48h → Phase 2 escalation
-  - Test: Ticket stuck for 72h → Phase 3 escalation
-  - Test: Ticket stuck beyond 72h → Final escalation
+**workers/cleanup.py:**
+- `CleanupWorker` class with:
+  - `async cleanup_expired_data(self) -> dict` — Cleanup expired data
+  - `async anonymize_pii(self, company_id: str) -> dict` — **CRITICAL: Anonymize PII per GDPR**
+  - `async archive_old_interactions(self, days: int = 90) -> dict` — Archive old data
+  - **Test: Cleanup runs, PII anonymized**
+
+**backend/services/burst_mode.py:**
+- `BurstModeService` class with:
+  - `async activate(self, company_id: str) -> dict` — **CRITICAL: Activate burst mode instantly**
+  - `async deactivate(self, company_id: str) -> dict` — Deactivate burst mode
+  - `async update_billing(self, company_id: str) -> dict` — **CRITICAL: Update billing**
+  - `async check_auto_expire(self) -> dict` — **CRITICAL: Auto-expire after period**
+  - **Test: Burst mode activates instantly, billing updated, auto-expires**
 
 ### Field 4: Depends On
-- All backend services (Wks 4-12)
-- Approval service (Day 2)
-- Escalation service (Day 2)
-- Jarvis commands (Day 1)
+- `shared/core_functions/config.py` (Wk1)
+- `shared/utils/message_queue.py` (Wk2)
+- `backend/services/escalation_service.py` (Wk12)
+- `agent_lightning/training/fine_tune.py` (Day 3)
+- `shared/compliance/gdpr_engine.py` (Wk7)
+- `backend/services/billing_service.py` (Wk4)
+- `security/feature_flags.py` (Wk1)
 
 ### Field 5: Expected Output
-- All E2E tests pass
-- Stripe called exactly once after approval
-- Jarvis pause_refunds within 500ms
-- Escalation fires at correct thresholds
+- All workers start and register with ARQ
+- Batch approval processes correctly
+- Training job runs
+- Cleanup anonymizes PII
+- Burst mode activates instantly, billing updated, auto-expires
 
 ### Field 6: Unit Test Files
-- All E2E tests are the test files
+- `tests/unit/test_workers.py`
+  - Test: ARQ worker registers correctly
+  - Test: Batch processes correctly
+  - Test: Training job triggered
+  - Test: Cleanup runs, PII anonymized
+  - Test: Burst mode activates, billing updated, auto-expires
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/e2e_bdd.md` — E2E scenarios
+- `docs/bdd_scenarios/workers_bdd.md` — Worker scenarios
 
 ### Field 8: Error Handling
-- E2E tests show clear failure messages
-- Tests clean up after themselves
+- Worker errors → log and retry
+- Batch errors → continue with remaining items
+- Training errors → notify and log
+- Cleanup errors → alert and continue
+- Burst mode errors → fallback to normal mode
 
 ### Field 9: Security Requirements
-- E2E tests use test accounts
-- No production data
-- Stripe mocked in tests
+- Workers authenticated with ARQ
+- Batch operations logged
+- Training data isolated
+- PII anonymization complete
+- Burst mode requires auth
 
 ### Field 10: Integration Points
-- All backend services
-- All variants
-- Redis cache
+- ARQ message queue (Wk2)
+- Escalation service (Wk12)
+- Training pipeline (Day 3)
+- GDPR engine (Wk7)
+- Billing service (Wk4)
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
@@ -528,102 +477,139 @@ Builder 3 reports DONE when:
 
 ### Field 13: Pass Criteria
 Builder 4 reports DONE when:
-- All 5 files built and pushed
-- **CRITICAL: Stripe called exactly once E2E passes**
-- **CRITICAL: Jarvis 500ms E2E passes**
-- **CRITICAL: Escalation 24h/48h/72h E2E passes**
+- All 6 files built and pushed
+- **CRITICAL: All 8 workers register with ARQ**
+- **CRITICAL: Burst mode activates instantly, billing updated**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — More E2E + NLP Provisioner + Voice Tests
+## BUILDER 5 (DAY 5) — Remaining Workers + Quality Coach
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `tests/e2e/test_agent_lightning.py`
-2. `tests/e2e/test_gdpr_compliance.py`
-3. `backend/nlp/provisioner.py`
-4. `backend/nlp/intent_classifier.py`
-5. `tests/voice/__init__.py`
-6. `tests/voice/test_incoming_calls.py`
+1. `workers/recall_handler.py`
+2. `workers/proactive_outreach.py`
+3. `workers/report_generator.py`
+4. `workers/kb_indexer.py`
+5. `backend/quality_coach/__init__.py`
+6. `backend/quality_coach/analyzer.py`
+7. `backend/quality_coach/reporter.py`
+8. `backend/quality_coach/notifier.py`
 
 ### Field 2: What is each file?
-1. `tests/e2e/test_agent_lightning.py` — E2E Agent Lightning training test
-2. `tests/e2e/test_gdpr_compliance.py` — E2E GDPR compliance test
-3. `backend/nlp/provisioner.py` — NLP-based agent provisioner
-4. `backend/nlp/intent_classifier.py` — Intent classification service
-5. `tests/voice/__init__.py` — Module init for voice tests
-6. `tests/voice/test_incoming_calls.py` — Voice call tests
+1. `workers/recall_handler.py` — Recall handler worker for stopping actions
+2. `workers/proactive_outreach.py` — Proactive outreach worker
+3. `workers/report_generator.py` — Report generator worker
+4. `workers/kb_indexer.py` — Knowledge base indexer worker
+5. `backend/quality_coach/__init__.py` — Module init for quality coach
+6. `backend/quality_coach/analyzer.py` — Quality analyzer for conversations
+7. `backend/quality_coach/reporter.py` — Quality reporter for weekly reports
+8. `backend/quality_coach/notifier.py` — Real-time quality alerts
 
 ### Field 3: Responsibilities
 
-**tests/e2e/test_agent_lightning.py:**
-- E2E test for Agent Lightning training:
-  - Test: Full training cycle
-  - Steps: Collect mistakes → Export → Train → Deploy
-  - Verifies training_data model works
+**workers/recall_handler.py:**
+- `RecallHandlerWorker` class with:
+  - `async recall_action(self, action_id: str) -> dict` — **CRITICAL: Stop non-money actions**
+  - `async verify_recall(self, action_id: str) -> bool` — Verify recall success
+  - `async log_recall(self, action_id: str, reason: str) -> dict` — Log recall
+  - **Test: Recall stops non-money actions**
+  - Cannot recall financial transactions
 
-**tests/e2e/test_gdpr_compliance.py:**
-- E2E test for GDPR:
-  - **CRITICAL: PII anonymized, row preserved**
-  - Test: Export complete (all customer data)
-  - Test: Deletion anonymizes PII
-  - Test: Row preserved (not deleted)
+**workers/proactive_outreach.py:**
+- `ProactiveOutreachWorker` class with:
+  - `async send_outreach(self, customer_id: str, message: str) -> dict` — Send proactive message
+  - `async schedule_followup(self, customer_id: str, delay_hours: int) -> dict` — Schedule follow-up
+  - `async get_due_outreach(self) -> list[dict]` — Get due outreach
+  - **Test: Outreach sent proactively**
 
-**backend/nlp/provisioner.py:**
-- `NLPProvisioner` class with:
-  - `async provision_agents(self, command: dict) -> dict` — Provision agents from NLP command
-  - `async spin_up_agent(self, agent_type: str, count: int) -> dict` — Spin up new agents
-  - `async update_billing(self, company_id: str, agents: list) -> dict` — Update billing
-  - **Test: "Add 2 Mini" → agents spun up, billing updated**
+**workers/report_generator.py:**
+- `ReportGeneratorWorker` class with:
+  - `async generate_report(self, company_id: str, report_type: str) -> dict` — Generate report
+  - `async schedule_report(self, company_id: str, schedule: dict) -> dict` — Schedule report
+  - `async deliver_report(self, report_id: str) -> dict` — Deliver report
+  - **Test: Report generated**
 
-**backend/nlp/intent_classifier.py:**
-- `IntentClassifier` class with:
-  - `classify(self, text: str) -> dict` — Classify intent
-  - Intents: provision, pause, escalate, status, help
-  - Returns {intent, confidence, entities}
+**workers/kb_indexer.py:**
+- `KBIndexerWorker` class with:
+  - `async index_document(self, doc_id: str) -> dict` — Index document in KB
+  - `async reindex_all(self, company_id: str) -> dict` — Reindex all documents
+  - `async verify_index(self, doc_id: str) -> bool` — Verify document indexed
+  - **Test: KB indexed correctly**
 
-**tests/voice/test_incoming_calls.py:**
-- Voice call tests:
-  - **CRITICAL: Answer < 6 seconds**
-  - **CRITICAL: Recording disclosure fires**
-  - Test: Never IVR-only
-  - Test: Call routed to correct variant
+**backend/quality_coach/analyzer.py:**
+- `QualityAnalyzer` class with:
+  - `async analyze_conversation(self, interaction_id: str) -> dict` — Analyze conversation quality
+  - `async score_accuracy(self, interaction: dict) -> float` — Score accuracy (0-100)
+  - `async score_empathy(self, interaction: dict) -> float` — Score empathy (0-100)
+  - `async score_efficiency(self, interaction: dict) -> float` — Score efficiency (0-100)
+  - **CRITICAL: Test: Scores accuracy/empathy/efficiency**
+  - Returns {accuracy_score, empathy_score, efficiency_score, overall_score, recommendations}
+
+**backend/quality_coach/reporter.py:**
+- `QualityReporter` class with:
+  - `async generate_weekly_report(self, company_id: str) -> dict` — Generate weekly quality report
+  - `async get_trends(self, company_id: str, days: int = 30) -> dict` — Get quality trends
+  - `async compare_periods(self, company_id: str, period1: dict, period2: dict) -> dict` — Compare periods
+  - **Test: Weekly report generated**
+
+**backend/quality_coach/notifier.py:**
+- `QualityNotifier` class with:
+  - `async alert_low_quality(self, interaction_id: str, score: float) -> dict` — Alert on low quality
+  - `async notify_manager(self, company_id: str, issue: dict) -> dict` — Notify manager
+  - `async setup_alerts(self, company_id: str, thresholds: dict) -> dict` — Setup quality alerts
+  - **Test: Real-time alert fires on low quality**
 
 ### Field 4: Depends On
-- Training data model (Wk3)
-- GDPR engine (Wk7)
-- Command parser (Day 3)
-- Voice handler (Day 1)
+- `shared/utils/cache.py` (Wk2)
+- `backend/services/notification_service.py` (Wk4)
+- `backend/services/analytics_service.py` (Wk4)
+- `shared/knowledge_base/rag_pipeline.py` (Wk5)
+- `shared/core_functions/config.py` (Wk1)
 
 ### Field 5: Expected Output
-- Agent Lightning E2E passes
-- GDPR E2E passes (PII anonymized, row preserved)
-- NLP provisioner works
-- Voice tests pass (< 6s answer)
+- Recall stops non-money actions
+- Proactive outreach sent
+- Reports generated
+- KB indexed
+- Quality Coach scores conversations
+- Weekly reports generated
+- Real-time alerts fire
 
 ### Field 6: Unit Test Files
-- All test files listed above
+- `tests/unit/test_workers_extra.py`
+  - Test: Recall stops non-money actions
+  - Test: Outreach sent proactively
+  - Test: Report generated
+  - Test: KB indexed correctly
+- `tests/unit/test_quality_coach.py`
+  - Test: Scores accuracy/empathy/efficiency
+  - Test: Weekly report generated
+  - Test: Real-time alert fires
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/e2e_bdd.md` — E2E scenarios
+- `docs/bdd_scenarios/quality_coach_bdd.md` — Quality Coach scenarios
 
 ### Field 8: Error Handling
-- E2E tests show clear failure messages
-- Provisioner errors logged
-- Voice errors escalate to human
+- Recall errors → log and alert
+- Outreach errors → retry with backoff
+- Report errors → log and notify
+- Indexing errors → retry
+- Quality analysis errors → fallback to default scores
 
 ### Field 9: Security Requirements
-- E2E tests use test accounts
-- GDPR tests verify PII handling
-- Voice tests verify disclosure
+- Recall requires admin auth
+- Outreach respects opt-out
+- Reports company-isolated
+- Quality scores company-isolated
 
 ### Field 10: Integration Points
-- Training data model (Wk3)
-- GDPR engine (Wk7)
-- Command parser (Day 3)
-- Voice handler (Day 1)
+- Cache (Wk2)
+- Notification service (Wk4)
+- Analytics service (Wk4)
+- RAG pipeline (Wk5)
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
@@ -639,45 +625,43 @@ Builder 4 reports DONE when:
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
-- All 6 files built and pushed
-- **CRITICAL: GDPR E2E passes (PII anonymized, row preserved)**
-- **CRITICAL: Voice answer < 6 seconds**
+- All 8 files built and pushed
+- **CRITICAL: All 8 workers registered with ARQ**
+- Quality Coach scores conversations
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 12 INSTRUCTIONS (DAY 6)
+## TESTER → WEEK 13 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
 
 ### Test Command
 ```bash
-pytest tests/e2e/test_refund_workflow.py -v
-pytest tests/e2e/test_jarvis_commands.py -v
-pytest tests/e2e/test_stuck_ticket_escalation.py -v
-pytest tests/e2e/test_gdpr_compliance.py -v
-pytest tests/voice/test_incoming_calls.py -v
-pytest tests/integration/test_week12_backend.py -v
-pytest tests/unit/test_approval_service.py -v
-pytest tests/unit/test_escalation_ladder.py -v
+pytest tests/e2e/test_agent_lightning.py -v
+pytest tests/integration/test_week13_workers.py -v
+pytest tests/unit/test_agent_lightning_data.py -v
+pytest tests/unit/test_agent_lightning_training.py -v
+pytest tests/unit/test_agent_lightning_validation.py -v
+pytest tests/unit/test_workers.py -v
+pytest tests/unit/test_quality_coach.py -v
 ```
 
 ### Critical Tests to Verify
-1. Refund E2E: Stripe called EXACTLY once after approval, NEVER before
-2. Audit trail: hash chain validates after approval event
-3. Stuck ticket: 4-phase escalation fires at exact 24h/48h/72h thresholds
-4. Jarvis: pause_refunds Redis key set within 500ms
-5. GDPR: export complete, deletion anonymizes PII, row preserved
-6. Incoming calls: answered in < 6 seconds, never IVR-only
-7. Recording disclosure fires on voice calls
+1. Dataset builder: exports correct JSONL format with 50+ mistakes
+2. validate.py: BLOCKS deployment at <90% accuracy
+3. validate.py: ALLOWS deployment at 91%+ accuracy
+4. New model version registered in model_registry after deployment
+5. All 8 workers start and register with ARQ without errors
+6. Burst mode: activates instantly, billing updated, auto-expires
+7. Quality Coach: scores accuracy/empathy/efficiency correctly
 
-### Week 12 PASS Criteria
-- Full approval + escalation system functional
-- Refund gate verified: Stripe called EXACTLY once after approval
-- Jarvis commands working within 500ms
-- GDPR compliance working (PII anonymized, row preserved)
+### Week 13 PASS Criteria
+- Full Agent Lightning training cycle works end-to-end
+- All background workers running
+- Quality Coach scoring conversations
 - All unit tests pass
 - GitHub CI pipeline green
 
@@ -689,60 +673,12 @@ pytest tests/unit/test_escalation_ladder.py -v
 
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
-| Builder 1 | Day 1 | ⏳ PENDING | Industry Configs + Jarvis + Voice (8 files) | - | NO |
-| Builder 2 | Day 2 | ✅ DONE | Approval + Escalation Services (5 files) | 6 tests | YES |
-| Builder 3 | Day 3 | ⏳ PENDING | Webhooks + Automation + NLP (5 files) | - | NO |
-| Builder 4 | Day 4 | ⏳ PENDING | E2E Tests (5 files) | - | NO |
-| Builder 5 | Day 5 | ⏳ PENDING | More E2E + NLP + Voice Tests (6 files) | - | NO |
+| Builder 1 | Day 1 | ⏳ PENDING | Data Export + Model Registry (7 files) | - | NO |
+| Builder 2 | Day 2 | ⏳ PENDING | Training Pipeline (5 files) | - | NO |
+| Builder 3 | Day 3 | ⏳ PENDING | Fine Tune + Validation + Monitoring (5 files) | - | NO |
+| Builder 4 | Day 4 | ⏳ PENDING | Background Workers (6 files) | - | NO |
+| Builder 5 | Day 5 | ⏳ PENDING | Remaining Workers + Quality Coach (8 files) | - | NO |
 | Tester | Day 6 | ⏳ WAITING ALL | Full validation | - | NO |
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 DONE REPORT
-═══════════════════════════════════════════════════════════════════════════════
-Written by: Builder 2 Agent
-Date: 2026-03-22
-
-### Files Built and Pushed:
-1. ✅ `backend/services/approval_service.py` — Approval workflow for refunds
-   - CRITICAL: Paddle called EXACTLY once after approval
-   - CRITICAL: Paddle NOT called before approval
-   - Methods: create_pending_approval, approve, reject, get_approval_status, cancel_approval
-2. ✅ `backend/services/escalation_ladder.py` — 4-phase escalation ladder
-   - Phase 1 (24h): Agent notification
-   - Phase 2 (48h): Team lead escalation
-   - Phase 3 (72h): Manager notification
-   - Phase 4 (96h): Executive escalation
-3. ✅ `backend/services/escalation_service.py` — Escalation handling service
-   - Methods: check_stuck_tickets, escalate_ticket, notify_escalation, auto_escalate
-4. ✅ `backend/services/license_service.py` — Added required methods
-   - Methods: check_license, get_license_limits, validate_feature, increment_usage
-5. ✅ `backend/services/sla_service.py` — Added required methods
-   - Methods: check_sla, detect_breach, log_breach, get_sla_metrics_for_company
-
-### Unit Tests Created:
-- `tests/unit/test_approval_service.py` — 15 tests for approval workflow
-- `tests/unit/test_escalation_ladder.py` — 20 tests for 4-phase ladder
-- `tests/unit/test_escalation_service.py` — 12 tests for escalation service
-
-### CRITICAL REQUIREMENTS MET:
-- [x] Paddle NOT called before approval
-- [x] Paddle called EXACTLY once after approval
-- [x] Phase 1 fires at 24h threshold
-- [x] Phase 2 fires at 48h threshold
-- [x] Phase 3 fires at 72h threshold
-- [x] Phase 4 fires at 96h (final)
-- [x] License service validates correctly
-- [x] SLA service detects breaches
-
-### Pass Criteria Met:
-- [x] All 5 files built and pushed
-- [x] Approval service creates pending_approval
-- [x] Escalation ladder fires at exact thresholds
-- [x] License service validates correctly
-- [x] SLA service detects breaches
-- [x] GitHub CI GREEN
 
 ---
 
@@ -757,27 +693,28 @@ Date: 2026-03-22
 3. No Docker — mock everything in tests
 4. One push per file — only after tests pass
 5. Type hints + docstrings required on all functions
-6. **REFUND GATE IS SACRED** — Stripe called EXACTLY once after approval
-7. Jarvis pause_refunds must set Redis key within 500ms
-8. Escalation 4-phase must fire at exact 24h/48h/72h thresholds
-9. Voice calls answered in < 6 seconds, never IVR-only
-10. GDPR: PII anonymized, row preserved
+6. **Agent Lightning uses Unsloth + Colab FREE tier**
+7. **validate.py: BLOCKS deployment at <90% accuracy**
+8. **validate.py: ALLOWS deployment at 91%+ accuracy**
+9. **All 8 workers must register with ARQ**
+10. **Burst mode: activates instantly, billing updated, auto-expires**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## WEEK 12 CRITICAL PERFORMANCE REQUIREMENTS
+## WEEK 13 CRITICAL REQUIREMENTS
 ═══════════════════════════════════════════════════════════════════════════════
 
 | Feature | Requirement | Why |
 |---------|-------------|-----|
-| Jarvis pause_refunds | < 500ms | Admin emergency stop must be fast |
-| Voice answer | < 6 seconds | Customer experience |
-| Escalation Phase 1 | At 24h exactly | Stuck ticket detection |
-| Escalation Phase 2 | At 48h exactly | Urgency escalation |
-| Escalation Phase 3 | At 72h exactly | Critical escalation |
-| Stripe call | Exactly once after approval | Financial integrity |
-| GDPR PII | Anonymized, not deleted | Compliance (row preserved) |
+| JSONL Dataset | 50+ entries | Training data quality |
+| Accuracy Threshold | 90% minimum | Quality gate |
+| Validation | Block at <90% | Prevent bad deployments |
+| Validation | Allow at 91%+ | Enable good deployments |
+| Workers | All 8 registered | Background processing |
+| Burst Mode | Instant activation | Traffic spike handling |
+| Burst Mode | Auto-expire | Cost control |
+| Quality Coach | 3 scores (accuracy/empathy/efficiency) | Conversation quality |
 
 ---
 
@@ -786,14 +723,14 @@ Date: 2026-03-22
 ═══════════════════════════════════════════════════════════════════════════════
 
 ```
-Week 12 FULLY PARALLEL Execution:
+Week 13 FULLY PARALLEL Execution:
 
 Day 1-5: ALL BUILDERS RUN SIMULTANEOUSLY
-├── Builder 1: Industry Configs + Jarvis + Voice (8 files)
-├── Builder 2: Approval + Escalation Services (5 files)
-├── Builder 3: Webhooks + Automation + NLP (5 files)
-├── Builder 4: E2E Tests (5 files)
-└── Builder 5: More E2E + NLP + Voice Tests (6 files)
+├── Builder 1: Data Export + Model Registry (7 files)
+├── Builder 2: Training Pipeline (5 files)
+├── Builder 3: Fine Tune + Validation + Monitoring (5 files)
+├── Builder 4: Background Workers (6 files)
+└── Builder 5: Remaining Workers + Quality Coach (8 files)
 
 Day 6: Tester → Full validation → Report PASS/FAIL
 ```
@@ -803,122 +740,21 @@ Day 6: Tester → Full validation → Report PASS/FAIL
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## WEEK 11 COMPLETE SUMMARY
+## WEEK 12 COMPLETE SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
-**Week 11 — PARWA High Variant**
+**Week 12 — Backend Services**
 
-**Total Files:** 44 files built
-**Total Tests:** 138 tests passing
+**Total Files:** 41 files built
+**Total Tests:** 215 tests passing
 
 **Key Achievements:**
-- PARWA High Config: 10 calls, $2000 refund, 50% threshold
-- Advanced Agents: Video, Analytics, Coordination (5 teams)
-- Customer Success: Churn prediction with risk_score
-- Compliance: SLA agent, HIPAA enforcement, PHI sanitization
-- All workflows and tasks
-- BDD scenarios for all 3 variants pass
-- **All 3 variants coexist with zero conflicts**
-- DB migration 006_multi_region
+- Jarvis Commands: pause_refunds in 500ms
+- Industry Configs: Ecommerce, SaaS, Healthcare (BAA), Logistics
+- Approval Service: Paddle called exactly once after approval
+- Escalation Ladder: 4-phase at 24h/48h/72h/96h
+- Voice Handler: Answer < 6 seconds
+- NLP Provisioner: Natural language commands
+- GDPR Compliance: PII anonymized, row preserved
+- Agent Lightning: Training cycle tests
 - CI GREEN
-
----
-## TESTER AGENT — WEEK 12 REPORT
-Written by: Tester Agent
-Date: 2026-03-22
-
-### Test Execution Summary
-
-**Local Test Results:**
-| Category | Tests | Status |
-|----------|-------|--------|
-| Jarvis Commands + Industry Configs + Voice Handler | 89 | ✅ PASS |
-| Escalation Ladder | 23 | ✅ PASS |
-| E2E Tests (Jarvis, Refund, Escalation, Onboarding) | 76 | ✅ PASS |
-| Voice Tests (Incoming Calls) | 27 | ✅ PASS |
-| **TOTAL LOCAL** | **215** | **✅ PASS** |
-
-**GitHub CI Status:** 🟢 GREEN
-
-### CRITICAL REQUIREMENTS VERIFIED
-
-| Requirement | Status | Details |
-|-------------|--------|---------|
-| Jarvis pause_refunds < 500ms | ✅ PASS | Redis key set within 500ms |
-| Refund gate: Paddle called EXACTLY once | ✅ PASS | NOT called before approval, called once after |
-| Escalation Phase 1 at 24h | ✅ PASS | Fires exactly at threshold |
-| Escalation Phase 2 at 48h | ✅ PASS | Fires exactly at threshold |
-| Escalation Phase 3 at 72h | ✅ PASS | Fires exactly at threshold |
-| Escalation Phase 4 at 96h | ✅ PASS | Final phase fires |
-| Voice answer < 6 seconds | ✅ PASS | All calls answered under target |
-| Recording disclosure fires | ✅ PASS | Always included |
-| Never IVR-only | ✅ PASS | Always routes to agent or human |
-| 5-step call flow | ✅ PASS | Answer → Greet → Route → Handle → End |
-| Industry configs load | ✅ PASS | Ecommerce, SaaS, Healthcare, Logistics |
-| Healthcare BAA check | ✅ PASS | Enforces BAA requirement |
-
-### Week 12 PASS Criteria Met
-- [x] All unit tests pass
-- [x] All E2E tests pass
-- [x] **CRITICAL: Paddle called EXACTLY once after approval**
-- [x] **CRITICAL: Jarvis pause_refunds within 500ms**
-- [x] **CRITICAL: Escalation 4-phase at 24h/48h/72h/96h**
-- [x] **CRITICAL: Voice answer < 6 seconds**
-- [x] **CRITICAL: Never IVR-only**
-- [x] **CRITICAL: Recording disclosure fires**
-- [x] GitHub CI pipeline GREEN
-
-### Files Built (Week 12)
-
-**Builder 1 - Industry Configs + Jarvis + Voice:**
-- backend/core/jarvis_commands.py ✅
-- backend/core/industry_configs/__init__.py ✅
-- backend/core/industry_configs/ecommerce.py ✅
-- backend/core/industry_configs/saas.py ✅
-- backend/core/industry_configs/healthcare.py ✅
-- backend/core/industry_configs/logistics.py ✅
-- backend/api/incoming_calls.py ✅
-- backend/services/voice_handler.py ✅
-
-**Builder 2 - Approval + Escalation:**
-- backend/services/approval_service.py ✅
-- backend/services/escalation_ladder.py ✅
-- backend/services/escalation_service.py ✅
-- backend/services/license_service.py ✅
-- backend/services/sla_service.py ✅
-
-**Builder 3 - Webhooks + Automation + NLP:**
-- backend/api/webhooks/twilio.py ✅
-- backend/api/automation.py ✅
-- backend/services/non_financial_undo.py ✅
-- backend/nlp/__init__.py ✅
-- backend/nlp/command_parser.py ✅
-- backend/nlp/provisioner.py ✅
-- backend/nlp/intent_classifier.py ✅
-
-**Builder 4 - E2E Tests:**
-- tests/e2e/__init__.py ✅
-- tests/e2e/test_onboarding_flow.py ✅
-- tests/e2e/test_refund_workflow.py ✅
-- tests/e2e/test_jarvis_commands.py ✅
-- tests/e2e/test_stuck_ticket_escalation.py ✅
-
-**Builder 5 - More E2E + Voice:**
-- tests/e2e/test_agent_lightning.py ✅
-- tests/e2e/test_gdpr_compliance.py ✅
-- tests/voice/__init__.py ✅
-- tests/voice/test_incoming_calls.py ✅
-
-**Unit Tests:**
-- tests/unit/test_jarvis_commands.py ✅
-- tests/unit/test_industry_configs.py ✅
-- tests/unit/test_voice_handler.py ✅
-- tests/unit/test_approval_service.py ✅
-- tests/unit/test_escalation_ladder.py ✅
-- tests/unit/test_escalation_service.py ✅
-
-### VERDICT: ✅ WEEK 12 PASS
-
-All critical requirements met. GitHub CI GREEN. Ready for Week 13.
-
----
