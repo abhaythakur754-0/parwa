@@ -49,8 +49,17 @@ class APIKeysConfig(BaseModel):
     # E-commerce & Payments
     shopify_api_key: Optional[SecretStr] = Field(None, alias="SHOPIFY_API_KEY")
     shopify_api_secret: Optional[SecretStr] = Field(None, alias="SHOPIFY_API_SECRET")
-    stripe_secret_key: Optional[SecretStr] = Field(None, alias="STRIPE_SECRET_KEY")
-    stripe_webhook_secret: Optional[SecretStr] = Field(None, alias="STRIPE_WEBHOOK_SECRET")
+    
+    # Payments - Paddle ONLY
+    paddle_client_token: Optional[SecretStr] = Field(None, alias="PADDLE_CLIENT_TOKEN")
+    paddle_api_key: Optional[SecretStr] = Field(None, alias="PADDLE_API_KEY")
+    paddle_webhook_secret: Optional[SecretStr] = Field(None, alias="PADDLE_WEBHOOK_SECRET")
+    
+    # Voice - Twilio
+    twilio_account_sid: Optional[SecretStr] = Field(None, alias="TWILIO_ACCOUNT_SID")
+    twilio_auth_token: Optional[SecretStr] = Field(None, alias="TWILIO_AUTH_TOKEN")
+    twilio_phone_number: Optional[str] = Field(None, alias="TWILIO_PHONE_NUMBER")
+    twilio_api_key: Optional[SecretStr] = Field(None, alias="TWILIO_API_KEY")
     
     # Database
     database_url: Optional[SecretStr] = Field(None, alias="DATABASE_URL")
@@ -99,10 +108,13 @@ class WebhookConfig(BaseModel):
     shopify_verify_signature: bool = Field(True, alias="SHOPIFY_VERIFY_SIGNATURE")
     shopify_max_timestamp_diff: int = Field(300, alias="SHOPIFY_MAX_TIMESTAMP_DIFF")  # 5 minutes
     
-    # Stripe
-    stripe_webhook_secret: Optional[SecretStr] = Field(None, alias="STRIPE_WEBHOOK_SECRET")
-    stripe_verify_signature: bool = Field(True, alias="STRIPE_VERIFY_SIGNATURE")
-    stripe_max_timestamp_diff: int = Field(300, alias="STRIPE_MAX_TIMESTAMP_DIFF")  # 5 minutes
+    # Paddle
+    paddle_webhook_secret: Optional[SecretStr] = Field(None, alias="PADDLE_WEBHOOK_SECRET")
+    paddle_verify_signature: bool = Field(True, alias="PADDLE_VERIFY_SIGNATURE")
+    paddle_max_timestamp_diff: int = Field(300, alias="PADDLE_MAX_TIMESTAMP_DIFF")  # 5 minutes
+    
+    # Twilio
+    twilio_voice_webhook_url: Optional[str] = Field(None, alias="TWILIO_VOICE_WEBHOOK_URL")
     
     # General
     webhook_retry_attempts: int = Field(3, alias="WEBHOOK_RETRY_ATTEMPTS")
@@ -320,8 +332,13 @@ class ConfigManager:
                 brevo_key=os.getenv("BREVO_API_KEY"),
                 shopify_api_key=os.getenv("SHOPIFY_API_KEY"),
                 shopify_api_secret=os.getenv("SHOPIFY_API_SECRET"),
-                stripe_secret_key=os.getenv("STRIPE_SECRET_KEY"),
-                stripe_webhook_secret=os.getenv("STRIPE_WEBHOOK_SECRET"),
+                paddle_client_token=os.getenv("PADDLE_CLIENT_TOKEN"),
+                paddle_api_key=os.getenv("PADDLE_API_KEY"),
+                paddle_webhook_secret=os.getenv("PADDLE_WEBHOOK_SECRET"),
+                twilio_account_sid=os.getenv("TWILIO_ACCOUNT_SID"),
+                twilio_auth_token=os.getenv("TWILIO_AUTH_TOKEN"),
+                twilio_phone_number=os.getenv("TWILIO_PHONE_NUMBER"),
+                twilio_api_key=os.getenv("TWILIO_API_KEY"),
                 database_url=os.getenv("DATABASE_URL"),
                 redis_url=os.getenv("REDIS_URL"),
                 jwt_secret=os.getenv("JWT_SECRET"),
@@ -329,7 +346,8 @@ class ConfigManager:
             ),
             webhooks=WebhookConfig(
                 shopify_webhook_secret=os.getenv("SHOPIFY_WEBHOOK_SECRET"),
-                stripe_webhook_secret=os.getenv("STRIPE_WEBHOOK_SECRET"),
+                paddle_webhook_secret=os.getenv("PADDLE_WEBHOOK_SECRET"),
+                twilio_voice_webhook_url=os.getenv("TWILIO_VOICE_WEBHOOK_URL"),
             ),
         )
         
@@ -351,7 +369,8 @@ class ConfigManager:
             "groq": self._config.api_keys.groq_key,
             "brevo": self._config.api_keys.brevo_key,
             "shopify": self._config.api_keys.shopify_api_key,
-            "stripe": self._config.api_keys.stripe_secret_key,
+            "paddle": self._config.api_keys.paddle_api_key,
+            "twilio": self._config.api_keys.twilio_auth_token,
         }
         key = key_map.get(provider)
         if key and isinstance(key, SecretStr):
@@ -425,9 +444,9 @@ def validate_webhook_config(config: AppConfig) -> List[str]:
         if not secret or not secret.get_secret_value():
             errors.append("SHOPIFY_WEBHOOK_SECRET required when signature verification enabled")
     
-    if config.webhooks.stripe_verify_signature:
-        secret = config.webhooks.stripe_webhook_secret
+    if config.webhooks.paddle_verify_signature:
+        secret = config.webhooks.paddle_webhook_secret
         if not secret or not secret.get_secret_value():
-            errors.append("STRIPE_WEBHOOK_SECRET required when signature verification enabled")
+            errors.append("PADDLE_WEBHOOK_SECRET required when signature verification enabled")
     
     return errors
