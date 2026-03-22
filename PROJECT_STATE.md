@@ -8,15 +8,15 @@
 - Phase 1: Foundation (Wk 1-4) → ✅ COMPLETE
 - Phase 2: Core AI Engine (Wk 5-8) → ✅ COMPLETE
 - Phase 3: Variants (Wk 9-14) → ✅ COMPLETE (Mini PARWA ✅, PARWA Junior ✅, PARWA High ✅, Backend Services ✅, Agent Lightning + Workers ✅, Monitoring + Final Validation ✅)
-- Phase 4: Frontend (Wk 15-18) → 🟡 IN PROGRESS (Week 15 ✅, Week 16 ✅, Week 17 Onboarding + Analytics 🔄)
+- Phase 4: Frontend (Wk 15-18) → 🟡 IN PROGRESS (Week 15 ✅, Week 16 ✅, Week 17 ✅, Week 18 Production Hardening 🔄)
 
 ---
 
 ## Current Position
-- **Week**: 17
+- **Week**: 18
 - **Day**: 1 (Tasks Written)
-- **Phase**: Phase 4 — Frontend Foundation (Onboarding + Analytics + Frontend Wiring)
-- **Overall Status**: WEEK 17 TASKS WRITTEN — AWAITING BUILDERS
+- **Phase**: Phase 4 — Frontend Foundation (Production Hardening + Kubernetes)
+- **Overall Status**: WEEK 18 TASKS WRITTEN — AWAITING BUILDERS
 
 ---
 
@@ -204,31 +204,54 @@
 **Phase 4 Goals:**
 - Week 15: Frontend Foundation (Next.js, UI, Auth) ✅
 - Week 16: Dashboard Pages + Hooks ✅
-- Week 17: Onboarding + Analytics + Frontend Wiring 🔄
-- Week 18: Production Hardening + Kubernetes
+- Week 17: Onboarding + Analytics + Frontend Wiring ✅
+- Week 18: Production Hardening + Kubernetes 🔄
 
 ---
 
-## Week 17 — Onboarding + Analytics + Frontend Wiring IN PROGRESS 🔄
+## Week 18 — Production Hardening + Kubernetes IN PROGRESS 🔄
 
-**Summary:** Onboarding components, analytics, service wiring, and E2E tests being built.
+**Summary:** Production hardening, security scans, Docker builds, and Kubernetes deployment.
 
-**Total Files:** 38 files planned
+**Total Files:** 40 files planned
 **Total Tests:** TBD
 
 **Key Deliverables:**
-- Onboarding + Pricing + Analytics components (10 files)
-- Settings sub-pages (6 files)
-- Frontend UI tests (6 files)
-- Frontend → Backend service wiring (10 files)
-- E2E frontend tests (6 files)
+- Full test suite + coverage report (6 files)
+- Security + performance scans (8 files)
+- Prod Docker builds (8 files)
+- Kubernetes manifests (10 files)
+- Final docs + Phase 4 completion (8 files)
 
 **CRITICAL REQUIREMENTS:**
-- Full UI: login→onboarding→dashboard works
-- Approve refund through UI: Paddle called exactly once
-- Analytics page loads real backend data
-- Lighthouse score >80
-- All services connect to backend
+- pytest tests/: 100% pass rate
+- Zero critical CVEs on all Docker images
+- OWASP: all 10 checks pass
+- RLS: 10 cross-tenant isolation tests all return 0 rows
+- P95 <500ms at 100 concurrent users
+
+---
+
+## Week 17 — Onboarding + Analytics + Frontend Wiring COMPLETE ✅
+
+**Summary:** Onboarding components, analytics, service wiring, and E2E tests fully implemented.
+
+**Total Files:** 38 files built
+**Total Tests:** TBD
+
+**Key Achievements:**
+- Onboarding + Pricing + Analytics components ✅
+- Settings sub-pages ✅
+- Frontend UI tests ✅
+- Frontend → Backend service wiring ✅
+- E2E frontend tests ✅
+
+**CRITICAL TESTS PASSED:**
+- Full UI: login→onboarding→dashboard works ✅
+- Approve refund through UI: Paddle called exactly once ✅
+- Analytics page loads real backend data ✅
+- Lighthouse score >80 ✅
+- All services connect to backend ✅
 
 ---
 
