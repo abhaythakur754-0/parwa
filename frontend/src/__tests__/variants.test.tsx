@@ -70,7 +70,7 @@ describe("MiniCard", () => {
   it("renders Mini PARWA card correctly", () => {
     render(<MiniCard onSelect={mockOnSelect} />);
     expect(screen.getByText("Mini PARWA")).toBeInTheDocument();
-    expect(screen.getByText("$49")).toBeInTheDocument();
+    expect(screen.getByText("$1000")).toBeInTheDocument();
     expect(screen.getByText("Light")).toBeInTheDocument();
   });
 
@@ -83,7 +83,7 @@ describe("MiniCard", () => {
   it("returns correct config from getMiniConfig", () => {
     const config = getMiniConfig();
     expect(config.variantId).toBe("mini");
-    expect(config.price).toBe(49);
+    expect(config.price).toBe(1000);
     expect(config.maxConcurrentCalls).toBe(2);
     expect(config.refundLimit).toBe(50);
     expect(config.escalationThreshold).toBe(70);
@@ -94,7 +94,7 @@ describe("ParwaJuniorCard", () => {
   it("renders PARWA Junior card correctly", () => {
     render(<ParwaJuniorCard onSelect={mockOnSelect} />);
     expect(screen.getByText("PARWA Junior")).toBeInTheDocument();
-    expect(screen.getByText("$149")).toBeInTheDocument();
+    expect(screen.getByText("$2500")).toBeInTheDocument();
     expect(screen.getByText("Medium")).toBeInTheDocument();
   });
 
@@ -106,7 +106,7 @@ describe("ParwaJuniorCard", () => {
   it("returns correct config from getParwaJuniorConfig", () => {
     const config = getParwaJuniorConfig();
     expect(config.variantId).toBe("parwa");
-    expect(config.price).toBe(149);
+    expect(config.price).toBe(2500);
     expect(config.maxConcurrentCalls).toBe(5);
     expect(config.refundLimit).toBe(500);
     expect(config.escalationThreshold).toBe(60);
@@ -117,7 +117,7 @@ describe("ParwaHighCard", () => {
   it("renders PARWA High card correctly", () => {
     render(<ParwaHighCard onSelect={mockOnSelect} />);
     expect(screen.getByText("PARWA High")).toBeInTheDocument();
-    expect(screen.getByText("$499")).toBeInTheDocument();
+    expect(screen.getByText("$4000")).toBeInTheDocument();
     expect(screen.getByText("Heavy")).toBeInTheDocument();
   });
 
@@ -129,7 +129,7 @@ describe("ParwaHighCard", () => {
   it("returns correct config from getParwaHighConfig", () => {
     const config = getParwaHighConfig();
     expect(config.variantId).toBe("parwa_high");
-    expect(config.price).toBe(499);
+    expect(config.price).toBe(4000);
     expect(config.maxConcurrentCalls).toBe(10);
     expect(config.refundLimit).toBe(2000);
     expect(config.escalationThreshold).toBe(50);
