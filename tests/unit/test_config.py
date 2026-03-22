@@ -104,9 +104,9 @@ class TestWebhookConfig:
         config = WebhookConfig()
         
         assert config.shopify_verify_signature is True
-        assert config.stripe_verify_signature is True
+        assert config.paddle_verify_signature is True
         assert config.shopify_max_timestamp_diff == 300
-        assert config.stripe_max_timestamp_diff == 300
+        assert config.paddle_max_timestamp_diff == 300
         assert config.webhook_retry_attempts == 3
     
     def test_custom_values(self):
@@ -454,26 +454,26 @@ class TestValidateWebhookConfig:
         errors = validate_webhook_config(config)
         assert any("SHOPIFY_WEBHOOK_SECRET" in e for e in errors)
     
-    def test_stripe_signature_verification_missing_secret(self):
-        """Test validation fails when Stripe signature verification enabled without secret"""
+    def test_paddle_signature_verification_missing_secret(self):
+        """Test validation fails when Paddle signature verification enabled without secret"""
         config = AppConfig(
             webhooks=WebhookConfig(
-                stripe_verify_signature=True
+                paddle_verify_signature=True
             ),
             api_keys=APIKeysConfig()
         )
         
         errors = validate_webhook_config(config)
-        assert any("STRIPE_WEBHOOK_SECRET" in e for e in errors)
+        assert any("PADDLE_WEBHOOK_SECRET" in e for e in errors)
     
     def test_valid_webhook_config(self):
         """Test validation passes with proper secrets"""
         config = AppConfig(
             webhooks=WebhookConfig(
                 shopify_verify_signature=True,
-                stripe_verify_signature=True,
+                paddle_verify_signature=True,
                 shopify_webhook_secret="shopify_secret",
-                stripe_webhook_secret="stripe_secret"
+                paddle_webhook_secret="paddle_secret"
             )
         )
         
@@ -485,7 +485,7 @@ class TestValidateWebhookConfig:
         config = AppConfig(
             webhooks=WebhookConfig(
                 shopify_verify_signature=False,
-                stripe_verify_signature=False
+                paddle_verify_signature=False
             ),
             api_keys=APIKeysConfig()
         )

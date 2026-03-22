@@ -280,7 +280,8 @@ class TestPaddleClient:
     @pytest.mark.asyncio
     async def test_connect_missing_api_key(self):
         """Test connection fails without API key."""
-        client = PaddleClient(api_key=None)
+        # Use empty string to prevent fallback to settings
+        client = PaddleClient(api_key="")
         result = await client.connect()
         assert result is False
         assert client.state == PaddleClientState.ERROR
@@ -708,7 +709,8 @@ class TestEmailClient:
     @pytest.mark.asyncio
     async def test_connect_missing_api_key(self):
         """Test connection fails without API key."""
-        client = EmailClient(api_key=None)
+        # Use empty string to prevent fallback to settings
+        client = EmailClient(api_key="")
         result = await client.connect()
         assert result is False
         assert client.state == EmailClientState.ERROR
