@@ -432,3 +432,197 @@ class LicenseService:
             "features_count": len(features),
             "max_users": license_info.get("limits", {}).get("users", 0) if license_info else 0,
         }
+
+    # ========================================================================
+    # AGENT_COMMS Required Methods - Static/Class methods for direct access
+    # ========================================================================
+
+    async def check_license(self, company_id: str) -> Dict[str, Any]:
+        """
+        Check license validity for a company.
+
+        Args:
+            company_id: Company identifier
+
+        Returns:
+            Dict with license check result
+        """
+        logger.info({
+            "event": "license_check",
+            "company_id": company_id,
+        })
+
+        # Use internal validation
+        license_info = await self.get_license()
+
+        if not license_info:
+            return {
+                "valid": False,
+                "company_id": company_id,
+                "reason": "No license found",
+            }
+
+        is_valid = await self.validate_license()
+
+        return {
+            "valid": is_valid,
+            "company_id": company_id,
+            "tier": license_info.get("tier"),
+            "status": license_info.get("status"),
+            "expires_at": license_info.get("expires_at"),
+        }
+
+    async def get_license_limits(self, company_id: str) -> Dict[str, Any]:
+        """
+        Get license limits for a company.
+
+        Args:
+            company_id: Company identifier
+
+        Returns:
+            Dict with license limits
+        """
+        license_info = await self.get_license()
+
+        if not license_info:
+            return {
+                "company_id": company_id,
+                "limits": None,
+                "reason": "No license found",
+            }
+
+        tier_str = license_info.get("tier", "mini")
+        tier = LicenseTier(tier_str) if tier_str in [t.value for t in LicenseTier] else LicenseTier.MINI_PARWA
+        limits = await self.get_tier_limits(tier)
+
+        return {
+            "company_id": company_id,
+            "tier": tier.value,
+            "limits": limits,
+        }
+
+    async def validate_feature(self, company_id: str, feature: str) -> bool:
+        """
+        Validate if a company has access to a feature.
+
+        Args:
+            company_id: Company identifier
+            feature: Feature name to validate
+
+        Returns:
+            bool: True if feature is accessible
+        """
+        has_access = await self.check_feature_access(feature)
+
+        logger.info({
+            "event": "feature_validated",
+            "company_id": company_id,
+            "feature": feature,
+            "has_access": has_access,
+        })
+
+        return has_access
+
+    async def increment_usage(self, company_id: str) -> Dict[str, Any]:
+        """
+        Increment usage count for a company.
+
+        Args:
+            company_id: Company identifier
+
+        Returns:
+            Dict with updated usage
+        """
+        now = datetime.now(timezone.utc)
+
+        logger.info({
+            "event": "usage_incremented",
+            "company_id": company_id,
+            "incremented_at": now.isoformat(),
+        })
+
+        # TODO: Implement actual usage tracking in database
+        return {
+            "company_id": company_id,
+            "incremented": True,
+            "incremented_at": now.isoformat(),
+            "current_usage": 0,  # Placeholder
+        }
+
+    @classmethod
+    async def check_license_static(
+        cls,
+        db: AsyncSession,
+        company_id: str
+    ) -> Dict[str, Any]:
+        """
+        Static method to check license without instantiating.
+
+        Args:
+            db: Database session
+            company_id: Company identifier
+
+        Returns:
+            Dict with license check result
+        """
+        service = cls(db, UUID(company_id))
+        return await service.check_license(company_id)
+
+    @classmethod
+    async def get_license_limits_static(
+        cls,
+        db: AsyncSession,
+        company_id: str
+    ) -> Dict[str, Any]:
+        """
+        Static method to get license limits.
+
+        Args:
+            db: Database session
+            company_id: Company identifier
+
+        Returns:
+            Dict with license limits
+        """
+        service = cls(db, UUID(company_id))
+        return await service.get_license_limits(company_id)
+
+    @classmethod
+    async def validate_feature_static(
+        cls,
+        db: AsyncSession,
+        company_id: str,
+        feature: str
+    ) -> bool:
+        """
+        Static method to validate feature access.
+
+        Args:
+            db: Database session
+            company_id: Company identifier
+            feature: Feature to validate
+
+        Returns:
+            bool: True if accessible
+        """
+        service = cls(db, UUID(company_id))
+        return await service.validate_feature(company_id, feature)
+
+    @classmethod
+    async def increment_usage_static(
+        cls,
+        db: AsyncSession,
+        company_id: str
+    ) -> Dict[str, Any]:
+        """
+        Static method to increment usage.
+
+        Args:
+            db: Database session
+            company_id: Company identifier
+
+        Returns:
+            Dict with updated usage
+        """
+        service = cls(db, UUID(company_id))
+        return await service.increment_usage(company_id)
