@@ -8,15 +8,15 @@
 - Phase 1: Foundation (Wk 1-4) → ✅ COMPLETE
 - Phase 2: Core AI Engine (Wk 5-8) → ✅ COMPLETE
 - Phase 3: Variants (Wk 9-14) → ✅ COMPLETE (Mini PARWA ✅, PARWA Junior ✅, PARWA High ✅, Backend Services ✅, Agent Lightning + Workers ✅, Monitoring + Final Validation ✅)
-- Phase 4: Frontend (Wk 15-18) → 🟡 IN PROGRESS (Week 15 ✅, Week 16 Dashboard + Hooks 🔄)
+- Phase 4: Frontend (Wk 15-18) → 🟡 IN PROGRESS (Week 15 ✅, Week 16 ✅, Week 17 Onboarding + Analytics 🔄)
 
 ---
 
 ## Current Position
-- **Week**: 16
+- **Week**: 17
 - **Day**: 1 (Tasks Written)
-- **Phase**: Phase 4 — Frontend Foundation (Dashboard Pages + Hooks)
-- **Overall Status**: WEEK 16 TASKS WRITTEN — AWAITING BUILDERS
+- **Phase**: Phase 4 — Frontend Foundation (Onboarding + Analytics + Frontend Wiring)
+- **Overall Status**: WEEK 17 TASKS WRITTEN — AWAITING BUILDERS
 
 ---
 
@@ -203,32 +203,55 @@
 
 **Phase 4 Goals:**
 - Week 15: Frontend Foundation (Next.js, UI, Auth) ✅
-- Week 16: Dashboard Pages + Hooks 🔄
-- Week 17: Onboarding + Analytics + Frontend Wiring
+- Week 16: Dashboard Pages + Hooks ✅
+- Week 17: Onboarding + Analytics + Frontend Wiring 🔄
 - Week 18: Production Hardening + Kubernetes
 
 ---
 
-## Week 16 — Dashboard Pages + Hooks IN PROGRESS 🔄
+## Week 17 — Onboarding + Analytics + Frontend Wiring IN PROGRESS 🔄
 
-**Summary:** Dashboard pages, hooks, and settings being built.
+**Summary:** Onboarding components, analytics, service wiring, and E2E tests being built.
 
-**Total Files:** 43 files planned
+**Total Files:** 38 files planned
 **Total Tests:** TBD
 
 **Key Deliverables:**
-- Dashboard layout + home page (7 files)
-- Tickets + Approvals + Agents + Analytics pages (8 files)
-- Dashboard components (8 files)
-- All hooks (10 files)
-- Settings pages (10 files)
+- Onboarding + Pricing + Analytics components (10 files)
+- Settings sub-pages (6 files)
+- Frontend UI tests (6 files)
+- Frontend → Backend service wiring (10 files)
+- E2E frontend tests (6 files)
 
 **CRITICAL REQUIREMENTS:**
-- Dashboard home loads real API data
-- Approvals queue renders and approve action works
-- Jarvis terminal streams response
-- All 5 hooks update stores correctly
-- All settings pages render and validate
+- Full UI: login→onboarding→dashboard works
+- Approve refund through UI: Paddle called exactly once
+- Analytics page loads real backend data
+- Lighthouse score >80
+- All services connect to backend
+
+---
+
+## Week 16 — Dashboard Pages + Hooks COMPLETE ✅
+
+**Summary:** Dashboard pages, hooks, and settings fully implemented.
+
+**Total Files:** 43 files built
+**Total Tests:** TBD
+
+**Key Achievements:**
+- Dashboard layout + home page ✅
+- Tickets + Approvals + Agents + Analytics pages ✅
+- Dashboard components (ticket-list, approval-queue, jarvis-terminal) ✅
+- All hooks (useAuth, useApprovals, useTickets, useAnalytics, useJarvis) ✅
+- Settings pages (profile, billing, team, integrations) ✅
+
+**CRITICAL TESTS PASSED:**
+- Dashboard home loads real API data ✅
+- Approvals queue renders and approve action works ✅
+- Jarvis terminal streams response ✅
+- All 5 hooks update stores correctly ✅
+- All settings pages render and validate ✅
 
 ---
 
