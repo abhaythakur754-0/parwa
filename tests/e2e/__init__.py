@@ -9,12 +9,15 @@ Key E2E Test Scenarios:
 - Refund Workflow: Ticket → Approval → Stripe call (once)
 - Jarvis Commands: Pause/Resume refunds, System status
 - Stuck Ticket Escalation: 4-phase escalation at 24h/48h/72h
+- Agent Lightning Training: Collect → Export → Train → Deploy
+- GDPR Compliance: Export, Erasure (PII anonymized, row preserved)
 
 CRITICAL Requirements Tested:
 - Stripe called EXACTLY once after approval, NEVER before
 - Jarvis pause_refunds Redis key set within 500ms
 - Escalation 4-phase fires at exact 24h/48h/72h thresholds
 - Voice calls answered in < 6 seconds
+- GDPR: PII anonymized, row preserved
 """
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone, timedelta
