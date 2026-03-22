@@ -4,10 +4,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { OnboardingWizard, type OnboardingData } from "@/components/onboarding/OnboardingWizard";
 
-export const metadata = {
-  title: "Onboarding - PARWA",
-  description: "Set up your PARWA workspace",
-};
+// Note: Metadata cannot be exported from Client Components
+// Use a separate layout.tsx for metadata in production
 
 export default function OnboardingPage() {
   const router = useRouter();
