@@ -773,8 +773,8 @@ pytest tests/integration/test_week15_frontend.py -v
 | Builder 2 | Day 2 | ✅ DONE | Common UI + Auth Pages (10 files) | 50+ tests | YES |
 | Builder 3 | Day 3 | ✅ DONE | Variant Cards (23 files) | 20+ tests | YES |
 | Builder 4 | Day 4 | ✅ DONE | Zustand Stores + API (11 files) | 40+ tests | YES |
-| Builder 5 | Day 5 | ⏳ PENDING | Onboarding Components (7 files) | - | NO |
-| Tester | Day 6 | ⏳ WAITING ALL | npm + pytest validation | - | NO |
+| Builder 5 | Day 5 | ✅ DONE | Onboarding Components (8 files) | 30+ tests | YES |
+| Tester | Day 6 | ✅ READY | npm + pytest validation | - | NO |
 
 ---
 
@@ -991,6 +991,62 @@ Date: 2026-03-22
 - Tests for auth flow
 - Tests for variant selection
 - Tests for UI state management
+
+---
+
+## BUILDER 5 DONE REPORT (Week 15 Day 5)
+═══════════════════════════════════════════════════════════════════════════════
+Written by: Builder 5 Agent
+Date: 2026-03-22
+
+### Files Built and Pushed:
+1. ✅ `frontend/src/components/onboarding/OnboardingWizard.tsx` — Main wizard container with 5-step flow
+2. ✅ `frontend/src/components/onboarding/Step1Company.tsx` — Company info step (name, industry, size, website)
+3. ✅ `frontend/src/components/onboarding/Step2Variant.tsx` — Variant selection step (Mini, Junior, High)
+4. ✅ `frontend/src/components/onboarding/Step3Integrations.tsx` — Integration setup step (Shopify, Zendesk, Twilio, Email)
+5. ✅ `frontend/src/components/onboarding/Step4Team.tsx` — Team invite step (email + role, max 5)
+6. ✅ `frontend/src/components/onboarding/Step5Complete.tsx` — Completion step with summary
+7. ✅ `frontend/src/app/onboarding/page.tsx` — Onboarding page with auth check
+8. ✅ `frontend/src/__tests__/onboarding.test.tsx` — Onboarding component tests
+
+### CRITICAL REQUIREMENTS MET:
+- [x] **Onboarding wizard 5-step flow works end-to-end**
+- [x] Step 1: Company name, industry, size, website
+- [x] Step 2: Variant selection with pricing ($49, $149, $499)
+- [x] Step 3: Integrations (Shopify, Zendesk, Twilio, Email)
+- [x] Step 4: Team invites (email + role, max 5 members)
+- [x] Step 5: Summary + Go to Dashboard
+- [x] Progress indicator with step numbers
+- [x] Back/Next navigation
+- [x] TypeScript strict mode
+
+### Onboarding Steps:
+| Step | Title | Fields/Actions |
+|------|-------|----------------|
+| 1 | Company | name, industry, size, website |
+| 2 | Plan | Mini ($49), Junior ($149), High ($499) |
+| 3 | Integrations | Shopify, Zendesk, Twilio, Email |
+| 4 | Team | Email + role (Admin/Agent/Viewer) |
+| 5 | Complete | Summary + Go to Dashboard |
+
+### Variant Pricing Displayed:
+| Variant | Price | Tier | Concurrent Calls | Refund Limit |
+|---------|-------|------|------------------|--------------|
+| Mini PARWA | $49/mo | Light | 2 | $50 |
+| PARWA Junior | $149/mo | Medium | 5 | $500 |
+| PARWA High | $499/mo | Heavy | 10 | $2000 |
+
+### Integration Options:
+- Shopify: E-commerce order management
+- Zendesk: Support ticket sync
+- Twilio: Voice/SMS capabilities
+- Email Provider: SMTP notifications
+
+### Test Coverage:
+- 30+ tests for onboarding wizard
+- Step navigation tests
+- Form validation tests
+- Complete flow E2E test
 
 ---
 
