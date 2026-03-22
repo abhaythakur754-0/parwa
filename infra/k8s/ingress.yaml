@@ -1,0 +1,206 @@
+# Ingress: TLS termination and path-based routing
+# Uses nginx ingress controller with Let's Encrypt
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: parwa-ingress
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: parwa-platform
+  annotations:
+    # NGINX Ingress Controller annotations
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options "SAMEORIGIN" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+      add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.parwa.ai wss://api.parwa.ai; frame-ancestors 'none';" always;
+
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-connections: "100"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-burst: "200"
+
+    # SSL/TLS configuration
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384"
+
+    # HSTS
+    nginx.ingress.kubernetes.io/server-snippet: |
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+    # Let's Encrypt (cert-manager)
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    cert-manager.io/acme-challenge-type: http01
+
+    # CORS for API
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://app.parwa.ai,https://parwa.ai"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-Tenant-ID"
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - app.parwa.ai
+        - api.parwa.ai
+      secretName: parwa-tls
+  rules:
+    # Frontend - app.parwa.ai
+    - host: app.parwa.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: parwa-frontend
+                port:
+                  number: 3000
+
+    # Backend API - api.parwa.ai
+    - host: api.parwa.ai
+      http:
+        paths:
+          # API routes
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: parwa-backend
+                port:
+                  number: 8000
+
+          # Health checks
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: parwa-backend
+                port:
+                  number: 8000
+
+          # Metrics (restricted via network policy)
+          - path: /metrics
+            pathType: Exact
+            backend:
+              service:
+                name: parwa-backend
+                port:
+                  number: 9090
+
+          # WebSocket for Jarvis streaming
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: parwa-backend
+                port:
+                  number: 8000
+
+          # Default to backend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: parwa-backend
+                port:
+                  number: 8000
+
+---
+# Ingress for internal services (optional - for internal access)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: parwa-internal-ingress
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: parwa-platform
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: parwa-internal.local
+      http:
+        paths:
+          # Prometheus metrics
+          - path: /metrics/backend
+            pathType: Prefix
+            backend:
+              service:
+                name: parwa-backend
+                port:
+                  number: 9090
+
+          - path: /metrics/redis
+            pathType: Prefix
+            backend:
+              service:
+                name: parwa-redis
+                port:
+                  number: 9121
+
+          - path: /metrics/postgres
+            pathType: Prefix
+            backend:
+              service:
+                name: parwa-postgres
+                port:
+                  number: 9187
+
+---
+# Certificate (for cert-manager)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: parwa-tls
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: certificate
+spec:
+  secretName: parwa-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - app.parwa.ai
+    - api.parwa.ai
+  usages:
+    - digital signature
+    - key encipherment
+
+---
+# ClusterIssuer for Let's Encrypt (create once per cluster)
+# apiVersion: cert-manager.io/v1
+# kind: ClusterIssuer
+# metadata:
+#   name: letsencrypt-prod
+# spec:
+#   acme:
+#     server: https://acme-v02.api.letsencrypt.org/directory
+#     email: admin@parwa.ai
+#     privateKeySecretRef:
+#       name: letsencrypt-prod
+#     solvers:
+#       - http01:
+#           ingress:
+#             class: nginx

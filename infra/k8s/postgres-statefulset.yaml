@@ -1,0 +1,336 @@
+# PostgreSQL StatefulSet: Primary database with RLS enabled
+# Single replica with persistent storage and backup sidecar
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: parwa-postgres
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: postgres
+    app.kubernetes.io/part-of: parwa-platform
+    app.kubernetes.io/version: "16"
+spec:
+  serviceName: parwa-postgres-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: parwa
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: parwa
+        app.kubernetes.io/component: postgres
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9187"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: parwa-postgres
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
+      initContainers:
+        - name: init-permissions
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - |
+              chmod 750 /data
+              chown 999:999 /data
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /data
+
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_DB
+              value: parwa
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DB_PASSWORD
+            - name: PGDATA
+              value: /data/pgdata
+            # Performance tuning
+            - name: POSTGRES_MAX_CONNECTIONS
+              value: "200"
+            - name: POSTGRES_SHARED_BUFFERS
+              value: "256MB"
+            - name: POSTGRES_WORK_MEM
+              value: "16MB"
+            - name: POSTGRES_MAINTENANCE_WORK_MEM
+              value: "128MB"
+            - name: POSTGRES_EFFECTIVE_CACHE_SIZE
+              value: "1GB"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - $(POSTGRES_USER)
+                - -d
+                - $(POSTGRES_DB)
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - $(POSTGRES_USER)
+                - -d
+                - $(POSTGRES_DB)
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /data
+            - name: postgres-init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+
+        # PostgreSQL Exporter for Prometheus
+        - name: postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: metrics
+              containerPort: 9187
+              protocol: TCP
+          env:
+            - name: DATA_SOURCE_NAME
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DB_PASSWORD
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+        # Backup sidecar (pgBackRest or custom backup script)
+        - name: backup
+          image: parwa/postgres-backup:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_HOST
+              value: localhost
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: parwa
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DB_PASSWORD
+            - name: BACKUP_SCHEDULE
+              value: "0 2 * * *"  # Daily at 2 AM
+            - name: BACKUP_RETENTION_DAYS
+              value: "30"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /data
+              readOnly: true
+            - name: backup-storage
+              mountPath: /backups
+
+      volumes:
+        - name: postgres-init
+          configMap:
+            name: parwa-postgres-init
+        - name: backup-storage
+          emptyDir: {}  # Use S3/GCS in production
+
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+        labels:
+          app.kubernetes.io/name: parwa
+          app.kubernetes.io/component: postgres
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 50Gi
+
+---
+# PostgreSQL Headless Service (for StatefulSet)
+apiVersion: v1
+kind: Service
+metadata:
+  name: parwa-postgres-headless
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: postgres
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: postgres
+
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: parwa-postgres
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: postgres
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP
+    - name: metrics
+      port: 9187
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: postgres
+
+---
+# PostgreSQL Init Scripts ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: parwa-postgres-init
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: postgres
+data:
+  01-extensions.sql: |
+    -- Enable required extensions
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+    CREATE EXTENSION IF NOT EXISTS "vector";
+
+  02-rls-setup.sql: |
+    -- Enable Row Level Security
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO parwa;
+
+    -- Create RLS policy function
+    CREATE OR REPLACE FUNCTION current_tenant_id()
+    RETURNS UUID AS $$
+    BEGIN
+      RETURN current_setting('app.current_tenant', true)::UUID;
+    EXCEPTION WHEN OTHERS THEN
+      RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+  03-tenant-isolation.sql: |
+    -- Example: Enable RLS on a table (run for each tenant table)
+    -- ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
+    -- CREATE POLICY tenant_isolation ON tickets
+    --   USING (tenant_id = current_tenant_id());
+
+---
+# Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: parwa-postgres
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: postgres
+automountServiceAccountToken: false

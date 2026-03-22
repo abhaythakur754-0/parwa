@@ -1,0 +1,127 @@
+# Namespace: parwa
+# Production namespace with resource quotas, limits, and network policies
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: parwa
+  labels:
+    name: parwa
+    environment: production
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/part-of: parwa-platform
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    scheduler.alpha.kubernetes.io/defaultTolerations: '[]'
+    scheduler.alpha.kubernetes.io/tolerationsWhitelist: '[]'
+
+---
+# Resource Quota - limits total resources in namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: parwa-resource-quota
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: resource-quota
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    persistentvolumeclaims: "10"
+    pods: "50"
+    services: "20"
+    secrets: "50"
+    configmaps: "50"
+
+---
+# Limit Range - default resource limits for pods
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: parwa-limit-range
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: limit-range
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "500m"
+        memory: "512Mi"
+      defaultRequest:
+        cpu: "100m"
+        memory: "128Mi"
+      min:
+        cpu: "50m"
+        memory: "64Mi"
+      max:
+        cpu: "4"
+        memory: "8Gi"
+    - type: PersistentVolumeClaim
+      min:
+        storage: "1Gi"
+      max:
+        storage: "100Gi"
+
+---
+# Network Policy - deny all ingress by default
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: parwa-default-deny-ingress
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: network-policy
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+# Network Policy - allow ingress from ingress controller
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: parwa-allow-ingress-controller
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: network-policy
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 3000
+
+---
+# Network Policy - allow internal communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: parwa-allow-internal
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: network-policy
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
