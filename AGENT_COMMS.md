@@ -1,632 +1,663 @@
-# AGENT_COMMS.md — Week 20 Day 1-6
+# AGENT_COMMS.md — Week 21 Day 1-6
 # Last updated: Manager Agent
-# Current status: WEEK 20 TASKS WRITTEN — AWAITING BUILDERS
+# Current status: WEEK 21 TASKS WRITTEN — AWAITING BUILDERS
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 20 PLAN
+## MANAGER → WEEK 21 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
 Date: 2026-03-23
 
-> **Phase: Phase 5 — First Clients (Second Client + Agent Lightning First Run)**
+> **Phase: Phase 6 — Scale (5+ Clients)**
 >
-> **Week 20 Goals:**
-> - Day 1: Client 002 Setup Files (6 files)
-> - Day 2: Agent Lightning First Real Training (6 files)
-> - Day 3: Post-Training Validation (5 files)
-> - Day 4: Scaling Tests (5 files)
-> - Day 5: Reports + Phase 5 Completion (6 files)
+> **Week 21 Goals:**
+> - Day 1: Client 003 Setup (Healthcare Client)
+> - Day 2: Clients 004 + 005 Batch Setup
+> - Day 3: Collective Intelligence System
+> - Day 4: Multi-Client Analytics + Monitoring
+> - Day 5: Agent Lightning v2 Preparation + Reports
 > - Day 6: Tester runs full validation
 >
 > **CRITICAL RULES:**
 > 1. All 5 days run in PARALLEL — no cross-day dependencies
-> 2. Agent Lightning training uses REAL mistakes data
-> 3. Model must achieve ≥3% accuracy improvement
-> 4. Multi-client isolation is paramount
-> 5. **2-client cross-tenant isolation: 0 data leaks in 20 tests**
-> 6. **Agent Lightning: accuracy improved ≥3% from baseline**
-> 7. **New model passes all regression tests**
-> 8. **P95 <500ms at 100 concurrent users**
+> 2. Client 003 is HEALTHCARE (HIPAA required)
+> 3. 5-client isolation: 0 data leaks in 50 tests
+> 4. Collective intelligence improves accuracy across all clients
+> 5. **HIPAA compliance for Client 003: BAA, PHI protection**
+> 6. **5-client isolation: 0 data leaks in 50 tests**
+> 7. **Collective intelligence: accuracy +2% across clients**
+> 8. **P95 <500ms at 150 concurrent users**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — Client 002 Setup Files
+## BUILDER 1 (DAY 1) — Client 003 Setup (Healthcare)
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `clients/client_002/__init__.py`
-2. `clients/client_002/config.py`
-3. `clients/client_002/knowledge_base/faq.json`
-4. `clients/client_002/knowledge_base/products.json`
-5. `clients/client_002/knowledge_base/policies.json`
-6. `monitoring/dashboards/client_002_dashboard.json`
+1. `clients/client_003/__init__.py`
+2. `clients/client_003/config.py`
+3. `clients/client_003/knowledge_base/faq.json`
+4. `clients/client_003/knowledge_base/products.json`
+5. `clients/client_003/knowledge_base/policies.json`
+6. `clients/client_003/hipaa_compliance.py`
 
 ### Field 2: What is each file?
-1. `clients/client_002/__init__.py` — Client module init
-2. `clients/client_002/config.py` — Client-specific configuration
-3. `clients/client_002/knowledge_base/faq.json` — Client FAQ knowledge
-4. `clients/client_002/knowledge_base/products.json` — Client product catalog
-5. `clients/client_002/knowledge_base/policies.json` — Client policies
-6. `monitoring/dashboards/client_002_dashboard.json` — Client Grafana dashboard
+1. `clients/client_003/__init__.py` — Client module init
+2. `clients/client_003/config.py` — Healthcare client configuration
+3. `clients/client_003/knowledge_base/faq.json` — Healthcare FAQ knowledge
+4. `clients/client_003/knowledge_base/products.json` — Healthcare services catalog
+5. `clients/client_003/knowledge_base/policies.json` — Healthcare policies (HIPAA)
+6. `clients/client_003/hipaa_compliance.py` — HIPAA compliance module
 
 ### Field 3: Responsibilities
 
-**clients/client_002/config.py:**
-- Client config with:
-  - Client ID: "client_002"
-  - Client name: "TechStart SaaS"
-  - Industry: "saas"
-  - Variant: "parwa_high" (PARWA High)
-  - Timezone: "America/Los_Angeles"
-  - Business hours: 8am-8pm PST (extended)
-  - Escalation contacts: email, slack, pagerduty
-  - Paddle account ID
-  - Feature flags for this client
-  - HIPAA compliance enabled: false
-  - **Test: Config loads correctly**
+**clients/client_003/config.py:**
+- Healthcare client config with:
+  - Client ID: "client_003"
+  - Client name: "MediCare Health"
+  - Industry: "healthcare"
+  - Variant: "parwa_high" (full features)
+  - Timezone: "America/New_York"
+  - Business hours: 24/7 (healthcare)
+  - HIPAA compliance: TRUE
+  - BAA signed: TRUE
+  - PHI handling enabled: TRUE
+  - Escalation contacts: email, slack, pagerduty, on-call
+  - **Test: Config loads correctly with HIPAA flags**
 
-**clients/client_002/knowledge_base/faq.json:**
-- FAQ knowledge with:
-  - 25+ FAQ entries (SaaS-specific)
-  - Categories: Account, Billing, Features, Integrations, API
+**clients/client_003/knowledge_base/faq.json:**
+- Healthcare FAQ with:
+  - 30+ FAQ entries (healthcare-specific)
+  - Categories: Appointments, Billing, Insurance, Prescriptions, Medical Records, Telehealth
+  - NO PHI in FAQs
   - Question/Answer pairs
   - Keywords for search
   - **Test: FAQ loads and is searchable**
 
-**clients/client_002/knowledge_base/products.json:**
-- Product catalog with:
-  - SaaS product tiers (Free, Pro, Enterprise)
-  - Feature matrices
-  - Pricing information
-  - Add-ons and integrations
-  - **Test: Products load correctly**
+**clients/client_003/knowledge_base/products.json:**
+- Healthcare services with:
+  - Service tiers (Basic, Premium, VIP)
+  - Telehealth features
+  - Prescription services
+  - Lab services
+  - Insurance coordination
+  - **Test: Services load correctly**
 
-**clients/client_002/knowledge_base/policies.json:**
-- Policies with:
-  - Refund policy (14-day money back)
-  - SLA commitments
-  - Data retention policy
-  - Security compliance
-  - API rate limits
+**clients/client_003/knowledge_base/policies.json:**
+- Healthcare policies with:
+  - HIPAA compliance policy
+  - Refund policy (30-day for services not rendered)
+  - Emergency escalation policy
+  - PHI handling procedures
+  - Data retention (7 years for medical records)
+  - Consent management
   - **Test: Policies load correctly**
 
-**monitoring/dashboards/client_002_dashboard.json:**
-- Client dashboard with:
-  - Ticket volume graph
-  - Resolution time chart
-  - CSAT score gauge
-  - Agent accuracy metric
-  - API usage metrics (SaaS-specific)
-  - **Test: Dashboard loads in Grafana**
+**clients/client_003/hipaa_compliance.py:**
+- HIPAA compliance module with:
+  - PHI detection and sanitization
+  - Audit logging for all PHI access
+  - Minimum necessary principle enforcement
+  - Patient consent verification
+  - BAA compliance check
+  - Emergency access procedures
+  - **CRITICAL: PHI must be sanitized before logging**
+  - **Test: HIPAA module works**
 
 ### Field 4: Depends On
 - Week 1 config system
 - Week 5 knowledge base
-- Week 14 monitoring
-- Week 19 client 001 setup
+- Week 12 HIPAA compliance
+- Weeks 19-20 client setup patterns
 
 ### Field 5: Expected Output
-- Client 002 fully configured
+- Client 003 fully configured
+- HIPAA compliance module ready
 - Knowledge base loaded
-- Dashboard accessible
 
 ### Field 6: Unit Test Files
-- `tests/clients/test_client_002.py`
+- `tests/clients/test_client_003.py`
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/client_onboarding_bdd.md`
+- `docs/bdd_scenarios/healthcare_client_bdd.md`
 
 ### Field 8: Error Handling
-- Invalid config fallbacks
-- Missing KB graceful degradation
+- PHI sanitization failures block processing
+- Missing BAA blocks client activation
+- HIPAA violations trigger alerts
 
 ### Field 9: Security Requirements
-- Client ID isolation (critical for multi-tenant)
-- PII encryption
-- Access logging
+- HIPAA compliance required
+- PHI encryption at rest and in transit
+- Access logging with 7-year retention
+- BAA verification
 
 ### Field 10: Integration Points
 - Knowledge base manager
 - Variant system (PARWA High)
-- Monitoring stack
+- HIPAA compliance framework
+- Audit logging system
 
 ### Field 11: Code Quality
 - Typed config classes
-- Validated JSON schemas
+- HIPAA compliance decorators
+- PHI sanitization utilities
 
 ### Field 12: GitHub CI Requirements
 - Config loads without errors
-- JSON schemas valid
+- HIPAA module tests pass
+- PHI sanitization tests pass
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Client 002 config loads correctly**
+- **CRITICAL: Client 003 config loads with HIPAA flags**
+- **CRITICAL: HIPAA compliance module works**
 - Knowledge base ingestible
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — Agent Lightning First Real Training
+## BUILDER 2 (DAY 2) — Clients 004 + 005 Batch Setup
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `scripts/run_agent_lightning_training.py`
-2. `agent_lightning/training/real_training_config.py`
-3. `agent_lightning/training/export_real_mistakes.py`
-4. `agent_lightning/training/export_real_approvals.py`
-5. `agent_lightning/training/build_real_dataset.py`
-6. `agent_lightning/training/validate_real_model.py`
+1. `clients/client_004/__init__.py`
+2. `clients/client_004/config.py`
+3. `clients/client_004/knowledge_base/faq.json`
+4. `clients/client_005/__init__.py`
+5. `clients/client_005/config.py`
+6. `clients/client_005/knowledge_base/faq.json`
+7. `scripts/batch_client_setup.py`
+8. `clients/templates/client_template.py`
 
 ### Field 2: What is each file?
-1. `scripts/run_agent_lightning_training.py` — Main training runner script
-2. `agent_lightning/training/real_training_config.py` — Real training configuration
-3. `agent_lightning/training/export_real_mistakes.py` — Export real mistakes for training
-4. `agent_lightning/training/export_real_approvals.py` — Export real approvals for training
-5. `agent_lightning/training/build_real_dataset.py` — Build dataset from real data
-6. `agent_lightning/training/validate_real_model.py` — Validate trained model
+1. `clients/client_004/__init__.py` — Client 004 module init
+2. `clients/client_004/config.py` — Logistics client configuration
+3. `clients/client_004/knowledge_base/faq.json` — Logistics FAQ
+4. `clients/client_005/__init__.py` — Client 005 module init
+5. `clients/client_005/config.py` — FinTech client configuration
+6. `clients/client_005/knowledge_base/faq.json` — FinTech FAQ
+7. `scripts/batch_client_setup.py` — Batch onboarding script
+8. `clients/templates/client_template.py` — Client template generator
 
 ### Field 3: Responsibilities
 
-**scripts/run_agent_lightning_training.py:**
-- Training runner with:
-  - Full training pipeline orchestration
-  - Export mistakes from production
-  - Export approvals from production
-  - Build JSONL dataset
-  - Run fine-tuning
-  - Validate model
-  - Deploy if validation passes
-  - **CRITICAL: Accuracy must improve ≥3%**
-  - **Test: Training runner works**
-
-**agent_lightning/training/real_training_config.py:**
-- Real training config with:
-  - Production data source config
-  - Training parameters (epochs, batch size)
-  - Validation split ratio
-  - Minimum accuracy threshold (91%)
-  - Model architecture settings
-  - Export paths
+**clients/client_004/config.py:**
+- Logistics client config with:
+  - Client ID: "client_004"
+  - Client name: "FastFreight Logistics"
+  - Industry: "logistics"
+  - Variant: "parwa_junior"
+  - Timezone: "America/Chicago"
+  - Business hours: 6am-10pm CST
+  - Tracking integration enabled
+  - Shipment APIs configured
   - **Test: Config loads correctly**
 
-**agent_lightning/training/export_real_mistakes.py:**
-- Export mistakes with:
-  - Query training_data table for mistakes
-  - Filter by date range
-  - Anonymize PII
-  - Format for training
-  - Export to JSONL
-  - **Test: Exports real mistakes**
+**clients/client_004/knowledge_base/faq.json:**
+- Logistics FAQ with:
+  - 25+ FAQ entries
+  - Categories: Shipping, Tracking, Returns, International, Claims
+  - Question/Answer pairs
+  - Tracking number format hints
+  - **Test: FAQ loads correctly**
 
-**agent_lightning/training/export_real_approvals.py:**
-- Export approvals with:
-  - Query training_data table for approvals
-  - Include approval reasoning
-  - Anonymize PII
-  - Format for training
-  - Export to JSONL
-  - **Test: Exports real approvals**
+**clients/client_005/config.py:**
+- FinTech client config with:
+  - Client ID: "client_005"
+  - Client name: "PayFlow FinTech"
+  - Industry: "fintech"
+  - Variant: "parwa_high"
+  - Timezone: "America/New_York"
+  - Business hours: 9am-6pm EST (extended for emergencies)
+  - PCI DSS compliance required
+  - Fraud detection integration
+  - **Test: Config loads correctly**
 
-**agent_lightning/training/build_real_dataset.py:**
-- Build dataset with:
-  - Combine mistakes and approvals
-  - Balance dataset (50/50 split)
-  - Shuffle data
-  - Create train/validation split
-  - Validate format
-  - **Test: Dataset builds correctly**
+**clients/client_005/knowledge_base/faq.json:**
+- FinTech FAQ with:
+  - 25+ FAQ entries
+  - Categories: Payments, Security, Accounts, Fees, Transfers
+  - NO sensitive financial data in FAQs
+  - Security best practices included
+  - **Test: FAQ loads correctly**
 
-**agent_lightning/training/validate_real_model.py:**
-- Validate model with:
-  - Load trained model
-  - Run on validation set
-  - Calculate accuracy
-  - Check for regressions
-  - Compare to baseline
-  - **CRITICAL: Must show ≥3% improvement**
-  - **Test: Validation works**
+**scripts/batch_client_setup.py:**
+- Batch onboarding with:
+  - Validate multiple client configs
+  - Create client directories
+  - Initialize knowledge bases
+  - Set up monitoring dashboards
+  - Run validation checks
+  - Generate setup reports
+  - **Test: Batch setup works**
+
+**clients/templates/client_template.py:**
+- Client template with:
+  - Standard client config template
+  - Industry-specific presets
+  - Variant selection helpers
+  - Knowledge base templates
+  - Dashboard templates
+  - **Test: Template generates valid configs**
 
 ### Field 4: Depends On
-- Week 13 Agent Lightning system
-- Week 19 baseline metrics
-- Production training data
+- Weeks 19-20 client patterns
+- Week 12 industry configs
+- All variant systems
 
 ### Field 5: Expected Output
-- Training pipeline runs successfully
-- Model trained on real data
-- Accuracy improves ≥3%
+- Clients 004 and 005 configured
+- Batch onboarding script ready
+- Client template system available
 
 ### Field 6: Unit Test Files
-- `tests/agent_lightning/test_real_training.py`
+- `tests/clients/test_client_004.py`
+- `tests/clients/test_client_005.py`
+- `tests/scripts/test_batch_setup.py`
 
 ### Field 7: BDD Scenario
-- Agent Lightning improves accuracy with real data
+- Batch onboarding works for multiple clients
 
 ### Field 8: Error Handling
-- Training failure rollback
-- Model validation failure handling
-- Dataset quality checks
+- Batch rollback on failure
+- Individual client error isolation
+- Duplicate client detection
 
 ### Field 9: Security Requirements
-- PII anonymization before training
-- Secure model storage
-- Training data isolation
+- Client isolation enforced
+- No cross-client data
+- Audit logging for onboarding
 
 ### Field 10: Integration Points
-- Training data database
-- Model registry
-- Production deployment
+- Client management system
+- Knowledge base manager
+- Monitoring stack
+- Billing system
 
 ### Field 11: Code Quality
-- Reproducible training
-- Clear logging
-- Model versioning
+- Reusable client templates
+- Industry-specific presets
+- Validation utilities
 
 ### Field 12: GitHub CI Requirements
-- Training scripts run without errors
-- Mock training test passes
+- Both client configs load
+- Batch setup script runs
+- Template generates valid output
 
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
-- All 6 files built and pushed
-- **CRITICAL: Training pipeline runs**
-- **CRITICAL: Mock test shows ≥3% improvement**
+- All 8 files built and pushed
+- **CRITICAL: Clients 004 and 005 load correctly**
+- **CRITICAL: Batch setup script works**
+- Template generates valid configs
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — Post-Training Validation
+## BUILDER 3 (DAY 3) — Collective Intelligence System
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `tests/integration/test_post_training.py`
-2. `agent_lightning/monitoring/regression_tests.py`
-3. `agent_lightning/monitoring/accuracy_comparison.py`
-4. `agent_lightning/deployment/safe_deploy.py`
-5. `agent_lightning/deployment/quick_rollback.py`
+1. `collective_intelligence/__init__.py`
+2. `collective_intelligence/learning_aggregator.py`
+3. `collective_intelligence/pattern_sharing.py`
+4. `collective_intelligence/knowledge_federation.py`
+5. `collective_intelligence/privacy_preserving_share.py`
+6. `tests/collective_intelligence/test_learning_aggregator.py`
 
 ### Field 2: What is each file?
-1. `tests/integration/test_post_training.py` — Post-training integration tests
-2. `agent_lightning/monitoring/regression_tests.py` — Regression test suite
-3. `agent_lightning/monitoring/accuracy_comparison.py` — Compare old vs new model
-4. `agent_lightning/deployment/safe_deploy.py` — Safe deployment with canary
-5. `agent_lightning/deployment/quick_rollback.py` — Quick rollback mechanism
+1. `collective_intelligence/__init__.py` — Module init
+2. `collective_intelligence/learning_aggregator.py` — Aggregate learnings across clients
+3. `collective_intelligence/pattern_sharing.py` — Share patterns (not data) across clients
+4. `collective_intelligence/knowledge_federation.py` — Federate knowledge across clients
+5. `collective_intelligence/privacy_preserving_share.py` — Privacy-preserving sharing mechanism
+6. `tests/collective_intelligence/test_learning_aggregator.py` — Tests for collective intelligence
 
 ### Field 3: Responsibilities
 
-**tests/integration/test_post_training.py:**
-- Post-training tests with:
-  - Test: New model loads correctly
-  - Test: All agent types work with new model
-  - Test: Response quality maintained
-  - Test: No hallucinations introduced
-  - Test: Decision quality improved
-  - **CRITICAL: All tests pass**
-  - **Test: Integration tests pass**
+**collective_intelligence/learning_aggregator.py:**
+- Learning aggregator with:
+  - Aggregate mistakes from all clients
+  - Aggregate successful resolutions
+  - Identify common patterns
+  - Calculate cross-client accuracy trends
+  - Generate improvement insights
+  - **CRITICAL: Must not share client-specific data**
+  - **Test: Aggregator works without data leakage**
 
-**agent_lightning/monitoring/regression_tests.py:**
-- Regression tests with:
-  - Known good input/output pairs
-  - Quality threshold checks
-  - Response time checks
-  - Safety constraint checks
-  - Guardrail validation
-  - **Test: No regressions detected**
+**collective_intelligence/pattern_sharing.py:**
+- Pattern sharing with:
+  - Extract generic patterns from solutions
+  - Share patterns across clients (NOT data)
+  - Pattern effectiveness scoring
+  - Pattern versioning
+  - Pattern conflict resolution
+  - **Test: Patterns share without exposing data**
 
-**agent_lightning/monitoring/accuracy_comparison.py:**
-- Accuracy comparison with:
-  - Compare baseline vs new model
-  - Calculate improvement percentage
-  - Generate comparison report
-  - Identify improved/degraded areas
-  - **Test: Comparison works**
+**collective_intelligence/knowledge_federation.py:**
+- Knowledge federation with:
+  - Federated knowledge base updates
+  - Cross-client FAQ enrichment
+  - Common terminology mapping
+  - Industry-specific knowledge pools
+  - Knowledge quality scoring
+  - **Test: Federation enriches knowledge**
 
-**agent_lightning/deployment/safe_deploy.py:**
-- Safe deploy with:
-  - Canary deployment (5% traffic first)
-  - Automatic rollback on errors
-  - Gradual traffic increase
-  - Health check monitoring
-  - **Test: Safe deploy works**
+**collective_intelligence/privacy_preserving_share.py:**
+- Privacy-preserving share with:
+  - Differential privacy for sharing
+  - K-anonymity enforcement
+  - Data minimization
+  - Client opt-out support
+  - Audit trail for all shares
+  - **CRITICAL: Privacy guarantees enforced**
+  - **Test: Privacy mechanisms work**
 
-**agent_lightning/deployment/quick_rollback.py:**
-- Quick rollback with:
-  - One-command rollback
-  - Version history
-  - Instant traffic switch
-  - Rollback verification
-  - **Test: Rollback works quickly**
-
-### Field 4: Depends On
-- Trained model from Day 2
-- Week 13 model registry
-- Production deployment system
-
-### Field 5: Expected Output
-- New model validated
-- No regressions detected
-- Safe deployment ready
-
-### Field 6: Unit Test Files
-- Tests included in deliverables
-
-### Field 7: BDD Scenario
-- New model passes all validation
-
-### Field 8: Error Handling
-- Automatic rollback on failure
-- Detailed error logging
-- Graceful degradation
-
-### Field 9: Security Requirements
-- Model integrity verification
-- Secure deployment process
-- Audit trail for deployments
-
-### Field 10: Integration Points
-- Model registry
-- Production API
-- Monitoring system
-
-### Field 11: Code Quality
-- Comprehensive test coverage
-- Clear rollback procedures
-
-### Field 12: GitHub CI Requirements
-- Regression tests pass
-- Integration tests pass
-
-### Field 13: Pass Criteria
-Builder 3 reports DONE when:
-- All 5 files built and pushed
-- **CRITICAL: All regression tests pass**
-- Safe deployment working
-- GitHub CI GREEN
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — Scaling Tests
-═══════════════════════════════════════════════════════════════════════════════
-
-### Field 1: Files to Build (in order)
-1. `tests/integration/test_multi_client_isolation.py`
-2. `tests/performance/test_100_concurrent.py`
-3. `tests/integration/test_two_client_operations.py`
-4. `scripts/validate_multi_tenant.py`
-5. `docs/multi_tenant_architecture.md`
-
-### Field 2: What is each file?
-1. `tests/integration/test_multi_client_isolation.py` — Multi-client isolation tests
-2. `tests/performance/test_100_concurrent.py` — 100 concurrent user test
-3. `tests/integration/test_two_client_operations.py` — Two client parallel operations
-4. `scripts/validate_multi_tenant.py` — Multi-tenant validation script
-5. `docs/multi_tenant_architecture.md` — Multi-tenant architecture documentation
-
-### Field 3: Responsibilities
-
-**tests/integration/test_multi_client_isolation.py:**
-- Multi-client tests with:
-  - Test: Client 001 cannot access Client 002 data (10 tests)
-  - Test: Client 002 cannot access Client 001 data (10 tests)
-  - Test: Cross-tenant queries return 0 rows
-  - Test: API isolation enforced
-  - Test: Database RLS enforced
-  - **CRITICAL: 0 data leaks in 20 tests**
-  - **Test: Isolation tests pass**
-
-**tests/performance/test_100_concurrent.py:**
-- Concurrent test with:
-  - Test: 100 concurrent users
-  - Test: P95 < 500ms
-  - Test: No errors under load
-  - Test: Graceful degradation
-  - Test: Resource limits respected
-  - **CRITICAL: P95 < 500ms at 100 users**
-  - **Test: Performance tests pass**
-
-**tests/integration/test_two_client_operations.py:**
-- Two client tests with:
-  - Test: Simultaneous ticket creation
-  - Test: Simultaneous approval processing
-  - Test: Knowledge base isolation
-  - Test: Variant isolation
-  - Test: Dashboard separation
-  - **Test: Parallel operations work**
-
-**scripts/validate_multi_tenant.py:**
-- Validation script with:
-  - Run all isolation tests
-  - Check data segregation
-  - Verify access controls
-  - Generate validation report
-  - **Test: Validation runs**
-
-**docs/multi_tenant_architecture.md:**
-- Architecture doc with:
-  - Multi-tenant design overview
-  - Data isolation strategy
-  - RLS policies
-  - API isolation
-  - Security considerations
-  - **Content: Complete architecture doc**
+**tests/collective_intelligence/test_learning_aggregator.py:**
+- Collective intelligence tests with:
+  - Test: Aggregator runs without errors
+  - Test: No cross-client data in output
+  - Test: Patterns improve accuracy
+  - Test: Privacy preserved in sharing
+  - Test: Federation enriches knowledge
+  - **CRITICAL: All privacy tests pass**
 
 ### Field 4: Depends On
-- Client 001 and 002 configured
-- All backend systems
+- Weeks 13 Agent Lightning system
+- Weeks 19-20 client data
+- All 5 clients configured
 
 ### Field 5: Expected Output
-- Multi-tenant isolation verified
-- Performance at scale verified
-- Documentation complete
+- Collective intelligence system operational
+- Privacy-preserving sharing working
+- Knowledge federation active
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Multi-tenant system is secure
+- Collective intelligence improves accuracy without data leakage
 
 ### Field 8: Error Handling
-- Isolation failure alerts
-- Performance degradation alerts
+- Privacy violation blocks sharing
+- Federation failures isolated
+- Pattern conflicts resolved
 
 ### Field 9: Security Requirements
-- Strict tenant isolation
-- No cross-tenant data access
-- Audit logging
+- No client data in shared patterns
+- Differential privacy enforced
+- Audit logging for all sharing
 
 ### Field 10: Integration Points
-- Database RLS
-- API middleware
-- Monitoring
+- Agent Lightning training
+- Knowledge base manager
+- All client systems
 
 ### Field 11: Code Quality
-- Comprehensive isolation tests
-- Performance benchmarks
+- Privacy-by-design
+- Federated architecture
+- Clear sharing boundaries
 
 ### Field 12: GitHub CI Requirements
-- Isolation tests pass
-- Performance tests pass
+- Collective intelligence tests pass
+- Privacy tests pass
+- No data leakage in any test
 
 ### Field 13: Pass Criteria
-Builder 4 reports DONE when:
-- All 5 files built and pushed
-- **CRITICAL: 0 data leaks in 20 isolation tests**
-- **CRITICAL: P95 < 500ms at 100 users**
+Builder 3 reports DONE when:
+- All 6 files built and pushed
+- **CRITICAL: Collective intelligence works**
+- **CRITICAL: No cross-client data in patterns**
+- **CRITICAL: Privacy tests all pass**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — Reports + Phase 5 Completion
+## BUILDER 4 (DAY 4) — Multi-Client Analytics + Monitoring
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `reports/agent_lightning_week1.md`
-2. `reports/client_002_week1.md`
-3. `reports/phase5_summary.md`
-4. `tests/performance/final_baselines.py`
-5. `PROJECT_STATE.md` (Phase 5 complete update)
-6. `docs/phase5_completion_checklist.md`
+1. `monitoring/dashboards/multi_client_dashboard.json`
+2. `monitoring/multi_client_metrics.py`
+3. `tests/integration/test_5_client_isolation.py`
+4. `tests/performance/test_150_concurrent.py`
+5. `scripts/validate_5_tenant.py`
 
 ### Field 2: What is each file?
-1. `reports/agent_lightning_week1.md` — Agent Lightning week 1 report
-2. `reports/client_002_week1.md` — Client 002 week 1 report
-3. `reports/phase5_summary.md` — Phase 5 summary report
-4. `tests/performance/final_baselines.py` — Final baseline tests
-5. `PROJECT_STATE.md` — Updated to mark Phase 5 complete
-6. `docs/phase5_completion_checklist.md` — Phase 5 completion checklist
+1. `monitoring/dashboards/multi_client_dashboard.json` — Multi-client Grafana dashboard
+2. `monitoring/multi_client_metrics.py` — Cross-client metrics collection
+3. `tests/integration/test_5_client_isolation.py` — 5-client isolation tests
+4. `tests/performance/test_150_concurrent.py` — 150 concurrent user test
+5. `scripts/validate_5_tenant.py` — 5-tenant validation script
 
 ### Field 3: Responsibilities
 
-**reports/agent_lightning_week1.md:**
-- Training report with:
-  - Baseline accuracy (from Week 19)
-  - New model accuracy
-  - Improvement percentage (target ≥3%)
-  - Training data size
-  - Training duration
-  - Key improvements observed
-  - Areas needing more training
-  - **Content: Complete training report**
+**monitoring/dashboards/multi_client_dashboard.json:**
+- Multi-client dashboard with:
+  - Per-client ticket volume (5 panels)
+  - Per-client accuracy metrics
+  - Per-client response times
+  - Cross-client comparison charts
+  - Total aggregate metrics
+  - Collective intelligence impact gauge
+  - **Test: Dashboard loads in Grafana**
 
-**reports/client_002_week1.md:**
-- Client report with:
-  - Tickets processed
-  - Average response time
-  - Accuracy score
-  - Variant features used
-  - Recommendations
-  - **Content: Complete client report**
+**monitoring/multi_client_metrics.py:**
+- Multi-client metrics with:
+  - Collect metrics from all 5 clients
+  - Aggregate accuracy across clients
+  - Cross-client performance comparison
+  - Industry-specific benchmarks
+  - Variant utilization metrics
+  - **Test: Metrics collection works**
 
-**reports/phase5_summary.md:**
-- Phase 5 summary with:
-  - Clients onboarded: 2
-  - Agent Lightning runs: 1
-  - Accuracy improvement: X%
-  - Performance metrics
-  - Isolation test results
-  - Lessons learned
-  - **Content: Complete phase summary**
+**tests/integration/test_5_client_isolation.py:**
+- 5-client isolation tests with:
+  - Test: Each client isolated from others (50 tests total)
+  - Test: Cross-tenant queries return 0 rows
+  - Test: API isolation for all 5 clients
+  - Test: Database RLS enforced for all
+  - Test: Healthcare PHI isolation
+  - **CRITICAL: 0 data leaks in 50 tests**
+  - **Test: All isolation tests pass**
 
-**tests/performance/final_baselines.py:**
-- Final baselines with:
-  - Test: Final accuracy baseline
-  - Test: Final performance baseline
-  - Test: Final isolation baseline
-  - Compare to Week 19 baselines
-  - **Test: Baselines established**
+**tests/performance/test_150_concurrent.py:**
+- Concurrent test with:
+  - Test: 150 concurrent users across 5 clients
+  - Test: P95 < 500ms
+  - Test: No errors under load
+  - Test: Fair resource allocation
+  - Test: Graceful degradation
+  - **CRITICAL: P95 < 500ms at 150 users**
+  - **Test: Performance tests pass**
 
-**PROJECT_STATE.md:**
-- State update with:
-  - Phase 5 marked COMPLETE
-  - Week 20 summary
-  - All critical tests documented
-  - Phase 6 ready indicator
-  - **CRITICAL: Phase 5 marked complete**
-
-**docs/phase5_completion_checklist.md:**
-- Completion checklist with:
-  - [ ] Client 001 onboarded
-  - [ ] Client 002 onboarded
-  - [ ] Shadow mode completed
-  - [ ] Agent Lightning trained
-  - [ ] Accuracy improved ≥3%
-  - [ ] Multi-tenant isolation verified
-  - [ ] P95 < 500ms at 100 users
-  - [ ] All reports generated
-  - **Content: Complete checklist**
+**scripts/validate_5_tenant.py:**
+- Validation script with:
+  - Run all 50 isolation tests
+  - Check data segregation for all 5
+  - Verify access controls
+  - Generate validation report
+  - HIPAA compliance check for client_003
+  - **Test: Validation runs**
 
 ### Field 4: Depends On
-- All Week 20 work
-- Week 19 baselines
+- All 5 clients configured
+- Monitoring stack
+- All backend systems
 
 ### Field 5: Expected Output
-- All reports complete
-- Phase 5 marked COMPLETE
-- Ready for Phase 6
+- Multi-client dashboard operational
+- 5-client isolation verified
+- Performance at scale verified
 
 ### Field 6: Unit Test Files
-- Baseline tests in deliverables
+- Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Phase 5 complete with all requirements met
+- Multi-client system is secure and performant
+
+### Field 8: Error Handling
+- Isolation failure alerts
+- Performance degradation alerts
+- Client-specific error handling
+
+### Field 9: Security Requirements
+- Strict tenant isolation for all 5 clients
+- HIPAA isolation for client_003
+- No cross-tenant data access
+
+### Field 10: Integration Points
+- Database RLS
+- API middleware
+- Monitoring stack
+- All 5 client systems
+
+### Field 11: Code Quality
+- Comprehensive isolation tests
+- Performance benchmarks
+- Multi-client metrics
+
+### Field 12: GitHub CI Requirements
+- Isolation tests pass
+- Performance tests pass
+- Dashboard loads
+
+### Field 13: Pass Criteria
+Builder 4 reports DONE when:
+- All 5 files built and pushed
+- **CRITICAL: 0 data leaks in 50 isolation tests**
+- **CRITICAL: P95 < 500ms at 150 users**
+- Dashboard operational
+- GitHub CI GREEN
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 5 (DAY 5) — Agent Lightning v2 Preparation + Reports
+═══════════════════════════════════════════════════════════════════════════════
+
+### Field 1: Files to Build (in order)
+1. `agent_lightning/v2/__init__.py`
+2. `agent_lightning/v2/enhanced_training_config.py`
+3. `agent_lightning/v2/collective_dataset_builder.py`
+4. `reports/week21_multi_client_report.md`
+5. `reports/collective_intelligence_impact.md`
+6. `docs/phase6_progress.md`
+
+### Field 2: What is each file?
+1. `agent_lightning/v2/__init__.py` — Agent Lightning v2 module init
+2. `agent_lightning/v2/enhanced_training_config.py` — Enhanced training configuration
+3. `agent_lightning/v2/collective_dataset_builder.py` — Build dataset from collective intelligence
+4. `reports/week21_multi_client_report.md` — Week 21 multi-client report
+5. `reports/collective_intelligence_impact.md` — Collective intelligence impact report
+6. `docs/phase6_progress.md` — Phase 6 progress documentation
+
+### Field 3: Responsibilities
+
+**agent_lightning/v2/enhanced_training_config.py:**
+- Enhanced training config with:
+  - Support for collective intelligence data
+  - Multi-client training settings
+  - Industry-specific fine-tuning options
+  - Enhanced validation thresholds (target 77%+ accuracy)
+  - Cross-client generalization testing
+  - **Test: Enhanced config loads**
+
+**agent_lightning/v2/collective_dataset_builder.py:**
+- Collective dataset builder with:
+  - Aggregate training data from all 5 clients
+  - Privacy-preserving data combination
+  - Industry-balanced dataset
+  - Cross-client pattern inclusion
+  - Target: 500+ training examples
+  - **Test: Dataset builds correctly**
+
+**reports/week21_multi_client_report.md:**
+- Multi-client report with:
+  - All 5 clients summary
+  - Per-client metrics (tickets, accuracy, response time)
+  - Industry comparison (e-commerce, SaaS, healthcare, logistics, fintech)
+  - Variant distribution analysis
+  - Key achievements
+  - **Content: Complete multi-client report**
+
+**reports/collective_intelligence_impact.md:**
+- Collective intelligence report with:
+  - Patterns extracted from all clients
+  - Accuracy improvement from collective learning
+  - Knowledge federation benefits
+  - Privacy preservation audit
+  - Recommendations for improvement
+  - **Content: Complete CI impact report**
+
+**docs/phase6_progress.md:**
+- Phase 6 progress with:
+  - Week 21 achievements
+  - 5 clients onboarded (total)
+  - Collective intelligence operational
+  - Agent Lightning v2 preparation
+  - Week 22 preview
+  - **Content: Complete progress doc**
+
+### Field 4: Depends On
+- All Week 21 work
+- Collective intelligence system
+- All 5 clients
+
+### Field 5: Expected Output
+- Agent Lightning v2 prepared
+- All reports complete
+- Phase 6 progress documented
+
+### Field 6: Unit Test Files
+- `tests/agent_lightning/test_v2.py`
+
+### Field 7: BDD Scenario
+- Agent Lightning v2 ready for Week 22 training
 
 ### Field 8: Error Handling
 - Report generation fallbacks
 - Missing data handling
+- Collective dataset validation
 
 ### Field 9: Security Requirements
+- Privacy in collective dataset
 - No sensitive data in reports
 - Client isolation in metrics
 
 ### Field 10: Integration Points
-- All reporting systems
-- State management
+- Collective intelligence system
+- Agent Lightning training
+- Reporting systems
 
 ### Field 11: Code Quality
-- Automated report generation
+- Enhanced training pipeline
+- Privacy-preserving aggregation
 - Clear documentation
 
 ### Field 12: GitHub CI Requirements
+- Agent Lightning v2 tests pass
 - Reports generate
-- PROJECT_STATE valid
+- All configs valid
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: PROJECT_STATE marks Phase 5 COMPLETE**
+- **CRITICAL: Agent Lightning v2 prepared**
+- **CRITICAL: Collective dataset builds**
 - All reports generated
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 20 INSTRUCTIONS (DAY 6)
+## TESTER → WEEK 21 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
@@ -635,32 +666,37 @@ Builder 5 reports DONE when:
 
 #### 1. Client Setup Validation
 ```bash
-pytest tests/clients/test_client_002.py -v
+pytest tests/clients/test_client_003.py -v
+pytest tests/clients/test_client_004.py -v
+pytest tests/clients/test_client_005.py -v
+python scripts/batch_client_setup.py --validate
 ```
 
-#### 2. Multi-Client Isolation Tests
+#### 2. HIPAA Compliance Tests
 ```bash
-pytest tests/integration/test_multi_client_isolation.py -v
-pytest tests/integration/test_two_client_operations.py -v
-python scripts/validate_multi_tenant.py
+pytest tests/compliance/test_hipaa.py -v
+python clients/client_003/hipaa_compliance.py --test
 ```
 
-#### 3. Agent Lightning Training
+#### 3. 5-Client Isolation Tests
 ```bash
-python scripts/run_agent_lightning_training.py --dry-run
-pytest tests/agent_lightning/test_real_training.py -v
+pytest tests/integration/test_5_client_isolation.py -v
+python scripts/validate_5_tenant.py
 ```
 
-#### 4. Post-Training Validation
+#### 4. Collective Intelligence Tests
 ```bash
-pytest tests/integration/test_post_training.py -v
-python agent_lightning/monitoring/regression_tests.py
+pytest tests/collective_intelligence/test_learning_aggregator.py -v
 ```
 
 #### 5. Performance Tests
 ```bash
-pytest tests/performance/test_100_concurrent.py -v
-pytest tests/performance/final_baselines.py -v
+pytest tests/performance/test_150_concurrent.py -v
+```
+
+#### 6. Agent Lightning v2 Tests
+```bash
+pytest tests/agent_lightning/test_v2.py -v
 ```
 
 ---
@@ -669,29 +705,31 @@ pytest tests/performance/final_baselines.py -v
 
 | # | Test | Expected |
 |---|------|----------|
-| 1 | Client 002 config | Loads correctly |
-| 2 | Multi-client isolation | 0 data leaks in 20 tests |
-| 3 | Agent Lightning training | Runs successfully |
-| 4 | Accuracy improvement | ≥3% from baseline |
-| 5 | Regression tests | All pass |
-| 6 | Performance P95 | <500ms at 100 users |
-| 7 | Post-training tests | All pass |
-| 8 | Safe deployment | Works correctly |
-| 9 | Quick rollback | Works in <30 seconds |
-| 10 | Phase 5 | Marked COMPLETE |
+| 1 | Client 003 config | Loads with HIPAA flags |
+| 2 | Client 004 config | Loads correctly |
+| 3 | Client 005 config | Loads correctly |
+| 4 | HIPAA compliance | All tests pass |
+| 5 | 5-client isolation | 0 data leaks in 50 tests |
+| 6 | Performance P95 | <500ms at 150 users |
+| 7 | Collective intelligence | Works without data leakage |
+| 8 | Privacy preservation | All tests pass |
+| 9 | Agent Lightning v2 | Preparation complete |
+| 10 | Batch setup | Works correctly |
 
 ---
 
-### Week 20 PASS Criteria
+### Week 21 PASS Criteria
 
-1. ✅ 2-client cross-tenant isolation: 0 data leaks in 20 tests
-2. ✅ Agent Lightning: accuracy improved ≥3% from baseline
-3. ✅ New model passes all regression tests
-4. ✅ P95 <500ms at 100 concurrent users
-5. ✅ Client 002 fully configured
-6. ✅ All reports generated
-7. ✅ Phase 5 marked COMPLETE
-8. ✅ GitHub CI pipeline GREEN
+1. ✅ 5-client isolation: 0 data leaks in 50 tests
+2. ✅ HIPAA compliance: All PHI protection tests pass
+3. ✅ Collective intelligence: Works without data leakage
+4. ✅ Privacy preservation: Differential privacy enforced
+5. ✅ P95 <500ms at 150 concurrent users
+6. ✅ All 5 clients configured and operational
+7. ✅ Batch onboarding script works
+8. ✅ Agent Lightning v2 preparation complete
+9. ✅ All reports generated
+10. ✅ GitHub CI pipeline GREEN
 
 ---
 
@@ -701,95 +739,12 @@ pytest tests/performance/final_baselines.py -v
 
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
-| Builder 1 | Day 1 | ✅ DONE | Client 002 Setup (6 files) | 18 PASS | YES |
-| Builder 2 | Day 2 | ✅ DONE | Agent Lightning Training (8 files) | 25 PASS | YES |
-| Builder 3 | Day 3 | ✅ DONE | Post-Training Validation (5 files) | 48 PASS | YES |
-| Builder 4 | Day 4 | ✅ DONE | Scaling Tests (5 files) | 57 PASS | YES |
-| Builder 5 | Day 5 | ✅ DONE | Reports + Phase 5 Completion (6 files) | 20 PASS | YES |
+| Builder 1 | Day 1 | ⏳ PENDING | Client 003 Setup (6 files) | - | NO |
+| Builder 2 | Day 2 | ⏳ PENDING | Clients 004+005 Setup (8 files) | - | NO |
+| Builder 3 | Day 3 | ⏳ PENDING | Collective Intelligence (6 files) | - | NO |
+| Builder 4 | Day 4 | ⏳ PENDING | Multi-Client Analytics (5 files) | - | NO |
+| Builder 5 | Day 5 | ⏳ PENDING | Agent Lightning v2 + Reports (6 files) | - | NO |
 | Tester | Day 6 | ⏳ PENDING | Full validation | - | NO |
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 → DAY 5 STATUS (WEEK 20)
-═══════════════════════════════════════════════════════════════════════════════
-
-Date: 2026-03-23
-Session: Builder 5
-
-File 1: reports/agent_lightning_week1.md - DONE - Training report
-File 2: reports/client_002_week1.md - DONE - Client 002 report
-File 3: reports/phase5_summary.md - DONE - Phase 5 summary
-File 4: tests/performance/final_baselines.py - DONE - 20 tests PASS
-File 5: PROJECT_STATE.md - DONE - Phase 5 marked COMPLETE
-File 6: docs/phase5_completion_checklist.md - DONE - Completion checklist
-
-Key Achievements:
-- 2 clients onboarded (client_001, client_002)
-- Agent Lightning: 4% accuracy improvement
-- Multi-tenant isolation: 0 leaks in 30 tests
-- P95 latency: 423ms (target <500ms)
-- Phase 5 marked COMPLETE ✅
-
-GitHub CI: GREEN ✅
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 → DAY 2 STATUS (WEEK 20)
-═══════════════════════════════════════════════════════════════════════════════
-
-Date: 2026-03-23
-Session: Builder 2
-
-File 1: agent_lightning/training/real_training_config.py - DONE - Training configuration
-File 2: agent_lightning/training/export_real_mistakes.py - DONE - Export mistakes for training
-File 3: agent_lightning/training/export_real_approvals.py - DONE - Export approvals for training
-File 4: agent_lightning/training/build_real_dataset.py - DONE - Build balanced dataset
-File 5: agent_lightning/training/validate_real_model.py - DONE - Model validation
-File 6: scripts/run_agent_lightning_training.py - DONE - Training pipeline runner
-File 7: tests/agent_lightning/__init__.py - DONE - Module init
-File 8: tests/agent_lightning/test_real_training.py - DONE - 25 tests PASS
-
-Key Features:
-- Full training pipeline for Agent Lightning
-- PII anonymization (email, phone, credit card, SSN)
-- Balanced dataset (mistakes/approvals 50/50)
-- Model validation with ≥3% accuracy improvement check
-- Dry-run mode for testing
-- Auto-deploy option with canary rollout
-
-Commit: ce8db19
-GitHub CI: GREEN ✅
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 → DAY 1 STATUS (WEEK 20)
-═══════════════════════════════════════════════════════════════════════════════
-
-Date: 2026-03-23
-Session: Builder 1
-
-File 1: clients/client_002/__init__.py - DONE - Module init
-File 2: clients/client_002/config.py - DONE - PARWA High config with SaaS features
-File 3: clients/client_002/knowledge_base/faq.json - DONE - 28 SaaS FAQs
-File 4: clients/client_002/knowledge_base/products.json - DONE - SaaS tiers (Free/Pro/Enterprise)
-File 5: clients/client_002/knowledge_base/policies.json - DONE - SLA, API limits, compliance
-File 6: monitoring/dashboards/client_002_dashboard.json - DONE - SaaS dashboard with API metrics
-
-Tests: 18 PASS
-
-Key Features:
-- Client: TechStart SaaS (client_002)
-- Variant: PARWA High
-- Extended hours: 8am-8pm PST
-- Compliance: GDPR, SOC2
-- API rate limits per tier
-- PagerDuty escalation
-
-Commit: (pending)
-GitHub CI: GREEN ✅
 
 ---
 
@@ -800,56 +755,36 @@ GitHub CI: GREEN ✅
 **CRITICAL REMINDERS:**
 
 1. All 5 days run in PARALLEL — no cross-day dependencies
-2. Agent Lightning uses REAL production data
-3. Multi-tenant isolation is paramount — 0 tolerance for leaks
-4. Model must improve ≥3% accuracy
-5. **2-client isolation: 0 data leaks in 20 tests**
-6. **Agent Lightning: ≥3% accuracy improvement**
-7. **New model passes all regression tests**
-8. **P95 <500ms at 100 concurrent users**
-9. Phase 5 marked COMPLETE after validation
-10. Ready for Phase 6 (Scale to 20 clients)
+2. Client 003 is HEALTHCARE — HIPAA compliance required
+3. Collective intelligence shares PATTERNS not DATA
+4. 5-client isolation is paramount — 0 tolerance for leaks
+5. **HIPAA: BAA signed, PHI protection, audit logging**
+6. **5-client isolation: 0 data leaks in 50 tests**
+7. **Collective intelligence: improves accuracy without data exposure**
+8. **P95 <500ms at 150 concurrent users**
+9. Agent Lightning v2 prepares for Week 22 training
+10. Target accuracy after Week 22: 77%+
+
+**HEALTHCARE SPECIFIC:**
+- PHI must NEVER appear in logs
+- All PHI access must be audited
+- Emergency access procedures required
+- 7-year data retention for medical records
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 → DAY 3 STATUS
-═══════════════════════════════════════════════════════════════════════════════
-
-Date: 2026-03-23
-Session: Builder 3
-
-File 1: tests/integration/test_post_training.py - DONE - 21 tests
-File 2: agent_lightning/monitoring/regression_tests.py - DONE - 7 regression tests
-File 3: agent_lightning/monitoring/accuracy_comparison.py - DONE - Model comparison
-File 4: agent_lightning/deployment/safe_deploy.py - DONE - 10 canary deploy tests
-File 5: agent_lightning/deployment/quick_rollback.py - DONE - 12 rollback tests
-
-Key Features:
-- Post-training validation: All 21 tests pass
-- Regression testing: No critical regressions
-- Accuracy comparison: Model improvement tracking
-- Safe deployment: Canary with auto-rollback
-- Quick rollback: <1 second rollback time
-
-Tests: 48 PASS
-Commit: 2098a1b
-GitHub CI: GREEN ✅
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## WEEK 20 FILE SUMMARY
+## WEEK 21 FILE SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
 | Day | Files | Focus |
 |-----|-------|-------|
-| Day 1 | 6 | Client 002 Setup |
-| Day 2 | 6 | Agent Lightning Training |
-| Day 3 | 5 | Post-Training Validation |
-| Day 4 | 5 | Scaling Tests |
-| Day 5 | 6 | Reports + Phase 5 Completion |
-| **Total** | **28** | **Second Client + Training** |
+| Day 1 | 6 | Client 003 (Healthcare) |
+| Day 2 | 8 | Clients 004+005 + Batch Setup |
+| Day 3 | 6 | Collective Intelligence |
+| Day 4 | 5 | Multi-Client Analytics |
+| Day 5 | 6 | Agent Lightning v2 + Reports |
+| **Total** | **31** | **Scale to 5 Clients** |
 
 ---
 
@@ -858,16 +793,16 @@ GitHub CI: GREEN ✅
 ═══════════════════════════════════════════════════════════════════════════════
 
 ```
-Week 20 FULLY PARALLEL Execution:
+Week 21 FULLY PARALLEL Execution:
 
 Day 1-5: ALL BUILDERS RUN SIMULTANEOUSLY
-├── Builder 1: Client 002 Setup Files (6 files)
-├── Builder 2: Agent Lightning Training (6 files)
-├── Builder 3: Post-Training Validation (5 files)
-├── Builder 4: Scaling Tests (5 files)
-└── Builder 5: Reports + Phase 5 Completion (6 files)
+├── Builder 1: Client 003 Healthcare Setup (6 files)
+├── Builder 2: Clients 004+005 + Batch Setup (8 files)
+├── Builder 3: Collective Intelligence System (6 files)
+├── Builder 4: Multi-Client Analytics (5 files)
+└── Builder 5: Agent Lightning v2 + Reports (6 files)
 
-Day 6: Tester → Isolation + Training + Performance validation
+Day 6: Tester → 5-Client Isolation + HIPAA + Performance validation
 ```
 
 **ALL Builders can start NOW. No waiting required.**
@@ -875,51 +810,23 @@ Day 6: Tester → Isolation + Training + Performance validation
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## WEEK 19 SUMMARY (COMPLETE)
+## PHASE 6 COMPLETION CHECKLIST
 ═══════════════════════════════════════════════════════════════════════════════
 
-**Summary:** First client (client_001) onboarded with shadow mode validation and baseline metrics established.
-
-**Total Files:** 26 files built
-**Total Tests:** All passing
-
-**Key Achievements:**
-- Client 001 (Acme E-commerce) fully configured ✅
-- Shadow mode processed 50 tickets ✅
-- Accuracy baseline: 72%+ ✅
-- P95 < 500ms on real data ✅
-- Cross-tenant isolation verified ✅
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## PHASE 5 COMPLETION CHECKLIST
-═══════════════════════════════════════════════════════════════════════════════
-
-**Phase 5 is COMPLETE when:**
+**Phase 6 is COMPLETE when:**
 
 | Week | Status | Key Deliverable |
 |------|--------|-----------------|
-| Week 19 | ✅ | Client 001 + Baseline Metrics |
-| Week 20 | 🔄 | Client 002 + Agent Lightning Training |
+| Week 21 | 🔄 | 5 Clients + Collective Intelligence |
+| Week 22 | ⏳ | Agent Lightning v2 + 77% Accuracy |
 
-**Final Requirements:**
-- [ ] 2 clients onboarded successfully
-- [ ] Agent Lightning training completed
-- [ ] Accuracy improved ≥3%
-- [ ] Multi-tenant isolation verified (0 leaks)
-- [ ] P95 <500ms at 100 users
+**Week 21 Requirements:**
+- [ ] Client 003 (Healthcare) onboarded with HIPAA
+- [ ] Clients 004 (Logistics) + 005 (FinTech) onboarded
+- [ ] Batch onboarding script works
+- [ ] Collective intelligence operational
+- [ ] Privacy preservation verified
+- [ ] 5-client isolation: 0 leaks in 50 tests
+- [ ] P95 <500ms at 150 users
+- [ ] Agent Lightning v2 prepared
 - [ ] All reports generated
-- [ ] Phase 5 marked COMPLETE in PROJECT_STATE.md
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## PHASE 6 PREVIEW: SCALE (WEEKS 21-22)
-═══════════════════════════════════════════════════════════════════════════════
-
-**Phase 6 Goals:**
-- Scale to 5 clients
-- Collective intelligence improvements
-- Second Agent Lightning training run
-- Target accuracy: 77%+
