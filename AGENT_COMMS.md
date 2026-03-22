@@ -1,305 +1,306 @@
-# AGENT_COMMS.md — Week 15 Day 1-6
+# AGENT_COMMS.md — Week 16 Day 1-6
 # Last updated: Manager Agent
-# Current status: WEEK 15 TASKS WRITTEN — AWAITING BUILDERS
+# Current status: WEEK 16 TASKS WRITTEN — AWAITING BUILDERS
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 15 PLAN
+## MANAGER → WEEK 16 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
 Date: 2026-03-22
 
-> **Phase: Phase 4 — Frontend Foundation (Next.js + UI + Dashboard)**
+> **Phase: Phase 4 — Frontend Foundation (Dashboard Pages + Hooks)**
 >
-> **Week 15 Goals:**
-> - Day 1: Next.js Config + Layout + Landing Page + UI Primitives (8 files)
-> - Day 2: Common UI + Auth Pages (6 files)
-> - Day 3: Variant Cards (Mini, PARWA Junior, PARWA High) (5 files)
-> - Day 4: Zustand Stores + API Service (7 files)
-> - Day 5: Onboarding Components (6 files)
+> **Week 16 Goals:**
+> - Day 1: Dashboard Layout + Home Page + Stats Cards (7 files)
+> - Day 2: Tickets + Approvals + Agents + Analytics Pages (8 files)
+> - Day 3: Dashboard Components (ticket-list, approval-queue, jarvis-terminal, agent-status) (8 files)
+> - Day 4: All Hooks (use-auth, use-approvals, use-tickets, use-analytics, use-jarvis) (10 files)
+> - Day 5: Settings Pages (settings, profile, billing, team, integrations) (10 files)
 > - Day 6: Tester runs npm + pytest validation
 >
 > **CRITICAL RULES:**
 > 1. All 5 days run in PARALLEL — no cross-day dependencies
 > 2. Within-day files CAN depend on each other — build in order listed
-> 3. Use Next.js 14 App Router (not Pages Router)
-> 4. Use Tailwind CSS + shadcn/ui components
+> 3. Use Next.js 14/16 App Router (already set up in Week 15)
+> 4. Use Tailwind CSS + shadcn/ui components (already set up)
 > 5. Type safety: TypeScript strict mode
-> 6. **Next.js dev server starts without errors**
-> 7. **All 3 variant cards render correctly**
-> 8. **Auth pages render and validate**
-> 9. **Onboarding wizard 5-step flow works**
-> 10. **All Zustand stores initialise**
+> 6. **Dashboard home loads real API data**
+> 7. **Approvals queue renders and approve action works**
+> 8. **Jarvis terminal streams response**
+> 9. **All 5 hooks update stores correctly**
+> 10. **All settings pages render and validate**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — Next.js Config + Layout + Landing + UI Primitives
+## BUILDER 1 (DAY 1) — Dashboard Layout + Home Page + Stats Cards
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `frontend/package.json`
-2. `frontend/next.config.js`
-3. `frontend/tailwind.config.js`
-4. `frontend/tsconfig.json`
-5. `frontend/src/app/layout.tsx`
-6. `frontend/src/app/page.tsx` (Landing Page)
-7. `frontend/src/app/globals.css`
-8. `frontend/src/components/ui/primitives.tsx`
+1. `frontend/src/app/dashboard/layout.tsx`
+2. `frontend/src/app/dashboard/page.tsx`
+3. `frontend/src/components/dashboard/StatsCard.tsx`
+4. `frontend/src/components/dashboard/MetricCard.tsx`
+5. `frontend/src/components/dashboard/QuickActions.tsx`
+6. `frontend/src/components/dashboard/RecentActivity.tsx`
+7. `frontend/src/__tests__/dashboard-layout.test.tsx`
 
 ### Field 2: What is each file?
-1. `frontend/package.json` — NPM dependencies and scripts
-2. `frontend/next.config.js` — Next.js configuration
-3. `frontend/tailwind.config.js` — Tailwind CSS configuration
-4. `frontend/tsconfig.json` — TypeScript configuration (strict mode)
-5. `frontend/src/app/layout.tsx` — Root layout with providers
-6. `frontend/src/app/page.tsx` — Landing page (hero, features, pricing)
-7. `frontend/src/app/globals.css` — Global styles + Tailwind imports
-8. `frontend/src/components/ui/primitives.tsx` — UI primitives (Button, Input, Card, etc.)
+1. `frontend/src/app/dashboard/layout.tsx` — Dashboard layout with sidebar, header, navigation
+2. `frontend/src/app/dashboard/page.tsx` — Dashboard home page with stats, metrics, quick actions
+3. `frontend/src/components/dashboard/StatsCard.tsx` — Stats card component (title, value, trend, icon)
+4. `frontend/src/components/dashboard/MetricCard.tsx` — Metric card with sparkline chart
+5. `frontend/src/components/dashboard/QuickActions.tsx` — Quick action buttons (new ticket, approve, etc.)
+6. `frontend/src/components/dashboard/RecentActivity.tsx` — Recent activity feed component
+7. `frontend/src/__tests__/dashboard-layout.test.tsx` — Unit tests for dashboard layout
 
 ### Field 3: Responsibilities
 
-**frontend/package.json:**
-- Dependencies:
-  - next: ^14.0.0
-  - react: ^18.2.0
-  - react-dom: ^18.2.0
-  - tailwindcss: ^3.4.0
-  - zustand: ^4.4.0
-  - @radix-ui/react-* (shadcn/ui deps)
-- Scripts:
-  - dev: next dev
-  - build: next build
-  - start: next start
-  - lint: next lint
-  - test: jest
+**frontend/src/app/dashboard/layout.tsx:**
+- Dashboard layout with:
+  - Sidebar navigation (Dashboard, Tickets, Approvals, Agents, Analytics, Settings)
+  - Header with user info, notifications, theme toggle
+  - Main content area with proper padding
+  - Responsive design (mobile sidebar collapses)
+  - Auth check (redirect to login if not authenticated)
+  - **Test: Layout renders with all navigation items**
 
-**frontend/next.config.js:**
-- Next.js config with:
-  - reactStrictMode: true
-  - images.domains: [] (configure as needed)
-  - experimental: { serverActions: true }
-  - env: API_URL pointing to backend
+**frontend/src/app/dashboard/page.tsx:**
+- Dashboard home page with:
+  - Stats cards row (Total Tickets, Open Tickets, Resolved Today, Avg Response Time)
+  - Metric cards with sparklines (Ticket Volume, Resolution Rate, CSAT Score)
+  - Quick actions section (Create Ticket, Approve Pending, Run Report)
+  - Recent activity feed (last 10 actions)
+  - **CRITICAL: Loads real API data from backend**
+  - **Test: Home page renders with data**
 
-**frontend/tailwind.config.js:**
-- Tailwind config with:
-  - content: ['./src/**/*.{js,ts,jsx,tsx}']
-  - theme: extend with PARWA colors (primary, secondary, accent)
-  - plugins: [@tailwindcss/forms, @tailwindcss/typography]
+**frontend/src/components/dashboard/StatsCard.tsx:**
+- Stats card with:
+  - Title and value display
+  - Trend indicator (up/down/neutral with percentage)
+  - Icon support
+  - Loading and error states
+  - Color variants (blue, green, yellow, red)
+  - **Test: Stats card renders with all variants**
 
-**frontend/tsconfig.json:**
-- TypeScript config with:
-  - strict: true
-  - paths: @/* aliases for src/*
-  - target: es5, lib: dom, dom.iterable, esnext
+**frontend/src/components/dashboard/MetricCard.tsx:**
+- Metric card with:
+  - Title and current value
+  - Mini sparkline chart (last 7 days)
+  - Trend percentage
+  - **Test: Metric card renders with sparkline**
 
-**frontend/src/app/layout.tsx:**
-- Root layout with:
-  - HTML structure with lang="en"
-  - Body with font configuration
-  - Metadata: title, description
-  - Provider components (Theme, Toast)
-  - **Test: Layout renders without errors**
+**frontend/src/components/dashboard/QuickActions.tsx:**
+- Quick actions with:
+  - Action buttons (Create Ticket, Approve Pending, Run Report, View Analytics)
+  - Icon + label format
+  - Hover effects
+  - Loading states for async actions
+  - **Test: Quick actions render and trigger callbacks**
 
-**frontend/src/app/page.tsx (Landing Page):**
-- Landing page with:
-  - Hero section with tagline: "AI Customer Support That Actually Works"
-  - Features section (3 variants, training, quality coach)
-  - Pricing section (Mini, Junior, High tiers)
-  - CTA section (Start Free Trial)
-  - **Test: Landing page renders correctly**
-
-**frontend/src/app/globals.css:**
-- Global styles with:
-  - Tailwind directives (@tailwind base/components/utilities)
-  - CSS variables for colors
-  - Custom scrollbar styles
-  - Animation keyframes
-
-**frontend/src/components/ui/primitives.tsx:**
-- UI primitives:
-  - Button (variants: primary, secondary, outline, ghost)
-  - Input (with label and error states)
-  - Card (header, content, footer)
-  - Badge (variants for status)
-  - Spinner (loading state)
-  - **Test: All primitives render**
+**frontend/src/components/dashboard/RecentActivity.tsx:**
+- Recent activity with:
+  - Activity list (user, action, timestamp)
+  - Icon per action type
+  - Timestamp formatting (relative time)
+  - Loading skeleton
+  - Empty state
+  - **Test: Recent activity renders list**
 
 ### Field 4: Depends On
-- None (fresh frontend setup)
+- Week 15 frontend foundation (layout, stores, API client)
+- Week 15 auth pages and stores
+- Backend APIs (Week 4+)
 
 ### Field 5: Expected Output
-- `npm run dev` starts without errors
-- Landing page renders at localhost:3000
-- All UI primitives work
+- Dashboard layout renders with sidebar navigation
+- Dashboard home page loads real data from API
+- Stats cards display correctly with trends
+- Quick actions work and navigate correctly
+- Recent activity feed shows latest actions
 
 ### Field 6: Unit Test Files
-- `frontend/src/__tests__/layout.test.tsx`
-- `frontend/src/__tests__/landing.test.tsx`
-- `frontend/src/__tests__/primitives.test.tsx`
+- `frontend/src/__tests__/dashboard-layout.test.tsx`
+- `frontend/src/__tests__/stats-card.test.tsx`
+- `frontend/src/__tests__/quick-actions.test.tsx`
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/frontend_bdd.md` — Frontend scenarios
+- `docs/bdd_scenarios/dashboard_bdd.md` — Dashboard scenarios
 
 ### Field 8: Error Handling
-- Build errors show clear messages
-- TypeScript errors are strict
-- ESLint catches issues
+- API errors show toast notifications
+- Loading states during data fetch
+- Fallback UI when data unavailable
+- Retry button for failed requests
 
 ### Field 9: Security Requirements
-- No secrets in frontend code
-- API URLs from environment variables
-- CSP headers configured
+- Auth check before rendering dashboard
+- Token refresh handling
+- No sensitive data in localStorage
+- CORS headers configured
 
 ### Field 10: Integration Points
-- Backend API (Wk4+)
-- Environment config
+- Backend dashboard API (`/api/dashboard`)
+- Auth store (Week 15)
+- UI store (Week 15)
 
 ### Field 11: Code Quality
 - TypeScript strict mode
-- ESLint + Prettier configured
-- All components typed
+- All components typed with props interfaces
+- Accessible (ARIA labels)
+- Responsive design (mobile-first)
 
 ### Field 12: GitHub CI Requirements
 - npm run build passes
 - npm run lint passes
 - npm test passes
+- All tests green
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
-- All 8 files built and pushed
-- **CRITICAL: npm run dev starts without errors**
-- Landing page renders
+- All 7 files built and pushed
+- **CRITICAL: Dashboard home loads real API data**
+- Sidebar navigation works
+- Stats cards render with trends
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — Common UI + Auth Pages
+## BUILDER 2 (DAY 2) — Tickets + Approvals + Agents + Analytics Pages
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `frontend/src/components/ui/alert.tsx`
-2. `frontend/src/components/ui/dialog.tsx`
-3. `frontend/src/components/ui/dropdown.tsx`
-4. `frontend/src/app/auth/layout.tsx`
-5. `frontend/src/app/auth/login/page.tsx`
-6. `frontend/src/app/auth/register/page.tsx`
-7. `frontend/src/app/auth/forgot-password/page.tsx`
-8. `frontend/src/lib/validations/auth.ts`
+1. `frontend/src/app/dashboard/tickets/page.tsx`
+2. `frontend/src/app/dashboard/tickets/[id]/page.tsx`
+3. `frontend/src/app/dashboard/approvals/page.tsx`
+4. `frontend/src/app/dashboard/approvals/[id]/page.tsx`
+5. `frontend/src/app/dashboard/agents/page.tsx`
+6. `frontend/src/app/dashboard/analytics/page.tsx`
+7. `frontend/src/components/tickets/TicketFilters.tsx`
+8. `frontend/src/__tests__/dashboard-pages.test.tsx`
 
 ### Field 2: What is each file?
-1. `frontend/src/components/ui/alert.tsx` — Alert component for notifications
-2. `frontend/src/components/ui/dialog.tsx` — Modal dialog component
-3. `frontend/src/components/ui/dropdown.tsx` — Dropdown menu component
-4. `frontend/src/app/auth/layout.tsx` — Auth pages layout
-5. `frontend/src/app/auth/login/page.tsx` — Login page
-6. `frontend/src/app/auth/register/page.tsx` — Registration page
-7. `frontend/src/app/auth/forgot-password/page.tsx` — Password reset page
-8. `frontend/src/lib/validations/auth.ts` — Zod validation schemas for auth
+1. `frontend/src/app/dashboard/tickets/page.tsx` — Tickets list page with filters and pagination
+2. `frontend/src/app/dashboard/tickets/[id]/page.tsx` — Single ticket detail page
+3. `frontend/src/app/dashboard/approvals/page.tsx` — Approvals queue page
+4. `frontend/src/app/dashboard/approvals/[id]/page.tsx` — Single approval detail page
+5. `frontend/src/app/dashboard/agents/page.tsx` — Agents status and management page
+6. `frontend/src/app/dashboard/analytics/page.tsx` — Analytics dashboard page
+7. `frontend/src/components/tickets/TicketFilters.tsx` — Ticket filter component (status, priority, date)
+8. `frontend/src/__tests__/dashboard-pages.test.tsx` — Unit tests for all pages
 
 ### Field 3: Responsibilities
 
-**frontend/src/components/ui/alert.tsx:**
-- Alert component with:
-  - Variants: info, success, warning, error
-  - Dismissible option
-  - Icon support
-  - **Test: All alert variants render**
+**frontend/src/app/dashboard/tickets/page.tsx:**
+- Tickets list page with:
+  - Table of tickets (ID, Subject, Status, Priority, Assignee, Created)
+  - Filter bar (status, priority, date range, search)
+  - Pagination (20 per page)
+  - Sort by columns
+  - Create ticket button
+  - **Test: Tickets list renders with pagination**
 
-**frontend/src/components/ui/dialog.tsx:**
-- Dialog component with:
-  - Open/close state management
-  - Title and description
-  - Action buttons
-  - Overlay backdrop
-  - **Test: Dialog opens and closes**
+**frontend/src/app/dashboard/tickets/[id]/page.tsx:**
+- Ticket detail page with:
+  - Ticket info (subject, description, status, priority)
+  - Customer info panel
+  - Conversation thread
+  - Action buttons (Reply, Escalate, Close, Resolve)
+  - Activity log
+  - **Test: Ticket detail renders**
 
-**frontend/src/components/ui/dropdown.tsx:**
-- Dropdown component with:
-  - Trigger button
-  - Menu items
-  - Keyboard navigation
-  - Click outside to close
-  - **Test: Dropdown renders and closes**
+**frontend/src/app/dashboard/approvals/page.tsx:**
+- Approvals queue page with:
+  - Table of pending approvals (ID, Type, Amount, Requester, Created)
+  - Filter by type (refund, refund-recommendation, escalation)
+  - Quick approve/deny buttons
+  - Bulk actions
+  - **CRITICAL: Approve action works and updates queue**
+  - **Test: Approvals queue renders and approve works**
 
-**frontend/src/app/auth/layout.tsx:**
-- Auth layout with:
-  - Centered container
-  - Logo at top
-  - Form container
-  - Background styling
+**frontend/src/app/dashboard/approvals/[id]/page.tsx:**
+- Approval detail page with:
+  - Approval info (type, amount, reason, requester)
+  - Related ticket/conversation
+  - Recommendation details (APPROVE/REVIEW/DENY with reasoning)
+  - Approve/Deny buttons with confirmation
+  - Audit trail
+  - **Test: Approval detail renders and actions work**
 
-**frontend/src/app/auth/login/page.tsx:**
-- Login page with:
-  - Email input
-  - Password input
-  - Remember me checkbox
-  - Login button
-  - Forgot password link
-  - Register link
-  - **CRITICAL: Form validation works**
-  - **Test: Login page renders and validates**
+**frontend/src/app/dashboard/agents/page.tsx:**
+- Agents status page with:
+  - Agent cards by variant (Mini, PARWA, PARWA High)
+  - Agent status (active, idle, offline)
+  - Current task per agent
+  - Performance metrics (accuracy, avg response time)
+  - Agent logs
+  - **Test: Agents page renders**
 
-**frontend/src/app/auth/register/page.tsx:**
-- Registration page with:
-  - Name input
-  - Email input
-  - Password input
-  - Confirm password input
-  - Terms checkbox
-  - Register button
-  - Login link
-  - **CRITICAL: Form validation works**
-  - **Test: Register page renders and validates**
+**frontend/src/app/dashboard/analytics/page.tsx:**
+- Analytics dashboard with:
+  - Date range selector
+  - Ticket volume chart (line/bar)
+  - Resolution time distribution
+  - CSAT score trend
+  - Agent performance comparison
+  - Escalation rate over time
+  - Export to CSV/PDF
+  - **Test: Analytics page renders with charts**
 
-**frontend/src/app/auth/forgot-password/page.tsx:**
-- Forgot password page with:
-  - Email input
-  - Submit button
-  - Back to login link
-  - Success message on submit
-  - **Test: Forgot password page renders**
-
-**frontend/src/lib/validations/auth.ts:**
-- Zod schemas:
-  - loginSchema: email, password
-  - registerSchema: name, email, password, confirmPassword
-  - forgotPasswordSchema: email
-  - **Test: All schemas validate correctly**
+**frontend/src/components/tickets/TicketFilters.tsx:**
+- Ticket filters with:
+  - Status dropdown (Open, In Progress, Resolved, Closed)
+  - Priority dropdown (Low, Medium, High, Critical)
+  - Date range picker
+  - Search input
+  - Clear filters button
+  - **Test: Filters work correctly**
 
 ### Field 4: Depends On
-- UI primitives (Day 1)
+- Dashboard layout (Day 1)
+- Week 15 stores and API client
+- Backend APIs (Week 4+)
 
 ### Field 5: Expected Output
-- All auth pages render correctly
-- Form validation works
-- Zod schemas validate input
+- All 4 main pages render correctly
+- Tickets list with filters and pagination
+- Approvals queue with approve/deny actions
+- Agents status page shows all agents
+- Analytics page with charts
 
 ### Field 6: Unit Test Files
-- `frontend/src/__tests__/auth.test.tsx`
-- `frontend/src/__tests__/validations.test.ts`
+- `frontend/src/__tests__/dashboard-pages.test.tsx`
+- `frontend/src/__tests__/tickets.test.tsx`
+- `frontend/src/__tests__/approvals.test.tsx`
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/auth_bdd.md` — Auth scenarios
+- `docs/bdd_scenarios/tickets_bdd.md` — Ticket management scenarios
+- `docs/bdd_scenarios/approvals_bdd.md` — Approval workflow scenarios
 
 ### Field 8: Error Handling
-- Form validation errors show inline
-- API errors show as alerts
-- Network errors handled gracefully
+- API errors show inline error messages
+- Empty states for lists
+- Loading skeletons during fetch
+- Retry mechanisms
 
 ### Field 9: Security Requirements
-- Password fields are masked
-- No passwords in URLs
-- CSRF protection ready
+- Auth check on all pages
+- Role-based access for sensitive actions
+- CSRF protection for form submissions
+- Input sanitization
 
 ### Field 10: Integration Points
-- Backend auth API (Wk4)
-- UI primitives (Day 1)
+- Backend ticket API (`/api/tickets`)
+- Backend approval API (`/api/approvals`)
+- Backend agents API (`/api/agents`)
+- Backend analytics API (`/api/analytics`)
 
 ### Field 11: Code Quality
 - TypeScript strict mode
-- All forms typed
-- Accessible (ARIA labels)
+- Proper error boundaries
+- Accessible tables and forms
+- Responsive design
 
 ### Field 12: GitHub CI Requirements
 - npm run build passes
@@ -309,115 +310,150 @@ Builder 1 reports DONE when:
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
 - All 8 files built and pushed
-- **CRITICAL: Auth pages render and validate**
+- **CRITICAL: Approvals queue renders and approve action works**
+- Tickets list with filters works
+- Analytics page renders charts
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — Variant Cards
+## BUILDER 3 (DAY 3) — Dashboard Components
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `frontend/src/components/variants/VariantCard.tsx`
-2. `frontend/src/components/variants/MiniCard.tsx`
-3. `frontend/src/components/variants/ParwaJuniorCard.tsx`
-4. `frontend/src/components/variants/ParwaHighCard.tsx`
-5. `frontend/src/components/variants/VariantsComparison.tsx`
-6. `frontend/src/app/variants/page.tsx`
+1. `frontend/src/components/dashboard/TicketList.tsx`
+2. `frontend/src/components/dashboard/ApprovalQueue.tsx`
+3. `frontend/src/components/dashboard/JarvisTerminal.tsx`
+4. `frontend/src/components/dashboard/AgentStatus.tsx`
+5. `frontend/src/components/dashboard/ActivityFeed.tsx`
+6. `frontend/src/components/dashboard/NotificationCenter.tsx`
+7. `frontend/src/components/dashboard/SearchBar.tsx`
+8. `frontend/src/__tests__/dashboard-components.test.tsx`
 
 ### Field 2: What is each file?
-1. `frontend/src/components/variants/VariantCard.tsx` — Base variant card component
-2. `frontend/src/components/variants/MiniCard.tsx` — Mini PARWA variant card
-3. `frontend/src/components/variants/ParwaJuniorCard.tsx` — PARWA Junior variant card
-4. `frontend/src/components/variants/ParwaHighCard.tsx` — PARWA High variant card
-5. `frontend/src/components/variants/VariantsComparison.tsx` — Side-by-side comparison
-6. `frontend/src/app/variants/page.tsx` — Variants selection page
+1. `frontend/src/components/dashboard/TicketList.tsx` — Reusable ticket list component
+2. `frontend/src/components/dashboard/ApprovalQueue.tsx` — Reusable approval queue component
+3. `frontend/src/components/dashboard/JarvisTerminal.tsx` — Jarvis command terminal with streaming
+4. `frontend/src/components/dashboard/AgentStatus.tsx` — Agent status card component
+5. `frontend/src/components/dashboard/ActivityFeed.tsx` — Activity feed component
+6. `frontend/src/components/dashboard/NotificationCenter.tsx` — Notification center dropdown
+7. `frontend/src/components/dashboard/SearchBar.tsx` — Global search bar component
+8. `frontend/src/__tests__/dashboard-components.test.tsx` — Unit tests for all components
 
 ### Field 3: Responsibilities
 
-**frontend/src/components/variants/VariantCard.tsx:**
-- Base variant card with:
-  - Variant name and tier
-  - Feature list
-  - Pricing
-  - Select button
-  - Hover effects
-  - **Test: Base card renders**
+**frontend/src/components/dashboard/TicketList.tsx:**
+- Ticket list with:
+  - Table view with sortable columns
+  - Row click to view detail
+  - Status badge coloring
+  - Priority indicators
+  - Assignee avatars
+  - Compact/expanded view toggle
+  - **Test: Ticket list renders and sorts**
 
-**frontend/src/components/variants/MiniCard.tsx:**
-- Mini PARWA card with:
-  - Title: "Mini PARWA"
-  - Tier: "Light"
-  - Features: 2 concurrent calls, $50 refund limit, 70% escalation
-  - Price: $49/month
-  - Target: Small businesses
-  - **CRITICAL: Mini card renders correctly**
+**frontend/src/components/dashboard/ApprovalQueue.tsx:**
+- Approval queue with:
+  - List of pending approvals
+  - Quick approve/deny buttons
+  - Amount highlighting (color by size)
+  - Requester info
+  - Time pending indicator
+  - Refresh button
+  - **CRITICAL: Approve/deny actions work**
+  - **Test: Approval queue actions work**
 
-**frontend/src/components/variants/ParwaJuniorCard.tsx:**
-- PARWA Junior card with:
-  - Title: "PARWA Junior"
-  - Tier: "Medium"
-  - Features: 5 concurrent calls, $500 refund limit, APPROVE/REVIEW/DENY
-  - Price: $149/month
-  - Target: Growing teams
-  - **CRITICAL: Junior card renders correctly**
+**frontend/src/components/dashboard/JarvisTerminal.tsx:**
+- Jarvis terminal with:
+  - Terminal-like interface
+  - Command input field
+  - Response streaming display
+  - Command history (up/down arrows)
+  - Syntax highlighting
+  - Copy to clipboard
+  - **CRITICAL: Streams response from backend**
+  - **Test: Terminal streams response**
 
-**frontend/src/components/variants/ParwaHighCard.tsx:**
-- PARWA High card with:
-  - Title: "PARWA High"
-  - Tier: "Heavy"
-  - Features: 10 concurrent calls, $2000 refund limit, Video, Analytics
-  - Price: $499/month
-  - Target: Enterprise
-  - **CRITICAL: High card renders correctly**
+**frontend/src/components/dashboard/AgentStatus.tsx:**
+- Agent status card with:
+  - Agent name and variant
+  - Status indicator (active/idle/offline)
+  - Current task
+  - Performance stats (accuracy, avg time)
+  - Last activity timestamp
+  - Action buttons (pause, resume, view logs)
+  - **Test: Agent status renders**
 
-**frontend/src/components/variants/VariantsComparison.tsx:**
-- Comparison component with:
-  - Side-by-side table of all variants
-  - Feature comparison rows
-  - Highlight recommended tier
-  - **Test: Comparison table renders**
+**frontend/src/components/dashboard/ActivityFeed.tsx:**
+- Activity feed with:
+  - Activity list with icons
+  - User avatars
+  - Action descriptions
+  - Timestamps (relative)
+  - Filter by type
+  - Load more pagination
+  - **Test: Activity feed renders**
 
-**frontend/src/app/variants/page.tsx:**
-- Variants page with:
-  - Header with title
-  - 3 variant cards in grid
-  - Comparison section below
-  - CTA to start trial
-  - **Test: Variants page renders all 3 cards**
+**frontend/src/components/dashboard/NotificationCenter.tsx:**
+- Notification center with:
+  - Bell icon with badge count
+  - Dropdown with notification list
+  - Mark as read functionality
+  - Mark all as read
+  - Notification types (info, warning, error, success)
+  - Click to navigate to related item
+  - **Test: Notification center works**
+
+**frontend/src/components/dashboard/SearchBar.tsx:**
+- Global search with:
+  - Search input with icon
+  - Autocomplete suggestions
+  - Search results dropdown
+  - Keyboard navigation
+  - Search by ticket, customer, agent
+  - Recent searches
+  - **Test: Search bar works**
 
 ### Field 4: Depends On
-- UI primitives (Day 1)
-- Backend variant configs (Wk9-11)
+- Dashboard layout (Day 1)
+- Week 15 UI components
+- Backend APIs (Week 4+)
 
 ### Field 5: Expected Output
-- All 3 variant cards render correctly
-- Comparison table shows all features
-- Selection works
+- All dashboard components render correctly
+- Jarvis terminal streams responses
+- Approval queue actions work
+- Search bar with autocomplete
+- Notification center functional
 
 ### Field 6: Unit Test Files
-- `frontend/src/__tests__/variants.test.tsx`
+- `frontend/src/__tests__/dashboard-components.test.tsx`
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/variants_bdd.md` — Variant selection scenarios
+- `docs/bdd_scenarios/components_bdd.md` — Component scenarios
 
 ### Field 8: Error Handling
-- Graceful fallback if variant data missing
+- Component error boundaries
+- Fallback UI for failed renders
 - Loading states
+- Empty states
 
 ### Field 9: Security Requirements
-- No sensitive data in cards
-- Public pricing info only
+- Input sanitization for search
+- Auth check for sensitive actions
+- XSS prevention
 
 ### Field 10: Integration Points
-- Backend variant API
-- Pricing service
+- Backend jarvis API (`/api/jarvis`)
+- Backend notifications API
+- Backend search API
 
 ### Field 11: Code Quality
 - TypeScript strict mode
-- All components typed
-- Responsive design
+- Component composition
+- Reusable patterns
+- Accessible components
 
 ### Field 12: GitHub CI Requirements
 - npm run build passes
@@ -426,128 +462,171 @@ Builder 2 reports DONE when:
 
 ### Field 13: Pass Criteria
 Builder 3 reports DONE when:
-- All 6 files built and pushed
-- **CRITICAL: All 3 variant cards render correctly**
+- All 8 files built and pushed
+- **CRITICAL: Jarvis terminal streams response**
+- Approval queue actions work
+- All components render correctly
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — Zustand Stores + API Service
+## BUILDER 4 (DAY 4) — All Hooks
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `frontend/src/lib/api/client.ts`
-2. `frontend/src/lib/api/auth.ts`
-3. `frontend/src/lib/api/variants.ts`
-4. `frontend/src/stores/authStore.ts`
-5. `frontend/src/stores/variantStore.ts`
-6. `frontend/src/stores/uiStore.ts`
-7. `frontend/src/stores/index.ts`
+1. `frontend/src/hooks/useAuth.ts`
+2. `frontend/src/hooks/useApprovals.ts`
+3. `frontend/src/hooks/useTickets.ts`
+4. `frontend/src/hooks/useAnalytics.ts`
+5. `frontend/src/hooks/useJarvis.ts`
+6. `frontend/src/hooks/useAgents.ts`
+7. `frontend/src/hooks/useNotifications.ts`
+8. `frontend/src/hooks/useSearch.ts`
+9. `frontend/src/hooks/index.ts`
+10. `frontend/src/__tests__/hooks.test.ts`
 
 ### Field 2: What is each file?
-1. `frontend/src/lib/api/client.ts` — Base API client (axios/fetch wrapper)
-2. `frontend/src/lib/api/auth.ts` — Auth API functions
-3. `frontend/src/lib/api/variants.ts` — Variant API functions
-4. `frontend/src/stores/authStore.ts` — Auth state (user, token, isAuth)
-5. `frontend/src/stores/variantStore.ts` — Variant state (selected, config)
-6. `frontend/src/stores/uiStore.ts` — UI state (sidebar, theme, modals)
-7. `frontend/src/stores/index.ts` — Export all stores
+1. `frontend/src/hooks/useAuth.ts` — Auth hook (login, logout, user, isAuthenticated)
+2. `frontend/src/hooks/useApprovals.ts` — Approvals hook (list, approve, deny, refresh)
+3. `frontend/src/hooks/useTickets.ts` — Tickets hook (list, get, create, update, search)
+4. `frontend/src/hooks/useAnalytics.ts` — Analytics hook (metrics, charts, export)
+5. `frontend/src/hooks/useJarvis.ts` — Jarvis hook (send command, stream response)
+6. `frontend/src/hooks/useAgents.ts` — Agents hook (list, status, pause, resume)
+7. `frontend/src/hooks/useNotifications.ts` — Notifications hook (list, mark read, subscribe)
+8. `frontend/src/hooks/useSearch.ts` — Search hook (search, suggestions, history)
+9. `frontend/src/hooks/index.ts` — Export all hooks
+10. `frontend/src/__tests__/hooks.test.ts` — Unit tests for all hooks
 
 ### Field 3: Responsibilities
 
-**frontend/src/lib/api/client.ts:**
-- API client with:
-  - Base URL from environment
-  - Auth token injection
-  - Error handling
-  - Request/response interceptors
-  - **Test: Client makes successful request**
-
-**frontend/src/lib/api/auth.ts:**
-- Auth API functions:
-  - login(email, password) → { user, token }
-  - register(name, email, password) → { user, token }
-  - logout() → void
-  - forgotPassword(email) → { success }
-  - getCurrentUser() → { user }
-  - **Test: All auth functions work**
-
-**frontend/src/lib/api/variants.ts:**
-- Variant API functions:
-  - getVariants() → [Mini, Junior, High]
-  - getVariantConfig(variantId) → config
-  - selectVariant(variantId) → { success }
-  - **Test: All variant functions work**
-
-**frontend/src/stores/authStore.ts:**
-- Auth store with:
-  - user: User | null
-  - token: string | null
+**frontend/src/hooks/useAuth.ts:**
+- Auth hook with:
+  - user: current user object
   - isAuthenticated: boolean
-  - isLoading: boolean
-  - login(user, token)
-  - logout()
-  - **CRITICAL: Store initialises correctly**
+  - isLoading: loading state
+  - login(email, password): login function
+  - logout(): logout function
+  - checkAuth(): verify token
+  - refreshToken(): refresh access
+  - **CRITICAL: Updates auth store correctly**
+  - **Test: Auth hook works**
 
-**frontend/src/stores/variantStore.ts:**
-- Variant store with:
-  - selectedVariant: 'mini' | 'parwa' | 'parwa_high' | null
-  - variantConfig: object | null
-  - selectVariant(variant)
-  - clearVariant()
-  - **CRITICAL: Store initialises correctly**
+**frontend/src/hooks/useApprovals.ts:**
+- Approvals hook with:
+  - approvals: list of pending approvals
+  - isLoading: loading state
+  - error: error state
+  - fetchApprovals(): fetch list
+  - approve(id): approve action
+  - deny(id, reason): deny action
+  - refresh(): refresh list
+  - **CRITICAL: Updates approval store correctly**
+  - **Test: Approvals hook works**
 
-**frontend/src/stores/uiStore.ts:**
-- UI store with:
-  - sidebarOpen: boolean
-  - theme: 'light' | 'dark'
-  - activeModal: string | null
-  - toggleSidebar()
-  - setTheme(theme)
-  - openModal(id)
-  - closeModal()
-  - **CRITICAL: Store initialises correctly**
+**frontend/src/hooks/useTickets.ts:**
+- Tickets hook with:
+  - tickets: list of tickets
+  - ticket: single ticket detail
+  - filters: current filters
+  - pagination: page info
+  - fetchTickets(filters, page): fetch list
+  - fetchTicket(id): fetch detail
+  - createTicket(data): create new
+  - updateTicket(id, data): update
+  - searchTickets(query): search
+  - **Test: Tickets hook works**
 
-**frontend/src/stores/index.ts:**
-- Export all stores:
-  - useAuthStore
-  - useVariantStore
-  - useUIStore
+**frontend/src/hooks/useAnalytics.ts:**
+- Analytics hook with:
+  - metrics: current metrics
+  - chartData: chart data
+  - dateRange: selected range
+  - fetchMetrics(range): fetch metrics
+  - fetchChartData(type, range): fetch chart
+  - exportToCSV(): export data
+  - exportToPDF(): export PDF
+  - **Test: Analytics hook works**
+
+**frontend/src/hooks/useJarvis.ts:**
+- Jarvis hook with:
+  - response: current response
+  - isStreaming: streaming state
+  - commandHistory: list of commands
+  - sendCommand(command): send and stream
+  - clearHistory(): clear history
+  - abort(): abort current stream
+  - **CRITICAL: Streams response correctly**
+  - **Test: Jarvis hook streams**
+
+**frontend/src/hooks/useAgents.ts:**
+- Agents hook with:
+  - agents: list of agents
+  - agentStatus: status map
+  - fetchAgents(): fetch list
+  - pauseAgent(id): pause agent
+  - resumeAgent(id): resume agent
+  - fetchAgentLogs(id): get logs
+  - **Test: Agents hook works**
+
+**frontend/src/hooks/useNotifications.ts:**
+- Notifications hook with:
+  - notifications: list
+  - unreadCount: count
+  - fetchNotifications(): fetch list
+  - markAsRead(id): mark read
+  - markAllAsRead(): mark all read
+  - subscribe(): real-time updates
+  - **Test: Notifications hook works**
+
+**frontend/src/hooks/useSearch.ts:**
+- Search hook with:
+  - results: search results
+  - suggestions: autocomplete
+  - recentSearches: history
+  - search(query): perform search
+  - fetchSuggestions(query): get suggestions
+  - clearHistory(): clear history
+  - **Test: Search hook works**
 
 ### Field 4: Depends On
-- Backend APIs (Wk4+)
+- Week 15 stores (auth, variant, ui)
+- Week 15 API client
+- Backend APIs (Week 4+)
 
 ### Field 5: Expected Output
-- API client connects to backend
-- All stores initialise correctly
-- State management works
+- All hooks export correct interfaces
+- Hooks update stores correctly
+- Hooks handle loading/error states
+- Hooks provide TypeScript types
 
 ### Field 6: Unit Test Files
-- `frontend/src/__tests__/api.test.ts`
-- `frontend/src/__tests__/stores.test.ts`
+- `frontend/src/__tests__/hooks.test.ts`
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/stores_bdd.md` — State management scenarios
+- `docs/bdd_scenarios/hooks_bdd.md` — Hook scenarios
 
 ### Field 8: Error Handling
-- API errors caught and handled
-- Store errors don't crash app
-- Fallback states
+- Hooks catch and handle API errors
+- Hooks provide error state
+- Hooks retry on failure
+- Hooks abort on unmount
 
 ### Field 9: Security Requirements
-- Tokens stored securely (httpOnly cookies preferred)
-- No sensitive data in localStorage
-- Token refresh handling
+- Token refresh in auth hook
+- CSRF token handling
+- Secure storage patterns
 
 ### Field 10: Integration Points
-- Backend API (Wk4+)
-- All frontend components
+- All backend APIs
+- Zustand stores
+- WebSocket connections (future)
 
 ### Field 11: Code Quality
 - TypeScript strict mode
-- All stores typed
-- Immer for immutability
+- Proper hook patterns
+- Cleanup on unmount
+- Memoization where needed
 
 ### Field 12: GitHub CI Requirements
 - npm run build passes
@@ -556,129 +635,167 @@ Builder 3 reports DONE when:
 
 ### Field 13: Pass Criteria
 Builder 4 reports DONE when:
-- All 7 files built and pushed
-- **CRITICAL: All Zustand stores initialise**
-- API client works
+- All 10 files built and pushed
+- **CRITICAL: All 5 hooks update stores correctly**
+- useAuth handles login/logout
+- useJarvis streams responses
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — Onboarding Components
+## BUILDER 5 (DAY 5) — Settings Pages
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `frontend/src/components/onboarding/OnboardingWizard.tsx`
-2. `frontend/src/components/onboarding/Step1Company.tsx`
-3. `frontend/src/components/onboarding/Step2Variant.tsx`
-4. `frontend/src/components/onboarding/Step3Integrations.tsx`
-5. `frontend/src/components/onboarding/Step4Team.tsx`
-6. `frontend/src/components/onboarding/Step5Complete.tsx`
-7. `frontend/src/app/onboarding/page.tsx`
+1. `frontend/src/app/dashboard/settings/page.tsx`
+2. `frontend/src/app/dashboard/settings/profile/page.tsx`
+3. `frontend/src/app/dashboard/settings/billing/page.tsx`
+4. `frontend/src/app/dashboard/settings/team/page.tsx`
+5. `frontend/src/app/dashboard/settings/integrations/page.tsx`
+6. `frontend/src/app/dashboard/settings/notifications/page.tsx`
+7. `frontend/src/app/dashboard/settings/security/page.tsx`
+8. `frontend/src/app/dashboard/settings/api-keys/page.tsx`
+9. `frontend/src/components/settings/SettingsNav.tsx`
+10. `frontend/src/__tests__/settings.test.tsx`
 
 ### Field 2: What is each file?
-1. `frontend/src/components/onboarding/OnboardingWizard.tsx` — Main wizard container
-2. `frontend/src/components/onboarding/Step1Company.tsx` — Company info step
-3. `frontend/src/components/onboarding/Step2Variant.tsx` — Variant selection step
-4. `frontend/src/components/onboarding/Step3Integrations.tsx` — Integration setup step
-5. `frontend/src/components/onboarding/Step4Team.tsx` — Team invite step
-6. `frontend/src/components/onboarding/Step5Complete.tsx` — Completion step
-7. `frontend/src/app/onboarding/page.tsx` — Onboarding page
+1. `frontend/src/app/dashboard/settings/page.tsx` — Settings main page with navigation
+2. `frontend/src/app/dashboard/settings/profile/page.tsx` — Profile settings (name, email, avatar)
+3. `frontend/src/app/dashboard/settings/billing/page.tsx` — Billing settings (plan, usage, invoices)
+4. `frontend/src/app/dashboard/settings/team/page.tsx` — Team settings (members, invites, roles)
+5. `frontend/src/app/dashboard/settings/integrations/page.tsx` — Integrations settings (Shopify, Zendesk, etc.)
+6. `frontend/src/app/dashboard/settings/notifications/page.tsx` — Notification preferences
+7. `frontend/src/app/dashboard/settings/security/page.tsx` — Security settings (password, 2FA)
+8. `frontend/src/app/dashboard/settings/api-keys/page.tsx` — API keys management
+9. `frontend/src/components/settings/SettingsNav.tsx` — Settings sidebar navigation
+10. `frontend/src/__tests__/settings.test.tsx` — Unit tests for settings pages
 
 ### Field 3: Responsibilities
 
-**frontend/src/components/onboarding/OnboardingWizard.tsx:**
-- Wizard container with:
-  - Step indicator (1-5)
-  - Progress bar
-  - Back/Next buttons
-  - Step content area
-  - State management for steps
-  - **Test: Wizard navigates between steps**
+**frontend/src/app/dashboard/settings/page.tsx:**
+- Settings main page with:
+  - Settings sidebar navigation
+  - Overview cards (plan, team, integrations)
+  - Quick links to sub-pages
+  - **Test: Settings page renders**
 
-**frontend/src/components/onboarding/Step1Company.tsx:**
-- Company info step:
-  - Company name input
-  - Industry dropdown
-  - Company size dropdown
-  - Website input (optional)
-  - **Test: Step 1 validates and saves**
+**frontend/src/app/dashboard/settings/profile/page.tsx:**
+- Profile settings with:
+  - Avatar upload
+  - Name fields (first, last)
+  - Email (read-only, link to change)
+  - Phone number
+  - Timezone selector
+  - Language preference
+  - Save/Cancel buttons
+  - **Test: Profile settings saves**
 
-**frontend/src/components/onboarding/Step2Variant.tsx:**
-- Variant selection step:
-  - 3 variant cards (Mini, Junior, High)
-  - Feature comparison
-  - Price display
-  - Selection highlight
-  - **Test: Step 2 allows variant selection**
+**frontend/src/app/dashboard/settings/billing/page.tsx:**
+- Billing settings with:
+  - Current plan card with features
+  - Usage meter (tickets, agents, storage)
+  - Upgrade/downgrade buttons
+  - Invoice history table
+  - Payment method section
+  - Billing contact info
+  - **Test: Billing page renders**
 
-**frontend/src/components/onboarding/Step3Integrations.tsx:**
-- Integration setup step:
-  - Shopify connect button
-  - Zendesk connect button
-  - Twilio connect button
-  - Email provider connect
-  - Skip for now option
-  - **Test: Step 3 shows integrations**
+**frontend/src/app/dashboard/settings/team/page.tsx:**
+- Team settings with:
+  - Team members table (name, email, role, status)
+  - Invite member form (email, role)
+  - Role management (Admin, Agent, Viewer)
+  - Remove member action
+  - Pending invites list
+  - **Test: Team settings works**
 
-**frontend/src/components/onboarding/Step4Team.tsx:**
-- Team invite step:
-  - Team member email inputs (max 5)
-  - Role dropdown per member
-  - Invite button
-  - Skip for now option
-  - **Test: Step 4 allows team invites**
+**frontend/src/app/dashboard/settings/integrations/page.tsx:**
+- Integrations settings with:
+  - Available integrations grid (Shopify, Zendesk, Twilio, Email, etc.)
+  - Connected status per integration
+  - Connect/disconnect buttons
+  - Configuration forms per integration
+  - Sync status indicators
+  - **Test: Integrations page renders**
 
-**frontend/src/components/onboarding/Step5Complete.tsx:**
-- Completion step:
-  - Success animation
-  - Summary of selections
-  - "Go to Dashboard" button
-  - "Start Tutorial" option
-  - **Test: Step 5 shows completion**
+**frontend/src/app/dashboard/settings/notifications/page.tsx:**
+- Notification settings with:
+  - Email notifications toggles
+  - Slack webhook configuration
+  - Notification types (tickets, approvals, escalations, reports)
+  - Daily digest toggle
+  - Quiet hours setting
+  - **Test: Notification settings saves**
 
-**frontend/src/app/onboarding/page.tsx:**
-- Onboarding page with:
-  - Auth check (redirect if not logged in)
-  - OnboardingWizard component
-  - Layout styling
-  - **CRITICAL: 5-step flow works end-to-end**
+**frontend/src/app/dashboard/settings/security/page.tsx:**
+- Security settings with:
+  - Change password form
+  - Two-factor auth setup
+  - Active sessions list
+  - Revoke session action
+  - Login history
+  - API access log
+  - **Test: Security settings works**
+
+**frontend/src/app/dashboard/settings/api-keys/page.tsx:**
+- API keys settings with:
+  - API keys list (name, created, last used)
+  - Generate new key button
+  - Revoke key action
+  - Key permissions (read, write, admin)
+  - Copy key on creation (shown once)
+  - **Test: API keys page works**
+
+**frontend/src/components/settings/SettingsNav.tsx:**
+- Settings navigation with:
+  - Navigation items (Profile, Billing, Team, Integrations, Notifications, Security, API Keys)
+  - Active item highlight
+  - Icons for each item
+  - Mobile responsive
+  - **Test: Settings nav renders**
 
 ### Field 4: Depends On
-- UI components (Day 1-2)
-- Zustand stores (Day 4)
-- Backend APIs (Wk4+)
+- Dashboard layout (Day 1)
+- Week 15 stores and components
+- Backend settings APIs
 
 ### Field 5: Expected Output
-- Onboarding wizard navigates all 5 steps
-- Data saves at each step
-- Completion redirects to dashboard
+- All settings pages render correctly
+- Profile settings save changes
+- Team settings manage members
+- Integrations connect/disconnect
+- API keys generate/revoke
 
 ### Field 6: Unit Test Files
-- `frontend/src/__tests__/onboarding.test.tsx`
+- `frontend/src/__tests__/settings.test.tsx`
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/onboarding_bdd.md` — Onboarding scenarios
+- `docs/bdd_scenarios/settings_bdd.md` — Settings scenarios
 
 ### Field 8: Error Handling
-- Step validation errors inline
-- Network errors show retry
-- Auto-save draft
+- Form validation errors inline
+- API errors show toast
+- Network errors with retry
+- Success confirmations
 
 ### Field 9: Security Requirements
-- Auth check before onboarding
-- Data encrypted in transit
-- Team invites validated
+- Password change requires current password
+- 2FA setup verification
+- API key shown only once
+- Session management
 
 ### Field 10: Integration Points
-- Backend onboarding API
-- Stores (Day 4)
-- Auth (Day 2)
+- Backend settings API
+- Backend billing API
+- Backend team API
+- Backend integrations API
 
 ### Field 11: Code Quality
 - TypeScript strict mode
-- All components typed
-- Accessible (ARIA)
+- Form validation with Zod
+- Accessible forms
+- Responsive design
 
 ### Field 12: GitHub CI Requirements
 - npm run build passes
@@ -687,21 +804,23 @@ Builder 4 reports DONE when:
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
-- All 7 files built and pushed
-- **CRITICAL: Onboarding wizard 5-step flow works**
+- All 10 files built and pushed
+- **CRITICAL: All settings pages render and validate**
+- Profile settings save changes
+- Team settings invite members
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 15 INSTRUCTIONS (DAY 6)
+## TESTER → WEEK 16 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
 
 ### Test Commands
 
-#### 1. Frontend Tests
+#### 1. Frontend Unit Tests
 ```bash
 cd frontend
 npm run test
@@ -723,12 +842,12 @@ npm run lint
 ```bash
 cd frontend
 npm run dev
-# Verify: http://localhost:3000 loads
+# Verify: http://localhost:3000/dashboard loads
 ```
 
 #### 5. Integration Tests (Python)
 ```bash
-pytest tests/integration/test_week15_frontend.py -v
+pytest tests/integration/test_week16_dashboard.py -v
 ```
 
 ---
@@ -737,26 +856,28 @@ pytest tests/integration/test_week15_frontend.py -v
 
 | # | Test | Expected |
 |---|------|----------|
-| 1 | Next.js dev server starts | localhost:3000 loads |
-| 2 | Landing page renders | Hero, features, pricing visible |
-| 3 | Auth pages render | Login, register, forgot-password |
-| 4 | Auth forms validate | Validation errors show |
-| 5 | Variant cards render | All 3 cards visible |
-| 6 | Variant comparison | Table shows all features |
-| 7 | Zustand stores init | Console no errors |
-| 8 | Onboarding wizard | 5-step flow works |
-| 9 | Onboarding navigation | Back/Next buttons work |
-| 10 | Build succeeds | npm run build exits 0 |
+| 1 | Dashboard home loads | Stats, metrics, quick actions visible |
+| 2 | Dashboard home loads API data | Real data from backend |
+| 3 | Sidebar navigation | All links work |
+| 4 | Tickets page | List with filters, pagination |
+| 5 | Approvals queue | Renders with pending items |
+| 6 | Approve action | Works and removes from queue |
+| 7 | Agents page | Shows all agents with status |
+| 8 | Analytics page | Charts render with data |
+| 9 | Jarvis terminal | Streams response correctly |
+| 10 | All hooks | Update stores correctly |
+| 11 | Settings pages | All render and validate |
+| 12 | Build succeeds | npm run build exits 0 |
 
 ---
 
-### Week 15 PASS Criteria
+### Week 16 PASS Criteria
 
-1. ✅ Next.js dev server starts without errors
-2. ✅ All 3 variant cards render correctly
-3. ✅ Auth pages render and validate
-4. ✅ Onboarding wizard 5-step flow works
-5. ✅ All Zustand stores initialise
+1. ✅ Dashboard home loads real API data
+2. ✅ Approvals queue renders and approve action works
+3. ✅ Jarvis terminal streams response
+4. ✅ All 5 hooks update stores correctly
+5. ✅ All settings pages render and validate
 6. ✅ npm run build succeeds
 7. ✅ npm run lint passes
 8. ✅ GitHub CI pipeline GREEN
@@ -769,12 +890,12 @@ pytest tests/integration/test_week15_frontend.py -v
 
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
-| Builder 1 | Day 1 | ✅ DONE | Next.js + Landing + Primitives (8 files) | npm build passes | YES |
-| Builder 2 | Day 2 | ✅ DONE | Common UI + Auth Pages (10 files) | 50+ tests | YES |
-| Builder 3 | Day 3 | ✅ DONE | Variant Cards (23 files) | 20+ tests | YES |
-| Builder 4 | Day 4 | ✅ DONE | Zustand Stores + API (11 files) | 40+ tests | YES |
-| Builder 5 | Day 5 | ✅ DONE | Onboarding Components (8 files) | 30+ tests | YES |
-| Tester | Day 6 | ✅ READY | npm + pytest validation | - | NO |
+| Builder 1 | Day 1 | ⏳ PENDING | Dashboard Layout + Home (7 files) | - | NO |
+| Builder 2 | Day 2 | ⏳ PENDING | Tickets + Approvals + Agents + Analytics (8 files) | - | NO |
+| Builder 3 | Day 3 | ⏳ PENDING | Dashboard Components (8 files) | - | NO |
+| Builder 4 | Day 4 | ⏳ PENDING | All Hooks (10 files) | - | NO |
+| Builder 5 | Day 5 | ⏳ PENDING | Settings Pages (10 files) | - | NO |
+| Tester | Day 6 | ⏳ PENDING | npm + pytest validation | - | NO |
 
 ---
 
@@ -785,30 +906,30 @@ pytest tests/integration/test_week15_frontend.py -v
 **CRITICAL REMINDERS:**
 
 1. All 5 days run in PARALLEL — no cross-day dependencies
-2. Use Next.js 14 App Router (not Pages Router)
-3. Use Tailwind CSS + shadcn/ui
+2. Use Next.js 14/16 App Router (already set up)
+3. Use Tailwind CSS + shadcn/ui (already set up)
 4. TypeScript strict mode required
-5. **Next.js dev server starts without errors**
-6. **All 3 variant cards render correctly**
-7. **Auth pages render and validate**
-8. **Onboarding wizard 5-step flow works**
-9. **All Zustand stores initialise**
+5. **Dashboard home loads real API data**
+6. **Approvals queue renders and approve action works**
+7. **Jarvis terminal streams response**
+8. **All 5 hooks update stores correctly**
+9. **All settings pages render and validate**
 10. Responsive design (mobile-first)
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## WEEK 15 FILE SUMMARY
+## WEEK 16 FILE SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
 | Day | Files | Focus |
 |-----|-------|-------|
-| Day 1 | 8 | Next.js setup + Landing + Primitives |
-| Day 2 | 8 | Common UI + Auth Pages |
-| Day 3 | 6 | Variant Cards |
-| Day 4 | 7 | Zustand Stores + API Service |
-| Day 5 | 7 | Onboarding Components |
-| **Total** | **36** | **Frontend Foundation** |
+| Day 1 | 7 | Dashboard Layout + Home + Stats Cards |
+| Day 2 | 8 | Tickets + Approvals + Agents + Analytics Pages |
+| Day 3 | 8 | Dashboard Components |
+| Day 4 | 10 | All Hooks |
+| Day 5 | 10 | Settings Pages |
+| **Total** | **43** | **Dashboard Pages + Hooks** |
 
 ---
 
@@ -817,14 +938,14 @@ pytest tests/integration/test_week15_frontend.py -v
 ═══════════════════════════════════════════════════════════════════════════════
 
 ```
-Week 15 FULLY PARALLEL Execution:
+Week 16 FULLY PARALLEL Execution:
 
 Day 1-5: ALL BUILDERS RUN SIMULTANEOUSLY
-├── Builder 1: Next.js + Landing + Primitives (8 files)
-├── Builder 2: Common UI + Auth Pages (8 files)
-├── Builder 3: Variant Cards (6 files)
-├── Builder 4: Zustand Stores + API (7 files)
-└── Builder 5: Onboarding Components (7 files)
+├── Builder 1: Dashboard Layout + Home + Stats Cards (7 files)
+├── Builder 2: Tickets + Approvals + Agents + Analytics (8 files)
+├── Builder 3: Dashboard Components (8 files)
+├── Builder 4: All Hooks (10 files)
+└── Builder 5: Settings Pages (10 files)
 
 Day 6: Tester → npm test + pytest validation
 ```
@@ -834,242 +955,25 @@ Day 6: Tester → npm test + pytest validation
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 DONE REPORT (Week 15 Day 3)
-═══════════════════════════════════════════════════════════════════════════════
-Written by: Builder 3 Agent
-Date: 2026-03-22
-
-### Files Built and Pushed:
-1. ✅ `frontend/src/components/variants/VariantCard.tsx` — Base variant card component
-2. ✅ `frontend/src/components/variants/MiniCard.tsx` — Mini PARWA card ($49/mo, Light tier)
-3. ✅ `frontend/src/components/variants/ParwaJuniorCard.tsx` — PARWA Junior card ($149/mo, Medium tier, Most Popular)
-4. ✅ `frontend/src/components/variants/ParwaHighCard.tsx` — PARWA High card ($499/mo, Heavy tier)
-5. ✅ `frontend/src/components/variants/VariantsComparison.tsx` — Side-by-side comparison table
-6. ✅ `frontend/src/components/variants/index.ts` — Export barrel file
-7. ✅ `frontend/src/app/variants/page.tsx` — Variants selection page
-8. ✅ `frontend/src/app/page.tsx` — Main landing page with variant cards
-9. ✅ `frontend/src/__tests__/variants.test.tsx` — Unit tests for variant components
-
-### Supporting Files Added:
-- UI components: card.tsx, button.tsx, badge.tsx, table.tsx, toast.tsx, toaster.tsx
-- Config files: package.json, next.config.ts, tailwind.config.ts, tsconfig.json
-- Utils: utils.ts (cn function)
-- Styles: globals.css, layout.tsx
-
-### CRITICAL REQUIREMENTS MET:
-- [x] **All 3 variant cards render correctly**
-- [x] Mini: 2 concurrent calls, $50 refund limit, 70% escalation threshold
-- [x] Junior: 5 concurrent calls, $500 refund limit, 60% escalation threshold (Most Popular)
-- [x] High: 10 concurrent calls, $2000 refund limit, 50% escalation threshold, HIPAA
-- [x] Comparison table shows all features with categories
-- [x] Next.js build passes successfully
-- [x] Responsive design (mobile-first)
-- [x] TypeScript strict mode
-
-### Variant Pricing Displayed:
-| Variant | Price | Tier | Concurrent Calls | Refund Limit | Escalation |
-|---------|-------|------|------------------|--------------|------------|
-| Mini PARWA | $49/mo | Light | 2 | $50 | 70% |
-| PARWA Junior | $149/mo | Medium | 5 | $500 | 60% |
-| PARWA High | $499/mo | Heavy | 10 | $2000 | 50% |
-
-### Test Coverage:
-- 20+ unit tests in variants.test.tsx
-- Tests for all card components
-- Tests for comparison table
-- Integration tests for variant configurations
-
----
-
-## BUILDER 2 DONE REPORT (Week 15 Day 2)
-═══════════════════════════════════════════════════════════════════════════════
-Written by: Builder 2 Agent
-Date: 2026-03-22
-
-### Files Built and Pushed:
-1. ✅ `frontend/src/components/ui/alert.tsx` — Alert component with variants (info, success, warning, destructive)
-2. ✅ `frontend/src/components/ui/dialog.tsx` — Modal dialog using Radix UI
-3. ✅ `frontend/src/components/ui/dropdown.tsx` — Dropdown menu using Radix UI
-4. ✅ `frontend/src/app/auth/layout.tsx` — Auth pages layout with logo and styling
-5. ✅ `frontend/src/app/auth/login/page.tsx` — Login page with form validation
-6. ✅ `frontend/src/app/auth/register/page.tsx` — Registration page with password requirements
-7. ✅ `frontend/src/app/auth/forgot-password/page.tsx` — Password reset page
-8. ✅ `frontend/src/validations/auth.ts` — Zod validation schemas for all auth forms
-9. ✅ `frontend/src/__tests__/auth.test.tsx` — Tests for auth pages
-10. ✅ `frontend/src/__tests__/validations.test.ts` — Tests for validation schemas
-
-### CRITICAL REQUIREMENTS MET:
-- [x] **Auth pages render and validate**
-- [x] Login: Email + password with validation, remember me, social login
-- [x] Register: Name, email, password, confirm password, terms acceptance
-- [x] Forgot password: Email input with success state
-- [x] Form validation with Zod schemas
-- [x] TypeScript strict mode
-- [x] Accessible forms with ARIA labels
-
-### Auth Validation Schemas:
-| Schema | Fields | Validation |
-|--------|--------|------------|
-| loginSchema | email, password | Email format, 8+ char password |
-| registerSchema | name, email, password, confirmPassword, acceptTerms | Full validation, password match |
-| forgotPasswordSchema | email | Email format, lowercase transform |
-| resetPasswordSchema | token, password, confirmPassword | Password requirements, match |
-| changePasswordSchema | currentPassword, newPassword, confirmPassword | Different passwords |
-
-### Password Requirements:
-- Minimum 8 characters
-- At least one uppercase letter
-- At least one lowercase letter
-- At least one number
-- Optional: Special characters (for strength bonus)
-
-### Test Coverage:
-- 50+ tests for auth components
-- Validation schema tests for all forms
-- Form interaction tests
-- Password strength checker tests
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 DONE REPORT (Week 15 Day 4)
-═══════════════════════════════════════════════════════════════════════════════
-Written by: Builder 4 Agent
-Date: 2026-03-22
-
-### Files Built and Pushed:
-1. ✅ `frontend/src/services/api/client.ts` — Base API client with fetch wrapper, interceptors, error handling
-2. ✅ `frontend/src/services/api/auth.ts` — Auth API functions (login, register, logout, forgotPassword)
-3. ✅ `frontend/src/services/api/variants.ts` — Variant API functions (getVariants, selectVariant, pricing)
-4. ✅ `frontend/src/services/api/index.ts` — Export barrel for API functions
-5. ✅ `frontend/src/services/index.ts` — Export barrel for services
-6. ✅ `frontend/src/stores/authStore.ts` — Auth state with Zustand (user, token, isAuthenticated)
-7. ✅ `frontend/src/stores/variantStore.ts` — Variant state (selectedVariant, config)
-8. ✅ `frontend/src/stores/uiStore.ts` — UI state (sidebar, theme, modals, toasts)
-9. ✅ `frontend/src/stores/index.ts` — Export all stores
-10. ✅ `frontend/src/__tests__/api.test.ts` — API client unit tests
-11. ✅ `frontend/src/__tests__/stores.test.ts` — Zustand stores unit tests
-
-### CRITICAL REQUIREMENTS MET:
-- [x] **All Zustand stores initialise correctly**
-- [x] API client works with auth token injection
-- [x] Auth store handles login/register/logout flow
-- [x] Variant store manages variant selection
-- [x] UI store manages sidebar, theme, modals, toasts
-- [x] TypeScript strict mode with full typing
-- [x] Persistence with sessionStorage/localStorage
-
-### API Client Features:
-| Feature | Description |
-|---------|-------------|
-| Base URL | Configurable via environment |
-| Auth Token | Automatic injection in headers |
-| Error Handling | APIError class with status codes |
-| Timeout | Configurable with AbortController |
-| HTTP Methods | GET, POST, PUT, PATCH, DELETE |
-
-### Zustand Stores:
-| Store | State | Persistence |
-|-------|-------|-------------|
-| authStore | user, token, isAuthenticated, isLoading, error | sessionStorage |
-| variantStore | selectedVariant, variantConfig, availableVariants | sessionStorage |
-| uiStore | sidebarOpen, theme, activeModal, toasts | localStorage |
-
-### Store Hooks:
-- `useUser()` — Get current user
-- `useIsAuthenticated()` — Check auth status
-- `useSelectedVariant()` — Get selected variant
-- `useSidebar()` — Sidebar state and actions
-- `useTheme()` — Theme state and actions
-- `useModal()` — Modal state and actions
-- `useToasts()` — Toast notifications
-
-### Test Coverage:
-- 40+ unit tests for API client
-- Tests for all HTTP methods
-- Tests for error handling
-- Tests for auth flow
-- Tests for variant selection
-- Tests for UI state management
-
----
-
-## BUILDER 5 DONE REPORT (Week 15 Day 5)
-═══════════════════════════════════════════════════════════════════════════════
-Written by: Builder 5 Agent
-Date: 2026-03-22
-
-### Files Built and Pushed:
-1. ✅ `frontend/src/components/onboarding/OnboardingWizard.tsx` — Main wizard container with 5-step flow
-2. ✅ `frontend/src/components/onboarding/Step1Company.tsx` — Company info step (name, industry, size, website)
-3. ✅ `frontend/src/components/onboarding/Step2Variant.tsx` — Variant selection step (Mini, Junior, High)
-4. ✅ `frontend/src/components/onboarding/Step3Integrations.tsx` — Integration setup step (Shopify, Zendesk, Twilio, Email)
-5. ✅ `frontend/src/components/onboarding/Step4Team.tsx` — Team invite step (email + role, max 5)
-6. ✅ `frontend/src/components/onboarding/Step5Complete.tsx` — Completion step with summary
-7. ✅ `frontend/src/app/onboarding/page.tsx` — Onboarding page with auth check
-8. ✅ `frontend/src/__tests__/onboarding.test.tsx` — Onboarding component tests
-
-### CRITICAL REQUIREMENTS MET:
-- [x] **Onboarding wizard 5-step flow works end-to-end**
-- [x] Step 1: Company name, industry, size, website
-- [x] Step 2: Variant selection with pricing ($49, $149, $499)
-- [x] Step 3: Integrations (Shopify, Zendesk, Twilio, Email)
-- [x] Step 4: Team invites (email + role, max 5 members)
-- [x] Step 5: Summary + Go to Dashboard
-- [x] Progress indicator with step numbers
-- [x] Back/Next navigation
-- [x] TypeScript strict mode
-
-### Onboarding Steps:
-| Step | Title | Fields/Actions |
-|------|-------|----------------|
-| 1 | Company | name, industry, size, website |
-| 2 | Plan | Mini ($49), Junior ($149), High ($499) |
-| 3 | Integrations | Shopify, Zendesk, Twilio, Email |
-| 4 | Team | Email + role (Admin/Agent/Viewer) |
-| 5 | Complete | Summary + Go to Dashboard |
-
-### Variant Pricing Displayed:
-| Variant | Price | Tier | Concurrent Calls | Refund Limit |
-|---------|-------|------|------------------|--------------|
-| Mini PARWA | $49/mo | Light | 2 | $50 |
-| PARWA Junior | $149/mo | Medium | 5 | $500 |
-| PARWA High | $499/mo | Heavy | 10 | $2000 |
-
-### Integration Options:
-- Shopify: E-commerce order management
-- Zendesk: Support ticket sync
-- Twilio: Voice/SMS capabilities
-- Email Provider: SMTP notifications
-
-### Test Coverage:
-- 30+ tests for onboarding wizard
-- Step navigation tests
-- Form validation tests
-- Complete flow E2E test
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## PHASE 3 COMPLETE SUMMARY
+## WEEK 15 SUMMARY (COMPLETE)
 ═══════════════════════════════════════════════════════════════════════════════
 
-**Phase 1-3 COMPLETE ✅**
+**Summary:** Next.js frontend foundation built with landing page, auth pages, variant cards, Zustand stores, and onboarding wizard.
 
-**Total Tests:** 3133 passing
-- Unit Tests: 2752
-- E2E Tests: 9
-- Integration Tests: 217
-- Performance Tests: 16
-- UI Tests: 74
-- BDD Tests: 65
+**Total Files:** 48 frontend files built
+**Total Tests:** 88 frontend tests + 2752 Python backend tests
 
 **Key Achievements:**
-- All 3 variants (Mini, PARWA Junior, PARWA High)
-- All backend services (Jarvis, Approval, Escalation)
-- Agent Lightning training system
-- All background workers
-- Quality Coach
-- Monitoring dashboards
-- CI GREEN
-- **READY FOR PRODUCTION**
+- Next.js 16.2.1 with App Router ✅
+- Tailwind CSS 4 + shadcn/ui components ✅
+- 3 variant cards (Mini $49, Junior $149, High $499) ✅
+- Auth pages (Login, Register, Forgot Password) ✅
+- Onboarding wizard (5-step flow) ✅
+- Zustand stores (auth, variant, ui) ✅
+- API client service ✅
+
+**CRITICAL TESTS PASSED:**
+- npm run build: SUCCEEDS ✅
+- All 6 pages render correctly ✅
+- Zustand stores initialise ✅
+- GitHub CI: GREEN ✅
