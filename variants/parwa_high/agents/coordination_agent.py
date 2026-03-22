@@ -148,9 +148,11 @@ class ParwaHighCoordinationAgent(BaseAgent):
         # Find best team for task
         best_team = self._find_best_team(required_skills)
 
+        # Always create a task_id for tracking
+        task_id = f"task_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+
         if best_team is None:
             # Create a new team assignment
-            task_id = f"task_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
             team_id = f"team_{self._active_teams + 1}"
 
             team = TeamInfo(
@@ -173,10 +175,22 @@ class ParwaHighCoordinationAgent(BaseAgent):
             self._tasks[task_id] = task_info
             self._active_teams += 1
             best_team = team
+        else:
+            # Create task for existing team
+            task_info = TaskInfo(
+                task_id=task_id,
+                description=description,
+                status=TaskStatus.ASSIGNED,
+                assigned_team=best_team.team_id,
+                priority=priority,
+            )
+            self._tasks[task_id] = task_info
+            best_team.current_tasks += 1
 
         logger.info({
             "event": "teams_coordinated",
             "assigned_team": best_team.team_id,
+            "task_id": task_id,
             "active_teams": self._active_teams,
         })
 
@@ -185,6 +199,7 @@ class ParwaHighCoordinationAgent(BaseAgent):
             message=f"Task assigned to {best_team.name}",
             confidence=0.85,
             data={
+                "task_id": task_id,
                 "team_id": best_team.team_id,
                 "team_name": best_team.name,
                 "task_description": description,
