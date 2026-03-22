@@ -17,7 +17,7 @@ groups:
           summary: "Service {{ $labels.job }} is down"
           description: "{{ $labels.instance }} has been down for more than 1 minute."
 
-      # High error rate
+      # High error rate > 5% for 5 minutes
       - alert: HighErrorRate
         expr: |
           sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
@@ -27,9 +27,68 @@ groups:
         for: 5m
         labels:
           severity: warning
+          category: availability
         annotations:
           summary: "High error rate on {{ $labels.job }}"
           description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes."
+
+      # High latency P95 > 1s for 5 minutes
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, job))
+          > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High latency on {{ $labels.job }}"
+          description: "P95 latency is {{ $value }}s, exceeding 1s threshold for 5 minutes."
+
+      # Worker not responding for 2 minutes
+      - alert: WorkerDown
+        expr: |
+          time() - worker_last_heartbeat_timestamp > 120
+        for: 0m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Worker {{ $labels.worker_name }} is down"
+          description: "Worker {{ $labels.worker_name }} has not responded for more than 2 minutes. Last heartbeat: {{ $value }}s ago."
+
+      # Model drift - accuracy dropped below 85%
+      - alert: ModelDrift
+        expr: agent_lightning_model_accuracy < 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: ai_quality
+        annotations:
+          summary: "Model accuracy dropped below 85%"
+          description: "Model {{ $labels.model_version }} accuracy is {{ $value | humanizePercentage }}, below 85% threshold. Possible model drift detected."
+
+      # SLA breach detected
+      - alert: SLABreach
+        expr: sla_status == 2
+        for: 0m
+        labels:
+          severity: critical
+          category: sla
+        annotations:
+          summary: "SLA breach detected"
+          description: "Ticket {{ $labels.ticket_id }} has breached SLA. Immediate attention required."
+
+      # Refund gate violation - Paddle called without approval
+      - alert: RefundGateViolation
+        expr: increase(paddle_unauthorized_calls_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Refund gate violation detected"
+          description: "Paddle was called {{ $value }} times without approval. This violates the refund gate policy. Investigate immediately."
 
   # ─────────────────────────────────────────────────────────────────────────────
   # MCP SERVER ALERTS
