@@ -2,14 +2,14 @@
 Multi-Region Database Migration.
 
 Alembic migration for multi-region support.
-Adds region column to companies table and region-specific compliance settings.
+Adds region column to tenants table and region-specific compliance settings.
 
 Revision ID: 006
 Revises: 005
 Create Date: 2026-03-22
 
 Changes:
-- Add region column to companies table
+- Add region column to tenants table
 - Add region-specific compliance settings
 - Create indexes for region-based queries
 """
@@ -26,9 +26,9 @@ depends_on = None
 
 def upgrade() -> None:
     """Apply migration for multi-region support."""
-    # Add region column to companies table
+    # Add region column to tenants table
     op.add_column(
-        'companies',
+        'tenants',
         sa.Column(
             'region',
             sa.String(50),
@@ -40,7 +40,7 @@ def upgrade() -> None:
 
     # Add region-specific compliance settings column
     op.add_column(
-        'companies',
+        'tenants',
         sa.Column(
             'region_compliance_settings',
             postgresql.JSONB,
@@ -52,7 +52,7 @@ def upgrade() -> None:
 
     # Add data residency level column
     op.add_column(
-        'companies',
+        'tenants',
         sa.Column(
             'data_residency_level',
             sa.String(20),
@@ -64,16 +64,16 @@ def upgrade() -> None:
 
     # Create index on region for efficient queries
     op.create_index(
-        'ix_companies_region',
-        'companies',
+        'ix_tenants_region',
+        'tenants',
         ['region'],
         unique=False
     )
 
     # Create index on data_residency_level
     op.create_index(
-        'ix_companies_data_residency_level',
-        'companies',
+        'ix_tenants_data_residency_level',
+        'tenants',
         ['data_residency_level'],
         unique=False
     )
@@ -90,9 +90,9 @@ def upgrade() -> None:
         )
     )
 
-    # Add region column to tickets table
+    # Add region column to support_tickets table
     op.add_column(
-        'tickets',
+        'support_tickets',
         sa.Column(
             'region',
             sa.String(50),
@@ -101,10 +101,10 @@ def upgrade() -> None:
         )
     )
 
-    # Create index on tickets region
+    # Create index on support_tickets region
     op.create_index(
-        'ix_tickets_region',
-        'tickets',
+        'ix_support_tickets_region',
+        'support_tickets',
         ['region'],
         unique=False
     )
@@ -173,18 +173,18 @@ def downgrade() -> None:
     op.drop_index('ix_audit_logs_region', 'audit_logs')
     op.drop_column('audit_logs', 'region')
 
-    # Drop tickets region columns
-    op.drop_index('ix_tickets_region', 'tickets')
-    op.drop_column('tickets', 'region')
+    # Drop support_tickets region columns
+    op.drop_index('ix_support_tickets_region', 'support_tickets')
+    op.drop_column('support_tickets', 'region')
 
     # Drop users region column
     op.drop_column('users', 'preferred_region')
 
-    # Drop companies indexes
-    op.drop_index('ix_companies_data_residency_level', 'companies')
-    op.drop_index('ix_companies_region', 'companies')
+    # Drop tenants indexes
+    op.drop_index('ix_tenants_data_residency_level', 'tenants')
+    op.drop_index('ix_tenants_region', 'tenants')
 
-    # Drop companies columns
-    op.drop_column('companies', 'data_residency_level')
-    op.drop_column('companies', 'region_compliance_settings')
-    op.drop_column('companies', 'region')
+    # Drop tenants columns
+    op.drop_column('tenants', 'data_residency_level')
+    op.drop_column('tenants', 'region_compliance_settings')
+    op.drop_column('tenants', 'region')
