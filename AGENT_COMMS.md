@@ -770,7 +770,7 @@ pytest tests/integration/test_week15_frontend.py -v
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
 | Builder 1 | Day 1 | ⏳ PENDING | Next.js + Landing + Primitives (8 files) | - | NO |
-| Builder 2 | Day 2 | ⏳ PENDING | Common UI + Auth Pages (8 files) | - | NO |
+| Builder 2 | Day 2 | ✅ DONE | Common UI + Auth Pages (10 files) | 50+ tests | YES |
 | Builder 3 | Day 3 | ✅ DONE | Variant Cards (23 files) | 20+ tests | YES |
 | Builder 4 | Day 4 | ⏳ PENDING | Zustand Stores + API (7 files) | - | NO |
 | Builder 5 | Day 5 | ⏳ PENDING | Onboarding Components (7 files) | - | NO |
@@ -878,6 +878,56 @@ Date: 2026-03-22
 - Tests for all card components
 - Tests for comparison table
 - Integration tests for variant configurations
+
+---
+
+## BUILDER 2 DONE REPORT (Week 15 Day 2)
+═══════════════════════════════════════════════════════════════════════════════
+Written by: Builder 2 Agent
+Date: 2026-03-22
+
+### Files Built and Pushed:
+1. ✅ `frontend/src/components/ui/alert.tsx` — Alert component with variants (info, success, warning, destructive)
+2. ✅ `frontend/src/components/ui/dialog.tsx` — Modal dialog using Radix UI
+3. ✅ `frontend/src/components/ui/dropdown.tsx` — Dropdown menu using Radix UI
+4. ✅ `frontend/src/app/auth/layout.tsx` — Auth pages layout with logo and styling
+5. ✅ `frontend/src/app/auth/login/page.tsx` — Login page with form validation
+6. ✅ `frontend/src/app/auth/register/page.tsx` — Registration page with password requirements
+7. ✅ `frontend/src/app/auth/forgot-password/page.tsx` — Password reset page
+8. ✅ `frontend/src/validations/auth.ts` — Zod validation schemas for all auth forms
+9. ✅ `frontend/src/__tests__/auth.test.tsx` — Tests for auth pages
+10. ✅ `frontend/src/__tests__/validations.test.ts` — Tests for validation schemas
+
+### CRITICAL REQUIREMENTS MET:
+- [x] **Auth pages render and validate**
+- [x] Login: Email + password with validation, remember me, social login
+- [x] Register: Name, email, password, confirm password, terms acceptance
+- [x] Forgot password: Email input with success state
+- [x] Form validation with Zod schemas
+- [x] TypeScript strict mode
+- [x] Accessible forms with ARIA labels
+
+### Auth Validation Schemas:
+| Schema | Fields | Validation |
+|--------|--------|------------|
+| loginSchema | email, password | Email format, 8+ char password |
+| registerSchema | name, email, password, confirmPassword, acceptTerms | Full validation, password match |
+| forgotPasswordSchema | email | Email format, lowercase transform |
+| resetPasswordSchema | token, password, confirmPassword | Password requirements, match |
+| changePasswordSchema | currentPassword, newPassword, confirmPassword | Different passwords |
+
+### Password Requirements:
+- Minimum 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one number
+- Optional: Special characters (for strength bonus)
+
+### Test Coverage:
+- 50+ tests for auth components
+- Validation schema tests for all forms
+- Form interaction tests
+- Password strength checker tests
 
 ---
 
