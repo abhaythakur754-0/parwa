@@ -1,0 +1,98 @@
+{
+  "client_id": "client_002",
+  "last_updated": "2026-03-23T12:00:00",
+  "products": [
+    {
+      "id": "prod_free",
+      "name": "Free Plan",
+      "tier": "free",
+      "price_monthly": 0,
+      "price_annual": 0,
+      "features": {
+        "team_members": 3,
+        "projects": 5,
+        "storage_gb": 1,
+        "api_requests_hour": 100,
+        "integrations": ["Slack", "Google Workspace"],
+        "support": "community",
+        "analytics": "basic",
+        "sso": false,
+        "custom_roles": false,
+        "api_access": false
+      }
+    },
+    {
+      "id": "prod_pro",
+      "name": "Pro Plan",
+      "tier": "pro",
+      "price_monthly": 29,
+      "price_annual": 278,
+      "features": {
+        "team_members": "unlimited",
+        "projects": "unlimited",
+        "storage_gb": 100,
+        "api_requests_hour": 1000,
+        "integrations": "all",
+        "support": "priority",
+        "analytics": "advanced",
+        "sso": false,
+        "custom_roles": false,
+        "api_access": true
+      }
+    },
+    {
+      "id": "prod_enterprise",
+      "name": "Enterprise Plan",
+      "tier": "enterprise",
+      "price_monthly": "custom",
+      "price_annual": "custom",
+      "features": {
+        "team_members": "unlimited",
+        "projects": "unlimited",
+        "storage_gb": "unlimited",
+        "api_requests_hour": 10000,
+        "integrations": "all",
+        "support": "dedicated",
+        "analytics": "custom",
+        "sso": true,
+        "custom_roles": true,
+        "api_access": true,
+        "on_premise": true,
+        "sla": "99.9%",
+        "dedicated_cm": true
+      }
+    }
+  ],
+  "addons": [
+    {
+      "id": "addon_storage",
+      "name": "Additional Storage",
+      "price_monthly": 9.99,
+      "unit": "50GB"
+    },
+    {
+      "id": "addon_api",
+      "name": "API Boost",
+      "price_monthly": 49.99,
+      "unit": "10000 extra requests/hour"
+    },
+    {
+      "id": "addon_support",
+      "name": "Premium Support",
+      "price_monthly": 199.99,
+      "unit": "24/7 phone + 1hr response"
+    }
+  ],
+  "integrations_available": [
+    {"name": "Slack", "category": "Communication", "free": true},
+    {"name": "Microsoft Teams", "category": "Communication", "free": false},
+    {"name": "Jira", "category": "Project Management", "free": false},
+    {"name": "GitHub", "category": "Development", "free": true},
+    {"name": "GitLab", "category": "Development", "free": true},
+    {"name": "Notion", "category": "Documentation", "free": false},
+    {"name": "Google Workspace", "category": "Productivity", "free": true},
+    {"name": "Salesforce", "category": "CRM", "free": false},
+    {"name": "HubSpot", "category": "Marketing", "free": false},
+    {"name": "Zapier", "category": "Automation", "free": true}
+  ]
+}
