@@ -855,7 +855,7 @@ pytest tests/e2e/test_lighthouse.py -v
 | Builder 1 | Day 1 | ✅ DONE | Onboarding + Pricing + Analytics (10 files) | 53 PASS | YES |
 | Builder 2 | Day 2 | ✅ DONE | Webhooks + Audit-Log + Tests (3 files) | 18 PASS | YES |
 | Builder 3 | Day 3 | ⏳ PENDING | Frontend UI Tests (6 files) | - | NO |
-| Builder 4 | Day 4 | ⏳ PENDING | Service Wiring (10 files) | - | NO |
+| Builder 4 | Day 4 | ✅ DONE | Service Wiring (10 files) | 24 PASS | YES |
 | Builder 5 | Day 5 | ✅ DONE | E2E Frontend Tests (6 files) | 39 PASS | YES |
 | Tester | Day 6 | ⏳ PENDING | npm + pytest validation | - | NO |
 
