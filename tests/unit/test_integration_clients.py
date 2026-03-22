@@ -280,11 +280,14 @@ class TestPaddleClient:
     @pytest.mark.asyncio
     async def test_connect_missing_api_key(self):
         """Test connection fails without API key."""
-        # Use empty string to prevent fallback to settings
-        client = PaddleClient(api_key="")
-        result = await client.connect()
-        assert result is False
-        assert client.state == PaddleClientState.ERROR
+        with patch("shared.integrations.paddle_client.settings") as mock_settings:
+            mock_settings.paddle_client_token = None
+            mock_settings.paddle_api_key = None
+            mock_settings.paddle_webhook_secret = None
+            client = PaddleClient(api_key=None)
+            result = await client.connect()
+            assert result is False
+            assert client.state == PaddleClientState.ERROR
 
     @pytest.mark.asyncio
     async def test_disconnect(self, paddle_client):
@@ -709,11 +712,13 @@ class TestEmailClient:
     @pytest.mark.asyncio
     async def test_connect_missing_api_key(self):
         """Test connection fails without API key."""
-        # Use empty string to prevent fallback to settings
-        client = EmailClient(api_key="")
-        result = await client.connect()
-        assert result is False
-        assert client.state == EmailClientState.ERROR
+        with patch("shared.integrations.email_client.settings") as mock_settings:
+            mock_settings.brevo_api_key = None
+            mock_settings.from_email = None
+            client = EmailClient(api_key=None)
+            result = await client.connect()
+            assert result is False
+            assert client.state == EmailClientState.ERROR
 
     @pytest.mark.asyncio
     async def test_send_email(self, email_client):
