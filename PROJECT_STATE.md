@@ -7,14 +7,14 @@
 
 - Phase 1: Foundation (Wk 1-4) → ✅ COMPLETE
 - Phase 2: Core AI Engine (Wk 5-8) → ✅ COMPLETE
-- Phase 3: Variants (Wk 9-14) → 🟡 IN PROGRESS (Mini PARWA ✅, PARWA Junior ✅, PARWA High ✅, Backend Services ✅)
+- Phase 3: Variants (Wk 9-14) → 🟡 IN PROGRESS (Mini PARWA ✅, PARWA Junior ✅, PARWA High ✅, Backend Services ✅, Agent Lightning + Workers next)
 
 ---
 
 ## Current Position
 - **Week**: 13
 - **Day**: 0 (Tasks being written)
-- **Phase**: Phase 3 — Variants & Integrations (Backend Services Complete)
+- **Phase**: Phase 3 — Variants & Integrations (Agent Lightning + Workers)
 - **Overall Status**: WEEK 12 COMPLETE ✅ → WEEK 13 TASKS BEING WRITTEN
 
 ---
@@ -101,6 +101,34 @@
 - Escalation: 4-phase fires at exact thresholds ✅
 - GDPR: PII anonymized, row preserved ✅
 - Voice: answered in < 6 seconds, never IVR-only ✅
+
+---
+
+## Week 13 — Agent Lightning + Background Workers
+
+**Week 13 Goals:**
+- Day 1: Data Export + Model Registry (4 files)
+- Day 2: Training Pipeline (4 files)
+- Day 3: Fine Tune + Validation + Monitoring (4 files)
+- Day 4: Background Workers (5 files)
+- Day 5: Remaining Workers + Quality Coach (7 files)
+- Day 6: Tester Agent runs validation
+
+**Key Features:**
+- Agent Lightning training system (Unsloth + Colab FREE)
+- Data export: mistakes, approvals → JSONL dataset
+- Training pipeline with validation
+- Model registry with rollback capability
+- Drift detection + accuracy tracking
+- Background workers (ARQ): batch_approval, training_job, cleanup, burst_mode
+- Quality Coach: analyzer, reporter, notifier
+
+**CRITICAL TESTS:**
+- Dataset builder: exports correct JSONL format with 50+ mistakes
+- validate.py: blocks deployment at <90% accuracy
+- validate.py: allows deployment at 91%+ accuracy
+- All 8 workers start and register with ARQ
+- Burst mode: activates instantly, billing updated, auto-expires
 
 ---
 
