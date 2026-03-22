@@ -1,21 +1,21 @@
-# AGENT_COMMS.md — Week 10 Day 1-6
+# AGENT_COMMS.md — Week 11 Day 1-6
 # Last updated: Manager Agent
-# Current status: WEEK 10 TASKS WRITTEN — AWAITING BUILDERS
+# Current status: WEEK 11 TASKS WRITTEN — AWAITING BUILDERS
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 10 PLAN
+## MANAGER → WEEK 11 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
-Date: 2026-03-21
+Date: 2026-03-22
 
-> **Phase: Phase 3 — Variants & Integrations (Mini Tasks + PARWA Junior Variant)**
+> **Phase: Phase 3 — Variants & Integrations (PARWA High Variant)**
 >
-> **Week 10 Goals:**
-> - Day 1: Mini Tasks (7 task files)
-> - Day 2: PARWA Config + Core Agents (11 files)
-> - Day 3: PARWA Unique Agents + Tools (6 files)
-> - Day 4: PARWA Workflows + Tasks (8 files)
-> - Day 5: PARWA Tests + Manager Time Calculator (3 files)
+> **Week 11 Goals:**
+> - Day 1: PARWA High Config + Core Advanced Agents (5 files)
+> - Day 2: PARWA High Customer Success + Compliance Agents (5 files)
+> - Day 3: PARWA High Tools + Workflows (7 files)
+> - Day 4: PARWA High Tasks + DB Migration (7 files)
+> - Day 5: All 3 Variants Coexistence + BDD Tests (5 files)
 > - Day 6: Tester Agent runs full week validation
 >
 > **CRITICAL RULES:**
@@ -25,121 +25,121 @@ Date: 2026-03-21
 > 4. Build → Unit Test passes → THEN push (ONE push per file)
 > 5. Type hints on ALL functions, docstrings on ALL classes/functions
 > 6. **REFUND GATE IS SACRED** — Paddle must NEVER be called without pending_approval
-> 7. PARWA Junior must return APPROVE/REVIEW/DENY with reasoning
-> 8. Learning agent creates negative_reward record on rejection
+> 7. PARWA High must have churn prediction with risk score
+> 8. All 3 variants must coexist with zero conflicts
+> 9. BDD scenarios must pass for all 3 variants
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — Mini Tasks
+## BUILDER 1 (DAY 1) — PARWA High Config + Core Advanced Agents
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/mini/tasks/__init__.py`
-2. `variants/mini/tasks/answer_faq.py`
-3. `variants/mini/tasks/process_email.py`
-4. `variants/mini/tasks/handle_chat.py`
-5. `variants/mini/tasks/make_call.py`
-6. `variants/mini/tasks/create_ticket.py`
-7. `variants/mini/tasks/escalate.py`
-8. `variants/mini/tasks/verify_refund.py`
-9. `tests/unit/test_mini_tasks.py`
+1. `variants/parwa_high/__init__.py`
+2. `variants/parwa_high/config.py`
+3. `variants/parwa_high/anti_arbitrage_config.py`
+4. `variants/parwa_high/agents/__init__.py`
+5. `variants/parwa_high/agents/video_agent.py`
+6. `variants/parwa_high/agents/analytics_agent.py`
+7. `variants/parwa_high/agents/coordination_agent.py`
 
 ### Field 2: What is each file?
-1. `variants/mini/tasks/__init__.py` — Module init for Mini tasks
-2. `variants/mini/tasks/answer_faq.py` — Task to answer FAQ queries
-3. `variants/mini/tasks/process_email.py` — Task to process incoming emails
-4. `variants/mini/tasks/handle_chat.py` — Task to handle chat messages
-5. `variants/mini/tasks/make_call.py` — Task to initiate voice calls
-6. `variants/mini/tasks/create_ticket.py` — Task to create support tickets
-7. `variants/mini/tasks/escalate.py` — Task to escalate to human agents
-8. `variants/mini/tasks/verify_refund.py` — Task to verify refund eligibility
-9. `tests/unit/test_mini_tasks.py` — Unit tests for all Mini tasks
+1. `variants/parwa_high/__init__.py` — Module init for PARWA High variant
+2. `variants/parwa_high/config.py` — Configuration for PARWA High variant
+3. `variants/parwa_high/anti_arbitrage_config.py` — Anti-arbitrage pricing for PARWA High
+4. `variants/parwa_high/agents/__init__.py` — Module init for PARWA High agents
+5. `variants/parwa_high/agents/video_agent.py` — PARWA High video support agent
+6. `variants/parwa_high/agents/analytics_agent.py` — PARWA High analytics agent
+7. `variants/parwa_high/agents/coordination_agent.py` — PARWA High team coordination agent
 
 ### Field 3: Responsibilities
 
-**variants/mini/tasks/answer_faq.py:**
-- `AnswerFAQTask` class with:
-  - `async execute(self, query: str) -> dict` — Answer FAQ query
-  - Uses Mini FAQ agent to search and respond
-  - Returns answer with confidence score
+**variants/parwa_high/config.py:**
+- `ParwaHighConfig` class with:
+  - `max_concurrent_calls: int = 10` — PARWA High supports 10 concurrent calls
+  - `supported_channels: list[str] = ["faq", "email", "chat", "sms", "voice", "video"]`
+  - `escalation_threshold: float = 0.50` — Escalate when confidence < 50%
+  - `refund_limit: float = 2000.0` — Max refund PARWA High can execute
+  - `get_variant_name() -> str` — Returns "PARWA High"
+  - `get_tier() -> str` — Returns "heavy"
+  - `can_execute_refunds: bool = True` — PARWA High can execute refunds on approval
 
-**variants/mini/tasks/process_email.py:**
-- `ProcessEmailTask` class with:
-  - `async execute(self, email_data: dict) -> dict` — Process incoming email
-  - Parses email, extracts intent, routes to appropriate handler
-  - Returns processing result
+**variants/parwa_high/anti_arbitrage_config.py:**
+- `ParwaHighAntiArbitrageConfig` class with:
+  - `parwa_high_hourly_rate: float` — PARWA High hourly cost
+  - `manager_hourly_rate: float` — Human manager hourly cost
+  - `calculate_manager_time(self, complexity: float) -> float` — 0.25 hrs/day for 1x PARWA High
+  - `calculate_roi(self, queries_handled: int, manager_time_saved: float) -> float`
 
-**variants/mini/tasks/handle_chat.py:**
-- `HandleChatTask` class with:
-  - `async execute(self, message: str, session_id: str) -> dict` — Handle chat message
-  - Maintains conversation context
-  - Returns response with escalation flag if needed
+**variants/parwa_high/agents/video_agent.py:**
+- `ParwaHighVideoAgent(BaseAgent)` with:
+  - `async start_video(self, session_id: str, customer_id: str) -> dict` — Start video call
+  - `async share_screen(self, session_id: str) -> dict` — Share screen with customer
+  - `async end_video(self, session_id: str) -> dict` — End video call
+  - `get_tier() -> str` — Returns "heavy"
+  - `get_variant() -> str` — Returns "parwa_high"
 
-**variants/mini/tasks/make_call.py:**
-- `MakeCallTask` class with:
-  - `async execute(self, to: str, message: str) -> dict` — Initiate voice call
-  - Respects 2 concurrent call limit
-  - Returns call status
+**variants/parwa_high/agents/analytics_agent.py:**
+- `ParwaHighAnalyticsAgent(BaseAgent)` with:
+  - `async generate_insights(self, data: dict) -> dict` — Generate analytics insights
+  - `async get_metrics(self, company_id: str) -> dict` — Get company metrics
+  - `async predict_trends(self, historical_data: list) -> dict` — Predict future trends
+  - `get_tier() -> str` — Returns "heavy"
+  - `get_variant() -> str` — Returns "parwa_high"
 
-**variants/mini/tasks/create_ticket.py:**
-- `CreateTicketTask` class with:
-  - `async execute(self, ticket_data: dict) -> dict` — Create support ticket
-  - Validates ticket data before creation
-  - Returns ticket ID
-
-**variants/mini/tasks/escalate.py:**
-- `EscalateTask` class with:
-  - `async execute(self, context: dict, reason: str) -> dict` — Escalate to human
-  - Logs escalation reason
-  - Triggers human handoff notification
-
-**variants/mini/tasks/verify_refund.py:**
-- `VerifyRefundTask` class with:
-  - `async execute(self, order_id: str, amount: float) -> dict` — Verify refund eligibility
-  - **CRITICAL: Creates pending_approval, NEVER calls Paddle**
-  - Returns verification result with recommendation
+**variants/parwa_high/agents/coordination_agent.py:**
+- `ParwaHighCoordinationAgent(BaseAgent)` with:
+  - `async coordinate_teams(self, task: dict) -> dict` — Coordinate multiple teams
+  - `async assign_task(self, task: dict, team_id: str) -> dict` — Assign task to team
+  - `async monitor_progress(self, task_id: str) -> dict` — Monitor task progress
+  - `max_concurrent_teams: int = 5` — Can manage 5 concurrent teams
+  - `get_tier() -> str` — Returns "heavy"
+  - `get_variant() -> str` — Returns "parwa_high"
 
 ### Field 4: Depends On
-- `variants/mini/agents/` (Wk9) — All Mini agents
-- `variants/mini/tools/` (Wk9) — All Mini tools
-- `variants/mini/workflows/` (Wk9) — All Mini workflows
+- `variants/base_agents/base_agent.py` (Wk9)
+- `shared/core_functions/config.py` (Wk1)
+- `shared/core_functions/pricing_optimizer.py` (Wk1)
 
 ### Field 5: Expected Output
-- All tasks execute and return results
-- Refund task creates pending_approval, never calls Paddle
-- Call task respects 2 concurrent limit
-- Escalation task triggers human handoff
+- PARWA High config loads with correct limits (10 calls, $2000 refund)
+- Video agent initialises correctly
+- Analytics agent generates insights
+- Coordination agent manages 5 concurrent teams
+- Anti-arbitrage shows 0.25 hrs/day manager time for 1x PARWA High
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_mini_tasks.py`
-  - Test: answer_faq returns answer with confidence
-  - Test: process_email extracts intent
-  - Test: handle_chat maintains context
-  - Test: make_call respects 2 call limit
-  - Test: create_ticket returns ticket_id
-  - Test: escalate triggers handoff
-  - Test: verify_refund creates pending_approval, NOT Paddle call
+- `tests/unit/test_parwa_high_agents.py` (Day 4)
+  - Test: ParwaHighConfig loads with correct defaults
+  - Test: max_concurrent_calls = 10
+  - Test: escalation_threshold = 0.50
+  - Test: refund_limit = 2000.0
+  - Test: can_execute_refunds = True
+  - Test: Video agent starts video call
+  - Test: Analytics agent generates insights
+  - Test: Coordination agent manages 5 teams
+  - Test: Anti-arbitrage shows 0.25 hrs/day
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/mini_parwa_bdd.md` — All Mini task scenarios
+- `docs/bdd_scenarios/parwa_high_bdd.md` — PARWA High scenarios
 
 ### Field 8: Error Handling
-- `ValueError` — Return {"status": "error", "message": "Invalid input"}
-- `ConnectionError` — Return {"status": "error", "message": "Service unavailable"}
-- All errors logged with context
+- Standard error handling with logging
+- All errors return AgentResponse with status="error"
+- Video errors handled gracefully (connection issues)
 
 ### Field 9: Security Requirements
-- **CRITICAL:** verify_refund NEVER calls Paddle directly
-- Input validation on all task inputs
-- Company isolation enforced
-- Audit log all task executions
+- **CRITICAL:** Refund execution only with pending_approval
+- Video sessions encrypted
+- Analytics data company-isolated
+- Audit log all agent actions
 
 ### Field 10: Integration Points
-- Mini agents (Wk9)
-- Mini tools (Wk9)
-- Mini workflows (Wk9)
-- Shared integrations (Wk7)
+- Base agents (Wk9)
+- Shared config (Wk1)
+- Pricing optimizer (Wk1)
+- Analytics service (Wk4)
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
@@ -148,119 +148,125 @@ Date: 2026-03-21
 - Max 40 lines per function
 
 ### Field 12: GitHub CI Requirements
-- pytest must pass
-- flake8 must pass
-- black --check must pass
-- CI must be green before DONE
+- pytest pass
+- flake8 pass
+- black --check pass
+- CI green
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
-- All 9 files built and pushed
-- All unit tests pass
-- **CRITICAL: Refund task NEVER calls Paddle**
+- All 7 files built and pushed
 - GitHub CI GREEN
+- PARWA High config loads correctly
+- All advanced agents initialise correctly
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — PARWA Config + Core Agents
+## BUILDER 2 (DAY 2) — PARWA High Customer Success + Compliance Agents
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/parwa/__init__.py`
-2. `variants/parwa/config.py`
-3. `variants/parwa/anti_arbitrage_config.py`
-4. `variants/parwa/agents/__init__.py`
-5. `variants/parwa/agents/faq_agent.py`
-6. `variants/parwa/agents/email_agent.py`
-7. `variants/parwa/agents/chat_agent.py`
-8. `variants/parwa/agents/sms_agent.py`
-9. `variants/parwa/agents/voice_agent.py`
-10. `variants/parwa/agents/ticket_agent.py`
-11. `variants/parwa/agents/escalation_agent.py`
-12. `variants/parwa/agents/refund_agent.py`
+1. `variants/parwa_high/agents/customer_success_agent.py`
+2. `variants/parwa_high/agents/sla_agent.py`
+3. `variants/parwa_high/agents/compliance_agent.py`
+4. `variants/parwa_high/agents/learning_agent.py`
+5. `variants/parwa_high/agents/safety_agent.py`
 
 ### Field 2: What is each file?
-1. `variants/parwa/__init__.py` — Module init for PARWA Junior variant
-2. `variants/parwa/config.py` — Configuration for PARWA Junior variant
-3. `variants/parwa/anti_arbitrage_config.py` — Anti-arbitrage pricing for PARWA
-4. `variants/parwa/agents/__init__.py` — Module init for PARWA agents
-5. `variants/parwa/agents/faq_agent.py` — PARWA FAQ agent
-6. `variants/parwa/agents/email_agent.py` — PARWA email agent
-7. `variants/parwa/agents/chat_agent.py` — PARWA chat agent
-8. `variants/parwa/agents/sms_agent.py` — PARWA SMS agent
-9. `variants/parwa/agents/voice_agent.py` — PARWA voice agent
-10. `variants/parwa/agents/ticket_agent.py` — PARWA ticket agent
-11. `variants/parwa/agents/escalation_agent.py` — PARWA escalation agent
-12. `variants/parwa/agents/refund_agent.py` — PARWA refund agent (APPROVE/REVIEW/DENY)
+1. `variants/parwa_high/agents/customer_success_agent.py` — Customer success agent with churn prediction
+2. `variants/parwa_high/agents/sla_agent.py` — SLA breach detection agent
+3. `variants/parwa_high/agents/compliance_agent.py` — HIPAA compliance enforcement agent
+4. `variants/parwa_high/agents/learning_agent.py` — PARWA High learning agent
+5. `variants/parwa_high/agents/safety_agent.py` — PARWA High safety agent
 
 ### Field 3: Responsibilities
 
-**variants/parwa/config.py:**
-- `ParwaConfig` class with:
-  - `max_concurrent_calls: int = 5` — PARWA supports 5 concurrent calls
-  - `supported_channels: list[str] = ["faq", "email", "chat", "sms", "voice", "video"]`
-  - `escalation_threshold: float = 0.60` — Escalate when confidence < 60%
-  - `refund_limit: float = 500.0` — Max refund PARWA can recommend
-  - `get_variant_name() -> str` — Returns "PARWA Junior"
-  - `get_tier() -> str` — Returns "medium"
+**variants/parwa_high/agents/customer_success_agent.py:**
+- `ParwaHighCustomerSuccessAgent(BaseAgent)` with:
+  - `async predict_churn(self, customer_id: str) -> dict` — **CRITICAL: Returns {churn_risk: float, risk_factors: list, recommendations: list}**
+  - `async get_health_score(self, customer_id: str) -> dict` — Get customer health score
+  - `async suggest_retention_actions(self, customer_id: str) -> dict` — Suggest retention actions
+  - `get_tier() -> str` — Returns "heavy"
+  - `get_variant() -> str` — Returns "parwa_high"
 
-**variants/parwa/anti_arbitrage_config.py:**
-- `ParwaAntiArbitrageConfig` class with:
-  - `parwa_hourly_rate: float` — PARWA hourly cost
-  - `manager_hourly_rate: float` — Human manager hourly cost
-  - `calculate_manager_time(self, complexity: float) -> float` — 0.5 hrs/day for 1x PARWA
-  - `calculate_roi(self, queries_handled: int, manager_time_saved: float) -> float`
+**variants/parwa_high/agents/sla_agent.py:**
+- `ParwaHighSLAAgent(BaseAgent)` with:
+  - `async check_sla_status(self, ticket_id: str) -> dict` — Check SLA status
+  - `async detect_breach(self, ticket_id: str) -> dict` — Detect SLA breach
+  - `async escalate_breach(self, ticket_id: str, reason: str) -> dict` — Escalate SLA breach
+  - `get_tier() -> str` — Returns "heavy"
+  - `get_variant() -> str` — Returns "parwa_high"
 
-**variants/parwa/agents/refund_agent.py:**
-- `ParwaRefundAgent(BaseRefundAgent)` with:
-  - `get_tier() -> str` — Returns "medium"
-  - `get_variant() -> str` — Returns "parwa"
-  - `refund_limit: float = 500.0` — Max refund PARWA can recommend
-  - `async process(self, input_data: dict) -> AgentResponse` — Returns APPROVE/REVIEW/DENY with reasoning
-  - `get_refund_recommendation(self, refund_data: dict) -> dict` — Returns {recommendation, reasoning, confidence}
+**variants/parwa_high/agents/compliance_agent.py:**
+- `ParwaHighComplianceAgent(BaseAgent)` with:
+  - `async check_hipaa(self, data: dict) -> dict` — Check HIPAA compliance
+  - `async enforce_baa(self, company_id: str) -> dict` — Enforce BAA requirement
+  - `async audit_phi_access(self, user_id: str) -> dict` — Audit PHI access
+  - `get_tier() -> str` — Returns "heavy"
+  - `get_variant() -> str` — Returns "parwa_high"
+
+**variants/parwa_high/agents/learning_agent.py:**
+- `ParwaHighLearningAgent(BaseAgent)` with:
+  - `async record_feedback(self, interaction_id: str, feedback: str) -> dict` — Record user feedback
+  - `async create_negative_reward(self, interaction_id: str, reason: str) -> dict` — Creates negative_reward record
+  - `async get_training_data(self, limit: int = 100) -> list[dict]` — Get training data
+  - `async fine_tune_model(self, training_data: list) -> dict` — Fine-tune model
+  - `get_tier() -> str` — Returns "heavy"
+  - `get_variant() -> str` — Returns "parwa_high"
+
+**variants/parwa_high/agents/safety_agent.py:**
+- `ParwaHighSafetyAgent(BaseAgent)` with:
+  - `async check_response(self, response: str) -> dict` — Check response for safety issues
+  - `async block_competitor_mention(self, response: str) -> dict` — Blocks competitor names
+  - `async check_hallucination(self, response: str, context: dict) -> dict` — Detect hallucinations
+  - `async sanitize_phi(self, response: str) -> dict` — Sanitize PHI from response
+  - `get_tier() -> str` — Returns "heavy"
+  - `get_variant() -> str` — Returns "parwa_high"
 
 ### Field 4: Depends On
-- `variants/base_agents/` (Wk9) — All base agents
-- `shared/core_functions/config.py` (Wk1)
-- `shared/core_functions/pricing_optimizer.py` (Wk1)
+- `variants/base_agents/base_agent.py` (Wk9)
+- `shared/compliance/sla_calculator.py` (Wk7)
+- `shared/compliance/healthcare_guard.py` (Wk7)
+- `shared/core_functions/ai_safety.py` (Wk1)
 
 ### Field 5: Expected Output
-- PARWA config loads with correct limits (5 calls, $500 refund)
-- All PARWA agents inherit from base agents correctly
-- PARWA refund agent returns APPROVE/REVIEW/DENY with reasoning
-- Anti-arbitrage shows 0.5 hrs/day manager time for 1x PARWA
+- Customer success agent predicts churn with risk score
+- SLA agent detects breaches
+- Compliance agent enforces HIPAA
+- Learning agent records feedback
+- Safety agent sanitizes PHI
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_parwa_agents.py` (Day 5)
-  - Test: ParwaConfig loads with correct defaults
-  - Test: max_concurrent_calls = 5
-  - Test: escalation_threshold = 0.60
-  - Test: refund_limit = 500.0
-  - Test: ParwaRefundAgent returns APPROVE/REVIEW/DENY
-  - Test: Refund recommendation includes reasoning
-  - Test: Anti-arbitrage shows 0.5 hrs/day
+- `tests/unit/test_parwa_high_agents.py` (Day 4)
+  - Test: Customer success churn prediction contains risk score
+  - Test: SLA agent detects breach
+  - Test: Compliance agent enforces HIPAA
+  - Test: Learning agent records feedback
+  - Test: Safety agent sanitizes PHI
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/parwa_bdd.md` — PARWA Junior scenarios
+- `docs/bdd_scenarios/parwa_high_bdd.md` — Customer success scenarios
 
 ### Field 8: Error Handling
 - Standard error handling with logging
-- All errors return AgentResponse with status="error"
+- Compliance failures block operation and log
+- SLA breaches trigger alerts
 
 ### Field 9: Security Requirements
-- **CRITICAL:** Refund agent NEVER calls Paddle directly
-- All recommendations create pending_approval record
-- Input validation on all agents
+- **CRITICAL:** PHI must never be logged
+- BAA enforcement for healthcare clients
+- All compliance checks audited
 
 ### Field 10: Integration Points
 - Base agents (Wk9)
-- Shared config (Wk1)
-- Pricing optimizer (Wk1)
+- SLA calculator (Wk7)
+- Healthcare guard (Wk7)
+- AI safety (Wk1)
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
-- Docstrings required
+- Docstrings required (Google style)
 - PEP 8 compliant
 - Max 40 lines per function
 
@@ -272,93 +278,127 @@ Builder 1 reports DONE when:
 
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
-- All 12 files built and pushed
+- All 5 files built and pushed
 - GitHub CI GREEN
-- PARWA agents inherit correctly
-- Refund recommendation includes reasoning
+- Churn prediction includes risk score
+- SLA breach detection works
+- HIPAA compliance enforced
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — PARWA Unique Agents + Tools
+## BUILDER 3 (DAY 3) — PARWA High Tools + Workflows
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/parwa/agents/learning_agent.py`
-2. `variants/parwa/agents/safety_agent.py`
-3. `variants/parwa/tools/__init__.py`
-4. `variants/parwa/tools/knowledge_update.py`
-5. `variants/parwa/tools/refund_recommendation_tools.py`
-6. `variants/parwa/tools/safety_tools.py`
+1. `variants/parwa_high/tools/__init__.py`
+2. `variants/parwa_high/tools/analytics_engine.py`
+3. `variants/parwa_high/tools/team_coordination.py`
+4. `variants/parwa_high/tools/customer_success_tools.py`
+5. `variants/parwa_high/workflows/__init__.py`
+6. `variants/parwa_high/workflows/video_support.py`
+7. `variants/parwa_high/workflows/analytics.py`
+8. `variants/parwa_high/workflows/coordination.py`
+9. `variants/parwa_high/workflows/customer_success.py`
 
 ### Field 2: What is each file?
-1. `variants/parwa/agents/learning_agent.py` — PARWA learning agent (creates negative_reward on rejection)
-2. `variants/parwa/agents/safety_agent.py` — PARWA safety agent (blocks competitor mentions)
-3. `variants/parwa/tools/__init__.py` — Module init for PARWA tools
-4. `variants/parwa/tools/knowledge_update.py` — Tool to update knowledge base
-5. `variants/parwa/tools/refund_recommendation_tools.py` — Tool for APPROVE/REVIEW/DENY with reasoning
-6. `variants/parwa/tools/safety_tools.py` — Tool for safety checks
+1. `variants/parwa_high/tools/__init__.py` — Module init for PARWA High tools
+2. `variants/parwa_high/tools/analytics_engine.py` — Analytics engine for insights
+3. `variants/parwa_high/tools/team_coordination.py` — Team coordination tools
+4. `variants/parwa_high/tools/customer_success_tools.py` — Customer success tools
+5. `variants/parwa_high/workflows/__init__.py` — Module init for PARWA High workflows
+6. `variants/parwa_high/workflows/video_support.py` — Video support workflow
+7. `variants/parwa_high/workflows/analytics.py` — Analytics workflow
+8. `variants/parwa_high/workflows/coordination.py` — Coordination workflow
+9. `variants/parwa_high/workflows/customer_success.py` — Customer success workflow
 
 ### Field 3: Responsibilities
 
-**variants/parwa/agents/learning_agent.py:**
-- `ParwaLearningAgent(BaseAgent)` with:
-  - `async record_feedback(self, interaction_id: str, feedback: str) -> dict` — Record user feedback
-  - `async create_negative_reward(self, interaction_id: str, reason: str) -> dict` — **Creates negative_reward record on rejection**
-  - `async get_training_data(self, limit: int = 100) -> list[dict]` — Get training data for fine-tuning
-  - `get_tier() -> str` — Returns "medium"
-  - `get_variant() -> str` — Returns "parwa"
+**variants/parwa_high/tools/analytics_engine.py:**
+- `AnalyticsEngine` class with:
+  - `async generate_insights(self, data: dict) -> dict` — Generate insights from data
+  - `async calculate_trends(self, historical_data: list) -> dict` — Calculate trends
+  - `async identify_anomalies(self, data: list) -> list` — Identify anomalies
+  - `async generate_report(self, company_id: str, period: str) -> dict` — Generate report
 
-**variants/parwa/agents/safety_agent.py:**
-- `ParwaSafetyAgent(BaseAgent)` with:
-  - `async check_response(self, response: str) -> dict` — Check response for safety issues
-  - `async block_competitor_mention(self, response: str) -> dict` — **Blocks competitor names**
-  - `async check_hallucination(self, response: str, context: dict) -> dict` — Detect hallucinations
-  - `get_tier() -> str` — Returns "medium"
+**variants/parwa_high/tools/team_coordination.py:**
+- `TeamCoordinationTool` class with:
+  - `async assign_task(self, task: dict, team_id: str) -> dict` — Assign task to team
+  - `async get_team_load(self, team_id: str) -> dict` — Get team load
+  - `async balance_workload(self, teams: list) -> dict` — Balance workload across teams
+  - `async escalate_to_manager(self, task_id: str, reason: str) -> dict` — Escalate to manager
 
-**variants/parwa/tools/refund_recommendation_tools.py:**
-- `RefundRecommendationTool` with:
-  - `async analyze(self, refund_data: dict) -> dict` — Analyze refund request
-  - `get_recommendation(self, analysis: dict) -> dict` — Returns {recommendation: APPROVE/REVIEW/DENY, reasoning: str, confidence: float}
-  - **CRITICAL: Never calls Paddle directly**
+**variants/parwa_high/tools/customer_success_tools.py:**
+- `CustomerSuccessTools` class with:
+  - `async calculate_health_score(self, customer_id: str) -> float` — Calculate health score
+  - `async predict_churn_risk(self, customer_id: str) -> dict` — **Returns {risk_score, factors}**
+  - `async get_retention_actions(self, customer_id: str) -> list` — Get retention actions
+  - `async track_engagement(self, customer_id: str) -> dict` — Track customer engagement
+
+**variants/parwa_high/workflows/video_support.py:**
+- `VideoSupportWorkflow` with:
+  - `async execute(self, session_id: str, customer_id: str) -> dict` — Full video support workflow
+  - Steps: Start video → Share screen → Provide support → End video
+  - Returns {session_id, duration, resolution, recording_url}
+
+**variants/parwa_high/workflows/analytics.py:**
+- `AnalyticsWorkflow` with:
+  - `async execute(self, company_id: str, period: str) -> dict` — Full analytics workflow
+  - Steps: Collect data → Generate insights → Create report
+  - Returns {insights, trends, anomalies, report_url}
+
+**variants/parwa_high/workflows/coordination.py:**
+- `CoordinationWorkflow` with:
+  - `async execute(self, task: dict) -> dict` — Full coordination workflow
+  - Steps: Analyze task → Assign teams → Monitor progress → Complete
+  - Returns {task_id, assigned_teams, status, completion_time}
+
+**variants/parwa_high/workflows/customer_success.py:**
+- `CustomerSuccessWorkflow` with:
+  - `async execute(self, customer_id: str) -> dict` — Full customer success workflow
+  - Steps: Get health score → Predict churn → Suggest actions → Track engagement
+  - Returns {health_score, churn_risk, actions, engagement}
 
 ### Field 4: Depends On
-- `variants/base_agents/base_agent.py` (Wk9)
-- `shared/core_functions/ai_safety.py` (Wk1)
-- `shared/knowledge_base/kb_manager.py` (Wk5)
+- PARWA High agents (Day 1-2)
+- Analytics service (Wk4)
+- Base agents (Wk9)
 
 ### Field 5: Expected Output
-- Learning agent creates negative_reward record on rejection
-- Safety agent blocks competitor mentions
-- Refund tool returns APPROVE/REVIEW/DENY with reasoning
+- Analytics engine generates insights with trends
+- Team coordination balances workload
+- Customer success workflow predicts churn
+- Video support workflow manages sessions
+- All workflows return variant="parwa_high", tier="heavy"
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_parwa_agents.py` (Day 5)
-  - Test: Learning agent creates negative_reward on rejection
-  - Test: Safety agent blocks competitor mention
-  - Test: Safety agent detects hallucination
-  - Test: Refund tool returns APPROVE/REVIEW/DENY with reasoning
+- `tests/unit/test_parwa_high_workflows.py` (Day 4)
+  - Test: Analytics workflow generates insights
+  - Test: Coordination workflow assigns teams
+  - Test: Customer success workflow predicts churn with risk score
+  - Test: Video support workflow manages sessions
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/parwa_bdd.md` — Learning and safety scenarios
+- `docs/bdd_scenarios/parwa_high_bdd.md` — Workflow scenarios
 
 ### Field 8: Error Handling
 - Standard error handling with logging
-- Safety failures block response and log
+- Workflow failures log and return error status
+- Video connection errors handled gracefully
 
 ### Field 9: Security Requirements
-- **CRITICAL:** Never expose competitor names list
-- Learning data must be company-isolated
-- All safety checks logged
+- **CRITICAL:** No PHI in analytics
+- Video sessions encrypted
+- Team assignments company-isolated
 
 ### Field 10: Integration Points
-- Base agents (Wk9)
-- AI safety (Wk1)
-- Knowledge base (Wk5)
+- PARWA High agents (Day 1-2)
+- Analytics service (Wk4)
+- Notification service (Wk4)
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
-- Docstrings required
+- Docstrings required (Google style)
 - PEP 8 compliant
 - Max 40 lines per function
 
@@ -370,93 +410,122 @@ Builder 2 reports DONE when:
 
 ### Field 13: Pass Criteria
 Builder 3 reports DONE when:
-- All 6 files built and pushed
+- All 9 files built and pushed
 - GitHub CI GREEN
-- negative_reward creation works
-- Competitor mention blocking works
+- All workflows execute correctly
+- Customer success workflow returns churn risk score
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — PARWA Workflows + Tasks
+## BUILDER 4 (DAY 4) — PARWA High Tasks + DB Migration
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/parwa/workflows/__init__.py`
-2. `variants/parwa/workflows/refund_recommendation.py`
-3. `variants/parwa/workflows/knowledge_update.py`
-4. `variants/parwa/workflows/safety_workflow.py`
-5. `variants/parwa/tasks/__init__.py`
-6. `variants/parwa/tasks/recommend_refund.py`
-7. `variants/parwa/tasks/update_knowledge.py`
-8. `variants/parwa/tasks/compliance_check.py`
+1. `variants/parwa_high/tasks/__init__.py`
+2. `variants/parwa_high/tasks/video_call.py`
+3. `variants/parwa_high/tasks/generate_insights.py`
+4. `variants/parwa_high/tasks/coordinate_teams.py`
+5. `variants/parwa_high/tasks/customer_success.py`
+6. `tests/unit/test_parwa_high_agents.py`
+7. `tests/unit/test_parwa_high_workflows.py`
+8. `database/migrations/versions/006_multi_region.py`
 
 ### Field 2: What is each file?
-1. `variants/parwa/workflows/__init__.py` — Module init for PARWA workflows
-2. `variants/parwa/workflows/refund_recommendation.py` — Workflow for refund recommendations
-3. `variants/parwa/workflows/knowledge_update.py` — Workflow to update knowledge base
-4. `variants/parwa/workflows/safety_workflow.py` — Workflow for safety checks
-5. `variants/parwa/tasks/__init__.py` — Module init for PARWA tasks
-6. `variants/parwa/tasks/recommend_refund.py` — Task to recommend refund
-7. `variants/parwa/tasks/update_knowledge.py` — Task to update knowledge base
-8. `variants/parwa/tasks/compliance_check.py` — Task to run compliance checks
+1. `variants/parwa_high/tasks/__init__.py` — Module init for PARWA High tasks
+2. `variants/parwa_high/tasks/video_call.py` — Task to start/manage video calls
+3. `variants/parwa_high/tasks/generate_insights.py` — Task to generate analytics insights
+4. `variants/parwa_high/tasks/coordinate_teams.py` — Task to coordinate multiple teams
+5. `variants/parwa_high/tasks/customer_success.py` — Task for customer success operations
+6. `tests/unit/test_parwa_high_agents.py` — Unit tests for all PARWA High agents
+7. `tests/unit/test_parwa_high_workflows.py` — Unit tests for all PARWA High workflows
+8. `database/migrations/versions/006_multi_region.py` — DB migration for multi-region support
 
 ### Field 3: Responsibilities
 
-**variants/parwa/workflows/refund_recommendation.py:**
-- `RefundRecommendationWorkflow` with:
-  - `async execute(self, refund_data: dict) -> dict` — Full refund recommendation workflow
-  - Steps: Verify eligibility → Analyze → Generate recommendation with reasoning
-  - Returns {recommendation, reasoning, confidence, pending_approval_id}
+**variants/parwa_high/tasks/video_call.py:**
+- `VideoCallTask` class with:
+  - `async execute(self, session_id: str, customer_id: str, action: str) -> dict` — Execute video action
+  - Actions: start, share_screen, end
+  - Returns {status, session_id, duration}
 
-**variants/parwa/workflows/safety_workflow.py:**
-- `SafetyWorkflow` with:
-  - `async execute(self, response: str, context: dict) -> dict` — Full safety check workflow
-  - Steps: Check competitor → Check hallucination → Sanitize
-  - Returns {safe: bool, issues: list, sanitized_response: str}
+**variants/parwa_high/tasks/generate_insights.py:**
+- `GenerateInsightsTask` class with:
+  - `async execute(self, company_id: str, period: str) -> dict` — Generate insights
+  - **CRITICAL: Returns {insights, risk_score, trends}**
+  - Uses AnalyticsWorkflow internally
 
-**variants/parwa/tasks/recommend_refund.py:**
-- `RecommendRefundTask` with:
-  - `async execute(self, refund_data: dict) -> dict` — Returns APPROVE/REVIEW/DENY
-  - **CRITICAL: Creates pending_approval, NEVER calls Paddle**
+**variants/parwa_high/tasks/coordinate_teams.py:**
+- `CoordinateTeamsTask` class with:
+  - `async execute(self, task: dict) -> dict` — Coordinate teams
+  - Returns {task_id, assigned_teams, status}
+  - Uses CoordinationWorkflow internally
+
+**variants/parwa_high/tasks/customer_success.py:**
+- `CustomerSuccessTask` class with:
+  - `async execute(self, customer_id: str) -> dict` — Execute customer success
+  - **CRITICAL: Returns {health_score, churn_risk, recommendations}**
+  - Uses CustomerSuccessWorkflow internally
+
+**tests/unit/test_parwa_high_agents.py:**
+- Test: All PARWA High agents initialize correctly
+- Test: ParwaHighConfig loads with correct limits
+- Test: ParwaHighVideoAgent starts video call
+- Test: ParwaHighAnalyticsAgent generates insights
+- Test: ParwaHighCoordinationAgent manages 5 teams
+- Test: ParwaHighCustomerSuccessAgent predicts churn with risk score
+- Test: ParwaHighSLAAgent detects breach
+- Test: ParwaHighComplianceAgent enforces HIPAA
+- Test: Anti-arbitrage shows 0.25 hrs/day for 1x PARWA High
+
+**tests/unit/test_parwa_high_workflows.py:**
+- Test: Video support workflow runs correctly
+- Test: Analytics workflow generates insights
+- Test: Coordination workflow assigns teams
+- Test: Customer success workflow predicts churn
+
+**database/migrations/versions/006_multi_region.py:**
+- Alembic migration for multi-region support
+- Add region column to companies table
+- Add region-specific compliance settings
+- Create indexes for region-based queries
 
 ### Field 4: Depends On
-- PARWA agents (Day 2-3)
-- PARWA tools (Day 3)
-- Shared compliance (Wk7)
+- All PARWA High agents (Day 1-2)
+- All PARWA High workflows (Day 3)
+- Existing database schema (Wk2)
 
 ### Field 5: Expected Output
-- Refund recommendation workflow returns full reasoning
-- Safety workflow blocks unsafe responses
-- Knowledge update workflow updates KB correctly
+- All tasks execute and return results
+- All unit tests pass
+- DB migration runs without errors
+- Churn prediction includes risk score
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_parwa_workflows.py` (Day 5)
-  - Test: Refund workflow returns APPROVE/REVIEW/DENY with reasoning
-  - Test: Safety workflow blocks competitor mention
-  - Test: Knowledge update adds entry to KB
-  - Test: Compliance check runs correctly
+- `tests/unit/test_parwa_high_agents.py`
+- `tests/unit/test_parwa_high_workflows.py`
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/parwa_bdd.md` — Workflow scenarios
+- `docs/bdd_scenarios/parwa_high_bdd.md` — All PARWA High scenarios
 
 ### Field 8: Error Handling
 - Standard error handling with logging
-- Workflow failures log and return error status
+- Task failures return error status
+- DB migration has rollback capability
 
 ### Field 9: Security Requirements
-- **CRITICAL:** No direct Paddle calls
-- All responses pass through safety workflow
-- Compliance checks enforced
+- **CRITICAL:** No PHI in insights
+- All tasks company-isolated
+- Migration preserves existing data
 
 ### Field 10: Integration Points
-- PARWA agents (Day 2-3)
-- PARWA tools (Day 3)
-- Shared compliance (Wk7)
+- PARWA High agents (Day 1-2)
+- PARWA High workflows (Day 3)
+- Database (Wk2)
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
-- Docstrings required
+- Docstrings required (Google style)
 - PEP 8 compliant
 - Max 40 lines per function
 
@@ -469,81 +538,104 @@ Builder 3 reports DONE when:
 ### Field 13: Pass Criteria
 Builder 4 reports DONE when:
 - All 8 files built and pushed
+- All PARWA High tests pass
+- DB migration runs without errors
 - GitHub CI GREEN
-- Refund workflow returns reasoning
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — PARWA Tests + Manager Time Calculator
+## BUILDER 5 (DAY 5) — All 3 Variants Coexistence + BDD Tests
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `tests/unit/test_parwa_agents.py`
-2. `tests/unit/test_parwa_workflows.py`
-3. `backend/services/manager_time_calculator.py`
+1. `tests/integration/test_week11_parwa_high.py`
+2. `tests/integration/test_full_system.py`
+3. `tests/bdd/__init__.py`
+4. `tests/bdd/test_mini_scenarios.py`
+5. `tests/bdd/test_parwa_scenarios.py`
+6. `tests/bdd/test_parwa_high_scenarios.py`
 
 ### Field 2: What is each file?
-1. `tests/unit/test_parwa_agents.py` — Unit tests for all PARWA agents
-2. `tests/unit/test_parwa_workflows.py` — Unit tests for all PARWA workflows
-3. `backend/services/manager_time_calculator.py` — Service to calculate manager time saved
+1. `tests/integration/test_week11_parwa_high.py` — Integration tests for PARWA High
+2. `tests/integration/test_full_system.py` — Full system integration test
+3. `tests/bdd/__init__.py` — Module init for BDD tests
+4. `tests/bdd/test_mini_scenarios.py` — BDD scenarios for Mini PARWA
+5. `tests/bdd/test_parwa_scenarios.py` — BDD scenarios for PARWA Junior
+6. `tests/bdd/test_parwa_high_scenarios.py` — BDD scenarios for PARWA High
 
 ### Field 3: Responsibilities
 
-**tests/unit/test_parwa_agents.py:**
-- Test: All PARWA agents initialize correctly
-- Test: PARWA config loads with correct limits
-- Test: ParwaRefundAgent returns APPROVE/REVIEW/DENY with reasoning
-- Test: ParwaLearningAgent creates negative_reward on rejection
-- Test: ParwaSafetyAgent blocks competitor mention
-- Test: Anti-arbitrage shows 0.5 hrs/day for 1x PARWA
+**tests/integration/test_week11_parwa_high.py:**
+- Test: All 3 variants import simultaneously with zero conflicts
+- Test: PARWA High churn prediction contains risk score
+- Test: PARWA High video agent initialises
+- Test: Same ticket through all 3 variants: Mini collects, PARWA recommends, High executes
+- Test: No naming conflicts between variants
+- Test: Each variant returns correct tier
 
-**tests/unit/test_parwa_workflows.py:**
-- Test: Refund recommendation workflow returns reasoning
-- Test: Safety workflow blocks unsafe responses
-- Test: Knowledge update workflow works
-- Test: Compliance check workflow runs
+**tests/integration/test_full_system.py:**
+- Skeleton full system test (foundation for future)
+- Test: End-to-end ticket flow
+- Test: Multi-variant routing
+- Test: Analytics across variants
 
-**backend/services/manager_time_calculator.py:**
-- `ManagerTimeCalculator` class with:
-  - `calculate_time_saved(self, queries_handled: int, variant: str) -> float` — Calculate manager time saved
-  - `get_roi(self, subscription_cost: float, time_saved_hours: float, manager_hourly_rate: float) -> float` — Calculate ROI
-  - **Formula: 1x PARWA = 0.5 hrs/day manager time saved**
+**tests/bdd/test_mini_scenarios.py:**
+- BDD scenarios for Mini PARWA:
+  - Scenario: Customer asks FAQ → Mini answers
+  - Scenario: Customer requests refund → Mini creates pending_approval
+  - Scenario: Confidence < 70% → Mini escalates
+  - Scenario: 2 concurrent calls → Mini respects limit
+
+**tests/bdd/test_parwa_scenarios.py:**
+- BDD scenarios for PARWA Junior:
+  - Scenario: Complex query → PARWA uses Medium tier
+  - Scenario: Refund request → PARWA returns APPROVE/REVIEW/DENY with reasoning
+  - Scenario: Negative feedback → Learning agent creates negative_reward
+  - Scenario: Competitor mention → Safety agent blocks
+
+**tests/bdd/test_parwa_high_scenarios.py:**
+- BDD scenarios for PARWA High:
+  - Scenario: Video support request → High starts video call
+  - Scenario: Churn prediction → High returns risk score
+  - Scenario: SLA breach → High detects and escalates
+  - Scenario: Healthcare client → High enforces HIPAA
+  - Scenario: Team coordination → High manages 5 teams
 
 ### Field 4: Depends On
-- All PARWA agents (Day 2-3)
-- All PARWA workflows (Day 4)
-- Shared pricing optimizer (Wk1)
+- All 3 variants (Wks 9-11)
+- All agents, tools, workflows, tasks
 
 ### Field 5: Expected Output
-- All PARWA tests pass
-- Manager time calculator returns correct values
-- ROI calculation works correctly
+- All 3 variants import without conflicts
+- All BDD scenarios pass
+- Integration tests pass
+- Same ticket flows through all 3 variants
 
 ### Field 6: Unit Test Files
-- `tests/unit/test_parwa_agents.py`
-- `tests/unit/test_parwa_workflows.py`
+- All test files listed above
 
 ### Field 7: BDD Scenario
-- `docs/bdd_scenarios/parwa_bdd.md` — All PARWA scenarios
+- `docs/bdd_scenarios/mini_parwa_bdd.md` — Mini scenarios
+- `docs/bdd_scenarios/parwa_bdd.md` — PARWA scenarios
+- `docs/bdd_scenarios/parwa_high_bdd.md` — PARWA High scenarios
 
 ### Field 8: Error Handling
-- Standard error handling with logging
 - Test failures clearly reported
+- BDD scenarios show step-by-step failures
 
 ### Field 9: Security Requirements
 - Tests use mocked data
-- No real API calls in tests
-- Manager time calculator validates inputs
+- No real API calls
+- No PHI in test data
 
 ### Field 10: Integration Points
-- PARWA agents (Day 2-3)
-- PARWA workflows (Day 4)
-- Pricing optimizer (Wk1)
+- All variants (Wks 9-11)
+- All agents, tools, workflows
 
 ### Field 11: Code Quality
 - Type hints on ALL functions
-- Docstrings required
+- Docstrings required (Google style)
 - PEP 8 compliant
 - Max 40 lines per function
 
@@ -555,41 +647,42 @@ Builder 4 reports DONE when:
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
-- All 3 files built and pushed
-- All PARWA tests pass
-- Manager time calculator works correctly
+- All 6 files built and pushed
+- All integration tests pass
+- All BDD scenarios pass
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 10 INSTRUCTIONS (DAY 6)
+## TESTER → WEEK 11 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
 
 ### Test Command
 ```bash
-pytest tests/integration/test_week10_parwa_variant.py -v
-pytest tests/unit/test_mini_tasks.py -v
-pytest tests/unit/test_parwa_agents.py -v
-pytest tests/unit/test_parwa_workflows.py -v
+pytest tests/integration/test_week11_parwa_high.py -v
+pytest tests/integration/test_full_system.py -v
+pytest tests/unit/test_parwa_high_agents.py -v
+pytest tests/unit/test_parwa_high_workflows.py -v
+pytest tests/bdd/test_mini_scenarios.py -v
+pytest tests/bdd/test_parwa_scenarios.py -v
+pytest tests/bdd/test_parwa_high_scenarios.py -v
 ```
 
 ### Critical Tests to Verify
-1. PARWA recommendation: includes APPROVE/REVIEW/DENY with full reasoning
-2. PARWA learning agent: negative_reward record created on rejection
-3. PARWA safety agent: competitor mention blocked
-4. Mini still works correctly alongside PARWA (no conflicts)
-5. Manager time calculator: 1x PARWA shows 0.5 hrs/day correctly
-6. Refund gate: Paddle NOT called without approval
+1. All 3 variants import simultaneously with zero conflicts
+2. PARWA High: churn prediction output contains risk score
+3. PARWA High: video agent initialises correctly
+4. Same ticket through all 3: Mini collects, PARWA recommends, High executes
+5. BDD scenarios: all pass for all 3 variants
+6. DB migration 006: runs without errors
+7. Refund gate: Paddle NOT called without approval
 
-### Week 10 PASS Criteria
-- All Mini tasks working
-- PARWA Junior variant fully functional
-- APPROVE/REVIEW/DENY with reasoning working
-- Learning agent recording feedback
-- Safety agent blocking competitor mentions
+### Week 11 PASS Criteria
+- All 3 variants (Mini, PARWA, PARWA High) coexist and function
+- BDD scenarios pass for all 3 variants
 - All unit tests pass
 - GitHub CI pipeline green
 
@@ -601,159 +694,12 @@ pytest tests/unit/test_parwa_workflows.py -v
 
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
-| Builder 1 | Day 1 | ✅ DONE | Mini Tasks (9 files) | 35 pass | YES |
-| Builder 2 | Day 2 | ✅ DONE | PARWA Config + Agents (12 files) | 132 pass | YES |
-| Builder 3 | Day 3 | ✅ DONE | PARWA Unique Agents (6 files) | 96 pass | YES |
-| Builder 4 | Day 4 | ✅ DONE | PARWA Workflows (8 files) | 33 pass | YES |
-| Builder 5 | Day 5 | ✅ DONE | Tests + Calculator (3 files) | 96 pass | YES |
+| Builder 1 | Day 1 | ⏳ PENDING | PARWA High Config + Core Agents (7 files) | - | NO |
+| Builder 2 | Day 2 | ⏳ PENDING | PARWA High CS + Compliance Agents (5 files) | - | NO |
+| Builder 3 | Day 3 | ⏳ PENDING | PARWA High Tools + Workflows (9 files) | - | NO |
+| Builder 4 | Day 4 | ⏳ PENDING | PARWA High Tasks + Tests + Migration (8 files) | - | NO |
+| Builder 5 | Day 5 | ⏳ PENDING | All 3 Variants Coexistence + BDD (6 files) | - | NO |
 | Tester | Day 6 | ⏳ WAITING ALL | Full validation | - | NO |
-
----
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 DONE REPORT
-═══════════════════════════════════════════════════════════════════════════════
-Written by: Builder 1 Agent
-Date: 2026-03-21
-
-### Files Built and Pushed:
-1. ✅ `variants/mini/tasks/__init__.py` — Module init for Mini tasks
-2. ✅ `variants/mini/tasks/answer_faq.py` — AnswerFAQTask (returns answer with confidence)
-3. ✅ `variants/mini/tasks/process_email.py` — ProcessEmailTask (extracts intent)
-4. ✅ `variants/mini/tasks/handle_chat.py` — HandleChatTask (maintains context)
-5. ✅ `variants/mini/tasks/make_call.py` — MakeCallTask (2 concurrent call limit)
-6. ✅ `variants/mini/tasks/create_ticket.py` — CreateTicketTask (returns ticket_id)
-7. ✅ `variants/mini/tasks/escalate.py` — EscalateTask (triggers handoff)
-8. ✅ `variants/mini/tasks/verify_refund.py` — VerifyRefundTask (CRITICAL: NEVER calls Paddle)
-9. ✅ `tests/unit/test_mini_tasks.py` — Unit tests for all Mini tasks
-
-### Verification Results:
-- AnswerFAQTask: Returns answer with confidence ✅
-- ProcessEmailTask: Extracts intent (refund, order_status, complaint) ✅
-- HandleChatTask: Maintains conversation context ✅
-- MakeCallTask: Enforces 2 concurrent call limit ✅
-- CreateTicketTask: Returns ticket_id, assigns priority ✅
-- EscalateTask: Triggers human handoff ✅
-- VerifyRefundTask: NEVER calls Paddle (creates pending_approval) ✅
-- All tasks return variant="mini", tier="light" ✅
-- Tests: 35 passed ✅
-
-### Key Implementation Details:
-1. **AnswerFAQTask**: Uses MiniFAQAgent to search KB and return best match
-2. **ProcessEmailTask**: Classifies email intent (refund_request, order_status, complaint, inquiry)
-3. **HandleChatTask**: Maintains session context, escalates after 50 messages
-4. **MakeCallTask**: CRITICAL - Enforces 2 concurrent call limit (Mini variant)
-5. **CreateTicketTask**: Auto-assigns priority based on category and keywords
-6. **EscalateTask**: Routes VIP customers to manager level
-7. **VerifyRefundTask**: CRITICAL - $50 limit enforced, NEVER calls Paddle
-
-### CRITICAL GATE VERIFICATION:
-- [x] VerifyRefundTask paddle_call_required = False (ALWAYS)
-- [x] VerifyRefundTask approval_required = True (ALWAYS)
-- [x] MakeCallTask respects 2 concurrent call limit
-- [x] All tasks escalate when confidence < 70%
-
-### Pass Criteria Met:
-- [x] All 9 files built and pushed
-- [x] All unit tests pass (35 passed)
-- [x] CRITICAL: Refund task NEVER calls Paddle
-- [x] Call task respects 2 call limit
-- [x] GitHub CI GREEN
-
----
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 DONE REPORT
-═══════════════════════════════════════════════════════════════════════════════
-Written by: Builder 2 Agent
-Date: 2026-03-21
-
-### Files Built and Pushed:
-1. ✅ `variants/parwa/__init__.py` — Module init for PARWA Junior
-2. ✅ `variants/parwa/config.py` — ParwaConfig with 5 calls, $500 limit, 60% threshold
-3. ✅ `variants/parwa/anti_arbitrage_config.py` — 0.5 hrs/day manager time saved
-4. ✅ `variants/parwa/agents/__init__.py` — Module init for PARWA agents
-5. ✅ `variants/parwa/agents/faq_agent.py` — ParwaFAQAgent (medium tier)
-6. ✅ `variants/parwa/agents/email_agent.py` — ParwaEmailAgent (medium tier)
-7. ✅ `variants/parwa/agents/chat_agent.py` — ParwaChatAgent (medium tier)
-8. ✅ `variants/parwa/agents/sms_agent.py` — ParwaSMSAgent (medium tier)
-9. ✅ `variants/parwa/agents/voice_agent.py` — ParwaVoiceAgent (5 concurrent calls)
-10. ✅ `variants/parwa/agents/ticket_agent.py` — ParwaTicketAgent (medium tier)
-11. ✅ `variants/parwa/agents/escalation_agent.py` — ParwaEscalationAgent (60% threshold)
-12. ✅ `variants/parwa/agents/refund_agent.py` — ParwaRefundAgent (APPROVE/REVIEW/DENY + reasoning)
-
-### Verification Results:
-- ParwaConfig: max_concurrent_calls=5, escalation_threshold=0.6, refund_limit=$500 ✅
-- Anti-arbitrage: manager_time_per_day=0.5 hrs/day ✅
-- All agents inherit correctly from base agents ✅
-- All agents return tier="medium", variant="parwa" ✅
-- Refund agent returns APPROVE/REVIEW/DENY with full reasoning ✅
-- Refund agent NEVER calls Paddle directly (creates pending_approval) ✅
-- Voice agent supports 5 concurrent calls ✅
-- Existing tests: 132 passed ✅
-
-### Key Implementation Details:
-1. **PARWA Config**: 5 concurrent calls, 6 channels (added voice/video), $500 refund limit, 60% escalation threshold
-2. **Anti-Arbitrage**: 0.5 hrs/day manager time saved, $825/month value at $75/hr manager rate
-3. **Refund Agent**: Returns {recommendation, reasoning, confidence} for all refund requests
-4. **CRITICAL GATE**: All refund operations create pending_approval, NEVER call Paddle
-
-### Pass Criteria Met:
-- [x] All 12 files built and pushed
-- [x] PARWA agents inherit correctly from base agents
-- [x] Refund recommendation includes reasoning
-- [x] All existing tests pass (132 passed)
-- [x] Python syntax valid for all files
-
----
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 DONE REPORT
-═══════════════════════════════════════════════════════════════════════════════
-Written by: Builder 4 Agent
-Date: 2026-03-21
-
-### Files Built and Pushed:
-1. ✅ `variants/parwa/workflows/__init__.py` — Module init for PARWA workflows
-2. ✅ `variants/parwa/workflows/refund_recommendation.py` — RefundRecommendationWorkflow (APPROVE/REVIEW/DENY + reasoning)
-3. ✅ `variants/parwa/workflows/knowledge_update.py` — KnowledgeUpdateWorkflow
-4. ✅ `variants/parwa/workflows/safety_workflow.py` — SafetyWorkflow (competitor blocking)
-5. ✅ `variants/parwa/tasks/__init__.py` — Module init for PARWA tasks
-6. ✅ `variants/parwa/tasks/recommend_refund.py` — RecommendRefundTask (creates pending_approval)
-7. ✅ `variants/parwa/tasks/update_knowledge.py` — UpdateKnowledgeTask
-8. ✅ `variants/parwa/tasks/compliance_check.py` — ComplianceCheckTask
-
-### Verification Results:
-- RefundRecommendationWorkflow returns APPROVE/REVIEW/DENY with full reasoning ✅
-- SafetyWorkflow blocks competitor mentions ✅
-- SafetyWorkflow blocks prompt injection ✅
-- KnowledgeUpdateWorkflow updates KB correctly ✅
-- All workflows return variant="parwa", tier="medium" ✅
-- CRITICAL: Refund workflow NEVER calls Paddle ✅
-- Tests: 33 passed ✅
-
-### Key Implementation Details:
-1. **RefundRecommendationWorkflow**: 
-   - Returns {decision, reasoning, confidence, pending_approval_id}
-   - $500 PARWA limit, $100 auto-approve threshold, $250 review threshold
-   - Full reasoning with supporting_factors, risk_factors, policy_references
-
-2. **SafetyWorkflow**:
-   - Steps: Check competitor → Check hallucination → Sanitize
-   - Returns {safe: bool, issues: list, sanitized_response: str}
-
-3. **KnowledgeUpdateWorkflow**:
-   - Updates KB after successful resolutions
-   - Tracks positive/negative feedback
-
-4. **CRITICAL GATES**:
-   - All refund workflows create pending_approval
-   - NEVER call Paddle directly
-   - All responses pass through safety workflow
-
-### Pass Criteria Met:
-- [x] All 8 files built and pushed
-- [x] GitHub CI GREEN
-- [x] Refund workflow returns APPROVE/REVIEW/DENY with reasoning
-- [x] Safety workflow blocks competitor mentions
-- [x] CRITICAL: No direct Paddle calls
 
 ---
 
@@ -769,26 +715,32 @@ Date: 2026-03-21
 4. One push per file — only after tests pass
 5. Type hints + docstrings required on all functions
 6. **REFUND GATE IS SACRED** — Paddle must NEVER be called without pending_approval
-7. PARWA refund recommendation must include APPROVE/REVIEW/DENY with reasoning
-8. Learning agent creates negative_reward record on rejection
-9. Safety agent blocks competitor mentions
+7. PARWA High churn prediction must include risk score
+8. All 3 variants must coexist with zero conflicts
+9. BDD scenarios must pass for all 3 variants
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## PARWA JUNIOR LIMITS SUMMARY
+## PARWA HIGH LIMITS SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
-| Feature | Mini PARWA | PARWA Junior |
-|---------|------------|--------------|
-| Concurrent Calls | 2 max | 5 max |
-| Supported Channels | FAQ, Email, Chat, SMS | + Voice, Video |
-| Refund Limit | $50 | $500 |
-| Escalation Threshold | 70% | 60% |
-| AI Tier | Light only | Medium |
-| Refund Processing | pending_approval only | APPROVE/REVIEW/DENY + reasoning |
-| Learning | No | Yes (negative_reward) |
-| Safety Agent | No | Yes (competitor blocking) |
+| Feature | Mini PARWA | PARWA Junior | PARWA High |
+|---------|------------|--------------|------------|
+| Concurrent Calls | 2 max | 5 max | 10 max |
+| Supported Channels | FAQ, Email, Chat, SMS | + Voice, Video | All channels |
+| Refund Limit | $50 | $500 | $2000 |
+| Can Execute Refunds | No | No | Yes (with approval) |
+| Escalation Threshold | 70% | 60% | 50% |
+| AI Tier | Light only | Medium | Heavy |
+| Video Support | No | No | Yes |
+| Customer Success | No | No | Yes (churn prediction) |
+| Team Coordination | No | No | Yes (5 teams) |
+| Analytics | No | No | Yes (insights) |
+| SLA Management | No | No | Yes |
+| HIPAA Compliance | No | No | Yes |
+| Manager Time | 1 hr/day | 0.5 hrs/day | 0.25 hrs/day |
+| Resolution Rate | 50-60% | 70-80% | 90%+ |
 
 ---
 
@@ -797,14 +749,14 @@ Date: 2026-03-21
 ═══════════════════════════════════════════════════════════════════════════════
 
 ```
-Week 10 FULLY PARALLEL Execution:
+Week 11 FULLY PARALLEL Execution:
 
 Day 1-5: ALL BUILDERS RUN SIMULTANEOUSLY
-├── Builder 1: Mini Tasks (9 files)
-├── Builder 2: PARWA Config + Agents (12 files)
-├── Builder 3: PARWA Unique Agents (6 files)
-├── Builder 4: PARWA Workflows (8 files)
-└── Builder 5: Tests + Calculator (3 files)
+├── Builder 1: PARWA High Config + Core Agents (7 files)
+├── Builder 2: PARWA High CS + Compliance Agents (5 files)
+├── Builder 3: PARWA High Tools + Workflows (9 files)
+├── Builder 4: PARWA High Tasks + Tests + Migration (8 files)
+└── Builder 5: All 3 Variants Coexistence + BDD (6 files)
 
 Day 6: Tester → Full validation → Report PASS/FAIL
 ```
@@ -814,170 +766,22 @@ Day 6: Tester → Full validation → Report PASS/FAIL
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER AGENT REPORT — WEEK 10 (Day 6)
+## WEEK 10 COMPLETE SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
-**Date:** 2026-03-21
-**Tester Agent:** Zai (Super Z)
-**Week:** 10 — Mini Tasks + PARWA Junior Variant
+**Week 10 — Mini Tasks + PARWA Junior Variant**
 
----
+**Total Files:** 38 files built
+**Total Tests:** 207 tests passing
 
-### 1. TEST EXECUTION SUMMARY
-
-| Test Suite | Tests | Status |
-|------------|-------|--------|
-| test_mini_tasks.py | 35 | ✅ PASS |
-| test_parwa_agents.py | 96 | ✅ PASS |
-| test_parwa_workflows.py | 33 | ✅ PASS |
-| test_rls.py + test_audit_trail.py + test_base_refund_agent.py | 43 | ✅ PASS |
-| **TOTAL WEEK 10** | **207** | **✅ PASS** |
-
----
-
-### 2. CRITICAL TESTS VERIFICATION
-
-| Test | Result | Notes |
-|------|--------|-------|
-| PARWA Recommendation APPROVE/REVIEW/DENY | ✅ PASS | Includes full reasoning |
-| PARWA Learning Agent negative_reward | ✅ PASS | Record created on rejection |
-| PARWA Safety Agent competitor blocking | ✅ PASS | Competitor mentions blocked |
-| Mini + PARWA Coexistence | ✅ PASS | No conflicts between variants |
-| Manager Time Calculator | ✅ PASS | 0.5 hrs/day for 1x PARWA |
-| Refund Gate (Paddle NOT called) | ✅ PASS | pending_approval created only |
-| RLS Cross-Tenant Isolation | ✅ PASS | 2 tests passed |
-| Audit Trail Immutability | ✅ PASS | 22 tests passed |
-
----
-
-### 3. PASS CRITERIA VERIFICATION
-
-| Criteria | Status |
-|----------|--------|
-| PARWA recommendation: includes APPROVE/REVIEW/DENY with full reasoning | ✅ PASS |
-| PARWA learning agent: negative_reward record created on rejection | ✅ PASS |
-| PARWA safety agent: competitor mention blocked | ✅ PASS |
-| Mini still works correctly alongside PARWA (no conflicts) | ✅ PASS |
-| Manager time calculator: 1x PARWA shows 0.5 hrs/day correctly | ✅ PASS |
-| Refund gate: Paddle NOT called without approval | ✅ PASS |
-
----
-
-### 4. GITHUB CI STATUS
-
-```
-CI Pipeline | completed | success | main | 2026-03-21T06:49:57Z
-```
-
-**CI Status:** ✅ GREEN (All checks passing)
-
----
-
-### 5. FILES VERIFIED
-
-**Mini Tasks (Builder 1):**
-- ✅ variants/mini/tasks/__init__.py
-- ✅ variants/mini/tasks/answer_faq.py
-- ✅ variants/mini/tasks/process_email.py
-- ✅ variants/mini/tasks/handle_chat.py
-- ✅ variants/mini/tasks/make_call.py
-- ✅ variants/mini/tasks/create_ticket.py
-- ✅ variants/mini/tasks/escalate.py
-- ✅ variants/mini/tasks/verify_refund.py
-
-**PARWA Config + Agents (Builder 2):**
-- ✅ variants/parwa/__init__.py
-- ✅ variants/parwa/config.py
-- ✅ variants/parwa/anti_arbitrage_config.py
-- ✅ variants/parwa/agents/__init__.py
-- ✅ variants/parwa/agents/faq_agent.py
-- ✅ variants/parwa/agents/email_agent.py
-- ✅ variants/parwa/agents/chat_agent.py
-- ✅ variants/parwa/agents/sms_agent.py
-- ✅ variants/parwa/agents/voice_agent.py
-- ✅ variants/parwa/agents/ticket_agent.py
-- ✅ variants/parwa/agents/escalation_agent.py
-- ✅ variants/parwa/agents/refund_agent.py
-
-**PARWA Unique Agents + Tools (Builder 3):**
-- ✅ variants/parwa/agents/learning_agent.py
-- ✅ variants/parwa/agents/safety_agent.py
-- ✅ variants/parwa/tools/__init__.py
-- ✅ variants/parwa/tools/knowledge_update.py
-- ✅ variants/parwa/tools/refund_recommendation_tools.py
-- ✅ variants/parwa/tools/safety_tools.py
-
-**PARWA Workflows + Tasks (Builder 4):**
-- ✅ variants/parwa/workflows/__init__.py
-- ✅ variants/parwa/workflows/refund_recommendation.py
-- ✅ variants/parwa/workflows/knowledge_update.py
-- ✅ variants/parwa/workflows/safety_workflow.py
-- ✅ variants/parwa/tasks/__init__.py
-- ✅ variants/parwa/tasks/recommend_refund.py
-- ✅ variants/parwa/tasks/update_knowledge.py
-- ✅ variants/parwa/tasks/compliance_check.py
-
-**Tests + Calculator (Builder 5):**
-- ✅ tests/unit/test_parwa_agents.py
-- ✅ tests/unit/test_parwa_workflows.py
-- ✅ backend/services/manager_time_calculator.py
-
----
-
-### 6. BUILDER STATUS UPDATE
-
-| Builder | Day | Files | Tests | Status |
-|---------|-----|-------|-------|--------|
-| Builder 1 | Day 1 | 9 | 35 | ✅ DONE |
-| Builder 2 | Day 2 | 12 | 132 | ✅ DONE |
-| Builder 3 | Day 3 | 6 | 96 | ✅ DONE |
-| Builder 4 | Day 4 | 8 | 33 | ✅ DONE |
-| Builder 5 | Day 5 | 3 | 96 | ✅ DONE |
-
----
-
-### 7. KEY ACHIEVEMENTS
-
-**Mini Tasks:**
-- 7 task files (answer_faq, process_email, handle_chat, make_call, create_ticket, escalate, verify_refund)
-- All tasks respect Mini limits ($50 refund, 2 concurrent calls)
-- VerifyRefundTask NEVER calls Paddle (creates pending_approval only)
-
-**PARWA Junior Variant:**
-- 8 PARWA agents (FAQ, Email, Chat, SMS, Voice, Ticket, Escalation, Refund)
-- Learning Agent creates negative_reward records
-- Safety Agent blocks competitor mentions
-- Refund Agent returns APPROVE/REVIEW/DENY with full reasoning
-- $500 refund limit, 5 concurrent calls, 60% escalation threshold
-- Manager time: 0.5 hrs/day saved for 1x PARWA
-
-**Critical Gates Verified:**
-- ✅ Paddle NEVER called without pending_approval
-- ✅ All refund operations create pending_approval record
-- ✅ Safety workflow blocks unsafe responses
-- ✅ Mini and PARWA variants coexist without conflicts
-
----
-
-### 8. FINAL VERDICT
-
-```
-╔═══════════════════════════════════════════════════════════════╗
-║                                                               ║
-║   ✅ WEEK 10 — PASS                                           ║
-║                                                               ║
-║   All 207 tests passed                                        ║
-║   All critical tests verified                                 ║
-║   GitHub CI: GREEN                                            ║
-║   All 38 files verified                                       ║
-║                                                               ║
-║   Mini Tasks: COMPLETE                                        ║
-║   PARWA Junior Variant: COMPLETE                              ║
-║                                                               ║
-╚═══════════════════════════════════════════════════════════════╝
-```
-
----
-
-**Tester Agent Commit:** `chore: tester - Week 10 report - PASS`
-**Timestamp:** 2026-03-21
+**Key Achievements:**
+- Mini Tasks: 7 task files (answer_faq, process_email, handle_chat, make_call, create_ticket, escalate, verify_refund)
+- PARWA Junior: 8 agents + Learning Agent + Safety Agent
+- PARWA Tools: knowledge_update, refund_recommendation_tools, safety_tools
+- PARWA Workflows: refund_recommendation, knowledge_update, safety_workflow
+- PARWA Tasks: recommend_refund, update_knowledge, compliance_check
+- Manager Time Calculator: 0.5 hrs/day for 1x PARWA
+- **CRITICAL: APPROVE/REVIEW/DENY with reasoning working**
+- Learning agent creates negative_reward on rejection
+- Safety agent blocks competitor mentions
+- CI GREEN
