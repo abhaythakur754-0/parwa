@@ -200,7 +200,7 @@ class EscalationLadder:
         current_phase = self.get_current_phase(ticket_created_at, now)
         phase_config = self.phases.get(current_phase)
 
-        if not phase_config or current_phase == EscalationPhase.PHASE_0:
+        if not phase_config:
             return {
                 "ticket_id": ticket_id,
                 "current_phase": current_phase.value,
@@ -208,6 +208,13 @@ class EscalationLadder:
                 "hours_until_next": None,
                 "action_required": False,
             }
+
+        # Ensure now is set for calculations
+        if now is None:
+            now = datetime.now(timezone.utc)
+
+        if ticket_created_at.tzinfo is None:
+            ticket_created_at = ticket_created_at.replace(tzinfo=timezone.utc)
 
         # Calculate hours until next phase
         next_phase = None
@@ -219,28 +226,24 @@ class EscalationLadder:
 
             if next_phase_config:
                 next_phase = next_phase_value
-                if now is None:
-                    now = datetime.now(timezone.utc)
-
-                if ticket_created_at.tzinfo is None:
-                    ticket_created_at = ticket_created_at.replace(tzinfo=timezone.utc)
-
                 elapsed = now - ticket_created_at
                 hours_elapsed = elapsed.total_seconds() / 3600
                 hours_until_next = next_phase_config.hours_threshold - hours_elapsed
 
-        return {
+        result = {
             "ticket_id": ticket_id,
             "current_phase": current_phase.value,
             "current_phase_name": phase_config.name,
             "next_phase": next_phase.value if next_phase else None,
             "next_phase_name": self.phases[next_phase].name if next_phase else None,
             "hours_until_next": max(0, hours_until_next) if hours_until_next else None,
-            "action_required": True,
+            "action_required": current_phase != EscalationPhase.PHASE_0,
             "actions": [a.value for a in phase_config.actions],
             "notify_targets": phase_config.notify_targets,
             "priority_boost": phase_config.priority_boost,
         }
+
+        return result
 
     async def escalate(
         self,
