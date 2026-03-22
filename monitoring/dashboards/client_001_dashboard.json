@@ -1,0 +1,71 @@
+{
+  "dashboard": {
+    "title": "Client 001 - Acme E-commerce",
+    "uid": "client_001_dashboard",
+    "tags": ["parwa", "client_001", "ecommerce"],
+    "timezone": "America/New_York",
+    "refresh": "30s"
+  },
+  "panels": [
+    {
+      "title": "Ticket Volume",
+      "type": "graph",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(parwa_tickets_total{client_id=\"client_001\"}[5m]))", "legendFormat": "Tickets/min"}
+      ],
+      "yaxes": [{"format": "short"}]
+    },
+    {
+      "title": "Resolution Time",
+      "type": "graph",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, rate(parwa_resolution_time_seconds_bucket{client_id=\"client_001\"}[5m]))", "legendFormat": "P95"}
+      ],
+      "yaxes": [{"format": "s"}]
+    },
+    {
+      "title": "CSAT Score",
+      "type": "gauge",
+      "gridPos": {"x": 0, "y": 8, "w": 6, "h": 6},
+      "targets": [
+        {"expr": "avg(parwa_csat_score{client_id=\"client_001\"})", "legendFormat": "CSAT"}
+      ],
+      "thresholds": [{"color": "red", "value": 0}, {"color": "yellow", "value": 3}, {"color": "green", "value": 4}],
+      "max": 5
+    },
+    {
+      "title": "Agent Accuracy",
+      "type": "stat",
+      "gridPos": {"x": 6, "y": 8, "w": 6, "h": 6},
+      "targets": [
+        {"expr": "avg(parwa_agent_accuracy{client_id=\"client_001\"}) * 100", "legendFormat": "Accuracy %"}
+      ],
+      "thresholds": [{"color": "red", "value": 0}, {"color": "yellow", "value": 70}, {"color": "green", "value": 80}],
+      "unit": "percent"
+    },
+    {
+      "title": "Escalation Rate",
+      "type": "stat",
+      "gridPos": {"x": 12, "y": 8, "w": 6, "h": 6},
+      "targets": [
+        {"expr": "sum(rate(parwa_escalations_total{client_id=\"client_001\"}[1h])) / sum(rate(parwa_tickets_total{client_id=\"client_001\"}[1h])) * 100", "legendFormat": "Escalation %"}
+      ],
+      "unit": "percent"
+    },
+    {
+      "title": "Paddle Transactions",
+      "type": "graph",
+      "gridPos": {"x": 18, "y": 8, "w": 6, "h": 6},
+      "targets": [
+        {"expr": "sum(rate(paddle_transactions_total{account_id=\"acc_abc123xyz\"}[1h]))", "legendFormat": "Transactions/hour"}
+      ]
+    }
+  ],
+  "annotations": {
+    "list": [
+      {"name": "Deployments", "datasource": "-- Grafana --", "enable": true, "iconColor": "rgba(0, 211, 255, 1)"}
+    ]
+  }
+}
