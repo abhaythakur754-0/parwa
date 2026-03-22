@@ -50,7 +50,7 @@ const JUNIOR_FEATURES: VariantFeature[] = [
  * PARWA Junior variant card component.
  *
  * Medium-tier plan for growing teams with:
- * - $149/month pricing
+ * - $2500/month pricing
  * - Medium tier AI
  * - All channel support including Voice and Video
  * - 5 concurrent voice calls
@@ -78,7 +78,7 @@ export function ParwaJuniorCard({
       title="PARWA Junior"
       tier="Medium"
       tierVariant="secondary"
-      price={149}
+      price={2500}
       targetAudience="Ideal for growing teams that need more power"
       features={JUNIOR_FEATURES}
       isPopular={true}
@@ -99,7 +99,7 @@ export function getParwaJuniorConfig() {
     variantId: "parwa",
     name: "PARWA Junior",
     tier: "Medium",
-    price: 149,
+    price: 2500,
     maxConcurrentCalls: 5,
     refundLimit: 500,
     escalationThreshold: 60,

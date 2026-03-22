@@ -15,8 +15,8 @@ const variants = [
     id: "mini" as const,
     name: "Mini PARWA",
     tier: "Light",
-    price: 49,
-    priceDisplay: "$49/mo",
+    price: 1000,
+    priceDisplay: "$1000/mo",
     description: "Perfect for small businesses getting started with AI support",
     features: [
       "2 concurrent calls",
@@ -36,8 +36,8 @@ const variants = [
     id: "parwa" as const,
     name: "PARWA Junior",
     tier: "Medium",
-    price: 149,
-    priceDisplay: "$149/mo",
+    price: 2500,
+    priceDisplay: "$2500/mo",
     description: "Great for growing teams that need more power",
     features: [
       "5 concurrent calls",
@@ -59,8 +59,8 @@ const variants = [
     id: "parwa_high" as const,
     name: "PARWA High",
     tier: "Heavy",
-    price: 499,
-    priceDisplay: "$499/mo",
+    price: 4000,
+    priceDisplay: "$4000/mo",
     description: "Enterprise-grade support with all features unlocked",
     features: [
       "10 concurrent calls",
