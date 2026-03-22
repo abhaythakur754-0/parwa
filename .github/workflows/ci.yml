@@ -69,19 +69,29 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: parwa_dev
           JWT_SECRET_KEY: fake_jwt
+          # AI Providers
+          GOOGLE_AI_API_KEY: fake
+          CEREBRAS_API_KEY: fake
+          GROQ_API_KEY: fake
           OPENROUTER_API_KEY: fake
           OPENROUTER_BASE_URL: https://openrouter.ai
           AI_LIGHT_MODEL: fake
           AI_MEDIUM_MODEL: fake
           AI_HEAVY_MODEL: fake
           AI_FAILOVER_MODEL: fake
-          STRIPE_SECRET_KEY: fake
-          STRIPE_PUBLISHABLE_KEY: fake
-          STRIPE_WEBHOOK_SECRET: fake
+          # Payment - Paddle ONLY
+          PADDLE_CLIENT_TOKEN: fake
+          PADDLE_API_KEY: fake
+          PADDLE_WEBHOOK_SECRET: fake
+          # Voice - Twilio (placeholder)
           TWILIO_ACCOUNT_SID: fake
           TWILIO_AUTH_TOKEN: fake
           TWILIO_PHONE_NUMBER: fake
+          TWILIO_API_KEY: fake
           TWILIO_VOICE_WEBHOOK_URL: https://fake
+          # Email - Brevo
+          BREVO_API_KEY: fake
+          # Integrations
           SHOPIFY_API_KEY: fake
           SHOPIFY_API_SECRET: fake
           SHOPIFY_WEBHOOK_SECRET: fake
@@ -89,12 +99,11 @@ jobs:
           MCP_AUTH_TOKEN: fake
           QDRANT_URL: https://fake
           QDRANT_API_KEY: fake
-          SENDGRID_API_KEY: fake
           SENTRY_DSN: https://fake
           GRAFANA_API_KEY: fake
           FROM_EMAIL: fake@parwa.ai
           NEXT_PUBLIC_API_URL: https://fake
-          NEXT_PUBLIC_STRIPE_KEY: fake
+          NEXT_PUBLIC_PADDLE_KEY: fake
           FEATURE_FLAGS_PATH: feature_flags
           MODEL_REGISTRY_PATH: models
           COLAB_WEBHOOK_URL: https://fake
@@ -109,19 +118,29 @@ jobs:
           echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/parwa_dev" >> .env
           echo "REDIS_URL=redis://localhost:6379/0" >> .env
           echo "JWT_SECRET_KEY=fake_jwt" >> .env
+          # AI Providers
+          echo "GOOGLE_AI_API_KEY=fake" >> .env
+          echo "CEREBRAS_API_KEY=fake" >> .env
+          echo "GROQ_API_KEY=fake" >> .env
           echo "OPENROUTER_API_KEY=fake" >> .env
           echo "OPENROUTER_BASE_URL=https://openrouter.ai" >> .env
           echo "AI_LIGHT_MODEL=fake" >> .env
           echo "AI_MEDIUM_MODEL=fake" >> .env
           echo "AI_HEAVY_MODEL=fake" >> .env
           echo "AI_FAILOVER_MODEL=fake" >> .env
-          echo "STRIPE_SECRET_KEY=fake" >> .env
-          echo "STRIPE_PUBLISHABLE_KEY=fake" >> .env
-          echo "STRIPE_WEBHOOK_SECRET=fake" >> .env
+          # Payment - Paddle ONLY
+          echo "PADDLE_CLIENT_TOKEN=fake" >> .env
+          echo "PADDLE_API_KEY=fake" >> .env
+          echo "PADDLE_WEBHOOK_SECRET=fake" >> .env
+          # Voice - Twilio (placeholder)
           echo "TWILIO_ACCOUNT_SID=fake" >> .env
           echo "TWILIO_AUTH_TOKEN=fake" >> .env
           echo "TWILIO_PHONE_NUMBER=fake" >> .env
+          echo "TWILIO_API_KEY=fake" >> .env
           echo "TWILIO_VOICE_WEBHOOK_URL=https://fake" >> .env
+          # Email - Brevo
+          echo "BREVO_API_KEY=fake" >> .env
+          # Integrations
           echo "SHOPIFY_API_KEY=fake" >> .env
           echo "SHOPIFY_API_SECRET=fake" >> .env
           echo "SHOPIFY_WEBHOOK_SECRET=fake" >> .env
@@ -129,12 +148,11 @@ jobs:
           echo "MCP_AUTH_TOKEN=fake" >> .env
           echo "QDRANT_URL=https://fake" >> .env
           echo "QDRANT_API_KEY=fake" >> .env
-          echo "SENDGRID_API_KEY=fake" >> .env
           echo "SENTRY_DSN=https://fake" >> .env
           echo "GRAFANA_API_KEY=fake" >> .env
           echo "FROM_EMAIL=fake@parwa.ai" >> .env
           echo "NEXT_PUBLIC_API_URL=https://fake" >> .env
-          echo "NEXT_PUBLIC_STRIPE_KEY=fake" >> .env
+          echo "NEXT_PUBLIC_PADDLE_KEY=fake" >> .env
           echo "FEATURE_FLAGS_PATH=feature_flags" >> .env
           echo "MODEL_REGISTRY_PATH=models" >> .env
           echo "COLAB_WEBHOOK_URL=https://fake" >> .env
@@ -153,19 +171,29 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: parwa_dev
           JWT_SECRET_KEY: fake_jwt
+          # AI Providers
+          GOOGLE_AI_API_KEY: fake
+          CEREBRAS_API_KEY: fake
+          GROQ_API_KEY: fake
           OPENROUTER_API_KEY: fake
           OPENROUTER_BASE_URL: https://openrouter.ai
           AI_LIGHT_MODEL: fake
           AI_MEDIUM_MODEL: fake
           AI_HEAVY_MODEL: fake
           AI_FAILOVER_MODEL: fake
-          STRIPE_SECRET_KEY: fake
-          STRIPE_PUBLISHABLE_KEY: fake
-          STRIPE_WEBHOOK_SECRET: fake
+          # Payment - Paddle ONLY
+          PADDLE_CLIENT_TOKEN: fake
+          PADDLE_API_KEY: fake
+          PADDLE_WEBHOOK_SECRET: fake
+          # Voice - Twilio (placeholder)
           TWILIO_ACCOUNT_SID: fake
           TWILIO_AUTH_TOKEN: fake
           TWILIO_PHONE_NUMBER: fake
+          TWILIO_API_KEY: fake
           TWILIO_VOICE_WEBHOOK_URL: https://fake.parwa.ai
+          # Email - Brevo
+          BREVO_API_KEY: fake
+          # Integrations
           SHOPIFY_API_KEY: fake
           SHOPIFY_API_SECRET: fake
           SHOPIFY_WEBHOOK_SECRET: fake
@@ -173,12 +201,11 @@ jobs:
           MCP_AUTH_TOKEN: fake
           QDRANT_URL: https://fake.parwa.ai
           QDRANT_API_KEY: fake
-          SENDGRID_API_KEY: fake
           SENTRY_DSN: https://fake@sentry.io/1
           GRAFANA_API_KEY: fake
           FROM_EMAIL: fake@parwa.ai
           NEXT_PUBLIC_API_URL: https://fake.parwa.ai
-          NEXT_PUBLIC_STRIPE_KEY: fake
+          NEXT_PUBLIC_PADDLE_KEY: fake
           FEATURE_FLAGS_PATH: feature_flags
           MODEL_REGISTRY_PATH: models
           COLAB_WEBHOOK_URL: https://fake.parwa.ai
