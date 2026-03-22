@@ -144,7 +144,7 @@ class SecretsScanner:
             "by_severity": {k: len(v) for k, v in by_severity.items()},
             "has_secrets": len(self.findings) > 0,
             "critical_count": len(by_severity["critical"]),
-            "findings": [{"file": f.file_path, "type": f.secret_type, "severity": f.severity} for f in self.findings[:20],
+            "findings": [{"file": f.file_path, "type": f.secret_type, "severity": f.severity} for f in self.findings[:20]],
         }
 
     def _get_scanable_files(self) -> List[Path]:
