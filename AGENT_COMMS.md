@@ -772,7 +772,7 @@ pytest tests/integration/test_week15_frontend.py -v
 | Builder 1 | Day 1 | ⏳ PENDING | Next.js + Landing + Primitives (8 files) | - | NO |
 | Builder 2 | Day 2 | ✅ DONE | Common UI + Auth Pages (10 files) | 50+ tests | YES |
 | Builder 3 | Day 3 | ✅ DONE | Variant Cards (23 files) | 20+ tests | YES |
-| Builder 4 | Day 4 | ⏳ PENDING | Zustand Stores + API (7 files) | - | NO |
+| Builder 4 | Day 4 | ✅ DONE | Zustand Stores + API (11 files) | 40+ tests | YES |
 | Builder 5 | Day 5 | ⏳ PENDING | Onboarding Components (7 files) | - | NO |
 | Tester | Day 6 | ⏳ WAITING ALL | npm + pytest validation | - | NO |
 
@@ -928,6 +928,69 @@ Date: 2026-03-22
 - Validation schema tests for all forms
 - Form interaction tests
 - Password strength checker tests
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 4 DONE REPORT (Week 15 Day 4)
+═══════════════════════════════════════════════════════════════════════════════
+Written by: Builder 4 Agent
+Date: 2026-03-22
+
+### Files Built and Pushed:
+1. ✅ `frontend/src/services/api/client.ts` — Base API client with fetch wrapper, interceptors, error handling
+2. ✅ `frontend/src/services/api/auth.ts` — Auth API functions (login, register, logout, forgotPassword)
+3. ✅ `frontend/src/services/api/variants.ts` — Variant API functions (getVariants, selectVariant, pricing)
+4. ✅ `frontend/src/services/api/index.ts` — Export barrel for API functions
+5. ✅ `frontend/src/services/index.ts` — Export barrel for services
+6. ✅ `frontend/src/stores/authStore.ts` — Auth state with Zustand (user, token, isAuthenticated)
+7. ✅ `frontend/src/stores/variantStore.ts` — Variant state (selectedVariant, config)
+8. ✅ `frontend/src/stores/uiStore.ts` — UI state (sidebar, theme, modals, toasts)
+9. ✅ `frontend/src/stores/index.ts` — Export all stores
+10. ✅ `frontend/src/__tests__/api.test.ts` — API client unit tests
+11. ✅ `frontend/src/__tests__/stores.test.ts` — Zustand stores unit tests
+
+### CRITICAL REQUIREMENTS MET:
+- [x] **All Zustand stores initialise correctly**
+- [x] API client works with auth token injection
+- [x] Auth store handles login/register/logout flow
+- [x] Variant store manages variant selection
+- [x] UI store manages sidebar, theme, modals, toasts
+- [x] TypeScript strict mode with full typing
+- [x] Persistence with sessionStorage/localStorage
+
+### API Client Features:
+| Feature | Description |
+|---------|-------------|
+| Base URL | Configurable via environment |
+| Auth Token | Automatic injection in headers |
+| Error Handling | APIError class with status codes |
+| Timeout | Configurable with AbortController |
+| HTTP Methods | GET, POST, PUT, PATCH, DELETE |
+
+### Zustand Stores:
+| Store | State | Persistence |
+|-------|-------|-------------|
+| authStore | user, token, isAuthenticated, isLoading, error | sessionStorage |
+| variantStore | selectedVariant, variantConfig, availableVariants | sessionStorage |
+| uiStore | sidebarOpen, theme, activeModal, toasts | localStorage |
+
+### Store Hooks:
+- `useUser()` — Get current user
+- `useIsAuthenticated()` — Check auth status
+- `useSelectedVariant()` — Get selected variant
+- `useSidebar()` — Sidebar state and actions
+- `useTheme()` — Theme state and actions
+- `useModal()` — Modal state and actions
+- `useToasts()` — Toast notifications
+
+### Test Coverage:
+- 40+ unit tests for API client
+- Tests for all HTTP methods
+- Tests for error handling
+- Tests for auth flow
+- Tests for variant selection
+- Tests for UI state management
 
 ---
 
