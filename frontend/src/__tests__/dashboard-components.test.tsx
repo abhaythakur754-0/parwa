@@ -137,7 +137,9 @@ describe("TicketList", () => {
   it("shows loading state", () => {
     render(<TicketList tickets={[]} isLoading />);
 
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    // Loading state shows skeleton with animate-pulse class
+    const skeleton = document.querySelector(".animate-pulse");
+    expect(skeleton).toBeInTheDocument();
   });
 
   it("shows empty state when no tickets", () => {
@@ -283,7 +285,9 @@ describe("JarvisTerminal", () => {
     fireEvent.change(input, { target: { value: "help" } });
     fireEvent.submit(input.closest("form")!);
 
-    expect(screen.getByText(/available commands/i)).toBeInTheDocument();
+    // Use getAllByText since "available commands" appears in multiple places
+    const elements = screen.getAllByText(/available commands/i);
+    expect(elements.length).toBeGreaterThan(0);
   });
 
   it("disables input while processing", async () => {

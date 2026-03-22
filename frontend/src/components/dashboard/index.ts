@@ -4,6 +4,20 @@
  * Export all dashboard-related components.
  */
 
+// Stats Card
+export { default as StatsCard } from "./StatsCard";
+export type { StatsCardColor } from "./StatsCard";
+
+// Metric Card
+export { default as MetricCard } from "./MetricCard";
+
+// Quick Actions
+export { default as QuickActions } from "./QuickActions";
+
+// Recent Activity
+export { default as RecentActivity } from "./RecentActivity";
+export type { ActivityType, ActivityItem } from "./RecentActivity";
+
 // Ticket List
 export { TicketList } from "./TicketList";
 export type {
@@ -43,7 +57,7 @@ export type {
 export { ActivityFeed } from "./ActivityFeed";
 export type {
   Activity,
-  ActivityType,
+  ActivityType as FeedActivityType,
   ActivityFeedProps,
 } from "./ActivityFeed";
 
