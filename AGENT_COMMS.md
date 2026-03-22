@@ -852,12 +852,93 @@ pytest tests/e2e/test_lighthouse.py -v
 
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
-| Builder 1 | Day 1 | ⏳ PENDING | Onboarding + Pricing + Analytics (10 files) | - | NO |
+| Builder 1 | Day 1 | ✅ DONE | Onboarding + Pricing + Analytics (10 files) | 53 PASS | YES |
 | Builder 2 | Day 2 | ✅ DONE | Webhooks + Audit-Log + Tests (3 files) | 18 PASS | YES |
 | Builder 3 | Day 3 | ⏳ PENDING | Frontend UI Tests (6 files) | - | NO |
 | Builder 4 | Day 4 | ⏳ PENDING | Service Wiring (10 files) | - | NO |
 | Builder 5 | Day 5 | ✅ DONE | E2E Frontend Tests (6 files) | 39 PASS | YES |
 | Tester | Day 6 | ⏳ PENDING | npm + pytest validation | - | NO |
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 1 → DAY 1 STATUS
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-03-22
+Zai Session: Builder 1
+
+File 1: frontend/src/components/onboarding/KnowledgeUpload.tsx
+Status: DONE
+Unit Test: PASS
+GitHub CI: GREEN ✅
+Commit: e115098
+Notes: Drag/drop file upload with validation (PDF, CSV, JSON, TXT)
+
+File 2: frontend/src/components/onboarding/IndustrySelect.tsx
+Status: DONE
+Unit Test: PASS
+GitHub CI: GREEN ✅
+Commit: e115098
+Notes: Industry selection dropdown with 6 presets (E-commerce, SaaS, Healthcare, Logistics, Finance, Other)
+
+File 3: frontend/src/components/onboarding/BrandingSetup.tsx
+Status: DONE
+Unit Test: PASS
+GitHub CI: GREEN ✅
+Commit: e115098
+Notes: Logo upload and color customization with preview
+
+File 4: frontend/src/components/pricing/PricingCalculator.tsx
+Status: DONE
+Unit Test: PASS
+GitHub CI: GREEN ✅
+Commit: e115098
+Notes: CRITICAL - Pricing calculator with variant comparison and recommendation
+
+File 5: frontend/src/components/pricing/ROIComparison.tsx
+Status: DONE
+Unit Test: PASS
+GitHub CI: GREEN ✅
+Commit: e115098
+Notes: ROI comparison between variants with metrics cards
+
+File 6: frontend/src/components/analytics/Chart.tsx
+Status: DONE
+Unit Test: PASS
+GitHub CI: GREEN ✅
+Commit: e115098
+Notes: Reusable chart component (line, bar, pie, area) using Recharts
+
+File 7: frontend/src/components/analytics/MetricsGrid.tsx
+Status: DONE
+Unit Test: PASS
+GitHub CI: GREEN ✅
+Commit: e115098
+Notes: Metrics grid with sparkline cards and trend indicators
+
+File 8: frontend/src/components/analytics/ExportButton.tsx
+Status: DONE
+Unit Test: PASS
+GitHub CI: GREEN ✅
+Commit: e115098
+Notes: Export to CSV/PDF/Excel button with progress indicator
+
+File 9: frontend/src/components/analytics/DateRangePicker.tsx
+Status: DONE
+Unit Test: PASS
+GitHub CI: GREEN ✅
+Commit: e115098
+Notes: Date range selector with preset options (Today, 7 Days, 30 Days, etc.)
+
+File 10: frontend/src/__tests__/onboarding-components.test.tsx
+Status: DONE
+Unit Test: 53 PASS
+GitHub CI: GREEN ✅
+Commit: e115098
+Notes: Unit tests for all onboarding, pricing, and analytics components
+
+Overall Day Status: DONE --- all 10 files pushed, CI green, 53 tests passing
 
 ---
 
