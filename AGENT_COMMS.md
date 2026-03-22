@@ -769,7 +769,7 @@ pytest tests/integration/test_week15_frontend.py -v
 
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
-| Builder 1 | Day 1 | ⏳ PENDING | Next.js + Landing + Primitives (8 files) | - | NO |
+| Builder 1 | Day 1 | ✅ DONE | Next.js + Landing + Primitives (8 files) | npm build passes | YES |
 | Builder 2 | Day 2 | ✅ DONE | Common UI + Auth Pages (10 files) | 50+ tests | YES |
 | Builder 3 | Day 3 | ✅ DONE | Variant Cards (23 files) | 20+ tests | YES |
 | Builder 4 | Day 4 | ✅ DONE | Zustand Stores + API (11 files) | 40+ tests | YES |
