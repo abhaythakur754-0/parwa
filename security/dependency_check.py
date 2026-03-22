@@ -54,7 +54,7 @@ class DependencyChecker:
             "total_issues": len(self.results),
             "by_severity": {k: len(v) for k, v in by_severity.items()},
             "all_resolved": len(self.results) == 0,
-            "results": [{"package": r.package, "severity": r.severity, "vuln_id": r.vulnerability_id} for r in self.results[:20],
+            "results": [{"package": r.package, "severity": r.severity, "vuln_id": r.vulnerability_id} for r in self.results[:20]],
         }
 
     def _check_python_deps(self) -> None:

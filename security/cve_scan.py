@@ -62,7 +62,7 @@ class CVEScanner:
             "critical_count": len(by_severity["critical"]),
             "high_count": len(by_severity["high"]),
             "all_critical_resolved": len(by_severity["critical"]) == 0,
-            "results": [{"cve_id": r.cve_id, "severity": r.severity, "package": r.package} for r in self.results[:20],
+            "results": [{"cve_id": r.cve_id, "severity": r.severity, "package": r.package} for r in self.results[:20]],
         }
 
     def _scan_python_dependencies(self) -> None:
