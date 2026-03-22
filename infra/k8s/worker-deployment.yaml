@@ -1,0 +1,221 @@
+# Worker Deployment: ARQ async task worker
+# 2 replicas with graceful shutdown support
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parwa-worker
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: parwa-platform
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: parwa
+      app.kubernetes.io/component: worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: parwa
+        app.kubernetes.io/component: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: parwa-worker
+      terminationGracePeriodSeconds: 300  # 5 minutes for graceful shutdown
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: worker
+          image: parwa/worker:latest
+          imagePullPolicy: Always
+          args:
+            - "arq"
+            - "worker.WorkerSettings"
+            - "--watch"
+            - "/app"
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: WORKER_CONCURRENCY
+              value: "10"
+            - name: WORKER_TIMEOUT
+              value: "300"
+            - name: GRACEFUL_TIMEOUT
+              value: "280"
+          envFrom:
+            - configMapRef:
+                name: parwa-config
+            - secretRef:
+                name: parwa-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - "/bin/sh"
+                  - "-c"
+                  - "sleep 10 && kill -TERM 1"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: worker-data
+              mountPath: /var/lib/parwa/worker
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: worker-data
+          emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: parwa
+                    app.kubernetes.io/component: worker
+                topologyKey: kubernetes.io/hostname
+      tolerations:
+        - key: "node-role.kubernetes.io/worker"
+          operator: "Exists"
+          effect: "NoSchedule"
+
+---
+# Worker Service (for metrics)
+apiVersion: v1
+kind: Service
+metadata:
+  name: parwa-worker
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: worker
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: worker
+
+---
+# Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: parwa-worker-hpa
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: parwa-worker
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    # Custom metric: queue depth
+    - type: External
+      external:
+        metric:
+          name: redis_queue_length
+          selector:
+            matchLabels:
+              queue: "arq:queue"
+        target:
+          type: AverageValue
+          averageValue: "100"
+
+---
+# Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: parwa-worker-pdb
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: worker
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: parwa
+      app.kubernetes.io/component: worker
+
+---
+# Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: parwa-worker
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: worker
+automountServiceAccountToken: false
