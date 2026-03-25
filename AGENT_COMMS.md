@@ -1,624 +1,665 @@
-# AGENT_COMMS.md — Week 25 Day 1-6
+# AGENT_COMMS.md — Week 26 Day 1-6
 # Last updated: Manager Agent
-# Current status: WEEK 25 TASKS WRITTEN — AWAITING BUILDERS
+# Current status: WEEK 26 TASKS WRITTEN — AWAITING BUILDERS
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 25 PLAN
+## MANAGER → WEEK 26 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
 Date: 2026-03-25
 
 > **Phase: Phase 7 — Scale to 20 Clients (Weeks 21-27)**
 >
-> **Week 25 Goals (Per Roadmap):**
-> - Day 1: Financial Services Config + Compliance Foundation
-> - Day 2: Financial Services Agents
-> - Day 3: Financial Services Tools + Workflows
-> - Day 4: Financial Services Tasks + Integration
-> - Day 5: Financial Services Frontend + Reports
+> **Week 26 Goals (Per Roadmap):**
+> - Day 1: Database Index Optimization
+> - Day 2: Query Optimization + Connection Pooling
+> - Day 3: Redis Cache Deep Optimization
+> - Day 4: API Response Caching + Compression
+> - Day 5: Performance Monitoring + Load Testing
 > - Day 6: Tester runs full validation
 >
 > **CRITICAL RULES:**
 > 1. All 5 days run in PARALLEL — no cross-day dependencies
-> 2. Financial Services Vertical per roadmap
-> 3. Build `variants/financial_services/` module
-> 4. Regulatory compliance (SOX, FINRA, PCI DSS)
-> 5. **Security: Enhanced encryption + audit trails**
-> 6. **Compliance: Financial regulatory requirements**
-> 7. **Audit: Complete transaction logging**
-> 8. **Data Protection: PII/PCI data handling**
+> 2. Performance Deep Optimization per roadmap
+> 3. Target: **P95 < 300ms** at 500 concurrent users
+> 4. Build `shared/utils/*_cache.py`, `database/indexes/`
+> 5. **Database: Optimized indexes on all tables**
+> 6. **Redis: Multi-layer caching strategy**
+> 7. **API: Response caching + compression**
+> 8. **Monitoring: Real-time performance metrics**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — Financial Services Config + Compliance Foundation
+## BUILDER 1 (DAY 1) — Database Index Optimization
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/financial_services/__init__.py`
-2. `variants/financial_services/config.py`
-3. `variants/financial_services/compliance/__init__.py`
-4. `variants/financial_services/compliance/sox_compliance.py`
-5. `variants/financial_services/compliance/finra_rules.py`
-6. `tests/unit/test_financial_config.py`
+1. `database/indexes/__init__.py`
+2. `database/indexes/ticket_indexes.sql`
+3. `database/indexes/client_indexes.sql`
+4. `database/indexes/interaction_indexes.sql`
+5. `database/indexes/audit_indexes.sql`
+6. `tests/performance/test_index_performance.py`
 
 ### Field 2: What is each file?
-1. `variants/financial_services/__init__.py` — Module init
-2. `variants/financial_services/config.py` — Financial services configuration
-3. `variants/financial_services/compliance/__init__.py` — Compliance module init
-4. `variants/financial_services/compliance/sox_compliance.py` — SOX compliance rules
-5. `variants/financial_services/compliance/finra_rules.py` — FINRA regulatory rules
-6. `tests/unit/test_financial_config.py` — Config tests
+1. `database/indexes/__init__.py` — Index module init
+2. `database/indexes/ticket_indexes.sql` — Ticket table indexes
+3. `database/indexes/client_indexes.sql` — Client table indexes
+4. `database/indexes/interaction_indexes.sql` — Interaction table indexes
+5. `database/indexes/audit_indexes.sql` — Audit table indexes
+6. `tests/performance/test_index_performance.py` — Index performance tests
 
 ### Field 3: Responsibilities
 
-**variants/financial_services/config.py:**
-- Financial services config with:
-  - Higher refund limits ($500 for financial)
-  - Stricter approval thresholds (>$100 requires approval)
-  - Enhanced audit logging enabled
-  - Encryption at rest required
-  - Session timeout: 15 minutes (financial regulation)
-  - Max concurrent sessions: 1 per user
-  - Data retention: 7 years (regulatory requirement)
-  - **Test: Config loads with financial settings**
+**database/indexes/ticket_indexes.sql:**
+- Ticket indexes with:
+  - Index on `client_id` for tenant isolation
+  - Index on `status` for queue filtering
+  - Index on `created_at` for time-based queries
+  - Composite index on `(client_id, status, created_at)`
+  - Index on `priority` for sorting
+  - **Test: Query plans use indexes**
 
-**variants/financial_services/compliance/sox_compliance.py:**
-- SOX compliance with:
-  - Sarbanes-Oxley Act compliance checks
-  - Internal control documentation
-  - Audit trail requirements
-  - Segregation of duties checks
-  - Financial reporting accuracy
-  - **Test: SOX compliance validates**
+**database/indexes/client_indexes.sql:**
+- Client indexes with:
+  - Index on `client_id` (primary)
+  - Index on `industry` for filtering
+  - Index on `variant_type` for variant queries
+  - Index on `status` for active clients
+  - Index on `created_at` for analytics
+  - **Test: Client queries optimized**
 
-**variants/financial_services/compliance/finra_rules.py:**
-- FINRA rules with:
-  - FINRA Rule 3110 (supervision)
-  - FINRA Rule 4511 (books and records)
-  - Communication retention requirements
-  - Customer complaint handling
-  - Suitability determinations
-  - **Test: FINRA rules enforced**
+**database/indexes/interaction_indexes.sql:**
+- Interaction indexes with:
+  - Index on `ticket_id` for ticket lookups
+  - Index on `client_id` for tenant isolation
+  - Index on `agent_type` for agent filtering
+  - Composite index on `(ticket_id, created_at)`
+  - Index on `interaction_type` for type filtering
+  - **Test: Interaction queries fast**
 
-**tests/unit/test_financial_config.py:**
-- Config tests with:
-  - Test: Financial config loads correctly
-  - Test: Higher limits enforced
-  - Test: Compliance settings correct
-  - **CRITICAL: Config validates for financial vertical**
+**database/indexes/audit_indexes.sql:**
+- Audit indexes with:
+  - Index on `client_id` for tenant isolation
+  - Index on `user_id` for user audits
+  - Index on `action_type` for action filtering
+  - Index on `created_at` for time queries
+  - Composite index on `(client_id, created_at)`
+  - **Test: Audit queries optimized**
+
+**tests/performance/test_index_performance.py:**
+- Index tests with:
+  - Test: EXPLAIN ANALYZE shows index usage
+  - Test: Query time < 10ms for indexed queries
+  - Test: No sequential scans on large tables
+  - **CRITICAL: All queries use indexes**
 
 ### Field 4: Depends On
-- Week 9-11 variant infrastructure
-- Compliance layer (Week 7)
+- Database schema (Week 2)
+- Existing tables with data
 
 ### Field 5: Expected Output
-- Financial services config operational
-- SOX/FINRA compliance foundation
+- All tables have optimized indexes
+- Query plans show index usage
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Financial services client configures with regulatory settings
+- Database queries complete in <10ms with indexes
 
 ### Field 8: Error Handling
-- Missing config fallbacks
-- Compliance violation alerts
+- Index creation failure handling
+- Duplicate index prevention
 
 ### Field 9: Security Requirements
-- Enhanced encryption required
-- Audit logging enabled
+- No sensitive data in indexes
+- Index-only scans where possible
 
 ### Field 10: Integration Points
-- Client management system
-- Compliance services
-- Audit trail system
+- Database layer
+- Query optimizer
+- Monitoring system
 
 ### Field 11: Code Quality
-- Typed configuration
-- Regulatory requirement comments
+- Index naming conventions
+- Documentation for each index
 
 ### Field 12: GitHub CI Requirements
-- Config tests pass
-- Compliance validation
+- Index tests pass
+- Query plans verified
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Financial config loads with regulatory settings**
-- **CRITICAL: SOX compliance validates**
-- **CRITICAL: FINRA rules enforced**
+- **CRITICAL: All indexes created**
+- **CRITICAL: Query plans show index usage**
+- **CRITICAL: Queries < 10ms**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — Financial Services Agents
+## BUILDER 2 (DAY 2) — Query Optimization + Connection Pooling
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/financial_services/agents/__init__.py`
-2. `variants/financial_services/agents/account_inquiry_agent.py`
-3. `variants/financial_services/agents/transaction_agent.py`
-4. `variants/financial_services/agents/compliance_agent.py`
-5. `variants/financial_services/agents/fraud_detection_agent.py`
-6. `tests/unit/test_financial_agents.py`
+1. `shared/utils/query_optimizer.py`
+2. `shared/utils/connection_pool.py`
+3. `shared/utils/query_analyzer.py`
+4. `backend/core/db_optimizations.py`
+5. `database/migrations/versions/009_performance.py`
+6. `tests/performance/test_query_optimization.py`
 
 ### Field 2: What is each file?
-1. `variants/financial_services/agents/__init__.py` — Agents module init
-2. `variants/financial_services/agents/account_inquiry_agent.py` — Account inquiry handling
-3. `variants/financial_services/agents/transaction_agent.py` — Transaction processing
-4. `variants/financial_services/agents/compliance_agent.py` — Compliance enforcement
-5. `variants/financial_services/agents/fraud_detection_agent.py` — Fraud detection
-6. `tests/unit/test_financial_agents.py` — Agent tests
+1. `shared/utils/query_optimizer.py` — Query optimization utilities
+2. `shared/utils/connection_pool.py` — Connection pool management
+3. `shared/utils/query_analyzer.py` — Query analysis tools
+4. `backend/core/db_optimizations.py` — DB optimization settings
+5. `database/migrations/versions/009_performance.py` — Performance migration
+6. `tests/performance/test_query_optimization.py` — Query optimization tests
 
 ### Field 3: Responsibilities
 
-**variants/financial_services/agents/account_inquiry_agent.py:**
-- Account inquiry agent with:
-  - Balance inquiries (limited info for security)
-  - Account status checks
-  - Statement requests
-  - Account verification
-  - PII masking in responses
-  - **Test: Agent handles account inquiries safely**
+**shared/utils/query_optimizer.py:**
+- Query optimizer with:
+  - N+1 query detection
+  - Automatic eager loading hints
+  - Query batching utilities
+  - SELECT optimization (only needed columns)
+  - JOIN optimization
+  - **Test: N+1 queries detected**
 
-**variants/financial_services/agents/transaction_agent.py:**
-- Transaction agent with:
-  - Transaction status inquiries
-  - Transaction history (limited)
-  - Payment status checks
-  - Transfer status inquiries
-  - NO transaction initiation (security)
-  - **Test: Agent handles transaction inquiries**
+**shared/utils/connection_pool.py:**
+- Connection pool with:
+  - Async connection pool (asyncpg)
+  - Pool size: 20 connections
+  - Max overflow: 10 connections
+  - Connection health checks
+  - Pool metrics monitoring
+  - **Test: Pool handles 500 concurrent**
 
-**variants/financial_services/agents/compliance_agent.py:**
-- Compliance agent with:
-  - Real-time compliance monitoring
-  - Regulatory requirement checks
-  - Suspicious activity flagging
-  - Audit trail generation
-  - Compliance violation alerts
-  - **Test: Compliance agent monitors correctly**
+**shared/utils/query_analyzer.py:**
+- Query analyzer with:
+  - Slow query detection (>100ms)
+  - Query plan analysis
+  - Index usage reporting
+  - Query recommendations
+  - Performance logging
+  - **Test: Slow queries detected**
 
-**variants/financial_services/agents/fraud_detection_agent.py:**
-- Fraud detection agent with:
-  - Transaction pattern analysis
-  - Anomaly detection
-  - Risk scoring
-  - Suspicious behavior flagging
-  - Alert generation
-  - **Test: Fraud detection works**
+**backend/core/db_optimizations.py:**
+- DB optimizations with:
+  - Statement timeout: 30 seconds
+  - Lock timeout: 5 seconds
+  - Idle transaction timeout: 60 seconds
+  - Prepared statement cache
+  - Read replica routing (ready)
+  - **Test: Optimizations applied**
 
-**tests/unit/test_financial_agents.py:**
-- Agent tests with:
-  - Test: All 4 agents initialize
-  - Test: Account inquiry handles requests
-  - Test: Transaction inquiry works
-  - Test: Compliance monitoring active
-  - Test: Fraud detection flags issues
-  - **CRITICAL: All agents work with financial config**
+**database/migrations/versions/009_performance.py:**
+- Performance migration with:
+  - VACUUM ANALYZE all tables
+  - Statistics update
+  - Index rebuild for fragmented indexes
+  - Table bloat cleanup
+  - **Test: Migration runs successfully**
+
+**tests/performance/test_query_optimization.py:**
+- Query tests with:
+  - Test: Connection pool works
+  - Test: N+1 queries detected
+  - Test: Slow queries logged
+  - Test: Query plans optimized
+  - **CRITICAL: All optimizations work**
 
 ### Field 4: Depends On
-- Financial services config (Day 1)
-- Base agents (Week 9)
+- Database indexes (Day 1)
+- Connection infrastructure
 
 ### Field 5: Expected Output
-- All 4 financial agents operational
-- Compliance and fraud detection active
+- Optimized query execution
+- Connection pooling operational
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Financial client ticket handled by specialized agents
+- Database handles 500 concurrent connections efficiently
 
 ### Field 8: Error Handling
-- PII protection on errors
-- Compliance violation handling
+- Connection failure handling
+- Query timeout handling
 
 ### Field 9: Security Requirements
-- PII masking enforced
-- No sensitive data in logs
+- Connection encryption
+- Pool access controls
 
 ### Field 10: Integration Points
-- Financial services config
-- Compliance system
-- Audit trail
+- Database layer
+- Redis cache
+- Monitoring system
 
 ### Field 11: Code Quality
-- Secure coding practices
-- Financial domain terminology
+- Async/await patterns
+- Connection cleanup
 
 ### Field 12: GitHub CI Requirements
-- All agent tests pass
-- No sensitive data exposure
+- Pool tests pass
+- Query tests pass
 
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: All 4 agents initialize**
-- **CRITICAL: Fraud detection works**
-- **CRITICAL: Compliance agent monitors**
+- **CRITICAL: Connection pool handles 500 concurrent**
+- **CRITICAL: N+1 queries detected**
+- **CRITICAL: Slow queries logged**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — Financial Services Tools + Workflows
+## BUILDER 3 (DAY 3) — Redis Cache Deep Optimization
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/financial_services/tools/__init__.py`
-2. `variants/financial_services/tools/account_tools.py`
-3. `variants/financial_services/tools/transaction_tools.py`
-4. `variants/financial_services/workflows/__init__.py`
-5. `variants/financial_services/workflows/compliance_workflow.py`
-6. `tests/unit/test_financial_tools.py`
+1. `shared/utils/response_cache.py`
+2. `shared/utils/query_cache.py`
+3. `shared/utils/session_cache.py`
+4. `shared/utils/cache_invalidator.py`
+5. `shared/utils/cache_metrics.py`
+6. `tests/performance/test_cache_performance.py`
 
 ### Field 2: What is each file?
-1. `variants/financial_services/tools/__init__.py` — Tools module init
-2. `variants/financial_services/tools/account_tools.py` — Account inquiry tools
-3. `variants/financial_services/tools/transaction_tools.py` — Transaction tools
-4. `variants/financial_services/workflows/__init__.py` — Workflows module init
-5. `variants/financial_services/workflows/compliance_workflow.py` — Compliance workflow
-6. `tests/unit/test_financial_tools.py` — Tools tests
+1. `shared/utils/response_cache.py` — API response caching
+2. `shared/utils/query_cache.py` — Database query caching
+3. `shared/utils/session_cache.py` — Session caching
+4. `shared/utils/cache_invalidator.py` — Cache invalidation logic
+5. `shared/utils/cache_metrics.py` — Cache metrics collection
+6. `tests/performance/test_cache_performance.py` — Cache performance tests
 
 ### Field 3: Responsibilities
 
-**variants/financial_services/tools/account_tools.py:**
-- Account tools with:
-  - get_account_summary() — Limited info, PII masked
-  - verify_account_status() — Account status check
-  - request_statement() — Statement request tool
-  - check_account_eligibility() — Eligibility verification
-  - All tools with audit logging
-  - **Test: Tools execute with audit trail**
+**shared/utils/response_cache.py:**
+- Response cache with:
+  - Cache API responses by endpoint + params
+  - TTL: 60 seconds for dynamic, 300 for static
+  - Cache keys with client_id for isolation
+  - Stale-while-revalidate pattern
+  - Bypass for non-GET requests
+  - **Test: Response cache hit >80%**
 
-**variants/financial_services/tools/transaction_tools.py:**
-- Transaction tools with:
-  - get_transaction_status() — Status inquiry only
-  - search_transactions() — Limited search
-  - verify_payment() — Payment verification
-  - get_transfer_status() — Transfer status check
-  - NO initiation tools (security)
-  - **Test: Transaction tools work safely**
+**shared/utils/query_cache.py:**
+- Query cache with:
+  - Cache frequent query results
+  - TTL: 30 seconds for real-time data
+  - TTL: 300 seconds for reference data
+  - Automatic invalidation on writes
+  - Cache warming on startup
+  - **Test: Query cache hit >70%**
 
-**variants/financial_services/workflows/compliance_workflow.py:**
-- Compliance workflow with:
-  - Pre-action compliance check
-  - Real-time monitoring during action
-  - Post-action compliance verification
-  - Automatic logging and audit
-  - Violation escalation
-  - **Test: Compliance workflow runs**
+**shared/utils/session_cache.py:**
+- Session cache with:
+  - User session caching
+  - Session TTL: 15 minutes (financial: 15 min)
+  - Session data compression
+  - Multi-device session support
+  - Session cleanup on logout
+  - **Test: Session cache works**
 
-**tests/unit/test_financial_tools.py:**
-- Tools tests with:
-  - Test: Account tools execute with audit
-  - Test: Transaction tools work safely
-  - Test: Compliance workflow monitors
-  - Test: All tools log to audit trail
-  - **CRITICAL: All tools have audit logging**
+**shared/utils/cache_invalidator.py:**
+- Cache invalidator with:
+  - Smart invalidation on data changes
+  - Pattern-based invalidation
+  - Tag-based invalidation
+  - Cascade invalidation for related keys
+  - Distributed invalidation (pub/sub)
+  - **Test: Invalidation works correctly**
+
+**shared/utils/cache_metrics.py:**
+- Cache metrics with:
+  - Hit rate tracking
+  - Miss rate tracking
+  - Latency tracking
+  - Memory usage monitoring
+  - Eviction tracking
+  - Prometheus export
+  - **Test: Metrics collected**
+
+**tests/performance/test_cache_performance.py:**
+- Cache tests with:
+  - Test: Response cache hit rate >80%
+  - Test: Query cache hit rate >70%
+  - Test: Cache invalidation works
+  - Test: Cache latency <1ms
+  - **CRITICAL: Cache hit rate >75% overall**
 
 ### Field 4: Depends On
-- Financial agents (Day 2)
-- Audit trail system (Week 1)
+- Redis infrastructure (Week 1)
+- Cache.py base module
 
 ### Field 5: Expected Output
-- Financial tools operational
-- Compliance workflow active
-- Audit logging enabled
+- Multi-layer caching operational
+- Cache hit rate >75%
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Financial tools execute with full audit trail
+- API responses served from cache in <5ms
 
 ### Field 8: Error Handling
-- Tool failure logging
-- Compliance violation handling
+- Cache miss handling
+- Redis failure fallback
 
 ### Field 9: Security Requirements
-- All tool calls logged
-- PII protection enforced
+- Cache key isolation by client
+- Sensitive data not cached
 
 ### Field 10: Integration Points
-- Financial agents
-- Audit trail system
-- Compliance services
+- Redis server
+- API layer
+- Database layer
 
 ### Field 11: Code Quality
-- Comprehensive logging
-- Error documentation
+- Cache key conventions
+- TTL documentation
 
 ### Field 12: GitHub CI Requirements
-- All tools tests pass
-- Audit trail verified
+- Cache tests pass
+- Hit rate verified
 
 ### Field 13: Pass Criteria
 Builder 3 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: All tools execute with audit logging**
-- **CRITICAL: Compliance workflow runs**
+- **CRITICAL: Cache hit rate >75%**
+- **CRITICAL: Cache latency <1ms**
+- **CRITICAL: Invalidation works**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — Financial Services Tasks + Integration
+## BUILDER 4 (DAY 4) — API Response Caching + Compression
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/financial_services/tasks/__init__.py`
-2. `variants/financial_services/tasks/handle_inquiry.py`
-3. `variants/financial_services/tasks/process_complaint.py`
-4. `variants/financial_services/tasks/fraud_alert.py`
-5. `database/migrations/versions/008_financial_services.py`
-6. `tests/integration/test_financial_integration.py`
+1. `backend/middleware/cache_middleware.py`
+2. `backend/middleware/compression_middleware.py`
+3. `backend/middleware/rate_limit_middleware.py`
+4. `backend/api/cacheable_endpoints.py`
+5. `backend/core/response_optimizer.py`
+6. `tests/performance/test_api_performance.py`
 
 ### Field 2: What is each file?
-1. `variants/financial_services/tasks/__init__.py` — Tasks module init
-2. `variants/financial_services/tasks/handle_inquiry.py` — Handle financial inquiry
-3. `variants/financial_services/tasks/process_complaint.py` — Process complaint task
-4. `variants/financial_services/tasks/fraud_alert.py` — Fraud alert task
-5. `database/migrations/versions/008_financial_services.py` — DB migration
-6. `tests/integration/test_financial_integration.py` — Integration tests
+1. `backend/middleware/cache_middleware.py` — API cache middleware
+2. `backend/middleware/compression_middleware.py` — Response compression
+3. `backend/middleware/rate_limit_middleware.py` — Rate limiting
+4. `backend/api/cacheable_endpoints.py` — Cacheable endpoint registry
+5. `backend/core/response_optimizer.py` — Response optimization
+6. `tests/performance/test_api_performance.py` — API performance tests
 
 ### Field 3: Responsibilities
 
-**variants/financial_services/tasks/handle_inquiry.py:**
-- Handle inquiry task with:
-  - Route to appropriate agent
-  - Execute with compliance checks
-  - Generate audit trail
-  - Mask PII in response
-  - Escalate if needed
-  - **Test: Inquiry handled with full audit**
+**backend/middleware/cache_middleware.py:**
+- Cache middleware with:
+  - Intercept GET requests
+  - Check Redis cache first
+  - Cache successful responses (200 only)
+  - Set Cache-Control headers
+  - ETag support for conditional requests
+  - **Test: Middleware caches correctly**
 
-**variants/financial_services/tasks/process_complaint.py:**
-- Process complaint task with:
-  - FINRA-compliant complaint handling
-  - Timeline tracking (FINRA rules)
-  - Documentation requirements
-  - Escalation to compliance
-  - Customer notification
-  - **Test: Complaint processed per FINRA**
+**backend/middleware/compression_middleware.py:**
+- Compression middleware with:
+  - Gzip compression for responses >1KB
+  - Brotli compression for supported clients
+  - Compression level: 4 (balance)
+  - Skip compression for already compressed
+  - Content-Type filtering
+  - **Test: Compression reduces size >60%**
 
-**variants/financial_services/tasks/fraud_alert.py:**
-- Fraud alert task with:
-  - Alert generation
-  - Priority classification
-  - Automatic escalation
-  - Notification to compliance team
-  - Audit trail generation
-  - **Test: Fraud alert triggers correctly**
+**backend/middleware/rate_limit_middleware.py:**
+- Rate limit middleware with:
+  - Token bucket algorithm
+  - Rate: 100 requests/minute per client
+  - Burst: 20 requests
+  - Rate limit headers in response
+  - 429 response with retry-after
+  - **Test: Rate limiting works**
 
-**database/migrations/versions/008_financial_services.py:**
-- DB migration with:
-  - Financial audit trail tables
-  - Compliance record tables
-  - Fraud alert tables
-  - Complaint tracking tables
-  - Enhanced logging tables
-  - **Test: Migration runs successfully**
+**backend/api/cacheable_endpoints.py:**
+- Cacheable endpoints with:
+  - Registry of cacheable endpoints
+  - Per-endpoint TTL configuration
+  - Cache key generation rules
+  - Invalidation triggers
+  - Cache bypass rules
+  - **Test: Registry works**
 
-**tests/integration/test_financial_integration.py:**
-- Integration tests with:
-  - Test: Full inquiry flow works
-  - Test: Complaint processing complete
-  - Test: Fraud alert flow works
-  - Test: All financial data isolated
-  - **CRITICAL: Full financial vertical integrates**
+**backend/core/response_optimizer.py:**
+- Response optimizer with:
+  - JSON response minification
+  - Null field stripping
+  - Response size logging
+  - Large response pagination
+  - Field selection support
+  - **Test: Response size optimized**
+
+**tests/performance/test_api_performance.py:**
+- API tests with:
+  - Test: Cache middleware works
+  - Test: Compression reduces size
+  - Test: Rate limiting enforced
+  - Test: Response time <300ms P95
+  - **CRITICAL: P95 <300ms at 500 users**
 
 ### Field 4: Depends On
-- Financial tools (Day 3)
-- Database migrations (Week 2)
+- Cache utilities (Day 3)
+- FastAPI middleware
 
 ### Field 5: Expected Output
-- All financial tasks operational
-- DB migration complete
-- Integration validated
+- Optimized API responses
+- Compression enabled
+- Rate limiting active
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Financial client ticket processed end-to-end
+- API responses compressed and cached
 
 ### Field 8: Error Handling
-- Task failure handling
-- Compliance violation escalation
+- Compression failure handling
+- Rate limit graceful degradation
 
 ### Field 9: Security Requirements
-- Full audit trail on all tasks
-- PII protection enforced
+- Rate limiting prevents abuse
+- No sensitive data in cache keys
 
 ### Field 10: Integration Points
-- All financial services components
-- Audit system
-- Compliance services
+- FastAPI app
+- Redis cache
+- Monitoring
 
 ### Field 11: Code Quality
-- Task documentation
-- Error handling coverage
+- Middleware order documented
+- Performance impact logged
 
 ### Field 12: GitHub CI Requirements
-- All task tests pass
-- DB migration succeeds
-- Integration tests pass
+- Middleware tests pass
+- Performance tests pass
 
 ### Field 13: Pass Criteria
 Builder 4 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: All tasks work with audit trail**
-- **CRITICAL: DB migration runs**
-- **CRITICAL: Integration tests pass**
+- **CRITICAL: Compression >60% size reduction**
+- **CRITICAL: Rate limiting works**
+- **CRITICAL: Cache middleware active**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — Financial Services Frontend + Reports
+## BUILDER 5 (DAY 5) — Performance Monitoring + Load Testing
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `frontend/src/app/dashboard/financial/page.tsx`
-2. `frontend/src/components/financial/CompliancePanel.tsx`
-3. `frontend/src/components/financial/FraudAlertsPanel.tsx`
-4. `reports/financial_services_compliance.md`
-5. `monitoring/dashboards/financial_services.json`
-6. `tests/e2e/test_financial_e2e.py`
+1. `tests/performance/locustfile.py`
+2. `tests/performance/test_load_500_users.py`
+3. `monitoring/dashboards/performance_dashboard.json`
+4. `monitoring/alerts/performance_alerts.yml`
+5. `reports/performance_week26.md`
+6. `tests/performance/test_p95_latency.py`
 
 ### Field 2: What is each file?
-1. `frontend/src/app/dashboard/financial/page.tsx` — Financial dashboard page
-2. `frontend/src/components/financial/CompliancePanel.tsx` — Compliance panel component
-3. `frontend/src/components/financial/FraudAlertsPanel.tsx` — Fraud alerts panel
-4. `reports/financial_services_compliance.md` — Compliance report template
-5. `monitoring/dashboards/financial_services.json` — Grafana dashboard
-6. `tests/e2e/test_financial_e2e.py` — E2E tests
+1. `tests/performance/locustfile.py` — Locust load test file
+2. `tests/performance/test_load_500_users.py` — 500 user load test
+3. `monitoring/dashboards/performance_dashboard.json` — Performance Grafana dashboard
+4. `monitoring/alerts/performance_alerts.yml` — Performance alert rules
+5. `reports/performance_week26.md` — Performance report
+6. `tests/performance/test_p95_latency.py` — P95 latency test
 
 ### Field 3: Responsibilities
 
-**frontend/src/app/dashboard/financial/page.tsx:**
-- Financial dashboard with:
-  - Compliance status overview
-  - Active fraud alerts
-  - Recent transactions (limited view)
-  - Audit trail viewer
-  - Regulatory reports access
-  - **Test: Dashboard renders with data**
+**tests/performance/locustfile.py:**
+- Locust file with:
+  - User behavior simulation
+  - Ticket creation flow
+  - Ticket listing flow
+  - Dashboard load flow
+  - Agent response flow
+  - Spawn rate: 10 users/second
+  - **Test: Locust runs successfully**
 
-**frontend/src/components/financial/CompliancePanel.tsx:**
-- Compliance panel with:
-  - Real-time compliance status
-  - Violation count
-  - Recent compliance events
-  - Audit trail access
-  - Compliance report generation
-  - **Test: Panel shows compliance data**
+**tests/performance/test_load_500_users.py:**
+- Load test with:
+  - 500 concurrent users
+  - 5-minute sustained load
+  - All critical endpoints tested
+  - P95 latency measurement
+  - Error rate tracking
+  - **Test: P95 <300ms at 500 users**
 
-**frontend/src/components/financial/FraudAlertsPanel.tsx:**
-- Fraud alerts panel with:
-  - Active alerts list
-  - Alert severity indicators
-  - Quick actions (escalate, resolve)
-  - Alert history
-  - Notification settings
-  - **Test: Panel shows fraud alerts**
-
-**reports/financial_services_compliance.md:**
-- Compliance report with:
-  - SOX compliance summary
-  - FINRA compliance status
-  - Audit trail summary
-  - Violation count
-  - Remediation status
-  - **Content: Report template**
-
-**monitoring/dashboards/financial_services.json:**
-- Grafana dashboard with:
-  - Compliance metrics
-  - Fraud detection metrics
-  - Transaction volume
-  - Audit trail activity
-  - Alert frequency
+**monitoring/dashboards/performance_dashboard.json:**
+- Performance dashboard with:
+  - P50/P95/P99 latency graphs
+  - Request rate graph
+  - Error rate graph
+  - Cache hit rate panel
+  - Database connection pool panel
   - **Test: Dashboard loads**
 
-**tests/e2e/test_financial_e2e.py:**
-- E2E tests with:
-  - Test: Financial inquiry end-to-end
-  - Test: Complaint processing flow
-  - Test: Fraud alert handling
-  - Test: Compliance dashboard access
-  - **CRITICAL: E2E financial flow works**
+**monitoring/alerts/performance_alerts.yml:**
+- Performance alerts with:
+  - Alert: P95 > 300ms for 2 minutes
+  - Alert: Error rate > 1%
+  - Alert: Cache hit rate < 70%
+  - Alert: DB connections > 80% pool
+  - Alert: Response size > 1MB average
+  - **Test: Alerts trigger correctly**
+
+**reports/performance_week26.md:**
+- Performance report with:
+  - Baseline metrics (before optimization)
+  - Current metrics (after optimization)
+  - P95 latency comparison
+  - Cache hit rate
+  - Database query performance
+  - Recommendations
+  - **Content: Performance report**
+
+**tests/performance/test_p95_latency.py:**
+- P95 test with:
+  - Measure P95 latency
+  - Test at 100, 200, 500 users
+  - Compare against target (<300ms)
+  - Generate latency distribution
+  - **CRITICAL: P95 <300ms verified**
 
 ### Field 4: Depends On
-- Financial tasks (Day 4)
-- Frontend infrastructure (Week 15-18)
+- All Week 26 optimizations
+- Monitoring infrastructure
 
 ### Field 5: Expected Output
-- Financial frontend operational
-- Reports generated
-- Monitoring dashboard ready
+- Load tests operational
+- Performance monitoring active
+- P95 <300ms verified
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Manager views financial services dashboard
+- System handles 500 concurrent users with P95 <300ms
 
 ### Field 8: Error Handling
-- Frontend error boundaries
-- Data loading fallbacks
+- Load test failure handling
+- Alert false positive tuning
 
 ### Field 9: Security Requirements
-- Secure dashboard access
-- PII masking in frontend
+- Test data isolation
+- No production data in tests
 
 ### Field 10: Integration Points
-- Financial backend services
-- Monitoring stack
-- Report generation
+- Prometheus
+- Grafana
+- Alert manager
 
 ### Field 11: Code Quality
-- Component documentation
-- Accessibility compliance
+- Load test documentation
+- Alert tuning notes
 
 ### Field 12: GitHub CI Requirements
-- Frontend builds successfully
-- E2E tests pass
-- Dashboard loads
+- Load tests run (optional in CI)
+- Performance dashboard loads
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Financial dashboard renders**
-- **CRITICAL: E2E tests pass**
-- **CRITICAL: Monitoring dashboard loads**
+- **CRITICAL: P95 <300ms at 500 users VERIFIED**
+- **CRITICAL: Load tests pass**
+- **CRITICAL: Performance alerts active**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 25 INSTRUCTIONS (DAY 6)
+## TESTER → WEEK 26 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
 
 ### Test Commands
 
-#### 1. Config + Compliance Tests
+#### 1. Index Performance Tests
 ```bash
-pytest tests/unit/test_financial_config.py -v
+pytest tests/performance/test_index_performance.py -v
 ```
 
-#### 2. Agent Tests
+#### 2. Query Optimization Tests
 ```bash
-pytest tests/unit/test_financial_agents.py -v
+pytest tests/performance/test_query_optimization.py -v
 ```
 
-#### 3. Tools + Workflows Tests
+#### 3. Cache Performance Tests
 ```bash
-pytest tests/unit/test_financial_tools.py -v
+pytest tests/performance/test_cache_performance.py -v
 ```
 
-#### 4. Integration Tests
+#### 4. API Performance Tests
 ```bash
-pytest tests/integration/test_financial_integration.py -v
+pytest tests/performance/test_api_performance.py -v
 ```
 
-#### 5. E2E Tests
+#### 5. P95 Latency Test
 ```bash
-pytest tests/e2e/test_financial_e2e.py -v
+pytest tests/performance/test_p95_latency.py -v
 ```
 
-#### 6. DB Migration Test
+#### 6. Load Test (500 Users)
 ```bash
-alembic upgrade head
-pytest tests/integration/test_financial_integration.py -v
+locust -f tests/performance/locustfile.py -u 500 -r 10 -t 5m --headless
 ```
 
 ---
@@ -627,35 +668,35 @@ pytest tests/integration/test_financial_integration.py -v
 
 | # | Test | Expected |
 |---|------|----------|
-| 1 | Financial config loads | Correct regulatory settings |
-| 2 | SOX compliance | Validates correctly |
-| 3 | FINRA rules | Enforced |
-| 4 | All 4 agents initialize | Agents work |
-| 5 | Fraud detection | Flags issues |
-| 6 | Audit trail | Logs all actions |
-| 7 | Tools execute | With audit logging |
-| 8 | Compliance workflow | Monitors correctly |
-| 9 | Tasks work | With full audit |
-| 10 | DB migration | Runs successfully |
-| 11 | Frontend dashboard | Renders |
-| 12 | E2E flow | Complete financial flow |
+| 1 | Database indexes | All queries use indexes |
+| 2 | Query time | <10ms for indexed queries |
+| 3 | Connection pool | Handles 500 concurrent |
+| 4 | N+1 detection | Detects N+1 queries |
+| 5 | Cache hit rate | >75% overall |
+| 6 | Cache latency | <1ms |
+| 7 | Compression | >60% size reduction |
+| 8 | Rate limiting | Works correctly |
+| 9 | P95 latency | <300ms at 500 users |
+| 10 | Error rate | <1% under load |
+| 11 | Performance alerts | Trigger correctly |
+| 12 | Dashboard | Loads in Grafana |
 
 ---
 
-### Week 25 PASS Criteria
+### Week 26 PASS Criteria
 
-1. ✅ Financial Services Config: Loads with regulatory settings
-2. ✅ SOX Compliance: Validates correctly
-3. ✅ FINRA Rules: Enforced
-4. ✅ All 4 Financial Agents: Initialize and work
-5. ✅ Fraud Detection: Active and flagging
-6. ✅ Audit Trail: Logging all actions
-7. ✅ Financial Tools: Execute with audit
-8. ✅ Compliance Workflow: Monitoring
-9. ✅ Financial Tasks: Complete with audit
-10. ✅ DB Migration 008: Runs successfully
-11. ✅ Financial Dashboard: Renders
-12. ✅ E2E Tests: Pass
+1. ✅ Database Indexes: All queries use indexes
+2. ✅ Query Time: <10ms for indexed queries
+3. ✅ Connection Pool: Handles 500 concurrent
+4. ✅ Cache Hit Rate: >75% overall
+5. ✅ Cache Latency: <1ms
+6. ✅ Compression: >60% size reduction
+7. ✅ Rate Limiting: Works correctly
+8. ✅ **P95 Latency: <300ms at 500 users (CRITICAL)**
+9. ✅ Error Rate: <1% under load
+10. ✅ Performance Monitoring: Active
+11. ✅ Performance Alerts: Configured
+12. ✅ Dashboard: Loads in Grafana
 13. ✅ GitHub CI GREEN
 
 ---
@@ -666,11 +707,11 @@ pytest tests/integration/test_financial_integration.py -v
 
 | Builder | Day | Focus | Files | Status |
 |---------|-----|-------|-------|--------|
-| Builder 1 | Day 1 | Config + Compliance | 6 | ⏳ PENDING |
-| Builder 2 | Day 2 | Financial Agents | 6 | ⏳ PENDING |
-| Builder 3 | Day 3 | Tools + Workflows | 6 | ⏳ PENDING |
-| Builder 4 | Day 4 | Tasks + Integration | 6 | ⏳ PENDING |
-| Builder 5 | Day 5 | Frontend + Reports | 6 | ⏳ PENDING |
+| Builder 1 | Day 1 | Database Index Optimization | 6 | ⏳ PENDING |
+| Builder 2 | Day 2 | Query + Connection Pool | 6 | ⏳ PENDING |
+| Builder 3 | Day 3 | Redis Cache Deep Optimization | 6 | ⏳ PENDING |
+| Builder 4 | Day 4 | API Cache + Compression | 6 | ⏳ PENDING |
+| Builder 5 | Day 5 | Performance Monitoring + Load Test | 6 | ⏳ PENDING |
 | Tester | Day 6 | Full Validation | - | ⏳ PENDING |
 
 ---
@@ -682,44 +723,44 @@ pytest tests/integration/test_financial_integration.py -v
 **CRITICAL REMINDERS:**
 
 1. All 5 days run in PARALLEL — no cross-day dependencies
-2. Financial Services Vertical per roadmap
-3. **Regulatory compliance is NON-NEGOTIABLE**
-4. SOX and FINRA rules must be enforced
-5. **Audit Trail: Every action logged**
-6. **PII Protection: All sensitive data masked**
-7. **Security: Enhanced encryption required**
-8. **No transaction initiation (security)**
+2. Performance Deep Optimization per roadmap
+3. **TARGET: P95 <300ms at 500 concurrent users**
+4. Database indexes must cover all frequent queries
+5. **Cache Hit Rate: >75% overall**
+6. **Compression: >60% size reduction**
+7. **Connection Pool: Handle 500 concurrent**
+8. **No N+1 queries allowed**
 
-**FINANCIAL SERVICES METRICS:**
+**PERFORMANCE TARGETS:**
 
-| Metric | Description | Target |
-|--------|-------------|--------|
-| Audit Trail | % actions logged | 100% |
-| PII Masking | % sensitive data masked | 100% |
-| Compliance Rate | % compliant actions | 100% |
-| Fraud Detection | Detection rate | >95% |
-| Response Time | P95 latency | <500ms |
+| Metric | Current | Target | Status |
+|--------|---------|--------|--------|
+| P95 Latency | 438ms | <300ms | 🎯 Target |
+| Cache Hit Rate | ~60% | >75% | 🎯 Target |
+| Query Time | ~50ms | <10ms | 🎯 Target |
+| Error Rate | <1% | <1% | ✅ Maintain |
 
 **ASSUMPTIONS:**
-- Week 24 completed (Client Success Tooling)
+- Week 25 completed (Financial Services)
 - 10 clients operational
-- Frontend dashboard ready
-- Compliance infrastructure available
+- Redis available
+- PostgreSQL available
+- Monitoring infrastructure ready
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## WEEK 25 FILE SUMMARY
+## WEEK 26 FILE SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
 | Day | Files | Focus |
 |-----|-------|-------|
-| Day 1 | 6 | Config + Compliance Foundation |
-| Day 2 | 6 | Financial Agents |
-| Day 3 | 6 | Tools + Workflows |
-| Day 4 | 6 | Tasks + Integration |
-| Day 5 | 6 | Frontend + Reports |
-| **Total** | **30** | **Financial Services Vertical** |
+| Day 1 | 6 | Database Index Optimization |
+| Day 2 | 6 | Query + Connection Pool |
+| Day 3 | 6 | Redis Cache Deep Optimization |
+| Day 4 | 6 | API Cache + Compression |
+| Day 5 | 6 | Performance Monitoring + Load Test |
+| **Total** | **30** | **Performance Deep Optimization** |
 
 ---
 
@@ -735,13 +776,13 @@ pytest tests/integration/test_financial_integration.py -v
 | 22 | Agent Lightning v2 + 77% Accuracy | ✅ COMPLETE |
 | 23 | Frontend Polish (A11y, Mobile, Dark Mode) | ✅ COMPLETE |
 | 24 | Client Success Tooling | ✅ COMPLETE |
-| 25 | Financial Services Vertical | 🔄 IN PROGRESS |
-| 26 | Performance Optimization | ⏳ Pending |
+| 25 | Financial Services Vertical | ✅ COMPLETE |
+| 26 | Performance Optimization | 🔄 IN PROGRESS |
 | 27 | 20-Client Validation | ⏳ Pending |
 
-**Week 25 Deliverables:**
-- Clients: 10 (continuing)
-- Financial Services Vertical: 🔄 Building
-- SOX/FINRA Compliance: 🔄 Building
-- Fraud Detection: 🔄 Building
+**Week 26 Deliverables:**
+- Performance: P95 <300ms 🎯 Target
+- Database: Optimized indexes
+- Cache: >75% hit rate
+- API: Compression enabled
 - On Track for Phase 7!
