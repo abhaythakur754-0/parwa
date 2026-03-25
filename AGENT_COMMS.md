@@ -8,651 +8,612 @@
 Written by: Manager Agent
 Date: 2026-03-25
 
-> **Phase: Phase 7 — Scale to 20 Clients**
+> **Phase: Phase 7 — Scale to 20 Clients (Weeks 21-27)**
 >
 > **Week 23 Goals:**
-> - Day 1: Clients 006-010 Batch Onboarding
-> - Day 2: Automated Client Provisioning System
-> - Day 3: Auto-Scaling Infrastructure
-> - Day 4: Load Balancer + Traffic Management
-> - Day 5: Monitoring at Scale + Reports
+> - Day 1: Accessibility (A11y) Compliance
+> - Day 2: Mobile Responsive Design
+> - Day 3: Dark Mode Implementation
+> - Day 4: Frontend Performance Optimization
+> - Day 5: Frontend Testing + Documentation
 > - Day 6: Tester runs full validation
 >
 > **CRITICAL RULES:**
 > 1. All 5 days run in PARALLEL — no cross-day dependencies
-> 2. Scale from 5 clients to 10 clients this week
-> 3. Automated provisioning for rapid onboarding
-> 4. Infrastructure must auto-scale with demand
-> 5. **10-client isolation: 0 data leaks in 100 tests**
-> 6. **Auto-provisioning: <5 minutes per client**
-> 7. **P95 <400ms at 300 concurrent users**
-> 8. **Auto-scaling: handles 2x traffic spike**
+> 2. WCAG 2.1 AA compliance required
+> 3. Mobile-first responsive design
+> 4. Dark mode with system preference detection
+> 5. **WCAG 2.1 AA: 100% compliance**
+> 6. **Mobile: All pages responsive**
+> 7. **Dark Mode: Full support with toggle**
+> 8. **Lighthouse Score: >90**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — Clients 006-010 Batch Onboarding
+## BUILDER 1 (DAY 1) — Accessibility (A11y) Compliance
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `clients/client_006/config.py`
-2. `clients/client_007/config.py`
-3. `clients/client_008/config.py`
-4. `clients/client_009/config.py`
-5. `clients/client_010/config.py`
-6. `clients/client_006-010/knowledge_base/` (batch)
+1. `frontend/src/lib/a11y.ts`
+2. `frontend/src/components/ui/focus-trap.tsx`
+3. `frontend/src/components/ui/skip-link.tsx`
+4. `frontend/src/components/ui/announcer.tsx`
+5. `frontend/src/hooks/useA11y.ts`
+6. `tests/frontend/a11y.test.ts`
 
 ### Field 2: What is each file?
-1. `clients/client_006/config.py` — Retail client configuration
-2. `clients/client_007/config.py` — Education client configuration
-3. `clients/client_008/config.py` — Travel client configuration
-4. `clients/client_009/config.py` — Real Estate client configuration
-5. `clients/client_010/config.py` — Entertainment client configuration
-6. `clients/client_006-010/knowledge_base/` — Knowledge bases for all 5 clients
+1. `frontend/src/lib/a11y.ts` — Accessibility utility functions
+2. `frontend/src/components/ui/focus-trap.tsx` — Focus trap component for modals
+3. `frontend/src/components/ui/skip-link.tsx` — Skip to main content link
+4. `frontend/src/components/ui/announcer.tsx` — Screen reader announcer
+5. `frontend/src/hooks/useA11y.ts` — Accessibility hook
+6. `tests/frontend/a11y.test.ts` — Accessibility tests
 
 ### Field 3: Responsibilities
 
-**clients/client_006/config.py:**
-- Retail client config with:
-  - Client ID: "client_006"
-  - Client name: "ShopMax Retail"
-  - Industry: "retail"
-  - Variant: "mini" (cost-effective)
-  - Timezone: "America/Chicago"
-  - Business hours: 9am-9pm CST
-  - Seasonal scaling enabled
-  - Product catalog integration
-  - **Test: Config loads correctly**
+**frontend/src/lib/a11y.ts:**
+- Accessibility utilities with:
+  - ARIA attribute helpers
+  - Keyboard navigation utilities
+  - Focus management functions
+  - Color contrast validators
+  - Screen reader text helpers
+  - **Test: All utilities work correctly**
 
-**clients/client_007/config.py:**
-- Education client config with:
-  - Client ID: "client_007"
-  - Client name: "EduLearn Academy"
-  - Industry: "education"
-  - Variant: "parwa_junior"
-  - Timezone: "America/New_York"
-  - Business hours: 8am-8pm EST (extended for students)
-  - FERPA compliance enabled
-  - LMS integration
-  - **Test: Config loads correctly**
+**frontend/src/components/ui/focus-trap.tsx:**
+- Focus trap with:
+  - Trap focus within modals
+  - Escape key handling
+  - Tab cycling
+  - Initial focus setting
+  - Return focus on close
+  - **Test: Focus trapped correctly**
 
-**clients/client_008/config.py:**
-- Travel client config with:
-  - Client ID: "client_008"
-  - Client name: "TravelEase"
-  - Industry: "travel"
-  - Variant: "parwa_high"
-  - Timezone: "UTC" (global operations)
-  - Business hours: 24/7
-  - Multi-language support
-  - Booking system integration
-  - **Test: Config loads correctly**
+**frontend/src/components/ui/skip-link.tsx:**
+- Skip link with:
+  - Skip to main content
+  - Skip to navigation
+  - Visible on focus
+  - Smooth scrolling
+  - **Test: Skip link works**
 
-**clients/client_009/config.py:**
-- Real Estate client config with:
-  - Client ID: "client_009"
-  - Client name: "HomeFind Realty"
-  - Industry: "real_estate"
-  - Variant: "parwa_junior"
-  - Timezone: "America/Los_Angeles"
-  - Business hours: 8am-7pm PST
-  - Property listing integration
-  - Lead qualification enabled
-  - **Test: Config loads correctly**
+**frontend/src/components/ui/announcer.tsx:**
+- Announcer with:
+  - ARIA live region
+  - Polite and assertive modes
+  - Message queuing
+  - Screen reader notifications
+  - **Test: Announcements work**
 
-**clients/client_010/config.py:**
-- Entertainment client config with:
-  - Client ID: "client_010"
-  - Client name: "StreamPlus Media"
-  - Industry: "entertainment"
-  - Variant: "parwa_high"
-  - Timezone: "America/Los_Angeles"
-  - Business hours: 24/7
-  - Streaming platform integration
-  - Content recommendation support
-  - **Test: Config loads correctly**
+**frontend/src/hooks/useA11y.ts:**
+- A11y hook with:
+  - useFocusManagement
+  - useKeyboardNavigation
+  - useAriaLive
+  - useReducedMotion
+  - **Test: All hooks work**
 
-**Knowledge Bases (client_006-010):**
-- Create knowledge bases for each:
-  - FAQ JSON files (20+ entries each)
-  - Product/service catalogs
-  - Policies specific to industry
-  - Industry terminology
-  - **Test: All knowledge bases load**
+**tests/frontend/a11y.test.ts:**
+- A11y tests with:
+  - Test: All buttons have accessible names
+  - Test: All images have alt text
+  - Test: All forms have labels
+  - Test: Color contrast meets WCAG AA
+  - Test: Keyboard navigation works
+  - **CRITICAL: 100% WCAG 2.1 AA compliance**
 
 ### Field 4: Depends On
-- Weeks 19-22 client patterns
-- Week 21 batch setup script
-- All variant systems
+- Week 15 frontend foundation
+- shadcn/ui components
 
 ### Field 5: Expected Output
-- 5 new clients configured
-- Total: 10 clients operational
-- Knowledge bases loaded
+- WCAG 2.1 AA compliant components
+- Screen reader support
+- Keyboard navigation
 
 ### Field 6: Unit Test Files
-- `tests/clients/test_client_006.py`
-- `tests/clients/test_client_007.py`
-- `tests/clients/test_client_008.py`
-- `tests/clients/test_client_009.py`
-- `tests/clients/test_client_010.py`
+- Tests in deliverables
 
 ### Field 7: BDD Scenario
-- 5 new clients onboarded successfully
+- All pages accessible to screen readers
 
 ### Field 8: Error Handling
-- Individual client failure isolation
-- Rollback on critical errors
-- Validation before activation
+- Graceful degradation for A11y
+- Fallback for assistive tech
 
 ### Field 9: Security Requirements
-- Client isolation for all 10
-- Industry-specific compliance
-- Access logging
+- No sensitive data in ARIA labels
+- Secure focus management
 
 ### Field 10: Integration Points
-- Client management system
-- Knowledge base manager
-- Billing system
+- All UI components
+- Navigation system
+- Form components
 
 ### Field 11: Code Quality
-- Consistent client structure
-- Industry-specific presets
-- Validation utilities
+- axe-core integration
+- A11y linting rules
 
 ### Field 12: GitHub CI Requirements
-- All 5 client configs load
-- Knowledge bases validate
-- No conflicts with existing clients
+- axe-core tests pass
+- Lighthouse A11y >90
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
-- All 5 clients configured
-- **CRITICAL: All 10 clients load correctly**
-- Knowledge bases operational
+- All 6 files built and pushed
+- **CRITICAL: WCAG 2.1 AA compliance 100%**
+- **CRITICAL: Lighthouse A11y score >90**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — Automated Client Provisioning System
+## BUILDER 2 (DAY 2) — Mobile Responsive Design
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `provisioning/__init__.py`
-2. `provisioning/client_provisioner.py`
-3. `provisioning/config_generator.py`
-4. `provisioning/kb_initializer.py`
-5. `provisioning/dashboard_creator.py`
-6. `scripts/provision_client.py`
+1. `frontend/src/lib/responsive.ts`
+2. `frontend/src/hooks/useMediaQuery.ts`
+3. `frontend/src/components/ui/mobile-nav.tsx`
+4. `frontend/src/components/ui/bottom-sheet.tsx`
+5. `frontend/src/components/layout/mobile-header.tsx`
+6. `tests/frontend/responsive.test.ts`
 
 ### Field 2: What is each file?
-1. `provisioning/__init__.py` — Module init
-2. `provisioning/client_provisioner.py` — Main provisioning orchestrator
-3. `provisioning/config_generator.py` — Generate client configurations
-4. `provisioning/kb_initializer.py` — Initialize knowledge bases
-5. `provisioning/dashboard_creator.py` — Create monitoring dashboards
-6. `scripts/provision_client.py` — CLI provisioning tool
+1. `frontend/src/lib/responsive.ts` — Responsive utilities
+2. `frontend/src/hooks/useMediaQuery.ts` — Media query hook
+3. `frontend/src/components/ui/mobile-nav.tsx` — Mobile navigation
+4. `frontend/src/components/ui/bottom-sheet.tsx` — Bottom sheet component
+5. `frontend/src/components/layout/mobile-header.tsx` — Mobile header
+6. `tests/frontend/responsive.test.ts` — Responsive tests
 
 ### Field 3: Responsibilities
 
-**provisioning/client_provisioner.py:**
-- Client provisioner with:
-  - Full provisioning pipeline
-  - Validate client requirements
-  - Create client directory structure
-  - Generate configuration
-  - Initialize knowledge base
-  - Create dashboard
-  - Run validation
-  - **CRITICAL: Provisioning <5 minutes**
-  - **Test: Provisioning works end-to-end**
+**frontend/src/lib/responsive.ts:**
+- Responsive utilities with:
+  - Breakpoint definitions (sm, md, lg, xl, 2xl)
+  - Responsive value helpers
+  - Container query support
+  - Device detection helpers
+  - Touch detection
+  - **Test: Utilities work correctly**
 
-**provisioning/config_generator.py:**
-- Config generator with:
-  - Template-based config generation
-  - Industry-specific defaults
-  - Variant selection
-  - Feature flag configuration
-  - Integration settings
-  - Validation rules
-  - **Test: Generates valid configs**
+**frontend/src/hooks/useMediaQuery.ts:**
+- Media query hook with:
+  - Breakpoint detection
+  - Screen size tracking
+  - Orientation detection
+  - Touch device detection
+  - Prefers-reduced-motion
+  - **Test: Hook responds to breakpoints**
 
-**provisioning/kb_initializer.py:**
-- KB initializer with:
-  - Create knowledge base structure
-  - Import industry templates
-  - Initialize FAQ categories
-  - Set up product catalogs
-  - Configure policies
-  - **Test: KB initializes correctly**
+**frontend/src/components/ui/mobile-nav.tsx:**
+- Mobile nav with:
+  - Hamburger menu
+  - Slide-out drawer
+  - Nested navigation support
+  - Touch-friendly targets (min 44px)
+  - Swipe to close
+  - **Test: Navigation works on mobile**
 
-**provisioning/dashboard_creator.py:**
-- Dashboard creator with:
-  - Create Grafana dashboard
-  - Client-specific metrics
-  - Industry-specific panels
-  - Alert rules setup
-  - Access permissions
-  - **Test: Dashboard creates correctly**
+**frontend/src/components/ui/bottom-sheet.tsx:**
+- Bottom sheet with:
+  - Drag to dismiss
+  - Snap points
+  - Backdrop blur
+  - Handle indicator
+  - A11y compliant
+  - **Test: Bottom sheet works**
 
-**scripts/provision_client.py:**
-- CLI tool with:
-  - `--name` Client name
-  - `--industry` Industry type
-  - `--variant` PARWA variant
-  - `--timezone` Timezone
-  - `--dry-run` Test without creating
-  - Progress reporting
-  - **Test: CLI tool works**
+**frontend/src/components/layout/mobile-header.tsx:**
+- Mobile header with:
+  - Collapsible search
+  - User menu
+  - Notification bell
+  - Quick actions
+  - Sticky positioning
+  - **Test: Header works on mobile**
+
+**tests/frontend/responsive.test.ts:**
+- Responsive tests with:
+  - Test: All breakpoints work
+  - Test: Touch targets ≥44px
+  - Test: Text readable on mobile
+  - Test: No horizontal scroll
+  - Test: Forms usable on mobile
+  - **CRITICAL: All pages responsive**
 
 ### Field 4: Depends On
-- Week 21 batch setup patterns
-- All client configurations
-- Monitoring system
+- Week 15 frontend foundation
+- Tailwind CSS breakpoints
 
 ### Field 5: Expected Output
-- Automated provisioning system
-- <5 minutes per client
-- CLI tool operational
+- Mobile-first responsive design
+- Touch-friendly interface
+- All breakpoints working
 
 ### Field 6: Unit Test Files
-- `tests/provisioning/test_client_provisioner.py`
+- Tests in deliverables
 
 ### Field 7: BDD Scenario
-- New client provisioned in <5 minutes
+- Full app usable on mobile devices
 
 ### Field 8: Error Handling
-- Provisioning failure rollback
-- Partial provisioning recovery
-- Clear error messages
+- Graceful degradation on small screens
+- Offline support considerations
 
 ### Field 9: Security Requirements
-- Secure credential generation
-- Access control setup
-- Audit logging
+- Secure touch interactions
+- No data exposure on mobile
 
 ### Field 10: Integration Points
-- Client management system
-- Knowledge base manager
-- Monitoring stack
-- Billing system
+- All page components
+- Navigation system
+- Dashboard layout
 
 ### Field 11: Code Quality
-- Idempotent operations
-- Progress tracking
-- Comprehensive logging
+- Mobile-first CSS
+- Touch-friendly interactions
 
 ### Field 12: GitHub CI Requirements
-- Provisioning scripts run
-- Test client provisions correctly
-- No conflicts
+- Responsive tests pass
+- Visual regression tests
 
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Provisioning completes <5 minutes**
-- **CRITICAL: CLI tool works**
+- **CRITICAL: All pages responsive**
+- **CRITICAL: Touch targets ≥44px**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — Auto-Scaling Infrastructure
+## BUILDER 3 (DAY 3) — Dark Mode Implementation
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `scaling/__init__.py`
-2. `scaling/auto_scaler.py`
-3. `scaling/metrics_collector.py`
-4. `scaling/scaling_policies.py`
-5. `scaling/resource_manager.py`
-6. `tests/scaling/test_auto_scaler.py`
+1. `frontend/src/lib/theme.ts`
+2. `frontend/src/hooks/useTheme.ts`
+3. `frontend/src/components/ui/theme-toggle.tsx`
+4. `frontend/src/components/ui/theme-provider.tsx`
+5. `frontend/src/styles/dark-mode.css`
+6. `tests/frontend/theme.test.ts`
 
 ### Field 2: What is each file?
-1. `scaling/__init__.py` — Module init
-2. `scaling/auto_scaler.py` — Auto-scaling controller
-3. `scaling/metrics_collector.py` — Collect scaling metrics
-4. `scaling/scaling_policies.py` — Define scaling policies
-5. `scaling/resource_manager.py` — Manage cloud resources
-6. `tests/scaling/test_auto_scaler.py` — Scaling tests
+1. `frontend/src/lib/theme.ts` — Theme utilities
+2. `frontend/src/hooks/useTheme.ts` — Theme hook
+3. `frontend/src/components/ui/theme-toggle.tsx` — Theme toggle button
+4. `frontend/src/components/ui/theme-provider.tsx` — Theme context provider
+5. `frontend/src/styles/dark-mode.css` — Dark mode styles
+6. `tests/frontend/theme.test.ts` — Theme tests
 
 ### Field 3: Responsibilities
 
-**scaling/auto_scaler.py:**
-- Auto-scaler with:
-  - Monitor system load
-  - Scale up when CPU >70%
-  - Scale down when CPU <30%
-  - Handle traffic spikes
-  - Predictive scaling
-  - Cost optimization
-  - **CRITICAL: Scale in <60 seconds**
-  - **Test: Auto-scaling works**
+**frontend/src/lib/theme.ts:**
+- Theme utilities with:
+  - Theme definitions (light, dark, system)
+  - Color palette for dark mode
+  - CSS variable helpers
+  - Local storage persistence
+  - System preference detection
+  - **Test: Utilities work correctly**
 
-**scaling/metrics_collector.py:**
-- Metrics collector with:
-  - CPU utilization tracking
-  - Memory usage tracking
-  - Request queue depth
-  - Response time tracking
-  - Client-specific metrics
-  - Historical data analysis
-  - **Test: Metrics collected correctly**
+**frontend/src/hooks/useTheme.ts:**
+- Theme hook with:
+  - Current theme state
+  - Theme switching function
+  - System preference sync
+  - Persistence handling
+  - Theme change callbacks
+  - **Test: Hook manages theme state**
 
-**scaling/scaling_policies.py:**
-- Scaling policies with:
-  - CPU-based scaling rules
-  - Memory-based scaling rules
-  - Request rate scaling
-  - Time-based scaling (peak hours)
-  - Client priority scaling
-  - Min/max instance limits
-  - **Test: Policies applied correctly**
+**frontend/src/components/ui/theme-toggle.tsx:**
+- Theme toggle with:
+  - Sun/Moon icons
+  - System preference option
+  - Keyboard accessible
+  - ARIA label
+  - Smooth transition
+  - **Test: Toggle switches theme**
 
-**scaling/resource_manager.py:**
-- Resource manager with:
-  - Provision new instances
-  - Terminate idle instances
-  - Load balancer integration
-  - Health checks
-  - Resource tagging
-  - Cost tracking
-  - **Test: Resource management works**
+**frontend/src/components/ui/theme-provider.tsx:**
+- Theme provider with:
+  - React context for theme
+  - Theme injection to DOM
+  - Flash prevention (SSR)
+  - Default theme handling
+  - **Test: Provider wraps app correctly**
 
-**tests/scaling/test_auto_scaler.py:**
-- Scaling tests with:
-  - Test: Scale up on high load
-  - Test: Scale down on low load
-  - Test: Handle traffic spike (2x)
-  - Test: Min/max limits respected
-  - Test: Scaling completes in time
-  - **CRITICAL: All scaling tests pass**
+**frontend/src/styles/dark-mode.css:**
+- Dark mode CSS with:
+  - CSS custom properties
+  - Color scheme definitions
+  - Component dark variants
+  - Transition effects
+  - Print styles
+  - **Test: Styles apply correctly**
+
+**tests/frontend/theme.test.ts:**
+- Theme tests with:
+  - Test: Theme persists across reloads
+  - Test: System preference detected
+  - Test: Toggle works
+  - Test: No flash on load
+  - Test: All components styled in dark mode
+  - **CRITICAL: Full dark mode support**
 
 ### Field 4: Depends On
-- Week 18 Kubernetes infrastructure
-- Monitoring system
-- All 10 clients
+- Week 15 frontend foundation
+- Tailwind CSS dark mode
 
 ### Field 5: Expected Output
-- Auto-scaling operational
-- Handles 2x traffic spike
-- <60 seconds scale time
+- Complete dark mode support
+- Theme persistence
+- System preference sync
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- System auto-scales with traffic
+- User can switch between light/dark/system themes
 
 ### Field 8: Error Handling
-- Scaling failure recovery
-- Resource exhaustion handling
-- Graceful degradation
+- Fallback to light mode
+- Handle localStorage unavailable
 
 ### Field 9: Security Requirements
-- Secure instance provisioning
-- Network isolation
-- Access control
+- No sensitive data in theme prefs
+- Secure storage
 
 ### Field 10: Integration Points
-- Kubernetes cluster
-- Monitoring system
-- Load balancer
+- All UI components
+- Layout components
+- Charts and data viz
 
 ### Field 11: Code Quality
-- Idempotent scaling
-- Clear policies
-- Comprehensive monitoring
+- CSS variables for theming
+- No hardcoded colors
 
 ### Field 12: GitHub CI Requirements
-- Scaling tests pass
-- No resource leaks
-- Policies validated
+- Theme tests pass
+- Dark mode screenshots match
 
 ### Field 13: Pass Criteria
 Builder 3 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Auto-scaling works**
-- **CRITICAL: Handles 2x traffic spike**
-- **CRITICAL: Scale time <60 seconds**
+- **CRITICAL: Dark mode fully functional**
+- **CRITICAL: System preference detection works**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — Load Balancer + Traffic Management
+## BUILDER 4 (DAY 4) — Frontend Performance Optimization
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `loadbalancer/__init__.py`
-2. `loadbalancer/traffic_router.py`
-3. `loadbalancer/client_sharding.py`
-4. `loadbalancer/health_checker.py`
-5. `tests/performance/test_300_concurrent.py`
+1. `frontend/src/lib/performance.ts`
+2. `frontend/src/hooks/useLazyLoad.ts`
+3. `frontend/src/components/ui/skeleton.tsx`
+4. `frontend/next.config.optimized.ts`
+5. `tests/frontend/performance.test.ts`
 
 ### Field 2: What is each file?
-1. `loadbalancer/__init__.py` — Module init
-2. `loadbalancer/traffic_router.py` — Route traffic to instances
-3. `loadbalancer/client_sharding.py` — Client-based sharding
-4. `loadbalancer/health_checker.py` — Health check system
-5. `tests/performance/test_300_concurrent.py` — 300 concurrent user test
+1. `frontend/src/lib/performance.ts` — Performance utilities
+2. `frontend/src/hooks/useLazyLoad.ts` — Lazy loading hook
+3. `frontend/src/components/ui/skeleton.tsx` — Skeleton loader
+4. `frontend/next.config.optimized.ts` — Optimized Next.js config
+5. `tests/frontend/performance.test.ts` — Performance tests
 
 ### Field 3: Responsibilities
 
-**loadbalancer/traffic_router.py:**
-- Traffic router with:
-  - Round-robin load balancing
-  - Weighted distribution by client tier
-  - Session affinity support
-  - Failover handling
-  - Geographic routing
-  - Rate limiting per client
-  - **Test: Routing works correctly**
+**frontend/src/lib/performance.ts:**
+- Performance utilities with:
+  - Bundle size analyzer
+  - Image optimization helpers
+  - Code splitting helpers
+  - Cache strategies
+  - Performance metrics collection
+  - **Test: Utilities work correctly**
 
-**loadbalancer/client_sharding.py:**
-- Client sharding with:
-  - Shard clients across instances
-  - Isolate high-traffic clients
-  - Balance resource usage
-  - Client affinity options
-  - Shard rebalancing
-  - **Test: Sharding works**
+**frontend/src/hooks/useLazyLoad.ts:**
+- Lazy load hook with:
+  - Intersection observer
+  - Image lazy loading
+  - Component lazy loading
+  - Placeholder support
+  - Priority loading
+  - **Test: Lazy loading works**
 
-**loadbalancer/health_checker.py:**
-- Health checker with:
-  - Active health checks (every 10s)
-  - Passive health monitoring
-  - Unhealthy instance removal
-  - Automatic recovery detection
-  - Health score calculation
-  - **Test: Health checks work**
+**frontend/src/components/ui/skeleton.tsx:**
+- Skeleton loader with:
+  - Multiple skeleton variants
+  - Animated shimmer
+  - Accessible (aria-busy)
+  - Responsive sizes
+  - Dark mode support
+  - **Test: Skeleton renders correctly**
 
-**tests/performance/test_300_concurrent.py:**
-- Performance test with:
-  - Test: 300 concurrent users across 10 clients
-  - Test: P95 <400ms (improved)
-  - Test: P99 <700ms
-  - Test: No errors under load
-  - Test: Fair resource distribution
-  - Test: Graceful degradation
-  - **CRITICAL: P95 <400ms at 300 users**
-  - **Test: Performance tests pass**
+**frontend/next.config.optimized.ts:**
+- Optimized config with:
+  - Image optimization settings
+  - Bundle analyzer config
+  - Compression settings
+  - Cache headers
+  - Production optimizations
+  - **Test: Config builds successfully**
+
+**tests/frontend/performance.test.ts:**
+- Performance tests with:
+  - Test: First Contentful Paint <1.8s
+  - Test: Largest Contentful Paint <2.5s
+  - Test: Time to Interactive <3.8s
+  - Test: Cumulative Layout Shift <0.1
+  - Test: Total Blocking Time <200ms
+  - **CRITICAL: Lighthouse score >90**
 
 ### Field 4: Depends On
-- Week 18 Kubernetes infrastructure
-- Day 3 auto-scaling
-- All 10 clients
+- Week 15 frontend foundation
+- Next.js optimization features
 
 ### Field 5: Expected Output
-- Load balancing operational
-- Client sharding active
-- P95 <400ms at 300 users
+- Optimized bundle size
+- Fast page loads
+- High Lighthouse scores
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- System handles 300 concurrent users
+- App loads quickly on slow connections
 
 ### Field 8: Error Handling
-- Instance failure handling
-- Traffic rerouting
-- Graceful degradation
+- Graceful loading states
+- Error boundaries
 
 ### Field 9: Security Requirements
-- DDoS protection
-- Rate limiting
-- Access control
+- Secure headers in config
+- CSP compliance
 
 ### Field 10: Integration Points
-- Kubernetes services
-- Auto-scaler
-- Monitoring
+- All pages
+- Image components
+- Route handlers
 
 ### Field 11: Code Quality
-- Efficient routing
-- Low latency
-- High availability
+- Tree shaking enabled
+- Dead code elimination
 
 ### Field 12: GitHub CI Requirements
-- Load balancing tests pass
-- Performance tests pass
-- Health checks validated
+- Lighthouse CI passes
+- Bundle size within limits
 
 ### Field 13: Pass Criteria
 Builder 4 reports DONE when:
 - All 5 files built and pushed
-- **CRITICAL: P95 <400ms at 300 users**
-- **CRITICAL: Load balancing works**
+- **CRITICAL: Lighthouse score >90**
+- **CRITICAL: LCP <2.5s**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — Monitoring at Scale + Reports
+## BUILDER 5 (DAY 5) — Frontend Testing + Documentation
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `monitoring/dashboards/scale_dashboard.json`
-2. `tests/integration/test_10_client_isolation.py`
-3. `reports/week23_scaling_report.md`
-4. `reports/client_distribution.md`
-5. `PROJECT_STATE.md` (Phase 7 week 1 update)
-6. `docs/scaling_architecture.md`
+1. `tests/frontend/e2e/accessibility.spec.ts`
+2. `tests/frontend/e2e/mobile.spec.ts`
+3. `tests/frontend/e2e/theme.spec.ts`
+4. `docs/frontend/accessibility-guide.md`
+5. `docs/frontend/responsive-design.md`
+6. `docs/frontend/dark-mode.md`
 
 ### Field 2: What is each file?
-1. `monitoring/dashboards/scale_dashboard.json` — Scale monitoring dashboard
-2. `tests/integration/test_10_client_isolation.py` — 10-client isolation tests
-3. `reports/week23_scaling_report.md` — Week 23 scaling report
-4. `reports/client_distribution.md` — Client distribution report
-5. `PROJECT_STATE.md` — Updated with 10 clients
-6. `docs/scaling_architecture.md` — Scaling architecture documentation
+1. `tests/frontend/e2e/accessibility.spec.ts` — E2E accessibility tests
+2. `tests/frontend/e2e/mobile.spec.ts` — E2E mobile tests
+3. `tests/frontend/e2e/theme.spec.ts` — E2E theme tests
+4. `docs/frontend/accessibility-guide.md` — A11y documentation
+5. `docs/frontend/responsive-design.md` — Responsive design docs
+6. `docs/frontend/dark-mode.md` — Dark mode documentation
 
 ### Field 3: Responsibilities
 
-**monitoring/dashboards/scale_dashboard.json:**
-- Scale dashboard with:
-  - All 10 client metrics
-  - Instance count graph
-  - CPU/Memory utilization
-  - Request rate per client
-  - Response time distribution
-  - Auto-scaling events
-  - Cost metrics
-  - **Test: Dashboard loads in Grafana**
+**tests/frontend/e2e/accessibility.spec.ts:**
+- E2E A11y tests with:
+  - Test: Landing page accessible
+  - Test: Dashboard accessible
+  - Test: Forms accessible
+  - Test: Navigation accessible
+  - Test: Modals accessible
+  - **Test: All E2E A11y tests pass**
 
-**tests/integration/test_10_client_isolation.py:**
-- 10-client isolation tests with:
-  - Test: Each client isolated (100 tests)
-  - Test: Cross-tenant queries return 0 rows
-  - Test: API isolation for all 10
-  - Test: Database RLS enforced
-  - Test: Healthcare (client_003) HIPAA
-  - Test: FinTech (client_005) PCI DSS
-  - Test: Education (client_007) FERPA
-  - **CRITICAL: 0 data leaks in 100 tests**
-  - **Test: All isolation tests pass**
+**tests/frontend/e2e/mobile.spec.ts:**
+- E2E mobile tests with:
+  - Test: Mobile navigation works
+  - Test: Touch interactions work
+  - Test: Forms submit on mobile
+  - Test: No horizontal scroll
+  - Test: Bottom sheets work
+  - **Test: All E2E mobile tests pass**
 
-**reports/week23_scaling_report.md:**
-- Scaling report with:
-  - Clients: 5 → 10 (doubled)
-  - Provisioning time: <5 minutes
-  - Performance: P95 <400ms at 300 users
-  - Auto-scaling: Operational
-  - Key achievements
-  - **Content: Complete scaling report**
+**tests/frontend/e2e/theme.spec.ts:**
+- E2E theme tests with:
+  - Test: Theme toggle works
+  - Test: Theme persists
+  - Test: Dark mode renders correctly
+  - Test: System preference respected
+  - Test: All components themed
+  - **Test: All E2E theme tests pass**
 
-**reports/client_distribution.md:**
-- Client distribution with:
-  - All 10 clients listed
-  - Industry breakdown
-  - Variant distribution
-  - Resource allocation
-  - Geographic distribution
-  - Growth trajectory
-  - **Content: Complete distribution report**
+**docs/frontend/accessibility-guide.md:**
+- A11y guide with:
+  - WCAG 2.1 AA requirements
+  - Component accessibility patterns
+  - Keyboard navigation guide
+  - Screen reader testing
+  - A11y testing checklist
+  - **Content: Complete A11y guide**
 
-**PROJECT_STATE.md:**
-- State update with:
-  - Phase 7 in progress
-  - Week 23 summary
-  - 10 clients active
-  - Next: Week 24 (clients 11-20)
-  - **Updated correctly**
+**docs/frontend/responsive-design.md:**
+- Responsive docs with:
+  - Breakpoint system
+  - Mobile-first approach
+  - Touch target guidelines
+  - Responsive component patterns
+  - Testing on devices
+  - **Content: Complete responsive guide**
 
-**docs/scaling_architecture.md:**
-- Architecture doc with:
-  - Multi-tenant architecture
-  - Auto-scaling design
-  - Load balancing strategy
-  - Client sharding approach
-  - Monitoring at scale
-  - Future scaling roadmap
-  - **Content: Complete architecture doc**
+**docs/frontend/dark-mode.md:**
+- Dark mode docs with:
+  - Theme system architecture
+  - Color palette reference
+  - Implementation guide
+  - Testing dark mode
+  - Best practices
+  - **Content: Complete dark mode guide**
 
 ### Field 4: Depends On
-- All Week 23 work
-- All 10 clients
-- Auto-scaling system
+- All Week 23 frontend work
+- Playwright E2E setup
 
 ### Field 5: Expected Output
-- Monitoring at scale
-- 10-client isolation verified
-- Reports complete
+- Complete E2E test coverage
+- Documentation complete
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- 10 clients operational with isolation
+- All frontend features tested and documented
 
 ### Field 8: Error Handling
-- Report generation fallbacks
-- Missing data handling
+- Test failure reporting
+- Documentation versioning
 
 ### Field 9: Security Requirements
-- No sensitive data in reports
-- Client isolation in metrics
+- No sensitive data in docs
+- Secure test data
 
 ### Field 10: Integration Points
-- All monitoring systems
-- All 10 clients
+- All frontend components
+- CI/CD pipeline
 
 ### Field 11: Code Quality
-- Comprehensive monitoring
+- Comprehensive test coverage
 - Clear documentation
 
 ### Field 12: GitHub CI Requirements
-- Isolation tests pass
-- Reports generate
-- Dashboard loads
+- All E2E tests pass
+- Docs build successfully
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: 0 data leaks in 100 isolation tests**
-- All reports generated
+- **CRITICAL: All E2E tests pass**
+- Documentation complete
 - GitHub CI GREEN
 
 ---
@@ -665,39 +626,35 @@ Builder 5 reports DONE when:
 
 ### Test Commands
 
-#### 1. New Client Validation
+#### 1. Accessibility Tests
 ```bash
-pytest tests/clients/test_client_006.py -v
-pytest tests/clients/test_client_007.py -v
-pytest tests/clients/test_client_008.py -v
-pytest tests/clients/test_client_009.py -v
-pytest tests/clients/test_client_010.py -v
+npm run test:a11y
+npx axe-core frontend/src
+npx lighthouse http://localhost:3000 --only-categories=accessibility
 ```
 
-#### 2. Provisioning System Tests
+#### 2. Responsive Tests
 ```bash
-pytest tests/provisioning/test_client_provisioner.py -v
-python scripts/provision_client.py --dry-run --name "Test Client" --industry "test"
+npm run test:responsive
+npx playwright test tests/frontend/e2e/mobile.spec.ts
 ```
 
-#### 3. 10-Client Isolation Tests
+#### 3. Theme Tests
 ```bash
-pytest tests/integration/test_10_client_isolation.py -v
+npm run test:theme
+npx playwright test tests/frontend/e2e/theme.spec.ts
 ```
 
-#### 4. Scaling Tests
+#### 4. Performance Tests
 ```bash
-pytest tests/scaling/test_auto_scaler.py -v
+npm run lighthouse
+npx lighthouse http://localhost:3000 --output=json
 ```
 
-#### 5. Performance Tests
+#### 5. Full E2E Suite
 ```bash
-pytest tests/performance/test_300_concurrent.py -v
-```
-
-#### 6. Load Balancer Tests
-```bash
-pytest tests/loadbalancer/ -v
+npx playwright test
+npm run test:coverage
 ```
 
 ---
@@ -706,31 +663,33 @@ pytest tests/loadbalancer/ -v
 
 | # | Test | Expected |
 |---|------|----------|
-| 1 | Clients 006-010 | All load correctly |
-| 2 | Total clients | 10 active |
-| 3 | Provisioning time | <5 minutes |
-| 4 | 10-client isolation | 0 data leaks in 100 tests |
-| 5 | Auto-scaling | Works in <60 seconds |
-| 6 | Traffic spike handling | 2x spike handled |
-| 7 | Performance P95 | <400ms at 300 users |
-| 8 | Load balancing | Works correctly |
-| 9 | Health checks | Active and working |
-| 10 | Dashboard | Loads in Grafana |
+| 1 | WCAG 2.1 AA | 100% compliance |
+| 2 | Lighthouse A11y | Score >90 |
+| 3 | Touch targets | All ≥44px |
+| 4 | Dark mode | Fully functional |
+| 5 | Theme persistence | Works correctly |
+| 6 | System preference | Detected correctly |
+| 7 | LCP | <2.5s |
+| 8 | CLS | <0.1 |
+| 9 | Lighthouse Overall | >90 |
+| 10 | Mobile navigation | Works correctly |
 
 ---
 
 ### Week 23 PASS Criteria
 
-1. ✅ 10 clients active (5 new onboarded)
-2. ✅ Provisioning completes <5 minutes
-3. ✅ 10-client isolation: 0 data leaks in 100 tests
-4. ✅ Auto-scaling works in <60 seconds
-5. ✅ Handles 2x traffic spike
-6. ✅ P95 <400ms at 300 concurrent users
-7. ✅ Load balancing operational
-8. ✅ Health checks working
-9. ✅ All reports generated
-10. ✅ GitHub CI pipeline GREEN
+1. ✅ WCAG 2.1 AA: 100% compliance
+2. ✅ Lighthouse Accessibility: >90
+3. ✅ All pages responsive
+4. ✅ Touch targets ≥44px
+5. ✅ Dark mode fully functional
+6. ✅ Theme toggle with system preference
+7. ✅ Lighthouse Performance >90
+8. ✅ LCP <2.5s
+9. ✅ CLS <0.1
+10. ✅ All E2E tests pass
+11. ✅ Documentation complete
+12. ✅ GitHub CI GREEN
 
 ---
 
@@ -740,11 +699,11 @@ pytest tests/loadbalancer/ -v
 
 | Builder | Day | Status | Files | Tests | Pushed |
 |---------|-----|--------|-------|-------|--------|
-| Builder 1 | Day 1 | ⏳ PENDING | Clients 006-010 (6 files) | - | NO |
-| Builder 2 | Day 2 | ⏳ PENDING | Provisioning System (6 files) | - | NO |
-| Builder 3 | Day 3 | ⏳ PENDING | Auto-Scaling (6 files) | - | NO |
-| Builder 4 | Day 4 | ⏳ PENDING | Load Balancer (5 files) | - | NO |
-| Builder 5 | Day 5 | ⏳ PENDING | Monitoring + Reports (6 files) | - | NO |
+| Builder 1 | Day 1 | ⏳ PENDING | Accessibility (6 files) | - | NO |
+| Builder 2 | Day 2 | ⏳ PENDING | Mobile Responsive (6 files) | - | NO |
+| Builder 3 | Day 3 | ⏳ PENDING | Dark Mode (6 files) | - | NO |
+| Builder 4 | Day 4 | ⏳ PENDING | Performance (5 files) | - | NO |
+| Builder 5 | Day 5 | ⏳ PENDING | Testing + Docs (6 files) | - | NO |
 | Tester | Day 6 | ⏳ PENDING | Full validation | - | NO |
 
 ---
@@ -756,27 +715,38 @@ pytest tests/loadbalancer/ -v
 **CRITICAL REMINDERS:**
 
 1. All 5 days run in PARALLEL — no cross-day dependencies
-2. Scale from 5 to 10 clients this week
-3. Automated provisioning is key for scaling
-4. Auto-scaling must handle traffic spikes
-5. **10-client isolation: 0 data leaks in 100 tests**
-6. **Provisioning: <5 minutes per client**
-7. **P95: <400ms at 300 users**
-8. **Auto-scaling: <60 seconds to scale**
-9. **Traffic spike: handles 2x**
+2. WCAG 2.1 AA compliance is MANDATORY
+3. Mobile-first approach for all new components
+4. Dark mode must support system preference
+5. **WCAG 2.1 AA: 100% compliance**
+6. **Lighthouse Accessibility: >90**
+7. **All pages responsive**
+8. **Dark mode fully functional**
+9. **Lighthouse Performance: >90**
+10. All features must be tested and documented
 
-**SCALING MILESTONES:**
-- Phase 6: 5 clients ✅
-- Week 23: 10 clients (2x)
-- Week 24: 20 clients (4x)
-- Phase 8: 50 clients
+**ACCESSIBILITY CHECKLIST:**
+- [ ] All images have alt text
+- [ ] All forms have labels
+- [ ] Color contrast ≥4.5:1
+- [ ] Keyboard navigation works
+- [ ] Focus indicators visible
+- [ ] Skip links present
+- [ ] ARIA labels correct
 
-**NEW INDUSTRIES ADDED:**
-- Retail (client_006)
-- Education (client_007) - FERPA
-- Travel (client_008)
-- Real Estate (client_009)
-- Entertainment (client_010)
+**MOBILE CHECKLIST:**
+- [ ] Touch targets ≥44px
+- [ ] No horizontal scroll
+- [ ] Readable text (16px min)
+- [ ] Forms usable on mobile
+- [ ] Navigation accessible
+
+**DARK MODE CHECKLIST:**
+- [ ] All components styled
+- [ ] Theme toggle works
+- [ ] System preference detected
+- [ ] Theme persists on reload
+- [ ] No flash on load
 
 ---
 
@@ -786,12 +756,12 @@ pytest tests/loadbalancer/ -v
 
 | Day | Files | Focus |
 |-----|-------|-------|
-| Day 1 | 6 | Clients 006-010 |
-| Day 2 | 6 | Provisioning System |
-| Day 3 | 6 | Auto-Scaling |
-| Day 4 | 5 | Load Balancer |
-| Day 5 | 6 | Monitoring + Reports |
-| **Total** | **29** | **Scale to 10 Clients** |
+| Day 1 | 6 | Accessibility (A11y) |
+| Day 2 | 6 | Mobile Responsive |
+| Day 3 | 6 | Dark Mode |
+| Day 4 | 5 | Performance |
+| Day 5 | 6 | Testing + Docs |
+| **Total** | **29** | **Frontend Polish** |
 
 ---
 
@@ -803,13 +773,13 @@ pytest tests/loadbalancer/ -v
 Week 23 FULLY PARALLEL Execution:
 
 Day 1-5: ALL BUILDERS RUN SIMULTANEOUSLY
-├── Builder 1: Clients 006-010 (6 files)
-├── Builder 2: Provisioning System (6 files)
-├── Builder 3: Auto-Scaling (6 files)
-├── Builder 4: Load Balancer (5 files)
-└── Builder 5: Monitoring + Reports (6 files)
+├── Builder 1: Accessibility (A11y) Compliance (6 files)
+├── Builder 2: Mobile Responsive Design (6 files)
+├── Builder 3: Dark Mode Implementation (6 files)
+├── Builder 4: Frontend Performance (5 files)
+└── Builder 5: Testing + Documentation (6 files)
 
-Day 6: Tester → 10-Client + Scaling + Performance validation
+Day 6: Tester → A11y + Mobile + Dark Mode + Performance validation
 ```
 
 **ALL Builders can start NOW. No waiting required.**
@@ -820,17 +790,17 @@ Day 6: Tester → 10-Client + Scaling + Performance validation
 ## PHASE 7 PROGRESS
 ═══════════════════════════════════════════════════════════════════════════════
 
-**Phase 7: Scale to 20 Clients**
+**Phase 7: Scale to 20 Clients (Weeks 21-27)**
 
 | Week | Goal | Status |
 |------|------|--------|
-| Week 23 | 5→10 Clients + Infrastructure | 🔄 In Progress |
-| Week 24 | 10→20 Clients + Optimization | ⏳ Pending |
+| 21 | Clients 3-5 + Collective Intelligence | ✅ COMPLETE |
+| 22 | Clients 6-10 + 85% Accuracy | ⚠️ PARTIAL (training done, clients pending) |
+| 23 | Frontend Polish (A11y, Mobile, Dark Mode) | 🔄 In Progress |
+| 24 | Client Success Tooling | ⏳ Pending |
+| 25 | Financial Services Vertical | ⏳ Pending |
+| 26 | Performance Optimization | ⏳ Pending |
+| 27 | 20-Client Validation | ⏳ Pending |
 
-**Phase 7 Targets:**
-- [ ] 20 clients operational
-- [ ] <5 minute provisioning
-- [ ] P95 <350ms at 500 users
-- [ ] Auto-scaling operational
-- [ ] Global load balancing
-- [ ] Multi-region support
+**Note:** Week 22 deviated from roadmap (focused on Agent Lightning v2 instead of client scaling).
+Week 23 follows roadmap: Frontend Polish.
