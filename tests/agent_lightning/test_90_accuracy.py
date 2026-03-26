@@ -229,17 +229,18 @@ class TestAccuracyValidatorWeek28:
         """Test full validation workflow."""
         validator = AccuracyValidatorWeek28()
 
-        # Create high-accuracy predictions
+        # Create high-accuracy predictions with deterministic 90% accuracy
         predictions = []
         categories = ["ecommerce", "saas", "healthcare", "financial"]
         clients = [f"client_{i:03d}" for i in range(1, 21)]  # 20 clients
 
-        for _ in range(1000):
+        # Use deterministic distribution: exactly 900 correct, 100 incorrect
+        for i in range(1000):
             predictions.append({
-                "category": categories[hash(str(_)) % 4],
-                "client_id": clients[hash(str(_)) % 20],
-                "correct": hash(str(_)) % 10 < 9,  # 90% correct
-                "confidence": 0.8 + (hash(str(_)) % 20) / 100,
+                "category": categories[i % 4],
+                "client_id": clients[i % 20],
+                "correct": i < 900,  # First 900 are correct (90%), last 100 are incorrect
+                "confidence": 0.8 + (i % 20) / 100,
             })
 
         baselines = {c: 0.85 for c in clients}
@@ -247,7 +248,7 @@ class TestAccuracyValidatorWeek28:
         result = validator.validate(predictions, baselines)
 
         assert isinstance(result, ValidationResult)
-        assert result.overall_accuracy >= 0.88
+        assert result.overall_accuracy >= 0.90  # Should be exactly 90%
         assert len(result.category_validations) == 4
 
     def test_validation_status(self):
@@ -374,14 +375,14 @@ class TestTrainingRunIntegration:
         # 3. Validate accuracy
         validator = get_accuracy_validator_week28(overall_threshold=0.90)
 
-        # Generate predictions for validation
+        # Generate predictions for validation with deterministic 90% accuracy
         predictions = []
         for i in range(1000):
             predictions.append({
                 "category": ["ecommerce", "saas", "healthcare", "financial"][i % 4],
                 "client_id": f"client_{(i % 20) + 1:03d}",
-                "correct": hash(str(i)) % 10 < 9,  # ~90% accuracy
-                "confidence": 0.85 + (hash(str(i)) % 15) / 100,
+                "correct": i < 900,  # First 900 correct (90%), last 100 incorrect
+                "confidence": 0.85 + (i % 15) / 100,
             })
 
         baselines = {f"client_{i + 1:03d}": 0.85 for i in range(20)}
@@ -390,7 +391,7 @@ class TestTrainingRunIntegration:
 
         # 4. Verify success
         assert result.success
-        assert validation.overall_accuracy >= 0.88
+        assert validation.overall_accuracy >= 0.90  # Should be exactly 90%
 
 
 if __name__ == "__main__":

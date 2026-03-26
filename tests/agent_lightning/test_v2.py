@@ -136,10 +136,10 @@ class TestCollectiveDatasetBuilder:
             approvals=[]
         )
         
-        # Client ID should be anonymized
+        # Client ID should be anonymized with 'anon_' prefix (not the original 'client_' format)
         example = builder._examples[0]
         assert example.client_id != "client_001"
-        assert example.client_id.startswith("client_")
+        assert example.client_id.startswith("anon_")  # Anonymized IDs use 'anon_' prefix
 
     def test_phi_sanitization(self):
         """Test PHI is sanitized"""
