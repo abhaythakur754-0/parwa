@@ -278,7 +278,7 @@ class ModelUpdater:
         rolled_back = [u for u in self._update_history if u.rolled_back]
 
         avg_improvement = (
-            sum(u.improvement for u in successful) / len(successive)
+            sum(u.improvement for u in successful) / len(successful)
             if successful else 0.0
         )
 
