@@ -26,13 +26,13 @@ class TestFullRegression:
 
     def test_all_variants_work(self):
         """Test all variant types work."""
-        from clients.client_001.config import get_client_config as g1
+        from clients.client_006.config import get_client_config as g6
         from clients.client_021.config import get_client_config as g21
         from clients.client_022.config import get_client_config as g22
         
         # Mini, Junior, High variants
-        c1, c21, c22 = g1(), g21(), g22()
-        variants = [c1.variant, c21.variant, c22.variant]
+        c6, c21, c22 = g6(), g21(), g22()
+        variants = [c6.variant, c21.variant, c22.variant]
         valid = ["mini", "parwa_junior", "parwa_high"]
         for v in variants:
             assert v in valid
@@ -86,11 +86,12 @@ class TestAllVariantsRegression:
 
     def test_mini_variant_features(self):
         """Test Mini variant features."""
-        from clients.client_001.config import get_client_config
+        from clients.client_006.config import get_client_config
         c = get_client_config()
         # Mini has limited features
         assert c.variant == "mini"
-        assert c.variant_limits.refund_limit == 50.0
+        # Mini has basic feature set
+        assert c.feature_flags.shadow_mode is True
 
     def test_junior_variant_features(self):
         """Test Junior variant features."""

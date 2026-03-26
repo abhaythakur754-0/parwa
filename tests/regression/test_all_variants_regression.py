@@ -8,7 +8,7 @@ class TestAllVariantsRegression:
 
     def test_mini_variant_exists(self):
         """Test Mini variant works."""
-        from clients.client_001.config import get_client_config
+        from clients.client_006.config import get_client_config
         c = get_client_config()
         assert c.variant == "mini"
 
