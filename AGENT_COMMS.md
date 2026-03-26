@@ -1,631 +1,621 @@
-# AGENT_COMMS.md — Week 28 Day 1-6
-# Last updated: Tester Agent
-# Current status: WEEK 28 COMPLETE — 90% ACCURACY ACHIEVED
+# AGENT_COMMS.md — Week 29 Day 1-6
+# Last updated: Manager Agent
+# Current status: WEEK 29 TASKS WRITTEN — AWAITING BUILDERS
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 28 PLAN
+## MANAGER → WEEK 29 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
 Date: 2026-03-26
 
 > **Phase: Phase 8 — Enterprise Preparation (Weeks 28-40)**
 >
-> **Week 28 Goals (Per Roadmap):**
-> - Day 1: Category Specialists Training
-> - Day 2: Active Learning System
-> - Day 3: A/B Testing Framework
-> - Day 4: Auto-Rollback System
-> - Day 5: 90% Accuracy Training Run
+> **Week 29 Goals (Per Roadmap):**
+> - Day 1: EU Region Infrastructure
+> - Day 2: US Region Infrastructure
+> - Day 3: APAC Region Infrastructure
+> - Day 4: Data Residency Enforcer
+> - Day 5: Cross-Region Replication
 > - Day 6: Tester runs full validation
 >
 > **CRITICAL RULES:**
 > 1. All 5 days run in PARALLEL — no cross-day dependencies
-> 2. Agent Lightning 90% Milestone per roadmap
-> 3. Build `agent_lightning/training/category_specialists.py`
-> 4. **Target: ≥90% accuracy**
-> 5. **A/B test: New model serves 10% of traffic**
-> 6. **Auto-rollback: Fires within 60 seconds of drift**
-> 7. **No PII in cross-client training data**
-> 8. **Category specialists for major industries**
+> 2. Multi-Region Data Residency per roadmap
+> 3. Build `infra/terraform/regions/eu/`, `us/`, `apac/`
+> 4. **EU client data absent from US region DB**
+> 5. **Cross-region isolation: 0 leaks**
+> 6. **DB replication lag <500ms**
+> 7. **GDPR export: only data from client's assigned region**
+> 8. **Data sovereignty compliance**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — Category Specialists Training
+## BUILDER 1 (DAY 1) — EU Region Infrastructure
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `agent_lightning/training/category_specialists/__init__.py`
-2. `agent_lightning/training/category_specialists/ecommerce_specialist.py`
-3. `agent_lightning/training/category_specialists/saas_specialist.py`
-4. `agent_lightning/training/category_specialists/healthcare_specialist.py`
-5. `agent_lightning/training/category_specialists/financial_specialist.py`
-6. `tests/agent_lightning/test_category_specialists.py`
+1. `infra/terraform/regions/eu/__init__.py`
+2. `infra/terraform/regions/eu/main.tf`
+3. `infra/terraform/regions/eu/database.tf`
+4. `infra/terraform/regions/eu/redis.tf`
+5. `infra/terraform/regions/eu/variables.tf`
+6. `tests/infrastructure/test_eu_region.py`
 
 ### Field 2: What is each file?
-1. `agent_lightning/training/category_specialists/__init__.py` — Module init
-2. `agent_lightning/training/category_specialists/ecommerce_specialist.py` — E-commerce specialist
-3. `agent_lightning/training/category_specialists/saas_specialist.py` — SaaS specialist
-4. `agent_lightning/training/category_specialists/healthcare_specialist.py` — Healthcare specialist
-5. `agent_lightning/training/category_specialists/financial_specialist.py` — Financial specialist
-6. `tests/agent_lightning/test_category_specialists.py` — Specialist tests
+1. `infra/terraform/regions/eu/__init__.py` — Module init
+2. `infra/terraform/regions/eu/main.tf` — EU region main config
+3. `infra/terraform/regions/eu/database.tf` — EU database config
+4. `infra/terraform/regions/eu/redis.tf` — EU Redis config
+5. `infra/terraform/regions/eu/variables.tf` — EU variables
+6. `tests/infrastructure/test_eu_region.py` — EU region tests
 
 ### Field 3: Responsibilities
 
-**agent_lightning/training/category_specialists/ecommerce_specialist.py:**
-- E-commerce specialist with:
-  - Domain-specific training for e-commerce
-  - Order-related queries handling
-  - Refund processing optimization
-  - Shipping/tracking expertise
-  - Product recommendation context
-  - **Test: Specialist achieves >92% on e-commerce data**
+**infra/terraform/regions/eu/main.tf:**
+- EU region main with:
+  - Provider: AWS eu-west-1 (Ireland)
+  - VPC configuration for EU
+  - Subnets for EU region
+  - Security groups (GDPR compliant)
+  - NAT gateway for EU
+  - **Test: Terraform plan succeeds**
 
-**agent_lightning/training/category_specialists/saas_specialist.py:**
-- SaaS specialist with:
-  - Domain-specific training for SaaS
-  - Subscription management queries
-  - Feature request handling
-  - Technical support context
-  - Billing inquiry expertise
-  - **Test: Specialist achieves >92% on SaaS data**
+**infra/terraform/regions/eu/database.tf:**
+- EU database with:
+  - PostgreSQL instance in eu-west-1
+  - Encryption at rest (GDPR requirement)
+  - Automated backups in EU
+  - Point-in-time recovery
+  - Read replicas in EU only
+  - **Test: DB instance configured**
 
-**agent_lightning/training/category_specialists/healthcare_specialist.py:**
-- Healthcare specialist with:
-  - Domain-specific training for healthcare
-  - HIPAA-compliant responses
-  - Medical appointment handling
-  - Insurance claim context
-  - PHI protection in training
-  - **Test: Specialist achieves >92% on healthcare data**
+**infra/terraform/regions/eu/redis.tf:**
+- EU Redis with:
+  - ElastiCache cluster in eu-west-1
+  - Encryption in transit
+  - Encryption at rest
+  - EU-only replication
+  - Automatic failover
+  - **Test: Redis configured**
 
-**agent_lightning/training/category_specialists/financial_specialist.py:**
-- Financial specialist with:
-  - Domain-specific training for finance
-  - SOX/FINRA compliant responses
-  - Transaction inquiry handling
-  - Fraud detection context
-  - PCI DSS compliance in training
-  - **Test: Specialist achieves >92% on financial data**
+**infra/terraform/regions/eu/variables.tf:**
+- EU variables with:
+  - Region: eu-west-1
+  - Instance types
+  - Database settings
+  - Redis settings
+  - Backup retention
+  - **Test: Variables validate**
 
-**tests/agent_lightning/test_category_specialists.py:**
-- Specialist tests with:
-  - Test: All 4 specialists initialize
-  - Test: Each specialist >92% on domain data
-  - Test: Specialists route correctly
-  - Test: Combined accuracy >90%
-  - **CRITICAL: All specialists work**
+**tests/infrastructure/test_eu_region.py:**
+- EU region tests with:
+  - Test: Terraform validates
+  - Test: EU region resources defined
+  - Test: Database in EU only
+  - Test: Redis in EU only
+  - **CRITICAL: EU region infrastructure works**
 
 ### Field 4: Depends On
-- Agent Lightning v2 (Week 22)
-- Collective intelligence (Week 21)
+- Terraform infrastructure
+- AWS provider configuration
 
 ### Field 5: Expected Output
-- 4 category specialists trained
-- Domain-specific optimization
+- EU region infrastructure defined
+- GDPR-compliant setup
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Category specialist selected based on query type
+- EU clients have data stored only in EU region
 
 ### Field 8: Error Handling
-- Fallback to general model
-- Category detection failure handling
+- Terraform validation errors
+- Resource conflicts
 
 ### Field 9: Security Requirements
-- No PII in specialist training
-- Compliance maintained per domain
+- Encryption at rest
+- Encryption in transit
+- EU data sovereignty
 
 ### Field 10: Integration Points
-- Smart router
-- Training pipeline
-- Model registry
+- Terraform
+- AWS provider
+- Global infrastructure
 
 ### Field 11: Code Quality
-- Typed specialist classes
-- Clear domain boundaries
+- Terraform best practices
+- Clear documentation
 
 ### Field 12: GitHub CI Requirements
-- Specialist tests pass
-- Accuracy thresholds met
+- Terraform validate passes
+- EU region tests pass
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: All 4 specialists work**
-- **CRITICAL: Each specialist >92% on domain data**
+- **CRITICAL: EU region infrastructure defined**
+- **CRITICAL: Terraform validates**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — Active Learning System
+## BUILDER 2 (DAY 2) — US Region Infrastructure
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `agent_lightning/training/active_learning/__init__.py`
-2. `agent_lightning/training/active_learning/uncertainty_sampler.py`
-3. `agent_lightning/training/active_learning/sample_selector.py`
-4. `agent_lightning/training/active_learning/feedback_collector.py`
-5. `agent_lightning/training/active_learning/model_updater.py`
-6. `tests/agent_lightning/test_active_learning.py`
+1. `infra/terraform/regions/us/__init__.py`
+2. `infra/terraform/regions/us/main.tf`
+3. `infra/terraform/regions/us/database.tf`
+4. `infra/terraform/regions/us/redis.tf`
+5. `infra/terraform/regions/us/variables.tf`
+6. `tests/infrastructure/test_us_region.py`
 
 ### Field 2: What is each file?
-1. `agent_lightning/training/active_learning/__init__.py` — Module init
-2. `agent_lightning/training/active_learning/uncertainty_sampler.py` — Uncertainty sampling
-3. `agent_lightning/training/active_learning/sample_selector.py` — Sample selection
-4. `agent_lightning/training/active_learning/feedback_collector.py` — Feedback collection
-5. `agent_lightning/training/active_learning/model_updater.py` — Incremental model updates
-6. `tests/agent_lightning/test_active_learning.py` — Active learning tests
+1. `infra/terraform/regions/us/__init__.py` — Module init
+2. `infra/terraform/regions/us/main.tf` — US region main config
+3. `infra/terraform/regions/us/database.tf` — US database config
+4. `infra/terraform/regions/us/redis.tf` — US Redis config
+5. `infra/terraform/regions/us/variables.tf` — US variables
+6. `tests/infrastructure/test_us_region.py` — US region tests
 
 ### Field 3: Responsibilities
 
-**agent_lightning/training/active_learning/uncertainty_sampler.py:**
-- Uncertainty sampler with:
-  - Identify low-confidence predictions
-  - Entropy-based sampling
-  - Margin sampling
-  - Query-by-committee approach
-  - Uncertainty threshold: <70% confidence
-  - **Test: Sampler identifies uncertain samples**
+**infra/terraform/regions/us/main.tf:**
+- US region main with:
+  - Provider: AWS us-east-1 (N. Virginia)
+  - VPC configuration for US
+  - Subnets for US region
+  - Security groups
+  - NAT gateway for US
+  - **Test: Terraform plan succeeds**
 
-**agent_lightning/training/active_learning/sample_selector.py:**
-- Sample selector with:
-  - Prioritize high-value samples
-  - Diversity-based selection
-  - Representative sampling
-  - Balanced class selection
-  - Budget-aware selection
-  - **Test: Selector picks valuable samples**
+**infra/terraform/regions/us/database.tf:**
+- US database with:
+  - PostgreSQL instance in us-east-1
+  - Encryption at rest
+  - Automated backups in US
+  - Point-in-time recovery
+  - Read replicas in US only
+  - **Test: DB instance configured**
 
-**agent_lightning/training/active_learning/feedback_collector.py:**
-- Feedback collector with:
-  - Collect human corrections
-  - Aggregate feedback from managers
-  - Priority queue for corrections
-  - Feedback quality scoring
-  - Automatic labeling suggestions
-  - **Test: Collector gathers feedback**
+**infra/terraform/regions/us/redis.tf:**
+- US Redis with:
+  - ElastiCache cluster in us-east-1
+  - Encryption in transit
+  - Encryption at rest
+  - US-only replication
+  - Automatic failover
+  - **Test: Redis configured**
 
-**agent_lightning/training/active_learning/model_updater.py:**
-- Model updater with:
-  - Incremental training capability
-  - Online learning support
-  - Model versioning on update
-  - Performance tracking per update
-  - Rollback on degradation
-  - **Test: Updater improves model**
+**infra/terraform/regions/us/variables.tf:**
+- US variables with:
+  - Region: us-east-1
+  - Instance types
+  - Database settings
+  - Redis settings
+  - Backup retention
+  - **Test: Variables validate**
 
-**tests/agent_lightning/test_active_learning.py:**
-- Active learning tests with:
-  - Test: Uncertainty sampler works
-  - Test: Sample selector prioritizes
-  - Test: Feedback collector gathers
-  - Test: Model updater improves
-  - **CRITICAL: Active learning pipeline works**
+**tests/infrastructure/test_us_region.py:**
+- US region tests with:
+  - Test: Terraform validates
+  - Test: US region resources defined
+  - Test: Database in US only
+  - Test: Redis in US only
+  - **CRITICAL: US region infrastructure works**
 
 ### Field 4: Depends On
-- Agent Lightning training pipeline
-- Human feedback system
+- Terraform infrastructure
+- AWS provider configuration
 
 ### Field 5: Expected Output
-- Active learning system operational
-- Continuous improvement enabled
+- US region infrastructure defined
+- CCPA-compliant setup
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- System learns from manager corrections automatically
+- US clients have data stored only in US region
 
 ### Field 8: Error Handling
-- Low feedback quality handling
-- Model degradation prevention
+- Terraform validation errors
+- Resource conflicts
 
 ### Field 9: Security Requirements
-- Feedback data isolation
-- No sensitive data exposure
+- Encryption at rest
+- Encryption in transit
+- US data sovereignty
 
 ### Field 10: Integration Points
-- Training pipeline
-- Dashboard feedback
-- Model registry
+- Terraform
+- AWS provider
+- Global infrastructure
 
 ### Field 11: Code Quality
-- Documented learning strategy
-- Clear feedback workflow
+- Terraform best practices
+- Clear documentation
 
 ### Field 12: GitHub CI Requirements
-- Active learning tests pass
-- Pipeline validates
+- Terraform validate passes
+- US region tests pass
 
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Active learning pipeline works**
-- **CRITICAL: Model improves from feedback**
+- **CRITICAL: US region infrastructure defined**
+- **CRITICAL: Terraform validates**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — A/B Testing Framework
+## BUILDER 3 (DAY 3) — APAC Region Infrastructure
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `agent_lightning/monitoring/ab_testing/__init__.py`
-2. `agent_lightning/monitoring/ab_testing/traffic_splitter.py`
-3. `agent_lightning/monitoring/ab_testing/experiment_manager.py`
-4. `agent_lightning/monitoring/ab_testing/metrics_collector.py`
-5. `agent_lightning/monitoring/ab_testing/statistical_analyzer.py`
-6. `tests/agent_lightning/test_ab_testing.py`
+1. `infra/terraform/regions/apac/__init__.py`
+2. `infra/terraform/regions/apac/main.tf`
+3. `infra/terraform/regions/apac/database.tf`
+4. `infra/terraform/regions/apac/redis.tf`
+5. `infra/terraform/regions/apac/variables.tf`
+6. `tests/infrastructure/test_apac_region.py`
 
 ### Field 2: What is each file?
-1. `agent_lightning/monitoring/ab_testing/__init__.py` — Module init
-2. `agent_lightning/monitoring/ab_testing/traffic_splitter.py` — Traffic splitting
-3. `agent_lightning/monitoring/ab_testing/experiment_manager.py` — Experiment management
-4. `agent_lightning/monitoring/ab_testing/metrics_collector.py` — Metrics collection
-5. `agent_lightning/monitoring/ab_testing/statistical_analyzer.py` — Statistical analysis
-6. `tests/agent_lightning/test_ab_testing.py` — A/B testing tests
+1. `infra/terraform/regions/apac/__init__.py` — Module init
+2. `infra/terraform/regions/apac/main.tf` — APAC region main config
+3. `infra/terraform/regions/apac/database.tf` — APAC database config
+4. `infra/terraform/regions/apac/redis.tf` — APAC Redis config
+5. `infra/terraform/regions/apac/variables.tf` — APAC variables
+6. `tests/infrastructure/test_apac_region.py` — APAC region tests
 
 ### Field 3: Responsibilities
 
-**agent_lightning/monitoring/ab_testing/traffic_splitter.py:**
-- Traffic splitter with:
-  - Split traffic by percentage
-  - Consistent hashing for user assignment
-  - Multi-variant support (A/B/C/D)
-  - Gradual rollout support
-  - Client-level isolation
-  - **Test: Splitter distributes correctly**
+**infra/terraform/regions/apac/main.tf:**
+- APAC region main with:
+  - Provider: AWS ap-southeast-1 (Singapore)
+  - VPC configuration for APAC
+  - Subnets for APAC region
+  - Security groups
+  - NAT gateway for APAC
+  - **Test: Terraform plan succeeds**
 
-**agent_lightning/monitoring/ab_testing/experiment_manager.py:**
-- Experiment manager with:
-  - Create/stop experiments
-  - Experiment configuration
-  - Variant assignment
-  - Experiment lifecycle
-  - Results tracking
-  - **Test: Manager handles experiments**
+**infra/terraform/regions/apac/database.tf:**
+- APAC database with:
+  - PostgreSQL instance in ap-southeast-1
+  - Encryption at rest
+  - Automated backups in APAC
+  - Point-in-time recovery
+  - Read replicas in APAC only
+  - **Test: DB instance configured**
 
-**agent_lightning/monitoring/ab_testing/metrics_collector.py:**
-- Metrics collector with:
-  - Collect accuracy per variant
-  - Collect latency per variant
-  - Collect user satisfaction
-  - Collect error rates
-  - Real-time metrics aggregation
-  - **Test: Collector gathers metrics**
+**infra/terraform/regions/apac/redis.tf:**
+- APAC Redis with:
+  - ElastiCache cluster in ap-southeast-1
+  - Encryption in transit
+  - Encryption at rest
+  - APAC-only replication
+  - Automatic failover
+  - **Test: Redis configured**
 
-**agent_lightning/monitoring/ab_testing/statistical_analyzer.py:**
-- Statistical analyzer with:
-  - Statistical significance testing
-  - Confidence interval calculation
-  - Effect size estimation
-  - Sample size calculation
-  - Winner determination
-  - **Test: Analyzer determines significance**
+**infra/terraform/regions/apac/variables.tf:**
+- APAC variables with:
+  - Region: ap-southeast-1
+  - Instance types
+  - Database settings
+  - Redis settings
+  - Backup retention
+  - **Test: Variables validate**
 
-**tests/agent_lightning/test_ab_testing.py:**
-- A/B tests with:
-  - Test: Traffic splits correctly
-  - Test: Experiments run
-  - Test: Metrics collected
-  - Test: Statistical analysis works
-  - **CRITICAL: A/B framework operational**
+**tests/infrastructure/test_apac_region.py:**
+- APAC region tests with:
+  - Test: Terraform validates
+  - Test: APAC region resources defined
+  - Test: Database in APAC only
+  - Test: Redis in APAC only
+  - **CRITICAL: APAC region infrastructure works**
 
 ### Field 4: Depends On
-- Agent Lightning deployment
-- Monitoring infrastructure
+- Terraform infrastructure
+- AWS provider configuration
 
 ### Field 5: Expected Output
-- A/B testing framework operational
-- 10% traffic to new model
+- APAC region infrastructure defined
+- Asian data compliance ready
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- New model serves 10% of traffic correctly
+- APAC clients have data stored only in APAC region
 
 ### Field 8: Error Handling
-- Experiment failure handling
-- Metric collection failures
+- Terraform validation errors
+- Resource conflicts
 
 ### Field 9: Security Requirements
-- No data leakage between variants
-- Client isolation maintained
+- Encryption at rest
+- Encryption in transit
+- APAC data sovereignty
 
 ### Field 10: Integration Points
-- Model deployment
-- Monitoring system
-- Dashboard
+- Terraform
+- AWS provider
+- Global infrastructure
 
 ### Field 11: Code Quality
-- Statistical rigor
-- Clear experiment documentation
+- Terraform best practices
+- Clear documentation
 
 ### Field 12: GitHub CI Requirements
-- A/B tests pass
-- Framework validates
+- Terraform validate passes
+- APAC region tests pass
 
 ### Field 13: Pass Criteria
 Builder 3 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: A/B framework works**
-- **CRITICAL: 10% traffic split capability**
+- **CRITICAL: APAC region infrastructure defined**
+- **CRITICAL: Terraform validates**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — Auto-Rollback System
+## BUILDER 4 (DAY 4) — Data Residency Enforcer
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `agent_lightning/deployment/auto_rollback/__init__.py`
-2. `agent_lightning/deployment/auto_rollback/drift_detector.py`
-3. `agent_lightning/deployment/auto_rollback/performance_monitor.py`
-4. `agent_lightning/deployment/auto_rollback/rollback_executor.py`
-5. `agent_lightning/deployment/auto_rollback/alert_manager.py`
-6. `tests/agent_lightning/test_auto_rollback.py`
+1. `backend/compliance/residency/__init__.py`
+2. `backend/compliance/residency/residency_enforcer.py`
+3. `backend/compliance/residency/region_router.py`
+4. `backend/compliance/residency/sovereignty_checker.py`
+5. `backend/compliance/residency/gdpr_export.py`
+6. `tests/compliance/test_residency.py`
 
 ### Field 2: What is each file?
-1. `agent_lightning/deployment/auto_rollback/__init__.py` — Module init
-2. `agent_lightning/deployment/auto_rollback/drift_detector.py` — Drift detection
-3. `agent_lightning/deployment/auto_rollback/performance_monitor.py` — Performance monitoring
-4. `agent_lightning/deployment/auto_rollback/rollback_executor.py` — Rollback execution
-5. `agent_lightning/deployment/auto_rollback/alert_manager.py` — Alert management
-6. `tests/agent_lightning/test_auto_rollback.py` — Rollback tests
+1. `backend/compliance/residency/__init__.py` — Module init
+2. `backend/compliance/residency/residency_enforcer.py` — Residency enforcement
+3. `backend/compliance/residency/region_router.py` — Region routing
+4. `backend/compliance/residency/sovereignty_checker.py` — Sovereignty checking
+5. `backend/compliance/residency/gdpr_export.py` — GDPR export handler
+6. `tests/compliance/test_residency.py` — Residency tests
 
 ### Field 3: Responsibilities
 
-**agent_lightning/deployment/auto_rollback/drift_detector.py:**
-- Drift detector with:
-  - Detect accuracy drift
-  - Detect response quality drift
-  - Detect latency degradation
-  - Statistical drift testing
-  - Threshold: >5% accuracy drop
-  - **Test: Detector catches drift**
+**backend/compliance/residency/residency_enforcer.py:**
+- Residency enforcer with:
+  - Enforce data stays in assigned region
+  - Block cross-region data access
+  - Validate region assignment on read/write
+  - Log all cross-region attempts
+  - Alert on violations
+  - **Test: Enforcer blocks cross-region access**
 
-**agent_lightning/deployment/auto_rollback/performance_monitor.py:**
-- Performance monitor with:
-  - Real-time accuracy tracking
-  - Latency percentile tracking
-  - Error rate monitoring
-  - Comparison against baseline
-  - Anomaly detection
-  - **Test: Monitor tracks performance**
+**backend/compliance/residency/region_router.py:**
+- Region router with:
+  - Route requests to correct region
+  - Client-to-region mapping
+  - Dynamic region selection
+  - Failover handling
+  - Latency optimization
+  - **Test: Router routes correctly**
 
-**agent_lightning/deployment/auto_rollback/rollback_executor.py:**
-- Rollback executor with:
-  - Automatic rollback trigger
-  - Target rollback time: <60 seconds
-  - Version management
-  - Rollback logging
-  - Notification on rollback
-  - **Test: Executor rolls back in <60s**
+**backend/compliance/residency/sovereignty_checker.py:**
+- Sovereignty checker with:
+  - Check data sovereignty requirements
+  - Validate client region assignment
+  - Check compliance per region
+  - Audit sovereignty status
+  - Report violations
+  - **Test: Checker validates sovereignty**
 
-**agent_lightning/deployment/auto_rollback/alert_manager.py:**
-- Alert manager with:
-  - Multi-channel alerts (email, Slack, PagerDuty)
-  - Alert severity levels
-  - Alert aggregation
-  - Escalation rules
-  - Alert history
-  - **Test: Alerts trigger correctly**
+**backend/compliance/residency/gdpr_export.py:**
+- GDPR export with:
+  - Export all client data from assigned region
+  - Only data from client's region
+  - Portable format (JSON)
+  - Complete data inventory
+  - Right to erasure support
+  - **Test: Export only assigned region data**
 
-**tests/agent_lightning/test_auto_rollback.py:**
-- Rollback tests with:
-  - Test: Drift detection works
-  - Test: Performance monitoring works
-  - Test: Rollback executes in <60s
-  - Test: Alerts trigger
-  - **CRITICAL: Auto-rollback works**
+**tests/compliance/test_residency.py:**
+- Residency tests with:
+  - Test: Enforcer blocks cross-region
+  - Test: Router routes correctly
+  - Test: Sovereignty checker works
+  - Test: GDPR export from correct region
+  - **CRITICAL: Data residency enforced**
 
 ### Field 4: Depends On
-- Model registry
-- Deployment infrastructure
+- Region infrastructure (Day 1-3)
+- Compliance layer (Week 7)
 
 ### Field 5: Expected Output
-- Auto-rollback system operational
-- <60 second rollback time
+- Data residency enforcement operational
+- Cross-region access blocked
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- System rolls back within 60 seconds of drift
+- EU client data cannot be accessed from US region
 
 ### Field 8: Error Handling
-- Rollback failure handling
-- Cascading failure prevention
+- Cross-region access attempts
+- Region unavailability
 
 ### Field 9: Security Requirements
-- Secure model switching
-- Audit trail for rollbacks
+- Strict region isolation
+- Audit all access
 
 ### Field 10: Integration Points
-- Model deployment
-- Alerting system
-- Model registry
+- Database layer
+- API layer
+- Client management
 
 ### Field 11: Code Quality
-- Clear rollback criteria
+- Clear enforcement rules
 - Comprehensive logging
 
 ### Field 12: GitHub CI Requirements
-- Rollback tests pass
-- Time threshold verified
+- Residency tests pass
+- Cross-region blocked
 
 ### Field 13: Pass Criteria
 Builder 4 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Auto-rollback works**
-- **CRITICAL: Rollback time <60 seconds**
+- **CRITICAL: Cross-region access blocked**
+- **CRITICAL: GDPR export works**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — 90% Accuracy Training Run
+## BUILDER 5 (DAY 5) — Cross-Region Replication
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `agent_lightning/training/training_run_week28.py`
-2. `agent_lightning/validation/accuracy_validator_week28.py`
-3. `tests/agent_lightning/test_90_accuracy.py`
-4. `agent_lightning/collective_intelligence/enhanced_aggregator.py`
-5. `reports/agent_lightning_week28.md`
-6. `database/migrations/versions/011_phase8_week28.py`
+1. `backend/compliance/replication/__init__.py`
+2. `backend/compliance/replication/cross_region_replication.py`
+3. `backend/compliance/replication/replication_monitor.py`
+4. `backend/compliance/replication/conflict_resolver.py`
+5. `backend/compliance/replication/latency_tracker.py`
+6. `tests/compliance/test_replication.py`
 
 ### Field 2: What is each file?
-1. `agent_lightning/training/training_run_week28.py` — Week 28 training run
-2. `agent_lightning/validation/accuracy_validator_week28.py` — Accuracy validation
-3. `tests/agent_lightning/test_90_accuracy.py` — 90% accuracy test
-4. `agent_lightning/collective_intelligence/enhanced_aggregator.py` — Enhanced CI aggregator
-5. `reports/agent_lightning_week28.md` — Agent Lightning report
-6. `database/migrations/versions/011_phase8_week28.py` — Phase 8 migration
+1. `backend/compliance/replication/__init__.py` — Module init
+2. `backend/compliance/replication/cross_region_replication.py` — Replication service
+3. `backend/compliance/replication/replication_monitor.py` — Replication monitoring
+4. `backend/compliance/replication/conflict_resolver.py` — Conflict resolution
+5. `backend/compliance/replication/latency_tracker.py` — Latency tracking
+6. `tests/compliance/test_replication.py` — Replication tests
 
 ### Field 3: Responsibilities
 
-**agent_lightning/training/training_run_week28.py:**
-- Training run with:
-  - Train with category specialists
-  - Active learning integration
-  - 3000+ training examples
-  - Validation split: 20%
-  - Target: ≥90% accuracy
-  - **Test: Training achieves ≥90%**
+**backend/compliance/replication/cross_region_replication.py:**
+- Replication service with:
+  - Async replication between regions
+  - Event-driven replication
+  - Selective replication (metadata only)
+  - Replication lag tracking
+  - Automatic retry on failure
+  - **Test: Replication works <500ms lag**
 
-**agent_lightning/validation/accuracy_validator_week28.py:**
-- Accuracy validator with:
-  - Overall accuracy validation
-  - Per-category accuracy breakdown
-  - Per-client accuracy breakdown
-  - Confidence calibration
-  - Threshold: ≥90%
-  - **Test: Validator confirms ≥90%**
+**backend/compliance/replication/replication_monitor.py:**
+- Replication monitor with:
+  - Monitor replication status
+  - Alert on replication lag >500ms
+  - Track replication queue depth
+  - Monitor replication errors
+  - Health dashboard
+  - **Test: Monitor detects lag**
 
-**tests/agent_lightning/test_90_accuracy.py:**
-- Accuracy test with:
-  - Test: Overall accuracy ≥90%
-  - Test: All category specialists >88%
-  - Test: All 20 clients show improvement
-  - Test: No accuracy degradation
-  - **Test: 90% target achieved**
+**backend/compliance/replication/conflict_resolver.py:**
+- Conflict resolver with:
+  - Last-write-wins strategy
+  - Conflict detection
+  - Conflict resolution logging
+  - Manual resolution support
+  - Conflict reporting
+  - **Test: Conflicts resolved correctly**
 
-**agent_lightning/collective_intelligence/enhanced_aggregator.py:**
-- Enhanced aggregator with:
-  - Aggregate from 20 clients
-  - Category tagging
-  - Quality scoring
-  - PII anonymization
-  - Differential privacy
-  - **Test: Enhanced aggregator works**
+**backend/compliance/replication/latency_tracker.py:**
+- Latency tracker with:
+  - Track cross-region latency
+  - P50/P95/P99 latency metrics
+  - Latency alerts
+  - Historical tracking
+  - Prometheus export
+  - **Test: Latency tracked**
 
-**reports/agent_lightning_week28.md:**
-- Report with:
-  - Training run summary
-  - Accuracy: ≥90% target
-  - Per-category accuracy
-  - Per-client accuracy
-  - Improvement from v2
-  - **Content: Week 28 training report**
-
-**database/migrations/versions/011_phase8_week28.py:**
-- Migration with:
-  - Category specialist tables
-  - Active learning tables
-  - A/B testing tables
-  - Rollback event tables
-  - **Test: Migration runs successfully**
+**tests/compliance/test_replication.py:**
+- Replication tests with:
+  - Test: Replication works
+  - Test: Lag <500ms
+  - Test: Conflicts resolved
+  - Test: Latency tracked
+  - **CRITICAL: Replication lag <500ms**
 
 ### Field 4: Depends On
-- Category specialists (Day 1)
-- Active learning (Day 2)
-- A/B testing (Day 3)
-- Auto-rollback (Day 4)
+- Region infrastructure (Day 1-3)
+- Residency enforcer (Day 4)
 
 ### Field 5: Expected Output
-- Agent Lightning ≥90% accuracy
-- All new systems integrated
+- Cross-region replication operational
+- Replication lag <500ms
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Agent Lightning achieves 90% accuracy milestone
+- Data replicates across regions with <500ms lag
 
 ### Field 8: Error Handling
-- Training failure handling
-- Accuracy below threshold handling
+- Replication failures
+- Conflict resolution
 
 ### Field 9: Security Requirements
-- No PII in training data
-- Differential privacy enforced
+- Encrypted replication
+- Data integrity checks
 
 ### Field 10: Integration Points
-- All Week 28 components
-- Model registry
-- Deployment system
+- Database layer
+- Monitoring system
+- Alert system
 
 ### Field 11: Code Quality
-- Documented training process
-- Clear accuracy metrics
+- Documented replication strategy
+- Clear conflict resolution
 
 ### Field 12: GitHub CI Requirements
-- 90% accuracy test passes
-- Training validates
+- Replication tests pass
+- Lag threshold verified
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Agent Lightning ≥90% accuracy**
-- **CRITICAL: All systems integrated**
+- **CRITICAL: Replication works**
+- **CRITICAL: Replication lag <500ms**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 28 INSTRUCTIONS (DAY 6)
+## TESTER → WEEK 29 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
 
 ### Test Commands
 
-#### 1. Category Specialists Tests
+#### 1. Region Infrastructure Tests
 ```bash
-pytest tests/agent_lightning/test_category_specialists.py -v
+pytest tests/infrastructure/test_eu_region.py tests/infrastructure/test_us_region.py tests/infrastructure/test_apac_region.py -v
 ```
 
-#### 2. Active Learning Tests
+#### 2. Terraform Validation
 ```bash
-pytest tests/agent_lightning/test_active_learning.py -v
+cd infra/terraform/regions/eu && terraform validate
+cd infra/terraform/regions/us && terraform validate
+cd infra/terraform/regions/apac && terraform validate
 ```
 
-#### 3. A/B Testing Tests
+#### 3. Residency Tests
 ```bash
-pytest tests/agent_lightning/test_ab_testing.py -v
+pytest tests/compliance/test_residency.py -v
 ```
 
-#### 4. Auto-Rollback Tests
+#### 4. Replication Tests
 ```bash
-pytest tests/agent_lightning/test_auto_rollback.py -v
+pytest tests/compliance/test_replication.py -v
 ```
 
-#### 5. 90% Accuracy Test (CRITICAL)
+#### 5. Integration Tests
 ```bash
-pytest tests/agent_lightning/test_90_accuracy.py -v
-```
-
-#### 6. Integration Tests
-```bash
-pytest tests/integration/ tests/e2e/ -v --tb=short
+pytest tests/integration/ -v --tb=short
 ```
 
 ---
@@ -634,31 +624,31 @@ pytest tests/integration/ tests/e2e/ -v --tb=short
 
 | # | Test | Expected |
 |---|------|----------|
-| 1 | Category specialists | All 4 work >92% domain |
-| 2 | Active learning | Pipeline works |
-| 3 | A/B testing | 10% traffic split |
-| 4 | Auto-rollback | <60 seconds |
-| 5 | Drift detection | Catches drift |
-| 6 | **Accuracy** | **≥90% (CRITICAL)** |
-| 7 | Per-category accuracy | All >88% |
-| 8 | Per-client accuracy | All 20 clients improved |
-| 9 | No PII in training | Verified |
-| 10 | Model registry | Version tracked |
+| 1 | EU region infrastructure | Terraform validates |
+| 2 | US region infrastructure | Terraform validates |
+| 3 | APAC region infrastructure | Terraform validates |
+| 4 | Cross-region access | Blocked |
+| 5 | GDPR export | Only assigned region |
+| 6 | Replication lag | <500ms |
+| 7 | Region isolation | 0 leaks |
+| 8 | Data sovereignty | Enforced |
+| 9 | Region routing | Correct |
+| 10 | Conflict resolution | Works |
 
 ---
 
-### Week 28 PASS Criteria
+### Week 29 PASS Criteria
 
-1. ✅ Category Specialists: All 4 trained >92% domain
-2. ✅ Active Learning: Pipeline operational
-3. ✅ A/B Testing: Framework works
-4. ✅ Auto-Rollback: <60 seconds
-5. ✅ Drift Detection: Working
-6. ✅ **Agent Lightning: ≥90% accuracy (CRITICAL)**
-7. ✅ Per-Category: All >88%
-8. ✅ Per-Client: All 20 improved
-9. ✅ No PII: Verified
-10. ✅ Model Registry: Tracked
+1. ✅ EU Region: Terraform validates
+2. ✅ US Region: Terraform validates
+3. ✅ APAC Region: Terraform validates
+4. ✅ **Cross-Region Isolation: 0 data leaks (CRITICAL)**
+5. ✅ **EU client data absent from US DB (CRITICAL)**
+6. ✅ **Replication Lag: <500ms (CRITICAL)**
+7. ✅ GDPR Export: Only assigned region data
+8. ✅ Data Sovereignty: Enforced
+9. ✅ Region Routing: Correct
+10. ✅ Conflict Resolution: Works
 11. ✅ GitHub CI GREEN
 
 ---
@@ -669,12 +659,12 @@ pytest tests/integration/ tests/e2e/ -v --tb=short
 
 | Builder | Day | Focus | Files | Status |
 |---------|-----|-------|-------|--------|
-| Builder 1 | Day 1 | Category Specialists | 6 | ✅ DONE |
-| Builder 2 | Day 2 | Active Learning | 6 | ✅ DONE |
-| Builder 3 | Day 3 | A/B Testing | 6 | ✅ DONE |
-| Builder 4 | Day 4 | Auto-Rollback | 6 | ✅ DONE |
-| Builder 5 | Day 5 | 90% Training Run | 6 | ✅ DONE |
-| Tester | Day 6 | Full Validation | 149 PASS | ✅ DONE |
+| Builder 1 | Day 1 | EU Region Infrastructure | 6 | ⏳ PENDING |
+| Builder 2 | Day 2 | US Region Infrastructure | 6 | ⏳ PENDING |
+| Builder 3 | Day 3 | APAC Region Infrastructure | 6 | ⏳ PENDING |
+| Builder 4 | Day 4 | Data Residency Enforcer | 6 | ⏳ PENDING |
+| Builder 5 | Day 5 | Cross-Region Replication | 6 | ⏳ PENDING |
+| Tester | Day 6 | Full Validation | - | ⏳ PENDING |
 
 ---
 
@@ -685,44 +675,52 @@ pytest tests/integration/ tests/e2e/ -v --tb=short
 **CRITICAL REMINDERS:**
 
 1. All 5 days run in PARALLEL — no cross-day dependencies
-2. Agent Lightning 90% Milestone per roadmap
-3. **TARGET: ≥90% accuracy (CRITICAL)**
-4. Category specialists for 4 major industries
-5. **A/B test: 10% traffic to new model**
-6. **Auto-rollback: <60 seconds on drift**
-7. **No PII in training data (MANDATORY)**
-8. Active learning for continuous improvement
+2. Multi-Region Data Residency per roadmap
+3. **EU client data MUST NOT be in US region (CRITICAL)**
+4. **Cross-region isolation: 0 leaks (MANDATORY)**
+5. **Replication lag <500ms (MANDATORY)**
+6. **GDPR export only from assigned region**
+7. Data sovereignty compliance
+8. Three regions: EU, US, APAC
 
-**WEEK 28 TARGETS:**
+**WEEK 29 TARGETS:**
 
-| Metric | Current | Target | Status |
-|--------|---------|--------|--------|
-| Accuracy | 88.2% | ≥90% | ✅ 90.1% |
-| Category Specialists | 0 | 4 | ✅ 4 trained |
-| Active Learning | None | Operational | ✅ Operational |
-| A/B Testing | None | 10% traffic | ✅ Working |
-| Auto-Rollback | Manual | <60s auto | ✅ <60s |
+| Metric | Target | Status |
+|--------|--------|--------|
+| Regions | 3 (EU, US, APAC) | 🎯 Target |
+| Cross-Region Leaks | 0 | 🎯 Mandatory |
+| Replication Lag | <500ms | 🎯 Mandatory |
+| GDPR Export | Region-specific | 🎯 Target |
+| Terraform Validation | All pass | 🎯 Target |
+
+**REGION ASSIGNMENTS:**
+
+| Region | Location | Compliance |
+|--------|----------|------------|
+| EU | eu-west-1 (Ireland) | GDPR |
+| US | us-east-1 (N. Virginia) | CCPA |
+| APAC | ap-southeast-1 (Singapore) | Local laws |
 
 **ASSUMPTIONS:**
-- Phase 7 complete (20 clients)
-- Agent Lightning v2 at 88% accuracy
-- Collective intelligence operational
-- Model registry working
+- Week 28 complete (90% accuracy)
+- Terraform installed
+- AWS provider configured
+- Existing infrastructure for 20 clients
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## WEEK 28 FILE SUMMARY
+## WEEK 29 FILE SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
 | Day | Files | Focus |
 |-----|-------|-------|
-| Day 1 | 6 | Category Specialists |
-| Day 2 | 6 | Active Learning |
-| Day 3 | 6 | A/B Testing |
-| Day 4 | 6 | Auto-Rollback |
-| Day 5 | 6 | 90% Training Run |
-| **Total** | **30** | **Agent Lightning 90% Milestone** |
+| Day 1 | 6 | EU Region Infrastructure |
+| Day 2 | 6 | US Region Infrastructure |
+| Day 3 | 6 | APAC Region Infrastructure |
+| Day 4 | 6 | Data Residency Enforcer |
+| Day 5 | 6 | Cross-Region Replication |
+| **Total** | **30** | **Multi-Region Data Residency** |
 
 ---
 
@@ -734,8 +732,8 @@ pytest tests/integration/ tests/e2e/ -v --tb=short
 
 | Week | Roadmap Goal | Status |
 |------|--------------|--------|
-| **28** | **Agent Lightning 90% Milestone** | **✅ COMPLETE** |
-| 29 | Multi-Region Data Residency | ⏳ Pending |
+| 28 | Agent Lightning 90% Milestone | ✅ COMPLETE |
+| **29** | **Multi-Region Data Residency** | **🔄 IN PROGRESS** |
 | 30 | 30-Client Milestone | ⏳ Pending |
 | 31 | E-commerce Advanced | ⏳ Pending |
 | 32 | SaaS Advanced | ⏳ Pending |
@@ -748,10 +746,9 @@ pytest tests/integration/ tests/e2e/ -v --tb=short
 | 39 | Final Production Readiness | ⏳ Pending |
 | 40 | Weeks 1-40 Final Validation | ⏳ Pending |
 
-**Week 28 Deliverables:**
-- Accuracy: 88.2% → ✅ 90.1% ACHIEVED
-- Category Specialists: ✅ 4 trained (>92% each)
-- Active Learning: ✅ Operational
-- A/B Testing: ✅ 10% traffic split working
-- Auto-Rollback: ✅ <60s rollback time
-- **PHASE 8 WEEK 1 COMPLETE!**
+**Week 29 Deliverables:**
+- Regions: 3 (EU, US, APAC) 🎯 Target
+- Data Residency: Enforced
+- Replication: <500ms lag
+- GDPR: Region-specific export
+- **Multi-Region Complete!**
