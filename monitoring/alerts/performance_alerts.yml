@@ -1,263 +1,190 @@
-# Performance Alert Rules
-# Prometheus alerting rules for PARWA performance monitoring
+# PARWA Performance Alert Rules
+# Week 26 - Builder 5: Performance Monitoring + Load Testing
+# Target: P95 <300ms at 500 concurrent users
 
 groups:
-  - name: performance_alerts
+  - name: parwa_performance
     interval: 30s
     rules:
-      # Critical: P95 latency exceeds threshold
-      - alert: HighP95Latency
-        expr: |
-          histogram_quantile(0.95,
-            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
-          ) > 0.5
+      # P95 Latency Alerts
+      - alert: P95LatencyHigh
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[2m])) > 0.3
         for: 2m
         labels:
-          severity: critical
-          component: api
-        annotations:
-          summary: "P95 latency exceeds 500ms"
-          description: "P95 latency is {{ $value | humanizeDuration }}, exceeding the 500ms SLA threshold"
-          runbook_url: "https://docs.parwa.ai/runbooks/high-latency"
-
-      # Warning: P95 latency approaching threshold
-      - alert: ElevatedP95Latency
-        expr: |
-          histogram_quantile(0.95,
-            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
-          ) > 0.3
-        for: 5m
-        labels:
           severity: warning
-          component: api
+          category: performance
         annotations:
-          summary: "P95 latency elevated"
-          description: "P95 latency is {{ $value | humanizeDuration }}, approaching the 500ms threshold"
+          summary: "P95 latency exceeds 300ms"
+          description: "P95 latency is {{ $value | humanizeDuration }} which exceeds the 300ms target. Check for performance bottlenecks."
+          runbook_url: "https://docs.parwa.internal/runbooks/p95-latency"
 
-      # Critical: Error rate exceeds 1%
-      - alert: HighErrorRate
-        expr: |
-          sum(rate(http_requests_total{status=~"5.."}[5m])) /
-          sum(rate(http_requests_total[5m])) > 0.01
+      - alert: P95LatencyCritical
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[2m])) > 0.5
         for: 1m
         labels:
           severity: critical
-          component: api
+          category: performance
+        annotations:
+          summary: "P95 latency critical - exceeds 500ms"
+          description: "P95 latency is {{ $value | humanizeDuration }}. Immediate investigation required."
+          runbook_url: "https://docs.parwa.internal/runbooks/p95-critical"
+
+      # Error Rate Alerts
+      - alert: ErrorRateHigh
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: warning
+          category: reliability
         annotations:
           summary: "Error rate exceeds 1%"
-          description: "Error rate is {{ $value | humanizePercentage }}, exceeding the 1% threshold"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
 
-      # Warning: Error rate elevated
-      - alert: ElevatedErrorRate
-        expr: |
-          sum(rate(http_requests_total{status=~"5.."}[5m])) /
-          sum(rate(http_requests_total[5m])) > 0.005
+      - alert: ErrorRateCritical
+        expr: rate(http_requests_total{status=~"5.."}[2m]) / rate(http_requests_total[2m]) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+          category: reliability
+        annotations:
+          summary: "Error rate critical - exceeds 5%"
+          description: "Error rate is {{ $value | humanizePercentage }}. Immediate investigation required."
+
+      # Cache Hit Rate Alerts
+      - alert: CacheHitRateLow
+        expr: parwa_cache_hit_rate < 0.70
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Cache hit rate below 70%"
+          description: "Cache hit rate is {{ $value | humanizePercentage }}. Check cache invalidation logic."
+
+      - alert: CacheHitRateCritical
+        expr: parwa_cache_hit_rate < 0.50
+        for: 3m
+        labels:
+          severity: critical
+          category: performance
+        annotations:
+          summary: "Cache hit rate critical - below 50%"
+          description: "Cache hit rate is {{ $value | humanizePercentage }}. Cache may not be working correctly."
+
+      # Database Connection Pool Alerts
+      - alert: DBConnectionsHigh
+        expr: parwa_db_connections_active / parwa_db_connections_max > 0.80
         for: 3m
         labels:
           severity: warning
-          component: api
+          category: database
         annotations:
-          summary: "Error rate elevated"
-          description: "Error rate is {{ $value | humanizePercentage }}"
+          summary: "Database connection pool above 80%"
+          description: "{{ $value | humanizePercentage }} of database connections in use. Consider increasing pool size."
 
-      # Queue depth alert
-      - alert: HighQueueDepth
-        expr: redis_llen{queue="arq:queue"} > 100
+      - alert: DBConnectionsExhausted
+        expr: parwa_db_connections_active >= parwa_db_connections_max
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Database connection pool exhausted"
+          description: "All database connections are in use. New requests may be failing."
+
+      # Response Size Alerts
+      - alert: ResponseSizeLarge
+        expr: rate(http_response_size_bytes_sum[5m]) / rate(http_response_size_bytes_count[5m]) > 1048576
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Average response size exceeds 1MB"
+          description: "Average response size is {{ $value | humanizeBytes }}. Consider implementing pagination or compression."
+
+      # Request Rate Alerts
+      - alert: RequestRateHigh
+        expr: rate(http_requests_total[1m]) > 1000
+        for: 2m
+        labels:
+          severity: info
+          category: traffic
+        annotations:
+          summary: "High request rate detected"
+          description: "Request rate is {{ $value | humanize }} requests/second. Monitor for performance impact."
+
+      # Latency by Endpoint
+      - alert: EndpointLatencyHigh
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) by (endpoint) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High latency on endpoint {{ $labels.endpoint }}"
+          description: "P95 latency for {{ $labels.endpoint }} is {{ $value | humanizeDuration }}."
+
+      # Database Query Performance
+      - alert: SlowDatabaseQueries
+        expr: rate(db_query_duration_seconds_sum[5m]) / rate(db_query_duration_seconds_count[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Average query time is {{ $value | humanizeDuration }}. Check for missing indexes."
+
+      # Redis Connection Alerts
+      - alert: RedisConnectionsHigh
+        expr: redis_connected_clients > 80
         for: 2m
         labels:
           severity: warning
-          component: worker
+          category: cache
         annotations:
-          summary: "High queue depth"
-          description: "ARQ queue has {{ $value }} pending jobs. Workers may be falling behind."
+          summary: "Redis connections high"
+          description: "Redis has {{ $value }} connected clients."
 
-      # Critical queue depth
-      - alert: CriticalQueueDepth
-        expr: redis_llen{queue="arq:queue"} > 500
-        for: 1m
-        labels:
-          severity: critical
-          component: worker
-        annotations:
-          summary: "Critical queue depth"
-          description: "ARQ queue has {{ $value }} pending jobs. Immediate attention required."
-
-      # Database connection pool
-      - alert: DatabaseConnectionsHigh
-        expr: pg_stat_activity_count > 180
-        for: 5m
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 3m
         labels:
           severity: warning
-          component: database
+          category: cache
         annotations:
-          summary: "Database connections approaching limit"
-          description: "PostgreSQL has {{ $value }} active connections (limit: 200)"
+          summary: "Redis memory usage above 85%"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}."
 
-      # Critical database connections
-      - alert: DatabaseConnectionsCritical
-        expr: pg_stat_activity_count > 190
-        for: 1m
-        labels:
-          severity: critical
-          component: database
-        annotations:
-          summary: "Database connections critical"
-          description: "PostgreSQL has {{ $value }} active connections. Connection pool exhaustion imminent."
-
-      # Memory usage alert
-      - alert: HighMemoryUsage
-        expr: |
-          container_memory_usage_bytes /
-          container_spec_memory_limit_bytes > 0.85
-        for: 5m
-        labels:
-          severity: warning
-          component: infrastructure
-        annotations:
-          summary: "High memory usage"
-          description: "Container {{ $labels.pod }} memory usage is {{ $value | humanizePercentage }}"
-
-      # Critical memory usage
-      - alert: CriticalMemoryUsage
-        expr: |
-          container_memory_usage_bytes /
-          container_spec_memory_limit_bytes > 0.95
-        for: 1m
-        labels:
-          severity: critical
-          component: infrastructure
-        annotations:
-          summary: "Critical memory usage"
-          description: "Container {{ $labels.pod }} memory usage is {{ $value | humanizePercentage }}. OOM risk."
-
-      # CPU usage alert
+      # System Resource Alerts
       - alert: HighCPUUsage
-        expr: |
-          rate(container_cpu_usage_seconds_total[5m]) /
-          container_spec_cpu_limit > 0.8
-        for: 5m
+        expr: rate(process_cpu_seconds_total[1m]) > 0.8
+        for: 3m
         labels:
           severity: warning
-          component: infrastructure
+          category: infrastructure
         annotations:
           summary: "High CPU usage"
-          description: "Container {{ $labels.pod }} CPU usage is {{ $value | humanizePercentage }}"
+          description: "CPU usage is {{ $value | humanizePercentage }}."
 
-      # API response time by endpoint
-      - alert: SlowEndpoint
-        expr: |
-          histogram_quantile(0.95,
-            sum(rate(http_request_duration_seconds_bucket{endpoint!=""}[5m])) by (le, endpoint)
-          ) > 1
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / node_memory_MemTotal_bytes > 0.85
         for: 3m
         labels:
           severity: warning
-          component: api
+          category: infrastructure
         annotations:
-          summary: "Slow endpoint detected"
-          description: "Endpoint {{ $labels.endpoint }} P95 latency is {{ $value | humanizeDuration }}"
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }}."
 
-      # Cache hit rate alert
-      - alert: LowCacheHitRate
-        expr: |
-          rate(cache_hits_total[5m]) /
-          (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) < 0.7
-        for: 5m
-        labels:
-          severity: warning
-          component: cache
-        annotations:
-          summary: "Low cache hit rate"
-          description: "Cache hit rate is {{ $value | humanizePercentage }}, below the 70% threshold"
-
-      # Database query latency
-      - alert: SlowDatabaseQueries
-        expr: |
-          histogram_quantile(0.95,
-            sum(rate(db_query_duration_seconds_bucket[5m])) by (le)
-          ) > 0.1
-        for: 3m
-        labels:
-          severity: warning
-          component: database
-        annotations:
-          summary: "Slow database queries"
-          description: "P95 query latency is {{ $value | humanizeDuration }}"
-
-      # Request rate drop (potential issue)
-      - alert: RequestRateDrop
-        expr: |
-          (
-            sum(rate(http_requests_total[5m])) -
-            sum(rate(http_requests_total[5m] offset 10m))
-          ) / sum(rate(http_requests_total[5m] offset 10m)) < -0.5
-        for: 5m
-        labels:
-          severity: warning
-          component: api
-        annotations:
-          summary: "Request rate dropped significantly"
-          description: "Request rate dropped by {{ $value | humanizePercentage }}. Possible upstream issue."
-
-      # Client-specific alerts
-      - alert: ClientHighLatency
-        expr: |
-          histogram_quantile(0.95,
-            sum(rate(http_request_duration_seconds_bucket{tenant_id="client_001"}[5m])) by (le)
-          ) > 0.5
+      # Rate Limiting Alerts
+      - alert: RateLimitThresholdReached
+        expr: rate(http_requests_total{status="429"}[5m]) > 10
         for: 2m
         labels:
-          severity: warning
-          component: api
-          client: client_001
+          severity: info
+          category: traffic
         annotations:
-          summary: "Client experiencing high latency"
-          description: "Client client_001 P95 latency is {{ $value | humanizeDuration }}"
-
-  - name: performance_slo
-    interval: 1m
-    rules:
-      # SLO: Availability
-      - alert: AvailabilitySLOBreach
-        expr: |
-          1 - (
-            sum(rate(http_requests_total{status=~"5.."}[30d])) /
-            sum(rate(http_requests_total[30d]))
-          ) < 0.999
-        for: 5m
-        labels:
-          severity: critical
-          slo: availability
-        annotations:
-          summary: "Availability SLO at risk"
-          description: "30-day availability is below 99.9% target"
-
-      # SLO: Latency
-      - alert: LatencySLOBreach
-        expr: |
-          sum(rate(http_request_duration_seconds_bucket{le="0.5"}[30d])) /
-          sum(rate(http_request_duration_seconds_count[30d])) < 0.95
-        for: 5m
-        labels:
-          severity: critical
-          slo: latency
-        annotations:
-          summary: "Latency SLO at risk"
-          description: "Less than 95% of requests under 500ms in the last 30 days"
-
-      # Error budget remaining
-      - alert: ErrorBudgetCritical
-        expr: |
-          (
-            (1 - 0.001) - (
-              sum(rate(http_requests_total{status=~"5.."}[7d])) /
-              sum(rate(http_requests_total[7d]))
-            )
-          ) / (1 - 0.001) < 0.1
-        for: 1m
-        labels:
-          severity: critical
-          slo: error_budget
-        annotations:
-          summary: "Error budget nearly exhausted"
-          description: "Less than 10% error budget remaining for the month"
+          summary: "Rate limiting active"
+          description: "{{ $value }} requests/second are being rate limited. Consider scaling."

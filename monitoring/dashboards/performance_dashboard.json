@@ -1,492 +1,174 @@
 {
   "dashboard": {
     "title": "PARWA Performance Dashboard",
-    "description": "Real-time performance monitoring for Week 22 Day 4",
-    "version": "2.0.0",
-    "tags": ["performance", "monitoring", "parwa"],
+    "uid": "parwa-performance",
+    "tags": ["parwa", "performance"],
+    "timezone": "browser",
     "refresh": "30s",
-    "time_range": {
-      "default": "1h",
-      "options": ["15m", "1h", "6h", "24h", "7d"]
-    }
-  },
-  "panels": [
-    {
-      "id": "response_time_percentiles",
-      "title": "Response Time Percentiles",
-      "type": "graph",
-      "description": "P50, P95, P99 response times",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
+    "panels": [
+      {
+        "title": "P95 Latency",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95 Latency",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ms", "label": "Latency"},
+          {"format": "short"}
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {"type": "gt", "params": [0.3]},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"type": "avg"},
+              "type": "query"
+            }
+          ],
+          "message": "P95 latency exceeds 300ms threshold",
+          "name": "P95 Latency Alert"
+        }
       },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
-          "legendFormat": "P50",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
-          "legendFormat": "P95",
-          "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
-          "legendFormat": "P99",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [
-        {
-          "value": 450,
-          "colorMode": "custom",
-          "fillColor": "rgba(255, 152, 0, 0.2)",
-          "lineColor": "rgba(255, 152, 0, 1)",
-          "op": "gt",
-          "label": "P95 Target (450ms)"
-        },
-        {
-          "value": 800,
-          "colorMode": "custom",
-          "fillColor": "rgba(244, 67, 54, 0.2)",
-          "lineColor": "rgba(244, 67, 54, 1)",
-          "op": "gt",
-          "label": "P99 Target (800ms)"
-        }
-      ],
-      "yaxes": [
-        {
-          "format": "ms",
-          "label": "Response Time",
-          "min": 0
-        }
-      ]
-    },
-    {
-      "id": "throughput_metrics",
-      "title": "Throughput",
-      "type": "stat",
-      "description": "Requests per second",
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(http_requests_total[1m]))",
-          "legendFormat": "RPS",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "orientation": "auto"
-      },
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {"value": 0, "color": "red"},
-          {"value": 50, "color": "yellow"},
-          {"value": 100, "color": "green"}
+      {
+        "title": "P50/P95/P99 Latency",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P99"
+          }
         ]
       },
-      "unit": "reqps"
-    },
-    {
-      "id": "error_rate",
-      "title": "Error Rate",
-      "type": "stat",
-      "description": "Current error rate percentage",
-      "gridPos": {
-        "x": 16,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
-          "legendFormat": "Error %",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area"
-      },
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {"value": 0, "color": "green"},
-          {"value": 1, "color": "yellow"},
-          {"value": 5, "color": "red"}
+      {
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[1m])",
+            "legendFormat": "Requests/sec"
+          }
         ]
       },
-      "unit": "percent"
-    },
-    {
-      "id": "cache_hit_rate",
-      "title": "Cache Hit Rate",
-      "type": "gauge",
-      "description": "Percentage of cache hits",
-      "gridPos": {
-        "x": 20,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(cache_hits_total[5m])) / (sum(rate(cache_hits_total[5m])) + sum(rate(cache_misses_total[5m]))) * 100",
-          "legendFormat": "Hit Rate",
-          "refId": "A"
+      {
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m]) * 100",
+            "legendFormat": "Error Rate %"
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {"type": "gt", "params": [1]},
+              "query": {"params": ["A", "5m", "now"]}
+            }
+          ],
+          "message": "Error rate exceeds 1%"
         }
-      ],
-      "options": {
-        "showThresholdLabels": true,
-        "showThresholdMarkers": true
       },
-      "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          {"value": 0, "color": "red"},
-          {"value": 60, "color": "yellow"},
-          {"value": 75, "color": "green"}
-        ]
-      },
-      "unit": "percent"
-    },
-    {
-      "id": "resource_utilization",
-      "title": "Resource Utilization",
-      "type": "graph",
-      "description": "CPU, Memory, and Connection utilization",
-      "gridPos": {
-        "x": 12,
-        "y": 4,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "expr": "process_cpu_seconds_total / process_start_time_seconds * 100",
-          "legendFormat": "CPU %",
-          "refId": "A"
-        },
-        {
-          "expr": "process_resident_memory_bytes / 1024 / 1024",
-          "legendFormat": "Memory MB",
-          "refId": "B"
-        },
-        {
-          "expr": "sum(active_connections)",
-          "legendFormat": "Active Connections",
-          "refId": "C"
-        }
-      ],
-      "yaxes": [
-        {
-          "format": "percent",
-          "label": "Utilization"
-        }
-      ]
-    },
-    {
-      "id": "per_client_performance",
-      "title": "Per-Client Performance",
-      "type": "table",
-      "description": "Performance metrics by client",
-      "gridPos": {
-        "x": 0,
-        "y": 8,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "expr": "sum by (client_id) (rate(http_request_duration_seconds_sum[5m])) / sum by (client_id) (rate(http_request_duration_seconds_count[5m]))",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "{{client_id}}",
-          "refId": "A"
-        },
-        {
-          "expr": "sum by (client_id) (rate(http_requests_total[5m]))",
-          "format": "table",
-          "instant": true,
-          "refId": "B"
-        },
-        {
-          "expr": "sum by (client_id) (rate(cache_hits_total[5m])) / sum by (client_id) (rate(http_requests_total[5m]))",
-          "format": "table",
-          "instant": true,
-          "refId": "C"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "merge",
-          "options": {}
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {"Time": true, "__name__": true},
-            "indexByName": {"client_id": 0, "Value #A": 1, "Value #B": 2, "Value #C": 3},
-            "renameByName": {
-              "client_id": "Client",
-              "Value #A": "Avg Latency (ms)",
-              "Value #B": "Throughput (rps)",
-              "Value #C": "Cache Hit Rate"
+      {
+        "title": "Cache Hit Rate",
+        "type": "gauge",
+        "gridPos": {"x": 0, "y": 16, "w": 6, "h": 6},
+        "targets": [
+          {
+            "expr": "parwa_cache_hit_rate * 100",
+            "legendFormat": "Hit Rate %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "green", "value": 80}
+              ]
             }
           }
         }
-      ]
-    },
-    {
-      "id": "latency_heatmap",
-      "title": "Latency Heatmap",
-      "type": "heatmap",
-      "description": "Distribution of request latencies over time",
-      "gridPos": {
-        "x": 0,
-        "y": 16,
-        "w": 12,
-        "h": 8
       },
-      "targets": [
-        {
-          "expr": "sum by (le) (rate(http_request_duration_seconds_bucket[5m]))",
-          "format": "heatmap",
-          "legendFormat": "{{le}}",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "calculate": false,
-        "color": {
-          "scheme": "Spectral"
-        },
-        "yAxis": {
-          "format": "ms"
-        }
-      }
-    },
-    {
-      "id": "slow_queries",
-      "title": "Slow Queries",
-      "type": "table",
-      "description": "Recent slow query log",
-      "gridPos": {
-        "x": 12,
-        "y": 12,
-        "w": 12,
-        "h": 6
+      {
+        "title": "Database Connection Pool",
+        "type": "graph",
+        "gridPos": {"x": 6, "y": 16, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "parwa_db_connections_active",
+            "legendFormat": "Active"
+          },
+          {
+            "expr": "parwa_db_connections_idle",
+            "legendFormat": "Idle"
+          }
+        ]
       },
-      "targets": [
-        {
-          "expr": "topk(10, slow_query_duration_seconds)",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "renameByName": {
-              "query": "Query",
-              "duration_seconds": "Duration (s)",
-              "client_id": "Client",
-              "timestamp": "Time"
+      {
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes / 1024 / 1024",
+            "legendFormat": "Memory MB"
+          }
+        ]
+      },
+      {
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 22, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total[1m]) * 100",
+            "legendFormat": "CPU %"
+          }
+        ]
+      },
+      {
+        "title": "Endpoint Latency Breakdown",
+        "type": "table",
+        "gridPos": {"x": 0, "y": 30, "w": 24, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) by (endpoint)",
+            "format": "table",
+            "legendFormat": "__auto"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {"Time": true},
+              "indexByName": {"endpoint": 0, "Value": 1}
             }
           }
-        }
-      ]
-    },
-    {
-      "id": "concurrent_users",
-      "title": "Concurrent Users",
-      "type": "graph",
-      "description": "Number of concurrent users over time",
-      "gridPos": {
-        "x": 12,
-        "y": 18,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "sum(active_user_sessions)",
-          "legendFormat": "Total Users",
-          "refId": "A"
-        },
-        {
-          "expr": "sum by (client_id) (active_user_sessions)",
-          "legendFormat": "{{client_id}}",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [
-        {
-          "value": 200,
-          "colorMode": "custom",
-          "fillColor": "rgba(255, 152, 0, 0.2)",
-          "op": "gt",
-          "label": "Target Users"
-        }
-      ]
-    },
-    {
-      "id": "performance_targets",
-      "title": "Performance Targets Status",
-      "type": "stat",
-      "description": "Current status of performance targets",
-      "gridPos": {
-        "x": 0,
-        "y": 24,
-        "w": 24,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) * 1000 < 450",
-          "legendFormat": "P95 < 450ms",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) * 1000 < 800",
-          "legendFormat": "P99 < 800ms",
-          "refId": "B"
-        },
-        {
-          "expr": "sum(rate(cache_hits_total[5m])) / (sum(rate(cache_hits_total[5m])) + sum(rate(cache_misses_total[5m]))) > 0.6",
-          "legendFormat": "Cache > 60%",
-          "refId": "C"
-        },
-        {
-          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) == 0",
-          "legendFormat": "0% Errors",
-          "refId": "D"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "orientation": "horizontal"
-      }
-    }
-  ],
-  "annotations": {
-    "list": [
-      {
-        "name": "Deployments",
-        "datasource": "prometheus",
-        "enable": true,
-        "expr": "deployment_events",
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "titleFormat": "Deploy"
-      },
-      {
-        "name": "Incidents",
-        "datasource": "prometheus",
-        "enable": true,
-        "expr": "incident_alerts",
-        "iconColor": "rgba(244, 67, 54, 1)",
-        "titleFormat": "Incident"
+        ]
       }
     ]
-  },
-  "templating": {
-    "list": [
-      {
-        "name": "client",
-        "type": "query",
-        "datasource": "prometheus",
-        "refresh": 1,
-        "query": "label_values(client_id)",
-        "includeAll": true,
-        "allValue": ".+"
-      },
-      {
-        "name": "interval",
-        "type": "interval",
-        "options": [
-          {"text": "1m", "value": "1m"},
-          {"text": "5m", "value": "5m"},
-          {"text": "15m", "value": "15m"},
-          {"text": "1h", "value": "1h"}
-        ],
-        "current": {"text": "5m", "value": "5m"}
-      }
-    ]
-  },
-  "alerting": {
-    "rules": [
-      {
-        "name": "P95 Latency Alert",
-        "condition": "A",
-        "conditions": [
-          {
-            "evaluator": {
-              "type": "gt",
-              "params": [450]
-            },
-            "operator": {"type": "and"},
-            "query": {"params": ["A", "5m", "now"]},
-            "reducer": {"type": "avg"}
-          }
-        ],
-        "message": "P95 latency exceeded 450ms threshold",
-        "severity": "warning"
-      },
-      {
-        "name": "P99 Latency Alert",
-        "condition": "B",
-        "conditions": [
-          {
-            "evaluator": {
-              "type": "gt",
-              "params": [800]
-            },
-            "operator": {"type": "and"},
-            "query": {"params": ["B", "5m", "now"]},
-            "reducer": {"type": "avg"}
-          }
-        ],
-        "message": "P99 latency exceeded 800ms threshold",
-        "severity": "critical"
-      },
-      {
-        "name": "Cache Hit Rate Alert",
-        "condition": "C",
-        "conditions": [
-          {
-            "evaluator": {
-              "type": "lt",
-              "params": [60]
-            },
-            "operator": {"type": "and"},
-            "query": {"params": ["C", "5m", "now"]},
-            "reducer": {"type": "avg"}
-          }
-        ],
-        "message": "Cache hit rate below 60%",
-        "severity": "warning"
-      }
-    ]
-  },
-  "schemaVersion": 27,
-  "version": 1,
-  "time": {
-    "from": "now-1h",
-    "to": "now"
-  },
-  "timezone": "browser"
+  }
 }
