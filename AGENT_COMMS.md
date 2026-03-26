@@ -1,605 +1,564 @@
-# AGENT_COMMS.md — Week 27 Day 1-6
+# AGENT_COMMS.md — Week 28 Day 1-6
 # Last updated: Manager Agent
-# Current status: WEEK 27 TASKS WRITTEN — AWAITING BUILDERS
+# Current status: WEEK 28 TASKS WRITTEN — AWAITING BUILDERS
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 27 PLAN
+## MANAGER → WEEK 28 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
 Date: 2026-03-26
 
-> **Phase: Phase 7 — Scale to 20 Clients (Weeks 21-27)**
+> **Phase: Phase 8 — Enterprise Preparation (Weeks 28-40)**
 >
-> **Week 27 Goals (Per Roadmap):**
-> - Day 1: Client Configurations 011-015
-> - Day 2: Client Configurations 016-020
-> - Day 3: Multi-Tenant Isolation Validation
-> - Day 4: 20-Client Load Testing
-> - Day 5: Agent Lightning 88% Accuracy Validation
-> - Day 6: Tester runs Phase 7 Final Validation
+> **Week 28 Goals (Per Roadmap):**
+> - Day 1: Category Specialists Training
+> - Day 2: Active Learning System
+> - Day 3: A/B Testing Framework
+> - Day 4: Auto-Rollback System
+> - Day 5: 90% Accuracy Training Run
+> - Day 6: Tester runs full validation
 >
 > **CRITICAL RULES:**
 > 1. All 5 days run in PARALLEL — no cross-day dependencies
-> 2. 20-Client Scale Validation per roadmap
-> 3. Build `clients/011-020/` configurations
-> 4. **PHASE 7 COMPLETION WEEK**
-> 5. **20-client isolation: 0 data leaks**
-> 6. **500 concurrent users: P95 <300ms**
-> 7. **Agent Lightning: ≥88% accuracy**
-> 8. **All industries represented across 20 clients**
+> 2. Agent Lightning 90% Milestone per roadmap
+> 3. Build `agent_lightning/training/category_specialists.py`
+> 4. **Target: ≥90% accuracy**
+> 5. **A/B test: New model serves 10% of traffic**
+> 6. **Auto-rollback: Fires within 60 seconds of drift**
+> 7. **No PII in cross-client training data**
+> 8. **Category specialists for major industries**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — Client Configurations 011-015
+## BUILDER 1 (DAY 1) — Category Specialists Training
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `clients/011/config.yaml`
-2. `clients/012/config.yaml`
-3. `clients/013/config.yaml`
-4. `clients/014/config.yaml`
-5. `clients/015/config.yaml`
-6. `tests/clients/test_clients_011_015.py`
+1. `agent_lightning/training/category_specialists/__init__.py`
+2. `agent_lightning/training/category_specialists/ecommerce_specialist.py`
+3. `agent_lightning/training/category_specialists/saas_specialist.py`
+4. `agent_lightning/training/category_specialists/healthcare_specialist.py`
+5. `agent_lightning/training/category_specialists/financial_specialist.py`
+6. `tests/agent_lightning/test_category_specialists.py`
 
 ### Field 2: What is each file?
-1. `clients/011/config.yaml` — Retail E-commerce client
-2. `clients/012/config.yaml` — EdTech SaaS client
-3. `clients/013/config.yaml` — Insurance client
-4. `clients/014/config.yaml` — Travel/Hospitality client
-5. `clients/015/config.yaml` — Real Estate client
-6. `tests/clients/test_clients_011_015.py` — Client config tests
+1. `agent_lightning/training/category_specialists/__init__.py` — Module init
+2. `agent_lightning/training/category_specialists/ecommerce_specialist.py` — E-commerce specialist
+3. `agent_lightning/training/category_specialists/saas_specialist.py` — SaaS specialist
+4. `agent_lightning/training/category_specialists/healthcare_specialist.py` — Healthcare specialist
+5. `agent_lightning/training/category_specialists/financial_specialist.py` — Financial specialist
+6. `tests/agent_lightning/test_category_specialists.py` — Specialist tests
 
 ### Field 3: Responsibilities
 
-**clients/011/config.yaml (Retail E-commerce):**
-- Client 011 config with:
-  - Industry: E-commerce (Retail)
-  - Variant: PARWA Junior
-  - Integrations: Shopify, Stripe, Zendesk
-  - Refund limit: $150
-  - Escalation threshold: 40%
-  - Business hours: 9am-9pm EST
-  - **Test: Config loads correctly**
-
-**clients/012/config.yaml (EdTech SaaS):**
-- Client 012 config with:
-  - Industry: SaaS (Education Technology)
-  - Variant: PARWA Junior
-  - Integrations: Stripe, Intercom, Slack
-  - Refund limit: $200
-  - Escalation threshold: 35%
-  - Business hours: 24/7 (global students)
-  - **Test: Config loads correctly**
-
-**clients/013/config.yaml (Insurance):**
-- Client 013 config with:
-  - Industry: Financial Services (Insurance)
-  - Variant: PARWA High
-  - Integrations: Salesforce, Twilio, Email
-  - Compliance: SOX, state insurance regulations
-  - Refund limit: $500 (premium refunds)
-  - Session timeout: 15 minutes
-  - **Test: Config loads with compliance**
-
-**clients/014/config.yaml (Travel/Hospitality):**
-- Client 014 config with:
-  - Industry: Travel & Hospitality
-  - Variant: PARWA Junior
-  - Integrations: Amadeus GDS, Stripe, WhatsApp
-  - Refund limit: $300 (bookings)
-  - Escalation threshold: 30%
-  - Peak hours handling
-  - **Test: Config loads correctly**
-
-**clients/015/config.yaml (Real Estate):**
-- Client 015 config with:
-  - Industry: Real Estate (PropTech)
-  - Variant: PARWA Junior
-  - Integrations: Salesforce, Calendly, Email
-  - Refund limit: $100 (application fees)
-  - Escalation threshold: 50%
-  - Lead routing enabled
-  - **Test: Config loads correctly**
-
-**tests/clients/test_clients_011_015.py:**
-- Client tests with:
-  - Test: All 5 configs load
-  - Test: Client IDs unique
-  - Test: Industry settings correct
-  - Test: Variant assignments valid
-  - **CRITICAL: All 5 clients configured**
-
-### Field 4: Depends On
-- Client infrastructure (Weeks 19-22)
-- Variant systems (Weeks 9-11)
-
-### Field 5: Expected Output
-- Clients 011-015 fully configured
-- All configs validated
-
-### Field 6: Unit Test Files
-- Tests in deliverables
-
-### Field 7: BDD Scenario
-- Clients 011-015 onboarded and operational
-
-### Field 8: Error Handling
-- Config validation errors
-- Missing required fields
-
-### Field 9: Security Requirements
-- Client isolation enforced
-- Secure credential storage
-
-### Field 10: Integration Points
-- Client management system
-- Variant selection
-- Integration clients
-
-### Field 11: Code Quality
-- YAML linting
-- Schema validation
-
-### Field 12: GitHub CI Requirements
-- All client configs valid
-- Tests pass
-
-### Field 13: Pass Criteria
-Builder 1 reports DONE when:
-- All 6 files built and pushed
-- **CRITICAL: Clients 011-015 configured**
-- **CRITICAL: All configs validate**
-- GitHub CI GREEN
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — Client Configurations 016-020
-═══════════════════════════════════════════════════════════════════════════════
-
-### Field 1: Files to Build (in order)
-1. `clients/016/config.yaml`
-2. `clients/017/config.yaml`
-3. `clients/018/config.yaml`
-4. `clients/019/config.yaml`
-5. `clients/020/config.yaml`
-6. `tests/clients/test_clients_016_020.py`
-
-### Field 2: What is each file?
-1. `clients/016/config.yaml` — Manufacturing client
-2. `clients/017/config.yaml` — Food Delivery client
-3. `clients/018/config.yaml` — Fitness/Wellness client
-4. `clients/019/config.yaml` — Legal Services client
-5. `clients/020/config.yaml` — Nonprofit client
-6. `tests/clients/test_clients_016_020.py` — Client config tests
-
-### Field 3: Responsibilities
-
-**clients/016/config.yaml (Manufacturing B2B):**
-- Client 016 config with:
-  - Industry: Manufacturing (B2B)
-  - Variant: PARWA High
-  - Integrations: SAP, Salesforce, Email
-  - Refund limit: $500 (B2B orders)
-  - Escalation threshold: 25%
-  - Multi-department routing
-  - **Test: Config loads correctly**
-
-**clients/017/config.yaml (Food Delivery):**
-- Client 017 config with:
-  - Industry: Food & Beverage (Delivery)
-  - Variant: Mini
-  - Integrations: DoorDash API, Stripe, SMS
-  - Refund limit: $50
-  - Escalation threshold: 60%
-  - Real-time order issues
-  - **Test: Config loads correctly**
-
-**clients/018/config.yaml (Fitness/Wellness):**
-- Client 018 config with:
-  - Industry: Health & Fitness
-  - Variant: PARWA Junior
-  - Integrations: Mindbody, Stripe, Email
-  - Refund limit: $150 (memberships)
-  - Escalation threshold: 40%
-  - Subscription management
-  - **Test: Config loads correctly**
-
-**clients/019/config.yaml (Legal Services):**
-- Client 019 config with:
-  - Industry: Legal Services
-  - Variant: PARWA High
-  - Integrations: Clio, Email, Calendar
-  - Compliance: Attorney-client privilege
-  - Refund limit: $200
-  - Confidentiality enforcement
-  - **Test: Config loads with compliance**
-
-**clients/020/config.yaml (Nonprofit):**
-- Client 020 config with:
-  - Industry: Nonprofit/NGO
-  - Variant: Mini
-  - Integrations: Donorbox, Mailchimp, Email
-  - Refund limit: $25 (donations rarely refunded)
-  - Escalation threshold: 70%
-  - Donation receipt handling
-  - **Test: Config loads correctly**
-
-**tests/clients/test_clients_016_020.py:**
-- Client tests with:
-  - Test: All 5 configs load
-  - Test: Client IDs unique (no overlap with 001-015)
-  - Test: Industry settings correct
-  - Test: Variant assignments valid
-  - **CRITICAL: All 5 clients configured**
-
-### Field 4: Depends On
-- Client infrastructure (Weeks 19-22)
-- Variant systems (Weeks 9-11)
-
-### Field 5: Expected Output
-- Clients 016-020 fully configured
-- All configs validated
-
-### Field 6: Unit Test Files
-- Tests in deliverables
-
-### Field 7: BDD Scenario
-- Clients 016-020 onboarded and operational
-
-### Field 8: Error Handling
-- Config validation errors
-- Missing required fields
-
-### Field 9: Security Requirements
-- Client isolation enforced
-- Secure credential storage
-
-### Field 10: Integration Points
-- Client management system
-- Variant selection
-- Integration clients
-
-### Field 11: Code Quality
-- YAML linting
-- Schema validation
-
-### Field 12: GitHub CI Requirements
-- All client configs valid
-- Tests pass
-
-### Field 13: Pass Criteria
-Builder 2 reports DONE when:
-- All 6 files built and pushed
-- **CRITICAL: Clients 016-020 configured**
-- **CRITICAL: All 20 clients unique**
-- GitHub CI GREEN
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — Multi-Tenant Isolation Validation
-═══════════════════════════════════════════════════════════════════════════════
-
-### Field 1: Files to Build (in order)
-1. `tests/isolation/test_20_client_isolation.py`
-2. `tests/isolation/test_cross_tenant_access.py`
-3. `tests/isolation/test_data_leak_prevention.py`
-4. `tests/isolation/test_rls_20_clients.py`
-5. `backend/services/isolation_validator.py`
-6. `reports/isolation_report.md`
-
-### Field 2: What is each file?
-1. `tests/isolation/test_20_client_isolation.py` — 20-client isolation test
-2. `tests/isolation/test_cross_tenant_access.py` — Cross-tenant access test
-3. `tests/isolation/test_data_leak_prevention.py` — Data leak prevention test
-4. `tests/isolation/test_rls_20_clients.py` — Row-level security test
-5. `backend/services/isolation_validator.py` — Isolation validation service
-6. `reports/isolation_report.md` — Isolation validation report
-
-### Field 3: Responsibilities
-
-**tests/isolation/test_20_client_isolation.py:**
-- Isolation test with:
-  - Test: 20 clients can access only their data
-  - Test: Client A cannot read Client B's tickets
-  - Test: Client A cannot modify Client B's data
-  - Test: 400 isolation test cases (20 clients × 20)
-  - **Test: 0 data leaks allowed**
-
-**tests/isolation/test_cross_tenant_access.py:**
-- Cross-tenant test with:
-  - Test: API isolation by client_id
-  - Test: Database query isolation
-  - Test: Cache key isolation
-  - Test: Session isolation
-  - **Test: No cross-tenant access possible**
-
-**tests/isolation/test_data_leak_prevention.py:**
-- Data leak test with:
-  - Test: No PII exposure across clients
-  - Test: No ticket data leakage
-  - Test: No user data leakage
-  - Test: No audit trail leakage
-  - **Test: 0 data leaks detected**
-
-**tests/isolation/test_rls_20_clients.py:**
-- RLS test with:
-  - Test: Row-level security enabled
-  - Test: RLS policies for all 20 clients
-  - Test: RLS bypass attempts blocked
-  - Test: Admin access still controlled
-  - **Test: RLS working for all 20 clients**
-
-**backend/services/isolation_validator.py:**
-- Isolation validator with:
-  - Validate all 20 clients isolated
-  - Run comprehensive isolation tests
-  - Generate isolation report
-  - Alert on isolation failures
-  - **Test: Validator catches isolation issues**
-
-**reports/isolation_report.md:**
-- Isolation report with:
-  - 20-client isolation summary
-  - Test results (pass/fail)
-  - Cross-tenant access attempts (all blocked)
-  - RLS policy verification
-  - **Content: 400 tests, 0 leaks**
-
-### Field 4: Depends On
-- All 20 client configs (Day 1-2)
-- RLS policies (Week 3)
-
-### Field 5: Expected Output
-- 20-client isolation verified
-- 0 data leaks confirmed
-
-### Field 6: Unit Test Files
-- Tests in deliverables
-
-### Field 7: BDD Scenario
-- 20 clients operate with zero data leakage
-
-### Field 8: Error Handling
-- Isolation failure alerts
-- Automatic rollback on breach
-
-### Field 9: Security Requirements
-- Comprehensive isolation testing
-- Zero tolerance for data leaks
-
-### Field 10: Integration Points
-- Database RLS
-- API layer
-- Cache layer
-
-### Field 11: Code Quality
-- Comprehensive test coverage
-- Clear failure reporting
-
-### Field 12: GitHub CI Requirements
-- All isolation tests pass
-- 0 data leaks
-
-### Field 13: Pass Criteria
-Builder 3 reports DONE when:
-- All 6 files built and pushed
-- **CRITICAL: 400 isolation tests pass**
-- **CRITICAL: 0 data leaks**
-- **CRITICAL: RLS working for all 20 clients**
-- GitHub CI GREEN
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — 20-Client Load Testing
-═══════════════════════════════════════════════════════════════════════════════
-
-### Field 1: Files to Build (in order)
-1. `tests/performance/test_20_client_load.py`
-2. `tests/performance/locustfile_20_clients.py`
-3. `tests/performance/test_500_concurrent.py`
-4. `monitoring/dashboards/phase7_final_dashboard.json`
-5. `reports/performance_phase7.md`
-6. `scripts/load_test_20_clients.sh`
-
-### Field 2: What is each file?
-1. `tests/performance/test_20_client_load.py` — 20-client load test
-2. `tests/performance/locustfile_20_clients.py` — Locust file for 20 clients
-3. `tests/performance/test_500_concurrent.py` — 500 concurrent users test
-4. `monitoring/dashboards/phase7_final_dashboard.json` — Phase 7 final dashboard
-5. `reports/performance_phase7.md` — Performance report
-6. `scripts/load_test_20_clients.sh` — Load test script
-
-### Field 3: Responsibilities
-
-**tests/performance/test_20_client_load.py:**
-- Load test with:
-  - Test: All 20 clients under load
-  - Test: 500 concurrent users across clients
-  - Test: P95 latency <300ms
-  - Test: Error rate <1%
-  - Test: Even distribution across clients
-  - **Test: System handles 20 clients**
-
-**tests/performance/locustfile_20_clients.py:**
-- Locust file with:
-  - 20 client scenarios
-  - Realistic user behavior
-  - Ticket creation (30%)
-  - Ticket listing (40%)
-  - Dashboard load (20%)
-  - Agent response (10%)
-  - **Test: Locust runs successfully**
-
-**tests/performance/test_500_concurrent.py:**
-- Concurrent test with:
-  - Test: 500 concurrent connections
-  - Test: P50, P95, P99 latency
-  - Test: Throughput measurement
-  - Test: Resource utilization
-  - **Test: P95 <300ms verified**
-
-**monitoring/dashboards/phase7_final_dashboard.json:**
-- Final dashboard with:
-  - All 20 clients overview
-  - P95 latency gauge
-  - Error rate panel
-  - Throughput graph
-  - Client distribution chart
-  - **Test: Dashboard loads**
-
-**reports/performance_phase7.md:**
-- Performance report with:
-  - Phase 7 performance summary
-  - 20-client load test results
-  - P95 latency: <300ms target
-  - Error rate: <1%
-  - Recommendations
-  - **Content: Phase 7 performance report**
-
-**scripts/load_test_20_clients.sh:**
-- Load test script with:
-  - Run 20-client load test
-  - Generate report
-  - Verify P95 <300ms
-  - Alert on failure
-  - **Test: Script runs successfully**
-
-### Field 4: Depends On
-- All 20 clients configured
-- Performance optimizations (Week 26)
-
-### Field 5: Expected Output
-- 20-client load testing operational
-- P95 <300ms verified
-
-### Field 6: Unit Test Files
-- Tests in deliverables
-
-### Field 7: BDD Scenario
-- System handles 500 concurrent users across 20 clients
-
-### Field 8: Error Handling
-- Load test failure handling
-- Performance degradation alerts
-
-### Field 9: Security Requirements
-- Test data isolation during load test
-- No production impact
-
-### Field 10: Integration Points
-- Performance monitoring
-- Alert system
-- Reporting
-
-### Field 11: Code Quality
-- Documented test scenarios
-- Clear pass/fail criteria
-
-### Field 12: GitHub CI Requirements
-- Load tests pass
-- P95 <300ms
-
-### Field 13: Pass Criteria
-Builder 4 reports DONE when:
-- All 6 files built and pushed
-- **CRITICAL: 500 concurrent users supported**
-- **CRITICAL: P95 <300ms VERIFIED**
-- **CRITICAL: Error rate <1%**
-- GitHub CI GREEN
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — Agent Lightning 88% Accuracy Validation
-═══════════════════════════════════════════════════════════════════════════════
-
-### Field 1: Files to Build (in order)
-1. `agent_lightning/training/training_run_week27.py`
-2. `agent_lightning/validation/accuracy_validator.py`
-3. `tests/agent_lightning/test_88_accuracy.py`
-4. `agent_lightning/collective_intelligence/20_client_aggregator.py`
-5. `reports/agent_lightning_week27.md`
-6. `database/migrations/versions/010_phase7_final.py`
-
-### Field 2: What is each file?
-1. `agent_lightning/training/training_run_week27.py` — Week 27 training run
-2. `agent_lightning/validation/accuracy_validator.py` — Accuracy validation
-3. `tests/agent_lightning/test_88_accuracy.py` — 88% accuracy test
-4. `agent_lightning/collective_intelligence/20_client_aggregator.py` — 20-client CI aggregator
-5. `reports/agent_lightning_week27.md` — Agent Lightning report
-6. `database/migrations/versions/010_phase7_final.py` — Phase 7 final migration
-
-### Field 3: Responsibilities
-
-**agent_lightning/training/training_run_week27.py:**
-- Training run with:
-  - Train on 20-client collective data
-  - 2000+ training examples
-  - Category-specific training
-  - Validation split: 20%
-  - Target: ≥88% accuracy
-  - **Test: Training runs successfully**
-
-**agent_lightning/validation/accuracy_validator.py:**
-- Accuracy validator with:
-  - Validate model accuracy
-  - Per-client accuracy breakdown
-  - Per-category accuracy
-  - Confidence calibration
-  - Threshold: ≥88%
-  - **Test: Validator confirms ≥88%**
-
-**tests/agent_lightning/test_88_accuracy.py:**
-- Accuracy test with:
-  - Test: Model accuracy ≥88%
-  - Test: All 20 clients show improvement
-  - Test: No accuracy degradation from v2
-  - Test: Validation dataset passes
-  - **Test: Accuracy target met**
-
-**agent_lightning/collective_intelligence/20_client_aggregator.py:**
-- CI aggregator with:
-  - Aggregate data from 20 clients
-  - PII anonymization enforced
-  - Category tagging
-  - Quality filtering
-  - Differential privacy
-  - **Test: Aggregator works for 20 clients**
-
-**reports/agent_lightning_week27.md:**
-- Agent Lightning report with:
-  - Training run summary
-  - Accuracy: ≥88% target
-  - Per-client accuracy breakdown
-  - Per-category accuracy
-  - Phase 7 collective intelligence summary
-  - **Content: Agent Lightning Phase 7 report**
-
-**database/migrations/versions/010_phase7_final.py:**
-- Final migration with:
-  - 20-client tables
-  - Agent Lightning v3 tables
-  - Phase 7 final schema
-  - Performance indexes
-  - **Test: Migration runs successfully**
+**agent_lightning/training/category_specialists/ecommerce_specialist.py:**
+- E-commerce specialist with:
+  - Domain-specific training for e-commerce
+  - Order-related queries handling
+  - Refund processing optimization
+  - Shipping/tracking expertise
+  - Product recommendation context
+  - **Test: Specialist achieves >92% on e-commerce data**
+
+**agent_lightning/training/category_specialists/saas_specialist.py:**
+- SaaS specialist with:
+  - Domain-specific training for SaaS
+  - Subscription management queries
+  - Feature request handling
+  - Technical support context
+  - Billing inquiry expertise
+  - **Test: Specialist achieves >92% on SaaS data**
+
+**agent_lightning/training/category_specialists/healthcare_specialist.py:**
+- Healthcare specialist with:
+  - Domain-specific training for healthcare
+  - HIPAA-compliant responses
+  - Medical appointment handling
+  - Insurance claim context
+  - PHI protection in training
+  - **Test: Specialist achieves >92% on healthcare data**
+
+**agent_lightning/training/category_specialists/financial_specialist.py:**
+- Financial specialist with:
+  - Domain-specific training for finance
+  - SOX/FINRA compliant responses
+  - Transaction inquiry handling
+  - Fraud detection context
+  - PCI DSS compliance in training
+  - **Test: Specialist achieves >92% on financial data**
+
+**tests/agent_lightning/test_category_specialists.py:**
+- Specialist tests with:
+  - Test: All 4 specialists initialize
+  - Test: Each specialist >92% on domain data
+  - Test: Specialists route correctly
+  - Test: Combined accuracy >90%
+  - **CRITICAL: All specialists work**
 
 ### Field 4: Depends On
 - Agent Lightning v2 (Week 22)
 - Collective intelligence (Week 21)
 
 ### Field 5: Expected Output
-- Agent Lightning ≥88% accuracy
-- Collective intelligence for 20 clients
+- 4 category specialists trained
+- Domain-specific optimization
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Agent Lightning achieves 88% accuracy across 20 clients
+- Category specialist selected based on query type
+
+### Field 8: Error Handling
+- Fallback to general model
+- Category detection failure handling
+
+### Field 9: Security Requirements
+- No PII in specialist training
+- Compliance maintained per domain
+
+### Field 10: Integration Points
+- Smart router
+- Training pipeline
+- Model registry
+
+### Field 11: Code Quality
+- Typed specialist classes
+- Clear domain boundaries
+
+### Field 12: GitHub CI Requirements
+- Specialist tests pass
+- Accuracy thresholds met
+
+### Field 13: Pass Criteria
+Builder 1 reports DONE when:
+- All 6 files built and pushed
+- **CRITICAL: All 4 specialists work**
+- **CRITICAL: Each specialist >92% on domain data**
+- GitHub CI GREEN
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 2 (DAY 2) — Active Learning System
+═══════════════════════════════════════════════════════════════════════════════
+
+### Field 1: Files to Build (in order)
+1. `agent_lightning/training/active_learning/__init__.py`
+2. `agent_lightning/training/active_learning/uncertainty_sampler.py`
+3. `agent_lightning/training/active_learning/sample_selector.py`
+4. `agent_lightning/training/active_learning/feedback_collector.py`
+5. `agent_lightning/training/active_learning/model_updater.py`
+6. `tests/agent_lightning/test_active_learning.py`
+
+### Field 2: What is each file?
+1. `agent_lightning/training/active_learning/__init__.py` — Module init
+2. `agent_lightning/training/active_learning/uncertainty_sampler.py` — Uncertainty sampling
+3. `agent_lightning/training/active_learning/sample_selector.py` — Sample selection
+4. `agent_lightning/training/active_learning/feedback_collector.py` — Feedback collection
+5. `agent_lightning/training/active_learning/model_updater.py` — Incremental model updates
+6. `tests/agent_lightning/test_active_learning.py` — Active learning tests
+
+### Field 3: Responsibilities
+
+**agent_lightning/training/active_learning/uncertainty_sampler.py:**
+- Uncertainty sampler with:
+  - Identify low-confidence predictions
+  - Entropy-based sampling
+  - Margin sampling
+  - Query-by-committee approach
+  - Uncertainty threshold: <70% confidence
+  - **Test: Sampler identifies uncertain samples**
+
+**agent_lightning/training/active_learning/sample_selector.py:**
+- Sample selector with:
+  - Prioritize high-value samples
+  - Diversity-based selection
+  - Representative sampling
+  - Balanced class selection
+  - Budget-aware selection
+  - **Test: Selector picks valuable samples**
+
+**agent_lightning/training/active_learning/feedback_collector.py:**
+- Feedback collector with:
+  - Collect human corrections
+  - Aggregate feedback from managers
+  - Priority queue for corrections
+  - Feedback quality scoring
+  - Automatic labeling suggestions
+  - **Test: Collector gathers feedback**
+
+**agent_lightning/training/active_learning/model_updater.py:**
+- Model updater with:
+  - Incremental training capability
+  - Online learning support
+  - Model versioning on update
+  - Performance tracking per update
+  - Rollback on degradation
+  - **Test: Updater improves model**
+
+**tests/agent_lightning/test_active_learning.py:**
+- Active learning tests with:
+  - Test: Uncertainty sampler works
+  - Test: Sample selector prioritizes
+  - Test: Feedback collector gathers
+  - Test: Model updater improves
+  - **CRITICAL: Active learning pipeline works**
+
+### Field 4: Depends On
+- Agent Lightning training pipeline
+- Human feedback system
+
+### Field 5: Expected Output
+- Active learning system operational
+- Continuous improvement enabled
+
+### Field 6: Unit Test Files
+- Tests in deliverables
+
+### Field 7: BDD Scenario
+- System learns from manager corrections automatically
+
+### Field 8: Error Handling
+- Low feedback quality handling
+- Model degradation prevention
+
+### Field 9: Security Requirements
+- Feedback data isolation
+- No sensitive data exposure
+
+### Field 10: Integration Points
+- Training pipeline
+- Dashboard feedback
+- Model registry
+
+### Field 11: Code Quality
+- Documented learning strategy
+- Clear feedback workflow
+
+### Field 12: GitHub CI Requirements
+- Active learning tests pass
+- Pipeline validates
+
+### Field 13: Pass Criteria
+Builder 2 reports DONE when:
+- All 6 files built and pushed
+- **CRITICAL: Active learning pipeline works**
+- **CRITICAL: Model improves from feedback**
+- GitHub CI GREEN
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 3 (DAY 3) — A/B Testing Framework
+═══════════════════════════════════════════════════════════════════════════════
+
+### Field 1: Files to Build (in order)
+1. `agent_lightning/monitoring/ab_testing/__init__.py`
+2. `agent_lightning/monitoring/ab_testing/traffic_splitter.py`
+3. `agent_lightning/monitoring/ab_testing/experiment_manager.py`
+4. `agent_lightning/monitoring/ab_testing/metrics_collector.py`
+5. `agent_lightning/monitoring/ab_testing/statistical_analyzer.py`
+6. `tests/agent_lightning/test_ab_testing.py`
+
+### Field 2: What is each file?
+1. `agent_lightning/monitoring/ab_testing/__init__.py` — Module init
+2. `agent_lightning/monitoring/ab_testing/traffic_splitter.py` — Traffic splitting
+3. `agent_lightning/monitoring/ab_testing/experiment_manager.py` — Experiment management
+4. `agent_lightning/monitoring/ab_testing/metrics_collector.py` — Metrics collection
+5. `agent_lightning/monitoring/ab_testing/statistical_analyzer.py` — Statistical analysis
+6. `tests/agent_lightning/test_ab_testing.py` — A/B testing tests
+
+### Field 3: Responsibilities
+
+**agent_lightning/monitoring/ab_testing/traffic_splitter.py:**
+- Traffic splitter with:
+  - Split traffic by percentage
+  - Consistent hashing for user assignment
+  - Multi-variant support (A/B/C/D)
+  - Gradual rollout support
+  - Client-level isolation
+  - **Test: Splitter distributes correctly**
+
+**agent_lightning/monitoring/ab_testing/experiment_manager.py:**
+- Experiment manager with:
+  - Create/stop experiments
+  - Experiment configuration
+  - Variant assignment
+  - Experiment lifecycle
+  - Results tracking
+  - **Test: Manager handles experiments**
+
+**agent_lightning/monitoring/ab_testing/metrics_collector.py:**
+- Metrics collector with:
+  - Collect accuracy per variant
+  - Collect latency per variant
+  - Collect user satisfaction
+  - Collect error rates
+  - Real-time metrics aggregation
+  - **Test: Collector gathers metrics**
+
+**agent_lightning/monitoring/ab_testing/statistical_analyzer.py:**
+- Statistical analyzer with:
+  - Statistical significance testing
+  - Confidence interval calculation
+  - Effect size estimation
+  - Sample size calculation
+  - Winner determination
+  - **Test: Analyzer determines significance**
+
+**tests/agent_lightning/test_ab_testing.py:**
+- A/B tests with:
+  - Test: Traffic splits correctly
+  - Test: Experiments run
+  - Test: Metrics collected
+  - Test: Statistical analysis works
+  - **CRITICAL: A/B framework operational**
+
+### Field 4: Depends On
+- Agent Lightning deployment
+- Monitoring infrastructure
+
+### Field 5: Expected Output
+- A/B testing framework operational
+- 10% traffic to new model
+
+### Field 6: Unit Test Files
+- Tests in deliverables
+
+### Field 7: BDD Scenario
+- New model serves 10% of traffic correctly
+
+### Field 8: Error Handling
+- Experiment failure handling
+- Metric collection failures
+
+### Field 9: Security Requirements
+- No data leakage between variants
+- Client isolation maintained
+
+### Field 10: Integration Points
+- Model deployment
+- Monitoring system
+- Dashboard
+
+### Field 11: Code Quality
+- Statistical rigor
+- Clear experiment documentation
+
+### Field 12: GitHub CI Requirements
+- A/B tests pass
+- Framework validates
+
+### Field 13: Pass Criteria
+Builder 3 reports DONE when:
+- All 6 files built and pushed
+- **CRITICAL: A/B framework works**
+- **CRITICAL: 10% traffic split capability**
+- GitHub CI GREEN
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 4 (DAY 4) — Auto-Rollback System
+═══════════════════════════════════════════════════════════════════════════════
+
+### Field 1: Files to Build (in order)
+1. `agent_lightning/deployment/auto_rollback/__init__.py`
+2. `agent_lightning/deployment/auto_rollback/drift_detector.py`
+3. `agent_lightning/deployment/auto_rollback/performance_monitor.py`
+4. `agent_lightning/deployment/auto_rollback/rollback_executor.py`
+5. `agent_lightning/deployment/auto_rollback/alert_manager.py`
+6. `tests/agent_lightning/test_auto_rollback.py`
+
+### Field 2: What is each file?
+1. `agent_lightning/deployment/auto_rollback/__init__.py` — Module init
+2. `agent_lightning/deployment/auto_rollback/drift_detector.py` — Drift detection
+3. `agent_lightning/deployment/auto_rollback/performance_monitor.py` — Performance monitoring
+4. `agent_lightning/deployment/auto_rollback/rollback_executor.py` — Rollback execution
+5. `agent_lightning/deployment/auto_rollback/alert_manager.py` — Alert management
+6. `tests/agent_lightning/test_auto_rollback.py` — Rollback tests
+
+### Field 3: Responsibilities
+
+**agent_lightning/deployment/auto_rollback/drift_detector.py:**
+- Drift detector with:
+  - Detect accuracy drift
+  - Detect response quality drift
+  - Detect latency degradation
+  - Statistical drift testing
+  - Threshold: >5% accuracy drop
+  - **Test: Detector catches drift**
+
+**agent_lightning/deployment/auto_rollback/performance_monitor.py:**
+- Performance monitor with:
+  - Real-time accuracy tracking
+  - Latency percentile tracking
+  - Error rate monitoring
+  - Comparison against baseline
+  - Anomaly detection
+  - **Test: Monitor tracks performance**
+
+**agent_lightning/deployment/auto_rollback/rollback_executor.py:**
+- Rollback executor with:
+  - Automatic rollback trigger
+  - Target rollback time: <60 seconds
+  - Version management
+  - Rollback logging
+  - Notification on rollback
+  - **Test: Executor rolls back in <60s**
+
+**agent_lightning/deployment/auto_rollback/alert_manager.py:**
+- Alert manager with:
+  - Multi-channel alerts (email, Slack, PagerDuty)
+  - Alert severity levels
+  - Alert aggregation
+  - Escalation rules
+  - Alert history
+  - **Test: Alerts trigger correctly**
+
+**tests/agent_lightning/test_auto_rollback.py:**
+- Rollback tests with:
+  - Test: Drift detection works
+  - Test: Performance monitoring works
+  - Test: Rollback executes in <60s
+  - Test: Alerts trigger
+  - **CRITICAL: Auto-rollback works**
+
+### Field 4: Depends On
+- Model registry
+- Deployment infrastructure
+
+### Field 5: Expected Output
+- Auto-rollback system operational
+- <60 second rollback time
+
+### Field 6: Unit Test Files
+- Tests in deliverables
+
+### Field 7: BDD Scenario
+- System rolls back within 60 seconds of drift
+
+### Field 8: Error Handling
+- Rollback failure handling
+- Cascading failure prevention
+
+### Field 9: Security Requirements
+- Secure model switching
+- Audit trail for rollbacks
+
+### Field 10: Integration Points
+- Model deployment
+- Alerting system
+- Model registry
+
+### Field 11: Code Quality
+- Clear rollback criteria
+- Comprehensive logging
+
+### Field 12: GitHub CI Requirements
+- Rollback tests pass
+- Time threshold verified
+
+### Field 13: Pass Criteria
+Builder 4 reports DONE when:
+- All 6 files built and pushed
+- **CRITICAL: Auto-rollback works**
+- **CRITICAL: Rollback time <60 seconds**
+- GitHub CI GREEN
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+## BUILDER 5 (DAY 5) — 90% Accuracy Training Run
+═══════════════════════════════════════════════════════════════════════════════
+
+### Field 1: Files to Build (in order)
+1. `agent_lightning/training/training_run_week28.py`
+2. `agent_lightning/validation/accuracy_validator_week28.py`
+3. `tests/agent_lightning/test_90_accuracy.py`
+4. `agent_lightning/collective_intelligence/enhanced_aggregator.py`
+5. `reports/agent_lightning_week28.md`
+6. `database/migrations/versions/011_phase8_week28.py`
+
+### Field 2: What is each file?
+1. `agent_lightning/training/training_run_week28.py` — Week 28 training run
+2. `agent_lightning/validation/accuracy_validator_week28.py` — Accuracy validation
+3. `tests/agent_lightning/test_90_accuracy.py` — 90% accuracy test
+4. `agent_lightning/collective_intelligence/enhanced_aggregator.py` — Enhanced CI aggregator
+5. `reports/agent_lightning_week28.md` — Agent Lightning report
+6. `database/migrations/versions/011_phase8_week28.py` — Phase 8 migration
+
+### Field 3: Responsibilities
+
+**agent_lightning/training/training_run_week28.py:**
+- Training run with:
+  - Train with category specialists
+  - Active learning integration
+  - 3000+ training examples
+  - Validation split: 20%
+  - Target: ≥90% accuracy
+  - **Test: Training achieves ≥90%**
+
+**agent_lightning/validation/accuracy_validator_week28.py:**
+- Accuracy validator with:
+  - Overall accuracy validation
+  - Per-category accuracy breakdown
+  - Per-client accuracy breakdown
+  - Confidence calibration
+  - Threshold: ≥90%
+  - **Test: Validator confirms ≥90%**
+
+**tests/agent_lightning/test_90_accuracy.py:**
+- Accuracy test with:
+  - Test: Overall accuracy ≥90%
+  - Test: All category specialists >88%
+  - Test: All 20 clients show improvement
+  - Test: No accuracy degradation
+  - **Test: 90% target achieved**
+
+**agent_lightning/collective_intelligence/enhanced_aggregator.py:**
+- Enhanced aggregator with:
+  - Aggregate from 20 clients
+  - Category tagging
+  - Quality scoring
+  - PII anonymization
+  - Differential privacy
+  - **Test: Enhanced aggregator works**
+
+**reports/agent_lightning_week28.md:**
+- Report with:
+  - Training run summary
+  - Accuracy: ≥90% target
+  - Per-category accuracy
+  - Per-client accuracy
+  - Improvement from v2
+  - **Content: Week 28 training report**
+
+**database/migrations/versions/011_phase8_week28.py:**
+- Migration with:
+  - Category specialist tables
+  - Active learning tables
+  - A/B testing tables
+  - Rollback event tables
+  - **Test: Migration runs successfully**
+
+### Field 4: Depends On
+- Category specialists (Day 1)
+- Active learning (Day 2)
+- A/B testing (Day 3)
+- Auto-rollback (Day 4)
+
+### Field 5: Expected Output
+- Agent Lightning ≥90% accuracy
+- All new systems integrated
+
+### Field 6: Unit Test Files
+- Tests in deliverables
+
+### Field 7: BDD Scenario
+- Agent Lightning achieves 90% accuracy milestone
 
 ### Field 8: Error Handling
 - Training failure handling
@@ -610,121 +569,97 @@ Builder 4 reports DONE when:
 - Differential privacy enforced
 
 ### Field 10: Integration Points
-- Training pipeline
+- All Week 28 components
 - Model registry
-- Collective intelligence
+- Deployment system
 
 ### Field 11: Code Quality
 - Documented training process
 - Clear accuracy metrics
 
 ### Field 12: GitHub CI Requirements
-- Accuracy tests pass
+- 90% accuracy test passes
 - Training validates
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Agent Lightning ≥88% accuracy**
-- **CRITICAL: All 20 clients in collective intelligence**
-- **CRITICAL: Training validates**
+- **CRITICAL: Agent Lightning ≥90% accuracy**
+- **CRITICAL: All systems integrated**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 27 INSTRUCTIONS (DAY 6) — PHASE 7 FINAL VALIDATION
+## TESTER → WEEK 28 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
 
-**THIS IS THE PHASE 7 COMPLETION TEST**
-
 ### Test Commands
 
-#### 1. Client Configuration Tests
+#### 1. Category Specialists Tests
 ```bash
-pytest tests/clients/test_clients_011_015.py tests/clients/test_clients_016_020.py -v
+pytest tests/agent_lightning/test_category_specialists.py -v
 ```
 
-#### 2. Isolation Tests (CRITICAL)
+#### 2. Active Learning Tests
 ```bash
-pytest tests/isolation/ -v
+pytest tests/agent_lightning/test_active_learning.py -v
 ```
 
-#### 3. Load Tests (CRITICAL)
+#### 3. A/B Testing Tests
 ```bash
-pytest tests/performance/test_20_client_load.py tests/performance/test_500_concurrent.py -v
+pytest tests/agent_lightning/test_ab_testing.py -v
 ```
 
-#### 4. Agent Lightning Accuracy Test (CRITICAL)
+#### 4. Auto-Rollback Tests
 ```bash
-pytest tests/agent_lightning/test_88_accuracy.py -v
+pytest tests/agent_lightning/test_auto_rollback.py -v
 ```
 
-#### 5. Full Integration Test
+#### 5. 90% Accuracy Test (CRITICAL)
+```bash
+pytest tests/agent_lightning/test_90_accuracy.py -v
+```
+
+#### 6. Integration Tests
 ```bash
 pytest tests/integration/ tests/e2e/ -v --tb=short
 ```
 
-#### 6. Run Load Test Script
-```bash
-./scripts/load_test_20_clients.sh
-```
+---
+
+### Critical Tests Verification
+
+| # | Test | Expected |
+|---|------|----------|
+| 1 | Category specialists | All 4 work >92% domain |
+| 2 | Active learning | Pipeline works |
+| 3 | A/B testing | 10% traffic split |
+| 4 | Auto-rollback | <60 seconds |
+| 5 | Drift detection | Catches drift |
+| 6 | **Accuracy** | **≥90% (CRITICAL)** |
+| 7 | Per-category accuracy | All >88% |
+| 8 | Per-client accuracy | All 20 clients improved |
+| 9 | No PII in training | Verified |
+| 10 | Model registry | Version tracked |
 
 ---
 
-### Critical Tests Verification — PHASE 7 COMPLETION
+### Week 28 PASS Criteria
 
-| # | Test | Expected | Status |
-|---|------|----------|--------|
-| 1 | 20 clients configured | All 20 operational | |
-| 2 | Client isolation | 400 tests, 0 leaks | |
-| 3 | Cross-tenant access | All blocked | |
-| 4 | RLS policies | All 20 clients | |
-| 5 | 500 concurrent users | Supported | |
-| 6 | P95 latency | <300ms | |
-| 7 | Error rate | <1% | |
-| 8 | Agent Lightning accuracy | ≥88% | |
-| 9 | Collective intelligence | 20 clients | |
-| 10 | All industries | 15+ industries | |
-| 11 | All variants | Mini, Junior, High | |
-| 12 | Full test suite | 100% pass | |
-
----
-
-### Phase 7 PASS Criteria (Week 27)
-
-1. ✅ **20 Clients: All configured and operational**
-2. ✅ **20-Client Isolation: 0 data leaks in 400 tests**
-3. ✅ **500 Concurrent Users: Supported**
-4. ✅ **P95 Latency: <300ms (CRITICAL)**
-5. ✅ **Error Rate: <1%**
-6. ✅ **Agent Lightning: ≥88% accuracy (CRITICAL)**
-7. ✅ **Collective Intelligence: All 20 clients**
-8. ✅ **All Industries: 15+ industries represented**
-9. ✅ **All Variants: Mini, Junior, High operational**
-10. ✅ **Performance Dashboard: Loads**
-11. ✅ **Full Test Suite: 100% pass**
-12. ✅ **GitHub CI GREEN**
-
----
-
-### 🎉 PHASE 7 COMPLETION CHECKLIST
-
-**Scale to 20 Clients (Weeks 21-27):**
-
-| Week | Goal | Status |
-|------|------|--------|
-| 21 | 5 Clients + Collective Intelligence | ✅ |
-| 22 | Agent Lightning v2 + 77% Accuracy | ✅ |
-| 23 | Frontend Polish (A11y, Mobile, Dark Mode) | ✅ |
-| 24 | Client Success Tooling | ✅ |
-| 25 | Financial Services Vertical | ✅ |
-| 26 | Performance Optimization (P95 <300ms) | ✅ |
-| 27 | 20-Client Scale Validation | ✅ |
-
-**PHASE 7: COMPLETE ✅**
+1. ✅ Category Specialists: All 4 trained >92% domain
+2. ✅ Active Learning: Pipeline operational
+3. ✅ A/B Testing: Framework works
+4. ✅ Auto-Rollback: <60 seconds
+5. ✅ Drift Detection: Working
+6. ✅ **Agent Lightning: ≥90% accuracy (CRITICAL)**
+7. ✅ Per-Category: All >88%
+8. ✅ Per-Client: All 20 improved
+9. ✅ No PII: Verified
+10. ✅ Model Registry: Tracked
+11. ✅ GitHub CI GREEN
 
 ---
 
@@ -734,12 +669,12 @@ pytest tests/integration/ tests/e2e/ -v --tb=short
 
 | Builder | Day | Focus | Files | Status |
 |---------|-----|-------|-------|--------|
-| Builder 1 | Day 1 | Clients 011-015 | 6 | ✅ DONE |
-| Builder 2 | Day 2 | Clients 016-020 | 6 | ✅ DONE |
-| Builder 3 | Day 3 | Multi-Tenant Isolation | 6 | ✅ DONE |
-| Builder 4 | Day 4 | 20-Client Load Testing | 6 | ✅ DONE |
-| Builder 5 | Day 5 | Agent Lightning 88% | 6 | ✅ DONE |
-| Tester | Day 6 | **PHASE 7 FINAL** | 773 PASS | ✅ DONE |
+| Builder 1 | Day 1 | Category Specialists | 6 | ⏳ PENDING |
+| Builder 2 | Day 2 | Active Learning | 6 | ⏳ PENDING |
+| Builder 3 | Day 3 | A/B Testing | 6 | ⏳ PENDING |
+| Builder 4 | Day 4 | Auto-Rollback | 6 | ⏳ PENDING |
+| Builder 5 | Day 5 | 90% Training Run | 6 | ⏳ PENDING |
+| Tester | Day 6 | Full Validation | - | ⏳ PENDING |
 
 ---
 
@@ -750,89 +685,73 @@ pytest tests/integration/ tests/e2e/ -v --tb=short
 **CRITICAL REMINDERS:**
 
 1. All 5 days run in PARALLEL — no cross-day dependencies
-2. 20-Client Scale Validation per roadmap
-3. **THIS IS PHASE 7 COMPLETION WEEK**
-4. **20-client isolation: 0 data leaks (MANDATORY)**
-5. **500 concurrent users: P95 <300ms (MANDATORY)**
-6. **Agent Lightning: ≥88% accuracy (MANDATORY)**
-7. **All 20 clients must be unique industries/variants**
-8. **Final validation before Phase 8**
+2. Agent Lightning 90% Milestone per roadmap
+3. **TARGET: ≥90% accuracy (CRITICAL)**
+4. Category specialists for 4 major industries
+5. **A/B test: 10% traffic to new model**
+6. **Auto-rollback: <60 seconds on drift**
+7. **No PII in training data (MANDATORY)**
+8. Active learning for continuous improvement
 
-**PHASE 7 COMPLETION TARGETS:**
+**WEEK 28 TARGETS:**
 
-| Metric | Target | Status |
-|--------|--------|--------|
-| Clients | 20 | ✅ 20 ACTIVE |
-| Client Isolation | 0 leaks | ✅ 0 LEAKS |
-| P95 Latency | <300ms | ✅ 247ms |
-| Agent Lightning | ≥88% | ✅ 88.2% |
-| Error Rate | <1% | ✅ 0% |
-| Industries | 15+ | ✅ 15 |
+| Metric | Current | Target | Status |
+|--------|---------|--------|--------|
+| Accuracy | 88.2% | ≥90% | 🎯 Target |
+| Category Specialists | 0 | 4 | 🎯 Target |
+| Active Learning | None | Operational | 🎯 Target |
+| A/B Testing | None | 10% traffic | 🎯 Target |
+| Auto-Rollback | Manual | <60s auto | 🎯 Target |
 
 **ASSUMPTIONS:**
-- Week 26 completed (Performance Optimization)
-- 10 clients operational (Weeks 21-25)
-- Agent Lightning v2 at 77% accuracy
-- P95 at 300ms or better
+- Phase 7 complete (20 clients)
+- Agent Lightning v2 at 88% accuracy
+- Collective intelligence operational
+- Model registry working
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## WEEK 27 FILE SUMMARY
+## WEEK 28 FILE SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
 | Day | Files | Focus |
 |-----|-------|-------|
-| Day 1 | 6 | Clients 011-015 |
-| Day 2 | 6 | Clients 016-020 |
-| Day 3 | 6 | Multi-Tenant Isolation |
-| Day 4 | 6 | 20-Client Load Testing |
-| Day 5 | 6 | Agent Lightning 88% |
-| **Total** | **30** | **20-Client Scale Validation** |
+| Day 1 | 6 | Category Specialists |
+| Day 2 | 6 | Active Learning |
+| Day 3 | 6 | A/B Testing |
+| Day 4 | 6 | Auto-Rollback |
+| Day 5 | 6 | 90% Training Run |
+| **Total** | **30** | **Agent Lightning 90% Milestone** |
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## PHASE 7 PROGRESS
+## PHASE 8 PROGRESS
 ═══════════════════════════════════════════════════════════════════════════════
 
-**Phase 7: Scale to 20 Clients (Weeks 21-27)**
+**Phase 8: Enterprise Preparation (Weeks 28-40)**
 
 | Week | Roadmap Goal | Status |
 |------|--------------|--------|
-| 21 | Clients 3-5 + Collective Intelligence | ✅ COMPLETE |
-| 22 | Agent Lightning v2 + 77% Accuracy | ✅ COMPLETE |
-| 23 | Frontend Polish (A11y, Mobile, Dark Mode) | ✅ COMPLETE |
-| 24 | Client Success Tooling | ✅ COMPLETE |
-| 25 | Financial Services Vertical | ✅ COMPLETE |
-| 26 | Performance Optimization | ✅ COMPLETE |
-| **27** | **20-Client Scale Validation** | **✅ COMPLETE** |
+| **28** | **Agent Lightning 90% Milestone** | **🔄 IN PROGRESS** |
+| 29 | Multi-Region Data Residency | ⏳ Pending |
+| 30 | 30-Client Milestone | ⏳ Pending |
+| 31 | E-commerce Advanced | ⏳ Pending |
+| 32 | SaaS Advanced | ⏳ Pending |
+| 33 | Healthcare HIPAA + Logistics | ⏳ Pending |
+| 34 | Frontend v2 (React Query + PWA) | ⏳ Pending |
+| 35 | Smart Router 92%+ | ⏳ Pending |
+| 36 | Agent Lightning 94% | ⏳ Pending |
+| 37 | 50-Client Scale + Autoscaling | ⏳ Pending |
+| 38 | Enterprise Pre-Preparation | ⏳ Pending |
+| 39 | Final Production Readiness | ⏳ Pending |
+| 40 | Weeks 1-40 Final Validation | ⏳ Pending |
 
-**Week 27 Deliverables:**
-- Clients: 10 → 20 ✅ 20 ACTIVE
-- Isolation: 0 data leaks ✅ 0 LEAKS (400+ tests)
-- Performance: P95 <300ms ✅ 247ms
-- Accuracy: ≥88% ✅ 88.2%
-- **PHASE 7 COMPLETE!**
-
----
-
-═══════════════════════════════════════════════════════════════════════════════
-## 🎉 PHASE 7 COMPLETION
-═══════════════════════════════════════════════════════════════════════════════
-
-**Upon successful completion of Week 27:**
-
-✅ **20 Clients Operational**
-✅ **0 Data Leaks (400 isolation tests)**
-✅ **P95 <300ms at 500 users**
-✅ **Agent Lightning ≥88% accuracy**
-✅ **All variants working (Mini, Junior, High)**
-✅ **15+ industries represented**
-✅ **Client Success Tooling**
-✅ **Financial Services Vertical**
-✅ **Performance Optimized**
-
-**PHASE 7: SCALE TO 20 CLIENTS — COMPLETE ✅**
-
-**Next: Phase 8 — Enterprise Preparation (Weeks 28-40)**
+**Week 28 Deliverables:**
+- Accuracy: 88.2% → ≥90% 🎯 Target
+- Category Specialists: 4 trained
+- Active Learning: Operational
+- A/B Testing: 10% traffic
+- Auto-Rollback: <60s
+- **PHASE 8 START!**
