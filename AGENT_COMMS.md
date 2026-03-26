@@ -1,621 +1,689 @@
-# AGENT_COMMS.md — Week 29 Day 1-6
-# Last updated: Tester Agent
-# Current status: WEEK 29 COMPLETE — ALL BUILDERS + TESTER DONE
+# AGENT_COMMS.md — Week 30 Day 1-6
+# Last updated: Manager Agent
+# Current status: WEEK 30 TASKS WRITTEN — AWAITING BUILDERS
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 29 PLAN
+## MANAGER → WEEK 30 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
 Date: 2026-03-26
 
 > **Phase: Phase 8 — Enterprise Preparation (Weeks 28-40)**
 >
-> **Week 29 Goals (Per Roadmap):**
-> - Day 1: EU Region Infrastructure
-> - Day 2: US Region Infrastructure
-> - Day 3: APAC Region Infrastructure
-> - Day 4: Data Residency Enforcer
-> - Day 5: Cross-Region Replication
+> **Week 30 Goals (Per Roadmap):**
+> - Day 1: Client Configurations 021-025
+> - Day 2: Client Configurations 026-030
+> - Day 3: Full Regression Test Suite
+> - Day 4: Security Re-Audit
+> - Day 5: 30-Client Load Test + Agent Lightning 91%
 > - Day 6: Tester runs full validation
 >
 > **CRITICAL RULES:**
 > 1. All 5 days run in PARALLEL — no cross-day dependencies
-> 2. Multi-Region Data Residency per roadmap
-> 3. Build `infra/terraform/regions/eu/`, `us/`, `apac/`
-> 4. **EU client data absent from US region DB**
-> 5. **Cross-region isolation: 0 leaks**
-> 6. **DB replication lag <500ms**
-> 7. **GDPR export: only data from client's assigned region**
-> 8. **Data sovereignty compliance**
+> 2. 30-Client Milestone per roadmap
+> 3. Scale from 20 to 30 clients
+> 4. **300 cross-tenant isolation tests: 0 data leaks**
+> 5. **1000 concurrent users: P95 <300ms**
+> 6. **Agent Lightning: ≥91% accuracy**
+> 7. **Full regression: 100% pass rate**
+> 8. **OWASP clean, CVEs zero critical**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — EU Region Infrastructure
+## BUILDER 1 (DAY 1) — Client Configurations 021-025
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `infra/terraform/regions/eu/__init__.py`
-2. `infra/terraform/regions/eu/main.tf`
-3. `infra/terraform/regions/eu/database.tf`
-4. `infra/terraform/regions/eu/redis.tf`
-5. `infra/terraform/regions/eu/variables.tf`
-6. `tests/infrastructure/test_eu_region.py`
+1. `clients/021/config.yaml`
+2. `clients/022/config.yaml`
+3. `clients/023/config.yaml`
+4. `clients/024/config.yaml`
+5. `clients/025/config.yaml`
+6. `tests/clients/test_clients_021_025.py`
 
 ### Field 2: What is each file?
-1. `infra/terraform/regions/eu/__init__.py` — Module init
-2. `infra/terraform/regions/eu/main.tf` — EU region main config
-3. `infra/terraform/regions/eu/database.tf` — EU database config
-4. `infra/terraform/regions/eu/redis.tf` — EU Redis config
-5. `infra/terraform/regions/eu/variables.tf` — EU variables
-6. `tests/infrastructure/test_eu_region.py` — EU region tests
+1. `clients/021/config.yaml` — Gaming/Entertainment client
+2. `clients/022/config.yaml` — Automotive client
+3. `clients/023/config.yaml` — Energy/Utilities client
+4. `clients/024/config.yaml` — Media/News client
+5. `clients/025/config.yaml` — Telecommunications client
+6. `tests/clients/test_clients_021_025.py` — Client config tests
 
 ### Field 3: Responsibilities
 
-**infra/terraform/regions/eu/main.tf:**
-- EU region main with:
-  - Provider: AWS eu-west-1 (Ireland)
-  - VPC configuration for EU
-  - Subnets for EU region
-  - Security groups (GDPR compliant)
-  - NAT gateway for EU
-  - **Test: Terraform plan succeeds**
+**clients/021/config.yaml (Gaming/Entertainment):**
+- Client 021 config with:
+  - Industry: Gaming & Entertainment
+  - Variant: PARWA Junior
+  - Integrations: Discord, Stripe, Zendesk
+  - Refund limit: $100 (game purchases)
+  - Escalation threshold: 45%
+  - 24/7 support (global gamers)
+  - **Test: Config loads correctly**
 
-**infra/terraform/regions/eu/database.tf:**
-- EU database with:
-  - PostgreSQL instance in eu-west-1
-  - Encryption at rest (GDPR requirement)
-  - Automated backups in EU
-  - Point-in-time recovery
-  - Read replicas in EU only
-  - **Test: DB instance configured**
+**clients/022/config.yaml (Automotive):**
+- Client 022 config with:
+  - Industry: Automotive
+  - Variant: PARWA High
+  - Integrations: Salesforce, SAP, Twilio
+  - Refund limit: $500 (parts/service)
+  - Escalation threshold: 30%
+  - Service appointment handling
+  - **Test: Config loads correctly**
 
-**infra/terraform/regions/eu/redis.tf:**
-- EU Redis with:
-  - ElastiCache cluster in eu-west-1
-  - Encryption in transit
-  - Encryption at rest
-  - EU-only replication
-  - Automatic failover
-  - **Test: Redis configured**
+**clients/023/config.yaml (Energy/Utilities):**
+- Client 023 config with:
+  - Industry: Energy & Utilities
+  - Variant: PARWA High
+  - Integrations: Oracle, Salesforce, Email
+  - Compliance: Energy regulations
+  - Refund limit: $200 (billing adjustments)
+  - Outage communication support
+  - **Test: Config loads correctly**
 
-**infra/terraform/regions/eu/variables.tf:**
-- EU variables with:
-  - Region: eu-west-1
-  - Instance types
-  - Database settings
-  - Redis settings
-  - Backup retention
-  - **Test: Variables validate**
+**clients/024/config.yaml (Media/News):**
+- Client 024 config with:
+  - Industry: Media & Publishing
+  - Variant: PARWA Junior
+  - Integrations: Stripe, Mailchimp, WordPress
+  - Refund limit: $50 (subscriptions)
+  - Escalation threshold: 50%
+  - Content-related inquiries
+  - **Test: Config loads correctly**
 
-**tests/infrastructure/test_eu_region.py:**
-- EU region tests with:
-  - Test: Terraform validates
-  - Test: EU region resources defined
-  - Test: Database in EU only
-  - Test: Redis in EU only
-  - **CRITICAL: EU region infrastructure works**
+**clients/025/config.yaml (Telecommunications):**
+- Client 025 config with:
+  - Industry: Telecommunications
+  - Variant: PARWA High
+  - Integrations: Salesforce, SAP, Twilio
+  - Compliance: FCC regulations
+  - Refund limit: $300 (service credits)
+  - Technical support routing
+  - **Test: Config loads correctly**
+
+**tests/clients/test_clients_021_025.py:**
+- Client tests with:
+  - Test: All 5 configs load
+  - Test: Client IDs unique (no overlap)
+  - Test: Industry settings correct
+  - Test: Variant assignments valid
+  - **CRITICAL: All 5 clients configured**
 
 ### Field 4: Depends On
-- Terraform infrastructure
-- AWS provider configuration
+- Client infrastructure (Weeks 19-27)
+- Variant systems (Weeks 9-11)
 
 ### Field 5: Expected Output
-- EU region infrastructure defined
-- GDPR-compliant setup
+- Clients 021-025 fully configured
+- All configs validated
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- EU clients have data stored only in EU region
+- Clients 021-025 onboarded and operational
 
 ### Field 8: Error Handling
-- Terraform validation errors
-- Resource conflicts
+- Config validation errors
+- Missing required fields
 
 ### Field 9: Security Requirements
-- Encryption at rest
-- Encryption in transit
-- EU data sovereignty
+- Client isolation enforced
+- Secure credential storage
 
 ### Field 10: Integration Points
-- Terraform
-- AWS provider
-- Global infrastructure
+- Client management system
+- Variant selection
+- Integration clients
 
 ### Field 11: Code Quality
-- Terraform best practices
-- Clear documentation
+- YAML linting
+- Schema validation
 
 ### Field 12: GitHub CI Requirements
-- Terraform validate passes
-- EU region tests pass
+- All client configs valid
+- Tests pass
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: EU region infrastructure defined**
-- **CRITICAL: Terraform validates**
+- **CRITICAL: Clients 021-025 configured**
+- **CRITICAL: All configs validate**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — US Region Infrastructure
+## BUILDER 2 (DAY 2) — Client Configurations 026-030
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `infra/terraform/regions/us/__init__.py`
-2. `infra/terraform/regions/us/main.tf`
-3. `infra/terraform/regions/us/database.tf`
-4. `infra/terraform/regions/us/redis.tf`
-5. `infra/terraform/regions/us/variables.tf`
-6. `tests/infrastructure/test_us_region.py`
+1. `clients/026/config.yaml`
+2. `clients/027/config.yaml`
+3. `clients/028/config.yaml`
+4. `clients/029/config.yaml`
+5. `clients/030/config.yaml`
+6. `tests/clients/test_clients_026_030.py`
 
 ### Field 2: What is each file?
-1. `infra/terraform/regions/us/__init__.py` — Module init
-2. `infra/terraform/regions/us/main.tf` — US region main config
-3. `infra/terraform/regions/us/database.tf` — US database config
-4. `infra/terraform/regions/us/redis.tf` — US Redis config
-5. `infra/terraform/regions/us/variables.tf` — US variables
-6. `tests/infrastructure/test_us_region.py` — US region tests
+1. `clients/026/config.yaml` — Pharmaceutical client
+2. `clients/027/config.yaml` — Event Management client
+3. `clients/028/config.yaml` — HR/Payroll client
+4. `clients/029/config.yaml` — Marketing Agency client
+5. `clients/030/config.yaml` — Sports/Fitness client
+6. `tests/clients/test_clients_026_030.py` — Client config tests
 
 ### Field 3: Responsibilities
 
-**infra/terraform/regions/us/main.tf:**
-- US region main with:
-  - Provider: AWS us-east-1 (N. Virginia)
-  - VPC configuration for US
-  - Subnets for US region
-  - Security groups
-  - NAT gateway for US
-  - **Test: Terraform plan succeeds**
+**clients/026/config.yaml (Pharmaceutical):**
+- Client 026 config with:
+  - Industry: Pharmaceutical
+  - Variant: PARWA High
+  - Integrations: Veeva, Salesforce, SAP
+  - Compliance: FDA regulations, HIPAA
+  - Refund limit: $200
+  - Drug information queries (no medical advice)
+  - **Test: Config loads with compliance**
 
-**infra/terraform/regions/us/database.tf:**
-- US database with:
-  - PostgreSQL instance in us-east-1
-  - Encryption at rest
-  - Automated backups in US
-  - Point-in-time recovery
-  - Read replicas in US only
-  - **Test: DB instance configured**
+**clients/027/config.yaml (Event Management):**
+- Client 027 config with:
+  - Industry: Event Management
+  - Variant: PARWA Junior
+  - Integrations: Eventbrite, Stripe, Mailchimp
+  - Refund limit: $150 (ticket refunds)
+  - Escalation threshold: 35%
+  - Event-specific support
+  - **Test: Config loads correctly**
 
-**infra/terraform/regions/us/redis.tf:**
-- US Redis with:
-  - ElastiCache cluster in us-east-1
-  - Encryption in transit
-  - Encryption at rest
-  - US-only replication
-  - Automatic failover
-  - **Test: Redis configured**
+**clients/028/config.yaml (HR/Payroll):**
+- Client 028 config with:
+  - Industry: HR & Payroll
+  - Variant: PARWA High
+  - Integrations: Workday, ADP, Salesforce
+  - Compliance: Employment laws, PII protection
+  - Refund limit: $100
+  - Payroll inquiry handling
+  - **Test: Config loads with compliance**
 
-**infra/terraform/regions/us/variables.tf:**
-- US variables with:
-  - Region: us-east-1
-  - Instance types
-  - Database settings
-  - Redis settings
-  - Backup retention
-  - **Test: Variables validate**
+**clients/029/config.yaml (Marketing Agency):**
+- Client 029 config with:
+  - Industry: Marketing & Advertising
+  - Variant: PARWA Junior
+  - Integrations: HubSpot, Stripe, Slack
+  - Refund limit: $75
+  - Escalation threshold: 55%
+  - Campaign-related support
+  - **Test: Config loads correctly**
 
-**tests/infrastructure/test_us_region.py:**
-- US region tests with:
-  - Test: Terraform validates
-  - Test: US region resources defined
-  - Test: Database in US only
-  - Test: Redis in US only
-  - **CRITICAL: US region infrastructure works**
+**clients/030/config.yaml (Sports/Fitness):**
+- Client 030 config with:
+  - Industry: Sports & Fitness
+  - Variant: PARWA Junior
+  - Integrations: Mindbody, Stripe, Email
+  - Refund limit: $100 (membership)
+  - Escalation threshold: 40%
+  - Class booking support
+  - **Test: Config loads correctly**
+
+**tests/clients/test_clients_026_030.py:**
+- Client tests with:
+  - Test: All 5 configs load
+  - Test: Client IDs unique (no overlap with 001-025)
+  - Test: Industry settings correct
+  - Test: All 30 clients unique
+  - **CRITICAL: All 5 clients configured**
 
 ### Field 4: Depends On
-- Terraform infrastructure
-- AWS provider configuration
+- Client infrastructure (Weeks 19-27)
+- Variant systems (Weeks 9-11)
 
 ### Field 5: Expected Output
-- US region infrastructure defined
-- CCPA-compliant setup
+- Clients 026-030 fully configured
+- 30 total clients validated
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- US clients have data stored only in US region
+- Clients 026-030 onboarded; 30 total clients operational
 
 ### Field 8: Error Handling
-- Terraform validation errors
-- Resource conflicts
+- Config validation errors
+- Missing required fields
 
 ### Field 9: Security Requirements
-- Encryption at rest
-- Encryption in transit
-- US data sovereignty
+- Client isolation enforced
+- Secure credential storage
 
 ### Field 10: Integration Points
-- Terraform
-- AWS provider
-- Global infrastructure
+- Client management system
+- Variant selection
+- Integration clients
 
 ### Field 11: Code Quality
-- Terraform best practices
-- Clear documentation
+- YAML linting
+- Schema validation
 
 ### Field 12: GitHub CI Requirements
-- Terraform validate passes
-- US region tests pass
+- All client configs valid
+- Tests pass
 
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: US region infrastructure defined**
-- **CRITICAL: Terraform validates**
+- **CRITICAL: Clients 026-030 configured**
+- **CRITICAL: All 30 clients unique**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — APAC Region Infrastructure
+## BUILDER 3 (DAY 3) — Full Regression Test Suite
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `infra/terraform/regions/apac/__init__.py`
-2. `infra/terraform/regions/apac/main.tf`
-3. `infra/terraform/regions/apac/database.tf`
-4. `infra/terraform/regions/apac/redis.tf`
-5. `infra/terraform/regions/apac/variables.tf`
-6. `tests/infrastructure/test_apac_region.py`
+1. `tests/regression/test_full_regression.py`
+2. `tests/regression/test_30_client_isolation.py`
+3. `tests/regression/test_all_variants_regression.py`
+4. `tests/regression/test_all_integrations.py`
+5. `scripts/run_full_regression.sh`
+6. `reports/regression_report.md`
 
 ### Field 2: What is each file?
-1. `infra/terraform/regions/apac/__init__.py` — Module init
-2. `infra/terraform/regions/apac/main.tf` — APAC region main config
-3. `infra/terraform/regions/apac/database.tf` — APAC database config
-4. `infra/terraform/regions/apac/redis.tf` — APAC Redis config
-5. `infra/terraform/regions/apac/variables.tf` — APAC variables
-6. `tests/infrastructure/test_apac_region.py` — APAC region tests
+1. `tests/regression/test_full_regression.py` — Full regression test
+2. `tests/regression/test_30_client_isolation.py` — 30-client isolation test
+3. `tests/regression/test_all_variants_regression.py` — All variants test
+4. `tests/regression/test_all_integrations.py` — All integrations test
+5. `scripts/run_full_regression.sh` — Regression script
+6. `reports/regression_report.md` — Regression report
 
 ### Field 3: Responsibilities
 
-**infra/terraform/regions/apac/main.tf:**
-- APAC region main with:
-  - Provider: AWS ap-southeast-1 (Singapore)
-  - VPC configuration for APAC
-  - Subnets for APAC region
-  - Security groups
-  - NAT gateway for APAC
-  - **Test: Terraform plan succeeds**
+**tests/regression/test_full_regression.py:**
+- Full regression with:
+  - Test: All Weeks 1-29 features
+  - Test: All 30 clients operational
+  - Test: All API endpoints
+  - Test: All database operations
+  - Test: Full E2E flows
+  - **Test: 100% pass rate**
 
-**infra/terraform/regions/apac/database.tf:**
-- APAC database with:
-  - PostgreSQL instance in ap-southeast-1
-  - Encryption at rest
-  - Automated backups in APAC
-  - Point-in-time recovery
-  - Read replicas in APAC only
-  - **Test: DB instance configured**
+**tests/regression/test_30_client_isolation.py:**
+- 30-client isolation with:
+  - Test: 30 × 30 = 900 isolation tests
+  - Test: No cross-tenant data access
+  - Test: RLS policies for all 30
+  - Test: Cache isolation
+  - **Test: 0 data leaks**
 
-**infra/terraform/regions/apac/redis.tf:**
-- APAC Redis with:
-  - ElastiCache cluster in ap-southeast-1
-  - Encryption in transit
-  - Encryption at rest
-  - APAC-only replication
-  - Automatic failover
-  - **Test: Redis configured**
+**tests/regression/test_all_variants_regression.py:**
+- Variants regression with:
+  - Test: Mini variant works
+  - Test: PARWA Junior works
+  - Test: PARWA High works
+  - Test: Financial Services variant
+  - Test: All variants coexist
+  - **Test: All variants pass**
 
-**infra/terraform/regions/apac/variables.tf:**
-- APAC variables with:
-  - Region: ap-southeast-1
-  - Instance types
-  - Database settings
-  - Redis settings
-  - Backup retention
-  - **Test: Variables validate**
+**tests/regression/test_all_integrations.py:**
+- Integrations regression with:
+  - Test: Shopify integration
+  - Test: Paddle integration
+  - Test: Twilio integration
+  - Test: Zendesk integration
+  - Test: All MCP servers
+  - **Test: All integrations work**
 
-**tests/infrastructure/test_apac_region.py:**
-- APAC region tests with:
-  - Test: Terraform validates
-  - Test: APAC region resources defined
-  - Test: Database in APAC only
-  - Test: Redis in APAC only
-  - **CRITICAL: APAC region infrastructure works**
+**scripts/run_full_regression.sh:**
+- Regression script with:
+  - Run all test suites
+  - Generate coverage report
+  - Calculate pass rate
+  - Alert on failures
+  - Export results
+  - **Test: Script runs successfully**
+
+**reports/regression_report.md:**
+- Regression report with:
+  - Total tests run
+  - Pass rate (target: 100%)
+  - Failed tests (if any)
+  - Coverage percentage
+  - Recommendations
+  - **Content: Full regression report**
 
 ### Field 4: Depends On
-- Terraform infrastructure
-- AWS provider configuration
+- All clients configured (Day 1-2)
+- All previous weeks
 
 ### Field 5: Expected Output
-- APAC region infrastructure defined
-- Asian data compliance ready
+- Full regression test suite
+- 100% pass rate
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- APAC clients have data stored only in APAC region
+- All features from Weeks 1-29 pass regression
 
 ### Field 8: Error Handling
-- Terraform validation errors
-- Resource conflicts
+- Test failure reporting
+- Automatic retry for flaky tests
 
 ### Field 9: Security Requirements
-- Encryption at rest
-- Encryption in transit
-- APAC data sovereignty
+- Test data isolation
+- No production data exposure
 
 ### Field 10: Integration Points
-- Terraform
-- AWS provider
-- Global infrastructure
+- All system components
+- CI/CD pipeline
 
 ### Field 11: Code Quality
-- Terraform best practices
-- Clear documentation
+- Comprehensive test coverage
+- Clear test documentation
 
 ### Field 12: GitHub CI Requirements
-- Terraform validate passes
-- APAC region tests pass
+- Full regression passes
+- 100% pass rate
 
 ### Field 13: Pass Criteria
 Builder 3 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: APAC region infrastructure defined**
-- **CRITICAL: Terraform validates**
+- **CRITICAL: Full regression 100% pass rate**
+- **CRITICAL: 900 isolation tests, 0 leaks**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — Data Residency Enforcer
+## BUILDER 4 (DAY 4) — Security Re-Audit
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `backend/compliance/residency/__init__.py`
-2. `backend/compliance/residency/residency_enforcer.py`
-3. `backend/compliance/residency/region_router.py`
-4. `backend/compliance/residency/sovereignty_checker.py`
-5. `backend/compliance/residency/gdpr_export.py`
-6. `tests/compliance/test_residency.py`
+1. `security/audit/security_audit_week30.py`
+2. `security/audit/owasp_scan.py`
+3. `security/audit/cve_checker.py`
+4. `security/audit/penetration_test.py`
+5. `security/audit/compliance_check.py`
+6. `reports/security_audit_week30.md`
 
 ### Field 2: What is each file?
-1. `backend/compliance/residency/__init__.py` — Module init
-2. `backend/compliance/residency/residency_enforcer.py` — Residency enforcement
-3. `backend/compliance/residency/region_router.py` — Region routing
-4. `backend/compliance/residency/sovereignty_checker.py` — Sovereignty checking
-5. `backend/compliance/residency/gdpr_export.py` — GDPR export handler
-6. `tests/compliance/test_residency.py` — Residency tests
+1. `security/audit/security_audit_week30.py` — Security audit
+2. `security/audit/owasp_scan.py` — OWASP scan
+3. `security/audit/cve_checker.py` — CVE checker
+4. `security/audit/penetration_test.py` — Penetration test
+5. `security/audit/compliance_check.py` — Compliance check
+6. `reports/security_audit_week30.md` — Security report
 
 ### Field 3: Responsibilities
 
-**backend/compliance/residency/residency_enforcer.py:**
-- Residency enforcer with:
-  - Enforce data stays in assigned region
-  - Block cross-region data access
-  - Validate region assignment on read/write
-  - Log all cross-region attempts
-  - Alert on violations
-  - **Test: Enforcer blocks cross-region access**
+**security/audit/security_audit_week30.py:**
+- Security audit with:
+  - Full codebase scan
+  - Dependency vulnerability scan
+  - Configuration audit
+  - Access control review
+  - Encryption verification
+  - **Test: Zero critical issues**
 
-**backend/compliance/residency/region_router.py:**
-- Region router with:
-  - Route requests to correct region
-  - Client-to-region mapping
-  - Dynamic region selection
-  - Failover handling
-  - Latency optimization
-  - **Test: Router routes correctly**
+**security/audit/owasp_scan.py:**
+- OWASP scan with:
+  - OWASP Top 10 checks
+  - Injection vulnerability check
+  - Authentication flaws check
+  - Sensitive data exposure check
+  - Security misconfiguration check
+  - **Test: OWASP clean**
 
-**backend/compliance/residency/sovereignty_checker.py:**
-- Sovereignty checker with:
-  - Check data sovereignty requirements
-  - Validate client region assignment
-  - Check compliance per region
-  - Audit sovereignty status
-  - Report violations
-  - **Test: Checker validates sovereignty**
+**security/audit/cve_checker.py:**
+- CVE checker with:
+  - Check all dependencies for CVEs
+  - Severity classification
+  - Remediation recommendations
+  - Dependency update suggestions
+  - CVE database comparison
+  - **Test: Zero critical CVEs**
 
-**backend/compliance/residency/gdpr_export.py:**
-- GDPR export with:
-  - Export all client data from assigned region
-  - Only data from client's region
-  - Portable format (JSON)
-  - Complete data inventory
-  - Right to erasure support
-  - **Test: Export only assigned region data**
+**security/audit/penetration_test.py:**
+- Penetration test with:
+  - Automated penetration testing
+  - SQL injection attempts
+  - XSS vulnerability checks
+  - CSRF vulnerability checks
+  - API security testing
+  - **Test: All attempts blocked**
 
-**tests/compliance/test_residency.py:**
-- Residency tests with:
-  - Test: Enforcer blocks cross-region
-  - Test: Router routes correctly
-  - Test: Sovereignty checker works
-  - Test: GDPR export from correct region
-  - **CRITICAL: Data residency enforced**
+**security/audit/compliance_check.py:**
+- Compliance check with:
+  - HIPAA compliance verification
+  - PCI DSS compliance verification
+  - GDPR compliance verification
+  - SOX compliance verification
+  - CCPA compliance verification
+  - **Test: All compliances pass**
+
+**reports/security_audit_week30.md:**
+- Security report with:
+  - Security audit summary
+  - OWASP scan results
+  - CVE check results
+  - Penetration test results
+  - Compliance status
+  - **Content: Security audit report**
 
 ### Field 4: Depends On
-- Region infrastructure (Day 1-3)
-- Compliance layer (Week 7)
+- All system components
+- Security infrastructure
 
 ### Field 5: Expected Output
-- Data residency enforcement operational
-- Cross-region access blocked
+- Security re-audit complete
+- Zero critical issues
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- EU client data cannot be accessed from US region
+- All 30 clients secure
+
+### Field 4: Depends On
+- All 30 clients configured
+- Security infrastructure
+
+### Field 5: Expected Output
+- Security re-audit complete
+- Zero critical issues
+
+### Field 6: Unit Test Files
+- Tests in deliverables
+
+### Field 7: BDD Scenario
+- All security checks pass with zero critical issues
 
 ### Field 8: Error Handling
-- Cross-region access attempts
-- Region unavailability
+- Vulnerability reporting
+- Remediation guidance
 
 ### Field 9: Security Requirements
-- Strict region isolation
-- Audit all access
+- Comprehensive security testing
+- All vulnerabilities addressed
 
 ### Field 10: Integration Points
-- Database layer
-- API layer
-- Client management
+- CI/CD pipeline
+- Dependency management
+- Security monitoring
 
 ### Field 11: Code Quality
-- Clear enforcement rules
-- Comprehensive logging
+- Automated security checks
+- Clear vulnerability reports
 
 ### Field 12: GitHub CI Requirements
-- Residency tests pass
-- Cross-region blocked
+- Security scans pass
+- Zero critical issues
 
 ### Field 13: Pass Criteria
 Builder 4 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Cross-region access blocked**
-- **CRITICAL: GDPR export works**
+- **CRITICAL: Zero critical CVEs**
+- **CRITICAL: OWASP clean**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — Cross-Region Replication
+## BUILDER 5 (DAY 5) — 30-Client Load Test + Agent Lightning 91%
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `backend/compliance/replication/__init__.py`
-2. `backend/compliance/replication/cross_region_replication.py`
-3. `backend/compliance/replication/replication_monitor.py`
-4. `backend/compliance/replication/conflict_resolver.py`
-5. `backend/compliance/replication/latency_tracker.py`
-6. `tests/compliance/test_replication.py`
+1. `tests/performance/test_30_client_load.py`
+2. `tests/performance/locustfile_30_clients.py`
+3. `tests/performance/test_1000_concurrent.py`
+4. `agent_lightning/training/training_run_week30.py`
+5. `tests/agent_lightning/test_91_accuracy.py`
+6. `reports/week30_performance.md`
 
 ### Field 2: What is each file?
-1. `backend/compliance/replication/__init__.py` — Module init
-2. `backend/compliance/replication/cross_region_replication.py` — Replication service
-3. `backend/compliance/replication/replication_monitor.py` — Replication monitoring
-4. `backend/compliance/replication/conflict_resolver.py` — Conflict resolution
-5. `backend/compliance/replication/latency_tracker.py` — Latency tracking
-6. `tests/compliance/test_replication.py` — Replication tests
+1. `tests/performance/test_30_client_load.py` — 30-client load test
+2. `tests/performance/locustfile_30_clients.py` — Locust for 30 clients
+3. `tests/performance/test_1000_concurrent.py` — 1000 concurrent test
+4. `agent_lightning/training/training_run_week30.py` — Week 30 training
+5. `tests/agent_lightning/test_91_accuracy.py` — 91% accuracy test
+6. `reports/week30_performance.md` — Performance report
 
 ### Field 3: Responsibilities
 
-**backend/compliance/replication/cross_region_replication.py:**
-- Replication service with:
-  - Async replication between regions
-  - Event-driven replication
-  - Selective replication (metadata only)
-  - Replication lag tracking
-  - Automatic retry on failure
-  - **Test: Replication works <500ms lag**
+**tests/performance/test_30_client_load.py:**
+- 30-client load with:
+  - Test: All 30 clients under load
+  - Test: 1000 concurrent users across clients
+  - Test: Even distribution across regions
+  - Test: P95 latency measurement
+  - Test: Error rate tracking
+  - **Test: System handles 30 clients**
 
-**backend/compliance/replication/replication_monitor.py:**
-- Replication monitor with:
-  - Monitor replication status
-  - Alert on replication lag >500ms
-  - Track replication queue depth
-  - Monitor replication errors
-  - Health dashboard
-  - **Test: Monitor detects lag**
+**tests/performance/locustfile_30_clients.py:**
+- Locust file with:
+  - 30 client scenarios
+  - Region-aware routing
+  - Realistic user behavior
+  - Mix of all variants
+  - Multi-region testing
+  - **Test: Locust runs successfully**
 
-**backend/compliance/replication/conflict_resolver.py:**
-- Conflict resolver with:
-  - Last-write-wins strategy
-  - Conflict detection
-  - Conflict resolution logging
-  - Manual resolution support
-  - Conflict reporting
-  - **Test: Conflicts resolved correctly**
+**tests/performance/test_1000_concurrent.py:**
+- 1000 concurrent with:
+  - Test: 1000 concurrent connections
+  - Test: P50/P95/P99 latency
+  - Test: Throughput measurement
+  - Test: Resource utilization
+  - Test: Memory/CPU tracking
+  - **Test: P95 <300ms verified**
 
-**backend/compliance/replication/latency_tracker.py:**
-- Latency tracker with:
-  - Track cross-region latency
-  - P50/P95/P99 latency metrics
-  - Latency alerts
-  - Historical tracking
-  - Prometheus export
-  - **Test: Latency tracked**
+**agent_lightning/training/training_run_week30.py:**
+- Training run with:
+  - Train on 30-client collective data
+  - 4000+ training examples
+  - All category specialists
+  - Active learning integration
+  - Target: ≥91% accuracy
+  - **Test: Training achieves ≥91%**
 
-**tests/compliance/test_replication.py:**
-- Replication tests with:
-  - Test: Replication works
-  - Test: Lag <500ms
-  - Test: Conflicts resolved
-  - Test: Latency tracked
-  - **CRITICAL: Replication lag <500ms**
+**tests/agent_lightning/test_91_accuracy.py:**
+- Accuracy test with:
+  - Test: Overall accuracy ≥91%
+  - Test: All category specialists >90%
+  - Test: All 30 clients show improvement
+  - Test: No accuracy degradation
+  - **Test: 91% target achieved**
+
+**reports/week30_performance.md:**
+- Performance report with:
+  - 30-client load test results
+  - P95 latency: <300ms target
+  - Agent Lightning: ≥91% target
+  - Error rate: <1%
+  - Recommendations
+  - **Content: Week 30 performance report**
 
 ### Field 4: Depends On
-- Region infrastructure (Day 1-3)
-- Residency enforcer (Day 4)
+- All 30 clients configured
+- Multi-region infrastructure
+- Agent Lightning v3
 
 ### Field 5: Expected Output
-- Cross-region replication operational
-- Replication lag <500ms
+- 30-client load testing validated
+- Agent Lightning ≥91% accuracy
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Data replicates across regions with <500ms lag
+- System handles 1000 concurrent users across 30 clients with P95 <300ms
 
 ### Field 8: Error Handling
-- Replication failures
-- Conflict resolution
+- Load test failure handling
+- Training failure handling
 
 ### Field 9: Security Requirements
-- Encrypted replication
-- Data integrity checks
+- Test data isolation
+- Multi-region security
 
 ### Field 10: Integration Points
-- Database layer
-- Monitoring system
-- Alert system
+- Performance monitoring
+- Agent Lightning training
+- Multi-region infrastructure
 
 ### Field 11: Code Quality
-- Documented replication strategy
-- Clear conflict resolution
+- Documented test scenarios
+- Clear pass/fail criteria
 
 ### Field 12: GitHub CI Requirements
-- Replication tests pass
-- Lag threshold verified
+- Load tests pass
+- Accuracy test passes
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Replication works**
-- **CRITICAL: Replication lag <500ms**
+- **CRITICAL: 1000 concurrent users supported**
+- **CRITICAL: P95 <300ms VERIFIED**
+- **CRITICAL: Agent Lightning ≥91%**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 29 INSTRUCTIONS (DAY 6)
+## TESTER → WEEK 30 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
 
 ### Test Commands
 
-#### 1. Region Infrastructure Tests
+#### 1. Client Configuration Tests
 ```bash
-pytest tests/infrastructure/test_eu_region.py tests/infrastructure/test_us_region.py tests/infrastructure/test_apac_region.py -v
+pytest tests/clients/test_clients_021_025.py tests/clients/test_clients_026_030.py -v
 ```
 
-#### 2. Terraform Validation
+#### 2. Full Regression Tests
 ```bash
-cd infra/terraform/regions/eu && terraform validate
-cd infra/terraform/regions/us && terraform validate
-cd infra/terraform/regions/apac && terraform validate
+./scripts/run_full_regression.sh
 ```
 
-#### 3. Residency Tests
+#### 3. Security Audit Tests
 ```bash
-pytest tests/compliance/test_residency.py -v
+pytest security/audit/ -v
+snyk test
 ```
 
-#### 4. Replication Tests
+#### 4. Load Tests
 ```bash
-pytest tests/compliance/test_replication.py -v
+pytest tests/performance/test_30_client_load.py tests/performance/test_1000_concurrent.py -v
+locust -f tests/performance/locustfile_30_clients.py -u 1000 -r 20 -t 5m --headless
 ```
 
-#### 5. Integration Tests
+#### 5. Agent Lightning Accuracy Test
 ```bash
-pytest tests/integration/ -v --tb=short
+pytest tests/agent_lightning/test_91_accuracy.py -v
 ```
 
 ---
@@ -624,32 +692,36 @@ pytest tests/integration/ -v --tb=short
 
 | # | Test | Expected |
 |---|------|----------|
-| 1 | EU region infrastructure | Terraform validates |
-| 2 | US region infrastructure | Terraform validates |
-| 3 | APAC region infrastructure | Terraform validates |
-| 4 | Cross-region access | Blocked |
-| 5 | GDPR export | Only assigned region |
-| 6 | Replication lag | <500ms |
-| 7 | Region isolation | 0 leaks |
-| 8 | Data sovereignty | Enforced |
-| 9 | Region routing | Correct |
-| 10 | Conflict resolution | Works |
+| 1 | 30 clients configured | All 30 operational |
+| 2 | Full regression | 100% pass rate |
+| 3 | 30-client isolation | 900 tests, 0 leaks |
+| 4 | All variants | All pass |
+| 5 | All integrations | All work |
+| 6 | OWASP scan | Clean |
+| 7 | CVE check | Zero critical |
+| 8 | Penetration test | All blocked |
+| 9 | 1000 concurrent users | Supported |
+| 10 | **P95 latency** | **<300ms (CRITICAL)** |
+| 11 | **Agent Lightning** | **≥91% (CRITICAL)** |
+| 12 | Error rate | <1% |
 
 ---
 
-### Week 29 PASS Criteria
+### Week 30 PASS Criteria
 
-1. ✅ EU Region: Terraform validates
-2. ✅ US Region: Terraform validates
-3. ✅ APAC Region: Terraform validates
-4. ✅ **Cross-Region Isolation: 0 data leaks (CRITICAL)**
-5. ✅ **EU client data absent from US DB (CRITICAL)**
-6. ✅ **Replication Lag: <500ms (CRITICAL)**
-7. ✅ GDPR Export: Only assigned region data
-8. ✅ Data Sovereignty: Enforced
-9. ✅ Region Routing: Correct
-10. ✅ Conflict Resolution: Works
-11. ✅ GitHub CI GREEN
+1. ✅ **30 Clients: All configured and operational**
+2. ✅ **Full Regression: 100% pass rate (CRITICAL)**
+3. ✅ **30-Client Isolation: 0 data leaks in 900 tests**
+4. ✅ All Variants: All working
+5. ✅ All Integrations: All working
+6. ✅ **OWASP Scan: Clean (CRITICAL)**
+7. ✅ **CVE Check: Zero critical (CRITICAL)**
+8. ✅ Penetration Test: All blocked
+9. ✅ **1000 Concurrent Users: Supported**
+10. ✅ **P95 Latency: <300ms (CRITICAL)**
+11. ✅ **Agent Lightning: ≥91% (CRITICAL)**
+12. ✅ Error Rate: <1%
+13. ✅ GitHub CI GREEN
 
 ---
 
@@ -659,12 +731,12 @@ pytest tests/integration/ -v --tb=short
 
 | Builder | Day | Focus | Files | Status |
 |---------|-----|-------|-------|--------|
-| Builder 1 | Day 1 | EU Region Infrastructure | 6 | ✅ DONE |
-| Builder 2 | Day 2 | US Region Infrastructure | 6 | ✅ DONE |
-| Builder 3 | Day 3 | APAC Region Infrastructure | 6 | ✅ DONE |
-| Builder 4 | Day 4 | Data Residency Enforcer | 6 | ✅ DONE |
-| Builder 5 | Day 5 | Cross-Region Replication | 6 | ✅ DONE |
-| Tester | Day 6 | Full Validation | - | ✅ DONE |
+| Builder 1 | Day 1 | Clients 021-025 | 6 | ⏳ PENDING |
+| Builder 2 | Day 2 | Clients 026-030 | 6 | ⏳ PENDING |
+| Builder 3 | Day 3 | Full Regression | 6 | ⏳ PENDING |
+| Builder 4 | Day 4 | Security Re-Audit | 6 | ⏳ PENDING |
+| Builder 5 | Day 5 | Load Test + 91% Accuracy | 6 | ⏳ PENDING |
+| Tester | Day 6 | Full Validation | - | ⏳ PENDING |
 
 ---
 
@@ -675,52 +747,60 @@ pytest tests/integration/ -v --tb=short
 **CRITICAL REMINDERS:**
 
 1. All 5 days run in PARALLEL — no cross-day dependencies
-2. Multi-Region Data Residency per roadmap
-3. **EU client data MUST NOT be in US region (CRITICAL)**
-4. **Cross-region isolation: 0 leaks (MANDATORY)**
-5. **Replication lag <500ms (MANDATORY)**
-6. **GDPR export only from assigned region**
-7. Data sovereignty compliance
-8. Three regions: EU, US, APAC
+2. 30-Client Milestone per roadmap
+3. **THIS IS A MAJOR MILESTONE**
+4. **Full regression: 100% pass rate (MANDATORY)**
+5. **30-client isolation: 0 data leaks (MANDATORY)**
+6. **P95 <300ms at 1000 users (MANDATORY)**
+7. **Agent Lightning ≥91% (MANDATORY)**
+8. **OWASP clean, Zero critical CVEs (MANDATORY)**
 
-**WEEK 29 TARGETS:**
+**WEEK 30 TARGETS:**
 
-| Metric | Target | Status |
-|--------|--------|--------|
-| Regions | 3 (EU, US, APAC) | ✅ COMPLETE |
-| Cross-Region Leaks | 0 | ✅ ENFORCED |
-| Replication Lag | <500ms | ✅ VERIFIED |
-| GDPR Export | Region-specific | ✅ IMPLEMENTED |
-| Terraform Validation | All pass | ✅ VERIFIED |
+| Metric | Current | Target | Status |
+|--------|---------|--------|--------|
+| Clients | 20 | 30 | 🎯 Target |
+| Accuracy | 90.1% | ≥91% | 🎯 Target |
+| P95 Latency | 247ms | <300ms | ✅ Maintain |
+| Concurrent Users | 500 | 1000 | 🎯 Target |
+| Regression Pass | - | 100% | 🎯 Mandatory |
+| Security CVEs | - | Zero critical | 🎯 Mandatory |
 
-**REGION ASSIGNMENTS:**
+**NEW CLIENT INDUSTRIES (Week 30):**
 
-| Region | Location | Compliance |
-|--------|----------|------------|
-| EU | eu-west-1 (Ireland) | GDPR |
-| US | us-east-1 (N. Virginia) | CCPA |
-| APAC | ap-southeast-1 (Singapore) | Local laws |
+| Client | Industry | Variant |
+|--------|----------|---------|
+| 021 | Gaming/Entertainment | Junior |
+| 022 | Automotive | High |
+| 023 | Energy/Utilities | High |
+| 024 | Media/News | Junior |
+| 025 | Telecommunications | High |
+| 026 | Pharmaceutical | High |
+| 027 | Event Management | Junior |
+| 028 | HR/Payroll | High |
+| 029 | Marketing Agency | Junior |
+| 030 | Sports/Fitness | Junior |
 
 **ASSUMPTIONS:**
-- Week 28 complete (90% accuracy)
-- Terraform installed
-- AWS provider configured
-- Existing infrastructure for 20 clients
+- Week 29 complete (Multi-Region)
+- 20 clients operational
+- Agent Lightning at 90%
+- Multi-region infrastructure ready
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## WEEK 29 FILE SUMMARY
+## WEEK 30 FILE SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
 | Day | Files | Focus |
 |-----|-------|-------|
-| Day 1 | 6 | EU Region Infrastructure |
-| Day 2 | 6 | US Region Infrastructure |
-| Day 3 | 6 | APAC Region Infrastructure |
-| Day 4 | 6 | Data Residency Enforcer |
-| Day 5 | 6 | Cross-Region Replication |
-| **Total** | **30** | **Multi-Region Data Residency** |
+| Day 1 | 6 | Clients 021-025 |
+| Day 2 | 6 | Clients 026-030 |
+| Day 3 | 6 | Full Regression |
+| Day 4 | 6 | Security Re-Audit |
+| Day 5 | 6 | Load Test + 91% Accuracy |
+| **Total** | **30** | **30-Client Milestone** |
 
 ---
 
@@ -733,8 +813,8 @@ pytest tests/integration/ -v --tb=short
 | Week | Roadmap Goal | Status |
 |------|--------------|--------|
 | 28 | Agent Lightning 90% Milestone | ✅ COMPLETE |
-| **29** | **Multi-Region Data Residency** | **✅ COMPLETE** |
-| 30 | 30-Client Milestone | ⏳ Pending |
+| 29 | Multi-Region Data Residency | ✅ COMPLETE |
+| **30** | **30-Client Milestone** | **🔄 IN PROGRESS** |
 | 31 | E-commerce Advanced | ⏳ Pending |
 | 32 | SaaS Advanced | ⏳ Pending |
 | 33 | Healthcare HIPAA + Logistics | ⏳ Pending |
@@ -746,9 +826,10 @@ pytest tests/integration/ -v --tb=short
 | 39 | Final Production Readiness | ⏳ Pending |
 | 40 | Weeks 1-40 Final Validation | ⏳ Pending |
 
-**Week 29 Deliverables:**
-- Regions: 3 (EU, US, APAC) ✅ COMPLETE
-- Data Residency: Enforced ✅
-- Replication: <500ms lag ✅
-- GDPR: Region-specific export ✅
-- **Multi-Region Complete!** ✅
+**Week 30 Deliverables:**
+- Clients: 20 → 30 🎯 Target
+- Regression: 100% pass 🎯 Mandatory
+- Security: Zero critical CVEs 🎯 Mandatory
+- Accuracy: ≥91% 🎯 Target
+- Load: 1000 users, P95 <300ms 🎯 Target
+- **30-CLIENT MILESTONE!**
