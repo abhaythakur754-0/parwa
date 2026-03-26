@@ -260,7 +260,7 @@ class CollectiveDatasetBuilder:
     def _anonymize_client_id(self, client_id: str) -> str:
         """Create anonymized client ID"""
         hash_val = hashlib.sha256(client_id.encode()).hexdigest()[:8]
-        return f"client_{hash_val}"
+        return f"anon_{hash_val}"  # Use 'anon_' prefix to distinguish from real client IDs
     
     def _generate_id(self) -> str:
         """Generate unique example ID"""
