@@ -6,6 +6,8 @@ This package contains different variants of PARWA agents:
 - Mini PARWA: Lightweight variant for small businesses
 - PARWA: Standard variant for medium businesses
 - PARWA High: Enterprise variant with advanced features
+- Healthcare: HIPAA-compliant healthcare support
+- Logistics: Supply chain and delivery optimization
 
 Each variant has its own configuration, agents, and workflows.
 """
