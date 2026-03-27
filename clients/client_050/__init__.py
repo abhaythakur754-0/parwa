@@ -1,0 +1,5 @@
+"""Client 050 - GlobalShip Enterprise initialization."""
+
+from .config import get_client_config
+
+__all__ = ["get_client_config"]
