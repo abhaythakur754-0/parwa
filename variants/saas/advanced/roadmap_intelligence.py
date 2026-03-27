@@ -176,7 +176,9 @@ class RoadmapIntelligence:
         impact: ImpactLevel = ImpactLevel.MEDIUM,
         effort: EffortLevel = EffortLevel.MEDIUM,
         segments: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
+        votes: int = 0,
+        requests: int = 0
     ) -> RoadmapFeature:
         """
         Add a feature to roadmap analysis.
@@ -201,6 +203,8 @@ class RoadmapIntelligence:
             effort=effort,
             segments=segments or [],
             tags=tags or [],
+            votes=votes,
+            requests=requests,
         )
 
         self._features[str(feature.id)] = feature
