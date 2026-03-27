@@ -279,7 +279,7 @@ class FinancialSpecialist94(CategorySpecialist):
         self._patterns = {
             "transaction": ["transaction", "transfer", "payment", "sent", "received"],
             "account": ["account", "balance", "statement", "banking"],
-            "fraud": ["fraud", "unauthorized", "suspicious", "stolen", "hacked"],
+            "fraud": ["fraud", "unauthorized", "suspicious", "stolen", "stole", "hacked", "theft"],
             "loan": ["loan", "mortgage", "interest", "payment", "credit"],
             "card": ["card", "debit", "credit", "atm", "pin"],
             "escalation": ["manager", "supervisor", "complaint", "legal", "attorney"],
