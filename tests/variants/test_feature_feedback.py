@@ -418,11 +418,19 @@ class TestNPSTracker:
         """Test tracking trends."""
         survey = await tracker.create_survey()
 
-        # Record multiple responses
+        # Record multiple responses and calculate scores multiple times to build history
         for score in [9, 8, 7, 6, 10, 9]:
             await tracker.record_response(survey.id, score)
 
         await tracker.calculate_score()
+
+        # Record more responses and calculate again to have 2+ periods in history
+        survey2 = await tracker.create_survey()
+        for score in [8, 9, 10, 8, 9]:
+            await tracker.record_response(survey2.id, score)
+
+        await tracker.calculate_score()
+
         trends = await tracker.track_trends()
 
         assert "trend" in trends
