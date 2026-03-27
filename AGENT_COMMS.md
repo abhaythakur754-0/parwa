@@ -1,588 +1,579 @@
-# AGENT_COMMS.md — Week 32 Day 1-6
-# Last updated by: Builder Agent
-# Current status: WEEK 32 — SAAS ADVANCED COMPLETE ✅
+# AGENT_COMMS.md — Week 33 Day 1-6
+# Last updated by: Manager Agent
+# Current status: WEEK 33 — HEALTHCARE HIPAA + LOGISTICS
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 32 PLAN
+## MANAGER → WEEK 33 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
-Date: 2026-03-26
+Date: 2026-03-27
 
 > **Phase: Phase 8 — Enterprise Preparation (Weeks 28-40)**
 >
-> **Week 32 Goals (Per Roadmap):**
-> - Day 1: Subscription Lifecycle Management
-> - Day 2: Usage-Based Billing & Metering
-> - Day 3: Churn Prediction & Retention
-> - Day 4: Feature Request & Feedback Intelligence
-> - Day 5: SaaS Analytics Dashboard + Integration Tests
+> **Week 33 Goals (Per Roadmap):**
+> - Day 1: Healthcare PHI Handler & Sanitization
+> - Day 2: HIPAA Compliance Automation & BAA Management
+> - Day 3: EHR Integration & Medical Knowledge Base
+> - Day 4: Logistics Route Optimization & Tracking
+> - Day 5: Supply Chain Intelligence & Dashboard + Integration Tests
 > - Day 6: Tester runs full validation
 >
 > **CRITICAL RULES:**
 > 1. All 5 days run in PARALLEL — no cross-day dependencies
-> 2. SaaS Advanced features for B2B clients
-> 3. Integration with Paddle for subscription management
-> 4. **All features tested against 30 clients**
-> 5. **Paddle refund gate MUST be enforced**
-> 6. **No PII exposure in analytics**
+> 2. Healthcare HIPAA compliance is MANDATORY
+> 3. PHI (Protected Health Information) MUST be protected
+> 4. BAA (Business Associate Agreement) enforcement required
+> 5. **All features tested against 30 clients**
+> 6. **Zero PHI exposure in logs or analytics**
 > 7. **Maintain 91%+ Agent Lightning accuracy**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — Subscription Lifecycle Management
+## BUILDER 1 (DAY 1) — Healthcare PHI Handler & Sanitization
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/saas/advanced/__init__.py`
-2. `variants/saas/advanced/subscription_manager.py`
-3. `variants/saas/advanced/plan_manager.py`
-4. `variants/saas/advanced/upgrade_downgrade.py`
-5. `variants/saas/advanced/trial_handler.py`
-6. `tests/variants/test_subscription_lifecycle.py`
+1. `variants/healthcare/__init__.py`
+2. `variants/healthcare/phi_handler.py`
+3. `variants/healthcare/phi_sanitizer.py`
+4. `variants/healthcare/phi_detector.py`
+5. `variants/healthcare/audit_logger.py`
+6. `tests/variants/test_phi_handler.py`
 
 ### Field 2: What is each file?
-1. `variants/saas/advanced/__init__.py` — Module init
-2. `variants/saas/advanced/subscription_manager.py` — Subscription management
-3. `variants/saas/advanced/plan_manager.py` — Plan/pricing management
-4. `variants/saas/advanced/upgrade_downgrade.py` — Upgrade/downgrade logic
-5. `variants/saas/advanced/trial_handler.py` — Trial management
-6. `tests/variants/test_subscription_lifecycle.py` — Lifecycle tests
+1. `variants/healthcare/__init__.py` — Module init
+2. `variants/healthcare/phi_handler.py` — PHI handling logic
+3. `variants/healthcare/phi_sanitizer.py` — PHI sanitization
+4. `variants/healthcare/phi_detector.py` — PHI detection
+5. `variants/healthcare/audit_logger.py` — HIPAA audit logging
+6. `tests/variants/test_phi_handler.py` — PHI handling tests
 
 ### Field 3: Responsibilities
 
-**variants/saas/advanced/__init__.py:**
+**variants/healthcare/__init__.py:**
 - Module init with:
-  - Export SubscriptionManager
-  - Export PlanManager
-  - Export UpgradeDowngradeHandler
-  - Export TrialHandler
+  - Export PHIHandler
+  - Export PHISanitizer
+  - Export PHIDetector
+  - Export AuditLogger
   - Version: 1.0.0
   - **Test: Module imports correctly**
 
-**variants/saas/advanced/subscription_manager.py:**
-- Subscription manager with:
-  - Paddle subscription integration
-  - Subscription status tracking (active, past_due, canceled, expired)
-  - Renewal date monitoring
-  - Grace period handling
-  - Automatic renewal reminders
-  - Subscription pause/resume support
-  - Dunning workflow triggers
-  - **Test: Tracks subscription status**
-  - **Test: Handles renewals correctly**
-  - **Test: Integrates with Paddle**
+**variants/healthcare/phi_handler.py:**
+- PHI handler with:
+  - PHI field identification (name, SSN, DOB, MRN, etc.)
+  - Secure PHI storage and retrieval
+  - PHI access control
+  - Minimum necessary standard enforcement
+  - PHI breach detection
+  - Patient consent management
+  - **Test: Identifies PHI fields**
+  - **Test: Enforces access control**
+  - **Test: Detects potential breaches**
 
-**variants/saas/advanced/plan_manager.py:**
-- Plan manager with:
-  - Plan comparison logic
-  - Feature matrix per plan
-  - Price calculation (monthly/annual)
-  - Discount application
-  - Plan recommendations based on usage
-  - Custom plan support for enterprise
-  - **Test: Compares plans correctly**
-  - **Test: Calculates pricing accurately**
-  - **Test: Recommends appropriate plans**
+**variants/healthcare/phi_sanitizer.py:**
+- PHI sanitizer with:
+  - Redaction of PHI from text
+  - Tokenization of PHI for storage
+  - De-identification per HIPAA Safe Harbor
+  - Pseudonymization support
+  - Re-identification capability (authorized only)
+  - Format-preserving encryption
+  - **Test: Redacts PHI from messages**
+  - **Test: Tokenizes PHI correctly**
+  - **Test: De-identifies per Safe Harbor**
 
-**variants/saas/advanced/upgrade_downgrade.py:**
-- Upgrade/downgrade handler with:
-  - Proration calculation
-  - Immediate vs end-of-cycle changes
-  - Feature access updates
-  - Data preservation during changes
-  - Upgrade incentives
-  - Downgrade limitation checks
-  - **Test: Calculates proration correctly**
-  - **Test: Preserves data on change**
-  - **Test: Updates feature access**
+**variants/healthcare/phi_detector.py:**
+- PHI detector with:
+  - Pattern-based PHI detection (SSN, phone, email, etc.)
+  - NER-based entity detection
+  - Medical term recognition
+  - Context-aware detection
+  - Confidence scoring for detections
+  - Real-time PHI scanning
+  - **Test: Detects SSN patterns**
+  - **Test: Detects medical entities**
+  - **Test: Scores detection confidence**
 
-**variants/saas/advanced/trial_handler.py:**
-- Trial handler with:
-  - Trial period management
-  - Trial expiration alerts
-  - Trial-to-paid conversion workflow
-  - Trial extension logic
-  - Feature limitations during trial
-  - Trial analytics tracking
-  - **Test: Manages trial periods**
-  - **Test: Sends expiration alerts**
-  - **Test: Converts trials to paid**
+**variants/healthcare/audit_logger.py:**
+- Audit logger with:
+  - HIPAA-compliant audit trail
+  - Access logging (who, what, when)
+  - Modification logging
+  - Breach attempt logging
+  - Immutable audit records
+  - 6-year retention support
+  - **Test: Logs access events**
+  - **Test: Creates immutable records**
+  - **Test: Retains for required period**
 
-**tests/variants/test_subscription_lifecycle.py:**
-- Lifecycle tests with:
-  - Test: SubscriptionManager initializes
-  - Test: PlanManager compares plans
-  - Test: UpgradeDowngradeHandler handles changes
-  - Test: TrialHandler manages trials
-  - Test: Full subscription lifecycle
-  - **CRITICAL: All lifecycle tests pass**
+**tests/variants/test_phi_handler.py:**
+- PHI handling tests with:
+  - Test: PHIHandler initializes
+  - Test: PHISanitizer sanitizes
+  - Test: PHIDetector detects PHI
+  - Test: AuditLogger logs events
+  - Test: Full PHI pipeline
+  - **CRITICAL: All PHI tests pass**
+  - **CRITICAL: Zero PHI in logs**
 
 ### Field 4: Depends On
-- Paddle integration (subscription API)
-- Client infrastructure (Weeks 19-30)
-- Email/notification clients
-- Analytics service
+- Security infrastructure (Week 3)
+- Compliance layer (Week 7)
+- Audit trail (Week 1)
+- NLP/sentiment infrastructure
 
 ### Field 5: Expected Output
-- Complete subscription lifecycle management
-- Paddle integration for subscriptions
+- Complete PHI handling and sanitization
+- HIPAA-compliant audit logging
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Customer inquiry triggers subscription status check and recommendations
+- Patient inquiry triggers PHI sanitization before processing
 
 ### Field 8: Error Handling
-- Graceful handling when Paddle API unavailable
-- Fallback to cached subscription data
+- Fail-safe on PHI detection (block if unsure)
+- Graceful degradation with alerts
 
 ### Field 9: Security Requirements
-- Subscription data isolation per tenant
-- Secure Paddle API credentials
-- No PII in subscription logs
+- All PHI encrypted at rest and in transit
+- Access control on PHI functions
+- Zero PHI in logs (mandatory)
 
 ### Field 10: Integration Points
-- Paddle subscription API
-- Email client
-- Notification service
-- Analytics service
+- Knowledge base (sanitized data only)
+- Analytics service (no PHI)
+- Audit service
+- NLP services
 
 ### Field 11: Code Quality
 - Type hints throughout
-- Docstrings for all public methods
-- Error logging
+- Security-focused code review
+- No PHI in error messages
 
 ### Field 12: GitHub CI Requirements
 - All tests pass
-- No linting errors
+- Security scan clean
+- No PHI in codebase
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Subscription management works**
-- **CRITICAL: Paddle integration functional**
+- **CRITICAL: PHI handling works**
+- **CRITICAL: Zero PHI in logs**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — Usage-Based Billing & Metering
+## BUILDER 2 (DAY 2) — HIPAA Compliance Automation & BAA Management
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/saas/advanced/usage_meter.py`
-2. `variants/saas/advanced/billing_calculator.py`
-3. `variants/saas/advanced/overage_handler.py`
-4. `variants/saas/advanced/usage_alerts.py`
-5. `variants/saas/advanced/invoice_generator.py`
-6. `tests/variants/test_usage_billing.py`
+1. `variants/healthcare/hipaa_compliance.py`
+2. `variants/healthcare/baa_manager.py`
+3. `variants/healthcare/consent_manager.py`
+4. `variants/healthcare/breach_notifier.py`
+5. `variants/healthcare/compliance_reporter.py`
+6. `tests/variants/test_hipaa_compliance.py`
 
 ### Field 2: What is each file?
-1. `variants/saas/advanced/usage_meter.py` — Usage metering
-2. `variants/saas/advanced/billing_calculator.py` — Billing calculation
-3. `variants/saas/advanced/overage_handler.py` — Overage handling
-4. `variants/saas/advanced/usage_alerts.py` — Usage alerts
-5. `variants/saas/advanced/invoice_generator.py` — Invoice generation
-6. `tests/variants/test_usage_billing.py` — Billing tests
+1. `variants/healthcare/hipaa_compliance.py` — HIPAA compliance engine
+2. `variants/healthcare/baa_manager.py` — BAA management
+3. `variants/healthcare/consent_manager.py` — Patient consent
+4. `variants/healthcare/breach_notifier.py` — Breach notification
+5. `variants/healthcare/compliance_reporter.py` — Compliance reporting
+6. `tests/variants/test_hipaa_compliance.py` — Compliance tests
 
 ### Field 3: Responsibilities
 
-**variants/saas/advanced/usage_meter.py:**
-- Usage meter with:
-  - API call tracking
-  - Storage usage tracking
-  - Compute time tracking
-  - User seat counting
-  - Feature usage tracking
-  - Real-time meter updates
-  - Usage aggregation by period
-  - **Test: Tracks API calls**
-  - **Test: Aggregates usage by period**
-  - **Test: Real-time updates work**
+**variants/healthcare/hipaa_compliance.py:**
+- HIPAA compliance with:
+  - Privacy Rule enforcement
+  - Security Rule validation
+  - Breach Rule compliance
+  - Enforcement Rule tracking
+  - Omnibus Rule coverage
+  - Continuous compliance monitoring
+  - **Test: Enforces Privacy Rule**
+  - **Test: Validates Security Rule**
+  - **Test: Monitors continuously**
 
-**variants/saas/advanced/billing_calculator.py:**
-- Billing calculator with:
-  - Tiered pricing calculation
-  - Volume discount application
-  - Overage rate calculation
-  - Proration for mid-cycle changes
-  - Tax calculation per jurisdiction
-  - Multi-currency support
-  - Invoice preview generation
-  - **Test: Calculates tiered pricing**
-  - **Test: Applies volume discounts**
-  - **Test: Handles multi-currency**
+**variants/healthcare/baa_manager.py:**
+- BAA manager with:
+  - BAA document storage
+  - BAA expiration tracking
+  - BAA renewal automation
+  - Vendor BAA verification
+  - BAA status dashboard
+  - Subcontractor BAA chain
+  - **Test: Tracks BAA status**
+  - **Test: Alerts on expiration**
+  - **Test: Verifies vendor BAAs**
 
-**variants/saas/advanced/overage_handler.py:**
-- Overage handler with:
-  - Overage detection
-  - Overage rate application
-  - Soft vs hard limits
-  - Grace period for overages
-  - Automatic upgrade suggestions
-  - Overage notification workflows
-  - **Test: Detects overages**
-  - **Test: Applies overage rates**
-  - **Test: Suggests upgrades**
+**variants/healthcare/consent_manager.py:**
+- Consent manager with:
+  - Patient consent recording
+  - Consent version tracking
+  - Consent withdrawal handling
+  - Treatment consent management
+  - Research consent tracking
+  - Marketing consent separate tracking
+  - **Test: Records patient consent**
+  - **Test: Handles withdrawal**
+  - **Test: Tracks consent versions**
 
-**variants/saas/advanced/usage_alerts.py:**
-- Usage alerts with:
-  - Threshold-based alerts (50%, 75%, 90%, 100%)
-  - Predictive usage alerts
-  - Multi-channel notifications (email, SMS, in-app)
-  - Alert frequency management
-  - Alert preference management
-  - Escalation for critical thresholds
-  - **Test: Sends threshold alerts**
-  - **Test: Predictive alerts work**
-  - **Test: Respects preferences**
+**variants/healthcare/breach_notifier.py:**
+- Breach notifier with:
+  - Breach detection integration
+  - Breach severity assessment
+  - Notification timeline tracking (60-day rule)
+  - Patient notification generation
+  - HHS notification support
+  - Media notification for 500+ breaches
+  - **Test: Assesses breach severity**
+  - **Test: Tracks notification timelines**
+  - **Test: Generates notifications**
 
-**variants/saas/advanced/invoice_generator.py:**
-- Invoice generator with:
-  - PDF invoice generation
-  - Line item breakdown
-  - Usage vs subscription charges
-  - Tax breakdown
-  - Payment terms display
-  - Invoice history tracking
-  - Integration with Paddle for payment
-  - **Test: Generates PDF invoices**
-  - **Test: Breaks down line items**
-  - **Test: Integrates with Paddle**
+**variants/healthcare/compliance_reporter.py:**
+- Compliance reporter with:
+  - HIPAA compliance scorecard
+  - Risk assessment reports
+  - Gap analysis reports
+  - Remediation tracking
+  - Audit preparation reports
+  - Executive dashboards
+  - **Test: Generates compliance scorecard**
+  - **Test: Creates risk reports**
+  - **Test: Tracks remediation**
 
-**tests/variants/test_usage_billing.py:**
-- Billing tests with:
-  - Test: UsageMeter tracks usage
-  - Test: BillingCalculator calculates
-  - Test: OverageHandler handles overages
-  - Test: UsageAlerts sends alerts
-  - Test: InvoiceGenerator generates invoices
-  - **CRITICAL: All billing tests pass**
+**tests/variants/test_hipaa_compliance.py:**
+- Compliance tests with:
+  - Test: HIPAACompliance enforces rules
+  - Test: BAAManager manages BAAs
+  - Test: ConsentManager handles consent
+  - Test: BreachNotifier notifies
+  - Test: ComplianceReporter reports
+  - **CRITICAL: All compliance tests pass**
 
 ### Field 4: Depends On
-- Paddle integration (billing API)
-- Subscription management (Day 1)
-- Email/notification clients
-- PDF generation library
+- PHI handler (Day 1)
+- Audit logging (Day 1)
+- Notification service
+- Document storage
 
 ### Field 5: Expected Output
-- Complete usage-based billing system
-- Invoice generation with Paddle integration
+- Complete HIPAA compliance automation
+- BAA and consent management
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Usage inquiry triggers billing calculation and alerts
+- Healthcare client has automatic HIPAA compliance verification
 
 ### Field 8: Error Handling
-- Graceful handling when usage data unavailable
-- Fallback to estimated billing
+- Compliance failures trigger alerts
+- Missing BAA blocks healthcare features
 
 ### Field 9: Security Requirements
-- Usage data isolation per tenant
-- Secure invoice storage
-- No PII in usage logs
+- All compliance data encrypted
+- Access logging for all operations
+- Secure document storage
 
 ### Field 10: Integration Points
-- Paddle billing API
-- Email client
 - Notification service
-- PDF generator
+- Document storage
+- Audit service
+- Analytics (compliance metrics only)
 
 ### Field 11: Code Quality
 - Type hints throughout
-- Comprehensive error logging
-- Rate limiting for usage tracking
+- Compliance-focused review
+- Clear documentation
 
 ### Field 12: GitHub CI Requirements
 - All tests pass
-- No linting errors
+- Security scan clean
+- No hardcoded PHI
 
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Usage metering works**
-- **CRITICAL: Billing calculation accurate**
+- **CRITICAL: HIPAA compliance works**
+- **CRITICAL: BAA management functional**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — Churn Prediction & Retention
+## BUILDER 3 (DAY 3) — EHR Integration & Medical Knowledge Base
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/saas/advanced/churn_predictor.py`
-2. `variants/saas/advanced/risk_scorer.py`
-3. `variants/saas/advanced/retention_campaign.py`
-4. `variants/saas/advanced/win_back.py`
-5. `variants/saas/advanced/health_score.py`
-6. `tests/variants/test_churn_retention.py`
+1. `variants/healthcare/ehr_integration.py`
+2. `variants/healthcare/fhir_client.py`
+3. `variants/healthcare/medical_kb.py`
+4. `variants/healthcare/drug_interaction.py`
+5. `variants/healthcare/appointment_handler.py`
+6. `tests/variants/test_ehr_medical.py`
 
 ### Field 2: What is each file?
-1. `variants/saas/advanced/churn_predictor.py` — Churn prediction
-2. `variants/saas/advanced/risk_scorer.py` — Risk scoring
-3. `variants/saas/advanced/retention_campaign.py` — Retention campaigns
-4. `variants/saas/advanced/win_back.py` — Win-back campaigns
-5. `variants/saas/advanced/health_score.py` — Account health scoring
-6. `tests/variants/test_churn_retention.py` — Churn/retention tests
+1. `variants/healthcare/ehr_integration.py` — EHR integration
+2. `variants/healthcare/fhir_client.py` — FHIR API client
+3. `variants/healthcare/medical_kb.py` — Medical knowledge base
+4. `variants/healthcare/drug_interaction.py` — Drug interaction checker
+5. `variants/healthcare/appointment_handler.py` — Appointment handling
+6. `tests/variants/test_ehr_medical.py` — EHR/medical tests
 
 ### Field 3: Responsibilities
 
-**variants/saas/advanced/churn_predictor.py:**
-- Churn predictor with:
-  - ML-based churn prediction
-  - Feature extraction from usage patterns
-  - Engagement metrics analysis
-  - Support ticket frequency analysis
-  - Payment history analysis
-  - Predictive model scoring
-  - Churn probability calculation
-  - **Test: Predicts churn probability**
-  - **Test: Extracts engagement features**
-  - **Test: Analyzes payment history**
+**variants/healthcare/ehr_integration.py:**
+- EHR integration with:
+  - Epic EHR integration
+  - Cerner EHR integration
+  - Allscripts integration
+  - Read-only patient data access
+  - Secure authentication (OAuth2)
+  - Data mapping to internal format
+  - **Test: Connects to Epic (mock)**
+  - **Test: Connects to Cerner (mock)**
+  - **Test: Maps data correctly**
 
-**variants/saas/advanced/risk_scorer.py:**
-- Risk scorer with:
-  - Multi-factor risk assessment
-  - Usage decline detection
-  - Login frequency tracking
-  - Feature adoption scoring
-  - Support sentiment analysis
-  - Payment failure tracking
-  - Composite risk score calculation
-  - **Test: Calculates risk scores**
-  - **Test: Detects usage decline**
-  - **Test: Tracks payment failures**
+**variants/healthcare/fhir_client.py:**
+- FHIR client with:
+  - FHIR R4 support
+  - Patient resource handling
+  - Observation resource handling
+  - MedicationRequest handling
+  - Appointment resource handling
+  - Bundle processing
+  - **Test: Handles FHIR Patient**
+  - **Test: Handles FHIR Observation**
+  - **Test: Processes FHIR Bundles**
 
-**variants/saas/advanced/retention_campaign.py:**
-- Retention campaign with:
-  - Automated retention workflows
-  - Personalized outreach messages
-  - Discount/incentive offers
-  - Feature engagement prompts
-  - Check-in email sequences
-  - Success manager assignment
-  - A/B testing for campaigns
-  - **Test: Triggers retention campaigns**
-  - **Test: Personalizes messages**
-  - **Test: A/B tests campaigns**
+**variants/healthcare/medical_kb.py:**
+- Medical KB with:
+  - Medical terminology database
+  - ICD-10 code lookup
+  - CPT code lookup
+  - SNOMED CT support
+  - LOINC lab code lookup
+  - Medical FAQ knowledge base
+  - **Test: Looks up ICD-10 codes**
+  - **Test: Looks up CPT codes**
+  - **Test: Answers medical FAQs**
 
-**variants/saas/advanced/win_back.py:**
-- Win-back campaign with:
-  - Churned customer identification
-  - Win-back email sequences
-  - Special reactivation offers
-  - Feedback collection
-  - Competitive analysis
-  - Re-engagement timing optimization
-  - **Test: Identifies churned customers**
-  - **Test: Sends win-back sequences**
-  - **Test: Collects feedback**
+**variants/healthcare/drug_interaction.py:**
+- Drug interaction with:
+  - Drug-drug interaction checker
+  - Drug-allergy interaction checker
+  - Drug-condition contraindications
+  - Dosage verification
+  - Medication information lookup
+  - No medical advice disclaimer
+  - **Test: Checks drug interactions**
+  - **Test: Checks drug allergies**
+  - **Test: Verifies dosages**
 
-**variants/saas/advanced/health_score.py:**
-- Health score with:
-  - Account health calculation
-  - Usage health component
-  - Engagement health component
-  - Financial health component
-  - Support health component
-  - Overall health dashboard
-  - Trend analysis
-  - **Test: Calculates health scores**
-  - **Test: Breaks down components**
-  - **Test: Analyzes trends**
+**variants/healthcare/appointment_handler.py:**
+- Appointment handler with:
+  - Appointment scheduling support
+  - Provider availability check
+  - Appointment reminders
+  - Cancellation handling
+  - Rescheduling support
+  - Telehealth appointment support
+  - **Test: Handles scheduling**
+  - **Test: Sends reminders**
+  - **Test: Handles cancellations**
 
-**tests/variants/test_churn_retention.py:**
-- Churn/retention tests with:
-  - Test: ChurnPredictor predicts
-  - Test: RiskScorer scores
-  - Test: RetentionCampaign triggers
-  - Test: WinBack campaigns work
-  - Test: HealthScore calculates
-  - **CRITICAL: All churn/retention tests pass**
+**tests/variants/test_ehr_medical.py:**
+- EHR/medical tests with:
+  - Test: EHR integration works
+  - Test: FHIR client functions
+  - Test: Medical KB responds
+  - Test: Drug interaction checker
+  - Test: Appointment handling
+  - **CRITICAL: All EHR tests pass**
+  - **CRITICAL: No medical advice given**
 
 ### Field 4: Depends On
-- Analytics service (usage data)
-- Email/notification clients
-- Paddle (payment history)
-- ML infrastructure
+- PHI handler (Day 1)
+- HIPAA compliance (Day 2)
+- Knowledge base (Week 5)
+- Notification service
 
 ### Field 5: Expected Output
-- Complete churn prediction and retention system
-- Account health scoring
+- EHR integration capabilities
+- Medical knowledge base
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- At-risk customer triggers retention campaign
+- Patient inquiry uses medical KB with PHI protection
 
 ### Field 8: Error Handling
-- Graceful handling when ML model unavailable
-- Fallback to rule-based scoring
+- Graceful handling when EHR unavailable
+- Fallback to general information
 
 ### Field 9: Security Requirements
-- Customer data isolation per tenant
-- No PII in prediction logs
-- Secure model storage
+- EHR credentials secured
+- Read-only access enforced
+- All EHR data treated as PHI
 
 ### Field 10: Integration Points
-- Analytics service
-- Email client
+- EHR systems (Epic, Cerner, etc.)
+- FHIR APIs
+- Knowledge base
 - Notification service
-- Paddle (payment data)
 
 ### Field 11: Code Quality
 - Type hints throughout
-- ML model versioning
-- Feature logging
+- Medical disclaimer enforcement
+- Error logging (no PHI)
 
 ### Field 12: GitHub CI Requirements
 - All tests pass
-- No linting errors
+- No hardcoded credentials
+- Medical disclaimer present
 
 ### Field 13: Pass Criteria
 Builder 3 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Churn prediction works**
-- **CRITICAL: Retention campaigns functional**
+- **CRITICAL: EHR integration works**
+- **CRITICAL: Medical KB functional**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — Feature Request & Feedback Intelligence
+## BUILDER 4 (DAY 4) — Logistics Route Optimization & Tracking
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/saas/advanced/feature_request.py`
-2. `variants/saas/advanced/feedback_analyzer.py`
-3. `variants/saas/advanced/nps_tracker.py`
-4. `variants/saas/advanced/roadmap_intelligence.py`
-5. `variants/saas/advanced/voting_system.py`
-6. `tests/variants/test_feature_feedback.py`
+1. `variants/logistics/__init__.py`
+2. `variants/logistics/route_optimizer.py`
+3. `variants/logistics/shipment_tracker.py`
+4. `variants/logistics/inventory_sync.py`
+5. `variants/logistics/delivery_estimator.py`
+6. `tests/variants/test_logistics.py`
 
 ### Field 2: What is each file?
-1. `variants/saas/advanced/feature_request.py` — Feature request handling
-2. `variants/saas/advanced/feedback_analyzer.py` — Feedback analysis
-3. `variants/saas/advanced/nps_tracker.py` — NPS tracking
-4. `variants/saas/advanced/roadmap_intelligence.py` — Roadmap intelligence
-5. `variants/saas/advanced/voting_system.py` — Feature voting
-6. `tests/variants/test_feature_feedback.py` — Feedback tests
+1. `variants/logistics/__init__.py` — Module init
+2. `variants/logistics/route_optimizer.py` — Route optimization
+3. `variants/logistics/shipment_tracker.py` — Shipment tracking
+4. `variants/logistics/inventory_sync.py` — Inventory sync
+5. `variants/logistics/delivery_estimator.py` — Delivery estimation
+6. `tests/variants/test_logistics.py` — Logistics tests
 
 ### Field 3: Responsibilities
 
-**variants/saas/advanced/feature_request.py:**
-- Feature request with:
-  - Feature request submission handling
-  - Request categorization
-  - Duplicate detection
-  - Priority scoring
-  - Status tracking (submitted, reviewing, planned, in_progress, completed)
-  - Customer communication on status
-  - Integration with GitHub issues
-  - **Test: Handles feature requests**
-  - **Test: Detects duplicates**
-  - **Test: Scores priority**
+**variants/logistics/__init__.py:**
+- Module init with:
+  - Export RouteOptimizer
+  - Export ShipmentTracker
+  - Export InventorySync
+  - Export DeliveryEstimator
+  - Version: 1.0.0
+  - **Test: Module imports correctly**
 
-**variants/saas/advanced/feedback_analyzer.py:**
-- Feedback analyzer with:
-  - Sentiment analysis on feedback
-  - Theme extraction
-  - Urgency classification
-  - Trend detection
-  - Feedback aggregation
-  - Customer segment analysis
-  - Actionable insight generation
-  - **Test: Analyzes sentiment**
-  - **Test: Extracts themes**
-  - **Test: Generates insights**
+**variants/logistics/route_optimizer.py:**
+- Route optimizer with:
+  - Multi-stop route optimization
+  - Real-time traffic consideration
+  - Driver assignment logic
+  - Vehicle capacity constraints
+  - Time window compliance
+  - Route efficiency scoring
+  - Integration with AfterShip for tracking
+  - **Test: Optimizes multi-stop routes**
+  - **Test: Considers traffic**
+  - **Test: Scores route efficiency**
 
-**variants/saas/advanced/nps_tracker.py:**
-- NPS tracker with:
-  - NPS survey distribution
-  - Score calculation (promoters, passives, detractors)
-  - Trend tracking over time
-  - Segmented NPS analysis
-  - Follow-up workflow for detractors
-  - Benchmark comparison
-  - **Test: Calculates NPS scores**
-  - **Test: Tracks trends**
-  - **Test: Segments analysis**
+**variants/logistics/shipment_tracker.py:**
+- Shipment tracker with:
+  - Real-time shipment tracking
+  - Multi-carrier support
+  - Status change notifications
+  - Exception handling
+  - Proof of delivery capture
+  - Shipment history
+  - **Test: Tracks shipments**
+  - **Test: Handles exceptions**
+  - **Test: Captures POD**
 
-**variants/saas/advanced/roadmap_intelligence.py:**
-- Roadmap intelligence with:
-  - Feature popularity ranking
-  - Impact estimation
-  - Effort estimation
-  - ROI calculation for features
-  - Customer segment demand
-  - Competitive gap analysis
-  - Roadmap recommendation engine
-  - **Test: Ranks feature popularity**
-  - **Test: Estimates ROI**
-  - **Test: Recommends roadmap items**
+**variants/logistics/inventory_sync.py:**
+- Inventory sync with:
+  - WMS integration support
+  - Inventory level sync
+  - Stock alert triggers
+  - Reorder point calculation
+  - Multi-warehouse support
+  - Inventory discrepancy detection
+  - **Test: Syncs inventory levels**
+  - **Test: Triggers stock alerts**
+  - **Test: Detects discrepancies**
 
-**variants/saas/advanced/voting_system.py:**
-- Voting system with:
-  - Feature voting mechanism
-  - Vote weight by customer tier
-  - Vote history tracking
-  - Vote manipulation prevention
-  - Vote leaderboard
-  - Customer notification on vote updates
-  - **Test: Handles feature voting**
-  - **Test: Weights votes correctly**
-  - **Test: Prevents manipulation**
+**variants/logistics/delivery_estimator.py:**
+- Delivery estimator with:
+  - ETA calculation
+  - Service level estimation
+  - Weather impact consideration
+  - Historical performance analysis
+  - Customer delivery windows
+  - Same-day delivery eligibility
+  - **Test: Calculates ETA**
+  - **Test: Considers weather**
+  - **Test: Checks same-day eligibility**
 
-**tests/variants/test_feature_feedback.py:**
-- Feedback tests with:
-  - Test: FeatureRequest handles requests
-  - Test: FeedbackAnalyzer analyzes
-  - Test: NPSTracker tracks scores
-  - Test: RoadmapIntelligence recommends
-  - Test: VotingSystem handles votes
-  - **CRITICAL: All feedback tests pass**
+**tests/variants/test_logistics.py:**
+- Logistics tests with:
+  - Test: RouteOptimizer optimizes
+  - Test: ShipmentTracker tracks
+  - Test: InventorySync syncs
+  - Test: DeliveryEstimator estimates
+  - Test: Full logistics pipeline
+  - **CRITICAL: All logistics tests pass**
 
 ### Field 4: Depends On
+- AfterShip integration (Week 7)
+- Notification service
 - Analytics service
-- GitHub integration
-- Email/notification clients
-- Sentiment analysis (existing NLP)
 
 ### Field 5: Expected Output
-- Complete feature request and feedback system
-- NPS tracking with insights
+- Complete logistics optimization and tracking
+- Inventory synchronization
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- Customer feedback triggers analysis and roadmap update
+- Logistics inquiry triggers route optimization and tracking
 
 ### Field 8: Error Handling
-- Graceful handling when GitHub API unavailable
-- Fallback to local storage
+- Graceful handling when carrier API unavailable
+- Fallback to estimated data
 
 ### Field 9: Security Requirements
-- Feedback data isolation per tenant
-- No PII in feedback analysis
-- Secure vote storage
+- Shipment data isolation per tenant
+- Secure carrier credentials
+- No PII in logistics logs
 
 ### Field 10: Integration Points
-- GitHub API
-- Email client
-- Analytics service
-- NLP/sentiment service
+- AfterShip
+- Carrier APIs
+- WMS systems
+- Notification service
 
 ### Field 11: Code Quality
 - Type hints throughout
 - Comprehensive error logging
-- Rate limiting for submissions
+- Rate limiting for carrier APIs
 
 ### Field 12: GitHub CI Requirements
 - All tests pass
@@ -591,120 +582,118 @@ Builder 3 reports DONE when:
 ### Field 13: Pass Criteria
 Builder 4 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Feature request system works**
-- **CRITICAL: Feedback analysis functional**
+- **CRITICAL: Route optimization works**
+- **CRITICAL: Shipment tracking functional**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — SaaS Analytics Dashboard + Integration Tests
+## BUILDER 5 (DAY 5) — Supply Chain Intelligence & Dashboard + Integration Tests
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `variants/saas/advanced/saas_analytics.py`
-2. `frontend/app/dashboard/saas/page.tsx`
-3. `frontend/components/dashboard/saas-widgets.tsx`
-4. `tests/integration/test_saas_advanced.py`
-5. `tests/integration/test_saas_30_clients.py`
-6. `reports/week32_saas_report.md`
+1. `variants/logistics/supply_chain.py`
+2. `frontend/app/dashboard/healthcare/page.tsx`
+3. `frontend/components/dashboard/healthcare-widgets.tsx`
+4. `tests/integration/test_healthcare_logistics.py`
+5. `tests/integration/test_healthcare_30_clients.py`
+6. `reports/week33_healthcare_logistics_report.md`
 
 ### Field 2: What is each file?
-1. `variants/saas/advanced/saas_analytics.py` — SaaS analytics
-2. `frontend/app/dashboard/saas/page.tsx` — SaaS dashboard
-3. `frontend/components/dashboard/saas-widgets.tsx` — Dashboard widgets
-4. `tests/integration/test_saas_advanced.py` — Integration tests
-5. `tests/integration/test_saas_30_clients.py` — 30-client validation
-6. `reports/week32_saas_report.md` — Week 32 report
+1. `variants/logistics/supply_chain.py` — Supply chain intelligence
+2. `frontend/app/dashboard/healthcare/page.tsx` — Healthcare dashboard
+3. `frontend/components/dashboard/healthcare-widgets.tsx` — Dashboard widgets
+4. `tests/integration/test_healthcare_logistics.py` — Integration tests
+5. `tests/integration/test_healthcare_30_clients.py` — 30-client validation
+6. `reports/week33_healthcare_logistics_report.md` — Week 33 report
 
 ### Field 3: Responsibilities
 
-**variants/saas/advanced/saas_analytics.py:**
-- SaaS analytics with:
-  - MRR/ARR calculation
-  - Customer acquisition metrics
-  - Churn rate tracking
-  - LTV (Lifetime Value) calculation
-  - CAC (Customer Acquisition Cost)
-  - ARPU (Average Revenue Per User)
-  - Cohort analysis
-  - Revenue attribution
-  - No PII in analytics
-  - **Test: Calculates MRR/ARR**
-  - **Test: Tracks churn rate**
-  - **Test: Performs cohort analysis**
+**variants/logistics/supply_chain.py:**
+- Supply chain with:
+  - Demand forecasting
+  - Supplier performance tracking
+  - Lead time analysis
+  - Stockout prediction
+  - Order optimization
+  - Supply chain risk assessment
+  - **Test: Forecasts demand**
+  - **Test: Tracks supplier performance**
+  - **Test: Predicts stockouts**
 
-**frontend/app/dashboard/saas/page.tsx:**
-- SaaS dashboard with:
-  - Subscription status widget
-  - Usage metrics widget
-  - Churn risk widget
-  - Feature request widget
-  - Revenue metrics display
-  - Real-time updates
+**frontend/app/dashboard/healthcare/page.tsx:**
+- Healthcare dashboard with:
+  - HIPAA compliance status widget
+  - PHI handling status widget
+  - BAA status widget
+  - Appointment widget
+  - Compliance metrics display
+  - Real-time updates (no PHI)
   - Client-specific data isolation
   - **Test: Dashboard renders**
   - **Test: Widgets display data**
-  - **Test: Client isolation enforced**
+  - **Test: Zero PHI in dashboard**
 
-**frontend/components/dashboard/saas-widgets.tsx:**
-- SaaS widgets with:
-  - SubscriptionStatusWidget
-  - UsageMetricsWidget
-  - ChurnRiskWidget
-  - FeatureRequestWidget
-  - RevenueTrendWidget
-  - HealthScoreWidget
+**frontend/components/dashboard/healthcare-widgets.tsx:**
+- Healthcare widgets with:
+  - HIPAAComplianceWidget
+  - BAAStatusWidget
+  - ConsentStatusWidget
+  - AppointmentWidget
+  - ComplianceScoreWidget
   - All widgets with loading states
   - **Test: All widgets render**
   - **Test: Loading states work**
   - **Test: Error states handled**
 
-**tests/integration/test_saas_advanced.py:**
+**tests/integration/test_healthcare_logistics.py:**
 - Integration tests with:
-  - Test: Full subscription lifecycle
-  - Test: End-to-end billing flow
-  - Test: Churn prediction pipeline
-  - Test: Feature request workflow
-  - Test: Analytics data flow
+  - Test: Full PHI handling pipeline
+  - Test: HIPAA compliance verification
+  - Test: EHR integration flow
+  - Test: Logistics route optimization
+  - Test: Supply chain analytics
   - **CRITICAL: All integration tests pass**
+  - **CRITICAL: Zero PHI in any output**
 
-**tests/integration/test_saas_30_clients.py:**
+**tests/integration/test_healthcare_30_clients.py:**
 - 30-client validation with:
-  - Test: SaaS features work for all 30 clients
-  - Test: Client isolation in subscriptions
-  - Test: Multi-tenant billing
+  - Test: Healthcare features work for healthcare clients
+  - Test: Client isolation in PHI handling
+  - Test: Multi-tenant compliance
   - Test: Cross-client analytics isolation
   - Test: Performance under load
-  - **CRITICAL: All 30 clients pass**
-  - **CRITICAL: Zero cross-client data leaks**
+  - **CRITICAL: All healthcare clients pass**
+  - **CRITICAL: Zero cross-client PHI leaks**
 
-**reports/week32_saas_report.md:**
-- Week 32 report with:
-  - SaaS Advanced features summary
+**reports/week33_healthcare_logistics_report.md:**
+- Week 33 report with:
+  - Healthcare HIPAA features summary
+  - Logistics features summary
   - Feature implementation status
   - Test results summary
-  - Performance metrics
+  - Compliance verification
   - Known issues and resolutions
   - Next steps
-  - **Content: Week 32 completion report**
+  - **Content: Week 33 completion report**
 
 ### Field 4: Depends On
-- All Week 32 components (Days 1-4)
+- All Week 33 components (Days 1-4)
 - Frontend infrastructure (Weeks 15-18)
 - Analytics service
 - All 30 clients
 
 ### Field 5: Expected Output
-- SaaS analytics dashboard
+- Healthcare and logistics dashboard
 - Full integration test suite
-- Week 32 completion report
+- Week 33 completion report
 
 ### Field 6: Unit Test Files
 - Tests in deliverables
 
 ### Field 7: BDD Scenario
-- SaaS client sees comprehensive analytics dashboard
+- Healthcare client sees compliance dashboard with zero PHI exposure
 
 ### Field 8: Error Handling
 - Graceful widget failures
@@ -712,15 +701,15 @@ Builder 4 reports DONE when:
 - Error boundary for dashboard
 
 ### Field 9: Security Requirements
-- Client data isolation in dashboard
-- No PII in analytics display
+- Zero PHI in dashboard
+- Client data isolation
 - Role-based widget access
 
 ### Field 10: Integration Points
-- All SaaS components
+- All healthcare components
+- All logistics components
 - Frontend dashboard
 - Analytics service
-- Client data store
 
 ### Field 11: Code Quality
 - Type hints throughout
@@ -730,49 +719,49 @@ Builder 4 reports DONE when:
 ### Field 12: GitHub CI Requirements
 - All tests pass
 - Frontend builds successfully
-- No linting errors
+- Zero PHI in codebase
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Analytics dashboard works**
-- **CRITICAL: All 30 clients validated**
-- **CRITICAL: Zero data leaks in tests**
+- **CRITICAL: Dashboard works with zero PHI**
+- **CRITICAL: All healthcare clients validated**
+- **CRITICAL: Zero PHI leaks in tests**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 32 INSTRUCTIONS (DAY 6)
+## TESTER → WEEK 33 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
 
 ### Test Commands
 
-#### 1. Subscription Lifecycle Tests
+#### 1. PHI Handler Tests
 ```bash
-pytest tests/variants/test_subscription_lifecycle.py -v
+pytest tests/variants/test_phi_handler.py -v
 ```
 
-#### 2. Usage Billing Tests
+#### 2. HIPAA Compliance Tests
 ```bash
-pytest tests/variants/test_usage_billing.py -v
+pytest tests/variants/test_hipaa_compliance.py -v
 ```
 
-#### 3. Churn Retention Tests
+#### 3. EHR/Medical Tests
 ```bash
-pytest tests/variants/test_churn_retention.py -v
+pytest tests/variants/test_ehr_medical.py -v
 ```
 
-#### 4. Feature Feedback Tests
+#### 4. Logistics Tests
 ```bash
-pytest tests/variants/test_feature_feedback.py -v
+pytest tests/variants/test_logistics.py -v
 ```
 
 #### 5. Integration Tests
 ```bash
-pytest tests/integration/test_saas_advanced.py tests/integration/test_saas_30_clients.py -v
+pytest tests/integration/test_healthcare_logistics.py tests/integration/test_healthcare_30_clients.py -v
 ```
 
 #### 6. Full Regression (Maintain 30-Client Baseline)
@@ -786,46 +775,54 @@ npm run test -- tests/ui/
 npm run build
 ```
 
+#### 8. PHI Leak Scan
+```bash
+# Scan for potential PHI patterns in all output
+python scripts/scan_for_phi.py
+```
+
 ---
 
 ### Critical Tests Verification
 
 | # | Test | Expected |
 |---|------|----------|
-| 1 | Subscription manager | Works correctly |
-| 2 | Plan manager | Compares plans |
-| 3 | Upgrade/downgrade | Handles changes |
-| 4 | Trial handler | Manages trials |
-| 5 | Usage meter | Tracks usage |
-| 6 | Billing calculator | Calculates accurately |
-| 7 | Overage handler | Handles overages |
-| 8 | Churn predictor | Predicts churn |
-| 9 | Risk scorer | Scores risk |
-| 10 | Retention campaign | Triggers campaigns |
-| 11 | Feature request | Handles requests |
-| 12 | Feedback analyzer | Analyzes feedback |
-| 13 | **Paddle integration** | **Works correctly (CRITICAL)** |
-| 14 | SaaS dashboard | Renders correctly |
+| 1 | PHI handler | Works correctly |
+| 2 | PHI sanitizer | Sanitizes all PHI |
+| 3 | PHI detector | Detects all PHI |
+| 4 | Audit logger | Logs all access |
+| 5 | HIPAA compliance | Enforces all rules |
+| 6 | BAA manager | Manages BAAs |
+| 7 | Consent manager | Handles consent |
+| 8 | EHR integration | Connects (mock) |
+| 9 | Medical KB | Provides info |
+| 10 | Route optimizer | Optimizes routes |
+| 11 | Shipment tracker | Tracks shipments |
+| 12 | Supply chain | Forecasts demand |
+| 13 | **Zero PHI in logs** | **MANDATORY** |
+| 14 | Healthcare dashboard | Renders correctly |
 | 15 | 30-client isolation | Zero data leaks |
 | 16 | Agent Lightning | ≥91% accuracy maintained |
 
 ---
 
-### Week 32 PASS Criteria
+### Week 33 PASS Criteria
 
-1. ✅ **Subscription Management: Fully functional**
-2. ✅ **Usage Billing: Metering and calculation work**
-3. ✅ **Churn Prediction: ML-based prediction works**
-4. ✅ **Retention Campaigns: Automated workflows work**
-5. ✅ **Feature Requests: Request system functional**
-6. ✅ **Feedback Intelligence: Analysis works**
-7. ✅ **Paddle Integration: Subscriptions and billing work (CRITICAL)**
-8. ✅ **SaaS Dashboard: Renders with real data**
-9. ✅ **30-Client Validation: All clients pass**
-10. ✅ **Client Isolation: Zero data leaks**
-11. ✅ **Agent Lightning: ≥91% accuracy maintained**
-12. ✅ **Full Regression: 100% pass rate**
-13. ✅ GitHub CI GREEN
+1. ✅ **PHI Handler: Fully functional**
+2. ✅ **PHI Sanitization: All PHI sanitized**
+3. ✅ **HIPAA Compliance: All rules enforced**
+4. ✅ **BAA Management: Complete tracking**
+5. ✅ **EHR Integration: Works with mock EHRs**
+6. ✅ **Medical KB: Information provided (no medical advice)**
+7. ✅ **Route Optimization: Works correctly**
+8. ✅ **Shipment Tracking: Real-time tracking**
+9. ✅ **Zero PHI in Logs: MANDATORY**
+10. ✅ **Healthcare Dashboard: Renders with zero PHI**
+11. ✅ **30-Client Validation: All clients pass**
+12. ✅ **Client Isolation: Zero data leaks**
+13. ✅ **Agent Lightning: ≥91% accuracy maintained**
+14. ✅ **Full Regression: 100% pass rate**
+15. ✅ GitHub CI GREEN
 
 ---
 
@@ -835,14 +832,12 @@ npm run build
 
 | Builder | Day | Focus | Files | Status |
 |---------|-----|-------|-------|--------|
-| Builder 1 | Day 1 | Subscription Lifecycle | 6 | ✅ COMPLETE |
-| Builder 2 | Day 2 | Usage-Based Billing | 6 | ✅ COMPLETE |
-| Builder 3 | Day 3 | Churn Prediction & Retention | 6 | ✅ COMPLETE |
-| Builder 4 | Day 4 | Feature Request & Feedback | 6 | ✅ COMPLETE |
-| Builder 5 | Day 5 | Analytics Dashboard + Tests | 6 | ✅ COMPLETE |
-| Tester | Day 6 | Full Validation | - | ✅ PASSED |
-
-**WEEK 32 COMPLETE** ✅
+| Builder 1 | Day 1 | PHI Handler & Sanitization | 6 | ⏳ Pending |
+| Builder 2 | Day 2 | HIPAA Compliance & BAA | 6 | ⏳ Pending |
+| Builder 3 | Day 3 | EHR Integration & Medical KB | 6 | ⏳ Pending |
+| Builder 4 | Day 4 | Logistics Route & Tracking | 6 | ⏳ Pending |
+| Builder 5 | Day 5 | Dashboard + Integration Tests | 6 | ⏳ Pending |
+| Tester | Day 6 | Full Validation | - | ⏳ Pending |
 
 ---
 
@@ -853,61 +848,61 @@ npm run build
 **CRITICAL REMINDERS:**
 
 1. All 5 days run in PARALLEL — no cross-day dependencies
-2. SaaS Advanced features for B2B clients
-3. **Paddle integration MUST work for subscriptions and billing**
-4. **No PII in analytics or prediction logs**
-5. **Maintain 91%+ Agent Lightning accuracy**
+2. **PHI protection is MANDATORY - zero tolerance for leaks**
+3. **HIPAA compliance must be verified for all healthcare clients**
+4. **No medical advice - information only with disclaimers**
+5. **BAA required for all healthcare clients**
 6. **All features must work for all 30 clients**
 7. **Zero cross-tenant data leaks (mandatory)**
 
-**WEEK 32 TARGETS:**
+**WEEK 33 TARGETS:**
 
 | Metric | Current | Target | Status |
 |--------|---------|--------|--------|
 | Clients | 30 | 30 | ✅ Maintain |
 | Accuracy | 91%+ | ≥91% | ✅ Maintain |
-| SaaS Features | - | All 5 modules | 🎯 Target |
-| Client Isolation | 0 leaks | 0 leaks | ✅ Maintain |
-| Regression Pass | 100% | 100% | ✅ Maintain |
+| Healthcare Features | - | All 3 modules | 🎯 Target |
+| Logistics Features | - | All 3 modules | 🎯 Target |
+| PHI Protection | - | Zero leaks | 🎯 Mandatory |
+| HIPAA Compliance | - | 100% | 🎯 Mandatory |
 
-**SAAS ADVANCED MODULES:**
+**HEALTHCARE MODULES:**
 
 | Module | Purpose | Priority |
 |--------|---------|----------|
-| Subscription Lifecycle | Manage subscriptions | HIGH |
-| Usage Billing | Metering & billing | HIGH |
-| Churn Prediction | Predict & retain | HIGH |
-| Feature Requests | Product feedback | MEDIUM |
-| Analytics Dashboard | SaaS insights | MEDIUM |
+| PHI Handler | Protect health info | CRITICAL |
+| HIPAA Compliance | Legal compliance | CRITICAL |
+| EHR Integration | System integration | HIGH |
+| Medical KB | Information support | MEDIUM |
 
-**INTEGRATION POINTS:**
+**LOGISTICS MODULES:**
 
-- Paddle: Subscriptions, billing, invoices
-- GitHub: Feature requests as issues
-- Email/SMS: Notifications, campaigns
-- Analytics: Metrics aggregation
-- NLP: Sentiment analysis
+| Module | Purpose | Priority |
+|--------|---------|----------|
+| Route Optimizer | Delivery efficiency | HIGH |
+| Shipment Tracker | Real-time tracking | HIGH |
+| Supply Chain | Forecasting | MEDIUM |
 
 **ASSUMPTIONS:**
-- Week 31 complete (E-commerce Advanced)
-- Paddle integration functional
-- Multi-region infrastructure ready
+- Week 32 complete (SaaS Advanced)
+- HIPAA compliance infrastructure exists
+- AfterShip integration ready
 - Agent Lightning at 91%+ accuracy
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## WEEK 32 FILE SUMMARY
+## WEEK 33 FILE SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
 | Day | Files | Focus |
 |-----|-------|-------|
-| Day 1 | 6 | Subscription Lifecycle Management |
-| Day 2 | 6 | Usage-Based Billing & Metering |
-| Day 3 | 6 | Churn Prediction & Retention |
-| Day 4 | 6 | Feature Request & Feedback |
-| Day 5 | 6 | Analytics Dashboard + Tests |
-| **Total** | **30** | **SaaS Advanced** |
+| Day 1 | 6 | PHI Handler & Sanitization |
+| Day 2 | 6 | HIPAA Compliance & BAA |
+| Day 3 | 6 | EHR Integration & Medical KB |
+| Day 4 | 6 | Logistics Route & Tracking |
+| Day 5 | 6 | Dashboard + Integration Tests |
+| **Total** | **30** | **Healthcare + Logistics** |
 
 ---
 
@@ -923,8 +918,8 @@ npm run build
 | 29 | Multi-Region Data Residency | ✅ COMPLETE |
 | 30 | 30-Client Milestone | ✅ COMPLETE |
 | 31 | E-commerce Advanced | ✅ COMPLETE |
-| **32** | **SaaS Advanced** | **✅ COMPLETE** |
-| 33 | Healthcare HIPAA + Logistics | ⏳ Pending |
+| 32 | SaaS Advanced | ✅ COMPLETE |
+| **33** | **Healthcare HIPAA + Logistics** | **🔄 IN PROGRESS** |
 | 34 | Frontend v2 (React Query + PWA) | ⏳ Pending |
 | 35 | Smart Router 92%+ | ⏳ Pending |
 | 36 | Agent Lightning 94% | ⏳ Pending |
@@ -933,10 +928,10 @@ npm run build
 | 39 | Final Production Readiness | ⏳ Pending |
 | 40 | Weeks 1-40 Final Validation | ⏳ Pending |
 
-**Week 32 Deliverables:**
-- Subscription Lifecycle: Complete management 🎯 Target
-- Usage Billing: Metering & calculation 🎯 Target
-- Churn Prediction: ML-based retention 🎯 Target
-- Feature Requests: Feedback intelligence 🎯 Target
-- Analytics Dashboard: SaaS insights 🎯 Target
-- **SAAS ADVANCED COMPLETE!**
+**Week 33 Deliverables:**
+- PHI Handler: Complete protection 🎯 Target
+- HIPAA Compliance: Full automation 🎯 Target
+- EHR Integration: Multi-system support 🎯 Target
+- Route Optimization: Delivery efficiency 🎯 Target
+- Supply Chain: Intelligence & forecasting 🎯 Target
+- **HEALTHCARE HIPAA + LOGISTICS COMPLETE!**
