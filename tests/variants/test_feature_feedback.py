@@ -11,7 +11,7 @@ Tests cover:
 
 import pytest
 from datetime import datetime, timezone, timedelta
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from variants.saas.advanced.feature_request import (
     FeatureRequestHandler,

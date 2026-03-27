@@ -582,7 +582,7 @@ class TestUsageBillingIntegration:
 
         # Check limits
         limit_check = await meter.check_all_limits()
-        assert "limits" in limitCheck
+        assert "limits" in limit_check
 
         # Generate invoice
         generator = InvoiceGenerator(
