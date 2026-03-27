@@ -1,12 +1,15 @@
-"""
-Performance Tests Module.
+"""Performance tests for PARWA."""
 
-This module contains load and performance tests for the PARWA system.
-Uses Locust for load testing with configurable user counts and scenarios.
-
-CRITICAL REQUIREMENT: P95 latency <500ms at 50 concurrent users
-"""
+from .test_50_client_load import (
+    Test50ClientLoad,
+    Test50ClientScalability,
+    Test50ClientThroughput,
+    Test50ClientResourceUsage,
+)
 
 __all__ = [
-    "load_test_config",
+    "Test50ClientLoad",
+    "Test50ClientScalability",
+    "Test50ClientThroughput",
+    "Test50ClientResourceUsage",
 ]
