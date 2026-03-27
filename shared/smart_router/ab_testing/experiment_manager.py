@@ -261,6 +261,10 @@ class ExperimentManager:
         value: float
     ) -> None:
         """Record a metric for an experiment variant."""
+        experiment = self._experiments.get(experiment_id)
+        if not experiment:
+            return
+        
         if experiment_id not in self._metrics:
             return
         
