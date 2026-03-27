@@ -1,752 +1,449 @@
-# AGENT_COMMS.md — Week 35 Day 1-6
+# AGENT_COMMS.md — Week 36 Day 1-6
 # Last updated by: Manager Agent
-# Current status: WEEK 35 — SMART ROUTER 92%+
+# Current status: WEEK 36 — AGENT LIGHTNING 94%
 
 ═══════════════════════════════════════════════════════════════════════════════
-## MANAGER → WEEK 35 PLAN
+## MANAGER → WEEK 36 PLAN
 ═══════════════════════════════════════════════════════════════════════════════
 Written by: Manager Agent
-Date: 2026-03-27
+Date: 2026-03-28
 
 > **Phase: Phase 8 — Enterprise Preparation (Weeks 28-40)**
 >
-> **Week 35 Goals (Per Roadmap):**
-> - Day 1: ML-Based Routing Classifier
-> - Day 2: Intent Detection Enhancement
-> - Day 3: Context-Aware Routing
-> - Day 4: Dynamic Model Selection
-> - Day 5: Router Analytics + A/B Testing + Integration Tests
+> **Week 36 Goals (Per Roadmap):**
+> - Day 1: Enhanced Category Specialists (94% accuracy)
+> - Day 2: Advanced Training Pipeline
+> - Day 3: Accuracy Validation Framework
+> - Day 4: Industry-Specific Optimization
+> - Day 5: Performance Benchmarking + Integration Tests
 > - Day 6: Tester runs full validation
 >
 > **CRITICAL RULES:**
 > 1. All 5 days run in PARALLEL — no cross-day dependencies
-> 2. Smart Router must achieve ≥92% routing accuracy
-> 3. ML classifier must improve over rule-based routing
-> 4. **Maintain existing routing as fallback**
-> 5. **All features tested against 30 clients**
-> 6. **P95 latency must not increase**
-> 7. **Maintain 91%+ Agent Lightning accuracy**
+> 2. Agent Lightning must achieve ≥94% accuracy
+> 3. Each industry specialist must achieve ≥93% accuracy
+> 4. **Maintain 91%+ baseline accuracy**
+> 5. **All specialists tested against real queries**
+> 6. **Zero regression in existing accuracy**
+> 7. **P95 inference time <100ms**
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 1 (DAY 1) — ML-Based Routing Classifier
+## BUILDER 1 (DAY 1) — Enhanced Category Specialists
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `shared/smart_router/ml/__init__.py`
-2. `shared/smart_router/ml/classifier.py`
-3. `shared/smart_router/ml/feature_extractor.py`
-4. `shared/smart_router/ml/training_data.py`
-5. `shared/smart_router/ml/model_registry.py`
-6. `tests/unit/test_ml_router.py`
+1. `agent_lightning/training/category_specialists_94.py`
+2. `agent_lightning/training/ecommerce_specialist_94.py`
+3. `agent_lightning/training/saas_specialist_94.py`
+4. `agent_lightning/training/healthcare_specialist_94.py`
+5. `agent_lightning/training/financial_specialist_94.py`
+6. `tests/agent_lightning/test_category_specialists_94.py`
 
 ### Field 2: What is each file?
-1. `shared/smart_router/ml/__init__.py` — ML module init
-2. `shared/smart_router/ml/classifier.py` — ML classifier
-3. `shared/smart_router/ml/feature_extractor.py` — Feature extraction
-4. `shared/smart_router/ml/training_data.py` — Training data builder
-5. `shared/smart_router/ml/model_registry.py` — Model versioning
-6. `tests/unit/test_ml_router.py` — ML router tests
+1. `category_specialists_94.py` — Base class and registry for 94% specialists
+2. `ecommerce_specialist_94.py` — E-commerce specialist (94% target)
+3. `saas_specialist_94.py` — SaaS specialist (94% target)
+4. `healthcare_specialist_94.py` — Healthcare specialist (94% target)
+5. `financial_specialist_94.py` — Financial specialist (94% target)
+6. `test_category_specialists_94.py` — Specialist tests
 
 ### Field 3: Responsibilities
 
-**shared/smart_router/ml/__init__.py:**
-- Module init with:
-  - Export MLRouter
-  - Export FeatureExtractor
-  - Export TrainingDataBuilder
-  - Export ModelRegistry
-  - Version: 1.0.0
-  - **Test: Module imports correctly**
-
-**shared/smart_router/ml/classifier.py:**
-- ML classifier with:
-  - Query classification (FAQ, refund, complex, urgent)
-  - Tier prediction (Light, Medium, Heavy)
-  - Variant recommendation (Mini, Junior, High)
+**agent_lightning/training/category_specialists_94.py:**
+- Base CategorySpecialist class with:
+  - 94% accuracy threshold
+  - Pattern matching optimization
   - Confidence scoring
-  - Multi-label classification support
-  - Model inference optimization
-  - **Test: Classifies query types correctly**
-  - **Test: Predicts tiers with ≥92% accuracy**
-  - **Test: Inference time <50ms**
+  - Multi-label classification
+  - Training data management
+  - **Test: Specialist initializes correctly**
+  - **Test: Pattern matching works**
 
-**shared/smart_router/ml/feature_extractor.py:**
-- Feature extractor with:
-  - Text features (TF-IDF, embeddings)
-  - Context features (user history, client type)
-  - Temporal features (time of day, day of week)
-  - Metadata features (priority, channel)
-  - Feature normalization
-  - Feature importance tracking
-  - **Test: Extracts text features**
-  - **Test: Extracts context features**
-  - **Test: Normalizes features correctly**
+**agent_lightning/training/ecommerce_specialist_94.py:**
+- E-commerce specialist with:
+  - Refund/return detection
+  - Shipping/tracking queries
+  - Product inquiries
+  - Escalation detection
+  - Order status checks
+  - **Test: Refund detection >95%**
+  - **Test: Escalation detection >98%**
 
-**shared/smart_router/ml/training_data.py:**
-- Training data builder with:
-  - Historical query collection
-  - Label generation from outcomes
-  - Data augmentation
-  - Train/validation/test split
-  - Balanced sampling
-  - Export to training format
-  - **Test: Collects historical queries**
-  - **Test: Generates labels from outcomes**
-  - **Test: Creates balanced dataset**
+**agent_lightning/training/saas_specialist_94.py:**
+- SaaS specialist with:
+  - Billing queries
+  - Technical support
+  - Account management
+  - Feature requests
+  - Integration support
+  - **Test: Billing detection >94%**
+  - **Test: Technical detection >93%**
 
-**shared/smart_router/ml/model_registry.py:**
-- Model registry with:
-  - Model versioning
-  - Model storage
-  - Model rollback
-  - A/B test deployment
-  - Performance tracking per version
-  - Automatic promotion on metrics
-  - **Test: Stores model versions**
-  - **Test: Rollback works correctly**
-  - **Test: A/B deployment works**
+**agent_lightning/training/healthcare_specialist_94.py:**
+- Healthcare specialist with:
+  - Appointment scheduling
+  - Prescription refills
+  - Insurance queries
+  - Medical records
+  - HIPAA compliance
+  - **Test: Appointment detection >95%**
+  - **Test: PHI sanitization works**
 
-**tests/unit/test_ml_router.py:**
-- ML router tests with:
-  - Test: MLRouter initializes
-  - Test: FeatureExtractor extracts features
-  - Test: TrainingDataBuilder creates dataset
-  - Test: ModelRegistry manages versions
-  - Test: Classification accuracy ≥92%
-  - **CRITICAL: All ML router tests pass**
-  - **CRITICAL: Accuracy target ≥92%**
+**agent_lightning/training/financial_specialist_94.py:**
+- Financial specialist with:
+  - Transaction queries
+  - Fraud detection
+  - Account management
+  - Loan inquiries
+  - PCI compliance
+  - **Test: Fraud detection >95%**
+  - **Test: PCI sanitization works**
 
 ### Field 4: Depends On
-- Existing Smart Router (Week 5)
-- Database (historical queries)
-- Model training infrastructure
+- Existing Agent Lightning infrastructure
+- Training data from previous weeks
+- Pattern matching library
 
 ### Field 5: Expected Output
-- ML-based routing classifier
-- Feature extraction pipeline
-
-### Field 6: Unit Test Files
-- Tests in deliverables
-
-### Field 7: BDD Scenario
-- Query routed to correct tier using ML classifier
-
-### Field 8: Error Handling
-- Fallback to rule-based routing on ML failure
-- Model degradation detection
-
-### Field 9: Security Requirements
-- No PII in training data
-- Model access control
-- Audit trail for routing decisions
-
-### Field 10: Integration Points
-- Existing Smart Router
-- Database
-- Analytics service
-
-### Field 11: Code Quality
-- Type hints throughout
-- Model documentation
-- Performance benchmarking
-
-### Field 12: GitHub CI Requirements
-- All tests pass
-- Model accuracy verified
-- No performance regression
+- 5 industry specialists with 94%+ accuracy
 
 ### Field 13: Pass Criteria
 Builder 1 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: ML classifier achieves ≥92% accuracy**
-- **CRITICAL: Fallback to rules works**
+- **CRITICAL: Each specialist achieves ≥93% accuracy**
+- **CRITICAL: Base class tests pass**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 2 (DAY 2) — Intent Detection Enhancement
+## BUILDER 2 (DAY 2) — Advanced Training Pipeline
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `shared/smart_router/intent/__init__.py`
-2. `shared/smart_router/intent/detector.py`
-3. `shared/smart_router/intent/entity_extractor.py`
-4. `shared/smart_router/intent/slot_filler.py`
-5. `shared/smart_router/intent/intent_classifier.py`
-6. `tests/unit/test_intent_detection.py`
+1. `agent_lightning/training/pipeline/training_pipeline_94.py`
+2. `agent_lightning/training/pipeline/data_augmentor.py`
+3. `agent_lightning/training/pipeline/feature_engineer.py`
+4. `agent_lightning/training/pipeline/model_optimizer.py`
+5. `agent_lightning/training/pipeline/__init__.py`
+6. `tests/agent_lightning/test_training_pipeline_94.py`
 
 ### Field 2: What is each file?
-1. `shared/smart_router/intent/__init__.py` — Intent module init
-2. `shared/smart_router/intent/detector.py` — Intent detector
-3. `shared/smart_router/intent/entity_extractor.py` — Entity extraction
-4. `shared/smart_router/intent/slot_filler.py` — Slot filling
-5. `shared/smart_router/intent/intent_classifier.py` — Intent classification
-6. `tests/unit/test_intent_detection.py` — Intent detection tests
+1. `training_pipeline_94.py` — Main training pipeline
+2. `data_augmentor.py` — Training data augmentation
+3. `feature_engineer.py` — Feature extraction
+4. `model_optimizer.py` — Model hyperparameter optimization
+5. `__init__.py` — Module init
+6. `test_training_pipeline_94.py` — Pipeline tests
 
 ### Field 3: Responsibilities
 
-**shared/smart_router/intent/__init__.py:**
-- Module init with:
-  - Export IntentDetector
-  - Export EntityExtractor
-  - Export SlotFiller
-  - Export IntentClassifier
-  - Version: 1.0.0
-  - **Test: Module imports correctly**
+**training_pipeline_94.py:**
+- Training pipeline with:
+  - Data loading and validation
+  - Multi-stage training
+  - Cross-validation
+  - Early stopping
+  - Model checkpointing
+  - **Test: Pipeline runs end-to-end**
+  - **Test: Model accuracy improves**
 
-**shared/smart_router/intent/detector.py:**
-- Intent detector with:
-  - Multi-intent detection
-  - Intent confidence scoring
-  - Intent hierarchy support
-  - Implicit intent detection
-  - Intent disambiguation
-  - Real-time intent tracking
-  - **Test: Detects primary intent**
-  - **Test: Detects multiple intents**
-  - **Test: Disambiguates unclear intents**
+**data_augmentor.py:**
+- Data augmentation with:
+  - Synonym replacement
+  - Paraphrasing
+  - Back-translation
+  - Noise injection
+  - Balanced sampling
+  - **Test: Augmentation increases diversity**
+  - **Test: Labels preserved correctly**
 
-**shared/smart_router/intent/entity_extractor.py:**
-- Entity extractor with:
-  - Named entity recognition
-  - Custom entity patterns (order_id, product, amount)
-  - Entity linking to knowledge base
-  - Entity confidence scoring
-  - Entity normalization
-  - Cross-reference validation
-  - **Test: Extracts order IDs**
-  - **Test: Extracts amounts**
-  - **Test: Links to knowledge base**
+**feature_engineer.py:**
+- Feature engineering with:
+  - Text embeddings
+  - N-gram features
+  - Sentiment features
+  - Entity features
+  - Context features
+  - **Test: Features extracted correctly**
+  - **Test: Feature importance tracked**
 
-**shared/smart_router/intent/slot_filler.py:**
-- Slot filler with:
-  - Required slot identification
-  - Slot value extraction
-  - Slot validation
-  - Missing slot prompting
-  - Slot inheritance from context
-  - Slot confirmation
-  - **Test: Identifies required slots**
-  - **Test: Extracts slot values**
-  - **Test: Validates slot values**
-
-**shared/smart_router/intent/intent_classifier.py:**
-- Intent classifier with:
-  - Predefined intent taxonomy
-  - Custom intent support
-  - Intent embedding matching
-  - Few-shot intent learning
-  - Intent clustering
-  - Intent confidence calibration
-  - **Test: Classifies predefined intents**
-  - **Test: Learns custom intents**
-  - **Test: Confidence calibration works**
-
-**tests/unit/test_intent_detection.py:**
-- Intent detection tests with:
-  - Test: IntentDetector detects intents
-  - Test: EntityExtractor extracts entities
-  - Test: SlotFiller fills slots
-  - Test: IntentClassifier classifies
-  - Test: Intent accuracy ≥93%
-  - **CRITICAL: All intent detection tests pass**
-
-### Field 4: Depends On
-- ML Router (Day 1)
-- NLP infrastructure
-- Knowledge base
-
-### Field 5: Expected Output
-- Enhanced intent detection
-- Entity extraction and slot filling
-
-### Field 6: Unit Test Files
-- Tests in deliverables
-
-### Field 7: BDD Scenario
-- User query intent detected with entity extraction
-
-### Field 8: Error Handling
-- Fallback to keyword matching
-- Low confidence escalation
-
-### Field 9: Security Requirements
-- No PII in entity logs
-- Entity masking for sensitive data
-
-### Field 10: Integration Points
-- Smart Router
-- Knowledge base
-- Context manager
-
-### Field 11: Code Quality
-- Type hints throughout
-- Intent taxonomy documentation
-- Clear slot definitions
-
-### Field 12: GitHub CI Requirements
-- All tests pass
-- Intent accuracy verified
+**model_optimizer.py:**
+- Model optimization with:
+  - Hyperparameter search
+  - Learning rate scheduling
+  - Regularization tuning
+  - Architecture search
+  - Pruning
+  - **Test: Optimization improves accuracy**
+  - **Test: Best params saved**
 
 ### Field 13: Pass Criteria
 Builder 2 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Intent detection ≥93% accuracy**
-- **CRITICAL: Entity extraction works**
+- **CRITICAL: Pipeline trains models successfully**
+- **CRITICAL: Data augmentation works**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 3 (DAY 3) — Context-Aware Routing
+## BUILDER 3 (DAY 3) — Accuracy Validation Framework
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `shared/smart_router/context/__init__.py`
-2. `shared/smart_router/context/context_manager.py`
-3. `shared/smart_router/context/session_tracker.py`
-4. `shared/smart_router/context/user_profiler.py`
-5. `shared/smart_router/context/routing_context.py`
-6. `tests/unit/test_context_routing.py`
+1. `agent_lightning/validation/accuracy_validator_94.py`
+2. `agent_lightning/validation/category_validator.py`
+3. `agent_lightning/validation/regression_detector.py`
+4. `agent_lightning/validation/benchmark_runner.py`
+5. `agent_lightning/validation/__init__.py`
+6. `tests/agent_lightning/test_accuracy_94.py`
 
 ### Field 2: What is each file?
-1. `shared/smart_router/context/__init__.py` — Context module init
-2. `shared/smart_router/context/context_manager.py` — Context manager
-3. `shared/smart_router/context/session_tracker.py` — Session tracking
-4. `shared/smart_router/context/user_profiler.py` — User profiling
-5. `shared/smart_router/context/routing_context.py` — Routing context
-6. `tests/unit/test_context_routing.py` — Context routing tests
+1. `accuracy_validator_94.py` — 94% accuracy validator
+2. `category_validator.py` — Per-category validation
+3. `regression_detector.py` — Accuracy regression detection
+4. `benchmark_runner.py` — Benchmark execution
+5. `__init__.py` — Module init
+6. `test_accuracy_94.py` — Validation tests
 
 ### Field 3: Responsibilities
 
-**shared/smart_router/context/__init__.py:**
-- Module init with:
-  - Export ContextManager
-  - Export SessionTracker
-  - Export UserProfiler
-  - Export RoutingContext
-  - Version: 1.0.0
-  - **Test: Module imports correctly**
+**accuracy_validator_94.py:**
+- Accuracy validator with:
+  - 94% threshold validation
+  - Confidence interval calculation
+  - Statistical significance testing
+  - Error analysis
+  - Report generation
+  - **Test: Validates accuracy correctly**
+  - **Test: Reports pass/fail correctly**
 
-**shared/smart_router/context/context_manager.py:**
-- Context manager with:
-  - Conversation context tracking
-  - Context window management
-  - Context prioritization
-  - Context persistence
-  - Multi-turn context handling
-  - Context expiration
-  - **Test: Tracks conversation context**
-  - **Test: Manages context window**
-  - **Test: Persists context correctly**
+**category_validator.py:**
+- Category validator with:
+  - Per-category accuracy
+  - Confusion matrix
+  - Per-class metrics
+  - Category-level thresholds
+  - Category comparison
+  - **Test: Category metrics calculated**
+  - **Test: Weak categories identified**
 
-**shared/smart_router/context/session_tracker.py:**
-- Session tracker with:
-  - Session identification
-  - Session state management
-  - Cross-session linking
-  - Session analytics
-  - Session timeout handling
-  - Session recovery
-  - **Test: Identifies sessions**
-  - **Test: Links cross-session**
-  - **Test: Recovers sessions**
+**regression_detector.py:**
+- Regression detector with:
+  - Baseline comparison
+  - Automatic regression alerts
+  - Historical tracking
+  - Rollback triggers
+  - Trend analysis
+  - **Test: Regressions detected**
+  - **Test: Alerts generated correctly**
 
-**shared/smart_router/context/user_profiler.py:**
-- User profiler with:
-  - User behavior profiling
-  - Preference learning
-  - Interaction history analysis
-  - Skill level estimation
-  - Language preference detection
-  - Privacy-aware profiling
-  - **Test: Profiles user behavior**
-  - **Test: Learns preferences**
-  - **Test: Respects privacy**
-
-**shared/smart_router/context/routing_context.py:**
-- Routing context with:
-  - Context-aware routing decisions
-  - Historical routing patterns
-  - Time-based routing
-  - Client-specific context
-  - Priority context handling
-  - Context-based fallback
-  - **Test: Makes context-aware decisions**
-  - **Test: Uses historical patterns**
-  - **Test: Handles client context**
-
-**tests/unit/test_context_routing.py:**
-- Context routing tests with:
-  - Test: ContextManager manages context
-  - Test: SessionTracker tracks sessions
-  - Test: UserProfiler profiles users
-  - Test: RoutingContext routes by context
-  - Test: Context improves routing accuracy
-  - **CRITICAL: All context routing tests pass**
-
-### Field 4: Depends On
-- ML Router (Day 1)
-- Intent Detection (Day 2)
-- Redis (session storage)
-
-### Field 5: Expected Output
-- Context-aware routing system
-- Session and user profiling
-
-### Field 6: Unit Test Files
-- Tests in deliverables
-
-### Field 7: BDD Scenario
-- Routing decision uses conversation context
-
-### Field 8: Error Handling
-- Context loss recovery
-- Session corruption handling
-
-### Field 9: Security Requirements
-- Context data encryption
-- Session token security
-- Privacy-compliant profiling
-
-### Field 10: Integration Points
-- Smart Router
-- Redis
-- Analytics service
-
-### Field 11: Code Quality
-- Type hints throughout
-- Context schema documentation
-- Session management best practices
-
-### Field 12: GitHub CI Requirements
-- All tests pass
-- Context routing verified
+**benchmark_runner.py:**
+- Benchmark runner with:
+  - Standard benchmark datasets
+  - Industry-specific benchmarks
+  - Performance metrics
+  - Comparison reports
+  - Historical benchmarks
+  - **Test: Benchmarks run successfully**
+  - **Test: Results stored correctly**
 
 ### Field 13: Pass Criteria
 Builder 3 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Context-aware routing works**
-- **CRITICAL: Session tracking functional**
+- **CRITICAL: 94% validation works**
+- **CRITICAL: Regression detection works**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 4 (DAY 4) — Dynamic Model Selection
+## BUILDER 4 (DAY 4) — Industry-Specific Optimization
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `shared/smart_router/selection/__init__.py`
-2. `shared/smart_router/selection/model_selector.py`
-3. `shared/smart_router/selection/cost_optimizer.py`
-4. `shared/smart_router/selection/latency_manager.py`
-5. `shared/smart_router/selection/fallback_chain.py`
-6. `tests/unit/test_model_selection.py`
+1. `agent_lightning/optimization/industry_tuner.py`
+2. `agent_lightning/optimization/query_enhancer.py`
+3. `agent_lightning/optimization/context_integrator.py`
+4. `agent_lightning/optimization/ensemble_voter.py`
+5. `agent_lightning/optimization/__init__.py`
+6. `tests/agent_lightning/test_optimization_94.py`
 
 ### Field 2: What is each file?
-1. `shared/smart_router/selection/__init__.py` — Selection module init
-2. `shared/smart_router/selection/model_selector.py` — Model selector
-3. `shared/smart_router/selection/cost_optimizer.py` — Cost optimization
-4. `shared/smart_router/selection/latency_manager.py` — Latency management
-5. `shared/smart_router/selection/fallback_chain.py` — Fallback chain
-6. `tests/unit/test_model_selection.py` — Model selection tests
+1. `industry_tuner.py` — Industry-specific tuning
+2. `query_enhancer.py` — Query enhancement
+3. `context_integrator.py` — Context integration
+4. `ensemble_voter.py` — Ensemble voting
+5. `__init__.py` — Module init
+6. `test_optimization_94.py` — Optimization tests
 
 ### Field 3: Responsibilities
 
-**shared/smart_router/selection/__init__.py:**
-- Module init with:
-  - Export ModelSelector
-  - Export CostOptimizer
-  - Export LatencyManager
-  - Export FallbackChain
-  - Version: 1.0.0
-  - **Test: Module imports correctly**
+**industry_tuner.py:**
+- Industry tuner with:
+  - Industry-specific patterns
+  - Domain vocabulary
+  - Industry thresholds
+  - Custom training data
+  - Industry adapters
+  - **Test: Industry tuning improves accuracy**
+  - **Test: All industries supported**
 
-**shared/smart_router/selection/model_selector.py:**
-- Model selector with:
-  - Dynamic model selection
-  - Query complexity-based selection
-  - Client tier-based selection
-  - Load balancing across models
-  - Model health monitoring
-  - Selection explanation
-  - **Test: Selects model by complexity**
-  - **Test: Load balances correctly**
-  - **Test: Monitors model health**
+**query_enhancer.py:**
+- Query enhancer with:
+  - Spelling correction
+  - Query expansion
+  - Intent clarification
+  - Entity normalization
+  - Query rewriting
+  - **Test: Query enhancement works**
+  - **Test: Accuracy improves after enhancement**
 
-**shared/smart_router/selection/cost_optimizer.py:**
-- Cost optimizer with:
-  - Token cost tracking
-  - Cost-aware routing
-  - Budget enforcement
-  - Cost prediction
-  - Cost reporting
-  - ROI optimization
-  - **Test: Tracks token costs**
-  - **Test: Enforces budgets**
-  - **Test: Optimizes ROI**
+**context_integrator.py:**
+- Context integrator with:
+  - Conversation history
+  - User preferences
+  - Previous intents
+  - Session context
+  - Cross-turn context
+  - **Test: Context improves predictions**
+  - **Test: Multi-turn accuracy tracked**
 
-**shared/smart_router/selection/latency_manager.py:**
-- Latency manager with:
-  - Latency tracking per model
-  - Latency-based routing
-  - SLA enforcement
-  - Latency prediction
-  - Slow model detection
-  - Auto-scaling triggers
-  - **Test: Tracks latency**
-  - **Test: Routes by latency**
-  - **Test: Enforces SLA**
-
-**shared/smart_router/selection/fallback_chain.py:**
-- Fallback chain with:
-  - Multi-level fallback
-  - Graceful degradation
-  - Fallback logging
-  - Automatic recovery
-  - Circuit breaker pattern
-  - Fallback analytics
-  - **Test: Falls back correctly**
-  - **Test: Recovers automatically**
-  - **Test: Logs fallback events**
-
-**tests/unit/test_model_selection.py:**
-- Model selection tests with:
-  - Test: ModelSelector selects correctly
-  - Test: CostOptimizer optimizes costs
-  - Test: LatencyManager manages latency
-  - Test: FallbackChain falls back
-  - Test: Overall selection accuracy ≥92%
-  - **CRITICAL: All model selection tests pass**
-
-### Field 4: Depends On
-- ML Router (Day 1)
-- Context routing (Day 3)
-- Model provider APIs
-
-### Field 5: Expected Output
-- Dynamic model selection system
-- Cost and latency optimization
-
-### Field 6: Unit Test Files
-- Tests in deliverables
-
-### Field 7: BDD Scenario
-- Complex query routed to capable model within budget
-
-### Field 8: Error Handling
-- Model unavailability handling
-- Budget exceeded handling
-
-### Field 9: Security Requirements
-- Model API key security
-- Cost audit trail
-
-### Field 10: Integration Points
-- Model providers (OpenRouter)
-- Analytics service
-- Billing service
-
-### Field 11: Code Quality
-- Type hints throughout
-- Selection strategy documentation
-- Cost model documentation
-
-### Field 12: GitHub CI Requirements
-- All tests pass
-- Selection accuracy verified
+**ensemble_voter.py:**
+- Ensemble voter with:
+  - Multi-model voting
+  - Weighted voting
+  - Confidence aggregation
+  - Disagreement detection
+  - Dynamic weighting
+  - **Test: Ensemble improves accuracy**
+  - **Test: Voting handles disagreements**
 
 ### Field 13: Pass Criteria
 Builder 4 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Dynamic selection works**
-- **CRITICAL: Cost optimization functional**
+- **CRITICAL: Industry tuning works**
+- **CRITICAL: Ensemble voting improves accuracy**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## BUILDER 5 (DAY 5) — Router Analytics + A/B Testing + Integration Tests
+## BUILDER 5 (DAY 5) — Performance Benchmarking + Integration Tests
 ═══════════════════════════════════════════════════════════════════════════════
 
 ### Field 1: Files to Build (in order)
-1. `shared/smart_router/analytics/router_analytics.py`
-2. `shared/smart_router/ab_testing/experiment_manager.py`
-3. `shared/smart_router/ab_testing/metrics_collector.py`
-4. `tests/integration/test_smart_router_v2.py`
-5. `tests/integration/test_router_30_clients.py`
-6. `reports/week35_smart_router_report.md`
+1. `agent_lightning/benchmark/performance_benchmark.py`
+2. `agent_lightning/benchmark/latency_tracker.py`
+3. `tests/integration/test_agent_lightning_94.py`
+4. `tests/integration/test_30_client_accuracy.py`
+5. `agent_lightning/benchmark/__init__.py`
+6. `reports/week36_agent_lightning_report.md`
 
 ### Field 2: What is each file?
-1. `shared/smart_router/analytics/router_analytics.py` — Router analytics
-2. `shared/smart_router/ab_testing/experiment_manager.py` — A/B experiments
-3. `shared/smart_router/ab_testing/metrics_collector.py` — Metrics collection
-4. `tests/integration/test_smart_router_v2.py` — Integration tests
-5. `tests/integration/test_router_30_clients.py` — 30-client validation
-6. `reports/week35_smart_router_report.md` — Week 35 report
+1. `performance_benchmark.py` — Performance benchmarking
+2. `latency_tracker.py` — Latency tracking
+3. `test_agent_lightning_94.py` — Integration tests
+4. `test_30_client_accuracy.py` — 30-client validation
+5. `__init__.py` — Module init
+6. `week36_agent_lightning_report.md` — Week 36 report
 
 ### Field 3: Responsibilities
 
-**shared/smart_router/analytics/router_analytics.py:**
-- Router analytics with:
-  - Routing accuracy tracking
-  - Tier distribution analysis
-  - Model usage statistics
-  - Cost per query tracking
+**performance_benchmark.py:**
+- Performance benchmark with:
+  - Accuracy benchmark
+  - Speed benchmark
+  - Memory benchmark
+  - Throughput benchmark
+  - Comparison reports
+  - **Test: Benchmarks run successfully**
+  - **Test: Results are accurate**
+
+**latency_tracker.py:**
+- Latency tracker with:
+  - P50/P95/P99 tracking
   - Latency distribution
-  - Routing decision logging
-  - **Test: Tracks routing accuracy**
-  - **Test: Analyzes tier distribution**
-  - **Test: Calculates cost per query**
+  - Slow query detection
+  - Latency alerts
+  - Historical tracking
+  - **Test: Latency tracked correctly**
+  - **Test: P95 <100ms achieved**
 
-**shared/smart_router/ab_testing/experiment_manager.py:**
-- Experiment manager with:
-  - A/B experiment creation
-  - Traffic splitting
-  - Experiment lifecycle management
-  - Statistical significance testing
-  - Experiment results analysis
-  - Automatic winner promotion
-  - **Test: Creates experiments**
-  - **Test: Splits traffic correctly**
-  - **Test: Determines winners**
-
-**shared/smart_router/ab_testing/metrics_collector.py:**
-- Metrics collector with:
-  - Routing accuracy metrics
-  - User satisfaction metrics
-  - Conversion metrics
-  - Cost efficiency metrics
-  - Latency metrics
-  - Real-time metric aggregation
-  - **Test: Collects accuracy metrics**
-  - **Test: Collects satisfaction metrics**
-  - **Test: Aggregates in real-time**
-
-**tests/integration/test_smart_router_v2.py:**
+**tests/integration/test_agent_lightning_94.py:**
 - Integration tests with:
-  - Test: Full routing pipeline
-  - Test: ML classifier integration
-  - Test: Intent detection integration
-  - Test: Context routing integration
-  - Test: Model selection integration
+  - Full pipeline test
+  - Multi-specialist test
+  - Accuracy threshold test
+  - Regression test
+  - Performance test
   - **CRITICAL: All integration tests pass**
 
-**tests/integration/test_router_30_clients.py:**
+**tests/integration/test_30_client_accuracy.py:**
 - 30-client validation with:
-  - Test: Router works for all 30 clients
-  - Test: Client-specific routing
-  - Test: Multi-tenant isolation
-  - Test: Cross-client routing accuracy
-  - Test: Performance under load
-  - **CRITICAL: All 30 clients pass**
-  - **CRITICAL: Routing accuracy ≥92%**
+  - All 30 clients tested
+  - Per-client accuracy
+  - Cross-client comparison
+  - Industry-specific results
+  - **CRITICAL: All 30 clients pass 94%**
 
-**reports/week35_smart_router_report.md:**
-- Week 35 report with:
-  - Smart Router v2 summary
-  - ML classifier performance
-  - Intent detection accuracy
-  - Context routing effectiveness
-  - Model selection efficiency
-  - Known issues and resolutions
+**reports/week36_agent_lightning_report.md:**
+- Week 36 report with:
+  - Agent Lightning 94% summary
+  - Per-specialist accuracy
+  - Performance metrics
+  - Known issues
   - Next steps
-  - **Content: Week 35 completion report**
-
-### Field 4: Depends On
-- All Week 35 components (Days 1-4)
-- Analytics service
-- All 30 clients
-
-### Field 5: Expected Output
-- Router analytics and A/B testing
-- Full integration test suite
-- Week 35 completion report
-
-### Field 6: Unit Test Files
-- Tests in deliverables
-
-### Field 7: BDD Scenario
-- Router analytics show improvement over baseline
-
-### Field 8: Error Handling
-- Experiment failure handling
-- Metrics collection errors
-
-### Field 9: Security Requirements
-- Analytics data anonymization
-- Experiment data isolation
-
-### Field 10: Integration Points
-- All router components
-- Analytics service
-- All 30 clients
-
-### Field 11: Code Quality
-- Type hints throughout
-- Analytics documentation
-- A/B testing best practices
-
-### Field 12: GitHub CI Requirements
-- All tests pass
-- Router accuracy ≥92% verified
-- No performance regression
 
 ### Field 13: Pass Criteria
 Builder 5 reports DONE when:
 - All 6 files built and pushed
-- **CRITICAL: Router accuracy ≥92%**
+- **CRITICAL: Overall accuracy ≥94%**
 - **CRITICAL: All 30 clients validated**
-- **CRITICAL: A/B testing works**
+- **CRITICAL: P95 latency <100ms**
 - GitHub CI GREEN
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## TESTER → WEEK 35 INSTRUCTIONS (DAY 6)
+## TESTER → WEEK 36 INSTRUCTIONS (DAY 6)
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Run AFTER all Builders 1-5 report DONE**
 
 ### Test Commands
 
-#### 1. ML Router Tests
+#### 1. Category Specialist Tests
 ```bash
-pytest tests/unit/test_ml_router.py -v
+pytest tests/agent_lightning/test_category_specialists_94.py -v
 ```
 
-#### 2. Intent Detection Tests
+#### 2. Accuracy Validation Tests
 ```bash
-pytest tests/unit/test_intent_detection.py -v
+pytest tests/agent_lightning/test_accuracy_94.py -v
 ```
 
-#### 3. Context Routing Tests
+#### 3. Training Pipeline Tests
 ```bash
-pytest tests/unit/test_context_routing.py -v
+pytest tests/agent_lightning/test_training_pipeline_94.py -v
 ```
 
-#### 4. Model Selection Tests
+#### 4. Optimization Tests
 ```bash
-pytest tests/unit/test_model_selection.py -v
+pytest tests/agent_lightning/test_optimization_94.py -v
 ```
 
 #### 5. Integration Tests
 ```bash
-pytest tests/integration/test_smart_router_v2.py tests/integration/test_router_30_clients.py -v
+pytest tests/integration/test_agent_lightning_94.py tests/integration/test_30_client_accuracy.py -v
 ```
 
-#### 6. Full Regression (Maintain 30-Client Baseline)
+#### 6. Full Agent Lightning Tests
 ```bash
-./scripts/run_full_regression.sh
-```
-
-#### 7. Router Accuracy Benchmark
-```bash
-python scripts/benchmark_router_accuracy.py
+pytest tests/agent_lightning/ -v
 ```
 
 ---
@@ -755,43 +452,31 @@ python scripts/benchmark_router_accuracy.py
 
 | # | Test | Expected |
 |---|------|----------|
-| 1 | ML classifier accuracy | ≥92% |
-| 2 | Intent detection accuracy | ≥93% |
-| 3 | Entity extraction | Works correctly |
-| 4 | Slot filling | Works correctly |
-| 5 | Context tracking | Works correctly |
-| 6 | Session management | Works correctly |
-| 7 | Model selection | Works correctly |
-| 8 | Cost optimization | Reduces costs |
-| 9 | Latency management | P95 maintained |
-| 10 | Fallback chain | Works correctly |
-| 11 | Router analytics | Tracks correctly |
-| 12 | A/B testing | Works correctly |
-| 13 | **Overall routing accuracy** | **≥92% (CRITICAL)** |
-| 14 | 30-client isolation | Zero data leaks |
-| 15 | Agent Lightning | ≥91% accuracy maintained |
-| 16 | P95 latency | No increase |
+| 1 | E-commerce specialist accuracy | ≥94% |
+| 2 | SaaS specialist accuracy | ≥94% |
+| 3 | Healthcare specialist accuracy | ≥94% |
+| 4 | Financial specialist accuracy | ≥94% |
+| 5 | Logistics specialist accuracy | ≥94% |
+| 6 | **Overall Agent Lightning accuracy** | **≥94% (CRITICAL)** |
+| 7 | P95 inference latency | <100ms |
+| 8 | 30-client isolation | Zero data leaks |
+| 9 | No accuracy regression | Baseline maintained |
+| 10 | Training pipeline | Works correctly |
 
 ---
 
-### Week 35 PASS Criteria
+### Week 36 PASS Criteria
 
-1. ✅ **ML Classifier: ≥92% accuracy**
-2. ✅ **Intent Detection: ≥93% accuracy**
-3. ✅ **Entity Extraction: Working correctly**
-4. ✅ **Slot Filling: Working correctly**
-5. ✅ **Context-Aware Routing: Functional**
-6. ✅ **Session Tracking: Working correctly**
-7. ✅ **Dynamic Model Selection: Working**
-8. ✅ **Cost Optimization: Reduces costs**
-9. ✅ **Latency Management: P95 maintained**
-10. ✅ **Fallback Chain: Working correctly**
-11. ✅ **Router Analytics: Tracking correctly**
-12. ✅ **A/B Testing: Working correctly**
-13. ✅ **Overall Routing Accuracy: ≥92% (CRITICAL)**
-14. ✅ **30-Client Validation: All clients pass**
-15. ✅ **Agent Lightning: ≥91% accuracy maintained**
-16. ✅ GitHub CI GREEN
+1. ✅ **E-commerce Specialist: ≥94% accuracy**
+2. ✅ **SaaS Specialist: ≥94% accuracy**
+3. ✅ **Healthcare Specialist: ≥94% accuracy**
+4. ✅ **Financial Specialist: ≥94% accuracy**
+5. ✅ **Logistics Specialist: ≥94% accuracy**
+6. ✅ **Overall Agent Lightning: ≥94% (CRITICAL)**
+7. ✅ **P95 Latency: <100ms**
+8. ✅ **30-Client Validation: All clients pass**
+9. ✅ **No Regression: Baseline accuracy maintained**
+10. ✅ GitHub CI GREEN
 
 ---
 
@@ -801,11 +486,11 @@ python scripts/benchmark_router_accuracy.py
 
 | Builder | Day | Focus | Files | Status |
 |---------|-----|-------|-------|--------|
-| Builder 1 | Day 1 | ML-Based Routing Classifier | 6 | ⏳ Pending |
-| Builder 2 | Day 2 | Intent Detection Enhancement | 6 | ⏳ Pending |
-| Builder 3 | Day 3 | Context-Aware Routing | 6 | ⏳ Pending |
-| Builder 4 | Day 4 | Dynamic Model Selection | 6 | ⏳ Pending |
-| Builder 5 | Day 5 | Analytics + A/B Testing | 6 | ⏳ Pending |
+| Builder 1 | Day 1 | Enhanced Category Specialists | 6 | ⏳ Pending |
+| Builder 2 | Day 2 | Advanced Training Pipeline | 6 | ⏳ Pending |
+| Builder 3 | Day 3 | Accuracy Validation Framework | 6 | ⏳ Pending |
+| Builder 4 | Day 4 | Industry-Specific Optimization | 6 | ⏳ Pending |
+| Builder 5 | Day 5 | Performance Benchmarking + Tests | 6 | ⏳ Pending |
 | Tester | Day 6 | Full Validation | - | ⏳ Pending |
 
 ---
@@ -817,70 +502,48 @@ python scripts/benchmark_router_accuracy.py
 **CRITICAL REMINDERS:**
 
 1. All 5 days run in PARALLEL — no cross-day dependencies
-2. **Smart Router accuracy ≥92% (MANDATORY)**
-3. **Maintain existing routing as fallback**
-4. **No performance regression (P95 latency)**
-5. **All features must work for all 30 clients**
+2. **Agent Lightning accuracy ≥94% (MANDATORY)**
+3. **Each specialist must achieve ≥93% accuracy**
+4. **No performance regression (P95 <100ms)**
+5. **All specialists must work for all 30 clients**
 6. **Zero cross-tenant data leaks (mandatory)**
-7. **Maintain 91%+ Agent Lightning accuracy**
+7. **Maintain 91%+ baseline accuracy**
 
-**WEEK 35 TARGETS:**
+**WEEK 36 TARGETS:**
 
 | Metric | Current | Target | Status |
 |--------|---------|--------|--------|
 | Clients | 30 | 30 | ✅ Maintain |
-| Agent Lightning | 91%+ | ≥91% | ✅ Maintain |
-| Router Accuracy | ~88% | ≥92% | 🎯 Target |
-| Intent Detection | ~85% | ≥93% | 🎯 Target |
-| P95 Latency | 247ms | No increase | 🎯 Target |
+| E-commerce Specialist | ~92% | ≥94% | 🎯 Target |
+| SaaS Specialist | ~91% | ≥94% | 🎯 Target |
+| Healthcare Specialist | ~90% | ≥94% | 🎯 Target |
+| Financial Specialist | ~89% | ≥94% | 🎯 Target |
+| Logistics Specialist | ~88% | ≥94% | 🎯 Target |
+| Overall Accuracy | 91%+ | ≥94% | 🎯 Target |
+| P95 Latency | ~80ms | <100ms | ✅ Maintain |
 
-**SMART ROUTER V2 MODULES:**
+**ACCURACY IMPROVEMENT STRATEGY:**
 
-| Module | Purpose | Priority |
-|--------|---------|----------|
-| ML Classifier | Query classification | HIGH |
-| Intent Detection | Intent + entity extraction | HIGH |
-| Context Routing | Conversation context | HIGH |
-| Model Selection | Dynamic model choice | MEDIUM |
-| Analytics | Performance tracking | MEDIUM |
-| A/B Testing | Experimentation | MEDIUM |
-
-**INTEGRATION POINTS:**
-
-- OpenRouter: Model API
-- Redis: Session storage
-- Knowledge Base: Entity linking
-- Analytics: Metrics aggregation
-
-**ACCURACY TARGETS:**
-
-| Component | Baseline | Target |
-|-----------|----------|--------|
-| ML Classifier | 85% | 92%+ |
-| Intent Detection | 82% | 93%+ |
-| Entity Extraction | 78% | 90%+ |
-| Overall Routing | 88% | 92%+ |
-
-**ASSUMPTIONS:**
-- Week 34 complete (Frontend v2)
-- Existing Smart Router functional
-- Historical query data available
-- Model training infrastructure ready
+1. **Pattern Enhancement**: Add more patterns for each category
+2. **Context Integration**: Use conversation context
+3. **Ensemble Voting**: Combine multiple specialists
+4. **Confidence Thresholding**: Route uncertain queries to heavy tier
+5. **Active Learning**: Learn from mistakes
 
 ---
 
 ═══════════════════════════════════════════════════════════════════════════════
-## WEEK 35 FILE SUMMARY
+## WEEK 36 FILE SUMMARY
 ═══════════════════════════════════════════════════════════════════════════════
 
 | Day | Files | Focus |
 |-----|-------|-------|
-| Day 1 | 6 | ML-Based Routing Classifier |
-| Day 2 | 6 | Intent Detection Enhancement |
-| Day 3 | 6 | Context-Aware Routing |
-| Day 4 | 6 | Dynamic Model Selection |
-| Day 5 | 6 | Analytics + A/B Testing |
-| **Total** | **30** | **Smart Router 92%+** |
+| Day 1 | 6 | Enhanced Category Specialists |
+| Day 2 | 6 | Advanced Training Pipeline |
+| Day 3 | 6 | Accuracy Validation Framework |
+| Day 4 | 6 | Industry-Specific Optimization |
+| Day 5 | 6 | Performance Benchmarking + Tests |
+| **Total** | **30** | **Agent Lightning 94%** |
 
 ---
 
@@ -899,17 +562,16 @@ python scripts/benchmark_router_accuracy.py
 | 32 | SaaS Advanced | ✅ COMPLETE |
 | 33 | Healthcare HIPAA + Logistics | ✅ COMPLETE |
 | 34 | Frontend v2 (React Query + PWA) | ✅ COMPLETE |
-| **35** | **Smart Router 92%+** | **🔄 IN PROGRESS** |
-| 36 | Agent Lightning 94% | ⏳ Pending |
+| 35 | Smart Router 92%+ | ✅ COMPLETE |
+| **36** | **Agent Lightning 94%** | **🔄 IN PROGRESS** |
 | 37 | 50-Client Scale + Autoscaling | ⏳ Pending |
 | 38 | Enterprise Pre-Preparation | ⏳ Pending |
 | 39 | Final Production Readiness | ⏳ Pending |
 | 40 | Weeks 1-40 Final Validation | ⏳ Pending |
 
-**Week 35 Deliverables:**
-- ML Classifier: ≥92% accuracy 🎯 Target
-- Intent Detection: ≥93% accuracy 🎯 Target
-- Context Routing: Full context awareness 🎯 Target
-- Model Selection: Dynamic optimization 🎯 Target
-- Router Analytics: Complete tracking 🎯 Target
-- **SMART ROUTER 92%+ COMPLETE!**
+**Week 36 Deliverables:**
+- Category Specialists: ≥94% accuracy each 🎯 Target
+- Training Pipeline: Fully functional 🎯 Target
+- Validation Framework: Complete 🎯 Target
+- Optimization: Industry-specific 🎯 Target
+- **AGENT LIGHTNING 94% COMPLETE!**
