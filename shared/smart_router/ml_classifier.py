@@ -17,6 +17,13 @@ from shared.smart_router.feature_extractor import FeatureExtractor
 
 logger = get_logger(__name__)
 
+# Mapping from label integers to AITier enum
+LABEL_TO_TIER = {
+    0: AITier.LIGHT,
+    1: AITier.MEDIUM,
+    2: AITier.HEAVY,
+}
+
 # Try to import ML libraries
 try:
     from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -119,8 +126,8 @@ class MLClassifier:
             prediction = self.model.predict(X_scaled)[0]
             probabilities = self.model.predict_proba(X_scaled)[0]
 
-            # Get tier and confidence
-            tier = AITier(prediction)
+            # Get tier and confidence - map integer prediction to AITier
+            tier = LABEL_TO_TIER.get(int(prediction), AITier.MEDIUM)
             confidence = float(max(probabilities))
 
             logger.debug({
@@ -398,12 +405,13 @@ class EnsembleClassifier(MLClassifier):
         # Majority voting
         from collections import Counter
         vote_counts = Counter(predictions)
-        final_prediction = vote_counts.most_common(1)[0][0]
+        final_prediction = int(vote_counts.most_common(1)[0][0])
 
         # Average confidence
         avg_confidence = np.mean([max(p) for p in probabilities])
 
-        return AITier(final_prediction), float(avg_confidence)
+        # Map integer prediction to AITier
+        return LABEL_TO_TIER.get(final_prediction, AITier.MEDIUM), float(avg_confidence)
 
     def train(self, queries: List[str], labels: List[int], validate: bool = True) -> Dict[str, Any]:
         """Train all ensemble models."""
