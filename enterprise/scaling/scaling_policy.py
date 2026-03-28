@@ -1,300 +1,467 @@
-# Scaling Policy - Week 52 Builder 1
-# Scaling policies and rules
+"""
+Scaling Policy Module - Week 52, Builder 1
+Scaling policies and rules engine
+"""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
-import uuid
+from typing import Any, Dict, List, Optional, Callable, Union
+import logging
+import re
+
+logger = logging.getLogger(__name__)
 
 
 class PolicyType(Enum):
+    """Policy type enum"""
     THRESHOLD = "threshold"
     SCHEDULE = "schedule"
     PREDICTIVE = "predictive"
     CUSTOM = "custom"
 
 
+class PolicyAction(Enum):
+    """Policy action enum"""
+    SCALE_UP = "scale_up"
+    SCALE_DOWN = "scale_down"
+    SCALE_TO = "scale_to"
+    NO_ACTION = "no_action"
+
+
 class PolicyStatus(Enum):
+    """Policy status enum"""
     ACTIVE = "active"
-    INACTIVE = "inactive"
     PAUSED = "paused"
-
-
-class ComparisonOperator(Enum):
-    GREATER_THAN = "greater_than"
-    LESS_THAN = "less_than"
-    GREATER_EQUAL = "greater_equal"
-    LESS_EQUAL = "less_equal"
-    EQUAL = "equal"
+    DISABLED = "disabled"
 
 
 @dataclass
 class ScalingRule:
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    name: str = ""
-    metric_name: str = ""
-    operator: ComparisonOperator = ComparisonOperator.GREATER_THAN
-    threshold: float = 0.0
-    action: str = "scale_up"
-    scale_by: int = 1
-    cooldown_seconds: int = 300
-    evaluation_periods: int = 1
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    """Individual scaling rule"""
+    name: str
+    condition: str  # Expression to evaluate
+    action: PolicyAction
+    target_instances: Optional[int] = None
+    scale_factor: Optional[float] = None
+    priority: int = 100
+    enabled: bool = True
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def evaluate(self, context: Dict[str, Any]) -> bool:
+        """Evaluate the rule condition"""
+        try:
+            # Simple expression evaluation
+            # Supports comparisons like "cpu > 80", "memory < 30"
+            condition = self.condition
+
+            # Replace context variables
+            for key, value in context.items():
+                if isinstance(value, (int, float)):
+                    condition = re.sub(
+                        rf'\b{key}\b',
+                        str(value),
+                        condition
+                    )
+
+            # Safely evaluate the condition
+            result = eval(condition, {"__builtins__": {}}, {})
+            return bool(result)
+        except Exception as e:
+            logger.error(f"Rule evaluation error: {e}")
+            return False
 
 
 @dataclass
 class ScalingPolicy:
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    name: str = ""
-    policy_type: PolicyType = PolicyType.THRESHOLD
+    """Complete scaling policy with rules"""
+    name: str
+    policy_type: PolicyType
+    rules: List[ScalingRule] = field(default_factory=list)
+    min_instances: int = 1
+    max_instances: int = 100
+    default_instances: int = 1
+    cooldown_seconds: int = 300
     status: PolicyStatus = PolicyStatus.ACTIVE
-    target_id: str = ""
-    rules: List[str] = field(default_factory=list)
-    schedule: Optional[Dict[str, Any]] = None
-    min_capacity: int = 1
-    max_capacity: int = 100
-    default_cooldown: int = 300
     created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = None
+    updated_at: datetime = field(default_factory=datetime.utcnow)
+    tags: Dict[str, str] = field(default_factory=dict)
+    schedule: Optional[Dict[str, Any]] = None  # For schedule-based policies
+
+    def add_rule(self, rule: ScalingRule) -> None:
+        """Add a rule to the policy"""
+        self.rules.append(rule)
+        self.rules.sort(key=lambda r: r.priority, reverse=True)
+        self.updated_at = datetime.utcnow()
+
+    def remove_rule(self, name: str) -> bool:
+        """Remove a rule by name"""
+        for i, rule in enumerate(self.rules):
+            if rule.name == name:
+                self.rules.pop(i)
+                self.updated_at = datetime.utcnow()
+                return True
+        return False
+
+    def evaluate(self, context: Dict[str, Any]) -> Optional[ScalingRule]:
+        """Evaluate all rules and return the first matching one"""
+        if self.status != PolicyStatus.ACTIVE:
+            return None
+
+        for rule in self.rules:
+            if rule.enabled and rule.evaluate(context):
+                return rule
+        return None
 
 
-class ScalingPolicyManager:
-    """Manages scaling policies and rules"""
+class PolicyEngine:
+    """
+    Central policy engine for managing and evaluating scaling policies.
+    """
 
     def __init__(self):
-        self._policies: Dict[str, ScalingPolicy] = {}
-        self._rules: Dict[str, ScalingRule] = {}
-        self._metrics = {
-            "total_policies": 0,
-            "total_rules": 0,
-            "by_type": {},
-            "by_status": {}
+        self.policies: Dict[str, ScalingPolicy] = {}
+        self._evaluators: Dict[str, Callable] = {}
+        self._hooks: Dict[str, List[Callable]] = {
+            "before_evaluate": [],
+            "after_evaluate": [],
+            "on_action": [],
         }
 
     def create_policy(
         self,
         name: str,
         policy_type: PolicyType,
-        target_id: str,
-        min_capacity: int = 1,
-        max_capacity: int = 100,
-        default_cooldown: int = 300
+        min_instances: int = 1,
+        max_instances: int = 100,
+        cooldown_seconds: int = 300,
+        tags: Optional[Dict[str, str]] = None,
     ) -> ScalingPolicy:
-        """Create a scaling policy"""
+        """Create a new scaling policy"""
         policy = ScalingPolicy(
             name=name,
             policy_type=policy_type,
-            target_id=target_id,
-            min_capacity=min_capacity,
-            max_capacity=max_capacity,
-            default_cooldown=default_cooldown
+            min_instances=min_instances,
+            max_instances=max_instances,
+            cooldown_seconds=cooldown_seconds,
+            tags=tags or {},
         )
-        self._policies[policy.id] = policy
-        self._metrics["total_policies"] += 1
-
-        type_key = policy_type.value
-        self._metrics["by_type"][type_key] = \
-            self._metrics["by_type"].get(type_key, 0) + 1
-
-        status_key = policy.status.value
-        self._metrics["by_status"][status_key] = \
-            self._metrics["by_status"].get(status_key, 0) + 1
-
+        self.policies[name] = policy
+        logger.info(f"Created policy: {name}")
         return policy
 
-    def add_rule(
+    def get_policy(self, name: str) -> Optional[ScalingPolicy]:
+        """Get a policy by name"""
+        return self.policies.get(name)
+
+    def delete_policy(self, name: str) -> bool:
+        """Delete a policy"""
+        if name in self.policies:
+            del self.policies[name]
+            logger.info(f"Deleted policy: {name}")
+            return True
+        return False
+
+    def list_policies(
         self,
-        policy_id: str,
-        name: str,
-        metric_name: str,
-        operator: ComparisonOperator,
-        threshold: float,
-        action: str = "scale_up",
-        scale_by: int = 1,
-        cooldown_seconds: int = 300,
-        evaluation_periods: int = 1
-    ) -> Optional[ScalingRule]:
+        policy_type: Optional[PolicyType] = None,
+        status: Optional[PolicyStatus] = None,
+    ) -> List[ScalingPolicy]:
+        """List policies with optional filtering"""
+        policies = list(self.policies.values())
+
+        if policy_type:
+            policies = [p for p in policies if p.policy_type == policy_type]
+        if status:
+            policies = [p for p in policies if p.status == status]
+
+        return policies
+
+    def pause_policy(self, name: str) -> bool:
+        """Pause a policy"""
+        policy = self.get_policy(name)
+        if policy:
+            policy.status = PolicyStatus.PAUSED
+            policy.updated_at = datetime.utcnow()
+            logger.info(f"Paused policy: {name}")
+            return True
+        return False
+
+    def resume_policy(self, name: str) -> bool:
+        """Resume a paused policy"""
+        policy = self.get_policy(name)
+        if policy:
+            policy.status = PolicyStatus.ACTIVE
+            policy.updated_at = datetime.utcnow()
+            logger.info(f"Resumed policy: {name}")
+            return True
+        return False
+
+    def disable_policy(self, name: str) -> bool:
+        """Disable a policy"""
+        policy = self.get_policy(name)
+        if policy:
+            policy.status = PolicyStatus.DISABLED
+            policy.updated_at = datetime.utcnow()
+            logger.info(f"Disabled policy: {name}")
+            return True
+        return False
+
+    def add_rule_to_policy(
+        self,
+        policy_name: str,
+        rule_name: str,
+        condition: str,
+        action: PolicyAction,
+        target_instances: Optional[int] = None,
+        scale_factor: Optional[float] = None,
+        priority: int = 100,
+    ) -> bool:
         """Add a rule to a policy"""
-        policy = self._policies.get(policy_id)
+        policy = self.get_policy(policy_name)
         if not policy:
-            return None
+            return False
 
         rule = ScalingRule(
-            name=name,
-            metric_name=metric_name,
-            operator=operator,
-            threshold=threshold,
+            name=rule_name,
+            condition=condition,
             action=action,
-            scale_by=scale_by,
-            cooldown_seconds=cooldown_seconds,
-            evaluation_periods=evaluation_periods
+            target_instances=target_instances,
+            scale_factor=scale_factor,
+            priority=priority,
         )
-
-        self._rules[rule.id] = rule
-        policy.rules.append(rule.id)
-        self._metrics["total_rules"] += 1
-        return rule
-
-    def remove_rule(self, policy_id: str, rule_id: str) -> bool:
-        """Remove a rule from a policy"""
-        policy = self._policies.get(policy_id)
-        if not policy or rule_id not in policy.rules:
-            return False
-
-        policy.rules.remove(rule_id)
-        if rule_id in self._rules:
-            del self._rules[rule_id]
-        self._metrics["total_rules"] -= 1
+        policy.add_rule(rule)
         return True
 
-    def update_policy(
+    def evaluate_all(
         self,
-        policy_id: str,
-        **kwargs
-    ) -> bool:
-        """Update policy settings"""
-        policy = self._policies.get(policy_id)
-        if not policy:
-            return False
+        context: Dict[str, Any],
+        current_instances: int,
+    ) -> Dict[str, Optional[ScalingRule]]:
+        """
+        Evaluate all policies against the context.
+        Returns dict of policy_name -> matched_rule.
+        """
+        results = {}
 
-        old_status = policy.status.value
-        for key, value in kwargs.items():
-            if hasattr(policy, key):
-                setattr(policy, key, value)
-        policy.updated_at = datetime.utcnow()
+        # Call before_evaluate hooks
+        for hook in self._hooks["before_evaluate"]:
+            hook(context)
 
-        if "status" in kwargs:
-            self._metrics["by_status"][old_status] -= 1
-            new_status = kwargs["status"].value
-            self._metrics["by_status"][new_status] = \
-                self._metrics["by_status"].get(new_status, 0) + 1
+        for name, policy in self.policies.items():
+            # Check instance bounds
+            context_copy = context.copy()
+            context_copy["current_instances"] = current_instances
+            context_copy["min_instances"] = policy.min_instances
+            context_copy["max_instances"] = policy.max_instances
 
-        return True
+            matched_rule = policy.evaluate(context_copy)
+            results[name] = matched_rule
 
-    def set_schedule(
-        self,
-        policy_id: str,
-        schedule: Dict[str, Any]
-    ) -> bool:
-        """Set schedule for scheduled policy"""
-        policy = self._policies.get(policy_id)
-        if not policy:
-            return False
-
-        policy.schedule = schedule
-        policy.updated_at = datetime.utcnow()
-        return True
-
-    def activate_policy(self, policy_id: str) -> bool:
-        """Activate a policy"""
-        return self.update_policy(policy_id, status=PolicyStatus.ACTIVE)
-
-    def deactivate_policy(self, policy_id: str) -> bool:
-        """Deactivate a policy"""
-        return self.update_policy(policy_id, status=PolicyStatus.INACTIVE)
-
-    def pause_policy(self, policy_id: str) -> bool:
-        """Pause a policy"""
-        return self.update_policy(policy_id, status=PolicyStatus.PAUSED)
-
-    def get_policy(self, policy_id: str) -> Optional[ScalingPolicy]:
-        """Get policy by ID"""
-        return self._policies.get(policy_id)
-
-    def get_policy_by_name(self, name: str) -> Optional[ScalingPolicy]:
-        """Get policy by name"""
-        for policy in self._policies.values():
-            if policy.name == name:
-                return policy
-        return None
-
-    def get_policies_by_target(self, target_id: str) -> List[ScalingPolicy]:
-        """Get all policies for a target"""
-        return [p for p in self._policies.values() if p.target_id == target_id]
-
-    def get_policies_by_type(self, policy_type: PolicyType) -> List[ScalingPolicy]:
-        """Get all policies of a type"""
-        return [p for p in self._policies.values() if p.policy_type == policy_type]
-
-    def get_active_policies(self) -> List[ScalingPolicy]:
-        """Get all active policies"""
-        return [p for p in self._policies.values() if p.status == PolicyStatus.ACTIVE]
-
-    def get_rule(self, rule_id: str) -> Optional[ScalingRule]:
-        """Get rule by ID"""
-        return self._rules.get(rule_id)
-
-    def get_rules_for_policy(self, policy_id: str) -> List[ScalingRule]:
-        """Get all rules for a policy"""
-        policy = self._policies.get(policy_id)
-        if not policy:
-            return []
-        return [self._rules[rid] for rid in policy.rules if rid in self._rules]
-
-    def evaluate_rules(
-        self,
-        policy_id: str,
-        metrics: Dict[str, float]
-    ) -> List[Dict[str, Any]]:
-        """Evaluate rules against metrics"""
-        policy = self._policies.get(policy_id)
-        if not policy or policy.status != PolicyStatus.ACTIVE:
-            return []
-
-        results = []
-        for rule_id in policy.rules:
-            rule = self._rules.get(rule_id)
-            if not rule:
-                continue
-
-            metric_value = metrics.get(rule.metric_name)
-            if metric_value is None:
-                continue
-
-            triggered = False
-            if rule.operator == ComparisonOperator.GREATER_THAN:
-                triggered = metric_value > rule.threshold
-            elif rule.operator == ComparisonOperator.LESS_THAN:
-                triggered = metric_value < rule.threshold
-            elif rule.operator == ComparisonOperator.GREATER_EQUAL:
-                triggered = metric_value >= rule.threshold
-            elif rule.operator == ComparisonOperator.LESS_EQUAL:
-                triggered = metric_value <= rule.threshold
-            elif rule.operator == ComparisonOperator.EQUAL:
-                triggered = metric_value == rule.threshold
-
-            results.append({
-                "rule_id": rule.id,
-                "rule_name": rule.name,
-                "metric_name": rule.metric_name,
-                "metric_value": metric_value,
-                "threshold": rule.threshold,
-                "operator": rule.operator.value,
-                "triggered": triggered,
-                "action": rule.action,
-                "scale_by": rule.scale_by
-            })
+        # Call after_evaluate hooks
+        for hook in self._hooks["after_evaluate"]:
+            hook(results)
 
         return results
 
-    def delete_policy(self, policy_id: str) -> bool:
-        """Delete a policy"""
-        if policy_id not in self._policies:
-            return False
+    def get_recommended_action(
+        self,
+        context: Dict[str, Any],
+        current_instances: int,
+    ) -> Dict[str, Any]:
+        """
+        Get the recommended scaling action based on all policies.
+        Returns the highest priority action.
+        """
+        results = self.evaluate_all(context, current_instances)
 
-        policy = self._policies[policy_id]
-        for rule_id in policy.rules:
-            if rule_id in self._rules:
-                del self._rules[rule_id]
-                self._metrics["total_rules"] -= 1
+        best_rule: Optional[ScalingRule] = None
+        best_policy: Optional[str] = None
 
-        self._metrics["total_policies"] -= 1
-        self._metrics["by_type"][policy.policy_type.value] -= 1
-        self._metrics["by_status"][policy.status.value] -= 1
-        del self._policies[policy_id]
-        return True
+        for policy_name, rule in results.items():
+            if rule is None:
+                continue
 
-    def get_metrics(self) -> Dict[str, Any]:
-        """Get policy manager metrics"""
-        return self._metrics.copy()
+            if best_rule is None or rule.priority > best_rule.priority:
+                best_rule = rule
+                best_policy = policy_name
+
+        if best_rule is None:
+            return {
+                "action": PolicyAction.NO_ACTION,
+                "target_instances": current_instances,
+                "policy": None,
+                "rule": None,
+            }
+
+        # Calculate target instances
+        policy = self.policies[best_policy]
+        target = current_instances
+
+        if best_rule.action == PolicyAction.SCALE_UP:
+            if best_rule.scale_factor:
+                target = int(current_instances * best_rule.scale_factor)
+            elif best_rule.target_instances:
+                target = best_rule.target_instances
+            else:
+                target = current_instances + 1
+
+        elif best_rule.action == PolicyAction.SCALE_DOWN:
+            if best_rule.scale_factor:
+                target = int(current_instances * best_rule.scale_factor)
+            elif best_rule.target_instances:
+                target = best_rule.target_instances
+            else:
+                target = current_instances - 1
+
+        elif best_rule.action == PolicyAction.SCALE_TO:
+            target = best_rule.target_instances or current_instances
+
+        # Enforce bounds
+        target = max(policy.min_instances, min(target, policy.max_instances))
+
+        return {
+            "action": best_rule.action,
+            "target_instances": target,
+            "policy": best_policy,
+            "rule": best_rule.name,
+        }
+
+    def register_hook(self, event: str, callback: Callable) -> None:
+        """Register a hook callback"""
+        if event in self._hooks:
+            self._hooks[event].append(callback)
+
+    def create_threshold_policy(
+        self,
+        name: str,
+        metric_name: str,
+        scale_up_threshold: float,
+        scale_down_threshold: float,
+        scale_up_factor: float = 1.5,
+        scale_down_factor: float = 0.75,
+        min_instances: int = 1,
+        max_instances: int = 100,
+    ) -> ScalingPolicy:
+        """Create a simple threshold-based policy"""
+        policy = self.create_policy(
+            name=name,
+            policy_type=PolicyType.THRESHOLD,
+            min_instances=min_instances,
+            max_instances=max_instances,
+        )
+
+        # Add scale up rule
+        policy.add_rule(ScalingRule(
+            name="scale_up_rule",
+            condition=f"{metric_name} > {scale_up_threshold}",
+            action=PolicyAction.SCALE_UP,
+            scale_factor=scale_up_factor,
+            priority=100,
+        ))
+
+        # Add scale down rule
+        policy.add_rule(ScalingRule(
+            name="scale_down_rule",
+            condition=f"{metric_name} < {scale_down_threshold}",
+            action=PolicyAction.SCALE_DOWN,
+            scale_factor=scale_down_factor,
+            priority=90,
+        ))
+
+        return policy
+
+    def create_schedule_policy(
+        self,
+        name: str,
+        schedules: List[Dict[str, Any]],
+        min_instances: int = 1,
+        max_instances: int = 100,
+    ) -> ScalingPolicy:
+        """Create a schedule-based policy"""
+        policy = self.create_policy(
+            name=name,
+            policy_type=PolicyType.SCHEDULE,
+            min_instances=min_instances,
+            max_instances=max_instances,
+        )
+
+        for schedule in schedules:
+            policy.add_rule(ScalingRule(
+                name=schedule.get("name", "schedule_rule"),
+                condition=schedule.get("condition", "True"),
+                action=PolicyAction.SCALE_TO,
+                target_instances=schedule.get("instances", min_instances),
+                priority=schedule.get("priority", 100),
+            ))
+
+        return policy
+
+    def export_policies(self) -> Dict[str, Any]:
+        """Export all policies as a dictionary"""
+        export_data = {
+            "policies": {},
+            "exported_at": datetime.utcnow().isoformat(),
+        }
+
+        for name, policy in self.policies.items():
+            policy_data = {
+                "name": policy.name,
+                "type": policy.policy_type.value,
+                "status": policy.status.value,
+                "min_instances": policy.min_instances,
+                "max_instances": policy.max_instances,
+                "cooldown_seconds": policy.cooldown_seconds,
+                "rules": [
+                    {
+                        "name": r.name,
+                        "condition": r.condition,
+                        "action": r.action.value,
+                        "target_instances": r.target_instances,
+                        "scale_factor": r.scale_factor,
+                        "priority": r.priority,
+                        "enabled": r.enabled,
+                    }
+                    for r in policy.rules
+                ],
+                "tags": policy.tags,
+            }
+            export_data["policies"][name] = policy_data
+
+        return export_data
+
+    def import_policies(self, data: Dict[str, Any]) -> int:
+        """Import policies from a dictionary"""
+        imported = 0
+
+        for name, policy_data in data.get("policies", {}).items():
+            try:
+                policy = self.create_policy(
+                    name=name,
+                    policy_type=PolicyType(policy_data["type"]),
+                    min_instances=policy_data.get("min_instances", 1),
+                    max_instances=policy_data.get("max_instances", 100),
+                    cooldown_seconds=policy_data.get("cooldown_seconds", 300),
+                    tags=policy_data.get("tags", {}),
+                )
+
+                for rule_data in policy_data.get("rules", []):
+                    rule = ScalingRule(
+                        name=rule_data["name"],
+                        condition=rule_data["condition"],
+                        action=PolicyAction(rule_data["action"]),
+                        target_instances=rule_data.get("target_instances"),
+                        scale_factor=rule_data.get("scale_factor"),
+                        priority=rule_data.get("priority", 100),
+                        enabled=rule_data.get("enabled", True),
+                    )
+                    policy.add_rule(rule)
+
+                policy.status = PolicyStatus(policy_data.get("status", "active"))
+                imported += 1
+
+            except Exception as e:
+                logger.error(f"Failed to import policy {name}: {e}")
+
+        logger.info(f"Imported {imported} policies")
+        return imported

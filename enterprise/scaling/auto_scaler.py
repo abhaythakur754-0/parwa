@@ -1,278 +1,376 @@
-# Auto Scaler - Week 52 Builder 1
-# Automatic scaling decisions
+"""
+Auto-Scaler Module - Week 52, Builder 1
+Automatic scaling decisions based on metrics and policies
+"""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
-import uuid
+from typing import Any, Dict, List, Optional, Callable
+import asyncio
+import logging
+import math
+
+logger = logging.getLogger(__name__)
 
 
-class ScalingAction(Enum):
+class ScalingDirection(Enum):
+    """Scaling direction enum"""
     SCALE_UP = "scale_up"
     SCALE_DOWN = "scale_down"
-    SCALE_OUT = "scale_out"
-    SCALE_IN = "scale_in"
     NONE = "none"
 
 
 class ScalingStatus(Enum):
+    """Scaling operation status"""
     IDLE = "idle"
     SCALING = "scaling"
     COOLDOWN = "cooldown"
-    DISABLED = "disabled"
+    ERROR = "error"
+
+
+@dataclass
+class ScalingDecision:
+    """Scaling decision dataclass"""
+    direction: ScalingDirection
+    current_instances: int
+    target_instances: int
+    reason: str
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+    metrics: Dict[str, float] = field(default_factory=dict)
+    policy_name: str = ""
+    confidence: float = 1.0
 
 
 @dataclass
 class ScalingEvent:
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    action: ScalingAction = ScalingAction.NONE
-    resource_type: str = ""
-    current_capacity: int = 0
-    target_capacity: int = 0
-    reason: str = ""
-    triggered_at: datetime = field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
-    status: str = "pending"
-
-
-@dataclass
-class ScalingTarget:
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    name: str = ""
-    resource_type: str = ""
-    min_capacity: int = 1
-    max_capacity: int = 100
-    current_capacity: int = 1
-    target_capacity: int = 1
-    status: ScalingStatus = ScalingStatus.IDLE
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    """Scaling event record"""
+    decision: ScalingDecision
+    executed: bool = False
+    execution_time: Optional[datetime] = None
+    error: Optional[str] = None
 
 
 class AutoScaler:
-    """Automatic scaling decision engine"""
+    """
+    Automatic scaling engine that makes scaling decisions
+    based on metrics and policies.
+    """
 
-    def __init__(self):
-        self._targets: Dict[str, ScalingTarget] = {}
-        self._events: List[ScalingEvent] = []
-        self._cooldown_until: Dict[str, datetime] = {}
-        self._metrics = {
-            "total_scale_events": 0,
-            "scale_up_count": 0,
-            "scale_down_count": 0,
-            "by_resource_type": {}
-        }
+    def __init__(
+        self,
+        min_instances: int = 1,
+        max_instances: int = 100,
+        cooldown_period: int = 300,  # 5 minutes
+        evaluation_interval: int = 60,  # 1 minute
+    ):
+        self.min_instances = min_instances
+        self.max_instances = max_instances
+        self.cooldown_period = cooldown_period
+        self.evaluation_interval = evaluation_interval
 
-    def register_target(
+        self.current_instances = min_instances
+        self.status = ScalingStatus.IDLE
+        self.last_scaling_time: Optional[datetime] = None
+        self.policies: List[Dict[str, Any]] = []
+        self.metrics: Dict[str, float] = {}
+        self.events: List[ScalingEvent] = []
+        self._scaling_handlers: List[Callable] = []
+
+    def add_policy(
         self,
         name: str,
-        resource_type: str,
-        min_capacity: int = 1,
-        max_capacity: int = 100,
-        initial_capacity: int = 1
-    ) -> ScalingTarget:
-        """Register a scaling target"""
-        target = ScalingTarget(
-            name=name,
-            resource_type=resource_type,
-            min_capacity=min_capacity,
-            max_capacity=max_capacity,
-            current_capacity=initial_capacity,
-            target_capacity=initial_capacity
-        )
-        self._targets[target.id] = target
+        metric_name: str,
+        threshold_up: float,
+        threshold_down: float,
+        scale_up_factor: float = 1.5,
+        scale_down_factor: float = 0.75,
+        min_instances_override: Optional[int] = None,
+        max_instances_override: Optional[int] = None,
+    ) -> None:
+        """Add a scaling policy"""
+        policy = {
+            "name": name,
+            "metric_name": metric_name,
+            "threshold_up": threshold_up,
+            "threshold_down": threshold_down,
+            "scale_up_factor": scale_up_factor,
+            "scale_down_factor": scale_down_factor,
+            "min_instances": min_instances_override or self.min_instances,
+            "max_instances": max_instances_override or self.max_instances,
+            "enabled": True,
+        }
+        self.policies.append(policy)
+        logger.info(f"Added scaling policy: {name}")
 
-        type_key = resource_type
-        self._metrics["by_resource_type"][type_key] = \
-            self._metrics["by_resource_type"].get(type_key, 0) + 1
-
-        return target
-
-    def deregister_target(self, target_id: str) -> bool:
-        """Deregister a scaling target"""
-        if target_id in self._targets:
-            del self._targets[target_id]
-            return True
-        return False
-
-    def evaluate_scaling(
-        self,
-        target_id: str,
-        current_metrics: Dict[str, float],
-        policies: List[Dict[str, Any]]
-    ) -> Optional[ScalingEvent]:
-        """Evaluate if scaling is needed"""
-        target = self._targets.get(target_id)
-        if not target or target.status == ScalingStatus.DISABLED:
-            return None
-
-        # Check cooldown
-        if target_id in self._cooldown_until:
-            if datetime.utcnow() < self._cooldown_until[target_id]:
-                return None
-
-        # Evaluate policies
-        for policy in policies:
-            metric_name = policy.get("metric", "")
-            threshold = policy.get("threshold", 0)
-            comparison = policy.get("comparison", "greater")
-            action = policy.get("action", ScalingAction.NONE)
-            scale_by = policy.get("scale_by", 1)
-
-            current_value = current_metrics.get(metric_name, 0)
-
-            should_scale = False
-            if comparison == "greater" and current_value > threshold:
-                should_scale = True
-            elif comparison == "less" and current_value < threshold:
-                should_scale = True
-            elif comparison == "greater_equal" and current_value >= threshold:
-                should_scale = True
-            elif comparison == "less_equal" and current_value <= threshold:
-                should_scale = True
-
-            if should_scale:
-                return self._create_scaling_event(target, action, scale_by, policy.get("reason", ""))
-
-        return None
-
-    def _create_scaling_event(
-        self,
-        target: ScalingTarget,
-        action: ScalingAction,
-        scale_by: int,
-        reason: str
-    ) -> ScalingEvent:
-        """Create a scaling event"""
-        new_capacity = target.current_capacity
-
-        if action in [ScalingAction.SCALE_UP, ScalingAction.SCALE_OUT]:
-            new_capacity = min(target.max_capacity, target.current_capacity + scale_by)
-        elif action in [ScalingAction.SCALE_DOWN, ScalingAction.SCALE_IN]:
-            new_capacity = max(target.min_capacity, target.current_capacity - scale_by)
-
-        event = ScalingEvent(
-            action=action,
-            resource_type=target.resource_type,
-            current_capacity=target.current_capacity,
-            target_capacity=new_capacity,
-            reason=reason
-        )
-
-        self._events.append(event)
-        target.target_capacity = new_capacity
-        target.status = ScalingStatus.SCALING
-
-        self._metrics["total_scale_events"] += 1
-        if action in [ScalingAction.SCALE_UP, ScalingAction.SCALE_OUT]:
-            self._metrics["scale_up_count"] += 1
-        elif action in [ScalingAction.SCALE_DOWN, ScalingAction.SCALE_IN]:
-            self._metrics["scale_down_count"] += 1
-
-        return event
-
-    def complete_scaling(
-        self,
-        target_id: str,
-        event_id: str,
-        success: bool = True,
-        cooldown_seconds: int = 300
-    ) -> bool:
-        """Mark scaling event as complete"""
-        target = self._targets.get(target_id)
-        if not target:
-            return False
-
-        for event in self._events:
-            if event.id == event_id and event.status == "pending":
-                event.status = "completed" if success else "failed"
-                event.completed_at = datetime.utcnow()
-
-                if success:
-                    target.current_capacity = event.target_capacity
-                    target.status = ScalingStatus.COOLDOWN
-                    self._cooldown_until[target_id] = \
-                        datetime.utcnow() + __import__('datetime').timedelta(seconds=cooldown_seconds)
-
+    def remove_policy(self, name: str) -> bool:
+        """Remove a scaling policy by name"""
+        for i, policy in enumerate(self.policies):
+            if policy["name"] == name:
+                self.policies.pop(i)
+                logger.info(f"Removed scaling policy: {name}")
                 return True
         return False
 
-    def get_target(self, target_id: str) -> Optional[ScalingTarget]:
-        """Get target by ID"""
-        return self._targets.get(target_id)
+    def enable_policy(self, name: str) -> bool:
+        """Enable a policy"""
+        for policy in self.policies:
+            if policy["name"] == name:
+                policy["enabled"] = True
+                return True
+        return False
 
-    def get_target_by_name(self, name: str) -> Optional[ScalingTarget]:
-        """Get target by name"""
-        for target in self._targets.values():
-            if target.name == name:
-                return target
-        return None
+    def disable_policy(self, name: str) -> bool:
+        """Disable a policy"""
+        for policy in self.policies:
+            if policy["name"] == name:
+                policy["enabled"] = False
+                return True
+        return False
 
-    def get_targets_by_type(self, resource_type: str) -> List[ScalingTarget]:
-        """Get all targets of a type"""
-        return [t for t in self._targets.values() if t.resource_type == resource_type]
+    def update_metrics(self, metrics: Dict[str, float]) -> None:
+        """Update current metrics"""
+        self.metrics.update(metrics)
 
-    def get_event(self, event_id: str) -> Optional[ScalingEvent]:
-        """Get event by ID"""
-        for event in self._events:
-            if event.id == event_id:
-                return event
-        return None
+    def set_current_instances(self, count: int) -> None:
+        """Set current instance count"""
+        self.current_instances = max(self.min_instances, min(count, self.max_instances))
 
-    def get_events_by_target(
-        self,
-        target_id: str,
-        limit: int = 100
-    ) -> List[ScalingEvent]:
-        """Get events for a target"""
-        target = self._targets.get(target_id)
-        if not target:
-            return []
-        events = [e for e in self._events if e.resource_type == target.resource_type]
-        return events[-limit:]
-
-    def get_active_events(self) -> List[ScalingEvent]:
-        """Get all pending events"""
-        return [e for e in self._events if e.status == "pending"]
-
-    def enable_target(self, target_id: str) -> bool:
-        """Enable scaling for target"""
-        target = self._targets.get(target_id)
-        if not target:
+    def is_in_cooldown(self) -> bool:
+        """Check if scaler is in cooldown period"""
+        if self.last_scaling_time is None:
             return False
-        target.status = ScalingStatus.IDLE
-        return True
 
-    def disable_target(self, target_id: str) -> bool:
-        """Disable scaling for target"""
-        target = self._targets.get(target_id)
-        if not target:
-            return False
-        target.status = ScalingStatus.DISABLED
-        return True
+        elapsed = (datetime.utcnow() - self.last_scaling_time).total_seconds()
+        return elapsed < self.cooldown_period
 
-    def force_scale(
-        self,
-        target_id: str,
-        action: ScalingAction,
-        scale_by: int,
-        reason: str = "Manual scaling"
-    ) -> Optional[ScalingEvent]:
-        """Force scaling action"""
-        target = self._targets.get(target_id)
-        if not target:
+    def evaluate(self) -> Optional[ScalingDecision]:
+        """
+        Evaluate metrics against policies and return scaling decision.
+        Returns None if no scaling needed or in cooldown.
+        """
+        if self.is_in_cooldown():
+            logger.debug("In cooldown period, skipping evaluation")
             return None
 
-        # Clear cooldown for forced scaling
-        if target_id in self._cooldown_until:
-            del self._cooldown_until[target_id]
+        for policy in self.policies:
+            if not policy["enabled"]:
+                continue
 
-        return self._create_scaling_event(target, action, scale_by, reason)
+            metric_name = policy["metric_name"]
+            if metric_name not in self.metrics:
+                continue
 
-    def get_metrics(self) -> Dict[str, Any]:
-        """Get scaler metrics"""
+            current_value = self.metrics[metric_name]
+
+            # Check scale up condition
+            if current_value > policy["threshold_up"]:
+                target = math.ceil(
+                    self.current_instances * policy["scale_up_factor"]
+                )
+                target = min(target, policy["max_instances"])
+
+                if target > self.current_instances:
+                    return ScalingDecision(
+                        direction=ScalingDirection.SCALE_UP,
+                        current_instances=self.current_instances,
+                        target_instances=target,
+                        reason=f"{metric_name} ({current_value:.2f}) > threshold ({policy['threshold_up']:.2f})",
+                        metrics={metric_name: current_value},
+                        policy_name=policy["name"],
+                    )
+
+            # Check scale down condition
+            elif current_value < policy["threshold_down"]:
+                target = math.floor(
+                    self.current_instances * policy["scale_down_factor"]
+                )
+                target = max(target, policy["min_instances"])
+
+                if target < self.current_instances:
+                    return ScalingDecision(
+                        direction=ScalingDirection.SCALE_DOWN,
+                        current_instances=self.current_instances,
+                        target_instances=target,
+                        reason=f"{metric_name} ({current_value:.2f}) < threshold ({policy['threshold_down']:.2f})",
+                        metrics={metric_name: current_value},
+                        policy_name=policy["name"],
+                    )
+
+        return None
+
+    def scale(self, decision: ScalingDecision) -> ScalingEvent:
+        """Execute a scaling decision"""
+        event = ScalingEvent(decision=decision)
+
+        try:
+            self.status = ScalingStatus.SCALING
+
+            # Simulate scaling operation
+            old_count = self.current_instances
+            self.current_instances = decision.target_instances
+            self.last_scaling_time = datetime.utcnow()
+
+            # Notify handlers
+            for handler in self._scaling_handlers:
+                try:
+                    handler(decision)
+                except Exception as e:
+                    logger.error(f"Scaling handler error: {e}")
+
+            event.executed = True
+            event.execution_time = datetime.utcnow()
+            self.status = ScalingStatus.COOLDOWN
+
+            logger.info(
+                f"Scaled from {old_count} to {decision.target_instances} instances"
+            )
+
+        except Exception as e:
+            event.error = str(e)
+            self.status = ScalingStatus.ERROR
+            logger.error(f"Scaling failed: {e}")
+
+        self.events.append(event)
+        return event
+
+    def add_scaling_handler(self, handler: Callable) -> None:
+        """Add a handler to be called on scaling events"""
+        self._scaling_handlers.append(handler)
+
+    def get_events(
+        self,
+        limit: int = 100,
+        direction: Optional[ScalingDirection] = None,
+    ) -> List[ScalingEvent]:
+        """Get scaling events with optional filtering"""
+        events = self.events
+
+        if direction:
+            events = [e for e in events if e.decision.direction == direction]
+
+        return events[-limit:]
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get scaling statistics"""
+        scale_ups = len([e for e in self.events if e.decision.direction == ScalingDirection.SCALE_UP])
+        scale_downs = len([e for e in self.events if e.decision.direction == ScalingDirection.SCALE_DOWN])
+
         return {
-            **self._metrics,
-            "active_targets": len([t for t in self._targets.values() if t.status != ScalingStatus.DISABLED]),
-            "pending_events": len(self.get_active_events())
+            "current_instances": self.current_instances,
+            "status": self.status.value,
+            "total_scale_ups": scale_ups,
+            "total_scale_downs": scale_downs,
+            "total_events": len(self.events),
+            "policies_count": len(self.policies),
+            "active_policies": len([p for p in self.policies if p["enabled"]]),
+            "in_cooldown": self.is_in_cooldown(),
+            "last_scaling_time": self.last_scaling_time.isoformat() if self.last_scaling_time else None,
         }
+
+    async def run_evaluation_loop(self) -> None:
+        """Run continuous evaluation loop"""
+        while True:
+            decision = self.evaluate()
+            if decision:
+                self.scale(decision)
+            await asyncio.sleep(self.evaluation_interval)
+
+    def reset(self) -> None:
+        """Reset scaler to initial state"""
+        self.current_instances = self.min_instances
+        self.status = ScalingStatus.IDLE
+        self.last_scaling_time = None
+        self.events.clear()
+        self.metrics.clear()
+
+
+class PredictiveScaler(AutoScaler):
+    """
+    Predictive auto-scaler that uses historical data
+    to anticipate scaling needs.
+    """
+
+    def __init__(
+        self,
+        prediction_window: int = 300,  # 5 minutes ahead
+        history_size: int = 100,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.prediction_window = prediction_window
+        self.history_size = history_size
+        self.metric_history: Dict[str, List[tuple]] = {}
+
+    def record_metric(self, name: str, value: float) -> None:
+        """Record a metric value for prediction"""
+        if name not in self.metric_history:
+            self.metric_history[name] = []
+
+        self.metric_history[name].append((datetime.utcnow(), value))
+
+        # Keep only recent history
+        if len(self.metric_history[name]) > self.history_size:
+            self.metric_history[name] = self.metric_history[name][-self.history_size:]
+
+    def predict_metric(self, name: str) -> Optional[float]:
+        """Predict future metric value using linear regression"""
+        if name not in self.metric_history or len(self.metric_history[name]) < 10:
+            return None
+
+        history = self.metric_history[name]
+        timestamps = [(h[0] - history[0][0]).total_seconds() for h in history]
+        values = [h[1] for h in history]
+
+        # Simple linear regression
+        n = len(values)
+        sum_x = sum(timestamps)
+        sum_y = sum(values)
+        sum_xy = sum(t * v for t, v in zip(timestamps, values))
+        sum_x2 = sum(t * t for t in timestamps)
+
+        slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x)
+        intercept = (sum_y - slope * sum_x) / n
+
+        # Predict at prediction window
+        future_time = timestamps[-1] + self.prediction_window
+        predicted_value = slope * future_time + intercept
+
+        return max(0, predicted_value)  # Ensure non-negative
+
+    def evaluate_with_prediction(self) -> Optional[ScalingDecision]:
+        """Evaluate with predictive scaling"""
+        # First check current metrics
+        current_decision = self.evaluate()
+        if current_decision:
+            return current_decision
+
+        # Then check predictions
+        for policy in self.policies:
+            if not policy["enabled"]:
+                continue
+
+            metric_name = policy["metric_name"]
+            predicted_value = self.predict_metric(metric_name)
+
+            if predicted_value is None:
+                continue
+
+            # Scale preemptively if prediction exceeds threshold
+            if predicted_value > policy["threshold_up"]:
+                target = math.ceil(
+                    self.current_instances * policy["scale_up_factor"]
+                )
+                target = min(target, policy["max_instances"])
+
+                if target > self.current_instances:
+                    return ScalingDecision(
+                        direction=ScalingDirection.SCALE_UP,
+                        current_instances=self.current_instances,
+                        target_instances=target,
+                        reason=f"Predicted {metric_name} ({predicted_value:.2f}) > threshold ({policy['threshold_up']:.2f})",
+                        metrics={f"predicted_{metric_name}": predicted_value},
+                        policy_name=policy["name"],
+                    )
+
+        return None
