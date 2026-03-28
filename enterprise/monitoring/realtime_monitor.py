@@ -12,6 +12,9 @@ import logging
 import time
 import threading
 
+# Import HealthStatus from health_aggregator to avoid duplication
+from enterprise.monitoring.health_aggregator import HealthStatus
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,14 +24,6 @@ class MonitorStatus(Enum):
     PAUSED = "paused"
     STOPPED = "stopped"
     ERROR = "error"
-
-
-class HealthStatus(Enum):
-    """Health status enum"""
-    HEALTHY = "healthy"
-    DEGRADED = "degraded"
-    UNHEALTHY = "unhealthy"
-    UNKNOWN = "unknown"
 
 
 class MetricType(Enum):
