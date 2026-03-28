@@ -177,7 +177,7 @@ class TestSPMetadataGenerator:
             acs_url="https://api.parwa.ai/sso/acs/test"
         )
         
-        metadata = generator.generate()
+        metadata = generator.generate_metadata()
         
         assert metadata is not None
         assert '<?xml version="1.0"' in metadata
@@ -192,7 +192,7 @@ class TestSPMetadataGenerator:
             acs_url="https://api.parwa.ai/sso/acs/test"
         )
         
-        metadata = generator.generate()
+        metadata = generator.generate_metadata()
         
         # Should parse without error
         root = ET.fromstring(metadata)
@@ -205,7 +205,10 @@ class TestSPMetadataGenerator:
             acs_url="https://api.parwa.ai/sso/acs/test"
         )
         
-        assert generator.validate_for_okta() is True
+        # Generate and validate metadata for Okta
+        metadata = generator.generate_okta_metadata()
+        result = generator.validate_metadata(metadata)
+        assert result["valid"] is True
     
     def test_validate_for_azure_ad(self):
         """Test metadata validation for Azure AD."""
@@ -214,7 +217,10 @@ class TestSPMetadataGenerator:
             acs_url="https://api.parwa.ai/sso/acs/test"
         )
         
-        assert generator.validate_for_azure_ad() is True
+        # Generate and validate metadata for Azure AD
+        metadata = generator.generate_azure_metadata()
+        result = generator.validate_metadata(metadata)
+        assert result["valid"] is True
     
     def test_metadata_with_slo(self):
         """Test metadata includes SLO URL when provided."""
@@ -224,7 +230,7 @@ class TestSPMetadataGenerator:
             slo_url="https://api.parwa.ai/sso/slo/test"
         )
         
-        metadata = generator.generate()
+        metadata = generator.generate_metadata()
         
         assert "SingleLogoutService" in metadata
         assert "https://api.parwa.ai/sso/slo/test" in metadata
@@ -245,59 +251,67 @@ class TestSCIMStub:
         """Test SCIM user creation."""
         scim = SCIMStub("tenant-123")
         
-        user = scim.create_user({
-            "userName": "test@example.com",
-            "name": {"givenName": "Test", "familyName": "User"},
-            "emails": [{"value": "test@example.com", "primary": "true"}]
-        })
+        user = scim.create_user(
+            user_name="test@example.com",
+            given_name="Test",
+            family_name="User",
+            email="test@example.com"
+        )
         
         assert user is not None
-        assert user["userName"] == "test@example.com"
-        assert "schemas" in user
-        assert "urn:ietf:params:scim:schemas:core:2.0:User" in user["schemas"]
+        assert user.user_name == "test@example.com"
+        assert user.name["givenName"] == "Test"
+        assert user.name["familyName"] == "User"
     
     def test_get_user(self):
         """Test getting a SCIM user."""
         scim = SCIMStub("tenant-123")
         
-        created = scim.create_user({
-            "userName": "test@example.com"
-        })
+        created = scim.create_user(
+            user_name="test@example.com",
+            given_name="Test",
+            family_name="User",
+            email="test@example.com"
+        )
         
-        user = scim.get_user(created["id"])
+        user = scim.get_user(created.id)
         
         assert user is not None
-        assert user["userName"] == "test@example.com"
+        assert user.user_name == "test@example.com"
     
     def test_update_user(self):
         """Test updating a SCIM user."""
         scim = SCIMStub("tenant-123")
         
-        created = scim.create_user({
-            "userName": "test@example.com",
-            "active": True
-        })
+        created = scim.create_user(
+            user_name="test@example.com",
+            given_name="Test",
+            family_name="User",
+            email="test@example.com",
+            active=True
+        )
         
-        updated = scim.update_user(created["id"], {
-            "active": False
-        })
+        updated = scim.update_user(created.id, active=False)
         
         assert updated is not None
-        assert updated["active"] is False
+        assert updated.active is False
     
     def test_delete_user(self):
         """Test deleting a SCIM user (deprovisioning)."""
         scim = SCIMStub("tenant-123")
         
-        created = scim.create_user({
-            "userName": "test@example.com"
-        })
+        created = scim.create_user(
+            user_name="test@example.com",
+            given_name="Test",
+            family_name="User",
+            email="test@example.com"
+        )
         
-        result = scim.delete_user(created["id"])
+        result = scim.delete_user(created.id)
         assert result is True
         
         # User should no longer exist
-        user = scim.get_user(created["id"])
+        user = scim.get_user(created.id)
         assert user is None
     
     def test_list_users(self):
@@ -306,9 +320,12 @@ class TestSCIMStub:
         
         # Create multiple users
         for i in range(5):
-            scim.create_user({
-                "userName": f"user{i}@example.com"
-            })
+            scim.create_user(
+                user_name=f"user{i}@example.com",
+                given_name=f"User{i}",
+                family_name="Test",
+                email=f"user{i}@example.com"
+            )
         
         result = scim.list_users()
         
@@ -319,14 +336,10 @@ class TestSCIMStub:
         """Test SCIM group creation."""
         scim = SCIMStub("tenant-123")
         
-        group = scim.create_group({
-            "displayName": "Admins",
-            "members": []
-        })
+        group = scim.create_group(display_name="Admins")
         
         assert group is not None
-        assert group["displayName"] == "Admins"
-        assert "schemas" in group
+        assert group.display_name == "Admins"
     
     def test_service_provider_config(self):
         """Test getting service provider config."""

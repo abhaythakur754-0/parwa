@@ -55,12 +55,13 @@ class TestEnterpriseSSOIntegration:
             acs_url="https://test.parwa.ai/sso/acs/test"
         )
         
-        metadata = generator.generate()
+        metadata = generator.generate_metadata()
         
         assert metadata is not None
         assert "EntityDescriptor" in metadata
         assert "https://test.parwa.ai/sp/test" in metadata
-        assert generator.validate_for_okta() is True
+        result = generator.validate_metadata(metadata)
+        assert result["valid"] is True
     
     def test_scim_user_provisioning(self):
         """Test SCIM user provisioning."""
@@ -68,21 +69,23 @@ class TestEnterpriseSSOIntegration:
         
         scim = SCIMStub("tenant-123")
         
-        # Create user
-        user = scim.create_user({
-            "userName": "test@example.com",
-            "name": {"givenName": "Test", "familyName": "User"}
-        })
+        # Create user with positional arguments
+        user = scim.create_user(
+            user_name="test@example.com",
+            given_name="Test",
+            family_name="User",
+            email="test@example.com"
+        )
         
         assert user is not None
-        assert user["userName"] == "test@example.com"
+        assert user.user_name == "test@example.com"
         
         # Get user
-        retrieved = scim.get_user(user["id"])
+        retrieved = scim.get_user(user.id)
         assert retrieved is not None
         
         # Delete user
-        assert scim.delete_user(user["id"]) is True
+        assert scim.delete_user(user.id) is True
 
 
 class TestEnterpriseSecurityIntegration:
