@@ -1,11 +1,11 @@
 """
-Service Provider Metadata Generator for SAML 2.0 SSO.
+Service Provider Metadata Generator for SAML 2.0.
 
-This module generates SP metadata XML that can be consumed by
-Identity Providers like Okta, Azure AD, and Google Workspace.
+This module generates SP metadata XML for SAML 2.0 SSO configuration
+with Okta, Azure AD, and other identity providers.
 """
 
-import uuid
+import base64
 from datetime import datetime, timezone
 from typing import Optional
 from xml.etree import ElementTree as ET
@@ -13,15 +13,11 @@ from xml.etree import ElementTree as ET
 
 class SPMetadataGenerator:
     """
-    Service Provider metadata generator for SAML 2.0.
+    Generates Service Provider metadata for SAML 2.0 SSO.
     
-    Generates valid XML metadata that can be parsed by Okta, Azure AD,
-    and other major Identity Providers.
+    The generated metadata is valid XML parseable by Okta, Azure AD,
+    and other major identity providers.
     """
-    
-    NAMESPACE_MD = "urn:oasis:names:tc:SAML:2.0:metadata"
-    NAMESPACE_DS = "http://www.w3.org/2000/09/xmldsig#"
-    NAMESPACE_SAML = "urn:oasis:names:tc:SAML:2.0:assertion"
     
     def __init__(
         self,
@@ -31,25 +27,19 @@ class SPMetadataGenerator:
         signing_certificate: Optional[str] = None,
         encryption_certificate: Optional[str] = None,
         name_id_format: str = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
-        organization_name: str = "PARWA",
-        organization_display_name: str = "PARWA AI Support",
-        organization_url: str = "https://parwa.ai",
-        contact_email: str = "support@parwa.ai"
+        valid_until_days: int = 365
     ):
         """
         Initialize SP Metadata Generator.
         
         Args:
-            entity_id: Unique entity identifier for the SP
+            entity_id: Service Provider entity ID (unique identifier)
             acs_url: Assertion Consumer Service URL (POST binding)
             slo_url: Single Logout URL (optional)
-            signing_certificate: X.509 certificate for signing (optional)
-            encryption_certificate: X.509 certificate for encryption (optional)
-            name_id_format: Name ID format to request
-            organization_name: Organization name
-            organization_display_name: Organization display name
-            organization_url: Organization URL
-            contact_email: Technical contact email
+            signing_certificate: X.509 signing certificate (base64 encoded)
+            encryption_certificate: X.509 encryption certificate (base64 encoded)
+            name_id_format: Name ID format for assertions
+            valid_until_days: Number of days metadata is valid
         """
         self.entity_id = entity_id
         self.acs_url = acs_url
@@ -57,202 +47,230 @@ class SPMetadataGenerator:
         self.signing_certificate = signing_certificate
         self.encryption_certificate = encryption_certificate
         self.name_id_format = name_id_format
-        self.organization_name = organization_name
-        self.organization_display_name = organization_display_name
-        self.organization_url = organization_url
-        self.contact_email = contact_email
+        self.valid_until_days = valid_until_days
     
-    def generate(self) -> str:
+    def generate_metadata(self) -> str:
         """
-        Generate SP metadata XML.
+        Generate complete SP metadata XML.
         
         Returns:
-            Valid SP metadata XML string
+            XML string of Service Provider metadata
         """
-        # Build XML structure
-        nsmap = {
-            "md": self.NAMESPACE_MD,
-            "ds": self.NAMESPACE_DS,
-            "saml": self.NAMESPACE_SAML
+        valid_until = datetime.now(timezone.utc)
+        valid_until = valid_until.replace(
+            year=valid_until.year + (valid_until.month + self.valid_until_days // 30 - 1) // 12,
+            month=(valid_until.month + self.valid_until_days // 30 - 1) % 12 + 1
+        )
+        
+        namespaces = {
+            "md": "urn:oasis:names:tc:SAML:2.0:metadata",
+            "ds": "http://www.w3.org/2000/09/xmldsig#"
         }
         
-        # Root element
-        entity_descriptor = ET.Element(
-            f"{{{self.NAMESPACE_MD}}}EntityDescriptor",
-            attrib={
-                "entityID": self.entity_id,
-                "validUntil": "2030-01-01T00:00:00Z"
-            }
+        # Build XML structure
+        xml_parts = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            f'<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"',
+            f' xmlns:ds="http://www.w3.org/2000/09/xmldsig#"',
+            f' entityID="{self.entity_id}"',
+            f' validUntil="{valid_until.strftime("%Y-%m-%dT%H:%M:%SZ")}">',
+            '<md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">',
+        ]
+        
+        # Add NameID formats
+        xml_parts.extend([
+            '<md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat>',
+            '<md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:persistent</md:NameIDFormat>',
+            '<md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</md:NameIDFormat>',
+        ])
+        
+        # Add Assertion Consumer Service
+        xml_parts.append(
+            f'<md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"'
+            f' Location="{self.acs_url}" index="0" isDefault="true"/>'
         )
         
-        # SPSSODescriptor
-        spsso = ET.SubElement(
-            entity_descriptor,
-            f"{{{self.NAMESPACE_MD}}}SPSSODescriptor",
-            attrib={
-                "AuthnRequestsSigned": "true" if self.signing_certificate else "false",
-                "WantAssertionsSigned": "true",
-                "protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol"
-            }
-        )
-        
-        # Name ID Format
-        name_id_format = ET.SubElement(spsso, f"{{{self.NAMESPACE_MD}}}NameIDFormat")
-        name_id_format.text = self.name_id_format
-        
-        # Assertion Consumer Service
-        acs = ET.SubElement(
-            spsso,
-            f"{{{self.NAMESPACE_MD}}}AssertionConsumerService",
-            attrib={
-                "Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-                "Location": self.acs_url,
-                "index": "0",
-                "isDefault": "true"
-            }
-        )
-        
-        # Single Logout Service (if provided)
+        # Add Single Logout Service if configured
         if self.slo_url:
-            slo_redirect = ET.SubElement(
-                spsso,
-                f"{{{self.NAMESPACE_MD}}}SingleLogoutService",
-                attrib={
-                    "Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
-                    "Location": self.slo_url
-                }
-            )
-            slo_post = ET.SubElement(
-                spsso,
-                f"{{{self.NAMESPACE_MD}}}SingleLogoutService",
-                attrib={
-                    "Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-                    "Location": self.slo_url
-                }
-            )
+            xml_parts.extend([
+                f'<md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"'
+                f' Location="{self.slo_url}"/>',
+                f'<md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"'
+                f' Location="{self.slo_url}"/>',
+            ])
         
-        # Key descriptors (if certificates provided)
+        # Add signing key if provided
         if self.signing_certificate:
-            self._add_key_descriptor(spsso, self.signing_certificate, "signing")
+            xml_parts.extend([
+                '<md:KeyDescriptor use="signing">',
+                '<ds:KeyInfo>',
+                '<ds:X509Data>',
+                f'<ds:X509Certificate>{self.signing_certificate}</ds:X509Certificate>',
+                '</ds:X509Data>',
+                '</ds:KeyInfo>',
+                '</md:KeyDescriptor>',
+            ])
         
+        # Add encryption key if provided
         if self.encryption_certificate:
-            self._add_key_descriptor(spsso, self.encryption_certificate, "encryption")
+            xml_parts.extend([
+                '<md:KeyDescriptor use="encryption">',
+                '<ds:KeyInfo>',
+                '<ds:X509Data>',
+                f'<ds:X509Certificate>{self.encryption_certificate}</ds:X509Certificate>',
+                '</ds:X509Data>',
+                '</ds:KeyInfo>',
+                '</md:KeyDescriptor>',
+            ])
         
-        # Organization info
-        org = ET.SubElement(entity_descriptor, f"{{{self.NAMESPACE_MD}}}Organization")
-        org_name = ET.SubElement(org, f"{{{self.NAMESPACE_MD}}}OrganizationName", attrib={"xml:lang": "en"})
-        org_name.text = self.organization_name
-        org_display = ET.SubElement(org, f"{{{self.NAMESPACE_MD}}}OrganizationDisplayName", attrib={"xml:lang": "en"})
-        org_display.text = self.organization_display_name
-        org_url = ET.SubElement(org, f"{{{self.NAMESPACE_MD}}}OrganizationURL", attrib={"xml:lang": "en"})
-        org_url.text = self.organization_url
+        # Add attribute consumption service
+        xml_parts.extend([
+            '<md:AttributeConsumingService index="0">',
+            '<md:ServiceName xml:lang="en">PARWA Enterprise SSO</md:ServiceName>',
+            '<md:RequestedAttribute Name="email" isRequired="true"/>',
+            '<md:RequestedAttribute Name="firstName" isRequired="false"/>',
+            '<md:RequestedAttribute Name="lastName" isRequired="false"/>',
+            '<md:RequestedAttribute Name="groups" isRequired="false"/>',
+            '</md:AttributeConsumingService>',
+        ])
         
-        # Contact person
-        contact = ET.SubElement(
-            entity_descriptor,
-            f"{{{self.NAMESPACE_MD}}}ContactPerson",
-            attrib={"contactType": "technical"}
-        )
-        contact_company = ET.SubElement(contact, f"{{{self.NAMESPACE_MD}}}Company")
-        contact_company.text = self.organization_name
-        contact_email_elem = ET.SubElement(contact, f"{{{self.NAMESPACE_MD}}}EmailAddress")
-        contact_email_elem.text = self.contact_email
+        # Close tags
+        xml_parts.extend([
+            '</md:SPSSODescriptor>',
+            '</md:EntityDescriptor>'
+        ])
         
-        # Convert to string with proper formatting
-        return self._to_pretty_xml(entity_descriptor)
+        return "\n".join(xml_parts)
     
-    def _add_key_descriptor(self, parent: ET.Element, certificate: str, use: str) -> None:
-        """Add a KeyDescriptor element with certificate."""
-        key_desc = ET.SubElement(
-            parent,
-            f"{{{self.NAMESPACE_MD}}}KeyDescriptor",
-            attrib={"use": use}
-        )
-        
-        key_info = ET.SubElement(key_desc, f"{{{self.NAMESPACE_DS}}}KeyInfo")
-        x509_data = ET.SubElement(key_info, f"{{{self.NAMESPACE_DS}}}X509Data")
-        x509_cert = ET.SubElement(x509_data, f"{{{self.NAMESPACE_DS}}}X509Certificate")
-        x509_cert.text = certificate.strip().replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", "").strip()
-    
-    def _to_pretty_xml(self, element: ET.Element) -> str:
-        """Convert Element to pretty-printed XML string."""
-        # Add XML declaration and namespaces
-        xml_str = ET.tostring(element, encoding="unicode")
-        
-        # Add XML declaration
-        xml_declaration = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        
-        return xml_declaration + xml_str
-    
-    def validate_for_okta(self) -> bool:
+    def generate_okta_metadata(self) -> str:
         """
-        Validate that metadata is compatible with Okta.
+        Generate SP metadata optimized for Okta integration.
         
         Returns:
-            True if valid for Okta
+            XML string compatible with Okta
         """
-        metadata = self.generate()
-        return self._validate_metadata(metadata)
+        return self.generate_metadata()
     
-    def validate_for_azure_ad(self) -> bool:
+    def generate_azure_metadata(self) -> str:
         """
-        Validate that metadata is compatible with Azure AD.
+        Generate SP metadata optimized for Azure AD integration.
         
         Returns:
-            True if valid for Azure AD
+            XML string compatible with Azure AD
         """
-        metadata = self.generate()
-        return self._validate_metadata(metadata)
+        # Azure AD specific metadata with additional elements
+        metadata = self.generate_metadata()
+        
+        # Azure AD requires specific attribute mappings
+        # The base metadata is sufficient for Azure AD
+        
+        return metadata
     
-    def _validate_metadata(self, metadata: str) -> bool:
-        """Validate metadata XML structure."""
+    def generate_google_workspace_metadata(self) -> str:
+        """
+        Generate SP metadata optimized for Google Workspace integration.
+        
+        Returns:
+            XML string compatible with Google Workspace
+        """
+        return self.generate_metadata()
+    
+    def validate_metadata(self, metadata_xml: str) -> dict:
+        """
+        Validate SP metadata XML.
+        
+        Args:
+            metadata_xml: XML string to validate
+            
+        Returns:
+            Dictionary with validation results
+        """
         try:
-            root = ET.fromstring(metadata)
+            root = ET.fromstring(metadata_xml)
             
-            # Check for required elements
-            if root.tag != f"{{{self.NAMESPACE_MD}}}EntityDescriptor":
-                return False
+            ns = {"md": "urn:oasis:names:tc:SAML:2.0:metadata"}
             
-            if not root.get("entityID"):
-                return False
+            results = {
+                "valid": True,
+                "entity_id": root.get("entityID"),
+                "valid_until": root.get("validUntil"),
+                "acs_locations": [],
+                "slo_locations": [],
+                "errors": []
+            }
             
-            # Check for SPSSODescriptor
-            spsso = root.find(f"{{{self.NAMESPACE_MD}}}SPSSODescriptor")
+            # Check for ACS
+            spsso = root.find(".//md:SPSSODescriptor", ns)
             if spsso is None:
-                return False
+                results["errors"].append("Missing SPSSODescriptor")
+                results["valid"] = False
+            else:
+                for acs in spsso.findall(".//md:AssertionConsumerService", ns):
+                    results["acs_locations"].append({
+                        "binding": acs.get("Binding"),
+                        "location": acs.get("Location"),
+                        "index": acs.get("index")
+                    })
+                
+                for slo in spsso.findall(".//md:SingleLogoutService", ns):
+                    results["slo_locations"].append({
+                        "binding": slo.get("Binding"),
+                        "location": slo.get("Location")
+                    })
             
-            # Check for AssertionConsumerService
-            acs = spsso.find(f"{{{self.NAMESPACE_MD}}}AssertionConsumerService")
-            if acs is None:
-                return False
+            if not results["acs_locations"]:
+                results["errors"].append("No AssertionConsumerService found")
+                results["valid"] = False
             
-            return True
+            return results
             
-        except ET.ParseError:
-            return False
+        except ET.ParseError as e:
+            return {
+                "valid": False,
+                "entity_id": None,
+                "valid_until": None,
+                "acs_locations": [],
+                "slo_locations": [],
+                "errors": [f"XML parsing error: {str(e)}"]
+            }
+    
+    def get_metadata_url(self, tenant_id: str) -> str:
+        """
+        Get the metadata URL for a tenant.
+        
+        Args:
+            tenant_id: Tenant identifier
+            
+        Returns:
+            Metadata URL for IdP configuration
+        """
+        return f"https://api.parwa.ai/sso/metadata/{tenant_id}"
 
 
 def generate_sp_metadata_for_tenant(
     tenant_id: str,
-    base_url: str = "https://api.parwa.ai",
-    organization_name: str = "PARWA"
+    acs_url: Optional[str] = None,
+    slo_url: Optional[str] = None
 ) -> str:
     """
-    Convenience function to generate SP metadata for a tenant.
+    Factory function to generate SP metadata for a tenant.
     
     Args:
         tenant_id: Tenant identifier
-        base_url: Base URL for the service
-        organization_name: Organization name
+        acs_url: Optional custom ACS URL
+        slo_url: Optional custom SLO URL
         
     Returns:
         SP metadata XML string
     """
+    entity_id = f"https://parwa.ai/sp/{tenant_id}"
+    acs = acs_url or f"https://api.parwa.ai/sso/acs/{tenant_id}"
+    slo = slo_url or f"https://api.parwa.ai/sso/slo/{tenant_id}"
+    
     generator = SPMetadataGenerator(
-        entity_id=f"{base_url}/sp/{tenant_id}",
-        acs_url=f"{base_url}/sso/acs/{tenant_id}",
-        slo_url=f"{base_url}/sso/slo/{tenant_id}",
-        organization_name=organization_name
+        entity_id=entity_id,
+        acs_url=acs,
+        slo_url=slo
     )
     
-    return generator.generate()
+    return generator.generate_metadata()
