@@ -164,8 +164,13 @@ class AlertRuleEngine:
         # Handle duration
         if is_firing:
             if rule.state == RuleState.IDLE:
-                rule.state = RuleState.PENDING
-                rule.firing_since = datetime.utcnow()
+                if rule.duration_seconds == 0:
+                    # No duration required, fire immediately
+                    rule.state = RuleState.FIRING
+                    rule.firing_since = datetime.utcnow()
+                else:
+                    rule.state = RuleState.PENDING
+                    rule.firing_since = datetime.utcnow()
             elif rule.state == RuleState.PENDING:
                 if rule.duration_seconds > 0:
                     elapsed = (datetime.utcnow() - rule.firing_since).total_seconds()
