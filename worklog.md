@@ -88,6 +88,108 @@
 
 ---
 
+### Builder 3: Encryption Manager (Task ID: 54-B3)
+
+**Date:** 2025-01-21
+
+**Files Created:**
+1. `enterprise/security_hardening/encryption_manager.py` - Encryption/decryption management
+2. `enterprise/security_hardening/key_vault.py` - Key vault for storing encryption keys
+3. `enterprise/security_hardening/secrets_manager.py` - Secrets management system
+4. `tests/enterprise/security_hardening/test_encryption_manager.py` - Comprehensive test suite
+
+**Components Implemented:**
+
+#### 1. EncryptionManager (`encryption_manager.py`)
+- `EncryptionAlgorithm` enum: AES-256-GCM, RSA-2048, ChaCha20-Poly1305
+- `EncryptedData` dataclass with ciphertext, iv, tag, algorithm, key_id, timestamp, metadata
+- `EncryptionKey` class for key metadata management
+- `EncryptionManager` class with:
+  - `generate_key()` method for creating encryption keys
+  - `encrypt()` method supporting all 3 algorithms
+  - `decrypt()` method for all algorithms
+  - `rotate_key()` for key rotation with history tracking
+  - `re_encrypt()` for re-encrypting with new keys
+  - Support for AES-256-GCM with 12-byte IVs and 16-byte auth tags
+  - Support for ChaCha20-Poly1305 with 12-byte nonces
+  - Support for RSA-2048 with OAEP padding
+  - Associated data support for AEAD ciphers
+
+#### 2. KeyVault (`key_vault.py`)
+- `KeyStatus` enum: ACTIVE, INACTIVE, EXPIRED, REVOKED
+- `KeyEntry` dataclass with key_id, algorithm, key_reference, version, status, metadata, tags
+- `AuditEntry` dataclass for audit trail logging
+- `AccessLog` dataclass for access attempt tracking
+- `KeyVault` class with:
+  - `store_key()` for secure key storage
+  - `retrieve_key()` with validity checking
+  - `rotate_key()` for key rotation with versioning
+  - `delete_key()` with soft/hard delete options
+  - `get_key_versions()` for version history
+  - `get_audit_trail()` with filtering options
+  - `get_access_log()` for access monitoring
+  - `expire_keys()` for automatic expiration
+  - `save_to_disk()` and `_load_from_disk()` for persistence
+  - `get_stats()` for vault statistics
+
+#### 3. SecretsManager (`secrets_manager.py`)
+- `SecretType` enum: API_KEY, PASSWORD, CERTIFICATE, TOKEN, DATABASE_CREDENTIAL, OAUTH_SECRET, SSH_KEY, CUSTOM
+- `SecretStatus` enum: ACTIVE, EXPIRED, REVOKED, PENDING_ROTATION
+- `Secret` dataclass with name, value, version, rotation_interval, metadata, tags
+- `SecretLease` dataclass for secret leasing with TTL
+- `SecretsManager` class with:
+  - `create_secret()` for secret creation
+  - `get_secret()` with version support and leasing
+  - `update_secret()` with version incrementing
+  - `delete_secret()` with soft/hard delete
+  - `rotate_secret()` for manual rotation
+  - `renew_lease()` and `revoke_lease()` for lease management
+  - `get_environment_secret()` for env var fallback
+  - `set_environment_secret()` to set env vars from secrets
+  - `check_rotations()` for automatic rotation detection
+  - `expire_secrets()` for automatic expiration
+  - `get_stats()` for manager statistics
+
+**Test Coverage:**
+- 38 tests total (exceeds 25 required)
+- Tests organized by module:
+  - TestEncryptionManager (10 tests)
+    - Key generation for all 3 algorithms
+    - Encrypt/decrypt for all 3 algorithms
+    - Key rotation
+    - Re-encryption
+    - Serialization
+    - Key listing
+  - TestKeyVault (8 tests)
+    - Store and retrieve keys
+    - Key rotation
+    - Soft and hard delete
+    - Key versioning
+    - Audit trail
+  - TestSecretsManager (10 tests)
+    - Create, get, update, delete secrets
+    - Secret leasing and renewal
+    - Secret rotation
+    - Version management
+  - TestIntegration (5 tests)
+    - End-to-end workflow
+    - Multi-algorithm support
+    - Rotation detection
+    - Persistence workflow
+  - TestEdgeCases (5 tests)
+    - Empty plaintext encryption
+    - Large data encryption
+    - Key and secret expiration
+    - Duplicate secret names
+
+**Test Results:** All 38 tests passed
+
+**Commit:** `707ed39` - "Week 54 Builder 3: Encryption Manager - 3 files + tests"
+
+**Pushed to:** origin/main
+
+---
+
 ### Builder 1: Vulnerability Scanner (Task ID: 54-B1)
 
 **Date:** 2025-01-21
@@ -184,6 +286,92 @@
 **Test Results:** All 50 tests passed
 
 **Commit:** `92772fa` - "Week 54 Builder 1: Vulnerability Scanner - 3 files + tests"
+
+**Pushed to:** origin/main
+
+---
+
+### Builder 4: Access Controller (Task ID: 54-B4)
+
+**Date:** 2025-01-21
+
+**Files Created:**
+1. `enterprise/security_hardening/access_controller.py` - Access control system
+2. `enterprise/security_hardening/rbac_manager.py` - Role-based access control
+3. `enterprise/security_hardening/permission_engine.py` - Permission evaluation engine
+4. `tests/enterprise/security_hardening/test_access_controller.py` - Comprehensive test suite
+
+**Components Implemented:**
+
+#### 1. AccessController (`access_controller.py`)
+- `AccessDecision` enum: ALLOW, DENY, CHALLENGE
+- `AccessRequest` dataclass with user, resource, action, context, request_id, timestamp
+- `AccessResponse` dataclass with decision, reasons, matched_rules, metadata
+- `AccessCache` class with:
+  - TTL-based caching for performance
+  - Thread-safe operations with RLock
+  - Cache hit/miss statistics
+  - User-specific cache invalidation
+  - LRU eviction policy
+- `AccessController` class with:
+  - `check_access()` method for centralized access decisions
+  - Rule-based access control with pattern matching
+  - Integration with RBACManager and PermissionEngine
+  - Audit logging for all access decisions
+  - Configurable default decision
+
+#### 2. RBACManager (`rbac_manager.py`)
+- `PermissionEffect` enum: ALLOW, DENY
+- `Permission` dataclass (frozen for hashability) with resource pattern, action pattern, conditions
+- `Role` dataclass with permissions set, inheritance list, metadata
+- `RoleAssignment` dataclass with expiration support and conditions
+- `RBACManager` class with:
+  - `create_role()` for role creation with inheritance support
+  - `assign_role()` and `revoke_role()` for user-role management
+  - `check_permission()` and `check_access()` for permission evaluation
+  - Role hierarchy resolution for inheritance
+  - Callback support for role change notifications
+  - `create_default_roles()` helper for viewer, editor, admin, super_admin roles
+
+#### 3. PermissionEngine (`permission_engine.py`)
+- `ConditionType` enum: TIME_BASED, ATTRIBUTE_BASED, CONTEXT_BASED, EXPRESSION, CUSTOM
+- `PermissionResult` enum: ALLOW, DENY, ABSTAIN
+- `Condition` class with:
+  - Time-based condition evaluation (business hours, allowed days, date ranges)
+  - Attribute-based condition evaluation (user attributes, complex conditions)
+  - Context-based condition evaluation (IP, location, device, session)
+  - Expression-based condition evaluation with safe eval
+- `PermissionRule` dataclass with conditions, priority, enabled flag
+- `PermissionPolicy` dataclass with rules, default result, versioning
+- `BulkCheckRequest` and `BulkCheckResult` for bulk operations
+- `PermissionEngine` class with:
+  - `evaluate()` for single permission checks
+  - `check()` for detailed permission responses
+  - `bulk_check()` for batch permission evaluation
+  - `create_time_based_rule()`, `create_attribute_based_rule()`, `create_context_based_rule()` helpers
+  - Policy assignment to users
+  - Built-in condition evaluators (business hours, weekday check, IP range, MFA verification)
+
+**Test Coverage:**
+- 45 tests total (exceeds 25 required)
+- Tests organized by module:
+  - TestAccessDecision (2 tests)
+  - TestAccessRequest (3 tests)
+  - TestAccessResponse (3 tests)
+  - TestAccessCache (4 tests)
+  - TestAccessController (5 tests)
+  - TestPermission (2 tests)
+  - TestRole (3 tests)
+  - TestRBACManager (7 tests)
+  - TestCondition (3 tests)
+  - TestPermissionRule (2 tests)
+  - TestPermissionPolicy (2 tests)
+  - TestPermissionEngine (6 tests)
+  - TestIntegration (3 tests)
+
+**Test Results:** All 45 tests passed
+
+**Commit:** Included in existing commit (files co-committed with other builders)
 
 **Pushed to:** origin/main
 

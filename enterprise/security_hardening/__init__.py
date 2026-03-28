@@ -8,8 +8,6 @@ from enterprise.security_hardening.threat_detector import (
     Threat,
     ThreatType,
     ThreatSeverity,
-    ThreatStatus,
-    ThreatIndicator,
     ThreatSignature
 )
 
@@ -17,20 +15,14 @@ from enterprise.security_hardening.anomaly_detector import (
     AnomalyDetector,
     Anomaly,
     AnomalyType,
-    AnomalySeverity,
-    AnomalyStatus,
     Baseline
 )
 
 from enterprise.security_hardening.intrusion_prevention import (
     IntrusionPrevention,
-    IPBlock,
-    IPBlockStatus,
+    BlockEntry,
     PreventionRule,
-    PreventionLog,
-    ActionType,
-    BlockReason,
-    RulePriority
+    ActionType
 )
 
 __all__ = [
@@ -39,23 +31,15 @@ __all__ = [
     "Threat",
     "ThreatType",
     "ThreatSeverity",
-    "ThreatStatus",
-    "ThreatIndicator",
     "ThreatSignature",
     # Anomaly Detection
     "AnomalyDetector",
     "Anomaly",
     "AnomalyType",
-    "AnomalySeverity",
-    "AnomalyStatus",
     "Baseline",
     # Intrusion Prevention
     "IntrusionPrevention",
-    "IPBlock",
-    "IPBlockStatus",
+    "BlockEntry",
     "PreventionRule",
-    "PreventionLog",
-    "ActionType",
-    "BlockReason",
-    "RulePriority"
+    "ActionType"
 ]
