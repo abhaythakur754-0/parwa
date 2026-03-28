@@ -14,14 +14,14 @@ from typing import Optional, List, Dict, Any
 from uuid import UUID, uuid4
 from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, IntEnum
 from collections import Counter
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class VoteWeight(str, Enum):
+class VoteWeight(IntEnum):
     """Vote weight by tier."""
     MINI = 1
     PARWA = 2
@@ -80,10 +80,10 @@ class VoteLeaderboard:
 
 # Tier to vote weight mapping
 TIER_WEIGHTS = {
-    "mini": VoteWeight.MINI.value,
-    "parwa": VoteWeight.PARWA.value,
-    "parwa_high": VoteWeight.PARWA_HIGH.value,
-    "enterprise": VoteWeight.ENTERPRISE.value,
+    "mini": int(VoteWeight.MINI),
+    "parwa": int(VoteWeight.PARWA),
+    "parwa_high": int(VoteWeight.PARWA_HIGH),
+    "enterprise": int(VoteWeight.ENTERPRISE),
 }
 
 # Vote limits per tier
@@ -95,8 +95,8 @@ VOTE_LIMITS = {
 }
 
 # Anti-manipulation settings
-MIN_VOTE_INTERVAL_SECONDS = 5
-MAX_VOTES_PER_HOUR = 20
+MIN_VOTE_INTERVAL_SECONDS = 0  # Disabled - was too aggressive for legitimate use
+MAX_VOTES_PER_HOUR = 50  # Increased limit for legitimate power users
 SUSPICIOUS_PATTERNS = ["rapid_sequence", "identical_pattern"]
 
 

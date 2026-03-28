@@ -244,7 +244,7 @@ class TrialHandler:
         if not trial:
             raise ValueError("No active trial to extend")
 
-        if trial.status != TrialStatus.ACTIVE:
+        if trial.status not in [TrialStatus.ACTIVE, TrialStatus.EXTENDED]:
             raise ValueError(f"Cannot extend trial in {trial.status.value} status")
 
         # Cap extension

@@ -178,7 +178,9 @@ class RoadmapIntelligence:
         segments: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         votes: int = 0,
-        requests: int = 0
+        requests: int = 0,
+        revenue_impact: float = 0.0,
+        strategic_value: float = 0.0
     ) -> RoadmapFeature:
         """
         Add a feature to roadmap analysis.
@@ -191,6 +193,10 @@ class RoadmapIntelligence:
             effort: Estimated effort
             segments: Target customer segments
             tags: Feature tags
+            votes: Initial vote count
+            requests: Initial request count
+            revenue_impact: Estimated revenue impact
+            strategic_value: Strategic value score
 
         Returns:
             Created RoadmapFeature
@@ -205,6 +211,8 @@ class RoadmapIntelligence:
             tags=tags or [],
             votes=votes,
             requests=requests,
+            revenue_impact=revenue_impact,
+            strategic_value=strategic_value,
         )
 
         self._features[str(feature.id)] = feature

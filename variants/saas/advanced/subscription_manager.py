@@ -188,7 +188,8 @@ class SubscriptionManager:
         tier: SubscriptionTier,
         billing_cycle: BillingCycle = BillingCycle.MONTHLY,
         trial_days: int = 0,
-        paddle_subscription_id: Optional[str] = None
+        paddle_subscription_id: Optional[str] = None,
+        client_id: Optional[str] = None
     ) -> Subscription:
         """
         Create a new subscription.
@@ -198,11 +199,13 @@ class SubscriptionManager:
             billing_cycle: Billing cycle (monthly, annual, quarterly)
             trial_days: Number of trial days (0 for no trial)
             paddle_subscription_id: Optional Paddle subscription ID
+            client_id: Optional client ID (uses self.client_id if not provided)
 
         Returns:
             Created Subscription
         """
         now = datetime.now(timezone.utc)
+        effective_client_id = client_id or self.client_id
 
         # Calculate period based on billing cycle
         if billing_cycle == BillingCycle.MONTHLY:
@@ -218,7 +221,7 @@ class SubscriptionManager:
             trial_ends = now + timedelta(days=trial_days)
 
         subscription = Subscription(
-            client_id=self.client_id,
+            client_id=effective_client_id,
             company_id=self.company_id,
             paddle_subscription_id=paddle_subscription_id,
             status=SubscriptionStatus.TRIALING if trial_days > 0 else SubscriptionStatus.ACTIVE,
@@ -229,7 +232,7 @@ class SubscriptionManager:
             trial_ends=trial_ends,
         )
 
-        self._subscriptions[self.client_id] = subscription
+        self._subscriptions[effective_client_id] = subscription
 
         # Log event
         await self._log_event(
@@ -242,7 +245,7 @@ class SubscriptionManager:
         logger.info(
             "Subscription created",
             extra={
-                "client_id": self.client_id,
+                "client_id": effective_client_id,
                 "subscription_id": str(subscription.id),
                 "tier": tier.value,
                 "billing_cycle": billing_cycle.value,

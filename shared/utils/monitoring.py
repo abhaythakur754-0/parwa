@@ -1,7 +1,16 @@
 import time
 from typing import Optional, Callable, Any, Dict
 from functools import wraps
-import sentry_sdk
+import logging
+
+# Make sentry_sdk optional
+try:
+    import sentry_sdk
+    SENTRY_AVAILABLE = True
+except ImportError:
+    sentry_sdk = None
+    SENTRY_AVAILABLE = False
+
 from prometheus_client import Counter, Histogram
 
 from shared.core_functions.config import get_settings
@@ -29,6 +38,10 @@ def init_monitoring() -> None:
     """
     settings = get_settings()
     
+    if not SENTRY_AVAILABLE:
+        logger.warning("sentry_sdk not installed. Skipping Sentry initialization.")
+        return
+    
     if settings.sentry_dsn:
         try:
             sentry_sdk.init(
@@ -47,6 +60,9 @@ def capture_exception(error: Exception, context: Optional[Dict[str, Any]] = None
     Captures an exception and sends it to Sentry and the local logger.
     """
     logger.error("Exception captured", exc_info=error, extra={"context": context or {}})
+    
+    if not SENTRY_AVAILABLE:
+        return
     
     if get_settings().sentry_dsn:
         if context:
