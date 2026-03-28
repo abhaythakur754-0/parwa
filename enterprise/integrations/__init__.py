@@ -23,6 +23,16 @@ from .erp_base import (
 )
 from .sap_connector import SAPConnector, SAPAuth
 from .data_transformer import DataTransformer, TransformationRule
+from .warehouse_base import (
+    BaseWarehouseConnector,
+    WarehouseConfig,
+    WarehouseType,
+    QueryResult,
+    ExportJob,
+    ExportFormat
+)
+from .snowflake_connector import SnowflakeConnector, SnowflakeConnection
+from .bigquery_connector import BigQueryConnector, BigQueryConnection
 
 __all__ = [
     # CRM
@@ -45,5 +55,16 @@ __all__ = [
     "SAPConnector",
     "SAPAuth",
     "DataTransformer",
-    "TransformationRule"
+    "TransformationRule",
+    # Data Warehouse
+    "BaseWarehouseConnector",
+    "WarehouseConfig",
+    "WarehouseType",
+    "QueryResult",
+    "ExportJob",
+    "ExportFormat",
+    "SnowflakeConnector",
+    "SnowflakeConnection",
+    "BigQueryConnector",
+    "BigQueryConnection"
 ]
