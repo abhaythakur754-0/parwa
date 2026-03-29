@@ -45,7 +45,7 @@ const MINI_FEATURES: VariantFeature[] = [
  * Mini PARWA variant card component.
  *
  * Entry-level plan for small businesses with:
- * - $1000/month pricing
+ * - $999/month pricing
  * - Light tier AI
  * - Basic channel support (FAQ, Email, Chat, SMS)
  * - 2 concurrent voice calls
@@ -72,7 +72,7 @@ export function MiniCard({
       title="Mini PARWA"
       tier="Light"
       tierVariant="outline"
-      price={1000}
+      price={999}
       targetAudience="Perfect for small businesses getting started with AI support"
       features={MINI_FEATURES}
       isSelected={isSelected}
@@ -92,7 +92,7 @@ export function getMiniConfig() {
     variantId: "mini",
     name: "Mini PARWA",
     tier: "Light",
-    price: 1000,
+    price: 999,
     maxConcurrentCalls: 2,
     refundLimit: 50,
     escalationThreshold: 70,

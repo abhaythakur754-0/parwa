@@ -124,11 +124,11 @@ export function RevenueTrendWidget({ loading }: WidgetProps) {
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
           <p className="text-xs text-gray-500">MRR</p>
-          <p className="text-2xl font-bold">$4,000</p>
+          <p className="text-2xl font-bold">$3,999</p>
         </div>
         <div>
           <p className="text-xs text-gray-500">ARR</p>
-          <p className="text-2xl font-bold">$48,000</p>
+          <p className="text-2xl font-bold">$47,988</p>
         </div>
       </div>
       <div className="flex justify-between text-xs text-gray-500">

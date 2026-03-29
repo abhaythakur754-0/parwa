@@ -54,7 +54,7 @@ const HIGH_FEATURES: VariantFeature[] = [
  * PARWA High variant card component.
  *
  * Enterprise-tier plan with:
- * - $4000/month pricing
+ * - $3,999/month pricing
  * - Heavy tier AI
  * - All channel support including extended Video
  * - 10 concurrent voice calls
@@ -84,7 +84,7 @@ export function ParwaHighCard({
       title="PARWA High"
       tier="Heavy"
       tierVariant="default"
-      price={4000}
+      price={3999}
       targetAudience="Enterprise-grade support with advanced AI capabilities"
       features={HIGH_FEATURES}
       isSelected={isSelected}
@@ -104,7 +104,7 @@ export function getParwaHighConfig() {
     variantId: "parwa_high",
     name: "PARWA High",
     tier: "Heavy",
-    price: 4000,
+    price: 3999,
     maxConcurrentCalls: 10,
     refundLimit: 2000,
     escalationThreshold: 50,
