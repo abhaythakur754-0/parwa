@@ -46,7 +46,7 @@ export interface VariantsComparisonProps {
  */
 const COMPARISON_FEATURES: ComparisonFeature[] = [
   // Pricing
-  { name: "Monthly Price", category: "Pricing", mini: "$49", junior: "$149", high: "$499" },
+  { name: "Monthly Price", category: "Pricing", mini: "$1,000", junior: "$2,500", high: "$4,000" },
   { name: "Annual Discount", category: "Pricing", mini: "10%", junior: "15%", high: "20%" },
 
   // AI Capabilities
