@@ -6,7 +6,7 @@ Batch processing with chunking, parallelism, and job management.
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar, Union
-from datetime import datetime
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, Future, as_completed
 import asyncio
 import time
@@ -503,10 +503,7 @@ class BatchProcessor(Generic[T, R]):
             Number of jobs cleaned up
         """
         cutoff = datetime.utcnow() - timedelta(hours=max_age_hours) if max_age_hours > 0 else datetime.max
-        # Import timedelta
-        from datetime import timedelta
-        cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
-        
+
         cleaned = 0
         with self._lock:
             to_remove = []
