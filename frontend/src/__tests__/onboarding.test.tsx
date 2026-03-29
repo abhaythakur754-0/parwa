@@ -147,9 +147,9 @@ describe("Step 2 - Variant Selection", () => {
   it("shows pricing for each variant", () => {
     render(<OnboardingWizard initialStep={2} />);
 
-    expect(screen.getByText(/\$1,000/)).toBeInTheDocument();
-    expect(screen.getByText(/\$2,500/)).toBeInTheDocument();
-    expect(screen.getByText(/\$4,000/)).toBeInTheDocument();
+    expect(screen.getByText(/\$999/)).toBeInTheDocument();
+    expect(screen.getByText(/\$2,499/)).toBeInTheDocument();
+    expect(screen.getByText(/\$3,999/)).toBeInTheDocument();
   });
 
   it("shows tier badges", () => {

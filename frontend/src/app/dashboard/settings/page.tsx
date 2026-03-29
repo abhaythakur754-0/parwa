@@ -145,7 +145,7 @@ export default function SettingsPage() {
             <OverviewCard
               title="Billing"
               description="Your current plan and billing details"
-              value="$2,500/mo"
+              value="$2,499/mo"
               badge="PARWA Junior"
               href="/dashboard/settings/billing"
               icon={
