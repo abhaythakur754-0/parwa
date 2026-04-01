@@ -14,12 +14,12 @@
 | Week 2 | Day 8 (W2D2) | ✅ DONE | F-012, F-014 | 780 → 866 (+86) |
 | Week 2 | Day 9 (W2D3) | ✅ DONE | F-015, F-016, F-017 | 866 → 900 (+34) |
 | Week 2 | Day 10 (W2D4) | ✅ DONE | F-018, F-019 | 900 → 976 (+76) |
-| Week 2 | Day 11 (W2D5) | ⏳ PENDING | Remaining gaps: C5, S02, F-018/F-019 spec fixes | — |
-| Week 2 | Day 12 (W2D6) | ⏳ PENDING | Admin Panel API + Company Settings | — |
+| Week 2 | Day 11 (W2D5) | ✅ DONE | C5 Phone OTP, S02 Socket.io JWT, G01-G03 gap fixes | 976 → 1062 (+86) |
+| Week 2 | Day 12 (W2D6) | ✅ DONE | Admin Panel API + Company Settings (F06) | 1062 → 1091 (+29) |
 | Week 2 | Day 13 (W2D7) | ⏳ PENDING | Cross-day integration + loophole check | — |
 | Week 3 | Day 14+ | ⏳ NOT STARTED | Celery, Webhook framework, Socket.io JWT (Week 3 roadmap) | — |
 
-**Total Tests: 976 | Flake8 Errors: 0 | CI: GREEN**
+**Total Tests: 1091 | Flake8 Errors: 0 | CI: GREEN**
 
 ---
 
@@ -55,7 +55,7 @@ All 10 features built. But gaps remain from spec compliance + infrastructure.
 | C5 | HIGH | Phone OTP login (Twilio Verify) | `/api/auth/phone/send` + `/api/auth/phone/verify` endpoints. Planned for Day 10 but never built. | Day 11 |
 | S02 | HIGH | Socket.io JWT auth middleware | Socket.io `connect` handler reads from `environ` dict but has no real JWT verification. Need to extract + verify JWT token. | Day 11 |
 | FP11 | MEDIUM | Audit trail middleware | Auto-log all write operations (POST/PUT/DELETE). Deferred from Week 2. | Week 4+ |
-| F06 | LOW | Admin Panel API routes | Company settings CRUD, user management endpoints. Not built yet. | Day 12 |
+| F06 | LOW | Admin Panel API routes | ✅ DONE: 8 client + 10 admin endpoints, company settings CRUD, team management | Day 12 |
 | FP02 | LOW | PaginatedResponse[T] schema | Standardized pagination across all list endpoints. | Week 4+
 
 ---
