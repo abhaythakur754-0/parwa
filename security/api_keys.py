@@ -171,7 +171,12 @@ def hash_api_key(raw_key: str) -> str:
 
     Returns:
         SHA-256 hex digest of the key.
+
+    Raises:
+        ValueError: If raw_key is empty.
     """
+    if not raw_key:
+        raise ValueError("API key must not be empty")
     return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
 
@@ -188,7 +193,12 @@ def verify_api_key(raw_key: str, key_hash: str) -> bool:
     Returns:
         True if the key matches, False otherwise.
     """
-    computed_hash = hash_api_key(raw_key)
+    if not raw_key or not key_hash:
+        return False
+    try:
+        computed_hash = hash_api_key(raw_key)
+    except ValueError:
+        return False
     return constant_time_compare(computed_hash, key_hash)
 
 

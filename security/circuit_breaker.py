@@ -19,8 +19,11 @@ Usage:
 """
 
 import enum
+import logging
 import time
 from typing import Optional
+
+logger = logging.getLogger("circuit_breaker")
 
 
 class CircuitState(enum.Enum):
@@ -153,9 +156,21 @@ class CircuitBreaker:
         self._transition_to(CircuitState.OPEN)
 
     def _transition_to(self, new_state: CircuitState) -> None:
-        """Handle state transition with bookkeeping."""
+        """Handle state transition with bookkeeping and logging."""
+        old_state = self._state
         self._state = new_state
         self._last_state_change_time = time.time()
+
+        # BC-012: Log every state transition for observability
+        logger.warning(
+            "circuit_state_change",
+            extra={
+                "breaker_name": self.name,
+                "old_state": old_state.value,
+                "new_state": new_state.value,
+                "failure_count": self._failure_count,
+            },
+        )
 
         # Reset counters based on transition
         if new_state == CircuitState.CLOSED:

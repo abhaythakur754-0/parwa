@@ -83,9 +83,14 @@ app = FastAPI(
 @app.exception_handler(ParwaBaseError)
 async def parwa_exception_handler(request: Request, exc: ParwaBaseError) -> JSONResponse:
     """Handle all PARWA custom exceptions with structured JSON."""
+    data = exc.to_dict()
+    # BC-012: Include correlation ID in every error response
+    correlation_id = getattr(request.state, "correlation_id", None)
+    if correlation_id:
+        data["correlation_id"] = correlation_id
     return JSONResponse(
         status_code=exc.status_code,
-        content=exc.to_dict(),
+        content=data,
     )
 
 

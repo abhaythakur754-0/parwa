@@ -111,10 +111,17 @@ class TestSlidingWindowCounter:
         assert result2.allowed is True
 
     def test_company_id_in_key(self):
-        """BC-001: Keys must include company_id."""
+        """BC-001: Keys must be deterministic per company_id (collision-free)."""
         counter = SlidingWindowCounter()
-        counter.check_rate_limit("comp-abc", "10.0.0.1")
-        assert any("comp-abc" in k for k in counter._windows)
+        key1 = counter._make_key("comp-abc", "10.0.0.1")
+        key2 = counter._make_key("comp-abc", "10.0.0.1")
+        # Same inputs produce same key (deterministic)
+        assert key1 == key2
+        # Different company_id produces different key
+        key3 = counter._make_key("comp-xyz", "10.0.0.1")
+        assert key1 != key3
+        # Key contains the rate limit prefix
+        assert "parwa:ratelimit:" in key1
 
     def test_denied_result_has_retry_after(self):
         counter = SlidingWindowCounter(
@@ -286,3 +293,63 @@ class TestDefaultConstants:
 
     def test_default_window_seconds(self):
         assert DEFAULT_WINDOW_SECONDS == 60
+
+
+class TestKeyCollisionSafety:
+    """Tests for MD5-based key collision prevention (P0 fix)."""
+
+    def test_delimiter_injection_same_company_different_ip(self):
+        """company_id='comp|any' + IP='' should NOT collide with
+        company_id='comp' + IP='any'."""
+        counter = SlidingWindowCounter()
+        key1 = counter._make_key("comp", "any")
+        key2 = counter._make_key("comp|any", "")
+        assert key1 != key2
+
+    def test_delimiter_injection_special_chars(self):
+        """Special chars in company_id don't cause collisions."""
+        counter = SlidingWindowCounter()
+        key1 = counter._make_key("a\nb", "1.2.3.4")
+        key2 = counter._make_key("a", "nb1.2.3.4")
+        assert key1 != key2
+
+    def test_ipv6_address_no_collision(self):
+        """IPv6 addresses with colons don't cause collisions."""
+        counter = SlidingWindowCounter()
+        key1 = counter._make_key("comp", "2001:db8::1")
+        key2 = counter._make_key("comp|2001:db8:", "")
+        assert key1 != key2
+
+    def test_deterministic_same_inputs(self):
+        """Same company_id + same IP always produces same key."""
+        counter = SlidingWindowCounter()
+        key1 = counter._make_key("test-comp", "10.0.0.1")
+        key2 = counter._make_key("test-comp", "10.0.0.1")
+        key3 = counter._make_key("test-comp", "10.0.0.1")
+        assert key1 == key2 == key3
+
+    def test_empty_string_ip_no_collision(self):
+        counter = SlidingWindowCounter()
+        key1 = counter._make_key("comp-a", "")
+        key2 = counter._make_key("comp-a", "")
+        assert key1 == key2
+
+    def test_lockout_key_also_collision_safe(self):
+        """ProgressiveLockout keys also use MD5 hash."""
+        lockout = ProgressiveLockout()
+        key1 = lockout._make_key("comp", "any")
+        key2 = lockout._make_key("comp|any", "")
+        assert key1 != key2
+
+    def test_key_always_has_prefix(self):
+        """All keys start with the rate limit prefix."""
+        counter = SlidingWindowCounter()
+        lockout = ProgressiveLockout()
+        for company_id in ["test", "abc|def", "2001:db8::1"]:
+            for client_ip in ["", "10.0.0.1", "::1"]:
+                assert counter._make_key(company_id, client_ip).startswith(
+                    "parwa:ratelimit:"
+                )
+                assert lockout._make_key(company_id, client_ip).startswith(
+                    "parwa:ratelimit:lockout:"
+                )

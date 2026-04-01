@@ -8,6 +8,9 @@ Header format: Authorization: Bearer pk_xxxxx
 BC-011: API keys are hashed in DB, constant-time comparison.
 """
 
+import hashlib
+import time
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -80,7 +83,6 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         # Check expiration
         expires_at = key_data.get("expires_at")
         if expires_at is not None:
-            import time
             if time.time() > expires_at:
                 return self._unauthorized_response(
                     request, "API key has expired"
@@ -132,13 +134,6 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
             return ""
         return auth_header[len(API_KEY_PREFIX):]
 
-    def _compute_hash(self, raw_key: str) -> str:
-        """Hash the raw key for lookup."""
-        import hashlib
-        return hashlib.sha256(
-            raw_key.encode("utf-8")
-        ).hexdigest()
-
     def _lookup_key(self, raw_key: str):
         """Look up key using constant-time comparison (BC-011).
 
@@ -146,7 +141,8 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         constant_time_compare to prevent timing attacks.
         Python dict lookup uses str.__eq__ which is NOT constant-time.
         """
-        import hashlib
+        if not raw_key:
+            return None
         computed_hash = hashlib.sha256(
             raw_key.encode("utf-8")
         ).hexdigest()

@@ -11,7 +11,6 @@ BC-011: Redis failure -> fail-open (allow requests).
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
 
 from backend.app.middleware.error_handler import build_error_response
 from security.rate_limiter import RateLimiter, DEFAULT_REQUESTS_PER_WINDOW
@@ -65,24 +64,28 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client_ip = self._get_client_ip(request)
 
         # Check rate limit BEFORE processing request
+        # BC-011: Fail-open — if limiter crashes, allow request
         limiter = get_rate_limiter()
-        result = limiter.check(company_id=company_id, client_ip=client_ip)
+        try:
+            result = limiter.check(
+                company_id=company_id, client_ip=client_ip
+            )
+        except Exception:
+            # BC-011: Fail-open on rate limiter failure
+            return await call_next(request)
 
         if not result.allowed:
             # Return 429 WITHOUT calling downstream handler
             # This prevents side effects on rate-limited requests
-            error_response = build_error_response(
+            # BC-012: Structured error response with correlation ID
+            correlation_id = getattr(
+                request.state, "correlation_id", None
+            )
+            resp = build_error_response(
                 status_code=429,
                 error_code="RATE_LIMIT_EXCEEDED",
                 message="Too many requests. Please retry later.",
-                correlation_id=getattr(
-                    request.state, "correlation_id", None
-                ),
-            )
-            resp = JSONResponse(
-                status_code=429,
-                content=error_response.body,
-                headers=error_response.headers,
+                correlation_id=correlation_id,
             )
             # Apply rate limit headers to error response
             for header, value in result.to_headers().items():
@@ -97,16 +100,27 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return response
 
     def _get_client_ip(self, request: Request) -> str:
-        """Extract client IP from request."""
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
+        """Extract client IP from request.
 
+        Prefers the direct connection IP (request.client.host) set by
+        the ASGI server from the TCP connection, which cannot be spoofed.
+        Falls back to X-Real-IP, then X-Forwarded-For only if no
+        direct connection IP is available.
+
+        BC-011: IP must not be client-controllable for rate limiting.
+        """
+        # Primary: direct TCP connection IP (set by ASGI server)
+        if request.client:
+            return request.client.host
+
+        # Fallback: X-Real-IP (set by trusted reverse proxy)
         real_ip = request.headers.get("X-Real-IP")
         if real_ip:
             return real_ip.strip()
 
-        if request.client:
-            return request.client.host
+        # Last resort: X-Forwarded-For (only if no direct connection)
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
 
         return ""
