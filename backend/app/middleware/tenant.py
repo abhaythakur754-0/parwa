@@ -38,7 +38,8 @@ class TenantMiddleware(BaseHTTPMiddleware):
             or request.headers.get("X-Company-ID")
         )
 
-        if not company_id:
+        # Reject empty or whitespace-only company_id (BC-001)
+        if not company_id or not company_id.strip():
             return Response(
                 content=(
                     '{"error":{"code":"AUTHORIZATION_ERROR",'
@@ -49,7 +50,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
                 media_type="application/json",
             )
 
-        # Store in request state for downstream use
-        request.state.company_id = company_id
+        # Store in request state for downstream use (stripped)
+        request.state.company_id = company_id.strip()
 
         return await call_next(request)
