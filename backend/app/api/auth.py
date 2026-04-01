@@ -1,8 +1,9 @@
 """
-PARWA Auth Router (F-010, F-011, F-013)
+PARWA Auth Router (F-010, F-011, F-012, F-013, F-014)
 
 Endpoints for user registration, login, token refresh,
-logout, profile, email check, and Google OAuth.
+logout, profile, email check, Google OAuth,
+email verification, and password reset.
 
 All public endpoints (no JWT required):
 - POST /api/auth/register
@@ -10,6 +11,10 @@ All public endpoints (no JWT required):
 - POST /api/auth/refresh
 - POST /api/auth/google
 - GET  /api/auth/check-email
+- GET  /api/auth/verify
+- POST /api/auth/resend-verification
+- POST /api/auth/forgot-password
+- POST /api/auth/reset-password
 
 Protected endpoints (JWT required):
 - POST /api/auth/logout
@@ -31,6 +36,11 @@ from backend.app.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
+from backend.app.schemas.email import (
+    ForgotPasswordRequest,
+    ResendVerificationRequest,
+    ResetPasswordRequest,
+)
 from backend.app.services.auth_service import (
     authenticate_user,
     check_email_availability,
@@ -38,6 +48,14 @@ from backend.app.services.auth_service import (
     logout_user,
     refresh_tokens,
     register_user,
+)
+from backend.app.services.password_reset_service import (
+    initiate_password_reset,
+    reset_password,
+)
+from backend.app.services.verification_service import (
+    resend_verification_email,
+    verify_email,
 )
 from database.base import get_db
 from database.models.core import User
@@ -58,7 +76,9 @@ def check_email(
     L04: F-010 spec requires email availability check.
     Rate limited by middleware (20/IP/min).
     """
-    available = check_email_availability(db=db, email=email)
+    available = check_email_availability(
+        db=db, email=email
+    )
     return EmailCheckResponse(
         email=email.strip().lower(),
         available=available,
@@ -107,7 +127,7 @@ def login(
     """Authenticate with email and password.
 
     F-010: Email/password login.
-    BC-011: bcrypt verification, constant-time comparison.
+    BC-011: bcrypt verification.
     L11: Progressive lockout after 5 failures.
     L12: Also sets HTTP-only cookies for tokens.
     """
@@ -129,7 +149,6 @@ def refresh(
     """Refresh an expired access token.
 
     F-013: Token refresh with rotation.
-    BC-011: Old refresh token is deleted, new one created.
     L07: Reuse detection invalidates ALL user tokens.
     L12: Also updates HTTP-only cookies.
     """
@@ -157,6 +176,76 @@ def google_login(
     return result
 
 
+# ── F-012: Email Verification ──────────────────────────────────────
+
+
+@router.get("/verify")
+def verify_email_endpoint(
+    token: str = Query(
+        ..., min_length=32, max_length=64,
+        description="Verification token (URL-safe)",
+    ),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Verify an email address with a token.
+
+    F-012: Validates token (exists, not expired, not used).
+    Sets users.email_verified = True on success.
+    L27: Token length validated (32-64 chars).
+    """
+    return verify_email(db=db, token=token)
+
+
+@router.post("/resend-verification")
+def resend_verification(
+    body: ResendVerificationRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Resend a verification email.
+
+    F-012: Rate limited to 3 per email per hour.
+    Invalidates previous unused tokens.
+    """
+    return resend_verification_email(
+        db=db, email=body.email
+    )
+
+
+# ── F-014: Password Reset ──────────────────────────────────────────
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    body: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Initiate password reset flow.
+
+    F-014: Generic response (no account enumeration).
+    Rate limited to 3 per email per hour.
+    """
+    return initiate_password_reset(
+        db=db, email=body.email
+    )
+
+
+@router.post("/reset-password")
+def reset_password_endpoint(
+    body: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Reset password using a valid token.
+
+    F-014: Single-use, 15-min expiry.
+    BC-011: ALL sessions invalidated on reset.
+    """
+    return reset_password(
+        db=db,
+        token=body.token,
+        new_password=body.new_password,
+    )
+
+
 # ── Protected Endpoints ────────────────────────────────────────────
 
 
@@ -169,14 +258,14 @@ def logout(
 ) -> MessageResponse:
     """Revoke a refresh token (logout).
 
-    Deletes the refresh token from the database so it
-    cannot be used again. The access token will expire
-    naturally within 15 minutes.
+    Deletes the refresh token from the database.
     L12: Clears HTTP-only cookies.
     """
     logout_user(db=db, raw_token=body.refresh_token)
     _clear_token_cookies(response)
-    return MessageResponse(message="Logged out successfully")
+    return MessageResponse(
+        message="Logged out successfully"
+    )
 
 
 @router.get("/me", response_model=UserResponse)
@@ -185,7 +274,6 @@ def get_me(
 ) -> UserResponse:
     """Get the current authenticated user's profile.
 
-    Returns user data including company info.
     BC-001: User is always scoped to a company.
     """
     return UserResponse(
@@ -211,10 +299,7 @@ def get_me(
 def _set_token_cookies(
     response: Response, tokens: TokenResponse
 ) -> None:
-    """L12: Set HTTP-only, Secure, SameSite=Strict cookies.
-
-    F-013 spec: parwa_access + parwa_refresh cookies.
-    """
+    """L12: Set HTTP-only, Secure, SameSite=Strict cookies."""
     response.set_cookie(
         key="parwa_access",
         value=tokens.access_token,

@@ -23,10 +23,15 @@ import database.models.core  # noqa: F401, E402
 
 @pytest.fixture(autouse=True)
 def setup_db():
-    """Create/drop tables for isolation."""
+    """Create/drop tables for isolation.
+
+    Drops tables after each test but recreates them
+    so subsequent test files still have tables available.
+    """
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
 
 
 class TestGetDB:

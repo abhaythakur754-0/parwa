@@ -14,6 +14,7 @@ Loophole fixes applied:
 - L11: Progressive lockout (5 fails → 15min lock)
 - L13: Plan claim in JWT from company.subscription_tier
 - L08: is_new_user flag in responses
+- L19: Verification email sent on registration
 """
 
 import time
@@ -134,6 +135,20 @@ def register_user(
     db.commit()
     db.refresh(user)
     db.refresh(company)
+
+    # L19: Send verification email after registration
+    try:
+        from backend.app.services.verification_service import (
+            send_verification_on_register,
+        )
+        send_verification_on_register(db, user)
+        db.commit()
+    except Exception:
+        logger.warning(
+            "verification_email_failed_on_register",
+            user_id=user.id,
+            email=user.email,
+        )
 
     logger.info(
         "user_registered",

@@ -34,10 +34,15 @@ from database.base import Base, SessionLocal, engine  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def setup_db():
-    """Create all tables before each test."""
+    """Create all tables before each test.
+
+    Recreates tables after drop to avoid breaking
+    subsequent test files that share the same DB.
+    """
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
 
 
 # ── BC-002 Precision Check ───────────────────────────────────────
