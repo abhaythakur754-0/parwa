@@ -14,9 +14,10 @@
 | Week 2 | Day 8 (W2D2) | ✅ DONE | F-012, F-014 | 780 → 866 (+86) |
 | Week 2 | Day 9 (W2D3) | ✅ DONE | F-015, F-016, F-017 | 866 → 900 (+34) |
 | Week 2 | Day 10 (W2D4) | ✅ DONE | F-018, F-019 | 900 → 976 (+76) |
-| Week 2 | Day 11 (W2D5) | ⏳ PENDING | F-019, F-008 | — |
-| Week 2 | Day 12 (W2D6) | ⏳ PENDING | Admin Panel API | — |
+| Week 2 | Day 11 (W2D5) | ⏳ PENDING | Remaining gaps: C5, S02, F-018/F-019 spec fixes | — |
+| Week 2 | Day 12 (W2D6) | ⏳ PENDING | Admin Panel API + Company Settings | — |
 | Week 2 | Day 13 (W2D7) | ⏳ PENDING | Cross-day integration + loophole check | — |
+| Week 3 | Day 14+ | ⏳ NOT STARTED | Celery, Webhook framework, Socket.io JWT (Week 3 roadmap) | — |
 
 **Total Tests: 976 | Flake8 Errors: 0 | CI: GREEN**
 
@@ -24,18 +25,38 @@
 
 ## Week 2 Roadmap — 10 Features (F-010 to F-019)
 
+All 10 features built. But gaps remain from spec compliance + infrastructure.
+
 | Feature ID | Title | Day | Status | Notes |
 |------------|-------|-----|--------|-------|
-| F-010 | User Registration (Email+Password) | Day 7 | ✅ Done | Missing confirm_password, special char, check-email |
-| F-011 | Google OAuth Login | Day 7 | ✅ Done | Uses ID token flow (not auth code PKCE) |
+| F-010 | User Registration (Email+Password) | Day 7 | ✅ Done | L01-L05 all fixed in Day 8 audit |
+| F-011 | Google OAuth Login | Day 7 | ✅ Done | L06-L10 all fixed in Day 8 audit |
 | F-012 | Email Verification (Brevo) | Day 8 | ✅ Done | Brevo integration, verification tokens |
-| F-013 | Login System | Day 7 | ✅ Done | Missing progressive lockout, cookies |
+| F-013 | Login System | Day 7 | ✅ Done | L11-L15 all fixed in Day 8 audit |
 | F-014 | Forgot/Reset Password | Day 8 | ✅ Done | Generic responses (anti-enumeration) |
 | F-015 | MFA Setup (TOTP) | Day 9 | ✅ Done | TOTP secret, QR code, 6-digit verify |
 | F-016 | Backup Codes | Day 9 | ✅ Done | 10 codes, bcrypt hashed, single-use |
 | F-017 | Session Management | Day 9 | ✅ Done | Max 5 sessions, oldest eviction |
-| F-018 | Advanced Rate Limiting | Day 10 | ✅ Done | Per-category, per-email, progressive backoff |
-| F-019 | API Key Management | Day 10 | ✅ Done | CRUD, rotation, 24h grace, audit log |
+| F-018 | Advanced Rate Limiting | Day 10 | ✅ Done (gaps remain) | See Day 10 spec gaps below |
+| F-019 | API Key Management | Day 10 | ✅ Done (gaps remain) | See Day 10 spec gaps below |
+
+### Day 10 Spec Gaps — discovered post-build
+
+| # | Severity | Feature | Gap | Spec Requirement |
+|---|----------|---------|-----|-----------------|
+| G01 | LOW | F-018 | Rate limiter uses `time.time()` (app clock) | Spec says "use Redis server TIME for window calculations" to prevent clock skew |
+| G02 | MEDIUM | F-019 | `require_scope` dependency NOT wired into any route | Spec: "Scopes enforced server-side on every request" — dependency exists but never used |
+| G03 | MEDIUM | F-019 | Financial approval requires write+approval but no check exists | Spec: "Financial approval requires BOTH write AND approval scope" |
+
+### Infrastructure Gaps — from pre-Week-2 planning
+
+| # | Severity | Gap | Description | Target |
+|---|----------|-----|-------------|--------|
+| C5 | HIGH | Phone OTP login (Twilio Verify) | `/api/auth/phone/send` + `/api/auth/phone/verify` endpoints. Planned for Day 10 but never built. | Day 11 |
+| S02 | HIGH | Socket.io JWT auth middleware | Socket.io `connect` handler reads from `environ` dict but has no real JWT verification. Need to extract + verify JWT token. | Day 11 |
+| FP11 | MEDIUM | Audit trail middleware | Auto-log all write operations (POST/PUT/DELETE). Deferred from Week 2. | Week 4+ |
+| F06 | LOW | Admin Panel API routes | Company settings CRUD, user management endpoints. Not built yet. | Day 12 |
+| FP02 | LOW | PaginatedResponse[T] schema | Standardized pagination across all list endpoints. | Week 4+
 
 ---
 
@@ -175,16 +196,23 @@ All 4 loopholes found and fixed.
 
 ## Infrastructure Gaps Tracker Status
 
-### Week 2 Gaps — Updated after Day 7
-| ID | Gap | Status |
-|----|-----|--------|
-| C3-alt | JWT auth functions | ✅ Done |
-| C4 | Brevo email client | ❌ Day 8 |
-| C5 | Phone OTP login | ❌ Day 10 |
-| F04 | Google OAuth | ✅ Done |
-| F05 | Pydantic schemas directory | ✅ Done |
-| F07 | Email templates (Jinja2) | ❌ Day 8 |
-| S02 | Socket.io JWT middleware | ❌ Later |
-| FP11 | Audit trail middleware | ❌ Later |
-| `phone` column | Add to users model | ⚠️ Already exists in model |
-| requirements.txt | pyotp, qrcode, jinja2, brevo, authlib | ❌ Day 8-9 |
+### Week 2 Gaps — Updated after Day 10
+| ID | Gap | Status | Notes |
+|----|-----|--------|-------|
+| C3-alt | JWT auth functions | ✅ Done | Day 7 |
+| C4 | Brevo email client | ✅ Done | Day 8 |
+| C5 | Phone OTP login (Twilio Verify) | ❌ TODO | Day 11 — send OTP + verify OTP endpoints |
+| F04 | Google OAuth | ✅ Done | Day 7 |
+| F05 | Pydantic schemas directory | ✅ Done | Day 7 |
+| F07 | Email template rendering (Jinja2) | ✅ Done | Day 8 |
+| S02 | Socket.io JWT auth middleware | ❌ TODO | Day 11 — real JWT verify in connect handler |
+| FP11 | Audit trail middleware | ❌ Deferred | Week 4+ |
+| `phone` column | Add to users model | ✅ Done | Already exists in core.py |
+| requirements.txt | pyotp, qrcode, jinja2, brevo, authlib | ✅ Done | Added in Day 8-9 |
+
+### Day 10 Spec Gaps (G01-G03) — TODO Day 11
+| ID | Gap | Status | Notes |
+|----|-----|--------|-------|
+| G01 | F-018: Use Redis TIME for window calc | ❌ TODO | Low severity, clock skew edge case |
+| G02 | F-019: Wire require_scope into routes | ❌ TODO | Medium — scope enforcement not active |
+| G03 | F-019: Financial approval dual-scope | ❌ TODO | Medium — write+approval check |
