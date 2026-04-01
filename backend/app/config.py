@@ -9,6 +9,7 @@ Required variables (no defaults) per BC-011:
   - DATA_ENCRYPTION_KEY
 """
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -68,6 +69,16 @@ class Settings(BaseSettings):
     GDPR_RETENTION_DAYS: int = 365
     AUDIT_LOG_RETENTION_DAYS: int = 2555
     DATA_ENCRYPTION_KEY: str  # BC-011: required, 32-char key
+
+    # ── Validators ────────────────────────────────────────────────
+
+    @field_validator("DATA_ENCRYPTION_KEY")
+    @classmethod
+    def validate_encryption_key(cls, v: str) -> str:
+        """BC-011: DATA_ENCRYPTION_KEY must be exactly 32 characters."""
+        if len(v) != 32:
+            raise ValueError(f"DATA_ENCRYPTION_KEY must be 32 characters, got {len(v)}")
+        return v
 
     # ── Feature Flags ────────────────────────────────────────────
     FEATURE_FLAGS_PATH: str = "feature_flags"

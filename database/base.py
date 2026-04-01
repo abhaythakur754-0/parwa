@@ -18,9 +18,13 @@ def _get_db_url() -> str:
         return os.environ.get(
             "DATABASE_URL", "sqlite:///:memory:"
         )
-    from backend.app.config import get_settings  # noqa: E402
-    settings = get_settings()
-    return settings.DATABASE_URL
+    try:
+        from backend.app.config import get_settings  # noqa: E402
+        settings = get_settings()
+        return settings.DATABASE_URL
+    except Exception:
+        # Must not crash at module import time (BC-011)
+        return os.environ.get("DATABASE_URL", "sqlite:///:memory:")
 
 
 _db_url = _get_db_url()

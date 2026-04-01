@@ -334,11 +334,15 @@ class TestRelationships:
         """APIProvider.service_configs returns associated configs."""
         db = SessionLocal()
         from database.models.ai_pipeline import APIProvider, ServiceConfig
+        from database.models.core import Company
+        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        db.add(co)
+        db.flush()
         p = APIProvider(id="p1", name="OpenAI", provider_type="llm")
         db.add(p)
         db.flush()
-        db.add(ServiceConfig(id="sc1", provider_id="p1", display_name="My Key"))
-        db.add(ServiceConfig(id="sc2", provider_id="p1", display_name="Backup Key"))
+        db.add(ServiceConfig(id="sc1", provider_id="p1", company_id="co1", display_name="My Key"))
+        db.add(ServiceConfig(id="sc2", provider_id="p1", company_id="co1", display_name="Backup Key"))
         db.commit()
         fetched = db.query(APIProvider).filter_by(id="p1").first()
         assert len(fetched.service_configs) == 2

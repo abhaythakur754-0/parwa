@@ -265,6 +265,16 @@ class TestConfigExtraVarsIgnored:
 class TestConfigAdditionalDefaults:
     """Test other important config defaults beyond the core 4 required."""
 
+    def test_encryption_key_must_be_32_chars(self):
+        """BC-011: DATA_ENCRYPTION_KEY must be exactly 32 characters."""
+        with pytest.raises(ValidationError):
+            Settings(
+                SECRET_KEY="test",
+                DATABASE_URL="sqlite:///:memory:",
+                JWT_SECRET_KEY="test",
+                DATA_ENCRYPTION_KEY="short_key_not_32",  # only 21 chars
+            )
+
     def test_training_threshold_default_50(self):
         """Training threshold default is 50 (50-mistake rule)."""
         settings = _make_settings()

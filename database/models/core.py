@@ -7,6 +7,8 @@ BC-001: Every table has company_id (except companies which IS the root).
 BC-002: Money fields use DECIMAL(10,2).
 """
 
+from datetime import datetime
+
 import uuid
 
 from sqlalchemy import (
@@ -34,8 +36,8 @@ class Company(Base):
     mode = Column(String(50), default="shadow")
     paddle_customer_id = Column(String(255))
     paddle_subscription_id = Column(String(255))
-    created_at = Column(DateTime, default=lambda: None)
-    updated_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
     users = relationship("User", back_populates="company", cascade="all, delete-orphan")
     api_keys = relationship("APIKey", back_populates="company", cascade="all, delete-orphan")
@@ -54,8 +56,8 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     mfa_enabled = Column(Boolean, default=False)
     mfa_secret = Column(String(255))
-    created_at = Column(DateTime, default=lambda: None)
-    updated_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
     company = relationship("Company", back_populates="users")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
@@ -74,7 +76,7 @@ class RefreshToken(Base):
     device_info = Column(String(255))
     ip_address = Column(String(45))
     expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
     user = relationship("User", back_populates="refresh_tokens")
 
@@ -89,7 +91,7 @@ class MFASecret(Base):
     company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     secret_key = Column(String(255), nullable=False)
     is_verified = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 # ── Backup Codes ───────────────────────────────────────────────────
@@ -103,7 +105,7 @@ class BackupCode(Base):
     code_hash = Column(String(255), nullable=False)
     is_used = Column(Boolean, default=False)
     used_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
     user = relationship("User", back_populates="backup_codes")
 
@@ -122,7 +124,7 @@ class APIKey(Base):
     is_active = Column(Boolean, default=True)
     last_used_at = Column(DateTime)
     expires_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
     company = relationship("Company", back_populates="api_keys")
 
@@ -141,7 +143,7 @@ class Agent(Base):
     capacity_max = Column(Integer, default=100)
     accuracy_rate = Column(Numeric(5, 2), default=0)
     tickets_resolved = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 # ── Emergency States (pause controls) ──────────────────────────────
@@ -156,7 +158,7 @@ class EmergencyState(Base):
     paused_by = Column(String(36), ForeignKey("users.id"))
     paused_at = Column(DateTime)
     reason = Column(Text)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 # ── User Notification Preferences ──────────────────────────────────
@@ -170,4 +172,4 @@ class UserNotificationPreference(Base):
     channel = Column(String(50), nullable=False)
     event_type = Column(String(100), nullable=False)
     enabled = Column(Boolean, default=True)
-    updated_at = Column(DateTime, default=lambda: None)
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
