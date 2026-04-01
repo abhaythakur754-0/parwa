@@ -397,3 +397,33 @@ Stage Summary:
 - Files created: 7 (phone_otp model, phone_otp schemas, phone_otp service, test_phone_otp, test_socketio_auth, test_g01_redis_time_offset, test_g02_g03_scope_enforcement)
 - Files modified: 8 (models __init__.py, auth router, socketio.py, rate_limit_service.py, rate_limit middleware, api_key_auth.py, api_keys.py, worklog.md)
 - Commit: 614c86e pushed to GitHub main
+
+---
+Task ID: d12-build
+Agent: PARWA Tech Lead
+Task: Day 12 — Admin Panel API + Company Settings (F06)
+
+Work Log:
+- Created backend/app/schemas/admin.py — 15 Pydantic schemas (CompanyProfileResponse/Update, CompanySettingsResponse/Update, TeamMemberResponse/Update, PasswordChangeRequest, APIProviderResponse/Create/Update, AdminClientResponse/Update, PaginatedResponse, MessageResponse, OOOStatus/TeamRole enums)
+- Created backend/app/services/company_service.py — 7 service functions (get/update_company_profile, get/update_company_settings with JSON list serialization, change_password with bcrypt cost 12, get_team_members paginated, update_team_member with role hierarchy/owner protection, remove_team_member soft delete)
+- Created backend/app/api/client.py — 8 client endpoints (GET/PUT /profile, GET/PUT /settings, PUT /password, GET/PUT/DELETE /team)
+- Created backend/app/api/admin.py — 10 admin endpoints (GET/PUT /clients, GET/PUT /clients/{id}, PUT /clients/{id}/subscription, GET /health, GET/POST/PUT/DELETE /api-providers)
+- Registered client_router and admin_router in main.py
+- Added /api/client/ and /api/admin/ to TenantMiddleware PUBLIC_PREFIXES for JWT-based tenant isolation
+- Created tests/unit/test_client_api.py — 15 tests (profile CRUD, settings auto-create/update/lists, password change success/wrong/weak, team list/pagination/unauthorized role, team member update/remove/last-owner protection)
+- Created tests/unit/test_admin_api.py — 10 tests (list/search clients, client detail/not-found, update client, update subscription, admin health, API provider CRUD + soft delete, unauthorized role)
+- Flake8: 0 errors on all 6 new/modified files
+- All 1091 tests passing (29 new = 15 client + 10 admin + 4 from tenant middleware expansion)
+
+Stage Summary:
+- Day 12 complete: Admin Panel API + Company Settings
+- 18 new routes (8 client + 10 admin)
+- 29 new tests (15 client + 10 admin + 4 existing pass-through)
+- Total tests: 1091
+- BC-001: All queries filtered by company_id
+- BC-011: All endpoints use JWT auth via get_current_user/require_roles
+- BC-012: Structured JSON responses via existing exception handlers
+- BC-011: Password change uses verify_password + hash_password (bcrypt cost 12)
+- BC-002: similarity_threshold stored as Numeric(5,2) in CompanySetting model
+- Role hierarchy enforcement: owner > admin > agent > viewer
+- Business rules: cannot demote last owner, cannot remove self, cannot assign role above own

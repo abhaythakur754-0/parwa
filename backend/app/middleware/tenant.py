@@ -36,6 +36,8 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/api/api-keys",
         "/api/mfa/",
         "/api/billing/",
+        "/api/client/",
+        "/api/admin/",
         "/test/",
     )
 
