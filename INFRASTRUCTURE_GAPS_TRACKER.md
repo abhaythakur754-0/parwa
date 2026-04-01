@@ -30,15 +30,15 @@ These are infrastructure items that should be built in Week 1 (Day 6 fixes) to u
 ## Week 2 GAPS - Auth System
 
 - [x] C3-alt: JWT auth functions (create/verify/refresh tokens) -> `backend/app/core/auth.py` ✅ Day 7
-- [ ] C4: Brevo email client + email service -> `backend/app/services/email_service.py` (Day 8)
-- [ ] C5: Phone OTP login (Twilio Verify) -> new endpoints under /api/v1/auth/phone (Day 10)
+- [x] C4: Brevo email client + email service -> `backend/app/services/email_service.py` ✅ Day 8
+- [ ] C5: Phone OTP login (Twilio Verify) -> new endpoints under /api/auth/phone (Day 11)
 - [x] F04: Google OAuth implementation -> httpx server-side token verification ✅ Day 7
 - [x] F05: Pydantic schemas directory -> `backend/app/schemas/` ✅ Day 7
-- [ ] F07: Email template rendering (Jinja2) -> `backend/app/templates/emails/` (Day 8)
-- [ ] S02: Socket.io JWT auth middleware (real auth, not placeholder) (Day 9+)
+- [x] F07: Email template rendering (Jinja2) -> `backend/app/templates/emails/` ✅ Day 8
+- [ ] S02: Socket.io JWT auth middleware (real auth, not placeholder) (Day 11)
 - [ ] FP11: Audit trail auto-logging middleware (log all write ops) (Week 4+)
 - [x] Add `phone` column to users model ✅ Already exists in core.py
-- [ ] Add pyotp, qrcode, jinja2, brevo-python, authlib to requirements.txt (Day 8-9)
+- [x] Add pyotp, qrcode, jinja2, brevo-python, authlib to requirements.txt ✅ Day 8-9
 
 ## Week 3 GAPS - Background Jobs + Real-Time
 
