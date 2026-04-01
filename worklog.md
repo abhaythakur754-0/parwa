@@ -386,12 +386,14 @@ Work Log:
   - Created tests/unit/test_scope_enforcement.py: 18 tests (10 require_scope, 8 require_financial_approval)
 
 Stage Summary:
-- 1017 tests passing (41 new tests: 10 phone OTP + 12 socketio JWT + 18 scope enforcement + 1 rate limit offset)
+- 1061 tests passing (85 new tests total: 10 phone OTP + 7 socketio JWT + 17 scope enforcement + 11 G01 Redis TIME + 7 auth_phone categories + rate_limit_service existing tests)
 - Flake8: 0 errors
 - C5: Phone OTP with SHA-256 hashing, constant-time compare, max 5 attempts, 5-min expiry, anti-enumeration
 - S02: Socket.io JWT auth from query params, backward compat with socketio_auth dict
-- G01: Redis TIME offset for rate limiting (sync method with async offset sync)
-- G02: require_scope wired into create (write), rotate (write), revoke (admin) endpoints
-- G03: require_financial_approval utility for dual-scope financial endpoints
-- Files created: 5 (phone_otp model, phone_otp schemas, phone_otp service, test_phone_otp, test_scope_enforcement, test_socketio_auth)
-- Files modified: 5 (models __init__.py, auth router, socketio.py, rate_limit_service.py, rate_limit middleware, api_key_auth.py, api_keys.py)
+- G01: Redis TIME offset for ALL time-dependent methods (check_rate_limit, record_failure, is_locked_out) via _now() helper
+- G02: require_scope wired into ALL API key endpoints — list(read), create(write), rotate(write), revoke(admin)
+- G03: require_financial_approval_dep() FastAPI dependency — requires write+approval for API keys, passes through for JWT
+- Rate limiting: auth_phone_send (5/5min/IP), auth_phone_verify (20/5min/IP) — split to avoid conflict with OTP service's own MAX_ATTEMPTS
+- Files created: 7 (phone_otp model, phone_otp schemas, phone_otp service, test_phone_otp, test_socketio_auth, test_g01_redis_time_offset, test_g02_g03_scope_enforcement)
+- Files modified: 8 (models __init__.py, auth router, socketio.py, rate_limit_service.py, rate_limit middleware, api_key_auth.py, api_keys.py, worklog.md)
+- Commit: 614c86e pushed to GitHub main
