@@ -88,3 +88,37 @@ Stage Summary:
 - BC-001: company_id validated in AuditEntry.__init__ (not bypassable), 128-char max
 - Commit: 14e7131 pushed to GitHub main
 - Files created: 17 (4 shared utils, 2 middleware, 1 service, 7 test files, 3 __init__.py)
+
+---
+Task ID: d4-build
+Agent: PARWA Tech Lead
+Task: Week 1 Day 4 — Security + Rate Limiting + API Key Framework
+
+Work Log:
+- Created security/__init__.py
+- Created security/rate_limiter.py: Sliding window rate limiting + progressive lockout (5 levels: 60s->120s->240s->480s->900s)
+- Created security/circuit_breaker.py: 3-state breaker (CLOSED->OPEN after 5 failures, HALF_OPEN after 60s, 3 probe requests)
+- Created security/api_keys.py: pk_ prefixed key generation, SHA-256 hashing, 4 scopes (read/write/admin/approval), rotation with immediate invalidation
+- Created backend/app/middleware/rate_limit.py: 429 before processing (no side effects), X-RateLimit-* headers, public path skip
+- Created backend/app/middleware/api_key_auth.py: Constant-time key lookup, scope enforcement, company_id cross-check, missing company_id recovery from key
+
+Phase B Loophole Check — 21 checks performed:
+- 11/13 main checks PASSED (progressive lockout, X-RateLimit headers, secure random, key hashing, scopes, rotation, 5 failures, 60s timeout, per-company_id, company_id on key, SHA-256 preimage safety)
+- 4 FAILs found and fixed:
+  - P0: Rate limit middleware called downstream before 429 check -> reordered to check first
+  - P0: API key auth used dict lookup (timing attack) -> constant-time iteration over stored hashes
+  - P1: Key collision with colon delimiter (company:acme + IP prod) -> changed to pipe | delimiter
+  - P1: Missing company_id skipped tenant isolation check -> now sets company_id from API key
+- 3 PARTIALs addressed:
+  - P2: SKIP_PREFIXES added to rate_limit middleware for consistency
+  - P2: HALF_OPEN probe count docstring reconciled (3 probes, not 1)
+  - P2: Fail-open documented but no Redis tests (Redis implementation comes Day 5+)
+
+Stage Summary:
+- 585 tests passing (132 Day 4 + 453 Day 1-3)
+- Flake8: 0 errors across all files
+- BC-011: Progressive lockout, constant-time key comparison, scope hierarchy, key rotation, fail-open design
+- BC-012: X-RateLimit headers, 429 before side effects, circuit breaker 5 failures/60s timeout
+- BC-001: Rate limit per company_id with | delimiter, API key tenant cross-check, company_id recovery
+- Commit: 10195ad pushed to GitHub main
+- Files created: 9 (3 security, 2 middleware, 3 test files, 1 __init__)
