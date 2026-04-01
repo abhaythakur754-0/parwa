@@ -54,8 +54,7 @@ class TestErrorResponses:
     def test_404_returns_structured_json(self, client):
         """Unknown path returns structured 404 JSON (BC-012)."""
         response = client.get(
-            "/nonexistent_path_that_does_not_exist",
-            headers={"X-Company-ID": "test-tenant"},
+            "/api/public/nonexistent_path_xyz",
         )
         assert response.status_code == 404
         data = response.json()
@@ -66,8 +65,7 @@ class TestErrorResponses:
     def test_404_no_stack_traces(self, client):
         """404 response must NEVER contain stack traces (BC-012)."""
         response = client.get(
-            "/another_fake_path_xyz",
-            headers={"X-Company-ID": "test-tenant"},
+            "/api/public/another_fake_path_xyz",
         )
         data = response.json()
         text = response.text.lower()
@@ -84,8 +82,7 @@ class TestErrorResponses:
     def test_error_response_has_code_message_details(self, client):
         """All error responses follow structured format."""
         response = client.get(
-            "/bad_route_12345",
-            headers={"X-Company-ID": "test-tenant"},
+            "/api/public/bad_route_12345",
         )
         data = response.json()
         error = data["error"]
@@ -101,7 +98,6 @@ class TestParwaBaseExceptionHandler:
         """NotFoundError → 404 with structured JSON."""
         response = client.get(
             "/test/raise/not-found",
-            headers={"X-Company-ID": "test-tenant"},
         )
         assert response.status_code == 404
         data = response.json()
@@ -113,7 +109,6 @@ class TestParwaBaseExceptionHandler:
         """ValidationError → 422 with structured JSON."""
         response = client.get(
             "/test/raise/validation",
-            headers={"X-Company-ID": "test-tenant"},
         )
         assert response.status_code == 422
         data = response.json()
@@ -125,7 +120,6 @@ class TestParwaBaseExceptionHandler:
         """AuthenticationError → 401 with structured JSON."""
         response = client.get(
             "/test/raise/authentication",
-            headers={"X-Company-ID": "test-tenant"},
         )
         assert response.status_code == 401
         data = response.json()
@@ -136,7 +130,6 @@ class TestParwaBaseExceptionHandler:
         """AuthorizationError → 403 with structured JSON."""
         response = client.get(
             "/test/raise/authorization",
-            headers={"X-Company-ID": "test-tenant"},
         )
         assert response.status_code == 403
         data = response.json()
@@ -147,7 +140,6 @@ class TestParwaBaseExceptionHandler:
         """RateLimitError → 429 with structured JSON."""
         response = client.get(
             "/test/raise/rate-limit",
-            headers={"X-Company-ID": "test-tenant"},
         )
         assert response.status_code == 429
         data = response.json()
@@ -162,7 +154,6 @@ class TestInternalErrorHandler:
         """Unexpected exception (ValueError) → 500."""
         response = client_no_raise.get(
             "/test/raise/internal",
-            headers={"X-Company-ID": "test-tenant"},
         )
         assert response.status_code == 500
 
@@ -170,7 +161,6 @@ class TestInternalErrorHandler:
         """500 response follows structured format."""
         response = client_no_raise.get(
             "/test/raise/internal",
-            headers={"X-Company-ID": "test-tenant"},
         )
         data = response.json()
         assert "error" in data
@@ -182,7 +172,6 @@ class TestInternalErrorHandler:
         """500 must NEVER contain stack traces or error details."""
         response = client_no_raise.get(
             "/test/raise/internal",
-            headers={"X-Company-ID": "test-tenant"},
         )
         text = response.text.lower()
         assert "traceback" not in text
@@ -196,7 +185,6 @@ class TestInternalErrorHandler:
         """500 shows generic message, never the real error."""
         response = client_no_raise.get(
             "/test/raise/internal",
-            headers={"X-Company-ID": "test-tenant"},
         )
         data = response.json()
         assert data["error"]["message"] == "An internal error occurred"

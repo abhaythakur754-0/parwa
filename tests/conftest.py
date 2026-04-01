@@ -35,3 +35,15 @@ def client_no_raise():
     """Test client that does not raise exceptions on 500 errors."""
     from starlette.testclient import TestClient
     return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Reset rate limiter singleton between tests to prevent test pollution."""
+    from backend.app.services.rate_limit_service import (
+        get_rate_limit_service,
+    )
+    svc = get_rate_limit_service()
+    svc._in_memory.clear()
+    svc._failures.clear()
+    yield

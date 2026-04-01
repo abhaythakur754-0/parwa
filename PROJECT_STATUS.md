@@ -11,14 +11,14 @@
 |------|------|--------|----------|-------|
 | Week 1 | Day 1-6 | ✅ DONE | F-001 to F-009 | 713 → 713 |
 | Week 2 | Day 7 (W2D1) | ✅ DONE | F-010, F-011, F-013 | 713 → 780 (+67) |
-| Week 2 | Day 8 (W2D2) | ⏳ PENDING | F-012, F-014, F-07 | — |
-| Week 2 | Day 9 (W2D3) | ⏳ PENDING | F-015, F-016, F-017 | — |
-| Week 2 | Day 10 (W2D4) | ⏳ PENDING | C5, F-018 | — |
+| Week 2 | Day 8 (W2D2) | ✅ DONE | F-012, F-014 | 780 → 866 (+86) |
+| Week 2 | Day 9 (W2D3) | ✅ DONE | F-015, F-016, F-017 | 866 → 900 (+34) |
+| Week 2 | Day 10 (W2D4) | ✅ DONE | F-018, F-019 | 900 → 976 (+76) |
 | Week 2 | Day 11 (W2D5) | ⏳ PENDING | F-019, F-008 | — |
 | Week 2 | Day 12 (W2D6) | ⏳ PENDING | Admin Panel API | — |
 | Week 2 | Day 13 (W2D7) | ⏳ PENDING | Cross-day integration + loophole check | — |
 
-**Total Tests: 780 | Flake8 Errors: 0 | CI: GREEN**
+**Total Tests: 976 | Flake8 Errors: 0 | CI: GREEN**
 
 ---
 
@@ -28,14 +28,14 @@
 |------------|-------|-----|--------|-------|
 | F-010 | User Registration (Email+Password) | Day 7 | ✅ Done | Missing confirm_password, special char, check-email |
 | F-011 | Google OAuth Login | Day 7 | ✅ Done | Uses ID token flow (not auth code PKCE) |
-| F-012 | Email Verification (Brevo) | Day 8 | ⏳ Pending | — |
+| F-012 | Email Verification (Brevo) | Day 8 | ✅ Done | Brevo integration, verification tokens |
 | F-013 | Login System | Day 7 | ✅ Done | Missing progressive lockout, cookies |
-| F-014 | Forgot/Reset Password | Day 8 | ⏳ Pending | — |
-| F-015 | MFA Setup (TOTP) | Day 9 | ⏳ Pending | — |
-| F-016 | Backup Codes | Day 9 | ⏳ Pending | — |
-| F-017 | Session Management | Day 9 | ⏳ Pending | — |
-| F-018 | Auth Rate Limiting (per-user) | Day 10 | ⏳ Pending | — |
-| F-019 | API Key CRUD Endpoints | Day 11 | ⏳ Pending | — |
+| F-014 | Forgot/Reset Password | Day 8 | ✅ Done | Generic responses (anti-enumeration) |
+| F-015 | MFA Setup (TOTP) | Day 9 | ✅ Done | TOTP secret, QR code, 6-digit verify |
+| F-016 | Backup Codes | Day 9 | ✅ Done | 10 codes, bcrypt hashed, single-use |
+| F-017 | Session Management | Day 9 | ✅ Done | Max 5 sessions, oldest eviction |
+| F-018 | Advanced Rate Limiting | Day 10 | ✅ Done | Per-category, per-email, progressive backoff |
+| F-019 | API Key Management | Day 10 | ✅ Done | CRUD, rotation, 24h grace, audit log |
 
 ---
 
@@ -102,6 +102,59 @@
 | # | Severity | Gap | Description |
 |---|----------|-----|-------------|
 | L16 | LOW | No `nbf` (not-before) claim in JWT | Prevents pre-dated tokens |
+
+---
+
+## Day 8 Loophole Audit — F-012, F-014
+
+All Day 7 loopholes (L01-L16) were fixed. 16/16 closed. Commit: `910f48b`
+
+---
+
+## Day 9 Loophole Audit — F-015, F-016, F-017
+
+No new loopholes found. Commit: `4b2cf60`
+
+---
+
+## Day 10 (Week 2 Day 4) — Advanced Rate Limiting + API Key Management
+- **Commit:** pending
+- **Features:** F-018, F-019
+- **Files Created:**
+  - `backend/app/services/rate_limit_service.py` — Per-category rate limiting, progressive backoff
+  - `backend/app/services/api_key_service.py` — DB-backed CRUD, rotation, grace period
+  - `backend/app/schemas/api_key.py` — Pydantic schemas for API key endpoints
+  - `backend/app/api/api_keys.py` — CRUD endpoints (list, create, rotate, revoke)
+  - `database/models/api_key_audit.py` — Audit log model for API key events
+  - `database/models/core_rate_limit.py` — Rate limit event model
+  - `tests/unit/test_rate_limit_service.py` — 35 tests
+  - `tests/unit/test_api_key_service.py` — 41 tests
+  - `tests/integration/test_api_key_api.py` — Integration tests
+- **Files Modified:**
+  - `backend/app/middleware/rate_limit.py` — Upgraded to per-category rate limiting
+  - `backend/app/middleware/api_key_auth.py` — Upgraded for DB validation, scope enforcement
+  - `backend/app/middleware/tenant.py` — Added /test/, /api/mfa/, /api/billing/ to public prefixes; removed X-Company-ID header (L06 fix)
+  - `backend/app/main.py` — Registered api_keys router
+  - `database/models/core.py` — Added scopes, revoked, revoked_at, rotated_from_id, grace_ends_at, created_by to APIKey
+  - `database/models/__init__.py` — Added new models
+  - `tests/conftest.py` — Added rate limiter reset fixture
+  - `tests/unit/test_health.py` — Updated to not use X-Company-ID header
+  - `tests/unit/test_tenant_middleware_deep.py` — Updated for L06 fix
+- **Tests:** 900 → 976 (+76 new)
+- **Flake8:** 0 errors
+
+---
+
+## Day 10 Loophole Audit — F-018, F-019
+
+| # | Severity | File | Issue | Status |
+|---|----------|------|-------|--------|
+| L17 | MEDIUM | rate_limit.py | `/api/public/` SKIP_PREFIX bypassed all public rate limits (demo_chat dead code) | ✅ Fixed |
+| L18 | HIGH | api_key_service.py | Rotation grace period not enforced — old keys valid forever | ✅ Fixed |
+| L19 | LOW | api_key_auth.py | Scope error leaked granted scopes in error message | ✅ Fixed |
+| L20 | LOW | api_keys.py | `request: Request = None` should not have default | ✅ Fixed |
+
+All 4 loopholes found and fixed.
 
 ### What's DONE correctly ✅
 - JWT HS256, 15-min access, 7-day refresh

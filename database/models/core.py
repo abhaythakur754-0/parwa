@@ -169,12 +169,24 @@ class APIKey(Base):
     )
     name = Column(String(255), nullable=False)
     key_hash = Column(String(255), nullable=False, unique=True)
-    key_prefix = Column(String(8), nullable=False)
+    key_prefix = Column(String(24), nullable=False)
     scope = Column(String(50), nullable=False, default="read")
+    scopes = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
+    revoked = Column(Boolean, default=False)
+    revoked_at = Column(DateTime, nullable=True)
+    rotated_from_id = Column(
+        String(36), ForeignKey("api_keys.id"), nullable=True,
+    )
+    grace_ends_at = Column(DateTime, nullable=True)
+    created_by = Column(
+        String(36), ForeignKey("users.id"), nullable=True,
+    )
     last_used_at = Column(DateTime)
     expires_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    created_at = Column(
+        DateTime, default=lambda: datetime.utcnow(),
+    )
 
     company = relationship("Company", back_populates="api_keys")
 
