@@ -26,3 +26,31 @@ Stage Summary:
 - BC-012 compliance: structured JSON errors, no stack traces, health endpoints exist
 - Commit: 0d4db86 pushed to GitHub main
 - Files created: 12 (requirements.txt, 5 backend, 3 tests, 3 __init__.py)
+
+---
+Task ID: d2-build
+Agent: PARWA Tech Lead
+Task: Week 1 Day 2 — Database Models + Alembic + Tenant Middleware
+
+Work Log:
+- Created database/base.py: SQLAlchemy engine + session (SQLite for tests, PG for prod)
+- Created 9 model files with 57 tables total from backend documentation
+- Created database/alembic/ setup for migration management
+- Created backend/app/middleware/tenant.py: BC-001 tenant isolation middleware
+- Fixed SQLite pool_size/max_overflow incompatibility
+- Fixed user_notification_preferences missing company_id (BC-001)
+- Fixed service_configs.company_id missing index (BC-001)
+- Fixed document_chunks.company_id missing (BC-001 loophole found in deep check)
+- Fixed 8 flake8 issues (unused imports, E402 import order)
+- Removed unused relationship imports to fix F401 warnings
+
+Stage Summary:
+- 28/28 tests passing (18 Day 1 + 10 Day 2)
+- Flake8: 0 errors
+- 57 tables created across 9 model files
+- BC-001: All 53 tenant tables have company_id with index (4 root tables exempt)
+- BC-002: All money fields use Numeric (DECIMAL) — zero FLOAT columns
+- Loophole check: 1 real issue found and fixed (document_chunks.company_id)
+- FK ondelete warnings are SQLite inspection limitation, not real issues (code has ondelete=CASCADE)
+- Commit: 0e81c4c pushed to GitHub main
+- Files created: 20 (3 database, 9 models, 3 alembic, 2 middleware, 2 tests, 1 __init__)
