@@ -1,9 +1,9 @@
 """
-PARWA Auth Router (F-010, F-011, F-012, F-013, F-014)
+PARWA Auth Router (F-010, F-011, F-012, F-013, F-014, C5)
 
 Endpoints for user registration, login, token refresh,
 logout, profile, email check, Google OAuth,
-email verification, and password reset.
+email verification, password reset, and phone OTP login.
 
 All public endpoints (no JWT required):
 - POST /api/auth/register
@@ -15,6 +15,8 @@ All public endpoints (no JWT required):
 - POST /api/auth/resend-verification
 - POST /api/auth/forgot-password
 - POST /api/auth/reset-password
+- POST /api/auth/phone/send
+- POST /api/auth/phone/verify
 
 Protected endpoints (JWT required):
 - POST /api/auth/logout
@@ -41,6 +43,12 @@ from backend.app.schemas.email import (
     ResendVerificationRequest,
     ResetPasswordRequest,
 )
+from backend.app.schemas.phone_otp import (
+    SendOTPRequest,
+    SendOTPResponse,
+    VerifyOTPRequest,
+    VerifyOTPResponse,
+)
 from backend.app.services.auth_service import (
     authenticate_user,
     check_email_availability,
@@ -57,8 +65,12 @@ from backend.app.services.verification_service import (
     resend_verification_email,
     verify_email,
 )
+from backend.app.services.phone_otp_service import (
+    send_otp,
+    verify_otp,
+)
 from database.base import get_db
-from database.models.core import User
+from database.models.core import Company, User
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -174,6 +186,64 @@ def google_login(
     result = google_auth(db=db, id_token=body.id_token)
     _set_token_cookies(response, result.tokens)
     return result
+
+
+# ── C5: Phone OTP Login ──────────────────────────────────────────
+
+
+@router.post(
+    "/phone/send",
+    response_model=SendOTPResponse,
+    status_code=200,
+)
+def phone_send_otp(
+    body: SendOTPRequest,
+    db: Session = Depends(get_db),
+) -> SendOTPResponse:
+    """Send a 6-digit OTP to a phone number.
+
+    C5: Phone OTP Login via Twilio Verify.
+    Validates E.164 format, generates OTP, stores hash in DB.
+    """
+    # Verify company exists (BC-001)
+    company = db.query(Company).filter(
+        Company.id == body.company_id,
+    ).first()
+    if not company:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=404,
+            detail="Company not found",
+        )
+
+    result = send_otp(
+        db=db,
+        phone_number=body.phone,
+        company_id=body.company_id,
+    )
+    return SendOTPResponse(**result)
+
+
+@router.post(
+    "/phone/verify",
+    response_model=VerifyOTPResponse,
+)
+def phone_verify_otp(
+    body: VerifyOTPRequest,
+    db: Session = Depends(get_db),
+) -> VerifyOTPResponse:
+    """Verify a phone OTP code.
+
+    C5: Constant-time comparison, max 5 attempts,
+    5-minute expiry, anti-enumeration error messages.
+    """
+    result = verify_otp(
+        db=db,
+        phone_number=body.phone,
+        code=body.code,
+        company_id=body.company_id,
+    )
+    return VerifyOTPResponse(**result)
 
 
 # ── F-012: Email Verification ──────────────────────────────────────

@@ -92,6 +92,23 @@ def _validate_company_id(company_id: Any) -> bool:
     return True
 
 
+def _extract_token_from_qs(query_string: str) -> str:
+    """Extract JWT token from query string.
+
+    Args:
+        query_string: The raw QUERY_STRING from environ.
+
+    Returns:
+        Token string or empty string if not found.
+    """
+    if not query_string:
+        return ""
+    for part in query_string.split("&"):
+        if part.startswith("token="):
+            return part[6:]
+    return ""
+
+
 # Create Async Socket.io server (attached to FastAPI in main.py)
 sio = socketio.AsyncServer(
     async_mode="asgi",
@@ -122,10 +139,35 @@ def _register_handlers() -> None:
         """Handle new Socket.io connection.
 
         BC-011: Authentication is required. No anonymous connections.
-        The auth middleware validates the token before this handler runs.
+        S02: JWT token from query params is verified.
+        Backward compat: socketio_auth dict still supported for tests.
         """
-        auth = environ.get("socketio_auth", {})
-        company_id = auth.get("company_id")
+        company_id = None
+        user_id = None
+
+        # S02: Try JWT from query params first
+        query_string = environ.get("QUERY_STRING", "")
+        token = _extract_token_from_qs(query_string)
+
+        if token:
+            try:
+                from backend.app.core.auth import (
+                    verify_access_token,
+                )
+                payload = verify_access_token(token)
+                company_id = payload.get("company_id")
+                user_id = payload.get("sub")
+            except Exception:
+                logger.warning(
+                    "socketio_reject_invalid_jwt",
+                    sid=sid,
+                    reason="invalid_or_expired_jwt",
+                )
+                return False
+        else:
+            # Backward compat: check socketio_auth dict
+            auth = environ.get("socketio_auth", {})
+            company_id = auth.get("company_id")
 
         if not company_id or not _validate_company_id(company_id):
             logger.warning(
@@ -139,13 +181,17 @@ def _register_handlers() -> None:
         room = get_tenant_room(company_id)
         await sio.enter_room(sid, room)
 
-        # Store company_id in session for disconnect
-        await sio.save_session(sid, {"company_id": company_id})
+        # Store company_id and user_id in session
+        session_data = {"company_id": company_id}
+        if user_id:
+            session_data["user_id"] = user_id
+        await sio.save_session(sid, session_data)
 
         logger.info(
             "socketio_connected",
             sid=sid,
             company_id=company_id,
+            user_id=user_id,
             room=room,
         )
 

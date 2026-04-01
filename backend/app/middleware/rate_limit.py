@@ -73,6 +73,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Check rate limit
         try:
+            # F-018: Sync Redis time for consistent timestamps
+            await svc.sync_redis_time()
             result = svc.check_rate_limit(
                 category, identifier,
             )

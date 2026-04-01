@@ -18,6 +18,9 @@ from database.models.core import (  # noqa: F401
 from database.models.core_rate_limit import (  # noqa: F401
     RateLimitEvent,
 )
+from database.models.phone_otp import (  # noqa: F401
+    PhoneOTP,
+)
 from database.models.api_key_audit import (  # noqa: F401
     APIKeyAuditLog,
 )

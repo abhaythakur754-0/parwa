@@ -32,6 +32,20 @@ CATEGORY_CONFIG = {
         "backoff_seconds": [0, 2, 4, 8, 900],
         "lockout_duration": 900,
     },
+    "auth_phone_send": {
+        "limit": 5,
+        "window": 300,
+        "scope": "ip",
+        "backoff_seconds": [0, 2, 4, 8, 900],
+        "lockout_duration": 900,
+    },
+    "auth_phone_verify": {
+        "limit": 20,
+        "window": 300,
+        "scope": "ip",
+        "backoff_seconds": [0, 2, 4, 8, 300],
+        "lockout_duration": 300,
+    },
     "auth_reset": {
         "limit": 3,
         "window": 3600,
@@ -121,6 +135,7 @@ class RateLimitService:
         self._redis = redis_client
         self._in_memory = {}  # fallback store
         self._failures = {}  # failure tracking for backoff
+        self._redis_time_offset: float = 0
 
     def get_category_config(self, category: str) -> dict:
         """Get configuration for an endpoint category."""
@@ -132,6 +147,10 @@ class RateLimitService:
             return "auth_login"
         if path == "/api/auth/mfa" and method == "POST":
             return "auth_mfa"
+        if path == "/api/auth/phone/send" and method == "POST":
+            return "auth_phone_send"
+        if path == "/api/auth/phone/verify" and method == "POST":
+            return "auth_phone_verify"
         if path in (
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
@@ -146,6 +165,10 @@ class RateLimitService:
         if method == "GET":
             return "general_get"
         return "general_post"
+
+    def _now(self) -> float:
+        """Get current time with Redis offset applied (G01)."""
+        return time.time() + self._redis_time_offset
 
     def _make_key(self, category: str, identifier: str) -> str:
         raw = f"{category}\x00{identifier}"
@@ -163,17 +186,39 @@ class RateLimitService:
         ).hexdigest()[:16]
         return f"parwa:rl:fail:{hash_part}"
 
+    async def sync_redis_time(self) -> None:
+        """Fetch Redis TIME and compute offset for sync use.
+
+        F-018: Use Redis server time for consistency.
+        Computes offset = redis_time - local_time so that
+        check_rate_limit (sync) can use time.time() + offset.
+        """
+        if not self._redis:
+            return
+        try:
+            redis_time_tuple = self._redis.time()
+            redis_ts = float(
+                redis_time_tuple[0]
+                + redis_time_tuple[1] / 1_000_000
+            )
+            self._redis_time_offset = redis_ts - time.time()
+        except Exception:
+            logger.debug("redis_time_sync_failed")
+
     def check_rate_limit(
         self,
         category: str,
         identifier: str,
     ) -> RateLimitResult:
-        """Check if a request is allowed under rate limits."""
+        """Check if a request is allowed under rate limits.
+
+        F-018: Uses Redis TIME offset when available.
+        """
         config = self.get_category_config(category)
         limit = config["limit"]
         window = config["window"]
         key = self._make_key(category, identifier)
-        now = time.time()
+        now = self._now()
 
         # Check lockout first
         if self.is_locked_out(category, identifier):
@@ -284,13 +329,16 @@ class RateLimitService:
     def record_failure(
         self, category: str, identifier: str,
     ) -> Optional[int]:
-        """Record a failure and return backoff seconds."""
+        """Record a failure and return backoff seconds.
+
+        G01: Uses Redis time offset when available.
+        """
         config = self.get_category_config(category)
         backoffs = config["backoff_seconds"]
         fail_key = self._make_failure_key(
             category, identifier
         )
-        now = time.time()
+        now = self._now()
         info = self._get_failure_info(category, identifier)
         count = info.get("count", 0)
         first_fail = info.get("first_fail", now)
@@ -320,6 +368,10 @@ class RateLimitService:
     def is_locked_out(
         self, category: str, identifier: str,
     ) -> bool:
+        """Check if identifier is currently locked out.
+
+        G01: Uses Redis time offset when available.
+        """
         config = self.get_category_config(category)
         fail_key = self._make_failure_key(
             category, identifier
@@ -328,7 +380,7 @@ class RateLimitService:
         if not info or info.get("locked_at") is None:
             return False
         lockout_dur = config["lockout_duration"]
-        now = time.time()
+        now = self._now()
         if now - info["locked_at"] < lockout_dur:
             return True
         info["locked_at"] = None

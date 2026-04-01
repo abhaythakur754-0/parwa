@@ -256,16 +256,17 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
 
 
 def require_scope(required_scope: str):
-    """Dependency that checks if the request has
-    the required scope (BC-011)."""
+    """Dependency that checks API key scope (BC-011).
+
+    Only enforces scope when request is authenticated via API key.
+    Passes through when authenticated via JWT (user on state),
+    since JWT users have role-based permissions.
+    """
     def checker(request: Request):
         api_key = getattr(request.state, "api_key", None)
         if not api_key:
-            from fastapi import HTTPException
-            raise HTTPException(
-                status_code=401,
-                detail="API key required",
-            )
+            # No API key — request uses JWT auth, pass through
+            return
         scopes = api_key.get("scopes", [])
         from security.api_keys import validate_scopes
         if not validate_scopes(scopes, required_scope):
@@ -278,3 +279,59 @@ def require_scope(required_scope: str):
                 ),
             )
     return checker
+
+
+def require_financial_approval(request: Request) -> bool:
+    """Check if request has BOTH write AND approval scopes.
+
+    G03: Financial approval dual-scope.
+    Returns True only if both "write" and "approval" are
+    present in the API key scopes.
+    Returns False otherwise.
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        True if both scopes present, False otherwise.
+    """
+    api_key = getattr(request.state, "api_key", None)
+    if not api_key:
+        return False
+    scopes = api_key.get("scopes", [])
+    return "write" in scopes and "approval" in scopes
+
+
+def require_financial_approval_dep(request: Request):
+    """FastAPI dependency for G03: financial approval dual-scope.
+
+    Enforces that the request has BOTH 'write' AND 'approval'
+    scopes when authenticated via API key. Passes through when
+    authenticated via JWT (user on state), since JWT users have
+    role-based permissions.
+
+    Usage:
+        @router.post(\"/api/billing/approve\")
+        async def approve(
+            _auth: None = Depends(require_financial_approval_dep),
+            user: User = Depends(get_current_user),
+        ):
+            ...
+    """
+    from fastapi import HTTPException
+
+    api_key = getattr(request.state, "api_key", None)
+    if not api_key:
+        # No API key — JWT auth, pass through
+        return
+    scopes = api_key.get("scopes", [])
+    has_write = "write" in scopes
+    has_approval = "approval" in scopes
+    if not has_write or not has_approval:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Insufficient scope. Financial approval "
+                "requires both 'write' and 'approval' scopes."
+            ),
+        )
