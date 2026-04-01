@@ -9,17 +9,28 @@ Main FastAPI app with:
 """
 
 from contextlib import asynccontextmanager
+import os
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from backend.app.config import get_settings
-from backend.app.exceptions import ParwaBaseError
+from backend.app.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    NotFoundError,
+    ParwaBaseError,
+    RateLimitError,
+    ValidationError,
+)
 from backend.app.logger import configure_logging, get_logger
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
+
+# Current environment (set at import time for test route guards)
+_CURRENT_ENV = os.environ.get("ENVIRONMENT", "development")
 
 
 def _ensure_logging():
@@ -171,3 +182,32 @@ async def metrics():
         ),
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
+
+
+# ── Test-only routes (only active in test environment) ──────────
+
+if _CURRENT_ENV == "test":
+
+    @app.get("/test/raise/not-found")
+    async def _test_raise_not_found():
+        raise NotFoundError(message="Test resource not found", details={"id": "123"})
+
+    @app.get("/test/raise/validation")
+    async def _test_raise_validation():
+        raise ValidationError(message="Test validation", details=["field x invalid"])
+
+    @app.get("/test/raise/authentication")
+    async def _test_raise_authentication():
+        raise AuthenticationError(message="Test auth failed", details={"reason": "bad token"})
+
+    @app.get("/test/raise/authorization")
+    async def _test_raise_authorization():
+        raise AuthorizationError(message="Test forbidden", details={"required": "admin"})
+
+    @app.get("/test/raise/rate-limit")
+    async def _test_raise_rate_limit():
+        raise RateLimitError(message="Test rate limit", details={"retry_after": 60})
+
+    @app.get("/test/raise/internal")
+    async def _test_raise_internal():
+        raise ValueError("This simulates an unexpected 500 error")
