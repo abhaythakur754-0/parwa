@@ -3,6 +3,10 @@ Day 7: JWT Auth Token Service Tests
 
 Tests for JWT creation, verification, refresh token hashing.
 BC-011: JWT_SECRET_KEY, HS256 algorithm, proper expiry.
+
+Loophole fixes tested:
+- L13: plan claim in JWT
+- L16: nbf (not-before) claim in JWT
 """
 
 from datetime import datetime, timezone
@@ -202,6 +206,66 @@ class TestGetAccessTokenExpiry:
         """Default expiry is 15 minutes = 900 seconds."""
         expiry = get_access_token_expiry_seconds()
         assert expiry == 900
+
+
+class TestPlanClaim:
+    """L13: Tests for plan claim in JWT."""
+
+    def test_default_plan_is_starter(self):
+        """Default plan should be 'starter'."""
+        payload = verify_access_token(
+            create_access_token(
+                user_id="u1", company_id="c1",
+                email="a@b.com", role="owner",
+            )
+        )
+        assert payload.get("plan") == "starter"
+
+    def test_custom_plan_in_token(self):
+        """Custom plan should be stored in token."""
+        payload = verify_access_token(
+            create_access_token(
+                user_id="u1", company_id="c1",
+                email="a@b.com", role="owner",
+                plan="growth",
+            )
+        )
+        assert payload.get("plan") == "growth"
+
+    def test_enterprise_plan(self):
+        """Enterprise plan should be stored correctly."""
+        payload = verify_access_token(
+            create_access_token(
+                user_id="u1", company_id="c1",
+                email="a@b.com", role="owner",
+                plan="enterprise",
+            )
+        )
+        assert payload.get("plan") == "enterprise"
+
+
+class TestNbfClaim:
+    """L16: Tests for nbf (not-before) claim in JWT."""
+
+    def test_nbf_claim_present(self):
+        """Token should contain nbf claim."""
+        payload = verify_access_token(
+            create_access_token(
+                user_id="u1", company_id="c1",
+                email="a@b.com", role="owner",
+            )
+        )
+        assert "nbf" in payload
+
+    def test_nbf_equals_iat(self):
+        """nbf should equal iat (token valid immediately)."""
+        payload = verify_access_token(
+            create_access_token(
+                user_id="u1", company_id="c1",
+                email="a@b.com", role="owner",
+            )
+        )
+        assert payload["nbf"] == payload["iat"]
 
 
 def _test_secret() -> str:

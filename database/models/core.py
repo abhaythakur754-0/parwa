@@ -70,6 +70,10 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     mfa_enabled = Column(Boolean, default=False)
     mfa_secret = Column(String(255))
+    # Login lockout fields (F-013: progressive lockout)
+    failed_login_count = Column(Integer, default=0)
+    locked_until = Column(DateTime)
+    last_failed_login_at = Column(DateTime)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
