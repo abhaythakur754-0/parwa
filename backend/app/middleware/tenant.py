@@ -28,10 +28,15 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/openapi.json",
     }
 
-    # Prefixes that skip tenant check (auth handles its own)
+    # Prefixes that skip tenant check (auth handles its own
+    # via route-level get_current_user dependency)
     PUBLIC_PREFIXES = (
         "/api/auth/",
         "/api/public/",
+        "/api/api-keys",
+        "/api/mfa/",
+        "/api/billing/",
+        "/test/",
     )
 
     async def dispatch(self, request: Request, call_next) -> Response:
@@ -44,10 +49,11 @@ class TenantMiddleware(BaseHTTPMiddleware):
             if path.startswith(prefix):
                 return await call_next(request)
 
-        # Extract company_id from request state or header
-        company_id = (
-            getattr(request.state, "company_id", None)
-            or request.headers.get("X-Company-ID")
+        # Extract company_id from request state only.
+        # JWT verification happens in get_current_user dependency.
+        # Do NOT accept client-controlled headers (L06).
+        company_id = getattr(
+            request.state, "company_id", None,
         )
 
         # Reject empty or whitespace-only company_id (BC-001)

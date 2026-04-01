@@ -50,15 +50,11 @@ class TestTenantMiddleware:
             "Should be blocked or not found"
         )
 
-    def test_middleware_allows_with_company_id_header(self, client):
-        """Request with X-Company-ID header is allowed through."""
-        resp = client.get(
-            "/nonexistent",
-            headers={"X-Company-ID": "test-company-123"}
-        )
-        assert resp.status_code != 403, (
-            "company_id request should not be blocked"
-            " by tenant middleware"
+    def test_protected_route_without_state_returns_403(self, client):
+        """Request without company_id in state returns 403."""
+        resp = client.get("/nonexistent")
+        assert resp.status_code in (403, 404), (
+            "Should be blocked by tenant middleware"
         )
 
     def test_middleware_structured_403_response(self):
