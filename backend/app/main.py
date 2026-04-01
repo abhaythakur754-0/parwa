@@ -5,6 +5,7 @@ Main FastAPI app with:
 - Health/ready/metrics endpoints (BC-012)
 - Structured JSON error responses (BC-012)
 - No stack traces to users (BC-012)
+- OpenAPI schema hidden when DEBUG=False (BC-011)
 """
 
 from contextlib import asynccontextmanager
@@ -17,12 +18,34 @@ from backend.app.config import get_settings
 from backend.app.exceptions import ParwaBaseError
 from backend.app.logger import configure_logging, get_logger
 
+# Track if logging has been configured (idempotent)
+_logging_configured = False
+
+
+def _ensure_logging():
+    """Ensure logging is configured (safe to call multiple times)."""
+    global _logging_configured  # noqa: PLW0603
+    if not _logging_configured:
+        configure_logging("development")
+        _logging_configured = True
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: startup and shutdown."""
     settings = get_settings()
     configure_logging(settings.ENVIRONMENT)
+
+    # Hide OpenAPI schema when not in debug mode (BC-011)
+    if settings.DEBUG:
+        app.docs_url = "/docs"
+        app.redoc_url = "/redoc"
+        app.openapi_url = "/openapi.json"
+    else:
+        app.docs_url = None
+        app.redoc_url = None
+        app.openapi_url = None
+
     logger = get_logger("lifespan")
     logger.info("parwa_startup", environment=settings.ENVIRONMENT, version="0.1.0")
     yield
@@ -34,8 +57,11 @@ app = FastAPI(
     description="AI-Powered Customer Support Platform",
     version="0.1.0",
     lifespan=lifespan,
-    docs_url="/docs" if get_settings().DEBUG else None,
-    redoc_url="/redoc" if get_settings().DEBUG else None,
+    # docs/openapi set in lifespan after settings loaded to avoid
+    # module-level crash when env vars missing (BC-011)
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 
@@ -84,6 +110,7 @@ async def validation_error_handler(request: Request, exc: Exception) -> JSONResp
 @app.exception_handler(500)
 async def internal_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle 500 errors — NO stack traces to users (BC-012)."""
+    _ensure_logging()
     logger = get_logger("error_handler")
     logger.error(
         "internal_error",
@@ -126,12 +153,17 @@ async def readiness_check():
 @app.get("/metrics", tags=["Health"])
 async def metrics():
     """Prometheus-style metrics endpoint."""
+    try:
+        settings = get_settings()
+        env = settings.ENVIRONMENT
+    except Exception:
+        env = "unknown"
     now = datetime.now(timezone.utc).isoformat()
     return PlainTextResponse(
         content=(
             "# HELP parwa_build_info PARWA build information\n"
             "# TYPE parwa_build_info gauge\n"
-            f'parwa_build_info{{version="0.1.0",environment="{get_settings().ENVIRONMENT}"}} 1\n'
+            f'parwa_build_info{{version="0.1.0",environment="{env}"}} 1\n'
             "# HELP parwa_health_check PARWA health status (1=healthy, 0=unhealthy)\n"
             "# TYPE parwa_health_check gauge\n"
             f'parwa_health_check{{status="healthy"}} 1\n'
