@@ -1,6 +1,7 @@
 """
 Core Models: companies, users, refresh_tokens, mfa_secrets, backup_codes,
-api_keys, agents, emergency_states, user_notification_preferences.
+api_keys, agents, emergency_states, user_notification_preferences,
+verification_tokens, password_reset_tokens, oauth_accounts, company_settings.
 
 Source: CORRECTED_PARWA_Complete_Backend_Documentation.md
 BC-001: Every table has company_id (except companies which IS the root).
@@ -220,4 +221,104 @@ class UserNotificationPreference(Base):
     channel = Column(String(50), nullable=False)
     event_type = Column(String(100), nullable=False)
     enabled = Column(Boolean, default=True)
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+# ── Verification Tokens (F-012: email verification) ──────────────
+
+class VerificationToken(Base):
+    __tablename__ = "verification_tokens"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    token_hash = Column(String(255), nullable=False, index=True)
+    purpose = Column(String(50), default="email_verification")
+    is_used = Column(Boolean, default=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+# ── Password Reset Tokens (F-014) ───────────────────────────────
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    token_hash = Column(String(255), nullable=False, index=True)
+    is_used = Column(Boolean, default=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+# ── OAuth Accounts (F-011: Google OAuth) ────────────────────────
+
+class OAuthAccount(Base):
+    __tablename__ = "oauth_accounts"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    provider = Column(String(50), nullable=False)  # google
+    provider_account_id = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    access_token = Column(Text)  # encrypted
+    refresh_token = Column(Text)  # encrypted
+    token_expires_at = Column(DateTime)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+# ── Company Settings (used by ticket lifecycle, AI pipeline) ────────
+
+class CompanySetting(Base):
+    __tablename__ = "company_settings"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, unique=True, index=True,
+    )
+    # OOO detection (F-122)
+    ooo_status = Column(String(20), default="inactive")
+    ooo_message = Column(Text)
+    ooo_until = Column(DateTime)
+    # Brand voice for AI responses
+    brand_voice = Column(Text)
+    tone_guidelines = Column(Text)
+    prohibited_phrases = Column(Text, default="[]")
+    # PII patterns
+    pii_patterns = Column(Text, default="[]")
+    custom_regex = Column(Text, default="[]")
+    # RAG config
+    top_k = Column(Integer, default=5)
+    similarity_threshold = Column(Numeric(5, 2), default=0.70)
+    rerank_model = Column(String(255))
+    # Classification config
+    confidence_thresholds = Column(Text, default="{}")
+    intent_labels = Column(Text, default="[]")
+    custom_rules = Column(Text, default="[]")
+    # Assignment rules
+    assignment_rules = Column(Text, default="[]")
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
