@@ -39,13 +39,18 @@ class TestGetDB:
         assert db is not None
         # Can use the session
         from database.models.core import Company
+        unique_id = "co-test-get-db-unique"
         co = Company(
-            id="co1", name="Test", industry="tech",
+            id=unique_id, name="Test", industry="tech",
             subscription_tier="growth",
         )
         db.add(co)
         db.commit()
-        assert db.query(Company).count() == 1
+        assert (
+            db.query(Company)
+            .filter(Company.id == unique_id)
+            .count() == 1
+        )
         # Generator cleanup
         try:
             next(gen)

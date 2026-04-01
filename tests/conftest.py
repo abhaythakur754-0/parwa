@@ -17,6 +17,10 @@ os.environ["JWT_SECRET_KEY"] = "test_jwt_secret_key_not_prod"
 os.environ["DATA_ENCRYPTION_KEY"] = "12345678901234567890123456789012"
 
 from backend.app.main import app  # noqa: E402
+from database.base import init_db  # noqa: E402
+
+# Create all tables for tests (SQLite in-memory)
+init_db()
 
 
 @pytest.fixture

@@ -10,6 +10,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 
 def _get_db_url() -> str:
@@ -29,10 +30,13 @@ def _get_db_url() -> str:
 
 _db_url = _get_db_url()
 
-# SQLite doesn't support pool_size/max_overflow
+# SQLite in-memory: use StaticPool so all connections share
+# the same database (required for tests)
 _engine_kwargs = {"echo": False}
 if _db_url.startswith("sqlite"):
     _engine_kwargs["connect_args"] = {"check_same_thread": False}
+    if ":memory:" in _db_url:
+        _engine_kwargs["poolclass"] = StaticPool
 else:
     _engine_kwargs.update({
         "pool_pre_ping": True,

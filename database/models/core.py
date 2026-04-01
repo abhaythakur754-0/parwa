@@ -62,8 +62,12 @@ class User(Base):
     )
     email = Column(String(255), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
-    role = Column(String(50), nullable=False, default="viewer")
+    full_name = Column(String(255))
+    phone = Column(String(20))
+    avatar_url = Column(String(500))
+    role = Column(String(50), nullable=False, default="owner")
     is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
     mfa_enabled = Column(Boolean, default=False)
     mfa_secret = Column(String(255))
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -76,6 +80,11 @@ class User(Base):
     )
     backup_codes = relationship(
         "BackupCode", back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    oauth_accounts = relationship(
+        "OAuthAccount",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
 
@@ -279,14 +288,16 @@ class OAuthAccount(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    provider = Column(String(50), nullable=False)  # google
+    provider = Column(String(50), nullable=False)
     provider_account_id = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
-    access_token = Column(Text)  # encrypted
-    refresh_token = Column(Text)  # encrypted
+    access_token = Column(Text)
+    refresh_token = Column(Text)
     token_expires_at = Column(DateTime)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+    user = relationship("User", back_populates="oauth_accounts")
 
 
 # ── Company Settings (used by ticket lifecycle, AI pipeline) ────────
