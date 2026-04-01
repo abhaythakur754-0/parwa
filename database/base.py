@@ -59,3 +59,30 @@ def get_db():
 def init_db():
     """Create all tables (used in tests and initial setup)."""
     Base.metadata.create_all(bind=engine)
+
+
+async def check_db_health() -> dict:
+    """Check database connectivity and return health status.
+
+    Used by the /health and /ready endpoints (BC-012) to detect
+    database failures.
+
+    Returns:
+        Dict with 'status' ('healthy' or 'unhealthy'), 'latency_ms',
+        and optional 'error'.
+    """
+    import time
+
+    start = time.monotonic()
+    try:
+        with engine.connect() as conn:
+            conn.execute(__import__("sqlalchemy").text("SELECT 1"))
+        latency = round((time.monotonic() - start) * 1000, 2)
+        return {"status": "healthy", "latency_ms": latency}
+    except Exception as exc:
+        latency = round((time.monotonic() - start) * 1000, 2)
+        return {
+            "status": "unhealthy",
+            "latency_ms": latency,
+            "error": str(exc),
+        }
