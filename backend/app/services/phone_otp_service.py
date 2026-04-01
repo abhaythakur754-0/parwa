@@ -74,15 +74,30 @@ def send_otp(
             from backend.app.config import get_settings
             settings = get_settings()
             if settings.TWILIO_ACCOUNT_SID:
-                _send_via_twilio(
+                success = _send_via_twilio(
                     phone_number, code, settings,
                 )
+                if not success:
+                    # L22: Don't store OTP if Twilio send failed
+                    db.rollback()
+                    return {
+                        "message": "Failed to send OTP. "
+                        "Please try again.",
+                        "expires_in": 0,
+                    }
         except Exception as exc:
             logger.warning(
                 "twilio_send_failed",
                 phone=phone_number,
                 error=str(exc),
             )
+            # L22: Return error instead of silently failing
+            db.rollback()
+            return {
+                "message": "Failed to send OTP. "
+                "Please try again.",
+                "expires_in": 0,
+            }
 
     logger.info(
         "otp_sent",
@@ -180,20 +195,38 @@ def verify_otp(
 
 def _send_via_twilio(
     phone_number: str, code: str, settings,
-) -> None:
-    """Send OTP via Twilio Verify API.
+) -> bool:
+    """Send OTP via Twilio SMS.
 
-    In production, this would call Twilio's verification API.
+    Uses the locally generated OTP code (not Twilio Verify)
+    so that the code hash stored in DB matches what user enters.
+
+    L21 fix: Twilio Verify generates its own code which wouldn't
+    match our locally generated one. Use direct SMS instead.
+
+    Returns:
+        True if send succeeded, False otherwise.
     """
-    from twilio.rest import Client
+    try:
+        from twilio.rest import Client
 
-    client = Client(
-        settings.TWILIO_ACCOUNT_SID,
-        settings.TWILIO_AUTH_TOKEN,
-    )
-    client.verify.v2.services(
-        settings.TWILIO_PHONE_NUMBER,
-    ).verifications.create(
-        to=phone_number,
-        channel="sms",
-    )
+        client = Client(
+            settings.TWILIO_ACCOUNT_SID,
+            settings.TWILIO_AUTH_TOKEN,
+        )
+        client.messages.create(
+            body=(
+                f"Your PARWA verification code is: {code}\n"
+                "This code expires in 5 minutes."
+            ),
+            from_=settings.TWILIO_PHONE_NUMBER,
+            to=phone_number,
+        )
+        return True
+    except Exception as exc:
+        logger.warning(
+            "twilio_sms_send_failed",
+            phone=phone_number,
+            error=str(exc),
+        )
+        return False

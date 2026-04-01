@@ -136,6 +136,18 @@ class TestSendOTP:
 class TestVerifyOTP:
     """Tests for verifying OTP codes."""
 
+    def test_verify_otp_missing_company_404(self, client):
+        """L23: Non-existent company returns 404 on verify."""
+        resp = client.post(
+            "/api/auth/phone/verify",
+            json={
+                "phone": "+14155552671",
+                "code": "123456",
+                "company_id": "nonexistent-company",
+            },
+        )
+        assert resp.status_code == 404
+
     def test_verify_otp_success(self, client, company, db):
         """Correct OTP code verifies successfully."""
         known_code = "123456"

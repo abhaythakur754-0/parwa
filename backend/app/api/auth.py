@@ -236,7 +236,19 @@ def phone_verify_otp(
 
     C5: Constant-time comparison, max 5 attempts,
     5-minute expiry, anti-enumeration error messages.
+    L23: Validate company exists for consistency with send.
     """
+    # L23: Verify company exists (BC-001)
+    company = db.query(Company).filter(
+        Company.id == body.company_id,
+    ).first()
+    if not company:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=404,
+            detail="Company not found",
+        )
+
     result = verify_otp(
         db=db,
         phone_number=body.phone,
