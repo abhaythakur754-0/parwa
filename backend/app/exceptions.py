@@ -36,8 +36,17 @@ class ParwaBaseError(Exception):
 
 
 class NotFoundError(ParwaBaseError):
-    def __init__(self, message: str = "Resource not found", details: Optional[Any] = None) -> None:
-        super().__init__(message=message, error_code="NOT_FOUND", status_code=404, details=details)
+    def __init__(
+        self,
+        message: str = "Resource not found",
+        details: Optional[Any] = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code="NOT_FOUND",
+            status_code=404,
+            details=details,
+        )
 
 
 class ValidationError(ParwaBaseError):

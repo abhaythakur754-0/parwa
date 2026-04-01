@@ -39,8 +39,14 @@ class Company(Base):
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
-    users = relationship("User", back_populates="company", cascade="all, delete-orphan")
-    api_keys = relationship("APIKey", back_populates="company", cascade="all, delete-orphan")
+    users = relationship(
+        "User", back_populates="company",
+        cascade="all, delete-orphan",
+    )
+    api_keys = relationship(
+        "APIKey", back_populates="company",
+        cascade="all, delete-orphan",
+    )
 
 
 # ── Users ──────────────────────────────────────────────────────────
@@ -49,7 +55,10 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     email = Column(String(255), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, default="viewer")
@@ -60,8 +69,14 @@ class User(Base):
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
     company = relationship("Company", back_populates="users")
-    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
-    backup_codes = relationship("BackupCode", back_populates="user", cascade="all, delete-orphan")
+    refresh_tokens = relationship(
+        "RefreshToken", back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    backup_codes = relationship(
+        "BackupCode", back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 # ── Refresh Tokens (BC-011: max 5 sessions) ────────────────────────
@@ -70,8 +85,14 @@ class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     token_hash = Column(String(255), nullable=False, unique=True)
     device_info = Column(String(255))
     ip_address = Column(String(45))
@@ -87,8 +108,14 @@ class MFASecret(Base):
     __tablename__ = "mfa_secrets"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, unique=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     secret_key = Column(String(255), nullable=False)
     is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -100,8 +127,14 @@ class BackupCode(Base):
     __tablename__ = "backup_codes"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     code_hash = Column(String(255), nullable=False)
     is_used = Column(Boolean, default=False)
     used_at = Column(DateTime)
@@ -116,7 +149,10 @@ class APIKey(Base):
     __tablename__ = "api_keys"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     name = Column(String(255), nullable=False)
     key_hash = Column(String(255), nullable=False, unique=True)
     key_prefix = Column(String(8), nullable=False)
@@ -135,7 +171,10 @@ class Agent(Base):
     __tablename__ = "agents"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     name = Column(String(255), nullable=False)
     variant = Column(String(50), nullable=False)
     status = Column(String(50), default="active")
@@ -152,7 +191,10 @@ class EmergencyState(Base):
     __tablename__ = "emergency_states"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     is_paused = Column(Boolean, default=False)
     paused_channels = Column(Text, default="")
     paused_by = Column(String(36), ForeignKey("users.id"))
@@ -167,8 +209,14 @@ class UserNotificationPreference(Base):
     __tablename__ = "user_notification_preferences"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     channel = Column(String(50), nullable=False)
     event_type = Column(String(100), nullable=False)
     enabled = Column(Boolean, default=True)

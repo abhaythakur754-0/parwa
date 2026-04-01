@@ -29,7 +29,8 @@ class APIProvider(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     name = Column(String(100), nullable=False, unique=True)
-    provider_type = Column(String(50), nullable=False)  # llm, payment, email, sms, voice
+    # llm, payment, email, sms, voice
+    provider_type = Column(String(50), nullable=False)
     description = Column(Text)
     required_fields = Column(Text, default="[]")
     optional_fields = Column(Text, default="[]")
@@ -37,7 +38,9 @@ class APIProvider(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
-    service_configs = relationship("ServiceConfig", back_populates="provider")
+    service_configs = relationship(
+        "ServiceConfig", back_populates="provider",
+    )
 
 
 class ServiceConfig(Base):
@@ -45,7 +48,10 @@ class ServiceConfig(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     provider_id = Column(String(36), ForeignKey("api_providers.id"))
-    company_id = Column(String(36), ForeignKey("companies.id"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id"),
+        nullable=False, index=True,
+    )
     display_name = Column(String(255))
     api_key_encrypted = Column(Text)
     api_secret_encrypted = Column(Text)
@@ -61,8 +67,14 @@ class GSDSession(Base):
     __tablename__ = "gsd_sessions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    session_id = Column(String(36), ForeignKey("sessions.id"), nullable=False, index=True)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id = Column(
+        String(36), ForeignKey("sessions.id"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     current_step = Column(String(100), nullable=False)
     state_data = Column(Text, default="{}")
     status = Column(String(50), default="in_progress")
@@ -74,8 +86,14 @@ class ConfidenceScore(Base):
     __tablename__ = "confidence_scores"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    session_id = Column(String(36), ForeignKey("sessions.id"), nullable=False, index=True)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id = Column(
+        String(36), ForeignKey("sessions.id"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     overall_score = Column(Numeric(5, 2), nullable=False)
     retrieval_score = Column(Numeric(5, 2))
     intent_score = Column(Numeric(5, 2))
@@ -88,9 +106,16 @@ class GuardrailBlock(Base):
     __tablename__ = "guardrail_blocks"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    session_id = Column(String(36), ForeignKey("sessions.id"), nullable=False, index=True)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    block_type = Column(String(50), nullable=False)  # harmful, off_topic, hallucination, policy
+    session_id = Column(
+        String(36), ForeignKey("sessions.id"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    # harmful, off_topic, hallucination, policy
+    block_type = Column(String(50), nullable=False)
     original_response = Column(Text)
     block_reason = Column(Text)
     severity = Column(String(20), default="medium")
@@ -104,7 +129,10 @@ class GuardrailRule(Base):
     __tablename__ = "guardrail_rules"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     name = Column(String(255), nullable=False)
     rule_type = Column(String(50), nullable=False)
     pattern = Column(Text, nullable=False)
@@ -118,7 +146,10 @@ class PromptTemplate(Base):
     __tablename__ = "prompt_templates"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     name = Column(String(255), nullable=False)
     intent_type = Column(String(100))
     template_text = Column(Text, nullable=False)
@@ -132,7 +163,10 @@ class ModelUsageLog(Base):
     __tablename__ = "model_usage_logs"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     session_id = Column(String(36), ForeignKey("sessions.id"))
     provider_name = Column(String(100), nullable=False)
     model_name = Column(String(100), nullable=False)

@@ -2,7 +2,8 @@
 Ticket Models: sessions, interactions, ticket_attachments,
 ticket_internal_notes, customers, channels.
 
-Source: CORRECTED_PARWA_Complete_Backend_Documentation.md (sessions/interactions)
+Source: CORRECTED_PARWA_Complete_Backend_Documentation.md
+(sessions/interactions)
 BC-001: Every table has company_id (except channels).
 """
 
@@ -26,7 +27,10 @@ class Customer(Base):
     __tablename__ = "customers"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     external_id = Column(String(255))
     email = Column(String(255))
     phone = Column(String(50))
@@ -41,7 +45,8 @@ class Channel(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     name = Column(String(50), nullable=False, unique=True)
-    channel_type = Column(String(50), nullable=False)  # email, chat, sms, voice, social
+    # email, chat, sms, voice, social
+    channel_type = Column(String(50), nullable=False)
     description = Column(Text)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
@@ -51,8 +56,13 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    customer_id = Column(String(36), ForeignKey("customers.id", ondelete="SET NULL"))
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    customer_id = Column(
+        String(36), ForeignKey("customers.id", ondelete="SET NULL")
+    )
     channel = Column(String(50), nullable=False)
     status = Column(String(50), default="open")
     subject = Column(String(255))
@@ -66,16 +76,26 @@ class Session(Base):
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
     closed_at = Column(DateTime)
 
-    interactions = relationship("Interaction", back_populates="session", cascade="all, delete-orphan")
+    interactions = relationship(
+        "Interaction", back_populates="session",
+        cascade="all, delete-orphan",
+    )
 
 
 class Interaction(Base):
     __tablename__ = "interactions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    session_id = Column(String(36), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    role = Column(String(50), nullable=False)  # customer, agent, system
+    session_id = Column(
+        String(36), ForeignKey("sessions.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    # customer, agent, system
+    role = Column(String(50), nullable=False)
     content = Column(Text, nullable=False)
     channel = Column(String(50), nullable=False)
     metadata_json = Column(Text, default="{}")
@@ -88,8 +108,14 @@ class TicketAttachment(Base):
     __tablename__ = "ticket_attachments"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    session_id = Column(String(36), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id = Column(
+        String(36), ForeignKey("sessions.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     filename = Column(String(255), nullable=False)
     file_url = Column(Text, nullable=False)
     file_size = Column(Integer)
@@ -102,9 +128,17 @@ class TicketInternalNote(Base):
     __tablename__ = "ticket_internal_notes"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    session_id = Column(String(36), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    author_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    session_id = Column(
+        String(36), ForeignKey("sessions.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    author_id = Column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
     content = Column(Text, nullable=False)
     is_pinned = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())

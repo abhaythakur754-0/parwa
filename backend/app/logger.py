@@ -16,7 +16,10 @@ import structlog
 
 
 def _add_env_info(logger, method_name, event_dict):
-    """Add environment info to log events (replaces structlog.processors.add_env_info)."""
+    """Add environment info to log events.
+
+    Replaces structlog.processors.add_env_info.
+    """
     event_dict["environment"] = os.getenv("ENVIRONMENT", "unknown")
     return event_dict
 
@@ -63,7 +66,12 @@ def configure_logging(environment: str = "development") -> None:
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
-    root_logger.setLevel(logging.DEBUG if environment != "production" else logging.INFO)
+    level = (
+        logging.DEBUG
+        if environment != "production"
+        else logging.INFO
+    )
+    root_logger.setLevel(level)
 
 
 def get_logger(name: str) -> Any:

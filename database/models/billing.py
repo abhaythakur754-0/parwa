@@ -26,7 +26,10 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     tier = Column(String(50), nullable=False)
     status = Column(String(50), nullable=False)
     current_period_start = Column(DateTime)
@@ -40,7 +43,10 @@ class Invoice(Base):
     __tablename__ = "invoices"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     paddle_invoice_id = Column(String(255))
     amount = Column(Numeric(10, 2), nullable=False)  # BC-002
     currency = Column(String(3), default="USD")
@@ -55,7 +61,10 @@ class OverageCharge(Base):
     __tablename__ = "overage_charges"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     date = Column(Date, nullable=False)
     tickets_over_limit = Column(Integer, nullable=False, default=0)
     charge_amount = Column(Numeric(10, 2), nullable=False, default=0)  # BC-002
@@ -68,7 +77,10 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     paddle_transaction_id = Column(String(255))
     amount = Column(Numeric(10, 2), nullable=False)  # BC-002
     currency = Column(String(3), default="USD")
@@ -82,7 +94,10 @@ class WebhookEvent(Base):
     __tablename__ = "webhook_events"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     event_type = Column(String(100), nullable=False)
     event_id = Column(String(255), nullable=False, unique=True)
     payload = Column(Text)
@@ -95,7 +110,10 @@ class CancellationRequest(Base):
     __tablename__ = "cancellation_requests"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     reason = Column(Text, nullable=False)
     feedback = Column(Text)

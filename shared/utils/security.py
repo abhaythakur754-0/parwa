@@ -72,7 +72,7 @@ def derive_key(encryption_key: str) -> bytes:
     The raw encryption key is never used directly.
 
     Args:
-        encryption_key: Raw encryption key string (from DATA_ENCRYPTION_KEY env).
+        encryption_key: Raw key string (from DATA_ENCRYPTION_KEY env).
 
     Returns:
         Exactly 32 bytes for AES-256.
