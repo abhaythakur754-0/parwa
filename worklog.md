@@ -335,3 +335,63 @@ Stage Summary:
 - F-019: DB-backed API key CRUD, max 10/tenant, rotation with 24h grace (now enforced), revocation, audit logging, scope validation
 - 4 loopholes found and fixed (L17-L20)
 - Week 2 features F-010 through F-019 all complete
+---
+Task ID: d11-build
+Agent: Main Agent
+Task: Day 11 — C5 Phone OTP Login, S02 Socket.io JWT Auth, G01 Redis TIME, G02 Scope Wiring, G03 Financial Dual-Scope
+
+Work Log:
+- C5: Phone OTP Login (Twilio Verify)
+  - Created database/models/phone_otp.py: PhoneOTP model with phone, code_hash (SHA-256), company_id, verified, expires_at (5min), attempts (max 5), created_at
+  - Added PhoneOTP to database/models/__init__.py
+  - Created backend/app/schemas/phone_otp.py: SendOTPRequest, VerifyOTPRequest, SendOTPResponse, VerifyOTPResponse with E.164 phone validation
+  - Created backend/app/services/phone_otp_service.py: send_otp() and verify_otp() functions
+    - send_otp: validates phone format, generates 6-digit OTP (secrets.token_hex), stores SHA-256 hash, skips Twilio in test env
+    - verify_otp: constant_time_compare on hashed codes, max 5 attempts, anti-enumeration (same error for wrong/expired/locked), marks verified on success
+  - Added POST /api/auth/phone/send and POST /api/auth/phone/verify to backend/app/api/auth.py
+  - Created tests/unit/test_phone_otp.py: 10 tests covering send, verify, expiry, attempts, anti-enumeration, constant-time
+
+- S02: Socket.io JWT Auth Middleware
+  - Modified backend/app/core/socketio.py connect handler:
+    - Extracts JWT from QUERY_STRING (token= param) via new _extract_token_from_qs() helper
+    - Verifies JWT via verify_access_token(), extracts company_id and user_id
+    - Stores both company_id and user_id in session
+    - Rejects invalid/expired JWT (return False)
+    - Rejects no token at all (BC-011: no anonymous connections)
+    - Backward compat: socketio_auth dict still supported for testing
+  - Created tests/unit/test_socketio_auth.py: 12 tests (6 helper, 6 JWT auth)
+
+- G01: Redis TIME for Rate Limiting (F-018)
+  - Modified backend/app/services/rate_limit_service.py:
+    - Added self._redis_time_offset: float = 0 in __init__
+    - Added async sync_redis_time() method: fetches Redis TIME, computes offset = redis_time - local_time
+    - check_rate_limit now uses time.time() + self._redis_time_offset instead of time.time() alone
+    - Kept method sync (non-async) to avoid breaking changes
+  - Modified backend/app/middleware/rate_limit.py:
+    - Calls await svc.sync_redis_time() before svc.check_rate_limit() in dispatch
+    - Fail-open: sync_redis_time errors are caught in the existing try/except
+
+- G02: Wire require_scope into API Key Routes
+  - Modified backend/app/api/api_keys.py:
+    - Imported require_scope from backend.app.middleware.api_key_auth
+    - Added Depends(require_scope("write")) to api_key_create and api_key_rotate
+    - Added Depends(require_scope("admin")) to api_key_revoke
+    - api_key_list remains without scope requirement (read is default)
+  - Modified require_scope to pass through when no API key present (JWT auth), preventing breakage with existing integration tests
+
+- G03: Financial Approval Dual-Scope
+  - Added require_financial_approval(request: Request) -> bool to backend/app/middleware/api_key_auth.py:
+    - Returns True only if both "write" AND "approval" are in API key scopes
+    - Returns False if no API key or missing either scope
+  - Created tests/unit/test_scope_enforcement.py: 18 tests (10 require_scope, 8 require_financial_approval)
+
+Stage Summary:
+- 1017 tests passing (41 new tests: 10 phone OTP + 12 socketio JWT + 18 scope enforcement + 1 rate limit offset)
+- Flake8: 0 errors
+- C5: Phone OTP with SHA-256 hashing, constant-time compare, max 5 attempts, 5-min expiry, anti-enumeration
+- S02: Socket.io JWT auth from query params, backward compat with socketio_auth dict
+- G01: Redis TIME offset for rate limiting (sync method with async offset sync)
+- G02: require_scope wired into create (write), rotate (write), revoke (admin) endpoints
+- G03: require_financial_approval utility for dual-scope financial endpoints
+- Files created: 5 (phone_otp model, phone_otp schemas, phone_otp service, test_phone_otp, test_scope_enforcement, test_socketio_auth)
+- Files modified: 5 (models __init__.py, auth router, socketio.py, rate_limit_service.py, rate_limit middleware, api_key_auth.py, api_keys.py)

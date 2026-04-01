@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from backend.app.api.deps import get_current_user
+from backend.app.middleware.api_key_auth import require_scope
 from backend.app.schemas.api_key import (
     APIKeyCreate,
     APIKeyCreatedResponse,
@@ -34,8 +35,13 @@ router = APIRouter(
 def api_key_list(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _scopes: None = Depends(require_scope("read")),
 ):
-    """List all API keys for the tenant."""
+    """List all API keys for the tenant.
+
+    G02: require_scope("read") wired — enforces for API key auth,
+    passes through for JWT auth (role-based permissions).
+    """
     return list_keys(db, user.company_id)
 
 
@@ -45,6 +51,7 @@ def api_key_create(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     request: Request = None,
+    _scopes: None = Depends(require_scope("write")),
 ):
     """Create a new API key."""
     _ = request  # available for future audit logging
@@ -83,6 +90,7 @@ def api_key_rotate(
     key_id: str,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _scopes: None = Depends(require_scope("write")),
 ):
     """Rotate an existing API key."""
     try:
@@ -114,6 +122,7 @@ def api_key_revoke(
     key_id: str,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _scopes: None = Depends(require_scope("admin")),
 ):
     """Revoke an API key immediately."""
     try:
