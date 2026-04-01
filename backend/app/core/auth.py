@@ -28,17 +28,21 @@ def create_access_token(
     company_id: str,
     email: str,
     role: str,
+    plan: str = "starter",
 ) -> str:
     """Create a short-lived JWT access token.
 
-    BC-011: Token contains user_id, company_id, email, role.
+    BC-011: Token contains user_id, company_id, email, role, plan.
     BC-011: Expiry from JWT_ACCESS_TOKEN_EXPIRE_MINUTES.
+    L13: Includes subscription plan from company.
+    L16: Includes nbf (not-before) claim.
 
     Args:
         user_id: The user's UUID.
         company_id: The user's company UUID.
         email: The user's email address.
         role: The user's role (owner, admin, agent, viewer).
+        plan: Subscription tier (starter, growth, enterprise).
 
     Returns:
         Encoded JWT string.
@@ -53,9 +57,11 @@ def create_access_token(
         "company_id": company_id,
         "email": email,
         "role": role,
+        "plan": plan,
         "type": "access",
         "exp": expire,
         "iat": now,
+        "nbf": now,
     }
     return jwt.encode(
         payload, settings.JWT_SECRET_KEY, algorithm=JWT_ALGORITHM

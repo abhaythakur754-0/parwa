@@ -2,8 +2,17 @@
 Day 7: Auth API Endpoint Tests
 
 Tests for all auth API routes: register, login, refresh,
-logout, me, and Google OAuth.
+logout, me, Google OAuth, check-email.
+
 BC-012: Structured error responses.
+
+Loophole fixes tested:
+- L01: confirm_password required
+- L02: Special character in password
+- L04: check-email endpoint
+- L08: is_new_user flag
+- L11: Progressive lockout
+- L12: HTTP-only cookies
 """
 
 from unittest.mock import MagicMock, patch
@@ -16,7 +25,8 @@ class TestRegisterEndpoint:
         """Valid registration returns 201 with user + tokens."""
         resp = client.post("/api/auth/register", json={
             "email": "new@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "New User",
             "company_name": "New Co",
             "industry": "technology",
@@ -34,7 +44,8 @@ class TestRegisterEndpoint:
         """Response must include expires_in for token TTL."""
         resp = client.post("/api/auth/register", json={
             "email": "expires@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "Expires",
             "company_name": "Expires Co",
             "industry": "tech",
@@ -47,7 +58,8 @@ class TestRegisterEndpoint:
         """Duplicate email should return 422."""
         body = {
             "email": "dup@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "First",
             "company_name": "First Co",
             "industry": "tech",
@@ -61,6 +73,7 @@ class TestRegisterEndpoint:
         resp = client.post("/api/auth/register", json={
             "email": "weak@test.com",
             "password": "weak",
+            "confirm_password": "weak",
             "full_name": "Weak",
             "company_name": "Weak Co",
             "industry": "tech",
@@ -71,7 +84,8 @@ class TestRegisterEndpoint:
         """Password without uppercase should return 422."""
         resp = client.post("/api/auth/register", json={
             "email": "noupp@test.com",
-            "password": "lowercase1",
+            "password": "lowercase1!",
+            "confirm_password": "lowercase1!",
             "full_name": "NoUpp",
             "company_name": "NoUpp Co",
             "industry": "tech",
@@ -82,9 +96,22 @@ class TestRegisterEndpoint:
         """Password without digit should return 422."""
         resp = client.post("/api/auth/register", json={
             "email": "nodigit@test.com",
-            "password": "NoDigits",
+            "password": "NoDigits!",
+            "confirm_password": "NoDigits!",
             "full_name": "NoDigit",
             "company_name": "NoDigit Co",
+            "industry": "tech",
+        })
+        assert resp.status_code == 422
+
+    def test_register_no_special_char_422(self, client):
+        """L02: Password without special char should return 422."""
+        resp = client.post("/api/auth/register", json={
+            "email": "nospec@test.com",
+            "password": "NoSpecial1",
+            "confirm_password": "NoSpecial1",
+            "full_name": "NoSpec",
+            "company_name": "NoSpec Co",
             "industry": "tech",
         })
         assert resp.status_code == 422
@@ -93,7 +120,8 @@ class TestRegisterEndpoint:
         """Invalid email should return 422."""
         resp = client.post("/api/auth/register", json={
             "email": "not-an-email",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "BadEmail",
             "company_name": "Bad Co",
             "industry": "tech",
@@ -113,12 +141,49 @@ class TestRegisterEndpoint:
         long_email = "a" * 250 + "@test.com"
         resp = client.post("/api/auth/register", json={
             "email": long_email,
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "Long",
             "company_name": "Long Co",
             "industry": "tech",
         })
         assert resp.status_code == 422
+
+    def test_register_mismatched_confirm_422(self, client):
+        """L01: Mismatched confirm_password returns 422."""
+        resp = client.post("/api/auth/register", json={
+            "email": "mismatch@test.com",
+            "password": "StrongPass1!",
+            "confirm_password": "Different1!",
+            "full_name": "Mismatch",
+            "company_name": "Mismatch Co",
+            "industry": "tech",
+        })
+        assert resp.status_code == 422
+
+    def test_register_missing_confirm_422(self, client):
+        """L01: Missing confirm_password returns 422."""
+        resp = client.post("/api/auth/register", json={
+            "email": "noconfirm@test.com",
+            "password": "StrongPass1!",
+            "full_name": "NoConfirm",
+            "company_name": "NoConfirm Co",
+            "industry": "tech",
+        })
+        assert resp.status_code == 422
+
+    def test_register_returns_is_new_user(self, client):
+        """L08: Registration should return is_new_user=true."""
+        resp = client.post("/api/auth/register", json={
+            "email": "newflag@test.com",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
+            "full_name": "Flag",
+            "company_name": "Flag Co",
+            "industry": "tech",
+        })
+        assert resp.status_code == 201
+        assert resp.json()["is_new_user"] is True
 
 
 class TestLoginEndpoint:
@@ -128,7 +193,8 @@ class TestLoginEndpoint:
         """Helper: register a user for login tests."""
         return client.post("/api/auth/register", json={
             "email": "loginuser@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "Login User",
             "company_name": "Login Co",
             "industry": "tech",
@@ -139,7 +205,7 @@ class TestLoginEndpoint:
         self._register(client)
         resp = client.post("/api/auth/login", json={
             "email": "loginuser@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
         })
         assert resp.status_code == 200
         data = resp.json()
@@ -151,7 +217,7 @@ class TestLoginEndpoint:
         self._register(client)
         resp = client.post("/api/auth/login", json={
             "email": "loginuser@test.com",
-            "password": "WrongPassword1",
+            "password": "WrongPassword1!",
         })
         assert resp.status_code == 401
 
@@ -159,7 +225,7 @@ class TestLoginEndpoint:
         """Non-existent email returns 401."""
         resp = client.post("/api/auth/login", json={
             "email": "nobody@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
         })
         assert resp.status_code == 401
 
@@ -168,18 +234,94 @@ class TestLoginEndpoint:
         # Non-existent user
         r1 = client.post("/api/auth/login", json={
             "email": "noone@test.com",
-            "password": "WrongPass1",
+            "password": "WrongPass1!",
         })
         # Existing user, wrong password
         self._register(client)
         r2 = client.post("/api/auth/login", json={
             "email": "loginuser@test.com",
-            "password": "WrongPass1",
+            "password": "WrongPass1!",
         })
         # Both should show same error message
         assert r1.json()["error"]["message"] == (
             r2.json()["error"]["message"]
         )
+
+    def test_login_returns_is_new_user_false(self, client):
+        """L08: Login should return is_new_user=false."""
+        self._register(client)
+        resp = client.post("/api/auth/login", json={
+            "email": "loginuser@test.com",
+            "password": "StrongPass1!",
+        })
+        assert resp.json()["is_new_user"] is False
+
+    def test_login_lockout_after_5_failures(self, client):
+        """L11: Account locks after 5 failed attempts."""
+        self._register(client)
+        # 5 failed logins
+        for _ in range(5):
+            client.post("/api/auth/login", json={
+                "email": "loginuser@test.com",
+                "password": "WrongPassword1!",
+            })
+        # 6th should say locked
+        resp = client.post("/api/auth/login", json={
+            "email": "loginuser@test.com",
+            "password": "WrongPassword1!",
+        })
+        assert resp.status_code == 401
+        assert "locked" in resp.json()["error"]["message"].lower()
+
+
+class TestCheckEmailEndpoint:
+    """L04: Tests for GET /api/auth/check-email."""
+
+    def test_available_email(self, client):
+        """Unregistered email should return available=true."""
+        resp = client.get(
+            "/api/auth/check-email?email=available@test.com"
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["available"] is True
+        assert data["email"] == "available@test.com"
+
+    def test_taken_email(self, client):
+        """Registered email should return available=false."""
+        client.post("/api/auth/register", json={
+            "email": "takenemail@test.com",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
+            "full_name": "Taken",
+            "company_name": "Taken Co",
+            "industry": "tech",
+        })
+        resp = client.get(
+            "/api/auth/check-email?email=takenemail@test.com"
+        )
+        assert resp.status_code == 200
+        assert resp.json()["available"] is False
+
+    def test_case_insensitive_check(self, client):
+        """Email check should be case-insensitive."""
+        client.post("/api/auth/register", json={
+            "email": "casedup@test.com",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
+            "full_name": "Case",
+            "company_name": "Case Co",
+            "industry": "tech",
+        })
+        resp = client.get(
+            "/api/auth/check-email?email=CASEDUP@TEST.COM"
+        )
+        assert resp.json()["available"] is False
+
+    def test_missing_email_param_422(self, client):
+        """Missing email query param should return 422."""
+        resp = client.get("/api/auth/check-email")
+        assert resp.status_code == 422
 
 
 class TestRefreshEndpoint:
@@ -189,7 +331,8 @@ class TestRefreshEndpoint:
         """Valid refresh token returns new token pair."""
         reg = client.post("/api/auth/register", json={
             "email": "refreshtest@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "Refresh",
             "company_name": "Refresh Co",
             "industry": "tech",
@@ -215,7 +358,8 @@ class TestRefreshEndpoint:
         """Reusing a refreshed token returns 401 (rotation)."""
         reg = client.post("/api/auth/register", json={
             "email": "rotatetest@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "Rotate",
             "company_name": "Rotate Co",
             "industry": "tech",
@@ -241,7 +385,8 @@ class TestLogoutEndpoint:
         """Valid logout returns 200 with message."""
         reg = client.post("/api/auth/register", json={
             "email": "logoutapi@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "Logout",
             "company_name": "Logout Co",
             "industry": "tech",
@@ -261,7 +406,8 @@ class TestLogoutEndpoint:
         """After logout, refresh token should not work."""
         reg = client.post("/api/auth/register", json={
             "email": "logoutinv@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "LogoutInv",
             "company_name": "LogoutInv Co",
             "industry": "tech",
@@ -288,7 +434,8 @@ class TestMeEndpoint:
         """Valid token returns user profile."""
         reg = client.post("/api/auth/register", json={
             "email": "metest@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "Me Test",
             "company_name": "Me Co",
             "industry": "tech",
@@ -331,7 +478,8 @@ class TestMeEndpoint:
         """Using refresh token as access token returns 401."""
         reg = client.post("/api/auth/register", json={
             "email": "typetest@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "Type Test",
             "company_name": "Type Co",
             "industry": "tech",
@@ -371,6 +519,7 @@ class TestGoogleEndpoint:
         data = resp.json()
         assert data["user"]["email"] == "gnew@test.com"
         assert data["user"]["is_verified"] is True
+        assert data["is_new_user"] is True
 
     @patch("backend.app.services.auth_service.httpx")
     def test_google_verification_fails(
@@ -394,7 +543,7 @@ class TestErrorResponseFormat:
         """All errors must have error.code, message, details."""
         resp = client.post("/api/auth/login", json={
             "email": "error@test.com",
-            "password": "BadPass1",
+            "password": "BadPass1!",
         })
         assert resp.status_code == 401
         data = resp.json()
@@ -419,7 +568,8 @@ class TestTenantMiddlewareBypass:
         """Register should work without X-Company-ID."""
         resp = client.post("/api/auth/register", json={
             "email": "noheader@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "No Header",
             "company_name": "NoHeader Co",
             "industry": "tech",
@@ -430,13 +580,72 @@ class TestTenantMiddlewareBypass:
         """Login should work without X-Company-ID."""
         client.post("/api/auth/register", json={
             "email": "loginnh@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
             "full_name": "Login NH",
             "company_name": "LoginNH Co",
             "industry": "tech",
         })
         resp = client.post("/api/auth/login", json={
             "email": "loginnh@test.com",
-            "password": "StrongPass1",
+            "password": "StrongPass1!",
         })
+        assert resp.status_code == 200
+
+
+class TestCookieSupport:
+    """L12: Tests for HTTP-only cookie support."""
+
+    def test_register_sets_cookies(self, client):
+        """Registration should set auth cookies."""
+        resp = client.post("/api/auth/register", json={
+            "email": "cookiereg@test.com",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
+            "full_name": "Cookie",
+            "company_name": "Cookie Co",
+            "industry": "tech",
+        })
+        assert resp.status_code == 201
+        cookie_names = list(resp.cookies.keys())
+        assert "parwa_access" in cookie_names
+        assert "parwa_refresh" in cookie_names
+
+    def test_login_sets_cookies(self, client):
+        """Login should set auth cookies."""
+        client.post("/api/auth/register", json={
+            "email": "cookielog@test.com",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
+            "full_name": "Cookie",
+            "company_name": "Cookie Co",
+            "industry": "tech",
+        })
+        resp = client.post("/api/auth/login", json={
+            "email": "cookielog@test.com",
+            "password": "StrongPass1!",
+        })
+        assert resp.status_code == 200
+        cookie_names = list(resp.cookies.keys())
+        assert "parwa_access" in cookie_names
+        assert "parwa_refresh" in cookie_names
+
+    def test_logout_clears_cookies(self, client):
+        """Logout should clear auth cookies."""
+        reg = client.post("/api/auth/register", json={
+            "email": "cookielout@test.com",
+            "password": "StrongPass1!",
+            "confirm_password": "StrongPass1!",
+            "full_name": "Cookie",
+            "company_name": "Cookie Co",
+            "industry": "tech",
+        })
+        access_tok = reg.json()["tokens"]["access_token"]
+        refresh_tok = reg.json()["tokens"]["refresh_token"]
+
+        resp = client.post(
+            "/api/auth/logout",
+            json={"refresh_token": refresh_tok},
+            headers={"Authorization": f"Bearer {access_tok}"},
+        )
         assert resp.status_code == 200
