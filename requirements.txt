@@ -18,4 +18,4 @@ pytest-cov==6.0.0
 pyotp==2.9.0
 qrcode==7.4.2
 jinja2==3.1.4
-brevo-python==1.1.0
+brevo-python==1.1.2
