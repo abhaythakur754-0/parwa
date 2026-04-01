@@ -54,3 +54,37 @@ Stage Summary:
 - FK ondelete warnings are SQLite inspection limitation, not real issues (code has ondelete=CASCADE)
 - Commit: 0e81c4c pushed to GitHub main
 - Files created: 20 (3 database, 9 models, 3 alembic, 2 middleware, 2 tests, 1 __init__)
+
+---
+Task ID: d3-build
+Agent: PARWA Tech Lead
+Task: Week 1 Day 3 — Error Handling + Audit Trail + Shared Utilities
+
+Work Log:
+- Created shared/utils/datetime.py: UTC-only datetime ops (utcnow, to_iso, from_iso, format_duration, is_expired)
+- Created shared/utils/validators.py: email/phone/UUID/URL validation + sanitize_string with null byte protection
+- Created shared/utils/pagination.py: Safe pagination (DEFAULT=20, MAX=100, MAX_OFFSET=10000) to prevent DoS
+- Created shared/utils/security.py: bcrypt cost 12, AES-256-GCM encrypt/decrypt, constant-time compare, API key/token generation (BC-011)
+- Created backend/app/middleware/error_handler.py: Correlation ID middleware, structured JSON errors, Starlette HTTPException handler (BC-012)
+- Created backend/app/services/audit_service.py: AuditEntry class, ActorType/AuditAction enums, company_id validation in __init__ (BC-001)
+- Created backend/app/middleware/request_logger.py: Request logging middleware with method/path/status/timing (BC-012)
+
+Phase B Loophole Check — 22 checks performed:
+- 12/12 main checks PASSED (bcrypt=12, AES-256, key from env, no stack traces, structured errors, correlation ID, audit fields, pagination max, UTC datetime, validators, request logger)
+- 3 FAILs found and fixed:
+  - F1: sanitize_string did not strip null bytes (\x00) → added value.replace('\x00', '')
+  - F2: No Starlette HTTPException handler → added _handle_http_exception + _status_to_error_code mapping
+  - F3: Dead _current_env variable in error_handler → removed unused code
+- 3 PARTIALs fixed:
+  - P1: AuditEntry.__init__ bypassed company_id validation → moved validation into __init__
+  - P2: company_id format not validated → added 128-char max length check
+  - P3: Audit entries don't write to DB yet → by design (DB layer comes Day 5+)
+
+Stage Summary:
+- 453 tests passing (274 Day 3 + 149 Day 1+2 + 30 backfill)
+- Flake8: 0 errors across all files
+- BC-011: bcrypt cost 12, AES-256-GCM, encryption key from env, constant-time compare
+- BC-012: Correlation ID in all responses, structured errors, no stack traces, full request logging
+- BC-001: company_id validated in AuditEntry.__init__ (not bypassable), 128-char max
+- Commit: 14e7131 pushed to GitHub main
+- Files created: 17 (4 shared utils, 2 middleware, 1 service, 7 test files, 3 __init__.py)
