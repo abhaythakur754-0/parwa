@@ -156,7 +156,9 @@ app.add_middleware(RateLimitMiddleware)
 
 
 @app.exception_handler(ParwaBaseError)
-async def parwa_exception_handler(request: Request, exc: ParwaBaseError) -> JSONResponse:
+async def parwa_exception_handler(
+    request: Request, exc: ParwaBaseError,
+) -> JSONResponse:
     """Handle all PARWA custom exceptions with structured JSON."""
     data = exc.to_dict()
     # BC-012: Include correlation ID in every error response
@@ -185,7 +187,9 @@ async def not_found_handler(request: Request, exc: Exception) -> JSONResponse:
 
 
 @app.exception_handler(422)
-async def validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
+async def validation_error_handler(
+    request: Request, exc: Exception,
+) -> JSONResponse:
     """Handle 422 validation errors with structured JSON (BC-012)."""
     return JSONResponse(
         status_code=422,
@@ -200,7 +204,9 @@ async def validation_error_handler(request: Request, exc: Exception) -> JSONResp
 
 
 @app.exception_handler(500)
-async def internal_error_handler(request: Request, exc: Exception) -> JSONResponse:
+async def internal_error_handler(
+    request: Request, exc: Exception,
+) -> JSONResponse:
     """Handle 500 errors — NO stack traces to users (BC-012)."""
     _ensure_logging()
     logger = get_logger("error_handler")
@@ -253,7 +259,10 @@ async def health_check():
     except Exception:
         db_status = "unreachable"
 
-    overall = "healthy" if redis_status == "healthy" and db_status == "healthy" else "degraded"
+    healthy = (
+        redis_status == "healthy" and db_status == "healthy"
+    )
+    overall = "healthy" if healthy else "degraded"
 
     return {
         "status": overall,
@@ -350,7 +359,8 @@ async def metrics():
             "# HELP parwa_build_info PARWA build information\n"
             "# TYPE parwa_build_info gauge\n"
             f'parwa_build_info{{version="0.1.0",environment="{env}"}} 1\n'
-            "# HELP parwa_health_check PARWA health status (1=healthy, 0=unhealthy)\n"
+            "# HELP parwa_health_check PARWA health status"
+            " (1=healthy, 0=unhealthy)\n"
             "# TYPE parwa_health_check gauge\n"
             f'parwa_health_check{{status="healthy"}} 1\n'
             "# HELP parwa_redis_up Redis connectivity (1=up, 0=down)\n"
@@ -415,23 +425,38 @@ if _CURRENT_ENV == "test":
 
     @app.get("/test/raise/not-found")
     async def _test_raise_not_found():
-        raise NotFoundError(message="Test resource not found", details={"id": "123"})
+        raise NotFoundError(
+            message="Test resource not found",
+            details={"id": "123"},
+        )
 
     @app.get("/test/raise/validation")
     async def _test_raise_validation():
-        raise ValidationError(message="Test validation", details=["field x invalid"])
+        raise ValidationError(
+            message="Test validation",
+            details=["field x invalid"],
+        )
 
     @app.get("/test/raise/authentication")
     async def _test_raise_authentication():
-        raise AuthenticationError(message="Test auth failed", details={"reason": "bad token"})
+        raise AuthenticationError(
+            message="Test auth failed",
+            details={"reason": "bad token"},
+        )
 
     @app.get("/test/raise/authorization")
     async def _test_raise_authorization():
-        raise AuthorizationError(message="Test forbidden", details={"required": "admin"})
+        raise AuthorizationError(
+            message="Test forbidden",
+            details={"required": "admin"},
+        )
 
     @app.get("/test/raise/rate-limit")
     async def _test_raise_rate_limit():
-        raise RateLimitError(message="Test rate limit", details={"retry_after": 60})
+        raise RateLimitError(
+            message="Test rate limit",
+            details={"retry_after": 60},
+        )
 
     @app.get("/test/raise/internal")
     async def _test_raise_internal():

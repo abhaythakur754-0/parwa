@@ -8,8 +8,10 @@ can fetch missed events after reconnection.
 BC-005 Requirements:
 - Event buffer retention: 24 hours (86400 seconds)
 - Events stored with: tenant_id, event_type, payload (JSON), created_at
-- On reconnect: GET /api/events/since?last_seen={timestamp} fetches missed events
-- Graceful degradation: if Redis is down, emit still works (event just not buffered)
+- On reconnect: GET /api/events/since?last_seen={timestamp}
+  fetches missed events
+- Graceful degradation: if Redis is down, emit still works
+  (event just not buffered)
 
 Key namespace: parwa:{company_id}:events (BC-001 — tenant isolation)
 Key type: Redis Sorted Set (score = epoch timestamp for range queries)
@@ -220,7 +222,8 @@ async def get_buffer_stats(company_id: str) -> Dict[str, Any]:
         company_id: Tenant identifier (BC-001).
 
     Returns:
-        Dict with 'total_events', 'oldest_event_age_hours', 'newest_event_age_hours'.
+        Dict with 'total_events', 'oldest_event_age_hours',
+        'newest_event_age_hours'.
     """
     try:
         client = await get_redis()

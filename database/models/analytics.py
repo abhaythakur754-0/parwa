@@ -26,9 +26,13 @@ class MetricAggregate(Base):
     __tablename__ = "metric_aggregates"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     metric_type = Column(String(100), nullable=False)
-    period = Column(String(20), nullable=False)  # daily, weekly, monthly
+    # daily, weekly, monthly
+    period = Column(String(20), nullable=False)
     period_start = Column(DateTime, nullable=False)
     period_end = Column(DateTime, nullable=False)
     value = Column(Numeric(10, 2), nullable=False)  # BC-002
@@ -40,7 +44,10 @@ class ROISnapshot(Base):
     __tablename__ = "roi_snapshots"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     period = Column(String(20), nullable=False)
     tickets_ai_resolved = Column(Integer, default=0)
     tickets_human_resolved = Column(Integer, default=0)
@@ -56,7 +63,10 @@ class DriftReport(Base):
     __tablename__ = "drift_reports"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     agent_id = Column(String(36), ForeignKey("agents.id"))
     metric_type = Column(String(100), nullable=False)
     baseline_value = Column(Numeric(10, 2))
@@ -71,7 +81,10 @@ class QAScore(Base):
     __tablename__ = "qa_scores"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     session_id = Column(String(36), ForeignKey("sessions.id"))
     agent_id = Column(String(36), ForeignKey("agents.id"))
     accuracy = Column(Numeric(5, 2))
@@ -86,9 +99,13 @@ class TrainingRun(Base):
     __tablename__ = "training_runs"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     agent_id = Column(String(36), ForeignKey("agents.id"))
-    trigger = Column(String(50), nullable=False)  # auto_mistake_threshold, time_fallback, manual
+    # auto_mistake_threshold, time_fallback, manual
+    trigger = Column(String(50), nullable=False)
     mistake_count_at_trigger = Column(Integer, default=0)
     status = Column(String(50), default="pending")
     dataset_size = Column(Integer, default=0)

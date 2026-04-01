@@ -122,3 +122,64 @@ Stage Summary:
 - BC-001: Rate limit per company_id with | delimiter, API key tenant cross-check, company_id recovery
 - Commit: 10195ad pushed to GitHub main
 - Files created: 9 (3 security, 2 middleware, 3 test files, 1 __init__)
+
+---
+Task ID: d5-build
+Agent: PARWA Tech Lead
+Task: Week 1 Day 5 — Redis Layer + Socket.io Base + Integration Wiring
+
+Work Log:
+- Reviewed user's pre-written infrastructure (15 files in infra/docker/):
+  - docker-compose.prod.yml (7 services + network isolation)
+  - 8 multi-stage Dockerfiles (backend, worker, frontend, MCP, nginx, postgres, redis)
+  - Custom redis.conf (AOF, 256MB, LRU, protected mode)
+  - Custom postgresql.conf (256MB buffers, WAL, autovacuum)
+  - nginx.conf + nginx-default.conf (reverse proxy, /ws/ WebSocket proxy, SSL)
+  - Root docker-compose.yml (dev) + docker-compose.prod.yml (prod + monitoring)
+- Created backend/app/core/__init__.py (empty init)
+- Created backend/app/core/redis.py: Redis connection pool with tenant-scoped keys
+  - make_key() enforces parwa:{company_id}:* format (BC-001)
+  - cache_get/set/delete helpers with TTL support
+  - redis_health_check() for health endpoint (BC-012)
+  - Fail-open on all Redis errors (BC-012)
+  - Connection pool with max_connections=20, health_check_interval=30
+- Created backend/app/core/socketio.py: Socket.io server with tenant rooms
+  - Room naming: tenant_{company_id} (BC-005, BC-001)
+  - connect handler validates company_id, rejects anonymous (BC-011)
+  - disconnect handler leaves tenant room
+  - emit_to_tenant() with auto event buffer store
+  - Ping/interval configured for reliability (60s/25s)
+- Created backend/app/core/event_buffer.py: Redis sorted set event buffer
+  - Events stored with timestamp scores for range queries
+  - EVENT_BUFFER_TTL_SECONDS = 86400 (24h, BC-005)
+  - get_events_since() with open interval (excludes exact match, prevents duplicates)
+  - cleanup_old_events() for manual pruning
+  - MAX_EVENTS_PER_QUERY = 500 cap prevents DoS
+  - get_buffer_stats() for monitoring
+- Updated backend/app/main.py:
+  - Wired all 4 middleware (ErrorHandler, RequestLogger, Tenant, RateLimit)
+  - Socket.io ASGI app mounted at /ws
+  - /health checks Redis + DB, returns subsystem status
+  - /ready returns 503 when deps unhealthy (BC-012)
+  - /metrics includes parwa_redis_up + parwa_database_up Prometheus gauges
+  - GET /api/events/since endpoint for client reconnection (BC-005)
+  - Lifespan: Redis pool init/shutdown, Socket.io mount
+- Updated database/base.py: Added check_db_health() for SELECT 1 probe
+- Updated existing tests for tenant middleware activation
+
+Phase B Loophole Check — 12 checks:
+- 10 PASS: key namespace, room naming, cross-tenant prevention, 24h TTL,
+  connection pool, URL from env, health checks Redis+DB, fail-open emit, open interval
+- 2 PARTIAL (noted for Week 2):
+  - Socket.io auth middleware not yet implemented (socketio_auth not populated)
+  - APIKeyAuthMiddleware not wired (needs DB key store from Week 2)
+
+Stage Summary:
+- 683 tests passing (72 new + 611 existing)
+- Flake8: 0 errors across all files
+- BC-001: Redis keys parwa:{company_id}:*, Socket.io rooms tenant_{company_id}
+- BC-005: 24h event buffer TTL, open interval queries, fail-open emit
+- BC-012: /health checks Redis + DB, /ready returns 503 on failure
+- BC-011: Socket.io rejects anonymous connections, Redis URL from env
+- Commit: d380fd2 pushed to GitHub main
+- Files created/modified: 11 (4 core modules, 3 test files, 4 updated)

@@ -50,7 +50,10 @@ def get_correlation_id(request: Request) -> str:
     correlation_id = request.headers.get(CORRELATION_ID_HEADER)
     if correlation_id and len(correlation_id) <= 64:
         # Sanitize: only allow alphanumeric, hyphens, underscores
-        safe_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+        safe_chars = set(
+            "abcdefghijklmnopqrstuvwxyz"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+        )
         if all(c in safe_chars for c in correlation_id):
             return correlation_id
 
@@ -58,11 +61,13 @@ def get_correlation_id(request: Request) -> str:
 
 
 class ErrorHandlerMiddleware(BaseHTTPMiddleware):
-    """Middleware that wraps all requests with error handling and correlation ID.
+    """Middleware: error handling + correlation ID.
 
     - Generates/propagates correlation ID for every request
-    - Catches unhandled exceptions and returns structured JSON (BC-012)
-    - Logs all errors with full context (but never returns stack traces to users)
+    - Catches unhandled exceptions and returns
+      structured JSON (BC-012)
+    - Logs all errors with full context (but never
+      returns stack traces to users)
     - Sets correlation ID in response header
     """
 
@@ -83,8 +88,10 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
             # Handle Starlette HTTPException (404, 422, etc.)
             return self._handle_http_exception(request, exc, correlation_id)
         except Exception as exc:
-            # Handle unexpected errors — log full context, return generic message
-            return self._handle_unexpected_error(request, exc, correlation_id)
+            # Handle unexpected errors — log, return generic msg
+            return self._handle_unexpected_error(
+                request, exc, correlation_id,
+            )
 
     def _handle_parwa_error(
         self, request: Request, exc: ParwaBaseError, correlation_id: str
@@ -114,7 +121,10 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
         return response
 
     def _handle_http_exception(
-        self, request: Request, exc: StarletteHTTPException, correlation_id: str
+        self,
+        request: Request,
+        exc: StarletteHTTPException,
+        correlation_id: str,
     ) -> JSONResponse:
         """Handle Starlette HTTPException with structured JSON.
 
@@ -148,7 +158,9 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
     def _handle_unexpected_error(
         self, request: Request, exc: Exception, correlation_id: str
     ) -> JSONResponse:
-        """Handle unexpected exceptions — log stack trace, return generic message.
+        """Handle unexpected exceptions.
+
+        Log stack trace internally, return generic message.
 
         BC-012: Stack traces are NEVER sent to users.
         They are only logged internally for debugging.

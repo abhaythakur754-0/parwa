@@ -102,7 +102,8 @@ class AuditEntry:
         # Validate company_id first (BC-001 — multi-tenant isolation)
         if not company_id or not isinstance(company_id, str):
             raise ValueError(
-                "company_id is required and must be a non-empty string (BC-001)"
+                "company_id is required and must be a "
+                "non-empty string (BC-001)"
             )
         if len(company_id) > 128:
             raise ValueError("company_id must not exceed 128 characters")

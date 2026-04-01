@@ -26,7 +26,10 @@ class Integration(Base):
     __tablename__ = "integrations"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     integration_type = Column(String(100), nullable=False)
     name = Column(String(255))
     status = Column(String(50), default="disconnected")
@@ -42,10 +45,17 @@ class RESTConnector(Base):
     __tablename__ = "rest_connectors"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    integration_id = Column(String(36), ForeignKey("integrations.id"), nullable=False)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    integration_id = Column(
+        String(36), ForeignKey("integrations.id"),
+        nullable=False,
+    )
     base_url = Column(String(500), nullable=False)
-    auth_type = Column(String(50), nullable=False)  # bearer, basic, api_key, oauth2
+    # bearer, basic, api_key, oauth2
+    auth_type = Column(String(50), nullable=False)
     auth_config = Column(Text)  # encrypted
     headers = Column(Text, default="{}")
     is_active = Column(Boolean, default=True)
@@ -57,8 +67,14 @@ class WebhookIntegration(Base):
     __tablename__ = "webhook_integrations"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    integration_id = Column(String(36), ForeignKey("integrations.id"), nullable=False)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    integration_id = Column(
+        String(36), ForeignKey("integrations.id"),
+        nullable=False,
+    )
     webhook_url = Column(String(500), nullable=False)
     secret = Column(String(255))
     events = Column(Text, default="[]")
@@ -70,7 +86,10 @@ class MCPConnection(Base):
     __tablename__ = "mcp_connections"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     name = Column(String(255), nullable=False)
     server_url = Column(String(500))
     auth_token = Column(Text)  # encrypted
@@ -84,9 +103,13 @@ class DBConnection(Base):
     __tablename__ = "db_connections"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     name = Column(String(255), nullable=False)
-    db_type = Column(String(50), nullable=False)  # postgresql, mysql, mongodb
+    # postgresql, mysql, mongodb
+    db_type = Column(String(50), nullable=False)
     connection_string = Column(Text)  # encrypted
     is_readonly = Column(Boolean, default=True)
     status = Column(String(50), default="disconnected")
@@ -98,11 +121,15 @@ class EventBuffer(Base):
     __tablename__ = "event_buffer"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     session_id = Column(String(36), ForeignKey("sessions.id"))
     event_type = Column(String(100), nullable=False)
     event_data = Column(Text)
-    ttl_seconds = Column(Integer, default=86400)  # 24h default (BC-005)
+    # 24h default (BC-005)
+    ttl_seconds = Column(Integer, default=86400)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
@@ -110,7 +137,10 @@ class ErrorLog(Base):
     __tablename__ = "error_log"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     error_type = Column(String(100), nullable=False)
     error_message = Column(Text, nullable=False)
     stack_trace = Column(Text)
@@ -126,9 +156,13 @@ class AuditTrail(Base):
     __tablename__ = "audit_trail"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     actor_id = Column(String(36))
-    actor_type = Column(String(50), nullable=False)  # user, system, api_key
+    # user, system, api_key
+    actor_type = Column(String(50), nullable=False)
     action = Column(String(100), nullable=False)
     resource_type = Column(String(100))
     resource_id = Column(String(36))
@@ -143,7 +177,10 @@ class OutgoingWebhook(Base):
     __tablename__ = "outgoing_webhooks"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     name = Column(String(255), nullable=False)
     url = Column(String(500), nullable=False)
     secret = Column(String(255))

@@ -24,7 +24,10 @@ class TrainingDataset(Base):
     __tablename__ = "training_datasets"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     agent_id = Column(String(36), ForeignKey("agents.id"))
     name = Column(String(255), nullable=False)
     record_count = Column(Integer, default=0)
@@ -39,8 +42,14 @@ class TrainingCheckpoint(Base):
     __tablename__ = "training_checkpoints"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    training_run_id = Column(String(36), ForeignKey("training_runs.id"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    training_run_id = Column(
+        String(36), ForeignKey("training_runs.id"),
+        nullable=False, index=True,
+    )
     checkpoint_name = Column(String(255), nullable=False)
     model_path = Column(Text)
     metrics = Column(Text)  # JSON
@@ -53,8 +62,14 @@ class AgentMistake(Base):
     __tablename__ = "agent_mistakes"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    agent_id = Column(String(36), ForeignKey("agents.id"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    agent_id = Column(
+        String(36), ForeignKey("agents.id"),
+        nullable=False, index=True,
+    )
     session_id = Column(String(36), ForeignKey("sessions.id"))
     mistake_type = Column(String(100), nullable=False)
     original_response = Column(Text)
@@ -69,8 +84,14 @@ class AgentPerformance(Base):
     __tablename__ = "agent_performance"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    agent_id = Column(String(36), ForeignKey("agents.id"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    agent_id = Column(
+        String(36), ForeignKey("agents.id"),
+        nullable=False, index=True,
+    )
     period = Column(String(20), nullable=False)
     period_start = Column(DateTime, nullable=False)
     tickets_resolved = Column(Integer, default=0)

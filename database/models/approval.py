@@ -26,7 +26,10 @@ class ApprovalQueue(Base):
     __tablename__ = "approval_queues"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     session_id = Column(String(36), ForeignKey("sessions.id"))
     action_type = Column(String(100), nullable=False)
     confidence_score = Column(Numeric(5, 2))
@@ -45,13 +48,18 @@ class AutoApproveRule(Base):
     __tablename__ = "auto_approve_rules"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     action_type = Column(String(100), nullable=False)
     min_confidence = Column(Numeric(5, 2), nullable=False)
     max_amount = Column(Numeric(10, 2))  # BC-002
     risk_levels = Column(Text, default="low")
     is_active = Column(Boolean, default=False)
-    created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
+    created_by = Column(
+        String(36), ForeignKey("users.id"), nullable=False,
+    )
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
@@ -60,9 +68,14 @@ class ExecutedAction(Base):
     __tablename__ = "executed_actions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     session_id = Column(String(36), ForeignKey("sessions.id"))
-    approval_id = Column(String(36), ForeignKey("approval_queues.id"))
+    approval_id = Column(
+        String(36), ForeignKey("approval_queues.id"),
+    )
     action_type = Column(String(100), nullable=False)
     action_data = Column(Text)
     response_data = Column(Text)
@@ -75,9 +88,16 @@ class UndoLog(Base):
     __tablename__ = "undo_log"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    executed_action_id = Column(String(36), ForeignKey("executed_actions.id"), nullable=False)
-    undo_type = Column(String(50), nullable=False)  # reversal, email_recall
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    executed_action_id = Column(
+        String(36), ForeignKey("executed_actions.id"),
+        nullable=False,
+    )
+    # reversal, email_recall
+    undo_type = Column(String(50), nullable=False)
     original_data = Column(Text)
     undo_data = Column(Text)
     undo_reason = Column(Text)
