@@ -15,7 +15,9 @@ os.environ["DATA_ENCRYPTION_KEY"] = "12345678901234567890123456789012"
 
 import pytest  # noqa: E402
 
-from database.base import Base, SessionLocal, engine, get_db, init_db  # noqa: E402
+from database.base import (  # noqa: E402
+    Base, SessionLocal, engine, get_db, init_db,
+)
 import database.models.core  # noqa: F401, E402
 
 
@@ -37,7 +39,10 @@ class TestGetDB:
         assert db is not None
         # Can use the session
         from database.models.core import Company
-        co = Company(id="co1", name="Test", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.commit()
         assert db.query(Company).count() == 1
@@ -48,7 +53,7 @@ class TestGetDB:
             pass  # expected
 
     def test_get_db_closes_session(self):
-        """get_db() generator cleanup doesn't crash and session object exists."""
+        """get_db() cleanup works and session object exists."""
         gen = get_db()
         db = next(gen)
         assert db is not None
@@ -91,7 +96,10 @@ class TestEngineConfig:
         # More importantly, we can use the engine across threads
         db = SessionLocal()
         from database.models.core import Company
-        db.add(Company(id="co1", name="Test", industry="tech", subscription_tier="growth"))
+        db.add(Company(
+            id="co1", name="Test", industry="tech",
+            subscription_tier="growth",
+        ))
         db.commit()
         assert db.query(Company).count() == 1
         db.close()

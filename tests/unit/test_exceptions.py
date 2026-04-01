@@ -1,7 +1,7 @@
 """
 Tests for PARWA Exception Classes (exceptions.py)
 
-BC-012: All exceptions produce structured JSON {error: {code, message, details}}.
+BC-012: All exceptions produce structured JSON error responses.
 No stack traces are ever exposed to users.
 Every subclass must have correct default status_code and error_code.
 """

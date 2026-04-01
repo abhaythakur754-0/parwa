@@ -42,8 +42,6 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     LLM_PRIMARY_PROVIDER: str = "google"
     LLM_FALLBACK_PROVIDER: str = "groq"
-    OPENROUTER_API_KEY: str = ""
-    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     AI_LIGHT_MODEL: str = ""
     AI_MEDIUM_MODEL: str = ""
     AI_HEAVY_MODEL: str = ""
@@ -109,10 +107,6 @@ class Settings(BaseSettings):
     # ── MCP Server ───────────────────────────────────────────────
     MCP_SERVER_URL: str = ""
     MCP_AUTH_TOKEN: str = ""
-
-    # ── Vector DB ────────────────────────────────────────────────
-    QDRANT_URL: str = ""
-    QDRANT_API_KEY: str = ""
 
     # ── Misc ─────────────────────────────────────────────────────
     NEXT_PUBLIC_API_URL: str = ""

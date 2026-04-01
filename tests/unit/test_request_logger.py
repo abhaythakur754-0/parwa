@@ -12,7 +12,9 @@ os.environ.setdefault("SECRET_KEY", "test_key")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
-os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
+os.environ.setdefault(
+    "DATA_ENCRYPTION_KEY", "12345678901234567890123456789012"
+)
 
 from starlette.applications import Starlette  # noqa: E402
 from starlette.requests import Request  # noqa: E402
@@ -155,7 +157,9 @@ class TestRequestLoggerMiddleware:
         async def handler(request):
             return JSONResponse({"status": "created"})
 
-        app = Starlette(routes=[Route("/api/create", handler, methods=["POST"])])
+        app = Starlette(routes=[
+            Route("/api/create", handler, methods=["POST"])
+        ])
         app.add_middleware(RequestLoggerMiddleware)
         client = TestClient(app)
 
@@ -164,7 +168,9 @@ class TestRequestLoggerMiddleware:
 
     def test_with_correlation_id(self):
         """Should work alongside error handler middleware."""
-        from backend.app.middleware.error_handler import ErrorHandlerMiddleware  # noqa: E402
+        from backend.app.middleware.error_handler import (  # noqa: E402
+            ErrorHandlerMiddleware,
+        )
 
         async def handler(request):
             cid = getattr(request.state, "correlation_id", "none")

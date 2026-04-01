@@ -95,8 +95,10 @@ class DocumentChunk(Base):
         nullable=False, index=True,
     )
     content = Column(Text, nullable=False)
-    # stored as base64 in SQLite, vector in PG
-    embedding = Column(Text)
+    # PostgreSQL: VECTOR(1536) via pgvector extension
+    # SQLite tests: Text (base64-encoded)
+    # Runtime type selected by database/base.py engine
+    embedding = Column(Text, nullable=True)
     chunk_index = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 

@@ -57,7 +57,8 @@ class TestTenantMiddleware:
             headers={"X-Company-ID": "test-company-123"}
         )
         assert resp.status_code != 403, (
-            "Request with company_id should not be blocked by tenant middleware"
+            "company_id request should not be blocked"
+            " by tenant middleware"
         )
 
     def test_middleware_structured_403_response(self):

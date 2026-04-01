@@ -158,7 +158,9 @@ class TestIsValidUuid:
         assert is_valid_uuid(12345) is False
 
     def test_strips_and_validates(self):
-        assert is_valid_uuid("  550e8400-e29b-41d4-a716-446655440000  ") is True
+        assert is_valid_uuid(
+            "  550e8400-e29b-41d4-a716-446655440000  "
+        ) is True
 
 
 class TestIsValidUrl:

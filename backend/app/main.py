@@ -10,7 +10,9 @@ Main FastAPI app with:
 - Socket.io server with tenant rooms (BC-005)
 - Event buffer for reconnection recovery (BC-005)
 - Middleware wired: error_handler, request_logger, tenant, rate_limit
-- APIKeyAuthMiddleware ready (not wired until DB key store exists)
+- APIKeyAuthMiddleware wired (BC-011)
+- CORS middleware configured (frontend cross-origin access)
+- Security headers middleware (HSTS, CSP, X-Frame-Options)
 """
 
 from contextlib import asynccontextmanager
@@ -18,6 +20,7 @@ import os
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from backend.app.config import get_settings
@@ -34,6 +37,10 @@ from backend.app.middleware.error_handler import ErrorHandlerMiddleware
 from backend.app.middleware.tenant import TenantMiddleware
 from backend.app.middleware.rate_limit import RateLimitMiddleware
 from backend.app.middleware.request_logger import RequestLoggerMiddleware
+from backend.app.middleware.security_headers import (
+    SecurityHeadersMiddleware,
+)
+from backend.app.middleware.api_key_auth import APIKeyAuthMiddleware
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
@@ -150,6 +157,31 @@ app.add_middleware(TenantMiddleware)
 
 # 4. Rate limit middleware — BC-011/BC-012 rate limiting
 app.add_middleware(RateLimitMiddleware)
+
+# 5. API Key auth — BC-011
+app.add_middleware(APIKeyAuthMiddleware)
+
+# 6. Security headers — BC-011/BC-012
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 7. CORS middleware (frontend cross-origin access)
+try:
+    _settings = get_settings()
+    _cors_origins = (
+        [o.strip() for o in _settings.CORS_ORIGINS.split(",")]
+        if _settings.CORS_ORIGINS
+        else ["*"]
+    )
+except Exception:
+    _cors_origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

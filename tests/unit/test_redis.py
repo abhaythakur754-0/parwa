@@ -102,8 +102,13 @@ class TestCacheOperations:
         """cache_set calls Redis SET with TTL."""
         mock_redis = AsyncMock()
         mock_redis.set = AsyncMock(return_value=True)
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
-            result = await cache_set("acme", "user:123", {"name": "John"})
+        with patch(
+            "backend.app.core.redis.get_redis",
+            return_value=mock_redis,
+        ):
+            result = await cache_set(
+                "acme", "user:123", {"name": "John"}
+            )
             assert result is True
             mock_redis.set.assert_called_once()
             # Verify the key is namespaced
@@ -115,8 +120,13 @@ class TestCacheOperations:
     async def test_cache_set_with_custom_ttl(self):
         """cache_set uses custom TTL."""
         mock_redis = AsyncMock()
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
-            await cache_set("acme", "key", "val", ttl_seconds=600)
+        with patch(
+            "backend.app.core.redis.get_redis",
+            return_value=mock_redis,
+        ):
+            await cache_set(
+                "acme", "key", "val", ttl_seconds=600
+            )
             call_kwargs = mock_redis.set.call_args
             assert call_kwargs[1]["ex"] == 600
 
@@ -125,8 +135,13 @@ class TestCacheOperations:
         """cache_get returns default on cache miss."""
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(return_value=None)
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
-            result = await cache_get("acme", "missing", "default_val")
+        with patch(
+            "backend.app.core.redis.get_redis",
+            return_value=mock_redis,
+        ):
+            result = await cache_get(
+                "acme", "missing", "default_val"
+            )
             assert result == "default_val"
 
     @pytest.mark.asyncio
@@ -135,7 +150,10 @@ class TestCacheOperations:
         import json
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(return_value=json.dumps({"id": 1}))
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.redis.get_redis",
+            return_value=mock_redis,
+        ):
             result = await cache_get("acme", "user:1")
             assert result == {"id": 1}
 
@@ -144,7 +162,10 @@ class TestCacheOperations:
         """cache_get returns plain strings as-is."""
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(return_value="plain_string")
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.redis.get_redis",
+            return_value=mock_redis,
+        ):
             result = await cache_get("acme", "simple")
             assert result == "plain_string"
 
@@ -153,7 +174,10 @@ class TestCacheOperations:
         """cache_delete calls Redis DEL."""
         mock_redis = AsyncMock()
         mock_redis.delete = AsyncMock(return_value=True)
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.redis.get_redis",
+            return_value=mock_redis,
+        ):
             result = await cache_delete("acme", "key")
             assert result is True
             mock_redis.delete.assert_called_once()
@@ -164,9 +188,16 @@ class TestCacheOperations:
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(side_effect=Exception("Redis down"))
         mock_redis.set = AsyncMock(side_effect=Exception("Redis down"))
-        mock_redis.delete = AsyncMock(side_effect=Exception("Redis down"))
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
-            assert await cache_get("acme", "x", "fallback") == "fallback"
+        mock_redis.delete = AsyncMock(
+            side_effect=Exception("Redis down")
+        )
+        with patch(
+            "backend.app.core.redis.get_redis",
+            return_value=mock_redis,
+        ):
+            assert await cache_get(
+                "acme", "x", "fallback"
+            ) == "fallback"
             assert await cache_set("acme", "x", "val") is False
             assert await cache_delete("acme", "x") is False
 
@@ -179,7 +210,10 @@ class TestRedisHealthCheck:
         """Health check returns healthy when Redis responds to PING."""
         mock_redis = AsyncMock()
         mock_redis.ping = AsyncMock(return_value=True)
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.redis.get_redis",
+            return_value=mock_redis,
+        ):
             result = await redis_health_check()
             assert result["status"] == "healthy"
             assert "latency_ms" in result
@@ -189,8 +223,13 @@ class TestRedisHealthCheck:
     async def test_unhealthy_redis(self):
         """Health check returns unhealthy when Redis fails."""
         mock_redis = AsyncMock()
-        mock_redis.ping = AsyncMock(side_effect=Exception("Connection refused"))
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        mock_redis.ping = AsyncMock(
+            side_effect=Exception("Connection refused")
+        )
+        with patch(
+            "backend.app.core.redis.get_redis",
+            return_value=mock_redis,
+        ):
             result = await redis_health_check()
             assert result["status"] == "unhealthy"
             assert "error" in result

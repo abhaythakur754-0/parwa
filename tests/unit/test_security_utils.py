@@ -47,7 +47,7 @@ class TestHashPassword:
         assert h1 != h2
 
     def test_same_password_different_hashes(self):
-        """bcrypt uses random salt — same password should give different hashes."""
+        """bcrypt uses random salt — different hashes."""
         h1 = hash_password("same_password")
         h2 = hash_password("same_password")
         assert h1 != h2
@@ -132,7 +132,7 @@ class TestEncryptDecryptData:
         assert decrypted == plaintext
 
     def test_different_encryptions_different_ciphertexts(self):
-        """AES-GCM uses random nonce — same plaintext should give different ciphertext."""
+        """AES-GCM uses random nonce — different ciphertexts."""
         c1 = encrypt_data("same text", TEST_ENCRYPTION_KEY)
         c2 = encrypt_data("same text", TEST_ENCRYPTION_KEY)
         assert c1 != c2
@@ -247,7 +247,7 @@ class TestGenerateApiKey:
         assert len(keys) == 100  # All unique
 
     def test_no_special_chars(self):
-        """URL-safe base64 should only have alphanumeric, hyphens, underscores."""
+        """URL-safe base64: alphanumeric, hyphens, underscores."""
         result = generate_api_key()
         for c in result:
             assert c.isalnum() or c in "-_"

@@ -65,12 +65,17 @@ class TestBC002Precision:
         """All money fields use Numeric(10,2) not other precisions."""
         inspector = inspect(engine)
         for table_name, fields in self.MONEY_FIELDS_PRECISION.items():
-            columns = {c["name"]: c for c in inspector.get_columns(table_name)}
+            columns = {
+                c["name"]: c for c in inspector.get_columns(table_name)
+            }
             for field_name, expected_precision in fields.items():
-                assert field_name in columns, f"Missing {table_name}.{field_name}"
+                assert field_name in columns, (
+                    f"Missing {table_name}.{field_name}"
+                )
                 col_type = str(columns[field_name]["type"]).upper()
                 assert "NUMERIC" in col_type, (
-                    f"BC-002: {table_name}.{field_name} is not Numeric, got {col_type}"
+                    f"BC-002: {table_name}.{field_name} "
+                    f"is not Numeric, got {col_type}"
                 )
 
 
@@ -84,11 +89,20 @@ class TestUniqueConstraints:
         """User email must be unique."""
         db = SessionLocal()
         from database.models.core import User, Company
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.flush()
-        u1 = User(id="u1", company_id="co1", email="a@test.com", password_hash="hash1")
-        u2 = User(id="u2", company_id="co1", email="a@test.com", password_hash="hash2")
+        u1 = User(
+            id="u1", company_id="co1", email="a@test.com",
+            password_hash="hash1",
+        )
+        u2 = User(
+            id="u2", company_id="co1", email="a@test.com",
+            password_hash="hash2",
+        )
         db.add(u1)
         db.add(u2)
         with pytest.raises(IntegrityError):
@@ -100,11 +114,20 @@ class TestUniqueConstraints:
         """API key hash must be unique."""
         db = SessionLocal()
         from database.models.core import APIKey, Company
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.flush()
-        k1 = APIKey(id="k1", company_id="co1", name="key1", key_hash="same_hash", key_prefix="parw")
-        k2 = APIKey(id="k2", company_id="co1", name="key2", key_hash="same_hash", key_prefix="parw")
+        k1 = APIKey(
+            id="k1", company_id="co1", name="key1",
+            key_hash="same_hash", key_prefix="parw",
+        )
+        k2 = APIKey(
+            id="k2", company_id="co1", name="key2",
+            key_hash="same_hash", key_prefix="parw",
+        )
         db.add(k1)
         db.add(k2)
         with pytest.raises(IntegrityError):
@@ -116,8 +139,14 @@ class TestUniqueConstraints:
         """Refresh token hash must be unique."""
         db = SessionLocal()
         from database.models.core import RefreshToken, User, Company
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
-        u = User(id="u1", company_id="co1", email="a@test.com", password_hash="hash1")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
+        u = User(
+            id="u1", company_id="co1", email="a@test.com",
+            password_hash="hash1",
+        )
         db.add(co)
         db.add(u)
         db.flush()
@@ -142,11 +171,20 @@ class TestUniqueConstraints:
         db = SessionLocal()
         from database.models.billing import WebhookEvent
         from database.models.core import Company
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.flush()
-        e1 = WebhookEvent(id="e1", company_id="co1", event_type="pay", event_id="evt_123")
-        e2 = WebhookEvent(id="e2", company_id="co1", event_type="pay", event_id="evt_123")
+        e1 = WebhookEvent(
+            id="e1", company_id="co1", event_type="pay",
+            event_id="evt_123",
+        )
+        e2 = WebhookEvent(
+            id="e2", company_id="co1", event_type="pay",
+            event_id="evt_123",
+        )
         db.add(e1)
         db.add(e2)
         with pytest.raises(IntegrityError):
@@ -165,10 +203,16 @@ class TestForeignKeyCascade:
         """Deleting a company deletes all its users (CASCADE)."""
         db = SessionLocal()
         from database.models.core import User, Company
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.flush()
-        u = User(id="u1", company_id="co1", email="a@test.com", password_hash="hash1")
+        u = User(
+            id="u1", company_id="co1", email="a@test.com",
+            password_hash="hash1",
+        )
         db.add(u)
         db.commit()
         # User exists
@@ -184,13 +228,21 @@ class TestForeignKeyCascade:
         """Subscription has FK to companies with ondelete=CASCADE."""
         inspector = inspect(engine)
         fks = inspector.get_foreign_keys("subscriptions")
-        company_fks = [fk for fk in fks if "companies" in fk.get("referred_table", "")]
-        assert len(company_fks) > 0, "subscriptions must have FK to companies"
+        company_fks = [
+            fk for fk in fks
+            if "companies" in fk.get("referred_table", "")
+        ]
+        assert len(company_fks) > 0, (
+            "subscriptions must have FK to companies"
+        )
         # Check CASCADE is set
         fk = company_fks[0]
-        ondelete = fk.get("ondelete") or fk.get("options", {}).get("ondelete")
+        ondelete = fk.get("ondelete") or fk.get(
+            "options", {}
+        ).get("ondelete")
         assert ondelete == "CASCADE", (
-            f"subscriptions.company_id must have ondelete=CASCADE, got {ondelete}"
+            f"subscriptions.company_id must have ondelete=CASCADE, "
+            f"got {ondelete}"
         )
 
 
@@ -204,7 +256,10 @@ class TestColumnTypes:
         """Core model columns have correct types."""
         inspector = inspect(engine)
         # Users: role should be String, is_active should be Boolean
-        cols = {c["name"].lower(): str(c["type"]).upper() for c in inspector.get_columns("users")}
+        cols = {
+            c["name"].lower(): str(c["type"]).upper()
+            for c in inspector.get_columns("users")
+        }
         role_col = cols.get("role", "")
         assert (
             "VARCHAR" in role_col
@@ -218,8 +273,15 @@ class TestColumnTypes:
         """All billing money columns use Numeric, not Float."""
         inspector = inspect(engine)
         for table in ["invoices", "overage_charges", "transactions"]:
-            columns = {c["name"]: str(c["type"]).upper() for c in inspector.get_columns(table)}
-            money_col = "amount" if table != "overage_charges" else "charge_amount"
+            columns = {
+                c["name"]: str(c["type"]).upper()
+                for c in inspector.get_columns(table)
+            }
+            money_col = (
+                "amount"
+                if table != "overage_charges"
+                else "charge_amount"
+            )
             assert "FLOAT" not in columns[money_col], (
                 f"BC-002: {table}.{money_col} uses Float!"
             )
@@ -252,10 +314,16 @@ class TestNullableFields:
         """User password_hash must NOT be nullable (security)."""
         db = SessionLocal()
         from database.models.core import User, Company
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.flush()
-        u = User(id="u1", company_id="co1", email="a@test.com", password_hash=None)
+        u = User(
+            id="u1", company_id="co1", email="a@test.com",
+            password_hash=None,
+        )
         db.add(u)
         with pytest.raises(IntegrityError):
             db.commit()
@@ -266,10 +334,16 @@ class TestNullableFields:
         """User email must NOT be nullable."""
         db = SessionLocal()
         from database.models.core import User, Company
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.flush()
-        u = User(id="u1", company_id="co1", email=None, password_hash="hash1")
+        u = User(
+            id="u1", company_id="co1", email=None,
+            password_hash="hash1",
+        )
         db.add(u)
         with pytest.raises(IntegrityError):
             db.commit()
@@ -280,7 +354,10 @@ class TestNullableFields:
         """company_id on users must NOT be nullable (BC-001)."""
         db = SessionLocal()
         from database.models.core import User
-        u = User(id="u1", company_id=None, email="a@test.com", password_hash="hash1")
+        u = User(
+            id="u1", company_id=None, email="a@test.com",
+            password_hash="hash1",
+        )
         db.add(u)
         with pytest.raises(IntegrityError):
             db.commit()
@@ -292,10 +369,16 @@ class TestNullableFields:
         db = SessionLocal()
         from database.models.billing import Invoice
         from database.models.core import Company
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.flush()
-        inv = Invoice(id="inv1", company_id="co1", amount=None, status="pending")
+        inv = Invoice(
+            id="inv1", company_id="co1",
+            amount=None, status="pending",
+        )
         db.add(inv)
         with pytest.raises(IntegrityError):
             db.commit()
@@ -313,11 +396,20 @@ class TestRelationships:
         """Company.users returns associated users."""
         db = SessionLocal()
         from database.models.core import User, Company
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.flush()
-        db.add(User(id="u1", company_id="co1", email="a@test.com", password_hash="h1"))
-        db.add(User(id="u2", company_id="co1", email="b@test.com", password_hash="h2"))
+        db.add(User(
+            id="u1", company_id="co1", email="a@test.com",
+            password_hash="h1",
+        ))
+        db.add(User(
+            id="u2", company_id="co1", email="b@test.com",
+            password_hash="h2",
+        ))
         db.commit()
         fetched = db.query(Company).filter_by(id="co1").first()
         assert len(fetched.users) == 2
@@ -328,7 +420,10 @@ class TestRelationships:
         db = SessionLocal()
         from database.models.core import Company
         from database.models.tickets import Session, Interaction
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.flush()
         sess = Session(id="s1", company_id="co1", channel="chat")
@@ -352,7 +447,10 @@ class TestRelationships:
         db = SessionLocal()
         from database.models.ai_pipeline import APIProvider, ServiceConfig
         from database.models.core import Company
-        co = Company(id="co1", name="Test Co", industry="tech", subscription_tier="growth")
+        co = Company(
+            id="co1", name="Test Co", industry="tech",
+            subscription_tier="growth",
+        )
         db.add(co)
         db.flush()
         p = APIProvider(id="p1", name="OpenAI", provider_type="llm")
@@ -382,7 +480,9 @@ class TestRootTables:
         """companies table must NOT have company_id (it IS the root)."""
         inspector = inspect(engine)
         columns = [c["name"] for c in inspector.get_columns("companies")]
-        assert "company_id" not in columns, "companies table must not have company_id"
+        assert "company_id" not in columns, (
+            "companies table must not have company_id"
+        )
 
     def test_channels_has_no_company_id(self):
         """channels table is global, no company_id."""
@@ -393,17 +493,24 @@ class TestRootTables:
     def test_api_providers_has_no_company_id(self):
         """api_providers table is global, no company_id."""
         inspector = inspect(engine)
-        columns = [c["name"] for c in inspector.get_columns("api_providers")]
+        columns = [
+            c["name"] for c in inspector.get_columns("api_providers")
+        ]
         assert "company_id" not in columns
 
     def test_demo_sessions_has_no_company_id(self):
         """demo_sessions is public-facing, no company_id."""
         inspector = inspect(engine)
-        columns = [c["name"] for c in inspector.get_columns("demo_sessions")]
+        columns = [
+            c["name"] for c in inspector.get_columns("demo_sessions")
+        ]
         assert "company_id" not in columns
 
     def test_newsletter_subscribers_has_no_company_id(self):
         """newsletter_subscribers is public-facing, no company_id."""
         inspector = inspect(engine)
-        columns = [c["name"] for c in inspector.get_columns("newsletter_subscribers")]
+        columns = [
+            c["name"]
+            for c in inspector.get_columns("newsletter_subscribers")
+        ]
         assert "company_id" not in columns
