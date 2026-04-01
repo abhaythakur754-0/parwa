@@ -44,6 +44,8 @@ from backend.app.middleware.api_key_auth import APIKeyAuthMiddleware
 from backend.app.api.auth import router as auth_router
 from backend.app.api.mfa import router as mfa_router
 from backend.app.api.api_keys import router as api_keys_router
+from backend.app.api.client import router as client_router
+from backend.app.api.admin import router as admin_router
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
@@ -192,6 +194,8 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(mfa_router)
 app.include_router(api_keys_router)
+app.include_router(client_router)
+app.include_router(admin_router)
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
