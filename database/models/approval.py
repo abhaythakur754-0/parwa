@@ -7,6 +7,8 @@ BC-001: Every table has company_id.
 BC-002: amount field DECIMAL(10,2).
 """
 
+from datetime import datetime
+
 import uuid
 
 from sqlalchemy import (
@@ -34,7 +36,7 @@ class ApprovalQueue(Base):
     response_data = Column(Text)
     status = Column(String(50), default="pending")
     batch_id = Column(String(36))
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
     resolved_at = Column(DateTime)
     resolved_by = Column(String(36), ForeignKey("users.id"))
 
@@ -50,8 +52,8 @@ class AutoApproveRule(Base):
     risk_levels = Column(Text, default="low")
     is_active = Column(Boolean, default=False)
     created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=lambda: None)
-    updated_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class ExecutedAction(Base):
@@ -66,7 +68,7 @@ class ExecutedAction(Base):
     response_data = Column(Text)
     amount = Column(Numeric(10, 2))  # BC-002
     executed_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class UndoLog(Base):
@@ -80,4 +82,4 @@ class UndoLog(Base):
     undo_data = Column(Text)
     undo_reason = Column(Text)
     undone_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())

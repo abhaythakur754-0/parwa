@@ -11,7 +11,7 @@ import pytest
 # MUST be set BEFORE importing any app module
 os.environ["ENVIRONMENT"] = "test"
 os.environ["SECRET_KEY"] = "test_secret_key_for_testing_only_not_prod"
-os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 os.environ["JWT_SECRET_KEY"] = "test_jwt_secret_key_not_prod"
 os.environ["DATA_ENCRYPTION_KEY"] = "12345678901234567890123456789012"

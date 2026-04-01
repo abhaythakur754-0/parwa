@@ -6,6 +6,8 @@ Source: CORRECTED_PARWA_Complete_Backend_Documentation.md (sessions/interactions
 BC-001: Every table has company_id (except channels).
 """
 
+from datetime import datetime
+
 import uuid
 
 from sqlalchemy import (
@@ -30,8 +32,8 @@ class Customer(Base):
     phone = Column(String(50))
     name = Column(String(255))
     metadata_json = Column(Text, default="{}")
-    created_at = Column(DateTime, default=lambda: None)
-    updated_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class Channel(Base):
@@ -42,7 +44,7 @@ class Channel(Base):
     channel_type = Column(String(50), nullable=False)  # email, chat, sms, voice, social
     description = Column(Text)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class Session(Base):
@@ -60,8 +62,8 @@ class Session(Base):
     classification_intent = Column(String(100))
     classification_type = Column(String(50))
     metadata_json = Column(Text, default="{}")
-    created_at = Column(DateTime, default=lambda: None)
-    updated_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
     closed_at = Column(DateTime)
 
     interactions = relationship("Interaction", back_populates="session", cascade="all, delete-orphan")
@@ -77,7 +79,7 @@ class Interaction(Base):
     content = Column(Text, nullable=False)
     channel = Column(String(50), nullable=False)
     metadata_json = Column(Text, default="{}")
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
     session = relationship("Session", back_populates="interactions")
 
@@ -93,7 +95,7 @@ class TicketAttachment(Base):
     file_size = Column(Integer)
     mime_type = Column(String(100))
     uploaded_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class TicketInternalNote(Base):
@@ -105,4 +107,4 @@ class TicketInternalNote(Base):
     author_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
     is_pinned = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())

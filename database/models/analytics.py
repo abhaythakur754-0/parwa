@@ -7,6 +7,8 @@ BC-001: Every table has company_id.
 BC-002: Financial metrics use DECIMAL(10,2).
 """
 
+from datetime import datetime
+
 import uuid
 
 from sqlalchemy import (
@@ -31,7 +33,7 @@ class MetricAggregate(Base):
     period_end = Column(DateTime, nullable=False)
     value = Column(Numeric(10, 2), nullable=False)  # BC-002
     metadata_json = Column(Text, default="{}")
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class ROISnapshot(Base):
@@ -47,7 +49,7 @@ class ROISnapshot(Base):
     total_savings = Column(Numeric(10, 2), default=0)  # BC-002
     ai_accuracy_pct = Column(Numeric(5, 2))
     snapshot_date = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class DriftReport(Base):
@@ -62,7 +64,7 @@ class DriftReport(Base):
     drift_pct = Column(Numeric(5, 2))
     severity = Column(String(20), default="low")
     report_date = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class QAScore(Base):
@@ -77,7 +79,7 @@ class QAScore(Base):
     completeness = Column(Numeric(5, 2))
     overall = Column(Numeric(5, 2))
     scored_by = Column(String(36), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class TrainingRun(Base):
@@ -97,4 +99,4 @@ class TrainingRun(Base):
     new_model_id = Column(String(255))
     rolled_back = Column(Boolean, default=False)
     error_message = Column(Text)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())

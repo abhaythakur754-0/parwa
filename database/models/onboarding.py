@@ -8,6 +8,8 @@ BC-001: Tables with tenant data have company_id.
 newsletter_subscribers and demo_sessions are public-facing (no company_id).
 """
 
+from datetime import datetime
+
 import uuid
 
 from sqlalchemy import (
@@ -30,8 +32,8 @@ class OnboardingSession(Base):
     current_step = Column(Integer, default=1)  # 1-5
     completed_steps = Column(Text, default="[]")
     status = Column(String(50), default="in_progress")  # in_progress, completed, abandoned
-    created_at = Column(DateTime, default=lambda: None)
-    updated_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
     completed_at = Column(DateTime)
 
 
@@ -46,7 +48,7 @@ class ConsentRecord(Base):
     ip_address = Column(String(45))
     user_agent = Column(String(500))
     granted = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class KnowledgeDocument(Base):
@@ -60,8 +62,8 @@ class KnowledgeDocument(Base):
     category = Column(String(100))
     status = Column(String(50), default="processing")
     chunk_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: None)
-    updated_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class DocumentChunk(Base):
@@ -73,7 +75,7 @@ class DocumentChunk(Base):
     content = Column(Text, nullable=False)
     embedding = Column(Text)  # stored as base64 in SQLite, vector in PG
     chunk_index = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class DemoSession(Base):
@@ -91,7 +93,7 @@ class DemoSession(Base):
     voice_call_sid = Column(String(255))
     status = Column(String(50), default="active")
     expires_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class NewsletterSubscriber(Base):
@@ -102,5 +104,5 @@ class NewsletterSubscriber(Base):
     name = Column(String(255))
     source = Column(String(100))
     is_active = Column(Boolean, default=True)
-    subscribed_at = Column(DateTime, default=lambda: None)
+    subscribed_at = Column(DateTime, default=lambda: datetime.utcnow())
     unsubscribed_at = Column(DateTime)

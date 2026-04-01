@@ -37,7 +37,8 @@ def _ensure_logging():
     """Ensure logging is configured (safe to call multiple times)."""
     global _logging_configured  # noqa: PLW0603
     if not _logging_configured:
-        configure_logging("development")
+        env = os.environ.get("ENVIRONMENT", "production")
+        configure_logging(env)
         _logging_configured = True
 
 

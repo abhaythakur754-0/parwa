@@ -5,6 +5,8 @@ agent_mistakes, agent_performance.
 BC-001: Every table has company_id.
 """
 
+from datetime import datetime
+
 import uuid
 
 from sqlalchemy import (
@@ -29,8 +31,8 @@ class TrainingDataset(Base):
     source = Column(String(50), nullable=False)  # mistakes, manual, export
     status = Column(String(50), default="draft")
     file_path = Column(Text)
-    created_at = Column(DateTime, default=lambda: None)
-    updated_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class TrainingCheckpoint(Base):
@@ -44,7 +46,7 @@ class TrainingCheckpoint(Base):
     metrics = Column(Text)  # JSON
     epoch = Column(Integer)
     is_best = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class AgentMistake(Base):
@@ -60,7 +62,7 @@ class AgentMistake(Base):
     correction = Column(Text)
     severity = Column(String(20), default="medium")
     used_in_training = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
 class AgentPerformance(Base):
@@ -76,4 +78,4 @@ class AgentPerformance(Base):
     avg_resolution_time_min = Column(Numeric(10, 2))
     escalation_rate = Column(Numeric(5, 2))
     csat_score = Column(Numeric(5, 2))
-    created_at = Column(DateTime, default=lambda: None)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
