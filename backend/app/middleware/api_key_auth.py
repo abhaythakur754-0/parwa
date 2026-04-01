@@ -24,8 +24,8 @@ API_KEY_HEADER = "Authorization"
 API_KEY_PREFIX = "Bearer "
 
 # Paths that skip API key auth (public endpoints)
-SKIP_PATHS = {"/health", "/ready", "/metrics", "/api/public"}
-SKIP_PREFIXES = ("/api/public/",)
+SKIP_PATHS = {"/health", "/ready", "/metrics"}
+SKIP_PREFIXES = ("/api/public/", "/api/auth/")
 
 
 class APIKeyAuthMiddleware(BaseHTTPMiddleware):
