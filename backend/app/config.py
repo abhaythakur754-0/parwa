@@ -92,6 +92,20 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""
     GRAFANA_API_KEY: str = ""
 
+    # ── Google OAuth (F-011) ───────────────────────────────────
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+
+    # ── GCP Storage (file uploads, model weights) ──────────────
+    GCP_STORAGE_BUCKET: str = ""
+
+    # ── Celery (Week 3: BC-004) ────────────────────────────────
+    CELERY_BROKER_URL: str = ""
+    CELERY_RESULT_BACKEND: str = ""
+
+    # ── CORS (frontend origin) ─────────────────────────────────
+    CORS_ORIGINS: str = ""
+
     # ── MCP Server ───────────────────────────────────────────────
     MCP_SERVER_URL: str = ""
     MCP_AUTH_TOKEN: str = ""
