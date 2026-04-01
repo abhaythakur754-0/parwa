@@ -10,6 +10,9 @@ Extracts company_id from JWT token and ensures multi-tenant isolation.
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+# BC-001: Max allowed length for company_id
+MAX_COMPANY_ID_LENGTH = 128
+
 
 class TenantMiddleware(BaseHTTPMiddleware):
     """Middleware that extracts and validates company_id from JWT."""
@@ -51,6 +54,32 @@ class TenantMiddleware(BaseHTTPMiddleware):
             )
 
         # Store in request state for downstream use (stripped)
-        request.state.company_id = company_id.strip()
+        company_id = company_id.strip()
+
+        # BC-001: Validate company_id length and format
+        if len(company_id) > MAX_COMPANY_ID_LENGTH:
+            return Response(
+                content=(
+                    '{"error":{"code":"BAD_REQUEST",'
+                    '"message":"Tenant ID too long",'
+                    '"details":null}}'
+                ),
+                status_code=400,
+                media_type="application/json",
+            )
+
+        # Reject company_id with control characters or null bytes
+        if any(ord(c) < 32 for c in company_id):
+            return Response(
+                content=(
+                    '{"error":{"code":"BAD_REQUEST",'
+                    '"message":"Invalid tenant ID format",'
+                    '"details":null}}'
+                ),
+                status_code=400,
+                media_type="application/json",
+            )
+
+        request.state.company_id = company_id
 
         return await call_next(request)

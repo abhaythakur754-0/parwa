@@ -122,8 +122,14 @@ class TestUniqueConstraints:
         db.add(u)
         db.flush()
         future = datetime.now(tz=None) + timedelta(days=7)
-        t1 = RefreshToken(id="t1", user_id="u1", company_id="co1", token_hash="same", expires_at=future)
-        t2 = RefreshToken(id="t2", user_id="u1", company_id="co1", token_hash="same", expires_at=future)
+        t1 = RefreshToken(
+            id="t1", user_id="u1", company_id="co1",
+            token_hash="same", expires_at=future,
+        )
+        t2 = RefreshToken(
+            id="t2", user_id="u1", company_id="co1",
+            token_hash="same", expires_at=future,
+        )
         db.add(t1)
         db.add(t2)
         with pytest.raises(IntegrityError):
@@ -199,7 +205,12 @@ class TestColumnTypes:
         inspector = inspect(engine)
         # Users: role should be String, is_active should be Boolean
         cols = {c["name"].lower(): str(c["type"]).upper() for c in inspector.get_columns("users")}
-        assert "VARCHAR" in cols.get("role", "") or "STRING" in cols.get("role", "") or "CHAR" in cols.get("role", "")
+        role_col = cols.get("role", "")
+        assert (
+            "VARCHAR" in role_col
+            or "STRING" in role_col
+            or "CHAR" in role_col
+        )
         assert "BOOLEAN" in cols.get("is_active", "")
         assert "BOOLEAN" in cols.get("mfa_enabled", "")
 
@@ -323,8 +334,14 @@ class TestRelationships:
         sess = Session(id="s1", company_id="co1", channel="chat")
         db.add(sess)
         db.flush()
-        db.add(Interaction(id="i1", session_id="s1", company_id="co1", role="customer", content="hi", channel="chat"))
-        db.add(Interaction(id="i2", session_id="s1", company_id="co1", role="agent", content="hello", channel="chat"))
+        db.add(Interaction(
+            id="i1", session_id="s1", company_id="co1",
+            role="customer", content="hi", channel="chat",
+        ))
+        db.add(Interaction(
+            id="i2", session_id="s1", company_id="co1",
+            role="agent", content="hello", channel="chat",
+        ))
         db.commit()
         fetched = db.query(Session).filter_by(id="s1").first()
         assert len(fetched.interactions) == 2
@@ -341,8 +358,14 @@ class TestRelationships:
         p = APIProvider(id="p1", name="OpenAI", provider_type="llm")
         db.add(p)
         db.flush()
-        db.add(ServiceConfig(id="sc1", provider_id="p1", company_id="co1", display_name="My Key"))
-        db.add(ServiceConfig(id="sc2", provider_id="p1", company_id="co1", display_name="Backup Key"))
+        db.add(ServiceConfig(
+            id="sc1", provider_id="p1",
+            company_id="co1", display_name="My Key",
+        ))
+        db.add(ServiceConfig(
+            id="sc2", provider_id="p1",
+            company_id="co1", display_name="Backup Key",
+        ))
         db.commit()
         fetched = db.query(APIProvider).filter_by(id="p1").first()
         assert len(fetched.service_configs) == 2

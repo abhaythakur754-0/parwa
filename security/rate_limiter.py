@@ -13,6 +13,7 @@ Key behaviors:
 """
 
 import enum
+import hashlib
 import time
 from typing import Optional
 
@@ -168,12 +169,13 @@ class SlidingWindowCounter:
     def _make_key(self, company_id: str, client_ip: str) -> str:
         """Build rate limit key with company_id namespace (BC-001).
 
-        Uses | delimiter to prevent collision with company_ids or IPs
-        that may contain colons (e.g., IPv6 addresses, company names).
+        Uses MD5 hash of combined parts to guarantee no collision,
+        even if company_id or client_ip contain special characters.
+        BC-001: Tenant-isolated rate limiting.
         """
-        if client_ip:
-            return f"{RATE_LIMIT_PREFIX}{company_id}|{client_ip}"
-        return f"{RATE_LIMIT_PREFIX}{company_id}"
+        raw = f"{company_id}\x00{client_ip}"
+        hash_part = hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
+        return f"{RATE_LIMIT_PREFIX}{hash_part}"
 
 
 class ProgressiveLockout:
@@ -276,11 +278,10 @@ class ProgressiveLockout:
             self._violations[key]["level"] = LockoutLevel.NONE
 
     def _make_key(self, company_id: str, client_ip: str) -> str:
-        if client_ip:
-            return (
-                f"{RATE_LIMIT_PREFIX}lockout:{company_id}|{client_ip}"
-            )
-        return f"{RATE_LIMIT_PREFIX}lockout:{company_id}"
+        """Build lockout key using MD5 hash for collision safety (BC-001)."""
+        raw = f"{company_id}\x00{client_ip}"
+        hash_part = hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
+        return f"{RATE_LIMIT_PREFIX}lockout:{hash_part}"
 
 
 class RateLimiter:

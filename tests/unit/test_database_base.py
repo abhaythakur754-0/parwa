@@ -86,7 +86,8 @@ class TestEngineConfig:
     def test_sqlite_engine_check_same_thread_disabled(self):
         """SQLite engine should have check_same_thread=False."""
         # Check connect args
-        assert "check_same_thread" in engine.url.database or True  # SQLite doesn't expose this directly
+        # SQLite doesn't expose check_same_thread directly
+        assert "check_same_thread" in engine.url.database or True
         # More importantly, we can use the engine across threads
         db = SessionLocal()
         from database.models.core import Company

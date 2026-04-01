@@ -148,8 +148,9 @@ def decrypt_data(encrypted: str, encryption_key: str) -> str:
         aesgcm = AESGCM(key)
         plaintext_bytes = aesgcm.decrypt(nonce, ciphertext, None)
         return plaintext_bytes.decode("utf-8")
-    except Exception as e:
-        raise ValueError(f"Decryption failed: {str(e)}")
+    except Exception:
+        # BC-011: Never leak crypto implementation details
+        raise ValueError("Decryption failed")
 
 
 def constant_time_compare(val1: str, val2: str) -> bool:
