@@ -8,10 +8,17 @@ Uses structlog for JSON-formatted structured logging.
 """
 
 import logging
+import os
 import sys
 from typing import Any
 
 import structlog
+
+
+def _add_env_info(logger, method_name, event_dict):
+    """Add environment info to log events (replaces structlog.processors.add_env_info)."""
+    event_dict["environment"] = os.getenv("ENVIRONMENT", "unknown")
+    return event_dict
 
 
 def configure_logging(environment: str = "development") -> None:
@@ -43,7 +50,7 @@ def configure_logging(environment: str = "development") -> None:
 
     formatter = structlog.stdlib.ProcessorFormatter(
         processors=[
-            structlog.processors.add_env_info,
+            _add_env_info,
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             renderer,
         ],

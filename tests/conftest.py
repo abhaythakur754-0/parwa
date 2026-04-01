@@ -24,3 +24,10 @@ def client():
     """Sync test client for FastAPI app."""
     from starlette.testclient import TestClient
     return TestClient(app)
+
+
+@pytest.fixture
+def client_no_raise():
+    """Test client that does not raise exceptions on 500 errors."""
+    from starlette.testclient import TestClient
+    return TestClient(app, raise_server_exceptions=False)
