@@ -111,7 +111,7 @@ class TestSlidingWindowCounter:
         assert result2.allowed is True
 
     def test_company_id_in_key(self):
-        """BC-001: Keys must be deterministic per company_id (collision-free)."""
+        """BC-001: Deterministic key per company_id."""
         counter = SlidingWindowCounter()
         key1 = counter._make_key("comp-abc", "10.0.0.1")
         key2 = counter._make_key("comp-abc", "10.0.0.1")

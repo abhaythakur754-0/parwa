@@ -1,7 +1,8 @@
 """
 Tests for shared/utils/datetime.py
 
-Tests UTC handling, ISO formatting, parsing, duration formatting, expiry checks.
+Tests UTC handling, ISO formatting, parsing,
+duration formatting, expiry checks.
 BC-012: All datetime operations must be timezone-aware UTC.
 """
 
@@ -47,7 +48,9 @@ class TestUtcnow:
     def test_never_returns_naive_datetime(self):
         for _ in range(10):
             result = utcnow()
-            assert result.tzinfo is not None, "utcnow() must always return timezone-aware datetime"
+            assert result.tzinfo is not None, (
+                "utcnow() must always return tz-aware datetime"
+            )
 
 
 class TestToIso:
@@ -121,7 +124,9 @@ class TestFromIso:
         assert result is None
 
     def test_round_trip(self):
-        original = datetime(2025, 6, 15, 12, 30, 45, 123456, tzinfo=timezone.utc)
+        original = datetime(
+            2025, 6, 15, 12, 30, 45, 123456, tzinfo=timezone.utc
+        )
         iso_str = to_iso(original)
         parsed = from_iso(iso_str)
         assert parsed is not None

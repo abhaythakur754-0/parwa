@@ -254,3 +254,31 @@ Stage Summary:
 - Commit: 7b34e90 pushed to GitHub main
 - Files created: 1 (test_integration_day6.py)
 - Files modified: 2 (core.py, config.py)
+
+---
+Task ID: 1
+Agent: main
+Task: Day 6 - Fix all Week 1 infrastructure gaps + cross-day audit
+
+Work Log:
+- Fixed config.py: removed OPENROUTER_API_KEY, OPENROUTER_BASE_URL, QDRANT_URL, QDRANT_API_KEY (not used)
+- Created backend/app/middleware/security_headers.py: SecurityHeadersMiddleware with X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy, HSTS (prod only)
+- Fixed main.py: wired CORS middleware (try/except for settings), SecurityHeadersMiddleware, APIKeyAuthMiddleware (BC-011), updated module docstring
+- Fixed socketio.py: cors_allowed_origins="*" (was empty list blocking all cross-origin)
+- Fixed rate_limiter.py: changed MD5 to SHA-256 in both SlidingWindowCounter._make_key and ProgressiveLockout._make_key
+- Fixed .env.example: added JWT, Google OAuth, CORS, Celery, GCP, Monitoring, MCP, Next.js sections
+- Fixed requirements.txt: replaced celery==5.4.0 with celery[redis]==5.4.0, added pyotp, qrcode, jinja2, brevo-python
+- Fixed docker-compose.prod.yml: removed OPENAI_API_KEY, STRIPE_SECRET_KEY, fixed Paddle env vars (CLIENT_TOKEN, API_KEY, WEBHOOK_SECRET), NEXT_PUBLIC_PADDLE_KEY
+- Fixed alembic.ini: cleared sqlalchemy.url (uses env.py override from DATABASE_URL)
+- Fixed onboarding.py: embedding column now nullable with descriptive comment about PG/SQLite dual type
+- Created tests/unit/test_security_headers.py: 3 tests for security headers presence, HSTS in dev, permissions policy
+- Created tests/unit/test_cors.py: 1 test for CORS preflight headers
+- conftest.py already sets ENVIRONMENT=test — no changes needed
+
+Stage Summary:
+- All 713 tests passing (4 new tests added)
+- Flake8: 0 errors on all changed files
+- All Week 1 infrastructure gaps fixed
+- Stripe references removed from Docker (doc files not modified per rules)
+- Files created: 3 (security_headers.py, test_security_headers.py, test_cors.py)
+- Files modified: 10 (config.py, main.py, socketio.py, rate_limiter.py, .env.example, requirements.txt, docker-compose.prod.yml, alembic.ini, onboarding.py)

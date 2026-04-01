@@ -14,7 +14,7 @@ Verified Building Codes:
 
 import json
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -34,8 +34,6 @@ from backend.app.core.redis import (
     redis_health_check,
 )
 from backend.app.core.socketio import (
-    get_connected_count,
-    get_socketio_server,
     get_tenant_room,
     sio,
 )
@@ -57,8 +55,10 @@ class TestRedisSocketioIntegration:
         mock_sio_emit = AsyncMock()
         mock_sio_rooms = AsyncMock(return_value=[])
 
-        with patch("backend.app.core.event_buffer.get_redis",
-                    return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             with patch.object(sio, "emit", mock_sio_emit):
                 with patch.object(sio, "rooms", mock_sio_rooms):
                     from backend.app.core.socketio import emit_to_tenant
@@ -95,10 +95,16 @@ class TestRedisSocketioIntegration:
         mock_redis.expire = AsyncMock(return_value=True)
         mock_redis.zrangebyscore = AsyncMock(return_value=[])
 
-        with patch("backend.app.core.event_buffer.get_redis",
-                    return_value=mock_redis):
-            with patch.object(sio, "emit", AsyncMock()):
-                with patch.object(sio, "rooms", AsyncMock(return_value=[])):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
+            with patch.object(
+                sio, "emit", AsyncMock(),
+            ):
+                with patch.object(
+                    sio, "rooms", AsyncMock(return_value=[]),
+                ):
                     from backend.app.core.socketio import emit_to_tenant
 
                     # Emit for tenant A
@@ -141,7 +147,7 @@ class TestRedisSocketioIntegration:
 
         assert key_a == "parwa:tenantA:session:sess_1"
         assert key_b == "parwa:tenantB:session:sess_1"
-        # Same logical key, different tenants = completely different keys
+        # Same logical key, different tenants = different keys
         assert not key_a.startswith(key_b)
         assert not key_b.startswith(key_a)
 
@@ -184,15 +190,19 @@ class TestEventBufferLifecycle:
         mock_redis = AsyncMock()
         mock_redis.zadd = AsyncMock(return_value=True)
         mock_redis.expire = AsyncMock(return_value=True)
-        mock_redis.zrangebyscore = AsyncMock(return_value=[event_data])
+        mock_redis.zrangebyscore = AsyncMock(
+            return_value=[event_data],
+        )
         mock_redis.zcard = AsyncMock(return_value=1)
         mock_redis.zrange = AsyncMock(
             side_effect=[[event_data], [event_data]]
         )
         mock_redis.zremrangebyscore = AsyncMock(return_value=1)
 
-        with patch("backend.app.core.event_buffer.get_redis",
-                    return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
 
             # Step 1: Store event
             result = await store_event(
@@ -230,8 +240,10 @@ class TestEventBufferLifecycle:
         mock_redis = AsyncMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=[])
 
-        with patch("backend.app.core.event_buffer.get_redis",
-                    return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             # Request 10,000 events — should be capped
             await get_events_since(
                 company_id="acme",
@@ -251,32 +263,40 @@ class TestFailOpenConsistency:
     @pytest.mark.asyncio
     async def test_redis_down_does_not_crash_cache_get(self):
         """cache_get returns default when Redis is down (BC-012)."""
-        with patch("backend.app.core.redis.get_redis",
-                    side_effect=Exception("Redis down")):
+        with patch(
+            "backend.app.core.redis.get_redis",
+            side_effect=Exception("Redis down"),
+        ):
             result = await cache_get("acme", "key", "fallback")
             assert result == "fallback"
 
     @pytest.mark.asyncio
     async def test_redis_down_does_not_crash_cache_set(self):
         """cache_set returns False when Redis is down (BC-012)."""
-        with patch("backend.app.core.redis.get_redis",
-                    side_effect=Exception("Redis down")):
+        with patch(
+            "backend.app.core.redis.get_redis",
+            side_effect=Exception("Redis down"),
+        ):
             result = await cache_set("acme", "key", "value")
             assert result is False
 
     @pytest.mark.asyncio
     async def test_redis_down_does_not_crash_cache_delete(self):
         """cache_delete returns False when Redis is down (BC-012)."""
-        with patch("backend.app.core.redis.get_redis",
-                    side_effect=Exception("Redis down")):
+        with patch(
+            "backend.app.core.redis.get_redis",
+            side_effect=Exception("Redis down"),
+        ):
             result = await cache_delete("acme", "key")
             assert result is False
 
     @pytest.mark.asyncio
     async def test_redis_down_does_not_crash_event_store(self):
         """store_event returns False when Redis is down (BC-012)."""
-        with patch("backend.app.core.event_buffer.get_redis",
-                    side_effect=Exception("Redis down")):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            side_effect=Exception("Redis down"),
+        ):
             result = await store_event(
                 company_id="acme",
                 event_type="test",
@@ -287,8 +307,10 @@ class TestFailOpenConsistency:
     @pytest.mark.asyncio
     async def test_redis_down_does_not_crash_event_retrieve(self):
         """get_events_since returns empty list when Redis is down."""
-        with patch("backend.app.core.event_buffer.get_redis",
-                    side_effect=Exception("Redis down")):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            side_effect=Exception("Redis down"),
+        ):
             result = await get_events_since(
                 company_id="acme", last_seen=0.0
             )
@@ -297,24 +319,30 @@ class TestFailOpenConsistency:
     @pytest.mark.asyncio
     async def test_redis_down_does_not_crash_cleanup(self):
         """cleanup_old_events returns 0 when Redis is down."""
-        with patch("backend.app.core.event_buffer.get_redis",
-                    side_effect=Exception("Redis down")):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            side_effect=Exception("Redis down"),
+        ):
             result = await cleanup_old_events("acme")
             assert result == 0
 
     @pytest.mark.asyncio
     async def test_redis_down_does_not_crash_buffer_stats(self):
         """get_buffer_stats returns zeros when Redis is down."""
-        with patch("backend.app.core.event_buffer.get_redis",
-                    side_effect=Exception("Redis down")):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            side_effect=Exception("Redis down"),
+        ):
             stats = await get_buffer_stats("acme")
             assert stats["total_events"] == 0
 
     @pytest.mark.asyncio
     async def test_redis_down_does_not_crash_health_check(self):
         """redis_health_check returns unhealthy when Redis is down."""
-        with patch("backend.app.core.redis.get_redis",
-                    side_effect=Exception("Redis down")):
+        with patch(
+            "backend.app.core.redis.get_redis",
+            side_effect=Exception("Redis down"),
+        ):
             result = await redis_health_check()
             assert result["status"] == "unhealthy"
 

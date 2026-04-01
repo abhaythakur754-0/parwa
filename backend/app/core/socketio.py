@@ -95,7 +95,7 @@ def _validate_company_id(company_id: Any) -> bool:
 # Create Async Socket.io server (attached to FastAPI in main.py)
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=[],
+    cors_allowed_origins="*",
     ping_timeout=60,
     ping_interval=25,
     max_http_buffer_size=1_000_000,  # 1MB max message size

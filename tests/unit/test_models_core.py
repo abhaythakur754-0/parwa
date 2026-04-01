@@ -130,7 +130,8 @@ class TestBC002Decimal:
         inspector = inspect(engine)
         for table_name, fields in MONEY_FIELDS.items():
             for field in fields:
-                columns = {c["name"]: c for c in inspector.get_columns(table_name)}
+                cols = inspector.get_columns(table_name)
+                columns = {c["name"]: c for c in cols}
                 assert field in columns, f"Missing field {table_name}.{field}"
                 col_type = str(columns[field]["type"]).upper()
                 assert "FLOAT" not in col_type, (
@@ -145,4 +146,6 @@ class TestTableCount:
         """At least 45 tables must exist."""
         inspector = inspect(engine)
         tables = inspector.get_table_names()
-        assert len(tables) >= 45, f"Only {len(tables)} tables created, need 45+"
+        assert len(tables) >= 45, (
+            f"Only {len(tables)} tables created, need 45+"
+        )

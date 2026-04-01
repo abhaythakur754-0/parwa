@@ -79,10 +79,9 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=production
       - SECRET_KEY=${SECRET_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - PADDLE_VENDOR_ID=${PADDLE_VENDOR_ID}
-      - PADDLE_AUTH_CODE=${PADDLE_AUTH_CODE}
+      - PADDLE_CLIENT_TOKEN=${PADDLE_CLIENT_TOKEN}
+      - PADDLE_API_KEY=${PADDLE_API_KEY}
+      - PADDLE_WEBHOOK_SECRET=${PADDLE_WEBHOOK_SECRET}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
     env_file:
@@ -195,7 +194,7 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=https://api.parwa.ai
       - NEXT_PUBLIC_ENV=production
-      - NEXT_PUBLIC_STRIPE_KEY=${NEXT_PUBLIC_STRIPE_KEY}
+      - NEXT_PUBLIC_PADDLE_KEY=${NEXT_PUBLIC_PADDLE_KEY}
     env_file:
       - .env.prod
     healthcheck:

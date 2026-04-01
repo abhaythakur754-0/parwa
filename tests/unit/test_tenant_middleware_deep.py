@@ -77,7 +77,7 @@ class TestCompanyIDValidation:
 
     def test_valid_company_id_allowed(self, client):
         resp = client.get("/api/test", headers={"X-Company-ID": "co_abc123"})
-        # Not blocked by tenant middleware (404 because no route handler for this app)
+        # Not blocked (404 = no route handler for this app)
         assert resp.status_code != 403
 
     def test_empty_string_company_id_rejected(self, client):
@@ -151,7 +151,9 @@ class TestRequestState:
             return {"ok": True}
 
         client = TestClient(app, raise_server_exceptions=False)
-        resp = client.get("/api/state-check", headers={"X-Company-ID": "co_abc"})
-        # The company_id should have been set by tenant middleware
+        resp = client.get(
+            "/api/state-check", headers={"X-Company-ID": "co_abc"}
+        )
+        # company_id should have been set by tenant middleware
         # If middleware works, request passes through (404 or 200, not 403)
         assert resp.status_code != 403

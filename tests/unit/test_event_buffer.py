@@ -36,7 +36,10 @@ class TestStoreEvent:
         mock_redis = AsyncMock()
         mock_redis.zadd = AsyncMock(return_value=True)
         mock_redis.expire = AsyncMock(return_value=True)
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             result = await store_event(
                 company_id="acme",
                 event_type="ticket:new",
@@ -50,7 +53,10 @@ class TestStoreEvent:
     async def test_store_uses_correct_key(self):
         """store_event uses tenant-scoped Redis key (BC-001)."""
         mock_redis = AsyncMock()
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             await store_event("acme", "test", {})
             key = mock_redis.zadd.call_args[0][0]
             assert key == "parwa:acme:events"
@@ -59,7 +65,10 @@ class TestStoreEvent:
     async def test_store_sets_ttl(self):
         """store_event sets 24h TTL on the key (BC-005)."""
         mock_redis = AsyncMock()
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             await store_event("acme", "test", {})
             mock_redis.expire.assert_called_once_with(
                 "parwa:acme:events",
@@ -70,8 +79,13 @@ class TestStoreEvent:
     async def test_store_event_record_format(self):
         """store_event stores valid JSON event record."""
         mock_redis = AsyncMock()
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
-            await store_event("acme", "ticket:new", {"id": "123"})
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
+            await store_event(
+                "acme", "ticket:new", {"id": "123"},
+            )
             # Get the stored data from zadd call
             call_args = mock_redis.zadd.call_args
             data_dict = call_args[0][1]  # {json_string: score}
@@ -86,8 +100,13 @@ class TestStoreEvent:
     async def test_store_fail_open(self):
         """store_event returns False on Redis error (BC-012)."""
         mock_redis = AsyncMock()
-        mock_redis.zadd = AsyncMock(side_effect=Exception("Redis down"))
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        mock_redis.zadd = AsyncMock(
+            side_effect=Exception("Redis down"),
+        )
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             result = await store_event("acme", "test", {})
             assert result is False
 
@@ -100,7 +119,10 @@ class TestGetEventsSince:
         """get_events_since returns empty list when no events."""
         mock_redis = AsyncMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=[])
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             result = await get_events_since("acme", last_seen=0.0)
             assert result == []
 
@@ -115,8 +137,13 @@ class TestGetEventsSince:
             "timestamp": now + 1,
         })
         mock_redis = AsyncMock()
-        mock_redis.zrangebyscore = AsyncMock(return_value=[event_data])
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        mock_redis.zrangebyscore = AsyncMock(
+            return_value=[event_data],
+        )
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             result = await get_events_since("acme", last_seen=now)
             assert len(result) == 1
             assert result[0]["event_type"] == "ticket:new"
@@ -127,7 +154,10 @@ class TestGetEventsSince:
         """get_events_since uses open interval (excludes exact match)."""
         mock_redis = AsyncMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=[])
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             await get_events_since("acme", last_seen=1000.0)
             # Verify the open interval syntax
             call_args = mock_redis.zrangebyscore.call_args
@@ -138,7 +168,10 @@ class TestGetEventsSince:
         """get_events_since with last_seen=None returns all events."""
         mock_redis = AsyncMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=[])
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             await get_events_since("acme", last_seen=None)
             call_args = mock_redis.zrangebyscore.call_args
             assert call_args[0][1] == "(0.0"
@@ -148,8 +181,13 @@ class TestGetEventsSince:
         """get_events_since caps results at MAX_EVENTS_PER_QUERY."""
         mock_redis = AsyncMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=[])
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
-            await get_events_since("acme", last_seen=0.0, limit=9999)
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
+            await get_events_since(
+                "acme", last_seen=0.0, limit=9999,
+            )
             call_kwargs = mock_redis.zrangebyscore.call_args
             assert call_kwargs[1]["num"] == MAX_EVENTS_PER_QUERY
 
@@ -158,7 +196,10 @@ class TestGetEventsSince:
         """get_events_since uses tenant-scoped key (BC-001)."""
         mock_redis = AsyncMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=[])
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             await get_events_since("acme", last_seen=0.0)
             key = mock_redis.zrangebyscore.call_args[0][0]
             assert key == "parwa:acme:events"
@@ -168,9 +209,12 @@ class TestGetEventsSince:
         """get_events_since returns empty on Redis error (BC-012)."""
         mock_redis = AsyncMock()
         mock_redis.zrangebyscore = AsyncMock(
-            side_effect=Exception("Redis down")
+            side_effect=Exception("Redis down"),
         )
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             result = await get_events_since("acme", last_seen=0.0)
             assert result == []
 
@@ -185,13 +229,18 @@ class TestGetEventsSince:
             "created_at": "2025-01-01",
             "timestamp": 1000.0,
         })
-        mock_redis.zrangebyscore = AsyncMock(return_value=[
-            "not json",
-            valid,
-            "also not json",
-            "{broken json",
-        ])
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        mock_redis.zrangebyscore = AsyncMock(
+            return_value=[
+                "not json",
+                valid,
+                "also not json",
+                "{broken json",
+            ],
+        )
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             result = await get_events_since("acme", last_seen=0.0)
             assert len(result) == 1
             assert result[0]["event_type"] == "test"
@@ -205,7 +254,10 @@ class TestCleanupOldEvents:
         """cleanup_old_events removes events older than 24h."""
         mock_redis = AsyncMock()
         mock_redis.zremrangebyscore = AsyncMock(return_value=5)
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             removed = await cleanup_old_events("acme")
             assert removed == 5
 
@@ -214,21 +266,28 @@ class TestCleanupOldEvents:
         """cleanup_old_events uses open interval (excludes exact 24h)."""
         mock_redis = AsyncMock()
         mock_redis.zremrangebyscore = AsyncMock(return_value=0)
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             await cleanup_old_events("acme")
             call_args = mock_redis.zremrangebyscore.call_args
             # Upper bound should be open interval (excluded)
             assert call_args[0][1] == "-inf"
-            assert "( " in call_args[0][2] or call_args[0][2].startswith("(")
+            upper = call_args[0][2]
+            assert "( " in upper or upper.startswith("(")
 
     @pytest.mark.asyncio
     async def test_cleanup_fail_open(self):
         """cleanup_old_events returns 0 on Redis error."""
         mock_redis = AsyncMock()
         mock_redis.zremrangebyscore = AsyncMock(
-            side_effect=Exception("Redis down")
+            side_effect=Exception("Redis down"),
         )
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             removed = await cleanup_old_events("acme")
             assert removed == 0
 
@@ -241,7 +300,10 @@ class TestGetBufferStats:
         """Buffer stats return zeros for empty buffer."""
         mock_redis = AsyncMock()
         mock_redis.zcard = AsyncMock(return_value=0)
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             stats = await get_buffer_stats("acme")
             assert stats["total_events"] == 0
             assert stats["oldest_event_age_hours"] is None
@@ -269,20 +331,30 @@ class TestGetBufferStats:
             [old_event],   # oldest (index 0)
             [new_event],   # newest (index -1)
         ])
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             stats = await get_buffer_stats("acme")
             assert stats["total_events"] == 2
             assert stats["oldest_event_age_hours"] is not None
             assert stats["newest_event_age_hours"] is not None
             # Newest should be newer than oldest
-            assert stats["newest_event_age_hours"] < stats["oldest_event_age_hours"]
+            assert stats["newest_event_age_hours"] < stats[
+                "oldest_event_age_hours"
+            ]
 
     @pytest.mark.asyncio
     async def test_stats_fail_open(self):
         """Buffer stats return zeros on Redis error."""
         mock_redis = AsyncMock()
-        mock_redis.zcard = AsyncMock(side_effect=Exception("Redis down"))
-        with patch("backend.app.core.event_buffer.get_redis", return_value=mock_redis):
+        mock_redis.zcard = AsyncMock(
+            side_effect=Exception("Redis down"),
+        )
+        with patch(
+            "backend.app.core.event_buffer.get_redis",
+            return_value=mock_redis,
+        ):
             stats = await get_buffer_stats("acme")
             assert stats["total_events"] == 0
 

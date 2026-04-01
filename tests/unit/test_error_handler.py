@@ -15,7 +15,9 @@ os.environ.setdefault("SECRET_KEY", "test_key")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
-os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
+os.environ.setdefault(
+    "DATA_ENCRYPTION_KEY", "12345678901234567890123456789012"
+)
 
 from starlette.applications import Starlette  # noqa: E402
 from starlette.requests import Request  # noqa: E402
@@ -36,7 +38,9 @@ from backend.app.middleware.error_handler import (  # noqa: E402
     get_correlation_id,
     _status_to_error_code,
 )
-from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
+from starlette.exceptions import (  # noqa: E402
+    HTTPException as StarletteHTTPException,
+)
 
 
 class TestGetCorrelationId:
@@ -165,13 +169,20 @@ class TestErrorHandlerMiddleware:
         async def ok_handler(request):
             return JSONResponse({"status": "ok"})
         client = TestClient(_make_app(ok_handler))
-        response = client.get("/test", headers={"X-Correlation-ID": "existing-id"})
+        response = client.get(
+            "/test", headers={"X-Correlation-ID": "existing-id"},
+        )
         assert response.headers["x-correlation-id"] == "existing-id"
 
     def test_handles_parwa_error_with_structured_json(self):
         async def error_handler(request):
-            raise NotFoundError(message="Test not found", details={"id": "abc"})
-        client = TestClient(_make_app(error_handler), raise_server_exceptions=False)
+            raise NotFoundError(
+                message="Test not found", details={"id": "abc"},
+            )
+        client = TestClient(
+            _make_app(error_handler),
+            raise_server_exceptions=False,
+        )
         response = client.get("/test")
         assert response.status_code == 404
         data = response.json()
@@ -182,8 +193,13 @@ class TestErrorHandlerMiddleware:
 
     def test_no_stack_trace_in_error_response(self):
         async def crash_handler(request):
-            raise ValueError("secret internal error with stack trace info")
-        client = TestClient(_make_app(crash_handler), raise_server_exceptions=False)
+            raise ValueError(
+                "secret internal error with stack trace info"
+            )
+        client = TestClient(
+            _make_app(crash_handler),
+            raise_server_exceptions=False,
+        )
         response = client.get("/test")
         assert response.status_code == 500
         data = response.json()
@@ -198,7 +214,10 @@ class TestErrorHandlerMiddleware:
     def test_unexpected_error_has_correlation_id(self):
         async def crash_handler(request):
             raise RuntimeError("unexpected")
-        client = TestClient(_make_app(crash_handler), raise_server_exceptions=False)
+        client = TestClient(
+            _make_app(crash_handler),
+            raise_server_exceptions=False,
+        )
         response = client.get("/test")
         data = response.json()
         assert "correlation_id" in data
@@ -206,24 +225,40 @@ class TestErrorHandlerMiddleware:
 
     def test_authentication_error_structured(self):
         async def auth_handler(request):
-            raise AuthenticationError(message="Invalid credentials")
-        client = TestClient(_make_app(auth_handler), raise_server_exceptions=False)
+            raise AuthenticationError(
+                message="Invalid credentials",
+            )
+        client = TestClient(
+            _make_app(auth_handler),
+            raise_server_exceptions=False,
+        )
         response = client.get("/test")
         assert response.status_code == 401
         assert response.json()["error"]["code"] == "AUTHENTICATION_ERROR"
 
     def test_rate_limit_error_structured(self):
         async def rate_handler(request):
-            raise RateLimitError(message="Too many requests")
-        client = TestClient(_make_app(rate_handler), raise_server_exceptions=False)
+            raise RateLimitError(
+                message="Too many requests",
+            )
+        client = TestClient(
+            _make_app(rate_handler),
+            raise_server_exceptions=False,
+        )
         response = client.get("/test")
         assert response.status_code == 429
         assert response.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"
 
     def test_validation_error_structured(self):
         async def val_handler(request):
-            raise ValidationError(message="Bad input", details=["email required"])
-        client = TestClient(_make_app(val_handler), raise_server_exceptions=False)
+            raise ValidationError(
+                message="Bad input",
+                details=["email required"],
+            )
+        client = TestClient(
+            _make_app(val_handler),
+            raise_server_exceptions=False,
+        )
         response = client.get("/test")
         assert response.status_code == 422
         data = response.json()
@@ -235,17 +270,20 @@ class TestErrorHandlerMiddleware:
             raise AuthorizationError(
                 message="No permission", details={"role": "viewer"},
             )
-        client = TestClient(_make_app(authz_handler), raise_server_exceptions=False)
+        client = TestClient(
+            _make_app(authz_handler),
+            raise_server_exceptions=False,
+        )
         response = client.get("/test")
         assert response.status_code == 403
         assert response.json()["error"]["details"]["role"] == "viewer"
 
     def test_starlette_404_preserved(self):
-        """Starlette HTTPException handler preserves status code as structured JSON.
+        """Starlette HTTPException preserved as structured JSON.
 
-        Note: Starlette's built-in ExceptionMiddleware intercepts HTTPException
-        before BaseHTTPMiddleware can catch it. We test the handler method
-        directly. In FastAPI, this handler will be registered as the app-level
+        Note: Starlette's ExceptionMiddleware intercepts HTTPException
+        before BaseHTTPMiddleware can catch it. We test the handler
+        method directly. In FastAPI this will be the app-level
         exception handler.
         """
         mw = ErrorHandlerMiddleware(app=None)
@@ -270,7 +308,9 @@ class TestErrorHandlerMiddleware:
             "headers": [], "query_string": b"", "path": "/test",
         }
         request = Request(scope)
-        exc = StarletteHTTPException(status_code=401, detail="Unauthorized")
+        exc = StarletteHTTPException(
+            status_code=401, detail="Unauthorized",
+        )
         response = mw._handle_http_exception(request, exc, "test-cid")
         assert response.status_code == 401
         data = json.loads(response.body.decode())
@@ -283,10 +323,13 @@ class TestErrorHandlerMiddleware:
             "headers": [], "query_string": b"", "path": "/test",
         }
         request = Request(scope)
-        exc = StarletteHTTPException(status_code=403, detail="Forbidden")
+        exc = StarletteHTTPException(
+            status_code=403, detail="Forbidden",
+        )
         response = mw._handle_http_exception(request, exc, "test-cid")
         assert response.status_code == 403
-        assert json.loads(response.body.decode())["error"]["code"] == "AUTHORIZATION_ERROR"
+        resp_data = json.loads(response.body.decode())
+        assert resp_data["error"]["code"] == "AUTHORIZATION_ERROR"
 
     def test_starlette_422_preserved(self):
         mw = ErrorHandlerMiddleware(app=None)
@@ -295,10 +338,13 @@ class TestErrorHandlerMiddleware:
             "headers": [], "query_string": b"", "path": "/test",
         }
         request = Request(scope)
-        exc = StarletteHTTPException(status_code=422, detail="Validation Error")
+        exc = StarletteHTTPException(
+            status_code=422, detail="Validation Error",
+        )
         response = mw._handle_http_exception(request, exc, "test-cid")
         assert response.status_code == 422
-        assert json.loads(response.body.decode())["error"]["code"] == "VALIDATION_ERROR"
+        resp_data = json.loads(response.body.decode())
+        assert resp_data["error"]["code"] == "VALIDATION_ERROR"
 
     def test_starlette_429_preserved(self):
         mw = ErrorHandlerMiddleware(app=None)
@@ -307,10 +353,13 @@ class TestErrorHandlerMiddleware:
             "headers": [], "query_string": b"", "path": "/test",
         }
         request = Request(scope)
-        exc = StarletteHTTPException(status_code=429, detail="Rate limited")
+        exc = StarletteHTTPException(
+            status_code=429, detail="Rate limited",
+        )
         response = mw._handle_http_exception(request, exc, "test-cid")
         assert response.status_code == 429
-        assert json.loads(response.body.decode())["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+        resp_data = json.loads(response.body.decode())
+        assert resp_data["error"]["code"] == "RATE_LIMIT_EXCEEDED"
 
     def test_starlette_http_exception_has_correlation_header(self):
         mw = ErrorHandlerMiddleware(app=None)
@@ -330,10 +379,13 @@ class TestErrorHandlerMiddleware:
             "headers": [], "query_string": b"", "path": "/test",
         }
         request = Request(scope)
-        exc = StarletteHTTPException(status_code=418, detail="I'm a teapot")
+        exc = StarletteHTTPException(
+            status_code=418, detail="I'm a teapot",
+        )
         response = mw._handle_http_exception(request, exc, "test-cid")
         assert response.status_code == 418
-        assert json.loads(response.body.decode())["error"]["code"] == "HTTP_ERROR"
+        resp_data = json.loads(response.body.decode())
+        assert resp_data["error"]["code"] == "HTTP_ERROR"
 
 
 class TestStatusToErrorCode:

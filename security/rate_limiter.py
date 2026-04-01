@@ -169,12 +169,14 @@ class SlidingWindowCounter:
     def _make_key(self, company_id: str, client_ip: str) -> str:
         """Build rate limit key with company_id namespace (BC-001).
 
-        Uses MD5 hash of combined parts to guarantee no collision,
-        even if company_id or client_ip contain special characters.
-        BC-001: Tenant-isolated rate limiting.
+        Uses SHA-256 hash of combined parts to guarantee
+        no collision, even if company_id or client_ip contain
+        special characters. BC-001: Tenant-isolated rate limiting.
         """
         raw = f"{company_id}\x00{client_ip}"
-        hash_part = hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
+        hash_part = hashlib.sha256(
+            raw.encode("utf-8")
+        ).hexdigest()[:16]
         return f"{RATE_LIMIT_PREFIX}{hash_part}"
 
 
@@ -278,9 +280,11 @@ class ProgressiveLockout:
             self._violations[key]["level"] = LockoutLevel.NONE
 
     def _make_key(self, company_id: str, client_ip: str) -> str:
-        """Build lockout key using MD5 hash for collision safety (BC-001)."""
+        """Build lockout key using SHA-256 hash (BC-001)."""
         raw = f"{company_id}\x00{client_ip}"
-        hash_part = hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
+        hash_part = hashlib.sha256(
+            raw.encode("utf-8")
+        ).hexdigest()[:16]
         return f"{RATE_LIMIT_PREFIX}lockout:{hash_part}"
 
 

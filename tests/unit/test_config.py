@@ -151,10 +151,13 @@ def _make_settings(**overrides):
 class TestConfigValidationErrors:
     """Test that missing required env vars raise pydantic ValidationError."""
 
-    REQUIRED_ENV_VARS = ["SECRET_KEY", "DATABASE_URL", "JWT_SECRET_KEY", "DATA_ENCRYPTION_KEY"]
+    REQUIRED_ENV_VARS = [
+        "SECRET_KEY", "DATABASE_URL",
+        "JWT_SECRET_KEY", "DATA_ENCRYPTION_KEY",
+    ]
 
     def _clear_required_env(self):
-        """Temporarily clear required env vars so Settings reads from kwargs."""
+        """Clear required env vars so Settings reads kwargs."""
         self._saved = {}
         for key in self.REQUIRED_ENV_VARS:
             if key in os.environ:
@@ -245,7 +248,11 @@ class TestConfigCaseInsensitive:
             assert settings.SECRET_KEY == "lowercase_key"
         finally:
             # Cleanup to avoid affecting other tests
-            for key in ["secret_key", "database_url", "jwt_secret_key", "data_encryption_key"]:
+            keys = [
+                "secret_key", "database_url",
+                "jwt_secret_key", "data_encryption_key",
+            ]
+            for key in keys:
                 os.environ.pop(key, None)
 
 

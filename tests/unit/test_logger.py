@@ -48,7 +48,7 @@ class TestConfigureLogging:
         assert len(root.handlers) == 1
 
     def test_configure_idempotent_multiple_calls(self):
-        """Calling configure_logging multiple times doesn't crash or duplicate."""
+        """Calling configure_logging multiple times is idempotent."""
         configure_logging("development")
         configure_logging("development")
         configure_logging("production")
