@@ -303,6 +303,29 @@ def build_paginated_response(
 
 DEFAULT_SORT_DIRECTION = "desc"
 
+# Columns that must NEVER appear in ORDER BY clauses, even without
+# an explicit whitelist.  Sorting by these could leak sensitive data
+# or cause performance issues (full table scans on unindexed columns).
+_SENSITIVE_SORT_COLUMNS: frozenset[str] = frozenset({
+    "password_hash",
+    "password",
+    "secret_key",
+    "secret",
+    "token_hash",
+    "token",
+    "credentials_encrypted",
+    "auth_config",
+    "connection_string",
+    "mfa_secret",
+    "refresh_token",
+    "access_token",
+    "api_key",
+    "key_hash",
+    "card_number",
+    "ssn",
+    "social_security",
+})
+
 
 class SortParams(
     __import__("typing").NamedTuple  # type: ignore[misc, valid-type]
@@ -353,6 +376,16 @@ def parse_sort(
 
     # Normalise field
     field_name = sort_by.strip() if sort_by else default_field
+
+    # L45 FIX: Block sensitive columns even without explicit whitelist.
+    # This prevents sorting by password_hash, secret_key, etc. when a
+    # developer forgets to pass allowed_fields.
+    if field_name.lower() in _SENSITIVE_SORT_COLUMNS:
+        logger.warning(
+            "Rejected sort field %r — matches sensitive column blocklist",
+            field_name,
+        )
+        field_name = default_field
 
     # Whitelist enforcement
     if allowed_fields is not None and field_name not in allowed_fields:
