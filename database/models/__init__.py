@@ -24,6 +24,9 @@ from database.models.phone_otp import (  # noqa: F401
 from database.models.api_key_audit import (  # noqa: F401
     APIKeyAuditLog,
 )
+from database.models.webhook_event import (  # noqa: F401
+    WebhookEvent,
+)
 from database.models.tickets import *  # noqa: F401, F403
 from database.models.ai_pipeline import *  # noqa: F401, F403
 from database.models.integration import *  # noqa: F401, F403

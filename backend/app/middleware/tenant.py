@@ -38,6 +38,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/api/billing/",
         "/api/client/",
         "/api/admin/",
+        "/api/webhooks/",
         "/test/",
     )
 

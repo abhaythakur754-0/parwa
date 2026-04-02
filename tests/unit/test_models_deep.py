@@ -172,9 +172,9 @@ class TestUniqueConstraints:
         db.close()
 
     def test_webhook_events_event_id_unique(self):
-        """Webhook event_id must be unique."""
+        """Webhook event_id must be unique per provider."""
         db = SessionLocal()
-        from database.models.billing import WebhookEvent
+        from database.models.webhook_event import WebhookEvent
         from database.models.core import Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
@@ -183,12 +183,12 @@ class TestUniqueConstraints:
         db.add(co)
         db.flush()
         e1 = WebhookEvent(
-            id="e1", company_id="co1", event_type="pay",
-            event_id="evt_123",
+            id="e1", company_id="co1", provider="paddle",
+            event_type="pay", event_id="evt_123",
         )
         e2 = WebhookEvent(
-            id="e2", company_id="co1", event_type="pay",
-            event_id="evt_123",
+            id="e2", company_id="co1", provider="paddle",
+            event_type="pay", event_id="evt_123",
         )
         db.add(e1)
         db.add(e2)

@@ -90,22 +90,6 @@ class Transaction(Base):
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
-class WebhookEvent(Base):
-    __tablename__ = "webhook_events"
-
-    id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(
-        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False, index=True,
-    )
-    event_type = Column(String(100), nullable=False)
-    event_id = Column(String(255), nullable=False, unique=True)
-    payload = Column(Text)
-    status = Column(String(50), default="received")
-    processed_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
-
-
 class CancellationRequest(Base):
     __tablename__ = "cancellation_requests"
 

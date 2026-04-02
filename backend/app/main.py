@@ -41,11 +41,15 @@ from backend.app.middleware.security_headers import (
     SecurityHeadersMiddleware,
 )
 from backend.app.middleware.api_key_auth import APIKeyAuthMiddleware
+from backend.app.middleware.ip_allowlist import (
+    IPAllowlistMiddleware,
+)
 from backend.app.api.auth import router as auth_router
 from backend.app.api.mfa import router as mfa_router
 from backend.app.api.api_keys import router as api_keys_router
 from backend.app.api.client import router as client_router
 from backend.app.api.admin import router as admin_router
+from backend.app.api.webhooks import router as webhook_router
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
@@ -169,7 +173,11 @@ app.add_middleware(APIKeyAuthMiddleware)
 # 6. Security headers — BC-011/BC-012
 app.add_middleware(SecurityHeadersMiddleware)
 
-# 7. CORS middleware (frontend cross-origin access)
+# 7. IP allowlist — BC-012 (disabled by default)
+# Set IP_ALLOWLIST_ENABLED=true to activate
+app.add_middleware(IPAllowlistMiddleware)
+
+# 8. CORS middleware (frontend cross-origin access)
 try:
     _settings = get_settings()
     _cors_origins = (
@@ -196,6 +204,7 @@ app.include_router(mfa_router)
 app.include_router(api_keys_router)
 app.include_router(client_router)
 app.include_router(admin_router)
+app.include_router(webhook_router)
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

@@ -23,7 +23,7 @@ _rate_limit_svc = get_rate_limit_service()
 
 # Paths that skip rate limiting (health, metrics)
 SKIP_PATHS = {"/health", "/ready", "/metrics"}
-SKIP_PREFIXES = ()
+SKIP_PREFIXES = ("/api/webhooks/",)
 
 
 def get_rate_limiter():
