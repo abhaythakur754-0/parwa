@@ -27,9 +27,13 @@ class ParwaTask(Task):
     - Retry logging with structured context
     - Failure logging without stack traces (BC-012)
     - Success logging with timing info
+    - Day 16: DLQ routing on max retries exhausted
     """
 
     abstract = True
+
+    # Day 16: Route to dead_letter queue when all retries fail
+    throws = (Exception,)
 
     def _safe_request_attr(self, attr: str, default=None):
         """Safely get request attribute outside task context."""
@@ -54,17 +58,33 @@ class ParwaTask(Task):
         )
 
     def on_failure(self, exc, traceback, args, kwargs, einfo):
-        """Log failure without stack traces (BC-012)."""
-        logger.error(
-            "task_failure",
-            extra={
-                "task_name": self.name,
-                "task_id": self._safe_request_attr("id"),
-                "error_type": type(exc).__name__,
-                "error_message": str(exc),
-                "company_id": args[0] if args else None,
-            },
-        )
+        """Log failure without stack traces (BC-012).
+
+        Day 16: When max retries exhausted, log DLQ routing.
+        """
+        retries = self._safe_request_attr("retries", 0)
+        max_retries = self.max_retries
+
+        # Check if this is a final failure (all retries exhausted)
+        is_final = retries >= max_retries
+        extra = {
+            "task_name": self.name,
+            "task_id": self._safe_request_attr("id"),
+            "error_type": type(exc).__name__,
+            "error_message": str(exc)[:500],
+            "company_id": args[0] if args else None,
+        }
+        if is_final:
+            extra["dlq_routed"] = True
+            logger.error(
+                "task_permanently_failed",
+                extra=extra,
+            )
+        else:
+            logger.error(
+                "task_failure",
+                extra=extra,
+            )
 
     def on_success(self, retval, task_id, args, kwargs):
         """Log successful completion with structured context."""

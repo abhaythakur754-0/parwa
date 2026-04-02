@@ -4,6 +4,11 @@ PARWA Celery Application (BC-004)
 Celery app configuration with Redis broker, task serialization,
 and 7 specialized queues for different workloads.
 
+Day 16 additions:
+- Dead Letter Queue (DLQ) for permanently failed tasks
+- Beat scheduler configuration for periodic tasks
+- Celery health check integration
+
 Queues:
 - default: General tasks (account export, data cleanup)
 - ai_heavy: Heavy AI tasks (embedding generation, batch classification)
@@ -12,6 +17,7 @@ Queues:
 - webhook: Webhook processing (BC-003)
 - analytics: Analytics aggregation and reporting
 - training: Model training and fine-tuning
+- dead_letter: Failed tasks that exhausted all retries (Day 16)
 """
 
 from celery import Celery
@@ -31,6 +37,7 @@ QUEUE_NAMES = [
     "webhook",
     "analytics",
     "training",
+    "dead_letter",  # Day 16: DLQ for permanently failed tasks
 ]
 
 # ── Lazy configuration from Settings ──────────────────────────────
@@ -76,7 +83,7 @@ def _build_config() -> dict:
         "enable_utc": True,
         # Default queue
         "task_default_queue": "default",
-        # Task queues
+        # Task queues (Day 16: added dead_letter)
         "task_queues": {
             name: {"queue": name}
             for name in QUEUE_NAMES
@@ -90,8 +97,35 @@ def _build_config() -> dict:
             "backend.app.tasks.ai.light.*": {"queue": "ai_light"},
             "backend.app.tasks.training.*": {"queue": "training"},
         },
+        # Day 16: Beat scheduler (periodic tasks)
+        "beat_schedule": {
+            "cleanup-stale-sessions-daily": {
+                "task": "backend.app.tasks.periodic.cleanup_stale_sessions",
+                "schedule": 86400.0,  # Every 24 hours
+                "kwargs": {},
+            },
+            "purge-dead-letter-queue-hourly": {
+                "task": ("backend.app.tasks.periodic"
+                          ".purge_dead_letter_queue"),
+                "schedule": 3600.0,  # Every hour
+                "kwargs": {},
+            },
+            "check-webhook-health-every-5min": {
+                "task": ("backend.app.tasks.periodic"
+                          ".check_webhook_health"),
+                "schedule": 300.0,  # Every 5 minutes
+                "kwargs": {},
+            },
+        },
+        # Day 16: Task send events for monitoring
+        "task_send_sent_event": True,
+        "task_track_started": True,
         # Autodiscover
-        "imports": ["backend.app.tasks.example_tasks"],
+        "imports": [
+            "backend.app.tasks.example_tasks",
+            "backend.app.tasks.periodic",  # Day 16
+            "backend.app.tasks.webhook_tasks",
+        ],
     }
 
 

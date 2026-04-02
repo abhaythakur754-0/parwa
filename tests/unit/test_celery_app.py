@@ -20,12 +20,12 @@ class TestQueuesDefined:
     """Test that all 7 queues are configured."""
 
     def test_queues_defined(self):
-        """All 7 queues are configured in the Celery app."""
+        """All 8 queues are configured in the Celery app (7 + DLQ)."""
         from backend.app.tasks.celery_app import (
             QUEUE_NAMES,
             app,
         )
-        # Verify QUEUE_NAMES has all 7 expected queues
+        # Verify QUEUE_NAMES has all 8 expected queues (Day 16: added dead_letter)
         expected_queues = [
             "default",
             "ai_heavy",
@@ -34,8 +34,9 @@ class TestQueuesDefined:
             "webhook",
             "analytics",
             "training",
+            "dead_letter",  # Day 16: DLQ
         ]
-        assert len(QUEUE_NAMES) == 7
+        assert len(QUEUE_NAMES) == 8
         assert set(QUEUE_NAMES) == set(expected_queues)
 
         # Verify queues are configured in the app
