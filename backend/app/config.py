@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     PADDLE_API_KEY: str = ""
     PADDLE_WEBHOOK_SECRET: str = ""
 
+    # ── Shopify (F-131) ─────────────────────────────────────────
+    SHOPIFY_WEBHOOK_SECRET: str = ""
+
     # ── Compliance ───────────────────────────────────────────────
     GDPR_RETENTION_DAYS: int = 365
     AUDIT_LOG_RETENTION_DAYS: int = 2555
@@ -98,8 +101,15 @@ class Settings(BaseSettings):
     GCP_STORAGE_BUCKET: str = ""
 
     # ── Celery (Week 3: BC-004) ────────────────────────────────
-    CELERY_BROKER_URL: str = ""
-    CELERY_RESULT_BACKEND: str = ""
+    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+    CELERY_TASK_ALWAYS_EAGER: bool = False  # testing: sync execution
+    CELERY_TASK_EAGER_PROPAGATES: bool = True
+    CELERY_WORKER_PREFETCH_MULTIPLIER: int = 1
+    CELERY_TASK_ACKS_LATE: bool = True
+    CELERY_TASK_REJECT_ON_WORKER_LOST: bool = True
+    CELERY_TASK_SOFT_TIME_LIMIT: int = 300  # 5 minutes
+    CELERY_TASK_TIME_LIMIT: int = 330  # 5.5 minutes (hard kill)
 
     # ── CORS (frontend origin) ─────────────────────────────────
     CORS_ORIGINS: str = ""
@@ -113,6 +123,9 @@ class Settings(BaseSettings):
     NEXT_PUBLIC_PADDLE_KEY: str = ""
     COLAB_WEBHOOK_URL: str = ""
     MODEL_REGISTRY_PATH: str = "models"
+
+    # ── IP Allowlist (BC-012) ──────────────────────────────────
+    IP_ALLOWLIST_ENABLED: bool = False
 
     # ── Properties ───────────────────────────────────────────────
     @property

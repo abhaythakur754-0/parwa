@@ -143,3 +143,4 @@ download/
 .ipynb_checkpoints/
 .dmypy.json
 dmypy.json
+.env
