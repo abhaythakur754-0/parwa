@@ -181,6 +181,7 @@ def update_profile(
         resource_type="company",
         resource_id=company.id,
         new_value=str(data),
+        db=db,
     )
 
     return _serialize_company(updated)
@@ -239,6 +240,7 @@ def update_settings(
         resource_type="company_settings",
         resource_id=updated.id,
         new_value=str(list(data.keys())),
+        db=db,
     )
 
     return _serialize_settings(updated)
@@ -273,6 +275,7 @@ def change_password(
         resource_type="user",
         resource_id=user.id,
         new_value="password_changed",
+        db=db,
     )
 
     return MessageResponse(message="Password changed successfully")
@@ -358,6 +361,7 @@ def update_team_member(
         resource_type="user",
         resource_id=user_id,
         new_value=str(data),
+        db=db,
     )
 
     return _serialize_user(updated)
@@ -390,6 +394,7 @@ def remove_team_member(
         action="delete",
         resource_type="user",
         resource_id=user_id,
+        db=db,
     )
 
     return MessageResponse(
