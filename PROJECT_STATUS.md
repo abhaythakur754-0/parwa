@@ -21,13 +21,13 @@
 | Week 3 | Day 16 | ✅ DONE | Celery DLQ + Beat Scheduler + Worker entry point (L40-L43 fixes) | 1246 → ~1350 |
 | Week 3 | Day 17 | ✅ DONE | File Storage + PaginatedResponse + Audit Persistence (L44-L58 fixes) | ~1350 → ~1423 |
 | Week 3 | Day 18 | ✅ DONE | Client Factory + Migration Stubs 003-007 (L42 fix) | ~1423 → 1471 |
-| Week 3 | Day 19 | ✅ DONE | Socket.io Business Event System (GAP 1.1) | 1471 → 1546 (+75) |
+| Week 3 | Day 19 | ✅ DONE | Socket.io Business Event System (GAP 1.1) | 1471 → 1566 (+95) |
 | Week 3 | Day 20 | 🔲 TODO | Multi-Tenant Middleware Hardening (GAP 1.2) | ~1541 → ~1596 |
 | Week 3 | Day 21 | 🔲 TODO | Health Check System + Monitoring Config (GAP 1.3) | ~1596 → ~1661 |
 | Week 3 | Day 22 | 🔲 TODO | Celery Task Modules + Beat Schedule (GAP 1.4) | ~1661 → ~1781 |
 | Week 3 | Day 23 | 🔲 TODO | Webhook Handlers + Templates + Cleanup (GAP 1.5) | ~1781 → ~1851 |
 
-**Total Tests: 1546 (current) → ~1851 (target) | Flake8 Errors: 0 | Loopholes Fixed: 58 (L1-L58) | GitHub: PUSHED ✅**
+**Total Tests: 1566 (current) → ~1851 (target) | Flake8 Errors: 0 | Loopholes Fixed: 60 (L1-L60) | GitHub: PUSHED ✅**
 
 ---
 
@@ -136,7 +136,10 @@ All 10 features built and all spec gaps resolved.
   - `tests/unit/test_event_tasks.py` — 15 tests (fan-out, cleanup, BC-004 compliance)
   - `tests/integration/test_socketio_events.py` — 7 tests (full flow, cross-tenant isolation)
 - **Gaps Closed:** GAP 1.1
-- **Tests:** 79 new | **Total: 1546**
+- **Loopholes Fixed:** 2 (L59, L60)
+  - L59: Rate limiting was defined on EventType but never enforced — added sliding window rate limiter in emit_event() (100 events/sec per tenant per type)
+  - L60: `ping` and `event:unsubscribe` handlers had no auth check — added company_id verification on all handlers (BC-011)
+- **Tests:** 79 + 20 loophole = 99 new | **Total: 1566**
 
 ---
 
@@ -198,7 +201,8 @@ All 10 features built and all spec gaps resolved.
 | L27-L39 | Day 15 | 13 | HMAC verification, webhook hardening, IP allowlist |
 | L40-L43 | Day 16 | 4 | Celery DLQ, Beat scheduler, worker |
 | L44-L58 | Day 17-18 | 15 | File storage, pagination, audit persistence, client factory |
-| **TOTAL** | | **58** | **All fixed ✅** |
+| L59-L60 | Day 19 | 2 | Event rate limiting not enforced, ping handler no auth check |
+| **TOTAL** | | **60** | **All fixed ✅** |
 
 ---
 
@@ -223,5 +227,6 @@ All 10 features built and all spec gaps resolved.
 | `b853ea2` | 17.5 | Fix all 15 loopholes (L44-L58) |
 | `3ea6f2b` | 18 | Day 18: Client Factory + Migration Stubs (003-007) + 1 loophole fix |
 | `77d0364` | 19 | Day 19: Socket.io Business Event System — 22 events, 5 emitters, 79 tests |
+| `648613f` | 19 | Day 19 loophole fixes: L59 (rate limiting) + L60 (auth on all handlers) |
 
-**All 17 commits pushed to GitHub main branch ✅**
+**All 18 commits pushed to GitHub main branch ✅**
