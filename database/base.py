@@ -69,10 +69,18 @@ _session_bypass_flag: Any = None  # placeholder
 
 
 def get_db():
-    """FastAPI dependency that yields a database session."""
+    """FastAPI dependency that yields a database session.
+
+    Automatically commits on success and rolls back on exception,
+    ensuring data written during the request is persisted.
+    """
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
