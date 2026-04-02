@@ -28,6 +28,53 @@
 | Week 3 | Day 23 | 🔲 TODO | Webhook Handlers + Templates + Cleanup (GAP 1.5) | ~1781 → ~1851 |
 
 **Total Tests: 1647 (current) → ~1851 (target) | Flake8 Errors: 0 | Loopholes Fixed: 60 (L1-L60) | GitHub: PUSHED ✅**
+**Total Features: 148 (139 original + 9 new AI technique features) | Total Building Codes: 14 (12 original + BC-013, BC-014)**
+
+---
+
+## AI Technique Framework Integration ✅ COMPLETE
+
+### New Documents Created
+| Document | Description |
+|----------|-------------|
+| `PARWA_AI_Technique_Framework.md` | 3-tier AI technique architecture with 14 techniques, auto-trigger logic, integration mapping |
+| `PARWA_Build_Agent_Prompt.md` | Unified build agent prompt with BC-014 task decomposition + all 14 building codes |
+
+### New Features Added (F-140 to F-148)
+| Feature | Name | Tier | Status |
+|---------|------|------|--------|
+| F-140 | CRP (Concise Response Protocol) | Tier 1 | ✅ Spec complete |
+| F-141 | Reverse Thinking Engine | Tier 2 | ✅ Spec complete |
+| F-142 | Step-Back Prompting | Tier 2 | ✅ Spec complete |
+| F-143 | GST (Guided Sequential Thinking) | Tier 3 | ✅ Spec complete |
+| F-144 | Universe of Thoughts (UoT) | Tier 3 | ✅ Spec complete |
+| F-145 | Tree of Thoughts (ToT) | Tier 3 | ✅ Spec complete |
+| F-146 | Self-Consistency | Tier 3 | ✅ Spec complete |
+| F-147 | Reflexion | Tier 3 | ✅ Spec complete |
+| F-148 | Least-to-Most Decomposition | Tier 3 | ✅ Spec complete |
+
+### New Building Codes Added
+| Code | Name | Description |
+|------|------|-------------|
+| BC-013 | AI Technique Routing (3-Tier) | 3-tier technique architecture with auto-trigger detection for all AI queries |
+| BC-014 | Task Decomposition | Mandatory task decomposition before building, atomic delivery, progress tracking |
+
+### Existing Documents Updated
+| Document | Changes |
+|----------|---------|
+| `PARWA_Building_Codes_v1.md` | Added BC-013, BC-014; updated feature count to 148 |
+| `PARWA_Context_Bible.md` | Added technique framework section, locked decision #23, updated Team 3, feature counts |
+| `PARWA_Build_Roadmap_v1.md` | Added Week 10.5 (technique framework), updated Phase 3 to 24 features |
+| `PARWA_Feature_Specs_Batch2.md` | F-080 technique activation for VIP/Legal (BC-013) |
+| `PARWA_Feature_Specs_Batch3.md` | F-054, F-059, F-060 technique integration subsections |
+| `PARWA_Feature_Specs_Batch4.md` | F-093 technique failure recovery (BC-013) |
+| `PARWA_Feature_Specs_Batch6.md` | F-062/F-049 intent-technique mapping, F-067 token budget |
+| `PARWA_Feature_Specs_Batch9.md` | F-063 sentiment-technique trigger integration |
+
+### Locked Decision Added
+| # | Decision | Rule |
+|---|----------|------|
+| #23 | Technique routing is separate from model routing | BC-007 (model selection) and BC-013 (technique selection) are independent systems that both must execute per query |
 
 ---
 

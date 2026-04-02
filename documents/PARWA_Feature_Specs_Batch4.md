@@ -164,6 +164,38 @@ Proactive Self-Healing is the infrastructure layer that monitors every external 
 | **Paddle (Billing)** | 3 | 2s, 4s, 8s | Queue → alert billing team immediately |
 | **Shopify / TMS / WMS** | 3 | 5s, 15s, 45s | Cached data → queue → alert |
 
+### Technique Failure Recovery (BC-013)
+
+When a technique execution fails — due to timeout, runtime error, or quality score falling below the configured threshold — Self-Healing automatically intervenes to recover without disrupting the customer experience.
+
+1. **Failure detection** — Technique execution is wrapped in a health-monitoring layer that tracks latency, success rate, and quality score in real time. A failure is flagged when any of the following conditions are met:
+   - Execution exceeds the technique's timeout threshold
+   - An unhandled runtime error is thrown
+   - The quality score of the technique output drops below the minimum acceptable threshold
+2. **Tier fallback** — On failure, Self-Healing automatically falls back to the next-lower-tier technique equivalent:
+   - **Tier 3 → Tier 2:** Advanced NLP/ML technique falls back to a mid-complexity heuristic or lighter model
+   - **Tier 2 → Tier 1:** Mid-complexity technique falls back to a simple rule-based or template-based approach
+   - **Tier 1 failure:** No further fallback available; escalation to human agent with full context
+   - Note: Fallback is strictly one tier down (no skipping). Tier 3 does not fall back directly to Tier 1.
+3. **Failure logging** — Every technique failure is logged to `healing_events` with `related_entity_type = 'technique'` and includes:
+   - The technique name, tier, and version
+   - The failure reason (timeout, error, quality_below_threshold)
+   - The quality score at time of failure
+   - The fallback technique that was activated
+   - These failure logs feed into **Agent Performance (F-098)** for technique-level health dashboards and long-term trend analysis
+4. **Health metric monitoring** — Self-Healing continuously tracks per-technique execution health metrics:
+   - **Latency**: Rolling average and P95 execution time per technique
+   - **Success rate**: Percentage of successful executions over a sliding 24-hour window
+   - **Quality score**: Rolling average output quality score per technique
+   - Techniques whose success rate drops below 90% or whose average quality score degrades by >15% from baseline trigger a proactive health alert to the operations team
+
+| Failure Trigger | Detection Method | Fallback Action | Logged To |
+|----------------|-----------------|-----------------|----------|
+| **Timeout** | Execution exceeds technique timeout threshold | Next-lower-tier equivalent technique | `healing_events` + F-098 metrics |
+| **Runtime error** | Unhandled exception during technique execution | Next-lower-tier equivalent technique | `healing_events` + F-098 metrics |
+| **Quality below threshold** | Output quality score < minimum threshold | Next-lower-tier equivalent technique | `healing_events` + F-098 metrics |
+| **Tier 1 failure** | Any failure on a Tier 1 technique | Escalate to human agent with full context | `healing_events` + alert |
+
 ## API Endpoints
 
 | Endpoint | Method | Description |
@@ -230,6 +262,7 @@ Proactive Self-Healing is the infrastructure layer that monitors every external 
 - **BC-003 (Webhook Handling):** Incoming webhook failures (Paddle, Shopify, Twilio, Brevo) follow webhook processing rules — async processing, idempotency checks, retry with exponential backoff (60s, 300s, 900s).
 - **BC-005 (Real-Time Communication):** Real-time healing status updates emitted via Socket.io to the Jarvis System Status Panel (F-088). Active healing events visible in real-time to operators.
 - **BC-007 (AI Model Interaction):** LLM call failures follow Smart Router failover rules — try next model in tier, then next tier, then queue.
+- **BC-013 (Technique Failure Recovery):** Failed technique executions (timeout, error, quality below threshold) trigger automatic fallback to the next-lower-tier technique equivalent (Tier 3 → Tier 2, Tier 2 → Tier 1 only). All technique failures are logged with full context to `healing_events` and feed into Agent Performance (F-098) for trend analysis. Self-Healing monitors per-technique health metrics (latency, success rate, quality score) and proactively alerts when degradation is detected.
 
 ## Edge Cases
 

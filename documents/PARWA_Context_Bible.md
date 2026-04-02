@@ -8,7 +8,7 @@
 
 ## 1. WHAT IS PARWA?
 
-PARWA is an **AI-powered customer support platform** with 500+ features (170+ AI features). It allows companies to deploy AI agents that handle customer support tickets across email, chat, SMS, voice, and social media — with human-in-the-loop approval for critical actions.
+PARWA is an **AI-powered customer support platform** with 500+ features (180+ AI features). It allows companies to deploy AI agents that handle customer support tickets across email, chat, SMS, voice, and social media — with human-in-the-loop approval for critical actions.
 
 **Core Purpose:** "Make the hardest automation look effortless."
 
@@ -18,6 +18,8 @@ PARWA is an **AI-powered customer support platform** with 500+ features (170+ AI
 - **PARWA High (The Senior):** Complex cases, strategic insights, up to 5 concurrent calls, churn prediction, video support
 
 **Tech Stack:** FastAPI (backend) + Next.js/Tailwind (frontend) + PostgreSQL/pgvector + Redis + Celery + Socket.io + Paddle (billing) + Brevo (email) + Twilio (SMS/voice) + LiteLLM/OpenRouter (AI) + DSPy + LangGraph + Docker + K8s + GCP
+
+**AI Technique Framework:** 3-tier reasoning technique architecture (CLARA, CRP, Reverse Thinking, CoT, ReAct, Step-Back, GST, UoT, ToT, Self-Consistency, Reflexion, Least-to-Most Decomposition) with auto-trigger detection logic (BC-013)
 
 ---
 
@@ -86,6 +88,23 @@ Maps how every feature connects, communicates, and depends on every other featur
 
 ---
 
+### Phase 3.5: AI Technique Framework ✅ COMPLETE
+
+14 AI reasoning techniques organized in a 3-tier architecture, integrated into PARWA's AI engine pipeline. Every AI query passes through both the Smart Router (model selection) and the Technique Router (reasoning technique selection).
+
+- **Tier 1 (Base — Always Active):** CLARA, CRP, GSD State Engine, Smart Router — 4 techniques
+- **Tier 2 (Conditional — Auto-Triggered):** Reverse Thinking, Chain of Thought, ReAct, Step-Back Prompting, Thread of Thought — 5 techniques
+- **Tier 3 (Premium — Selective):** GST, Universe of Thoughts, Tree of Thoughts, Self-Consistency, Reflexion, Least-to-Most Decomposition — 6 techniques
+
+**New Features Added:** F-140 (CRP), F-141 (Reverse Thinking), F-142 (Step-Back), F-143 (GST), F-144 (UoT), F-145 (ToT), F-146 (Self-Consistency), F-147 (Reflexion), F-148 (Least-to-Most Decomposition)
+
+**New Building Codes:** BC-013 (AI Technique Routing), BC-014 (Task Decomposition)
+
+**File:**
+- `PARWA_AI_Technique_Framework.md`
+
+---
+
 ## 3. BUILD STRATEGY (6 TEAMS)
 
 The platform is organized into 6 teams. Each team owns their domain. Teams communicate through API contracts.
@@ -100,6 +119,7 @@ The platform is organized into 6 teams. Each team owns their domain. Teams commu
 
 ### Team 3: AI/ML (The Brain)
 - Smart Router (F-054), PII Redaction (F-056), Guardrails (F-057), Confidence (F-059), GSD Engine (F-053), RAG (F-064), Auto-response (F-065), Classification (F-049), Sentiment (F-063), DSPy (F-061), all AI sub-features
+- Technique Router (BC-013), CRP (F-140), Reverse Thinking (F-141), Step-Back (F-142), GST (F-143), UoT (F-144), ToT (F-145), Self-Consistency (F-146), Reflexion (F-147), Least-to-Most Decomposition (F-148)
 - **Depends on: Team 1 + uses Team 2's tickets**
 
 ### Team 4: Channels & Integrations
@@ -133,6 +153,7 @@ Week 17-20: Polish, testing, mobile
 | #19 | No training until revenue | Cannot spend on GPU training until PARWA earns money. When revenue starts, use RunPod for GPU. |
 | #20 | 50 mistakes threshold | AI agent auto-triggers retraining at exactly 50 mistake reports. HARD-CODED. Cannot be configured. |
 | #22 | Jarvis shows consequences before auto-approve | When enabling auto-approve rules, Jarvis must display ALL potential actions, financial impacts, and risks. User must explicitly confirm. |
+| #23 | Technique routing is separate from model routing | BC-007 selects models. BC-013 selects techniques. Both must execute. This separation CANNOT be merged. |
 
 ---
 
@@ -185,6 +206,11 @@ All files are in `/home/z/my-project/download/`:
 |------|-------------|
 | `PARWA_Connection_Map_PART1.md` | Core systems connections (2,251 lines) |
 | `PARWA_Connection_Map_PART2.md` | Support systems connections (1,843 lines) |
+
+### AI Technique Framework
+| File | Description |
+|------|-------------|
+| `PARWA_AI_Technique_Framework.md` | 3-tier AI technique architecture with auto-trigger logic |
 
 ### Source Documents (Read-Only Reference)
 Located in `/home/z/my-project/upload/`:
@@ -258,6 +284,12 @@ Auth (F-013) → Tickets (F-046) → Classification (F-049) → RAG (F-064) → 
 - Auto-fallback: Light fails → Medium → Heavy
 - Per-company tier configuration
 
+**Technique Router (BC-013) — Separate from Smart Router:**
+- The Technique Router selects which REASONING TECHNIQUE to apply, independent of model selection
+- Auto-trigger conditions based on complexity, confidence, sentiment, customer tier, monetary value
+- 3-tier technique architecture with progressive activation (Tier 1 always, Tier 2 conditional, Tier 3 selective)
+- See `PARWA_AI_Technique_Framework.md` for complete specification
+
 ### Approval — 4 Modes
 1. Individual (F-076): One ticket at a time
 2. Batch (F-075): Semantic cluster approval
@@ -303,14 +335,15 @@ Paste this entire file at the start of a new chat, then say:
 | 4 | Onboarding | F-028 to F-035 | 8 |
 | 5 | Dashboard | F-036 to F-045 | 10 |
 | 6 | Ticket Management | F-046 to F-052 | 7 |
-| 7 | AI Core Engine | F-053 to F-073 | 21 |
+| 7 | AI Core Engine | F-053 to F-073 | 30 |
 | 8 | Approval & Control | F-074 to F-086 | 13 |
 | 9 | Jarvis Command Center | F-087 to F-096 | 10 |
 | 10 | Agent Mgmt & Training | F-097 to F-108 | 12 |
 | 11 | Analytics & Reporting | F-109 to F-121 | 13 |
 | 12 | Communication Channels | F-122 to F-130 | 9 |
 | 13 | Integrations | F-131 to F-139 | 9 |
-| **Total** | | | **139** |
+| 14 | AI Technique Engine | F-140 to F-148 | 9 |
+| **Total** | | | **148** |
 
 Plus 150+ AI sub-features within Category 7 (per-intent prompt templates, model response formatters, retrieval strategies, hallucination detection patterns, token-budget managers, conversation summarization modes, language detection/translation pipelines, etc.)
 

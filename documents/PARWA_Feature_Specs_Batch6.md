@@ -2,7 +2,7 @@
 
 > **Dashboard / Tickets / AI Core**
 >
-> Features: F-036, F-037, F-038, F-048, F-049, F-050, F-052, F-058, F-061, F-062, F-065, F-066, F-068, F-069, F-070
+> Features: F-036, F-037, F-038, F-048, F-049, F-050, F-052, F-058, F-061, F-062, F-065, F-066, F-067, F-068, F-069, F-070
 >
 > Generated: July 2025 | Version 1.0
 
@@ -22,9 +22,10 @@
 10. [F-062: Sentiment Analysis (Empathy Engine)](#f-062-sentiment-analysis-empathy-engine)
 11. [F-065: Auto-Response Generation](#f-065-auto-response-generation)
 12. [F-066: AI Draft Composer (Co-Pilot Mode)](#f-066-ai-draft-composer-co-pilot-mode)
-13. [F-068: Context Health Meter](#f-068-context-health-meter)
-14. [F-069: 90% Capacity Popup](#f-069-90-capacity-popup)
-15. [F-070: Customer Identity Resolution](#f-070-customer-identity-resolution)
+13. [F-067: Context Compression Trigger](#f-067-context-compression-trigger)
+14. [F-068: Context Health Meter](#f-068-context-health-meter)
+15. [F-069: 90% Capacity Popup](#f-069-90-capacity-popup)
+16. [F-070: Customer Identity Resolution](#f-070-customer-identity-resolution)
 
 ---
 
@@ -224,6 +225,22 @@ Ticket Intent Classification is the AI engine that automatically categorizes eve
 - **BC-007** (AI Model Interaction): Uses Smart Router Light tier for classification. PII redacted before LLM call (BC-007 Rule 5). Confidence thresholds stored per-company (BC-007 Rule 9). If confidence below threshold, ticket flagged for human review. Mistake count tracked — model removed from rotation at 50 mistakes (BC-007 Rule 10).
 - **BC-004** (Background Jobs): Classification runs as a Celery task triggered by ticket creation. `company_id` is first parameter. `max_retries=3`, exponential backoff.
 - **BC-001** (Multi-Tenant Isolation): Classification models and thresholds are per-tenant. Company A's classifier never processes Company B's tickets.
+- **BC-013** (Building Code): Each intent type has recommended technique associations for downstream AI processing. Technique mappings are configurable per-tenant; defaults defined in the Technique-Intent Mapping subsection below.
+
+## Technique-Intent Mapping (BC-013)
+
+Each classified intent type has recommended technique associations that guide downstream AI processing. These mappings ensure the appropriate reasoning strategy is selected based on the nature of the customer's request, optimizing both response quality and token efficiency.
+
+| Intent Type | Recommended Technique | Trigger Condition |
+|-------------|----------------------|-------------------|
+| Refund | Self-Consistency (F-146) | Activated when refund amount exceeds $100, requiring multi-path verification to confirm accuracy |
+| Technical | CoT + ReAct | Activated for troubleshooting scenarios requiring step-by-step reasoning and tool-based exploration |
+| Complaint | UoT (F-144) + Reflexion (F-147) | Activated for complaint handling requiring empathetic narrative framing and self-critique refinement |
+| Billing | Self-Consistency (F-146) | Activated for financial verification scenarios requiring agreement across multiple reasoning paths |
+| Feature Request | Least-to-Most Decomposition (F-148) | Activated for complex feature requests requiring hierarchical breakdown into implementable sub-requests |
+
+- Intent-to-technique mappings are stored in the classification configuration per-tenant. Default mappings are provided above; supervisors may override based on domain-specific requirements via the AI Configuration panel.
+- When multiple intents are detected (multi-intent edge case), the dominant intent's technique is applied as primary, with the secondary intent's technique considered as a fallback if the primary underperforms.
 
 ## Edge Cases
 
@@ -559,6 +576,62 @@ The AI Draft Composer provides human agents with AI-generated response drafts in
 2. Given an agent edits a draft and clicks "Send", When the send action executes, Then the edited text is delivered to the customer via the original channel and the original draft and edited version are both stored for audit.
 3. Given a draft is generated but the Guardrails check blocks it, When the agent views the draft area, Then they see "Draft blocked by safety filter" with the specific blocking reason and the option to regenerate.
 4. Given a draft is not accepted within 30 minutes, When the expiry triggers, Then the draft status changes to `expired` and the agent is prompted to regenerate if they still need a response.
+
+---
+
+# F-067: Context Compression Trigger
+
+## Overview
+
+Context Compression Trigger automatically activates when a conversation's context utilization exceeds a defined threshold (default: 85% of the model's context window), summarizing and condensing earlier conversation turns to free up token space for continued high-quality AI responses. The trigger evaluates the conversation history, identifies less relevant earlier exchanges, and produces a compressed summary that preserves key facts, decisions, and customer intent while dramatically reducing token count. The compressed context replaces the original messages in the active context window while the full history remains accessible in the database. Context Compression coordinates with the Context Health Meter (F-068) and the 90% Capacity Popup (F-069) as part of the context lifecycle management pipeline.
+
+## Technique Token Budget (BC-013)
+
+Context Compression must account for active techniques' token usage when determining how much context can be preserved. Each active reasoning technique consumes a defined portion of the available context window, and the total technique token cost must not exceed the conversation's token budget.
+
+| Technique Tier | Token Budget Allocation | Techniques |
+|---------------|------------------------|------------|
+| Tier 1 (Foundational) | 30% of available context | Base classification (F-049), RAG retrieval (F-064), basic response generation |
+| Tier 2 (Intermediate) | 40% of available context | Chain-of-Thought, Self-Consistency (F-146), Tree-of-Thought (UoT, F-144) |
+| Tier 3 (Advanced) | 30% of available context | Reflexion (F-147), Least-to-Most Decomposition (F-148), ReAct agent loops |
+
+- If Tier 3 techniques would cause total token usage to exceed the conversation budget, the system automatically falls back to Tier 2 equivalents for that response cycle. For example, Reflexion (F-147) falls back to standard CoT, and Least-to-Most Decomposition (F-148) falls back to single-pass generation.
+- Token budget is recalculated after each compression cycle. Compression prioritizes preserving Tier 1 tokens, then Tier 2, then Tier 3 — ensuring foundational context is never discarded to make room for advanced techniques.
+- **BC-013** applied: Token budget allocations are configurable per-tenant. Default ratios above may be adjusted in the tenant's AI configuration panel based on their typical conversation patterns and model context window size.
+
+## APIs
+
+| Endpoint | Method | Key Params | Response Summary |
+|----------|--------|------------|-----------------|
+| `POST /api/internal/context/compress` | POST | `{ticket_id, strategy: summarize\|key_facts\|sliding_window}` | `{compressed_context, tokens_before, tokens_after, compression_ratio, summary_quality_score}` |
+| `GET /api/tickets/{id}/compression-history` | GET | — | `{compressions: [{timestamp, tokens_before, tokens_after, strategy, quality_score}]}` |
+
+## DB Tables
+
+- **`context_compressions`** — `id, company_id, ticket_id, strategy (summarize\|key_facts\|sliding_window), tokens_before, tokens_after, compression_ratio (DECIMAL 5,2), summary_quality_score (DECIMAL 5,2), compressed_context (TEXT), model_id, created_at`
+  - Index: `idx_cc_ticket_created (ticket_id, created_at DESC)`
+- Leverages: `context_health_snapshots` (F-068) for pre/post compression health comparison
+
+## BC Rules
+
+- **BC-007** (AI Model Interaction): Compression uses Smart Router Light tier for summarization. PII redacted before compression and re-inserted after. Summary quality scored — if quality below threshold (0.6), compression is rejected and original context retained.
+- **BC-008** (State Management): Compression state tracked in GSD. Pre-compression context snapshot stored in PostgreSQL for rollback. Compressed context is the active state in Redis.
+- **BC-013** (Building Code): Active technique token costs are tracked per conversation. If Tier 3 techniques would exceed budget, automatic fallback to Tier 2 equivalents occurs. Token budget allocation: Tier 1 (30%), Tier 2 (40%), Tier 3 (30%).
+- **BC-001** (Multi-Tenant Isolation): Compression configurations and thresholds are per-tenant.
+
+## Edge Cases
+
+1. **Compression quality score below threshold (0.4)** — Compression rejected. Original context retained. System logs the failure and tries alternative strategy (e.g., `key_facts` instead of `summarize`).
+2. **Customer references information from a compressed message** — Compressed summary includes a reference index mapping summary points to original message IDs. Agent can click to expand the original message from the database.
+3. **Rapid compression cycles (3 within 10 minutes)** — System switches to aggressive `sliding_window` strategy, keeping only the last N messages. Admin alerted to unusually long conversation.
+4. **Compression during active AI generation** — Compression queued until current response completes. No mid-generation context replacement.
+
+## Acceptance
+
+1. Given a ticket's context utilization reaches 85%, When the compression trigger fires, Then the conversation context is compressed within 3 seconds, token usage drops below 60%, and the Context Health Meter (F-068) reflects the improvement.
+2. Given active Tier 3 techniques (Reflexion, Least-to-Most Decomposition) are running when context reaches capacity, When token budget is evaluated, Then Tier 3 techniques fall back to Tier 2 equivalents and the response continues without quality degradation.
+3. Given a compression produces a quality score of 0.35, When the quality check runs, Then the compression is rejected, the original context is retained, and an alternative compression strategy is attempted.
+4. Given a ticket has been compressed 3 times, When the compression history is viewed, Then all compression events are listed with before/after token counts, strategy used, and quality scores.
 
 ---
 

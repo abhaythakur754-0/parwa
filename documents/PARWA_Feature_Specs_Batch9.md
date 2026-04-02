@@ -457,7 +457,29 @@ Real-time sentiment detection engine that scores customer frustration from 0-100
 - **BC-007** Rule 6 (Guardrails): Sentiment scores are filtered through Guardrails to prevent bias, toxicity amplification, or misclassification of culturally specific expressions. Blocked classifications logged for review.
 - **BC-004** (Background Jobs): Sentiment analysis runs as a Celery task immediately after message ingestion, with `company_id` first param, `max_retries=3`. Processing time tracked in `processing_time_ms`.
 - **BC-005** (Real-Time): When sentiment score crosses the escalation threshold, a Socket.io event `sentiment:escalation` is pushed to `tenant_{company_id}` room with ticket details and sentiment timeline.
+- **BC-013** (Technique Router Integration): Sentiment scores are normalized to a 0.0–1.0 float (`normalized_sentiment = score / 100`) and passed to the Technique Router (BC-013) as the `emotional_context` signal alongside `confidence` and `complexity`. The router uses sentiment as a first-class input for technique selection, ensuring frustrated customers receive more thorough reasoning chains.
 - **BC-001** (Multi-Tenant Isolation): All sentiment data scoped by `company_id`. No cross-tenant sentiment data sharing. Thresholds configurable per-tenant.
+
+## Technique Trigger Integration (BC-013)
+Sentiment scores directly influence which reasoning technique the Technique Router selects for a given response. This integration ensures that emotionally charged customer interactions receive appropriately careful and thorough AI reasoning, preventing dismissive or overly terse responses to frustrated users.
+
+### Sentiment-to-Technique Mapping
+| Normalized Sentiment | Technique Triggered | Rationale |
+|----------------------|---------------------|----------|
+| Below 0.3 (score < 30) | **UoT (F-144)** + **Step-Back (F-142)** | Highest care tier — angry or deeply frustrated customers receive both full understanding-of-thought reasoning and a step-back self-check before response delivery. This dual technique ensures maximum accuracy and empathy for the most emotionally volatile interactions. |
+| 0.3 – 0.5 (score 30–50) | **Step-Back (F-142)** only | Cautious approach — mildly frustrated or anxious customers get a self-critique pass before the response is sent, catching tone-deaf or incomplete answers without the overhead of full chain-of-thought. |
+| Above 0.5 (score > 50) | **Standard flow (CoT or direct response)** | Neutral or positive sentiment — standard technique selection applies. The router evaluates `confidence` and `complexity` as primary signals; sentiment is informational only and does not override technique selection. |
+
+### Integration Details
+- **Signal format:** The Technique Router receives `{ normalized_sentiment: float, confidence: float, complexity: string }` as the emotional context payload from the Empathy Engine after each message is scored.
+- **Priority override:** When sentiment falls below 0.3, the Technique Router prioritizes UoT + Step-Back regardless of `confidence` or `complexity` — emotional care takes precedence over optimization for speed.
+- **Middleware ordering:** Sentiment analysis runs as a Celery task post-ingestion (BC-004) and completes *before* the Technique Router evaluates technique selection, ensuring the emotional context signal is always available at routing time.
+- **Logging:** Every technique selection influenced by sentiment is tagged with `sentiment_driven: true` in the technique execution log, enabling post-hoc analysis of how often emotional context changed the technique choice vs. the default confidence/complexity path.
+
+### Related Features
+- **F-142** (Step-Back Technique): Self-critique pass triggered for sentiment ≤ 0.5
+- **F-144** (Understanding-of-Thought / UoT): Full reasoning chain exposed to customer, triggered for sentiment < 0.3
+- **BC-013** (Technique Router): Central routing engine that consumes sentiment as `emotional_context` alongside confidence and complexity
 
 ## Edge Cases
 | Edge Case | Handling |
