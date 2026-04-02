@@ -132,6 +132,43 @@ def _build_config() -> dict:
                 },
                 "kwargs": {},
             },
+            # Day 22: New Beat schedule entries
+            "approval-timeout-check-every-15min": {
+                "task": ("backend.app.tasks.periodic"
+                          ".approval_timeout_check"),
+                "schedule": 900.0,
+                "kwargs": {},
+            },
+            "approval-reminder-every-30min": {
+                "task": ("backend.app.tasks.periodic"
+                          ".approval_reminder_dispatch"),
+                "schedule": 1800.0,
+                "kwargs": {},
+            },
+            "daily-overage-charge-02utc": {
+                "task": ("backend.app.tasks.periodic"
+                          ".daily_overage_charge"),
+                "schedule": {"hour": 2, "minute": 0},
+                "kwargs": {},
+            },
+            "drift-detection-daily-03utc": {
+                "task": ("backend.app.tasks.periodic"
+                          ".drift_detection_analysis"),
+                "schedule": {"hour": 3, "minute": 30},
+                "kwargs": {},
+            },
+            "metric-aggregation-every-5min": {
+                "task": ("backend.app.tasks.periodic"
+                          ".metric_aggregation"),
+                "schedule": 300.0,
+                "kwargs": {},
+            },
+            "training-mistake-check-hourly": {
+                "task": ("backend.app.tasks.periodic"
+                          ".training_mistake_check"),
+                "schedule": 3600.0,
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,
@@ -139,8 +176,15 @@ def _build_config() -> dict:
         # Autodiscover
         "imports": [
             "backend.app.tasks.example_tasks",
-            "backend.app.tasks.periodic",  # Day 16
+            "backend.app.tasks.periodic",
             "backend.app.tasks.webhook_tasks",
+            # Day 22: New task modules
+            "backend.app.tasks.email_tasks",
+            "backend.app.tasks.analytics_tasks",
+            "backend.app.tasks.ai_tasks",
+            "backend.app.tasks.training_tasks",
+            "backend.app.tasks.approval_tasks",
+            "backend.app.tasks.billing_tasks",
         ],
     }
 
