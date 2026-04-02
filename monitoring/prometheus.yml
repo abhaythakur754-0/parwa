@@ -1,0 +1,70 @@
+# PARWA Prometheus Configuration (Day 21, GAP 2.1)
+#
+# Scrapes metrics from PARWA backend and infrastructure services.
+# Mount in docker-compose.prod.yml under prometheus config.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'parwa'
+
+scrape_configs:
+  # PARWA Backend API
+  - job_name: 'parwa_backend'
+    scrape_interval: 10s
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'parwa-api'
+
+  # PARWA Celery Workers
+  - job_name: 'parwa_celery'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['celery-worker:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'parwa-celery'
+
+  # Redis Exporter
+  - job_name: 'redis'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'parwa-redis'
+
+  # PostgreSQL Exporter
+  - job_name: 'postgresql'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'parwa-postgres'
+
+  # Node Exporter (system metrics)
+  - job_name: 'node'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['node-exporter:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'parwa-host'
+
+rule_files:
+  - '/etc/prometheus/alerting/rules.yml'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']

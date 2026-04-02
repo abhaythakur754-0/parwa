@@ -17,11 +17,10 @@ Main FastAPI app with:
 
 from contextlib import asynccontextmanager
 import os
-from datetime import datetime, timezone
 
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse
 
 from backend.app.config import get_settings
 from backend.app.exceptions import (
@@ -50,6 +49,7 @@ from backend.app.api.api_keys import router as api_keys_router
 from backend.app.api.client import router as client_router
 from backend.app.api.admin import router as admin_router
 from backend.app.api.webhooks import router as webhook_router
+from backend.app.api.health import router as health_router
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
@@ -199,6 +199,7 @@ app.add_middleware(
 
 # ── Routers ────────────────────────────────────────────────────────
 
+app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(mfa_router)
 app.include_router(api_keys_router)
@@ -281,177 +282,6 @@ async def internal_error_handler(
                 "details": None,
             }
         },
-    )
-
-
-# ── Health Endpoints (BC-012) ──────────────────────────────────────
-
-
-@app.get("/health", tags=["Health"])
-async def health_check():
-    """Liveness probe — returns 200 if app is running.
-
-    BC-012: Health endpoint must exist and be publicly accessible.
-    Checks Redis connectivity and reports subsystem health.
-    """
-    _ensure_logging()
-
-    # Check Redis health (BC-012: detect Redis failures)
-    redis_status = "unknown"
-    try:
-        from backend.app.core.redis import redis_health_check
-        redis_info = await redis_health_check()
-        redis_status = redis_info["status"]
-    except Exception:
-        redis_status = "unreachable"
-
-    # Check DB health (BC-012: detect DB failures)
-    db_status = "unknown"
-    try:
-        from database.base import check_db_health
-        db_info = await check_db_health()
-        db_status = db_info["status"]
-    except Exception:
-        db_status = "unreachable"
-
-    # Day 16: Check Celery broker health (BC-004)
-    celery_status = "unknown"
-    try:
-        from backend.app.tasks.celery_health import (
-            celery_health_check,
-        )
-        celery_info = await celery_health_check()
-        celery_status = celery_info["status"]
-    except Exception:
-        celery_status = "unreachable"
-
-    healthy = (
-        redis_status == "healthy" and db_status == "healthy"
-    )
-    overall = "healthy" if healthy else "degraded"
-
-    return {
-        "status": overall,
-        "version": "0.1.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "subsystems": {
-            "redis": {"status": redis_status},
-            "database": {"status": db_status},
-            "celery": {"status": celery_status},
-        },
-    }
-
-
-@app.get("/ready", tags=["Health"])
-async def readiness_check():
-    """Readiness probe — returns 200 when dependencies are healthy.
-
-    BC-012: Readiness endpoint must exist. Returns 503 if any
-    critical dependency is unhealthy.
-    """
-    _ensure_logging()
-
-    # Check Redis
-    redis_ok = False
-    try:
-        from backend.app.core.redis import redis_health_check
-        redis_info = await redis_health_check()
-        redis_ok = redis_info["status"] == "healthy"
-    except Exception:
-        redis_ok = False
-
-    # Check Database
-    db_ok = False
-    try:
-        from database.base import check_db_health
-        db_info = await check_db_health()
-        db_ok = db_info["status"] == "healthy"
-    except Exception:
-        db_ok = False
-
-    # Day 16: Check Celery broker (non-critical for app startup)
-    celery_ok = False
-    try:
-        from backend.app.tasks.celery_health import (
-            celery_health_check,
-        )
-        celery_info = await celery_health_check()
-        celery_ok = celery_info["status"] == "healthy"
-    except Exception:
-        celery_ok = False
-
-    if not redis_ok or not db_ok:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "not_ready",
-                "subsystems": {
-                    "redis": {"status": "ready" if redis_ok else "unhealthy"},
-                    "database": {"status": "ready" if db_ok else "unhealthy"},
-                    "celery": {"status": "ready" if celery_ok else "unhealthy"},
-                },
-            },
-        )
-
-    return {
-        "status": "ready",
-        "subsystems": {
-            "redis": {"status": "ready"},
-            "database": {"status": "ready"},
-            "celery": {"status": "ready" if celery_ok else "no_workers"},
-        },
-    }
-
-
-@app.get("/metrics", tags=["Health"])
-async def metrics():
-    """Prometheus-style metrics endpoint.
-
-    BC-012: Monitoring endpoint must exist.
-    Reports build info, health status, and Redis/DB connectivity.
-    """
-    _ensure_logging()
-    try:
-        settings = get_settings()
-        env = settings.ENVIRONMENT
-    except Exception:
-        env = "unknown"
-    now = datetime.now(timezone.utc).isoformat()
-
-    # Gather subsystem metrics
-    redis_up = 0
-    db_up = 0
-    try:
-        from backend.app.core.redis import redis_health_check
-        redis_info = await redis_health_check()
-        redis_up = 1 if redis_info["status"] == "healthy" else 0
-    except Exception:
-        redis_up = 0
-    try:
-        from database.base import check_db_health
-        db_info = await check_db_health()
-        db_up = 1 if db_info["status"] == "healthy" else 0
-    except Exception:
-        db_up = 0
-
-    return PlainTextResponse(
-        content=(
-            "# HELP parwa_build_info PARWA build information\n"
-            "# TYPE parwa_build_info gauge\n"
-            f'parwa_build_info{{version="0.1.0",environment="{env}"}} 1\n'
-            "# HELP parwa_health_check PARWA health status"
-            " (1=healthy, 0=unhealthy)\n"
-            "# TYPE parwa_health_check gauge\n"
-            f'parwa_health_check{{status="healthy"}} 1\n'
-            "# HELP parwa_redis_up Redis connectivity (1=up, 0=down)\n"
-            "# TYPE parwa_redis_up gauge\n"
-            f"parwa_redis_up {redis_up}\n"
-            "# HELP parwa_database_up Database connectivity (1=up, 0=down)\n"
-            "# TYPE parwa_database_up gauge\n"
-            f"parwa_database_up {db_up}\n"
-            f"# Last scraped at {now}\n"
-        ),
-        media_type="text/plain; version=0.0.4; charset=utf-8",
     )
 
 
