@@ -64,7 +64,8 @@ Base = declarative_base()  # type: ignore[misc]
 logger = logging.getLogger("parwa.database")
 
 # Thread-local flag for per-session bypass control
-_session_bypass_flag = threading_local() if False else None  # placeholder
+# Actual bypass mechanism lives in backend.app.core.tenant_context
+_session_bypass_flag: Any = None  # placeholder
 
 
 def get_db():
