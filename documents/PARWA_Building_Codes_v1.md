@@ -2,7 +2,7 @@
 
 > **AI-Powered Customer Support Platform — 500+ Features**
 >
-> This document catalogs every feature in the PARWA platform, organized by functional domain. Each feature includes its unique identifier, a one-line description, the technical area it belongs to, the applicable Building Codes (BC-001 through BC-012), its implementation priority, and dependencies on other features.
+> This document catalogs every feature in the PARWA platform, organized by functional domain. Each feature includes its unique identifier, a one-line description, the technical area it belongs to, the applicable Building Codes (BC-001 through BC-014), its implementation priority, and dependencies on other features.
 >
 > **Building Codes Reference:**
 
@@ -20,6 +20,8 @@
 | BC-010 | Data Lifecycle & Compliance (GDPR) |
 | BC-011 | Authentication & Security |
 | BC-012 | Error Handling & Resilience |
+| BC-013 | AI Technique Routing (3-Tier) |
+| BC-014 | Task Decomposition (Build Process) |
 
 ---
 
@@ -323,7 +325,8 @@ The Ticket Management category is the operational core of PARWA — handling the
 
 | Metric | Count |
 |--------|-------|
-| **Total Major Features** | 139 |
+| **Total Major Features** | 148 |
+| **Total Building Codes** | 14 |
 | **Categories** | 13 |
 | **Critical Priority** | 38 |
 | **High Priority** | 68 |
@@ -1688,6 +1691,9 @@ the implementation:
     Submit the 50th and verify it is automatically flagged for
     retraining and removed from rotation.
 
+> **Important Note — Model Routing vs Technique Routing:**
+> BC-007 (Smart Router) and BC-013 (AI Technique Routing) are **separate, complementary systems**. BC-007 selects which **LLM model** to use (Light/Medium/Heavy tier), while BC-013 selects which **reasoning technique** to apply (CoT, ReAct, ToT, etc.). Both must execute for every AI query — the Smart Router handles model selection and failover, the Technique Router handles prompt engineering strategy. They operate independently and in parallel.
+
 **BC-008: State Management (GSD Engine)**
 
 **Purpose**
@@ -2878,6 +2884,69 @@ Step 8: Rule versioning: every rule change logged in audit_trail with before/aft
 
 **Locked by:** Product decision, March 2026
 **Status:** FINAL
+
+---
+
+---
+
+## Building Code BC-013: AI Technique Routing (3-Tier Architecture)
+
+**Name:** AI Technique Routing (3-Tier)
+**Code:** BC-013
+**Applies to:** ALL AI-powered features (Category 7, 8, 9, and any feature using AI processing)
+
+**What It Enforces:**
+1. **3-Tier Technique Architecture:** Every AI query must pass through the 3-tier technique system:
+   - Tier 1 (Base — Always Active): CLARA, CRP, GSD State Engine, Smart Router
+   - Tier 2 (Conditional — Auto-Triggered): Reverse Thinking, Chain of Thought, ReAct, Step-Back Prompting, Thread of Thought
+   - Tier 3 (Premium — Selective): GST, Universe of Thoughts, Tree of Thoughts, Self-Consistency, Reflexion, Least-to-Most Decomposition
+
+2. **Auto-Trigger Detection:** Technique selection must be automatic based on query signals (complexity, confidence, sentiment, customer tier, monetary value). No manual technique selection required.
+
+3. **Technique vs Model Separation:** The Technique Router (BC-013) operates independently from the Smart Router (BC-007). BC-007 selects which MODEL to use; BC-013 selects which TECHNIQUE to apply. Both must execute for every AI query.
+
+4. **Token Budget Management:** Active techniques must not exceed the token budget. If Tier 3 techniques would exceed budget, fall back to Tier 2 equivalent.
+
+5. **Technique Stacking:** Multiple techniques can activate simultaneously. Execution order: Tier 1 → Tier 2 → Tier 3.
+
+6. **Per-Tenant Configuration:** Each tenant can enable/disable specific techniques. Tier 1 techniques CANNOT be disabled.
+
+7. **Performance Tracking:** Every technique execution must be logged with: technique used, trigger signal, token cost, latency, outcome quality. Metrics feed into Agent Performance (F-098).
+
+**Trigger Conditions Reference:**
+| Signal | Threshold | Techniques Activated |
+|--------|-----------|---------------------|
+| Complexity score | > 0.4 | CoT |
+| Confidence score | < 0.7 | Reverse Thinking, Step-Back |
+| Customer tier | VIP | UoT, Reflexion |
+| Sentiment score | < 0.3 | UoT, Step-Back |
+| Monetary value | > $100 | Self-Consistency |
+| Conversation length | > 5 messages | ThoT |
+| External data needed | Tool/API call required | ReAct |
+| Resolution paths | 3+ options | ToT |
+| Strategic impact | Multi-party/Policy | GST |
+| Complexity score | > 0.7 | Least-to-Most Decomposition |
+| Previous response | Rejected/Corrected | Reflexion |
+| Reasoning status | Stuck/Looping | Step-Back |
+
+---
+
+## Building Code BC-014: Task Decomposition (Build Process)
+
+**Name:** Task Decomposition (Build Process)
+**Code:** BC-014
+**Applies to:** ALL build agents, all PARWA Build Agent Prompt executions, all code generation tasks
+
+**What It Enforces:**
+1. **Decompose Before Building:** Every task must be broken down into smaller sub-tasks before implementation begins. No feature should be built as a monolithic unit.
+
+2. **Sequential Dependency:** Sub-tasks must be ordered by dependency. Independent sub-tasks can be parallelized.
+
+3. **Atomic Delivery:** Each sub-task produces a testable, verifiable unit. No sub-task depends on another sub-task's output that hasn't been verified.
+
+4. **Progress Tracking:** Every decomposed sub-task must be tracked in the worklog with: sub-task ID, status, dependencies, output artifacts.
+
+5. **Quality Gate Between Steps:** Before moving to the next sub-task, verify the previous sub-task passes all tests and meets Building Code requirements.
 
 ---
 

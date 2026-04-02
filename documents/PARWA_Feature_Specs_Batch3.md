@@ -6,7 +6,7 @@
 >
 > **Tech Stack:** FastAPI (backend), PostgreSQL + pgvector (database), Redis (cache + state), OpenRouter (LLM provider), LiteLLM (model abstraction), LangGraph (workflow), DSPy (prompt optimization), Celery (background jobs)
 >
-> **Building Codes Reference:** BC-007 (AI Model Interaction), BC-008 (State Management), BC-001 (Multi-Tenant Isolation), BC-004 (Background Jobs), BC-010 (Data Lifecycle), BC-011 (Authentication & Security), BC-012 (Error Handling & Resilience), BC-009 (Approval Workflow)
+> **Building Codes Reference:** BC-007 (AI Model Interaction), BC-008 (State Management), BC-001 (Multi-Tenant Isolation), BC-004 (Background Jobs), BC-010 (Data Lifecycle), BC-011 (Authentication & Security), BC-012 (Error Handling & Resilience), BC-009 (Approval Workflow), BC-013 (Technique Router)
 
 ---
 
@@ -360,6 +360,33 @@ All Tiers Exhausted → Queue request + return "processing" to user
 | `OPENROUTER_API_KEY` | env var | OpenRouter API key |
 | `LITELLM_DROP_PARAMS` | `true` | Drop unsupported params for model compatibility |
 
+## Technique Integration (BC-013)
+
+The Smart Router and Technique Router (BC-013) are **separate, complementary systems** that both execute for every query. Understanding their distinct responsibilities is critical:
+
+- **Smart Router (F-054)** selects which **MODEL** to use — Light, Medium, or Heavy tier — based on request complexity classification.
+- **Technique Router (BC-013)** selects which **TECHNIQUE** to apply — such as Chain-of-Thought (F-140), ReAct (F-141), Reverse Thinking (F-141), etc. — based on query signals, intent, confidence, and sentiment.
+
+**Execution Flow:**
+```
+Incoming Request
+    │
+    ├──► Smart Router (F-054) ──► SELECTS MODEL (Light/Medium/Heavy)
+    │
+    └──► Technique Router (BC-013) ──► SELECTS TECHNIQUE(s) (CoT, ReAct, UoT, etc.)
+
+Both decisions are made in parallel and combined for the final LLM call:
+  Selected Model + Selected Technique(s) → Enhanced LLM Prompt → Response
+```
+
+The Smart Router passes the following **query signals** to the Technique Router for technique selection:
+- Complexity score (0.0–1.0) from the complexity classifier
+- Selected tier (light/medium/heavy)
+- Task type (classify/respond/summarize/reason)
+- Context metadata (intent, sentiment, customer tier)
+
+These signals inform the Technique Router's decision about which reasoning techniques to activate for the current query.
+
 ## Building Codes Applied
 
 - **BC-007 (AI Model Interaction — Smart Router):** This feature IS the implementation of BC-007.
@@ -373,6 +400,7 @@ All Tiers Exhausted → Queue request + return "processing" to user
   - Rule 8: Invalid JSON retry with simplified prompt — **FULLY IMPLEMENTED**
   - Rule 9: Confidence thresholds per company — **INTEGRATION POINT** (F-059)
   - Rule 10: Training feedback threshold LOCKED at 50 — **INTEGRATION POINT** (F-100)
+- **BC-013 (Technique Router Integration):** Smart Router passes complexity score, selected tier, task type, and context metadata to the Technique Router for technique selection — **INTEGRATION POINT**
 - **BC-001 (Multi-Tenant Isolation):** All queries scoped by `company_id`; tenant-specific model overrides supported
 - **BC-004 (Background Jobs):** Queued requests processed via Celery with retry logic
 - **BC-012 (Error Handling & Resilience):** Graceful degradation through tier fallback chain
@@ -1149,11 +1177,28 @@ Where:
 | `CONFIDENCE_HISTORICAL_MIN_SAMPLES` | 10 | Minimum samples before historical score is used (default 0.5) |
 | `CONFIDENCE_FEEDBACK_EXPIRY_DAYS` | 90 | Days until feedback data is anonymized |
 
+## Technique Trigger Integration
+
+Confidence scores serve as a **primary trigger signal** for the Technique Router (BC-013), automatically activating specific reasoning techniques when response quality is uncertain:
+
+| Confidence Range | Techniques Triggered | Rationale |
+|------------------|---------------------|-----------|
+| < 0.7 (score < 70) | **Reverse Thinking (F-141)** + **Step-Back (F-142)** | Low confidence signals the model may be reasoning incorrectly; reverse validation and perspective broadening improve accuracy |
+| 0.7–0.85 (score 70–85) | **Chain-of-Thought (F-140)** | Moderate confidence benefits from explicit step-by-step reasoning to validate the approach |
+| > 0.85 (score > 85) | No additional techniques | High confidence indicates the response is reliable; skip technique overhead |
+
+**Integration with Technique Router:**
+- Confidence scores are passed to the Technique Router as part of the query signal payload
+- The Technique Router evaluates confidence alongside sentiment and intent to determine the optimal technique combination
+- When confidence is below 0.7, Reverse Thinking (F-141) generates a secondary reasoning path that is compared against the original response. If the two paths disagree, Step-Back (F-142) re-frames the query with broader context before re-attempting.
+- Technique activation does not change the confidence score itself — it changes the reasoning approach used to generate the response, which should naturally produce higher-confidence results.
+
 ## Building Codes Applied
 
 - **BC-007 (AI Model Interaction):** Rule 9 — Confidence thresholds stored per company, not hardcoded — **FULLY IMPLEMENTED**
 - **BC-008 (State Management):** Context completeness signal reads from GSD state's `collected_info` and `resolution.steps_completed`
 - **BC-009 (Approval Workflow):** Confidence scores drive routing decisions — directly integrates with approval routing engine (F-074, F-076)
+- **BC-013 (Technique Router Integration):** Confidence scores below 0.7 trigger Reverse Thinking (F-141) and Step-Back (F-142); all scores feed into the Technique Router as primary trigger signals — **FULLY IMPLEMENTED**
 - **BC-001 (Multi-Tenant Isolation):** Each company has its own configurable thresholds; scores scoped by `company_id`
 - **BC-004 (Background Jobs):** Historical accuracy recalculation runs daily via Celery beat; feedback aggregation runs hourly
 
@@ -1410,6 +1455,51 @@ graph.add_edge("human_handoff", "log_outcome")
 | `LANGGRAPH_CHECKPOINT_TTL_DAYS` | 7 | Days to retain paused workflow checkpoints |
 | `LANGGRAPH_RETRY_STEPS` | `["draft_response", "classify_intent"]` | Steps eligible for auto-retry on failure |
 
+## Technique Execution Nodes
+
+The LangGraph workflow must incorporate **technique execution** as a first-class workflow concern. When the Technique Router (BC-013) activates one or more reasoning techniques, the workflow dynamically branches to execute those technique-specific nodes before proceeding to response drafting.
+
+**Technique-to-Node Mapping:**
+
+| Technique | Feature ID | LangGraph Node(s) | Tier |
+|-----------|-----------|-------------------|------|
+| Chain-of-Thought (CoT) | F-140 | `cot_reasoning` | Tier 1 (Always Available) |
+| ReAct | F-141 | `react_observe`, `react_act` | Tier 1 (Always Available) |
+| Reverse Thinking | F-141 | `reverse_thinking` | Tier 2 (Conditional) |
+| Step-Back | F-142 | `step_back_reframe` | Tier 2 (Conditional) |
+| Self-Ask | F-143 | `self_ask_decompose` | Tier 1 (Always Available) |
+| Universe of Thoughts (UoT) | F-144 | `uot_branch`, `uot_evaluate` | Tier 3 (Premium) |
+| Debate | F-145 | `debate_argue`, `debate_judge` | Tier 3 (Premium) |
+| Self-Consistency | F-146 | `self_consistency_sample` | Tier 3 (Premium) |
+| Reflexion | F-147 | `reflexion_evaluate`, `reflexion_refine` | Tier 3 (Premium) |
+
+**Workflow Branching Logic:**
+```
+[draft_response]
+    │
+    ├── No techniques activated ──► [check_confidence]
+    │
+    └── Technique(s) activated ──► [execute_techniques]
+                                      │
+                                      ├── CoT only ──► [cot_reasoning] ──► [check_confidence]
+                                      │
+                                      ├── CoT + ReAct ──► [cot_reasoning] ──► [react_observe] ──► [react_act] ──► [check_confidence]
+                                      │
+                                      ├── Tier 2+ (Reverse Thinking, UoT, etc.)
+                                      │   ──► [technique_executor] ──► [technique_result_merge] ──► [check_confidence]
+                                      │
+                                      └── Tier 3 (Debate, Self-Consistency, Reflexion)
+                                          ──► [technique_executor] ──► [technique_result_merge] ──► [check_confidence]
+```
+
+**Key Principles:**
+- Each technique (F-140 to F-148) maps to one or more LangGraph nodes in the workflow graph
+- The workflow dynamically branches based on which techniques are activated by the Technique Router
+- Tier 1 techniques (CoT, ReAct, Self-Ask) are lightweight and execute inline within the standard workflow
+- Tier 2 and Tier 3 techniques may require additional LLM calls; their results are merged via a `technique_result_merge` node before confidence checking
+- Technique execution nodes inherit the same error handling, timeout, and retry semantics as other workflow nodes
+- The `technique_executor` node logs technique activation and execution time to `workflow_steps` for observability
+
 ## Building Codes Applied
 
 - **BC-007 (AI Model Interaction):** All LLM calls within workflow nodes go through Smart Router → PII Redaction → Guardrails pipeline
@@ -1417,6 +1507,7 @@ graph.add_edge("human_handoff", "log_outcome")
 - **BC-004 (Background Jobs):** Long-running workflow steps (RAG search, response drafting) executed via Celery with retry logic; checkpoint-based recovery
 - **BC-009 (Approval Workflow):** `queue_for_review` node creates approval record and pauses workflow; resume triggered on approval
 - **BC-012 (Error Handling & Resilience):** Step-level error handling; failed steps logged; workflow can resume from last checkpoint; max step limit prevents infinite loops
+- **BC-013 (Technique Router Integration):** Workflow branches dynamically based on activated techniques; each technique (F-140 to F-148) maps to one or more LangGraph nodes; technique execution results merge before confidence checking — **FULLY IMPLEMENTED**
 - **BC-001 (Multi-Tenant Isolation):** All workflow data scoped by `company_id`; max parallel executions per tenant
 
 ## Edge Cases
@@ -1698,8 +1789,8 @@ F-060 (LangGraph Workflow) ← depends on F-053, F-054, F-065
 
 ---
 
-> **Document Version:** 1.0
+> **Document Version:** 1.1
 > **Last Updated:** March 2026
 > **Total Features Specified:** 8
-> **Total Lines:** ~1,100
+> **Total Lines:** ~1,800
 > **Status:** Ready for implementation planning

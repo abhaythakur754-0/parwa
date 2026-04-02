@@ -236,6 +236,29 @@
 
 **Depends on:** Week 9 (classification, RAG, response generation all feed into GSD state).
 
+### Week 10.5: AI Technique Framework (F-140 to F-148)
+
+**What to build:**
+
+| Module | Purpose | Building Codes |
+|--------|---------|----------------|
+| Technique Router Engine (BC-013) | Analyzes query signals (complexity, confidence, sentiment, tier, monetary value) and selects optimal reasoning techniques per query. Separately from model routing (BC-007) | BC-013, BC-007 |
+| CRP — Concise Response Protocol (F-140) | Tier 1 always-active technique that minimizes token waste, eliminates filler, reduces response length 30-40% while maintaining accuracy | BC-013, BC-007 |
+| Reverse Thinking Engine (F-141) | Tier 2 technique: generates wrong answer, inverts to find correct one. Auto-triggers when confidence < 0.7 | BC-013, BC-007, BC-008 |
+| Step-Back Prompting (F-142) | Tier 2 technique: AI steps back for broader context when query is narrow or AI is stuck. Auto-triggers on low sentiment or reasoning loops | BC-013, BC-007 |
+| GST — Guided Sequential Thinking (F-143) | Tier 3 technique: strategic decision reasoning with sequential checkpoints. Auto-triggers on multi-party/policy impact queries | BC-013, BC-007, BC-009 |
+| UoT — Universe of Thoughts (F-144) | Tier 3 technique: generates multiple diverse solutions, evaluates each. Auto-triggers for VIP or angry customers (sentiment < 0.3) | BC-013, BC-007, BC-009 |
+| ToT — Tree of Thoughts (F-145) | Tier 3 technique: branching decision tree exploration. Auto-triggers when 3+ resolution paths exist | BC-013, BC-007 |
+| Self-Consistency (F-146) | Tier 3 technique: generates multiple answers, returns most consistent. Auto-triggers for monetary amounts > $100 or financial queries | BC-013, BC-007, BC-002 |
+| Reflexion (F-147) | Tier 3 technique: self-correction from rejected/failed responses. Auto-triggers when previous response was rejected | BC-013, BC-007, BC-008 |
+| Least-to-Most Decomposition (F-148) | Tier 3 technique: breaks complex queries into sub-queries. Auto-triggers when complexity > 0.7 or task has 5+ sub-steps | BC-013, BC-007, BC-004 |
+| Technique Performance Tracking | Log every technique execution: technique used, trigger signal, token cost, latency, outcome quality. Feeds into F-098 | BC-013, BC-004 |
+| Per-Tenant Technique Config | Admin UI to enable/disable techniques per tenant. Tier 1 techniques locked (cannot disable) | BC-013, BC-001, BC-009 |
+
+**Depends on:** Week 8 (Smart Router, Confidence Scoring), Week 9 (Sentiment Analysis), Week 10 (GSD Engine, LangGraph)
+
+**Note:** The Technique Router works alongside (not replaces) the Smart Router. BC-007 selects which MODEL to use; BC-013 selects which TECHNIQUE to apply. Both execute for every query.
+
 ---
 
 ### Week 11-12: AI Core — Advanced Features + Semantic Intelligence
@@ -502,6 +525,7 @@ These are the places where building later phases WILL send you back to improve e
 | #19 | No GPU training until revenue | Training pipeline (F-102) can only use RunPod after PARWA earns money |
 | #20 | 50 mistakes threshold | AI auto-triggers retraining at exactly 50 mistake reports. HARD-CODED. |
 | #22 | Jarvis shows consequences before auto-approve | When enabling auto-approve rules, display ALL potential actions, financial impacts, risks. User must confirm. |
+| #23 | Technique routing separate from model routing | BC-013 (techniques) and BC-007 (models) are independent systems. Both must execute per query. |
 
 ---
 
@@ -523,10 +547,10 @@ These are the places where building later phases WILL send you back to improve e
 |-------|---------------|-------------|
 | Phase 1: Foundation | 0 (infrastructure only) | — |
 | Phase 2: Core Business | 47 features | F-010 to F-052, F-062, F-063, F-066, F-070 to F-084 |
-| Phase 3: AI Engine | 15 features | F-053 to F-061, F-064 to F-069, F-071 to F-073 |
+| Phase 3: AI Engine | 24 features | F-053 to F-061, F-064 to F-069, F-071 to F-073, F-140 to F-148 |
 | Phase 4: Channels + Jarvis + Dashboard | 31 features | F-036 to F-045, F-085 to F-096, F-109 to F-121, F-120 to F-139 |
 | Phase 5: Public + Training + Polish | 24 features | F-001 to F-009, F-097 to F-108 |
-| **Total** | **139 features** | **All covered** |
+| **Total** | **148 features** | **All covered (including 9 AI technique features)** |
 
 Plus 150+ AI sub-features within the AI Core Engine features.
 
