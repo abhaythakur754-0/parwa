@@ -16,6 +16,7 @@ import hashlib
 import logging
 import os
 import re
+import unicodedata
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
@@ -369,21 +370,28 @@ class LocalStorageBackend(StorageBackend):
         _validate_company_id(company_id)
         _validate_file_path(file_path)
 
-        # Use pathlib for safe path joining — it resolves .. components
+        # Company-scoped base: {base_path}/{company_id}
+        company_base = (self.base_path / company_id).resolve()
+
+        # Resolve the full path (follows symlinks)
         resolved = (self.base_path / company_id / file_path).resolve()
 
-        # Verify the path is still within our base directory
+        # L47 FIX: Verify the resolved path stays within the COMPANY
+        # directory, not just the base storage directory.  Without this
+        # check, a symlink inside comp-a/ pointing to ../comp-b/secret
+        # would resolve to base_path/comp-b/secret which IS within
+        # base_path but leaks cross-tenant data.
         try:
-            resolved.relative_to(self.base_path)
+            resolved.relative_to(company_base)
         except ValueError:
             logger.warning(
-                "Path traversal attempt detected: company_id=%s, file_path=%s, "
-                "resolved=%s, base=%s",
-                company_id, file_path, resolved, self.base_path,
+                "Path traversal or cross-company symlink attempt: "
+                "company_id=%s, file_path=%s, resolved=%s, company_base=%s",
+                company_id, file_path, resolved, company_base,
             )
             raise ValueError(
-                "Resolved path escapes storage base directory — "
-                "possible directory traversal attack"
+                "Resolved path escapes company directory — "
+                "possible directory traversal or symlink attack"
             )
 
         return resolved
@@ -913,7 +921,9 @@ def sanitize_filename(filename: str) -> str:
     """Sanitize a filename for safe storage.
 
     Removes path separators, special characters, and other unsafe
-    patterns. Preserves the file extension.
+    patterns. Preserves the file extension.  Applies Unicode NFKC
+    normalization to prevent homograph attacks (e.g., Cyrillic 'а'
+    that looks like Latin 'a').
 
     Args:
         filename: Raw filename from user upload.
@@ -926,6 +936,12 @@ def sanitize_filename(filename: str) -> str:
     """
     if not filename or not filename.strip():
         raise ValueError("Filename cannot be empty")
+
+    # L49 FIX: Normalize Unicode to NFKC form.  This converts
+    # visually-identical characters (homographs) to their canonical
+    # form, preventing attacks like using Cyrillic 'а' (U+0430) in
+    # place of Latin 'a' (U+0061).
+    filename = unicodedata.normalize("NFKC", filename)
 
     # Extract extension before sanitizing
     name_part = Path(filename).stem

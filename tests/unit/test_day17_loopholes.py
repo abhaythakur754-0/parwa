@@ -130,11 +130,11 @@ class TestL47_PathTraversalSymlink:
         try:
             evil_path.symlink_to(outside_dir)
 
-            # If the symlink is at the company root level, the download
-            # would try to resolve company_id/evil which is the symlink.
-            # This is a known limitation of local storage — acceptable for dev.
-            content, ct = backend.download("comp1", "")
-            assert isinstance(content, bytes)
+            # L47 FIX: After the fix, the resolved path would be
+            # outside the company directory (comp1/), so it should
+            # raise ValueError for cross-company symlink
+            with pytest.raises((ValueError, FileNotFoundError, OSError)):
+                backend.download("comp1", "")
         except (OSError, FileNotFoundError, ValueError):
             # Symlinks not supported or blocked by path validation
             pass
