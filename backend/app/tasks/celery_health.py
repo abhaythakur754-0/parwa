@@ -57,7 +57,6 @@ async def get_active_workers() -> dict:
 
         inspect = app.control.inspect(timeout=3)
         active_workers = inspect.active()
-        stats = inspect.stats()
 
         worker_count = 0
         if active_workers:

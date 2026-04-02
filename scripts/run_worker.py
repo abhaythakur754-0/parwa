@@ -35,7 +35,8 @@ if __name__ == "__main__":
     app.worker_main([
         "worker",
         "--loglevel=info",
-        "--queues=default,webhook,email,analytics",
+        # FIX L41: Include ALL 8 queues (was missing ai_heavy, ai_light, training, dead_letter)
+        "--queues=default,ai_heavy,ai_light,email,webhook,analytics,training,dead_letter",
         "--max-tasks-per-child=1000",  # Prevent memory leaks
         "--without-heartbeat",  # Let broker handle liveness
     ])

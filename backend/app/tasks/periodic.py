@@ -39,9 +39,13 @@ def cleanup_stale_sessions(self):
         from database.base import SessionLocal
         db = SessionLocal()
         try:
-            # Get session model dynamically to avoid circular imports
+            # FIX L40: Cutoff should be 7 days ago, NOT now()
+            # Previous bug would delete ALL sessions immediately
+            from datetime import timedelta
             from sqlalchemy import text
-            cutoff = datetime.now(timezone.utc)
+            cutoff = datetime.now(timezone.utc) - timedelta(
+                days=7,
+            )
             # Delete sessions where updated_at is older than 7 days
             result = db.execute(
                 text("DELETE FROM sessions WHERE updated_at < :cutoff"),
