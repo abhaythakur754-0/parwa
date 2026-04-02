@@ -12,12 +12,52 @@ High-level helpers for emitting typed events with:
 import json
 import time
 import uuid
+from collections import defaultdict
 from typing import Any, Dict, Optional
 
 from backend.app.core.events import EventRegistry, get_event_registry
 from backend.app.logger import get_logger
 
 logger = get_logger("event_emitter")
+
+# ── Per-tenant rate limiting (BC-005) ──────────────────────
+# Tracks emit timestamps per (company_id, event_type) in a sliding window.
+# NOT thread-safe — acceptable because Socket.io server is single-threaded asyncio.
+_rate_tracker: Dict[str, list] = defaultdict(list)
+RATE_WINDOW_SECONDS = 1.0
+
+
+def _check_rate_limit(company_id: str, event_type: str, limit: int) -> bool:
+    """Check if emit is within rate limit.
+
+    Uses a sliding window of RATE_WINDOW_SECONDS.
+    Returns True if within limit, False if rate-limited.
+    """
+    key = f"{company_id}:{event_type}"
+    now = time.time()
+    timestamps = _rate_tracker[key]
+
+    # Remove timestamps outside the window
+    cutoff = now - RATE_WINDOW_SECONDS
+    _rate_tracker[key] = [ts for ts in timestamps if ts > cutoff]
+
+    if len(_rate_tracker[key]) >= limit:
+        logger.warning(
+            "emit_rate_limited",
+            company_id=company_id,
+            event_type=event_type,
+            limit=limit,
+            window=RATE_WINDOW_SECONDS,
+        )
+        return False
+
+    _rate_tracker[key].append(now)
+    return True
+
+
+def reset_rate_tracker() -> None:
+    """Reset rate tracker (for testing only)."""
+    _rate_tracker.clear()
 
 
 def _estimate_bytes(value: Any) -> int:
@@ -99,6 +139,10 @@ async def emit_event(
             company_id=company_id,
             error=str(exc),
         )
+        return False
+
+    # Check rate limit (BC-005: max 100 events/sec per tenant per type)
+    if not _check_rate_limit(company_id, event_type, et.rate_limit_per_sec):
         return False
 
     # Enrich with metadata

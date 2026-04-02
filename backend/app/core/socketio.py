@@ -369,6 +369,10 @@ def register_business_handlers() -> None:
         """Client unsubscribes from specific event types."""
         try:
             session = await sio.get_session(sid)
+            company_id = session.get("company_id")
+            if not company_id:
+                return {"error": "unauthenticated"}
+
             event_types = data.get("event_types", []) if data else []
             current = session.get("subscriptions", [])
             session["subscriptions"] = [
@@ -390,7 +394,18 @@ def register_business_handlers() -> None:
 
     @sio.on("ping")
     async def handle_ping(sid):
-        """Client heartbeat ping — respond with pong and server time."""
+        """Client heartbeat ping — respond with pong and server time.
+
+        BC-011: Auth is verified on every handler, not just connect.
+        A ping without a valid session is rejected to prevent abuse.
+        """
+        try:
+            session = await sio.get_session(sid)
+            if not session.get("company_id"):
+                logger.warning("ping_rejected_unauthenticated", sid=sid)
+                return {"error": "unauthenticated"}
+        except Exception:
+            return {"error": "unauthenticated"}
         import time as _time
         return {
             "pong": True,
