@@ -3,7 +3,8 @@
 > Discovered during comprehensive gap analysis (Days 6, 15-18, and pre-Week 3 audit).
 > Items marked with target week should be addressed when that week begins.
 > Items without a week are notes for future reference.
-> Last updated: Pre-Week 3 (Day 19) — Full audit completed.
+> Last updated: Post Day 23 — AI Technique Framework (TRIVYA v1.0) gaps added.
+> New doc analyzed: `documents/PARWA_AI_Technique_Framework.md` (9 new features + BC-013).
 
 ---
 
@@ -175,52 +176,67 @@ These infrastructure items were built in Week 1 (Day 6 fixes) to unblock future 
 
 ## Week 8 GAPS — AI Core: Routing + Redaction + Guardrails
 
-- [ ] F-054: Smart Router (3-tier LLM routing via LiteLLM/OpenRouter)
-- [ ] F-055: Model failover (detect rate limits/timeouts, fallback chain)
+- [ ] F-054: Smart Router (3-tier LLM routing via LiteLLM/OpenRouter) — **UPDATED**: Now works in parallel with Technique Router (BC-013); Smart Router selects MODEL, Technique Router selects REASONING TECHNIQUE
+- [ ] F-055: Model failover (detect rate limits/timeouts, fallback chain) — **UPDATED**: Also handles technique-specific model call fallback (e.g., if ToT node fails, fall back to CoT)
 - [ ] F-056: PII Redaction Engine (regex + NER for SSN/credit card/email/phone)
-- [ ] F-057: Guardrails AI (block harmful/off-topic/hallucinated responses)
+- [ ] F-057: Guardrails AI (block harmful/off-topic/hallucinated responses) — **UPDATED**: CRP (F-140) runs BEFORE Guardrails in pipeline; both always-active but different purposes (efficiency vs safety)
 - [ ] F-058: Blocked response manager + review queue
-- [ ] F-059: Confidence scoring (calibrated 0-100: retrieval 30% + intent 25% + sentiment 15% + history 20% + context 10%)
-- [ ] `shared/smart_router/` — Smart router module
-- [ ] `shared/confidence/` — Confidence scoring module
+- [ ] F-059: Confidence scoring (calibrated 0-100: retrieval 30% + intent 25% + sentiment 15% + history 20% + context 10%) — **UPDATED**: Now also serves as primary trigger signal for Reverse Thinking (F-141) and Step-Back (F-142) activation
+- [x] BC-013: **Technique Router** ✅ Infra Update: `backend/app/core/technique_router.py` — 14 trigger rules, signal extraction, deduplication, budget management, T3→T2 fallback
+- [x] `shared/smart_router/` — Smart router module
+- [x] `shared/technique_router/` — ✅ Infra Update: `backend/app/core/technique_router.py` (TechniqueRouter class + QuerySignals + TokenBudget + FALLBACK_MAP)
+- [x] `shared/confidence/` — Confidence scoring module
 - [ ] `shared/compliance/` — Compliance module
 - [ ] LLM provider management (store configs, API keys, rate limits)
 - [ ] Prompt template management system
+- [x] New pip dependencies: `langgraph`, `dspy-ai`, `litellm` ✅ Infra Update
 
 ---
 
 ## Week 9 GAPS — AI Core: Classification + RAG + Response
 
-- [ ] F-062: Ticket intent classification (multi-label: refund/technical/billing/complaint/feature_request)
-- [ ] F-063: Sentiment analysis / Empathy engine (0-100 frustration, escalation at 60+, VIP at 80+)
-- [ ] F-064: Knowledge Base RAG (pgvector search, top-k retrieval, similarity threshold, reranking)
-- [ ] F-065: Auto-response generation (intent + RAG + sentiment → brand-aligned response)
+- [ ] F-062: Ticket intent classification (multi-label: refund/technical/billing/complaint/feature_request) — **UPDATED**: Now also feeds Query Complexity Score (0.0-1.0) and Intent Type as signals to Technique Router (BC-013); triggers Self-Consistency (F-146) for billing/financial intents, CoT+ReAct for technical troubleshooting
+- [ ] F-063: Sentiment analysis / Empathy engine (0-100 frustration, escalation at 60+, VIP at 80+) — **UPDATED**: Now also serves as primary trigger signal for UoT (F-144) when sentiment < 0.3 and Step-Back (F-142) for stuck reasoning
+- [ ] F-064: Knowledge Base RAG (pgvector search, top-k retrieval, similarity threshold, reranking) — **UPDATED**: Provides factual data for ReAct technique execution; one of 5 tool integrations (RAG, Order API, Billing API, CRM, Ticket System)
+- [ ] F-065: Auto-response generation (intent + RAG + sentiment → brand-aligned response) — **UPDATED**: Now the output channel for technique-processed responses; receives output from full technique pipeline (T1→T2→T3)
 - [ ] F-066: AI draft composer (co-pilot mode: suggest/accept/edit/regenerate)
 - [ ] F-050: AI-powered ticket assignment (specialty 40% + workload 30% + historical 20% + jitter 10%)
 - [ ] `shared/knowledge_base/` — RAG + vector search module
+- [ ] Signal Extraction Layer (NEW) — Extracts 10 signals for Technique Router: query complexity score, confidence score, sentiment score, customer tier, monetary value detection, conversation turn count, intent type, previous response status, reasoning loop detection, resolution path count
 
 ---
 
 ## Week 10 GAPS — AI Core: State Engine + Workflow
 
-- [ ] F-053: GSD State Engine (Guided Support Dialogue — structured state machine)
-- [ ] F-060: LangGraph workflow engine (directed state machines with conditional branching)
-- [ ] F-061: DSPy prompt optimization (automated prompt engineering)
-- [ ] F-067: Context compression trigger (monitor tokens, compress when approaching limits)
-- [ ] F-068: Context health meter (healthy/warning/critical indicator)
+- [ ] F-053: GSD State Engine (Guided Support Dialogue — structured state machine) — **UPDATED**: Now Tier 1 always-active technique; provides conversation state context to ALL Tier 2/3 techniques; ESCALATE state auto-triggers Step-Back (F-142)
+- [ ] F-060: LangGraph workflow engine (directed state machines with conditional branching) — **UPDATED**: Now orchestrates BOTH model × technique execution; each technique is a LangGraph node; Reasoning Loop Detection added as LangGraph monitor signal
+- [ ] F-061: DSPy prompt optimization (automated prompt engineering) — **UPDATED**: Now also used for technique versioning & A/B testing (e.g., `cot-v1` vs `cot-v2`); performance metrics determine default version
+- [ ] F-067: Context compression trigger (monitor tokens, compress when approaching limits) — **UPDATED**: Now manages token budget across ALL active techniques; handles overflow (Tier 3 reduced first, then Tier 2)
+- [ ] F-068: Context health meter (healthy/warning/critical indicator) — **UPDATED**: Now monitors thread health for ThoT activation and detects reasoning loop for Step-Back trigger
 - [ ] F-069: 90% capacity popup trigger (alert when conversation nears AI context limit)
 - [ ] `shared/gsd_engine/` — GSD state machine module
+- [x] `shared/techniques/` — ✅ Infra Update: `backend/app/core/techniques/` — BaseTechniqueNode ABC, ConversationState, GSDState, 12 stub nodes (CRP, Reverse Thinking, CoT, ReAct, Step-Back, ThoT, GST, UoT, ToT, Self-Consistency, Reflexion, Least-to-Most)
+- [x] Technique fallback mapping system (T3 → T2 equivalent fallbacks) ✅ Infra Update: FALLBACK_MAP in technique_router.py
+- [x] Technique token budget allocator (Light=500, Medium=1500, Heavy=3000 tokens) ✅ Infra Update: TokenBudget class + TOKEN_BUDGETS in technique_router.py
+- [ ] Technique performance metrics pipeline → feeds F-098
+- [ ] Per-tenant technique configuration (Free=T1 only, Pro=T1+T2, Enterprise=all)
 - [ ] State serialization/deserialization layer
 - [ ] State migration between Redis and PostgreSQL
+- [ ] Technique caching system (partial result caching for similar queries)
 
 ---
 
-## Week 11-12 GAPS — AI Advanced + Semantic Intelligence
+## Week 11-12 GAPS — AI Advanced + Semantic Intelligence + Technique Phase 1
 
 - [ ] F-071: Semantic clustering (group similar tickets by embedding similarity)
 - [ ] F-072: Subscription change proration calculation
 - [ ] F-073: Temp agent expiry + auto-deprovisioning
 - [ ] F-008: Voice demo system ($1 paywall, Twilio voice handling)
+
+### AI Technique Framework — Phase 1: Foundation (F-140, F-142, F-141)
+- [ ] F-140: CRP (Concise Response Protocol) — Tier 1 always-active; filler elimination, compression, redundancy removal, token budget enforcement; targets 30-40% response length reduction
+- [ ] F-142: Step-Back Prompting — Tier 2 conditional; broader context seeking for narrow queries or stuck reasoning loops; ~300 tokens overhead; depends on F-053 (GSD), F-068 (Context Health)
+- [ ] F-141: Reverse Thinking Engine — Tier 2 conditional; inversion-based reasoning for low-confidence queries (confidence < 0.7); ~300 tokens overhead; depends on F-059 (Confidence Scoring)
 
 ---
 
@@ -237,6 +253,13 @@ These infrastructure items were built in Week 1 (Day 6 fixes) to unblock future 
 - [ ] F-130: Social media integration (Twitter/X, Instagram, Facebook webhooks)
 - [ ] FP08: SMS template system (Twilio)
 - [ ] Channel-specific message formatting, character limits, media handling
+
+---
+
+### AI Technique Framework — Phase 2: Core Advanced (F-146, F-147, F-144)
+- [ ] F-146: Self-Consistency — Tier 3 premium; multi-answer verification (3-5 independent answers) for financial actions; majority voting; ~750-1,150 tokens overhead; depends on F-062 (Intent Classification)
+- [ ] F-147: Reflexion — Tier 3 premium; self-correction engine for rejected/failed responses; meta-reasoning trace logging; ~400 tokens overhead; depends on F-068 (Context Health)
+- [ ] F-144: Universe of Thoughts (UoT) — Tier 3 premium; multi-solution generation with evaluation matrix (CSAT/Cost/Policy/Speed/Long-Term); ~1,100-1,700 tokens overhead; depends on F-080 (Urgent Attention), F-063 (Sentiment)
 
 ---
 
@@ -303,10 +326,17 @@ These infrastructure items were built in Week 1 (Day 6 fixes) to unblock future 
 
 ---
 
+### AI Technique Framework — Phase 3: Complex Reasoning (F-145, F-143, F-148)
+- [ ] F-145: Tree of Thoughts (ToT) — Tier 3 premium; branching decision tree exploration with pruning for complex troubleshooting; ~800-1,500 tokens overhead; depends on F-060 (LangGraph Workflow)
+- [ ] F-143: GST (Guided Sequential Thinking) — Tier 3 premium; strategic decision reasoning with 5 explicit checkpoints (Stakeholder Impact, Policy Alignment, Risk Assessment, Financial Impact, Recommendation); ~1,000-1,200 tokens overhead; depends on F-060 (LangGraph Workflow)
+- [ ] F-148: Least-to-Most Decomposition — Tier 3 premium; complex query breakdown into ordered sub-queries with dependency resolution and completeness check; ~800-1,300 tokens overhead; depends on F-062 (Intent Classification), F-060 (LangGraph)
+
+---
+
 ## Week 19 GAPS — Training Pipeline
 
 - [ ] F-097: Agent dashboard (card-based view of all agents)
-- [ ] F-098: Agent performance metrics (per-agent analytics)
+- [ ] F-098: Agent performance metrics (per-agent analytics) — **UPDATED**: Now also consumes technique performance metrics (activation rate, accuracy lift, token cost, latency impact, fallback rate, CSAT delta)
 - [ ] F-099: Add/scale agent (Paddle trigger → auto-provision)
 - [ ] F-100: Lightning training loop (baseline → production-ready)
 - [ ] F-101: Training data preparation (clean, label, prepare datasets)
@@ -346,11 +376,21 @@ These infrastructure items were built in Week 1 (Day 6 fixes) to unblock future 
 - [ ] DB06: `first_victories` table -> remaining.py (needed Week 6) — EXISTS in migration, verify model
 - [ ] `user_notification_preferences` unique constraint on (user_id, channel, event_type)
 - [ ] DC4: `sessions` table rename to `support_sessions`? (awaiting user confirmation)
+- [x] DB07: `technique_configurations` table -> per-tenant technique enable/disable settings ✅ Infra Update
+- [x] DB08: `technique_executions` table -> technique activation logs, token usage, latency, fallback tracking ✅ Infra Update
+- [x] DB09: `technique_versions` table -> versioned technique implementations with A/B test metadata ✅ Infra Update
 
 ### Stale Config Files (Found in Pre-Week 3 Audit)
 - [x] Delete `infra/docker/docker-compose.prod.yml` (stale, conflicts with root version) ✅ Day 23
 - [x] Delete `infra/docker/.env.example` (stale, references OPENAI/SENDGRID/ANTHROPIC) ✅ Day 23
 - [ ] DC2: Some docs say `tenant_id` vs `company_id` -> standardize to company_id (deferred — requires doc edits in /documents/)
+
+### New Dependency Gaps (from AI Technique Framework)
+- [x] DEP-01: `langgraph` package — Added to requirements.txt ✅ Infra Update
+- [x] DEP-02: `dspy-ai` package — Added to requirements.txt ✅ Infra Update
+- [x] DEP-03: `litellm` package — Added to requirements.txt ✅ Infra Update
+- [ ] DEP-04: Verify `langgraph` + `dspy-ai` + `litellm` compatibility with existing FastAPI/Celery/Redis stack
+- [x] DEP-05: Add technique-related Celery tasks for async technique execution and monitoring ✅ Infra Update
 
 ### CI/CD Gaps
 - [ ] `deploy-backend.yml` is all echo placeholders — needs real AWS ECR/ECS integration
@@ -392,12 +432,55 @@ These infrastructure items were built in Week 1 (Day 6 fixes) to unblock future 
 
 ---
 
+## AI Technique Framework — Feature Dependency Graph
+
+From `documents/PARWA_AI_Technique_Framework.md`:
+
+```
+F-140 (CRP)           ← No dependencies (Tier 1, standalone)
+F-141 (Reverse Think) ← Depends on F-059 (Confidence Scoring)
+F-142 (Step-Back)     ← Depends on F-053 (GSD State), F-068 (Context Health)
+F-143 (GST)           ← Depends on F-060 (LangGraph Workflow)
+F-144 (UoT)           ← Depends on F-080 (Urgent Attention), F-063 (Sentiment)
+F-145 (ToT)           ← Depends on F-060 (LangGraph Workflow)
+F-146 (Self-Consist)  ← Depends on F-062 (Intent Classification)
+F-147 (Reflexion)     ← Depends on F-068 (Context Health), conversation history
+F-148 (Least-to-Most) ← Depends on F-062 (Intent Classification), F-060 (LangGraph)
+
+CLARA (Tier 1)        ← Maps to F-057 (Guardrails) + F-065 (Auto-Response)
+BC-013 (Tech Router)  ← Depends on F-059, F-062, F-063, F-060, F-053, F-068
+```
+
+### Technique Token Budget Summary
+
+| Model Tier | Total Technique Budget | Tier 1 Reserve | Tier 2 Pool | Tier 3 Pool |
+|-----------|----------------------|----------------|-------------|-------------|
+| Light | 500 tokens | ~100 tokens | Up to 250 | Up to 150 |
+| Medium | 1,500 tokens | ~100 tokens | Up to 700 | Up to 700 |
+| Heavy | 3,000 tokens | ~100 tokens | Up to 1,450 | Up to 1,450 |
+
+### Technique Fallback Mapping (T3 → T2)
+
+| Tier 3 Technique | Falls Back To | Condition |
+|-------------------|---------------|-----------|
+| GST | CoT | Token budget exceeded |
+| UoT | CoT + Step-Back | Token budget exceeded |
+| ToT | CoT | Token budget exceeded |
+| Self-Consistency | CoT | Token budget exceeded |
+| Reflexion | Step-Back | Token budget exceeded |
+| Least-to-Most | CoT + ThoT | Token budget exceeded |
+
+---
+
 ## Audit Summary
 
 | Metric | Value |
 |--------|-------|
-| Total gaps tracked | 170+ items across 21 weeks |
+| Total gaps tracked | 190+ items across 21 weeks |
 | Week 1-2 gaps | All 24 resolved ✅ |
 | Week 3 gaps | 47 items (5 categories) — ALL DONE ✅ |
-| Week 4-21 gaps | 120+ items — FUTURE |
-| Cross-phase infra gaps | 15 items — ONGOING |
+| Week 4-21 gaps | 130+ items — FUTURE |
+| Cross-phase infra gaps | 24 items — ONGOING |
+| NEW from AI Technique Framework | 9 features (F-140 to F-148) + BC-013 Technique Router |
+| NEW dependency gaps | 5 items (langgraph, dspy-ai, litellm, compatibility, Celery tasks) |
+| NEW database gaps | 3 items (technique_configurations, technique_executions, technique_versions) |
