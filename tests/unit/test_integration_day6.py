@@ -364,7 +364,7 @@ class TestHealthEndpointsIntegration:
         data = response.json()
         assert "subsystems" in data
         assert "redis" in data["subsystems"]
-        assert "database" in data["subsystems"]
+        assert "postgresql" in data["subsystems"]
         assert data["subsystems"]["redis"]["status"] in (
             "healthy", "unhealthy", "unreachable",
         )

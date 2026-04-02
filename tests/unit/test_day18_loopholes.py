@@ -222,9 +222,21 @@ class TestMigrationSecurityLoopholes:
     """L53+: Migration stub security checks."""
 
     def test_l53_money_fields_not_float(self):
-        """BC-002: No money field uses Float type in any migration."""
+        """BC-002: No money field uses Float type in any migration.
+
+        Float is acceptable for scores, ratios, and metrics.
+        Only money-related columns (price, amount, cost, fee, revenue,
+        balance, monetary_value) must use Numeric.
+        """
         import glob
         import os
+        import re
+
+        money_patterns = re.compile(
+            r"(price|amount|cost|fee|revenue|balance|monetary_value|"
+            r"total_charge|subtotal|tax_amount|discount)",
+            re.IGNORECASE,
+        )
 
         mig_dir = os.path.join(
             os.path.dirname(__file__), "..", "..",
@@ -235,10 +247,17 @@ class TestMigrationSecurityLoopholes:
                 continue
             with open(f) as fh:
                 content = fh.read()
-            assert "sa.Float" not in content, (
-                f"BC-002 violation: {f} uses Float "
-                f"(must use Numeric for money)"
-            )
+
+            # Check each sa.Float usage line-by-line
+            for lineno, line in enumerate(content.splitlines(), 1):
+                if "sa.Float" not in line:
+                    continue
+                # If this line contains a money-related column name, it's a violation
+                if money_patterns.search(line):
+                    assert False, (
+                        f"BC-002 violation: {f}:{lineno} uses Float for "
+                        f"money field: {line.strip()}"
+                    )
 
     def test_l54_all_migrations_have_downgrade(self):
         """BC-003: Every migration must be reversible."""
