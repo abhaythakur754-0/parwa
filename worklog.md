@@ -528,3 +528,52 @@ Stage Summary:
 - Files modified: webhooks.py, webhook_service.py, ip_allowlist.py, hmac_verification.py, hmac_verify.py, config.py
 - Files created: test_day15_loopholes.py
 - Day 15 COMPLETE — ready for Day 16 (Celery DLQ + Beat + Health wire-up)
+
+---
+Task ID: d18-build
+Agent: Super Z (main)
+Task: Day 18 — Client Factory + Migration Stubs (003-007) + Loophole Fix
+
+Work Log:
+- Created backend/app/services/client_factory.py: Full tenant provisioning service
+  - provision_company(): Creates Company + CompanySetting + Owner User + Agent + Audit in single transaction
+  - get_plan_entitlements(): Returns tier-based limits (starter/growth/high)
+  - check_entitlement(): Validates usage against plan limits
+  - check_team_member_limit(): Checks if company can add more team members
+  - check_agent_limit(): Checks if company can create more agents
+  - PLAN_ENTITLEMENTS: 3 tiers with max_agents, max_tickets, channels, voice, file_size limits
+- Created migration stub 003_ai_pipeline_tables.py: api_providers, service_configs, gsd_sessions, confidence_scores, guardrail_blocks, guardrail_rules, prompt_templates, model_usage_logs
+- Created migration stub 005_audit_billing_tables.py: audit_trail, webhook_events, rate_limit_events, api_key_audit_log, subscriptions, invoices, overage_charges, transactions, cancellation_requests
+- Created migration stub 006_analytics_onboarding_tables.py: metric_aggregates, roi_snapshots, drift_reports, qa_scores, training_runs, onboarding_sessions, consent_records, knowledge_documents, document_chunks, demo_sessions, newsletter_subscribers, training_datasets, training_checkpoints, agent_mistakes, agent_performance
+- Created migration stub 007_remaining_gap_tables.py: approval_queues, auto_approve_rules, executed_actions, undo_log, phone_otps, response_templates, email_logs, rate_limit_counters, feature_flags, classification_log, guardrails_audit_log, guardrails_blocked_queue, ai_response_feedback, confidence_thresholds, human_corrections, approval_batches, notifications, first_victories
+- Fixed 002_ticketing_tables.py syntax error (extra closing paren on lines 52, 85)
+- Fixed L42 loophole: whitespace-only password hash now rejected (BC-011)
+- Created 48 tests: 31 functional + 17 loophole/security checks
+
+Phase B Loophole Check — 17 checks:
+1. PASS L40: Email format validation
+2. PASS L41: Empty name rejection
+3. FIX L42: Whitespace-only password hash bypass → now rejected
+4. PASS L43: Default tier is starter (most restrictive)
+5. PASS L44: Input whitespace stripping
+6. PASS L45: Owner not verified by default
+7. PASS L46: Owner role is 'owner'
+8. PASS L47: Agent starts with zero capacity
+9. PASS L48: Mode defaults to 'shadow'
+10. PASS L49: Entitlement boundary check (current == max = full)
+11. PASS L50: Per-company record isolation
+12. PASS L51: Voice only enabled for growth+ tiers
+13. PASS L52: Plan error includes sorted tier names
+14. PASS L53: No Float type in any migration (BC-002)
+15. PASS L54: All migrations have downgrade (BC-003)
+16. PASS L55: No hardcoded secrets in migrations (BC-011)
+17. PASS L56: Revision chain is contiguous, no gaps (BC-003)
+
+Stage Summary:
+- 1471 unit tests passing (48 new)
+- 2 pre-existing flaky socketio auth tests (not from Day 18)
+- 1 loophole found and fixed (L42)
+- All 57+ model tables covered by migration chain (001→002→003→004→005→006→007)
+- Git commit: 2fa386f
+- Files created: 12 (1 service, 4 migration stubs, 1 remaining model, 2 test files, 1 script.mako)
+- Files modified: 2 (002 migration, client_factory L42 fix)

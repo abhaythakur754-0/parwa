@@ -20,6 +20,11 @@ import database.models.analytics  # noqa: F401
 import database.models.training  # noqa: F401
 import database.models.integration  # noqa: F401
 import database.models.onboarding  # noqa: F401
+import database.models.core_rate_limit  # noqa: F401
+import database.models.phone_otp  # noqa: F401
+import database.models.api_key_audit  # noqa: F401
+import database.models.webhook_event  # noqa: F401
+import database.models.remaining  # noqa: F401
 
 from database.base import Base
 
