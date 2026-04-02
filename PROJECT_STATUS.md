@@ -22,12 +22,12 @@
 | Week 3 | Day 17 | ✅ DONE | File Storage + PaginatedResponse + Audit Persistence (L44-L58 fixes) | ~1350 → ~1423 |
 | Week 3 | Day 18 | ✅ DONE | Client Factory + Migration Stubs 003-007 (L42 fix) | ~1423 → 1471 |
 | Week 3 | Day 19 | ✅ DONE | Socket.io Business Event System (GAP 1.1) | 1471 → 1566 (+95) |
-| Week 3 | Day 20 | 🔲 TODO | Multi-Tenant Middleware Hardening (GAP 1.2) | ~1541 → ~1596 |
+| Week 3 | Day 20 | ✅ DONE | Multi-Tenant Middleware Hardening (GAP 1.2) | 1566 → 1647 (+81) |
 | Week 3 | Day 21 | 🔲 TODO | Health Check System + Monitoring Config (GAP 1.3) | ~1596 → ~1661 |
 | Week 3 | Day 22 | 🔲 TODO | Celery Task Modules + Beat Schedule (GAP 1.4) | ~1661 → ~1781 |
 | Week 3 | Day 23 | 🔲 TODO | Webhook Handlers + Templates + Cleanup (GAP 1.5) | ~1781 → ~1851 |
 
-**Total Tests: 1566 (current) → ~1851 (target) | Flake8 Errors: 0 | Loopholes Fixed: 60 (L1-L60) | GitHub: PUSHED ✅**
+**Total Tests: 1647 (current) → ~1851 (target) | Flake8 Errors: 0 | Loopholes Fixed: 60 (L1-L60) | GitHub: PUSHED ✅**
 
 ---
 
@@ -141,6 +141,23 @@ All 10 features built and all spec gaps resolved.
   - L60: `ping` and `event:unsubscribe` handlers had no auth check — added company_id verification on all handlers (BC-011)
 - **Tests:** 79 + 20 loophole = 99 new | **Total: 1566**
 
+### Day 20 — Multi-Tenant Middleware Hardening
+- **Commit:** `27fcd1a` → **PUSHED to GitHub ✅**
+- **Features:** Tenant context propagation, DB auto-injection, Redis key validation, Celery header propagation
+- **Files Created/Updated:**
+  - `backend/app/core/tenant_context.py` (NEW) — ContextVar + thread-local context, bypass system, task headers
+  - `backend/app/middleware/tenant.py` (UPDATE) — set_tenant_context/clear_tenant_context propagation
+  - `database/base.py` (UPDATE) — TenantSession with before_flush auto-injection, @bypass_tenant, get_tenant_db()
+  - `backend/app/core/redis.py` (UPDATE) — Key validation, safe_get/safe_mget tenant enforcement
+  - `backend/app/tasks/base.py` (UPDATE) — ParwaTask.__call__ auto-sets context, inject_tenant_context, set_task_tenant_header
+  - `tests/unit/test_tenant_context.py` — 30 tests (set/get/clear, thread isolation, async, bypass, headers)
+  - `tests/unit/test_tenant_auto_inject.py` — 12 tests (flush injection, bypass, TenantSession, warnings)
+  - `tests/unit/test_tenant_celery_propagation.py` — 11 tests (headers, __call__, decorator, full flow)
+  - `tests/unit/test_tenant_redis_isolation.py` — 21 tests (make_key, validation, isolation, safe ops)
+  - `tests/integration/test_tenant_e2e.py` — 7 tests (DB flow, Redis flow, task dispatch, cleanup)
+- **Gaps Closed:** GAP 1.2
+- **Tests:** 81 new | **Total: 1647**
+
 ---
 
 ## Week 3 Roadmap — Background Jobs + Real-Time + Middleware (Days 19-23)
@@ -151,7 +168,7 @@ All 10 features built and all spec gaps resolved.
 | Day | Focus | Gaps Closed | Status |
 |-----|-------|-------------|--------|
 | Day 19 | Socket.io Business Event System | GAP 1.1 | ✅ DONE |
-| Day 20 | Multi-Tenant Middleware Hardening | GAP 1.2 | 🔲 TODO |
+| Day 20 | Multi-Tenant Middleware Hardening | GAP 1.2 | ✅ DONE |
 | Day 21 | Health Check System + Monitoring Config | GAP 1.3 + GAP 2.1 | 🔲 TODO |
 | Day 22 | Celery Task Modules + Beat Schedule | GAP 1.4 + GAP 3.2 | 🔲 TODO |
 | Day 23 | Webhook Handlers + Templates + Cleanup | GAP 1.5 + GAP 2.2 + GAP 3.1 | 🔲 TODO |
