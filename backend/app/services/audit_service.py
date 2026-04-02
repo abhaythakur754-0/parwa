@@ -203,14 +203,20 @@ def log_audit(
     new_value: Optional[str] = None,
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None,
+    db=None,
 ) -> dict:
-    """Create and return audit entry as dict (for direct DB insertion).
+    """Create audit entry and persist to database.
 
-    Convenience function that creates an AuditEntry and converts to dict.
-    Use this when you need to pass the entry directly to a database session.
+    Convenience function that creates an AuditEntry, persists
+    it to the audit_trail table if a DB session is provided,
+    and returns the entry as a dict.
+
+    BC-012: Audit trail must be recorded for all write operations.
 
     Args:
-        Same as create_audit_entry().
+        Same as create_audit_entry(), plus:
+        db: Optional SQLAlchemy Session. If provided, the entry
+            is written to the audit_trail table.
 
     Returns:
         Dictionary with all audit fields.
@@ -227,4 +233,34 @@ def log_audit(
         ip_address=ip_address,
         user_agent=user_agent,
     )
-    return entry.to_dict()
+    entry_dict = entry.to_dict()
+
+    if db is not None:
+        try:
+            from database.models.integration import AuditTrail
+
+            record = AuditTrail(
+                id=entry_dict["id"],
+                company_id=entry_dict["company_id"],
+                actor_id=entry_dict["actor_id"],
+                actor_type=entry_dict["actor_type"],
+                action=entry_dict["action"],
+                resource_type=entry_dict["resource_type"],
+                resource_id=entry_dict["resource_id"],
+                old_value=entry_dict["old_value"],
+                new_value=entry_dict["new_value"],
+                ip_address=entry_dict["ip_address"],
+                user_agent=entry_dict["user_agent"],
+                created_at=entry_dict["created_at"],
+            )
+            db.add(record)
+            db.commit()
+        except Exception:
+            # Audit logging must never break the main operation.
+            # Log but don't raise.
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+    return entry_dict

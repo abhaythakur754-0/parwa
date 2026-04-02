@@ -218,6 +218,7 @@ def update_client(
         resource_type="company",
         resource_id=company_id,
         new_value=str(data),
+        db=db,
     )
 
     return _serialize_company_with_count(company)
@@ -265,6 +266,7 @@ def update_subscription(
         resource_type="subscription",
         resource_id=company_id,
         new_value=body.model_dump_json(),
+        db=db,
     )
 
     return _serialize_company_with_count(company)
@@ -333,6 +335,7 @@ def create_api_provider(
         resource_type="api_provider",
         resource_id=provider.id,
         new_value=provider.name,
+        db=db,
     )
 
     return _serialize_provider(provider)
@@ -376,6 +379,7 @@ def update_api_provider(
         resource_type="api_provider",
         resource_id=provider_id,
         new_value=body.model_dump_json(),
+        db=db,
     )
 
     return _serialize_provider(provider)
@@ -408,6 +412,7 @@ def delete_api_provider(
         action="delete",
         resource_type="api_provider",
         resource_id=provider_id,
+        db=db,
     )
 
     return MessageResponse(

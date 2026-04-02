@@ -95,10 +95,11 @@ def verify_access_token(token: str) -> dict:
                 details={"expected": "access"},
             )
         return payload
-    except JWTError as exc:
+    except AuthenticationError:
+        raise
+    except JWTError:
         raise AuthenticationError(
             message="Invalid or expired token",
-            details={"reason": str(exc)},
         )
 
 
