@@ -116,6 +116,22 @@ def _build_config() -> dict:
                 "schedule": 300.0,  # Every 5 minutes
                 "kwargs": {},
             },
+            "flush-audit-queue": {
+                "task": ("backend.app.tasks.periodic"
+                          ".flush_audit_queue"),
+                "schedule": 60.0,  # Every 60 seconds
+                "kwargs": {},
+            },
+            "cleanup-audit-trail": {
+                "task": ("backend.app.tasks.periodic"
+                          ".cleanup_audit_trail"),
+                "schedule": {
+                    # Daily at 03:00 UTC
+                    "hour": 3,
+                    "minute": 0,
+                },
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,
