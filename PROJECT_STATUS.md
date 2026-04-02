@@ -23,58 +23,11 @@
 | Week 3 | Day 18 | ✅ DONE | Client Factory + Migration Stubs 003-007 (L42 fix) | ~1423 → 1471 |
 | Week 3 | Day 19 | ✅ DONE | Socket.io Business Event System (GAP 1.1) | 1471 → 1566 (+95) |
 | Week 3 | Day 20 | ✅ DONE | Multi-Tenant Middleware Hardening (GAP 1.2) | 1566 → 1647 (+81) |
-| Week 3 | Day 21 | 🔲 TODO | Health Check System + Monitoring Config (GAP 1.3) | ~1596 → ~1661 |
-| Week 3 | Day 22 | 🔲 TODO | Celery Task Modules + Beat Schedule (GAP 1.4) | ~1661 → ~1781 |
-| Week 3 | Day 23 | 🔲 TODO | Webhook Handlers + Templates + Cleanup (GAP 1.5) | ~1781 → ~1851 |
+| Week 3 | Day 21 | ✅ DONE | Health Check System + Monitoring (GAP 1.3 + GAP 2.1) | 1647 → 1759 (+112) |
+| Week 3 | Day 22 | 🔲 TODO | Celery Task Modules + Beat Schedule (GAP 1.4) | ~1759 → ~1879 |
+| Week 3 | Day 23 | 🔲 TODO | Webhook Handlers + Templates + Cleanup (GAP 1.5) | ~1879 → ~1949 |
 
-**Total Tests: 1647 (current) → ~1851 (target) | Flake8 Errors: 0 | Loopholes Fixed: 60 (L1-L60) | GitHub: PUSHED ✅**
-**Total Features: 148 (139 original + 9 new AI technique features) | Total Building Codes: 14 (12 original + BC-013, BC-014)**
-
----
-
-## AI Technique Framework Integration ✅ COMPLETE
-
-### New Documents Created
-| Document | Description |
-|----------|-------------|
-| `PARWA_AI_Technique_Framework.md` | 3-tier AI technique architecture with 14 techniques, auto-trigger logic, integration mapping |
-| `PARWA_Build_Agent_Prompt.md` | Unified build agent prompt with BC-014 task decomposition + all 14 building codes |
-
-### New Features Added (F-140 to F-148)
-| Feature | Name | Tier | Status |
-|---------|------|------|--------|
-| F-140 | CRP (Concise Response Protocol) | Tier 1 | ✅ Spec complete |
-| F-141 | Reverse Thinking Engine | Tier 2 | ✅ Spec complete |
-| F-142 | Step-Back Prompting | Tier 2 | ✅ Spec complete |
-| F-143 | GST (Guided Sequential Thinking) | Tier 3 | ✅ Spec complete |
-| F-144 | Universe of Thoughts (UoT) | Tier 3 | ✅ Spec complete |
-| F-145 | Tree of Thoughts (ToT) | Tier 3 | ✅ Spec complete |
-| F-146 | Self-Consistency | Tier 3 | ✅ Spec complete |
-| F-147 | Reflexion | Tier 3 | ✅ Spec complete |
-| F-148 | Least-to-Most Decomposition | Tier 3 | ✅ Spec complete |
-
-### New Building Codes Added
-| Code | Name | Description |
-|------|------|-------------|
-| BC-013 | AI Technique Routing (3-Tier) | 3-tier technique architecture with auto-trigger detection for all AI queries |
-| BC-014 | Task Decomposition | Mandatory task decomposition before building, atomic delivery, progress tracking |
-
-### Existing Documents Updated
-| Document | Changes |
-|----------|---------|
-| `PARWA_Building_Codes_v1.md` | Added BC-013, BC-014; updated feature count to 148 |
-| `PARWA_Context_Bible.md` | Added technique framework section, locked decision #23, updated Team 3, feature counts |
-| `PARWA_Build_Roadmap_v1.md` | Added Week 10.5 (technique framework), updated Phase 3 to 24 features |
-| `PARWA_Feature_Specs_Batch2.md` | F-080 technique activation for VIP/Legal (BC-013) |
-| `PARWA_Feature_Specs_Batch3.md` | F-054, F-059, F-060 technique integration subsections |
-| `PARWA_Feature_Specs_Batch4.md` | F-093 technique failure recovery (BC-013) |
-| `PARWA_Feature_Specs_Batch6.md` | F-062/F-049 intent-technique mapping, F-067 token budget |
-| `PARWA_Feature_Specs_Batch9.md` | F-063 sentiment-technique trigger integration |
-
-### Locked Decision Added
-| # | Decision | Rule |
-|---|----------|------|
-| #23 | Technique routing is separate from model routing | BC-007 (model selection) and BC-013 (technique selection) are independent systems that both must execute per query |
+**Total Tests: 1759 (current) → ~1949 (target) | Flake8 Errors: 0 | Loopholes Fixed: 64 (L1-L64) | GitHub: PUSHED ✅**
 
 ---
 
@@ -205,9 +158,27 @@ All 10 features built and all spec gaps resolved.
 - **Gaps Closed:** GAP 1.2
 - **Tests:** 81 new | **Total: 1647**
 
----
-
-## Week 3 Roadmap — Background Jobs + Real-Time + Middleware (Days 19-23)
+### Day 21 — Health Check System + Monitoring Config
+- **Commit:** `104f41e` → **PUSHED to GitHub ✅**
+- **Features:** 9-subsystem health orchestrator, Prometheus metrics, Grafana dashboards, alerting rules
+- **Files Created/Updated:**
+  - `backend/app/core/health.py` (NEW) — Health orchestrator: 9 subsystem checks (PostgreSQL, Redis, Celery, Celery queues, Socket.io, Paddle, Brevo, Twilio, Disk), dependency graph, 3-state status, 10s cache
+  - `backend/app/core/metrics.py` (NEW) — Prometheus metrics registry: CounterMetric, GaugeMetric, HistogramMetric; 10 pre-registered metrics; path normalization
+  - `backend/app/api/health.py` (NEW) — Health API routes: /health, /health/detail, /ready, /metrics
+  - `backend/app/main.py` (UPDATE) — Replaced inline health endpoints with health router
+  - `monitoring/prometheus.yml` (NEW) — Prometheus scrape config
+  - `monitoring/grafana_dashboards/` (NEW) — 3 dashboards (system, celery, API performance)
+  - `monitoring/alerting/rules.yml` (NEW) — Alerting rules for critical thresholds
+  - `tests/unit/test_health_orchestrator.py` (NEW) — 33 tests
+  - `tests/unit/test_metrics.py` (NEW) — 37 tests
+  - `tests/unit/test_day21_loopholes.py` (NEW) — 14 loophole tests
+- **Gaps Closed:** GAP 1.3 + GAP 2.1
+- **Loopholes Fixed:** 4 (L61-L64)
+  - L61: Health endpoint must not leak company data
+  - L62: Metrics endpoint must not expose tenant-specific counts
+  - L63: External health checks must be connectivity probes only
+  - L64: Health check cached for 10s to prevent bottleneck
+- **Tests:** 84 new | **Total: 1759**
 
 > Full roadmap in `WEEK3_ROADMAP.md`. This is the TRUE Week 3 scope from Build Roadmap.
 > After this week, Phase 1 Foundation is 100% COMPLETE.
@@ -216,7 +187,7 @@ All 10 features built and all spec gaps resolved.
 |-----|-------|-------------|--------|
 | Day 19 | Socket.io Business Event System | GAP 1.1 | ✅ DONE |
 | Day 20 | Multi-Tenant Middleware Hardening | GAP 1.2 | ✅ DONE |
-| Day 21 | Health Check System + Monitoring Config | GAP 1.3 + GAP 2.1 | 🔲 TODO |
+| Day 21 | Health Check System + Monitoring Config | GAP 1.3 + GAP 2.1 | ✅ DONE |
 | Day 22 | Celery Task Modules + Beat Schedule | GAP 1.4 + GAP 3.2 | 🔲 TODO |
 | Day 23 | Webhook Handlers + Templates + Cleanup | GAP 1.5 + GAP 2.2 + GAP 3.1 | 🔲 TODO |
 
@@ -266,7 +237,8 @@ All 10 features built and all spec gaps resolved.
 | L40-L43 | Day 16 | 4 | Celery DLQ, Beat scheduler, worker |
 | L44-L58 | Day 17-18 | 15 | File storage, pagination, audit persistence, client factory |
 | L59-L60 | Day 19 | 2 | Event rate limiting not enforced, ping handler no auth check |
-| **TOTAL** | | **60** | **All fixed ✅** |
+| L61-L64 | Day 21 | 4 | Health data leak, tenant metrics, external probes, cache bottleneck |
+| **TOTAL** | | **64** | **All fixed ✅** |
 
 ---
 
