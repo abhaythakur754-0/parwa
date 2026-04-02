@@ -8,6 +8,12 @@ BC-001: No global keys — all keys are tenant-isolated.
 BC-011: Redis URL loaded from environment, never hardcoded.
 BC-012: Redis failure -> fail-open (consistent with rate_limiter design).
 
+Day 20: Added key validation enforcement:
+- validate_tenant_key() checks key follows parwa:{company_id}:* pattern
+- validate_tenant_keys() filters to only keys matching current tenant
+- safe_get() / safe_mget() validate tenant key prefix before operating
+- Warning logged for raw key access attempts
+
 Usage:
     from backend.app.core.redis import get_redis, make_key
 
@@ -17,8 +23,9 @@ Usage:
 """
 
 import json
+import re
 import time
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import redis.asyncio as aioredis
 
@@ -32,6 +39,12 @@ _redis_client: Optional[aioredis.Redis] = None
 
 # Key namespace prefix — BC-001: all keys scoped by tenant
 NAMESPACE_PREFIX = "parwa"
+
+# Pattern for validating tenant-scoped keys: parwa:{company_id}:*
+_TENANT_KEY_PATTERN = re.compile(r"^parwa:[^:]+:.+$")
+
+# Pattern for raw (non-tenant) keys that should trigger warnings
+_RAW_KEY_PATTERN = re.compile(r"^(?!parwa:)")
 
 
 def make_key(company_id: str, *parts: str) -> str:
@@ -72,6 +85,168 @@ def make_key(company_id: str, *parts: str) -> str:
     # Build the namespaced key
     segments = [NAMESPACE_PREFIX, company_id] + list(parts)
     return ":".join(segments)
+
+
+def validate_tenant_key(key: str) -> bool:
+    """Check if a Redis key follows the tenant-scoped pattern.
+
+    Valid keys must match: parwa:{company_id}:*
+
+    Args:
+        key: The Redis key to validate.
+
+    Returns:
+        True if the key is properly tenant-scoped, False otherwise.
+    """
+    if not key or not isinstance(key, str):
+        return False
+    return bool(_TENANT_KEY_PATTERN.match(key))
+
+
+def validate_tenant_keys(keys: list) -> list:
+    """Filter a list of keys to only include those matching the current tenant.
+
+    Reads the current company_id from tenant_context and filters keys
+    to only those starting with parwa:{company_id}:.
+
+    Keys that don't match the pattern are logged as potential cross-tenant
+    access attempts.
+
+    Args:
+        keys: List of Redis key strings.
+
+    Returns:
+        Filtered list containing only keys matching the current tenant.
+    """
+    from backend.app.core.tenant_context import get_tenant_context
+
+    company_id = get_tenant_context()
+    if not company_id:
+        logger.warning(
+            "validate_tenant_keys_no_context",
+            extra={"key_count": len(keys)},
+        )
+        # Without context, can't validate — return empty for safety
+        return []
+
+    prefix = f"parwa:{company_id}:"
+    valid_keys = []
+    rejected_keys = []
+
+    for key in keys:
+        if isinstance(key, str) and key.startswith(prefix):
+            valid_keys.append(key)
+        else:
+            rejected_keys.append(key)
+
+    if rejected_keys:
+        logger.warning(
+            "tenant_key_rejection",
+            extra={
+                "company_id": company_id,
+                "rejected_count": len(rejected_keys),
+                "rejected_keys_sample": rejected_keys[:5],
+            },
+        )
+
+    return valid_keys
+
+
+async def safe_get(key: str, default: Any = None) -> Any:
+    """Safely get a Redis key with tenant validation.
+
+    Validates that the key follows the parwa:{company_id}:* pattern
+    before performing the operation. Keys that don't match are rejected
+    with a warning log.
+
+    Args:
+        key: The Redis key to retrieve.
+        default: Value to return if key is invalid or not found.
+
+    Returns:
+        The cached value, default, or None.
+    """
+    if not validate_tenant_key(key):
+        logger.warning(
+            "safe_get_rejected_non_tenant_key",
+            extra={"key": key[:100]},
+        )
+        return default
+
+    try:
+        client = await get_redis()
+        value = await client.get(key)
+        if value is not None:
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                return value
+        return default
+    except Exception:
+        return default
+
+
+async def safe_mget(keys: List[str]) -> List[Any]:
+    """Safely get multiple Redis keys with tenant validation.
+
+    Filters keys through validate_tenant_keys() to ensure only
+    keys belonging to the current tenant are accessed.
+
+    Args:
+        keys: List of Redis keys to retrieve.
+
+    Returns:
+        List of values (None for missing/invalid keys).
+    """
+    valid_keys = validate_tenant_keys(keys)
+
+    if not valid_keys:
+        return [None] * len(keys)
+
+    try:
+        client = await get_redis()
+        # Get values only for valid keys
+        valid_values = await client.mget(valid_keys)
+        # Build result: valid key → value, invalid key → None
+        valid_set = set(valid_keys)
+        result = []
+        valid_idx = 0
+        for key in keys:
+            if key in valid_set:
+                val = valid_values[valid_idx]
+                if val is not None:
+                    try:
+                        result.append(json.loads(val))
+                    except (json.JSONDecodeError, TypeError):
+                        result.append(val)
+                else:
+                    result.append(None)
+                valid_idx += 1
+            else:
+                result.append(None)
+        return result
+    except Exception:
+        return [None] * len(keys)
+
+
+def _log_raw_key_access(key: str, operation: str) -> None:
+    """Log a warning when a raw (non-tenant-scoped) key is accessed.
+
+    Args:
+        key: The raw key being accessed.
+        operation: The operation being performed (e.g., 'get', 'set').
+    """
+    logger.warning(
+        "raw_key_access_attempt",
+        extra={
+            "key": key[:100],
+            "operation": operation,
+            "warning": (
+                "Redis key does not follow tenant-scoped pattern "
+                "parwa:{company_id}:*. Use make_key() or safe_* wrappers."
+            ),
+        },
+    )
 
 
 async def get_redis() -> aioredis.Redis:

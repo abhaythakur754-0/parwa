@@ -6,10 +6,19 @@ Extracts company_id from JWT token and ensures multi-tenant isolation.
 - Missing company_id -> 403 Forbidden
 - Tenant isolation is enforced at the database level via company_id index
 - Auth endpoints are excluded (handled by route-level deps)
+
+Day 20: Added tenant context propagation via set_tenant_context()/clear_tenant_context()
+so all downstream code (DB auto-injection, Redis key scoping, Celery task headers)
+can access the current tenant without explicit parameter passing.
 """
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from backend.app.core.tenant_context import (
+    clear_tenant_context,
+    set_tenant_context,
+)
 
 # BC-001: Max allowed length for company_id
 MAX_COMPANY_ID_LENGTH = 128
@@ -100,4 +109,14 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
         request.state.company_id = company_id
 
-        return await call_next(request)
+        # Day 20: Propagate tenant context for downstream consumers
+        # (DB auto-injection, Redis key validation, Celery task headers)
+        set_tenant_context(company_id)
+
+        try:
+            response = await call_next(request)
+        finally:
+            # Day 20: Always clear context to prevent leaking between requests
+            clear_tenant_context()
+
+        return response
