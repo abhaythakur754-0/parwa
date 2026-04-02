@@ -36,3 +36,4 @@ from database.models.analytics import *  # noqa: F401, F403
 from database.models.training import *  # noqa: F401, F403
 from database.models.approval import *  # noqa: F401, F403
 from database.models.remaining import *  # noqa: F401, F403
+from database.models.technique import *  # noqa: F401, F403
