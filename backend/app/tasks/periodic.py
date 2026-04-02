@@ -240,3 +240,237 @@ def cleanup_audit_trail(self):
             exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
+
+
+# ── Day 22: Beat Dispatchers ──────────────────────────────────────
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="backend.app.tasks.periodic.approval_timeout_check",
+    max_retries=1,
+)
+def dispatch_approval_timeout_check(self):
+    """Dispatch approval timeout check across all companies."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import Company
+        db = SessionLocal()
+        try:
+            companies = db.query(Company).filter(
+                Company.subscription_status == "active",
+            ).all()
+            dispatched = 0
+            for company in companies:
+                from backend.app.tasks.approval_tasks import (
+                    approval_timeout_check,
+                )
+                approval_timeout_check.delay(company.id)
+                dispatched += 1
+            logger.info(
+                "dispatch_approval_timeout completed dispatched=%d",
+                dispatched,
+            )
+            return {"status": "ok", "dispatched": dispatched}
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(
+            "dispatch_approval_timeout failed error=%s", exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="backend.app.tasks.periodic.approval_reminder_dispatch",
+    max_retries=1,
+)
+def dispatch_approval_reminder(self):
+    """Dispatch approval reminder across all companies."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import Company
+        db = SessionLocal()
+        try:
+            companies = db.query(Company).filter(
+                Company.subscription_status == "active",
+            ).all()
+            dispatched = 0
+            for company in companies:
+                from backend.app.tasks.approval_tasks import (
+                    approval_reminder,
+                )
+                approval_reminder.delay(company.id)
+                dispatched += 1
+            logger.info(
+                "dispatch_approval_reminder completed dispatched=%d",
+                dispatched,
+            )
+            return {"status": "ok", "dispatched": dispatched}
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(
+            "dispatch_approval_reminder failed error=%s", exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="backend.app.tasks.periodic.daily_overage_charge",
+    max_retries=1,
+)
+def dispatch_daily_overage(self):
+    """Dispatch daily overage charge across all companies."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import Company
+        db = SessionLocal()
+        try:
+            companies = db.query(Company).filter(
+                Company.subscription_status == "active",
+            ).all()
+            dispatched = 0
+            for company in companies:
+                from backend.app.tasks.billing_tasks import (
+                    daily_overage_charge,
+                )
+                daily_overage_charge.delay(company.id)
+                dispatched += 1
+            logger.info(
+                "dispatch_daily_overage completed dispatched=%d",
+                dispatched,
+            )
+            return {"status": "ok", "dispatched": dispatched}
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(
+            "dispatch_daily_overage failed error=%s", exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="analytics",
+    name="backend.app.tasks.periodic.drift_detection_analysis",
+    max_retries=1,
+)
+def dispatch_drift_detection(self):
+    """Dispatch drift detection across all companies."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import Company
+        db = SessionLocal()
+        try:
+            companies = db.query(Company).filter(
+                Company.subscription_status == "active",
+            ).all()
+            dispatched = 0
+            for company in companies:
+                from backend.app.tasks.analytics_tasks import (
+                    drift_detection,
+                )
+                drift_detection.delay(company.id)
+                dispatched += 1
+            logger.info(
+                "dispatch_drift_detection completed dispatched=%d",
+                dispatched,
+            )
+            return {"status": "ok", "dispatched": dispatched}
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(
+            "dispatch_drift_detection failed error=%s", exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="analytics",
+    name="backend.app.tasks.periodic.metric_aggregation",
+    max_retries=1,
+)
+def dispatch_metric_aggregation(self):
+    """Dispatch metric aggregation across all companies."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import Company
+        db = SessionLocal()
+        try:
+            companies = db.query(Company).filter(
+                Company.subscription_status == "active",
+            ).all()
+            dispatched = 0
+            for company in companies:
+                from backend.app.tasks.analytics_tasks import (
+                    aggregate_metrics,
+                )
+                aggregate_metrics.delay(
+                    company.id, period="5min",
+                )
+                dispatched += 1
+            logger.info(
+                "dispatch_metric_aggregation completed dispatched=%d",
+                dispatched,
+            )
+            return {"status": "ok", "dispatched": dispatched}
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(
+            "dispatch_metric_aggregation failed error=%s", exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="training",
+    name="backend.app.tasks.periodic.training_mistake_check",
+    max_retries=1,
+)
+def dispatch_training_mistake_check(self):
+    """Dispatch training mistake threshold check."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import Company
+        db = SessionLocal()
+        try:
+            companies = db.query(Company).filter(
+                Company.subscription_status == "active",
+            ).all()
+            dispatched = 0
+            for company in companies:
+                from backend.app.tasks.training_tasks import (
+                    check_mistake_threshold,
+                )
+                check_mistake_threshold.delay(company.id)
+                dispatched += 1
+            logger.info(
+                "dispatch_training_mistake_check completed "
+                "dispatched=%d",
+                dispatched,
+            )
+            return {"status": "ok", "dispatched": dispatched}
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(
+            "dispatch_training_mistake_check failed error=%s", exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
