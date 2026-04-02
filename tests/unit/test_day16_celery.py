@@ -79,11 +79,11 @@ class TestBeatScheduler:
         schedule = app.conf.beat_schedule
         assert "check-webhook-health-every-5min" in schedule
 
-    def test_three_scheduled_tasks(self):
-        """Exactly 3 periodic tasks are scheduled."""
+    def test_five_scheduled_tasks(self):
+        """5 periodic tasks are scheduled (3 original + 2 audit)."""
         from backend.app.tasks.celery_app import app
         schedule = app.conf.beat_schedule
-        assert len(schedule) == 3
+        assert len(schedule) == 5
 
     def test_session_cleanup_interval(self):
         """Session cleanup runs every 24 hours."""

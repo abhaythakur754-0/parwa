@@ -170,3 +170,73 @@ def check_webhook_health(self):
             exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="analytics",
+    name="backend.app.tasks.periodic.flush_audit_queue",
+    max_retries=1,
+)
+def flush_audit_queue(self):
+    """Flush pending audit entries from Redis to the database.
+
+    Pops entries from the Redis list ``parwa:audit:queue`` and
+    batch-inserts them into the ``audit_trail`` table. Runs on the
+    ``analytics`` queue to keep the default queue free for
+    user-facing operations.
+
+    If Redis or the database is temporarily unavailable, entries
+    remain in the queue and will be retried on the next run
+    (at-least-once delivery).
+
+    BC-012: Audit failures must never break main operations.
+    BC-004: Runs every 60 seconds via Celery Beat.
+    """
+    try:
+        from backend.app.services.audit_service import process_audit_queue
+
+        result = process_audit_queue()
+        logger.info("flush_audit_queue completed result=%s", result)
+        return result
+    except Exception as exc:
+        logger.warning(
+            "flush_audit_queue failed error=%s",
+            exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="backend.app.tasks.periodic.cleanup_audit_trail",
+    max_retries=1,
+)
+def cleanup_audit_trail(self):
+    """Daily cleanup of old audit trail entries.
+
+    Deletes audit entries older than the configured retention period
+    (default 365 days) for all tenants. Operates in batches to avoid
+    long-running database transactions.
+
+    BC-001: Operates across all tenants (no company_id filter).
+    BC-004: Runs daily at 03:00 UTC via Celery Beat.
+    """
+    try:
+        from backend.app.services.audit_service import cleanup_old_audit_entries
+
+        deleted = cleanup_old_audit_entries()
+        logger.info(
+            "cleanup_audit_trail completed deleted=%d",
+            deleted,
+        )
+        return {"status": "ok", "deleted": deleted}
+    except Exception as exc:
+        logger.warning(
+            "cleanup_audit_trail failed error=%s",
+            exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
