@@ -309,3 +309,97 @@ def get_connected_count() -> int:
         Number of active connections (best-effort estimate).
     """
     return len(sio.manager.get_participants("/", None))
+
+
+def register_business_handlers() -> None:
+    """Register business event handlers on the Socket.io server.
+
+    These handlers are called when clients SEND events to the server.
+    They validate event types against the registry and manage
+    client-side event subscriptions.
+
+    BC-001: All handlers enforce tenant isolation.
+    BC-005: Subscription management for targeted event delivery.
+    """
+
+    @sio.on("event:subscribe")
+    async def handle_event_subscribe(sid, data):
+        """Client subscribes to specific event types.
+
+        Validates requested event types against the registry
+        and stores valid subscriptions in the session.
+        """
+        try:
+            session = await sio.get_session(sid)
+            company_id = session.get("company_id")
+            if not company_id:
+                return {"error": "unauthenticated"}
+
+            event_types = data.get("event_types", []) if data else []
+            registry = None
+            try:
+                from backend.app.core.events import get_event_registry
+                registry = get_event_registry()
+            except Exception:
+                pass
+
+            valid_types = []
+            for et in event_types:
+                if registry and registry.get(et):
+                    valid_types.append(et)
+
+            session["subscriptions"] = valid_types
+            await sio.save_session(sid, session)
+
+            logger.info(
+                "event_subscribed",
+                sid=sid,
+                company_id=company_id,
+                subscriptions=valid_types,
+            )
+            return {"subscribed": valid_types}
+        except Exception as exc:
+            logger.warning(
+                "event_subscribe_error", sid=sid, error=str(exc)
+            )
+            return {"error": "subscription_failed"}
+
+    @sio.on("event:unsubscribe")
+    async def handle_event_unsubscribe(sid, data):
+        """Client unsubscribes from specific event types."""
+        try:
+            session = await sio.get_session(sid)
+            event_types = data.get("event_types", []) if data else []
+            current = session.get("subscriptions", [])
+            session["subscriptions"] = [
+                t for t in current if t not in event_types
+            ]
+            await sio.save_session(sid, session)
+
+            logger.info(
+                "event_unsubscribed",
+                sid=sid,
+                event_types=event_types,
+            )
+            return {"unsubscribed": event_types}
+        except Exception as exc:
+            logger.warning(
+                "event_unsubscribe_error", sid=sid, error=str(exc)
+            )
+            return {"error": "unsubscription_failed"}
+
+    @sio.on("ping")
+    async def handle_ping(sid):
+        """Client heartbeat ping — respond with pong and server time."""
+        import time as _time
+        return {
+            "pong": True,
+            "server_time": _time.time(),
+        }
+
+
+# Auto-register business handlers when module is imported
+try:
+    register_business_handlers()
+except Exception:
+    pass  # Don't fail imports if Socket.io not ready
