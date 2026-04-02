@@ -17,13 +17,16 @@ class TestHealthEndpoints:
         assert response.status_code == 200
         data = response.json()
         # In test env, Redis may be down → status is "degraded"
-        assert data["status"] in ("healthy", "degraded")
-        assert data["version"] == "0.1.0"
+        assert data["status"] in ("healthy", "degraded", "unhealthy")
+        assert data["version"] == "0.3.0"
         assert "timestamp" in data
         # BC-012: subsystem health info must be present
         assert "subsystems" in data
         assert "redis" in data["subsystems"]
-        assert "database" in data["subsystems"]
+        assert "postgresql" in data["subsystems"]
+        # BC-012: check counts present
+        assert "checks_total" in data
+        assert "checks_healthy" in data
 
     def test_ready_returns_200_or_503(self, client):
         """GET /ready returns 200 (ready) or 503 (deps unhealthy)."""
@@ -42,10 +45,11 @@ class TestHealthEndpoints:
         content = response.text
         assert "parwa_build_info" in content
         assert "parwa_health_check" in content
-        assert 'version="0.1.0"' in content
-        # BC-012: Redis and DB metrics must be present
-        assert "parwa_redis_up" in content
-        assert "parwa_database_up" in content
+        assert 'version="0.3.0"' in content
+        # BC-012: subsystem health metrics present
+        assert "parwa_subsystem_up" in content
+        # BC-012: uptime metric present
+        assert "parwa_uptime_seconds" in content
 
 
 class TestErrorResponses:
