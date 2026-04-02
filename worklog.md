@@ -496,3 +496,35 @@ Stage Summary:
 - BC-003: HMAC verification, idempotency, async processing framework ready
 - BC-011: constant-time comparison (hmac.compare_digest), fail-closed
 - BC-012: structured JSON errors for IP block, no stack traces
+---
+Task ID: 1
+Agent: Super Z (main)
+Task: Day 15 — Webhook framework hardening (BC-003) + HMAC verification + IP allowlist
+
+Work Log:
+- Read roadmap, gap analysis, and all existing code (webhooks.py, webhook_service.py, hmac_verification.py, ip_allowlist.py, config.py, webhook_tasks.py)
+- Identified 13 loopholes across 5 files (L27-L39)
+- Fixed CRITICAL Shopify NameError (verify_shopify_signature → verify_shopify_hmac)
+- Fixed idempotency race condition (pending events now returned as duplicates)
+- Fixed retry logic (max 5 attempts, only failed events retryable)
+- Added payload size validation (1MB max, 413 response)
+- Added provider and event_type validation (blocks arbitrary strings)
+- Fixed error message truncation to 500 chars
+- Consolidated duplicate HMAC files (core/hmac_verify.py → re-export from security/hmac_verification.py)
+- Added SHOPIFY_WEBHOOK_SECRET to config
+- Fixed all logger.warning/error calls from kwargs to %s formatting
+- Added comprehensive logging to IP allowlist middleware
+- Fixed datetime.utcnow() → datetime.now(timezone.utc)
+- Added 40 new Day 15 loophole tests
+- Fixed 3 existing tests broken by new validations
+- Full test suite: 1246 passed (1224 unit + 22 integration)
+- Committed as: Day 15: Webhook framework hardening — 13 loophole fixes (L27-L39)
+
+Stage Summary:
+- 13 loopholes fixed (L27-L39)
+- 40 new tests added (test_day15_loopholes.py)
+- Total test count: 1246 (up from ~1208)
+- Git commit: 765d903
+- Files modified: webhooks.py, webhook_service.py, ip_allowlist.py, hmac_verification.py, hmac_verify.py, config.py
+- Files created: test_day15_loopholes.py
+- Day 15 COMPLETE — ready for Day 16 (Celery DLQ + Beat + Health wire-up)

@@ -314,6 +314,17 @@ async def health_check():
     except Exception:
         db_status = "unreachable"
 
+    # Day 16: Check Celery broker health (BC-004)
+    celery_status = "unknown"
+    try:
+        from backend.app.tasks.celery_health import (
+            celery_health_check,
+        )
+        celery_info = await celery_health_check()
+        celery_status = celery_info["status"]
+    except Exception:
+        celery_status = "unreachable"
+
     healthy = (
         redis_status == "healthy" and db_status == "healthy"
     )
@@ -326,6 +337,7 @@ async def health_check():
         "subsystems": {
             "redis": {"status": redis_status},
             "database": {"status": db_status},
+            "celery": {"status": celery_status},
         },
     }
 
@@ -357,6 +369,17 @@ async def readiness_check():
     except Exception:
         db_ok = False
 
+    # Day 16: Check Celery broker (non-critical for app startup)
+    celery_ok = False
+    try:
+        from backend.app.tasks.celery_health import (
+            celery_health_check,
+        )
+        celery_info = await celery_health_check()
+        celery_ok = celery_info["status"] == "healthy"
+    except Exception:
+        celery_ok = False
+
     if not redis_ok or not db_ok:
         return JSONResponse(
             status_code=503,
@@ -365,6 +388,7 @@ async def readiness_check():
                 "subsystems": {
                     "redis": {"status": "ready" if redis_ok else "unhealthy"},
                     "database": {"status": "ready" if db_ok else "unhealthy"},
+                    "celery": {"status": "ready" if celery_ok else "unhealthy"},
                 },
             },
         )
@@ -374,6 +398,7 @@ async def readiness_check():
         "subsystems": {
             "redis": {"status": "ready"},
             "database": {"status": "ready"},
+            "celery": {"status": "ready" if celery_ok else "no_workers"},
         },
     }
 
