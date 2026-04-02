@@ -44,6 +44,7 @@ class ParwaTask(Task):
 
     def on_retry(self, exc, traceback, eta):
         """Log retry event with structured context (BC-012)."""
+        # FIX L43: Truncate error message (consistent with on_failure)
         logger.warning(
             "task_retry",
             extra={
@@ -53,7 +54,7 @@ class ParwaTask(Task):
                 "max_retries": self.max_retries,
                 "eta": str(eta) if eta else None,
                 "error_type": type(exc).__name__,
-                "error_message": str(exc),
+                "error_message": str(exc)[:500],
             },
         )
 
