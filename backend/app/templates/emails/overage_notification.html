@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>Usage Overage Notification</h2>
+<p>Hi {{ user_name }},</p>
+<p>Your PARWA account has exceeded its current plan's usage limits.
+Additional charges may apply for the excess usage detailed below.</p>
+<p><strong>Usage Summary:</strong></p>
+<ul>
+<li>Plan: {{ plan_name }}</li>
+<li>Billing Period: {{ billing_period }}</li>
+<li>AI Conversations Used: {{ ai_conversations_used }} of {{ ai_conversations_limit }}</li>
+<li>Active Users: {{ active_users }} of {{ user_limit }}</li>
+</ul>
+<p><strong>Overage Charges:</strong></p>
+<table style="width:100%;border-collapse:collapse;font-size:14px">
+<tr style="background:#f8f9fa">
+<th style="padding:10px;text-align:left;border-bottom:1px solid #ddd">Usage Type</th>
+<th style="padding:10px;text-align:right;border-bottom:1px solid #ddd">Overage</th>
+<th style="padding:10px;text-align:right;border-bottom:1px solid #ddd">Charge</th>
+</tr>
+{% for charge in overage_charges %}
+<tr>
+<td style="padding:10px;border-bottom:1px solid #eee">{{ charge.type }}</td>
+<td style="padding:10px;text-align:right;border-bottom:1px solid #eee">{{ charge.usage }}</td>
+<td style="padding:10px;text-align:right;border-bottom:1px solid #eee">{{ charge.amount }}</td>
+</tr>
+{% endfor %}
+</table>
+<p><strong>Total Overage: {{ total_overage_amount }}</strong></p>
+<p>To avoid future overage charges, consider upgrading your plan.</p>
+<p style="text-align:center">
+<a href="{{ billing_url }}" class="btn">
+View Billing Details
+</a>
+</p>
+<p style="color:#999;font-size:14px">
+If you have questions about your usage or charges, contact our support team.
+</p>
+{% endblock %}

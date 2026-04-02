@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>Approval Required</h2>
+<p>Hi {{ user_name }},</p>
+<p>An action requires your approval before it can proceed. Please
+review the details below and approve or reject at your earliest
+convenience.</p>
+<p><strong>Approval Details:</strong></p>
+<ul>
+<li>Request ID: {{ approval_id }}</li>
+<li>Action: {{ action_type }}</li>
+<li>Requested by: {{ requester_name }}</li>
+<li>Submitted at: {{ submitted_at }}</li>
+</ul>
+<p><strong>Summary:</strong></p>
+<div style="background:#f8f9fa;padding:15px;border-radius:6px">
+{{ action_summary }}
+</div>
+<p style="color:#e53935;font-weight:600">
+This approval will expire in <strong>72 hours</strong> if no action is taken.
+</p>
+<p style="text-align:center">
+<a href="{{ approval_url }}" class="btn">
+Review and Approve
+</a>
+</p>
+<p style="color:#999;font-size:14px">
+If the button doesn't work, copy and paste this URL:<br>
+{{ approval_url }}
+</p>
+{% endblock %}

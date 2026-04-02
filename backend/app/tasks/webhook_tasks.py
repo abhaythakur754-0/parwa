@@ -48,23 +48,20 @@ def process_webhook_event(
 
         event = get_webhook_event(event_db_id)
 
-        # Dispatch to provider-specific handler
+        # Dispatch to provider-specific handler via registry
+        from backend.app.webhooks import dispatch_event
+
         provider = event.get("provider", "")
-        if provider == "paddle":
-            _process_paddle_event(event)
-        elif provider == "twilio":
-            _process_twilio_event(event)
-        elif provider == "brevo":
-            _process_brevo_event(event)
-        elif provider == "shopify":
-            _process_shopify_event(event)
-        else:
-            logger.warning(
-                "webhook_unknown_provider",
-                provider=provider,
-                event_db_id=event_db_id,
-                company_id=company_id,
-            )
+        result = dispatch_event(provider, event)
+        logger.info(
+            "webhook_dispatched provider=%s status=%s",
+            provider,
+            result.get("status"),
+            extra={
+                "event_db_id": event_db_id,
+                "company_id": company_id,
+            },
+        )
 
         mark_webhook_processed(
             event_db_id, status="processed",
@@ -111,7 +108,8 @@ def process_paddle_webhook(
         )
 
         event = get_webhook_event(event_db_id)
-        _process_paddle_event(event)
+        from backend.app.webhooks import dispatch_event
+        dispatch_event("paddle", event)
         mark_webhook_processed(
             event_db_id, status="processed",
         )
@@ -157,7 +155,8 @@ def process_twilio_webhook(
         )
 
         event = get_webhook_event(event_db_id)
-        _process_twilio_event(event)
+        from backend.app.webhooks import dispatch_event
+        dispatch_event("twilio", event)
         mark_webhook_processed(
             event_db_id, status="processed",
         )
@@ -203,7 +202,8 @@ def process_brevo_webhook(
         )
 
         event = get_webhook_event(event_db_id)
-        _process_brevo_event(event)
+        from backend.app.webhooks import dispatch_event
+        dispatch_event("brevo", event)
         mark_webhook_processed(
             event_db_id, status="processed",
         )
@@ -249,7 +249,8 @@ def process_shopify_webhook(
         )
 
         event = get_webhook_event(event_db_id)
-        _process_shopify_event(event)
+        from backend.app.webhooks import dispatch_event
+        dispatch_event("shopify", event)
         mark_webhook_processed(
             event_db_id, status="processed",
         )
@@ -272,68 +273,10 @@ def process_shopify_webhook(
             pass
 
 
-# ── Provider-specific event handlers (BC-003) ──────────────
-
-
-def _process_paddle_event(event: dict):
-    """Handle Paddle event types.
-
-    Placeholder — actual business logic will be implemented
-    in Week 5 (F-020 to F-027).
-    """
-    event_type = event.get("event_type", "")
-    logger.info(
-        "webhook_paddle_processed",
-        event_id=event.get("event_id"),
-        event_type=event_type,
-        company_id=event.get("company_id"),
-    )
-    # Week 5 will add:
-    # subscription.created -> create subscription record
-    # payment.succeeded -> create invoice
-    # subscription.cancelled -> cancel subscription
-
-
-def _process_twilio_event(event: dict):
-    """Handle Twilio SMS/voice event types.
-
-    Placeholder — actual business logic will be implemented
-    in Week 13 (F-126, F-127).
-    """
-    event_type = event.get("event_type", "")
-    logger.info(
-        "webhook_twilio_processed",
-        event_id=event.get("event_id"),
-        event_type=event_type,
-        company_id=event.get("company_id"),
-    )
-
-
-def _process_brevo_event(event: dict):
-    """Handle Brevo inbound email event types.
-
-    Placeholder — actual business logic will be implemented
-    in Week 6 (F-120 to F-124).
-    """
-    event_type = event.get("event_type", "")
-    logger.info(
-        "webhook_brevo_processed",
-        event_id=event.get("event_id"),
-        event_type=event_type,
-        company_id=event.get("company_id"),
-    )
-
-
-def _process_shopify_event(event: dict):
-    """Handle Shopify order event types.
-
-    Placeholder — actual business logic will be implemented
-    in Week 17 (F-131).
-    """
-    event_type = event.get("event_type", "")
-    logger.info(
-        "webhook_shopify_processed",
-        event_id=event.get("event_id"),
-        event_type=event_type,
-        company_id=event.get("company_id"),
-    )
+# ── Provider handlers now use registry (Day 23) ──────────
+# Import handlers to register them with the registry.
+# Actual processing is in backend.app.webhooks.{provider}_handler
+import backend.app.webhooks.paddle_handler  # noqa: E402, F401
+import backend.app.webhooks.brevo_handler  # noqa: E402, F401
+import backend.app.webhooks.twilio_handler  # noqa: E402, F401
+import backend.app.webhooks.shopify_handler  # noqa: E402, F401

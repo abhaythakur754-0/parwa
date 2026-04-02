@@ -48,61 +48,61 @@ These infrastructure items were built in Week 1 (Day 6 fixes) to unblock future 
 > These are the TRUE Week 3 gaps from the Build Roadmap.
 > Days 15-18 were infrastructure hardening overflow from Weeks 1-2.
 
-### GAP 1.1: Socket.io Business Event System
-- [ ] Event type registry (enum/class) with all event types defined
-- [ ] Event payload schemas (Pydantic) for each event type
-- [ ] High-level emit helpers (emit_ticket_event, emit_ai_event, emit_approval_event, etc.)
-- [ ] Business event handlers registered on Socket.io server
-- [ ] Async event emission Celery task for fan-out
-- [ ] Event rate limiting per tenant (max 100 events/sec)
-- [ ] Event payload size validation (max 10KB)
-- [ ] Integration tests for emit → handler → room broadcast flow
-- [ ] Tests: ~70 new
+### GAP 1.1: Socket.io Business Event System ✅ Day 19
+- [x] Event type registry (enum/class) with all event types defined
+- [x] Event payload schemas (Pydantic) for each event type
+- [x] High-level emit helpers (emit_ticket_event, emit_ai_event, emit_approval_event, etc.)
+- [x] Business event handlers registered on Socket.io server
+- [x] Async event emission Celery task for fan-out
+- [x] Event rate limiting per tenant (max 100 events/sec)
+- [x] Event payload size validation (max 10KB)
+- [x] Integration tests for emit → handler → room broadcast flow
+- [x] Tests: 95 new
 
-### GAP 1.2: Multi-Tenant Middleware Hardening (BC-001)
-- [ ] Auto-inject company_id into ALL SQLAlchemy queries via session events
-- [ ] Explicit opt-out mechanism with @bypass_tenant for admin/system queries
-- [ ] Tenant context propagation to Celery tasks (company_id in task headers)
-- [ ] Redis key enforcement — all operations MUST use make_key(), reject raw keys
-- [ ] API key auth also enforces tenant isolation (not just JWT)
-- [ ] Integration test: API → middleware → DB → Celery → Redis, all tenant-scoped
-- [ ] Tests: ~55 new
+### GAP 1.2: Multi-Tenant Middleware Hardening (BC-001) ✅ Day 20
+- [x] Auto-inject company_id into ALL SQLAlchemy queries via session events
+- [x] Explicit opt-out mechanism with @bypass_tenant for admin/system queries
+- [x] Tenant context propagation to Celery tasks (company_id in task headers)
+- [x] Redis key enforcement — all operations MUST use make_key(), reject raw keys
+- [x] API key auth also enforces tenant isolation (not just JWT)
+- [x] Integration test: API → middleware → DB → Celery → Redis, all tenant-scoped
+- [x] Tests: 81 new
 
-### GAP 1.3: Health Check System + Monitoring Config (BC-012)
-- [ ] Health check orchestrator with dependency graph (degraded vs down)
-- [ ] Per-subsystem health: PostgreSQL, Redis, Celery, Socket.io, Disk Space
-- [ ] Per-queue Celery health: depth check for all 7 queues
-- [ ] External API health probes: Paddle, Brevo, Twilio (connectivity only)
-- [ ] Prometheus metrics endpoint (/metrics) with counters, histograms, gauges
-- [ ] Detailed health endpoint (/health/detail) with latency info
-- [ ] `monitoring/prometheus.yml` — Prometheus scrape config (MISSING — docker-compose will crash)
-- [ ] `monitoring/grafana_dashboards/` — At least 3 dashboard JSON files (MISSING — docker-compose will crash)
-- [ ] `monitoring/alerting/rules.yml` — Alertmanager rules
-- [ ] Tests: ~65 new
+### GAP 1.3: Health Check System + Monitoring Config (BC-012) ✅ Day 21
+- [x] Health check orchestrator with dependency graph (degraded vs down)
+- [x] Per-subsystem health: PostgreSQL, Redis, Celery, Socket.io, Disk Space
+- [x] Per-queue Celery health: depth check for all 7 queues
+- [x] External API health probes: Paddle, Brevo, Twilio (connectivity only)
+- [x] Prometheus metrics endpoint (/metrics) with counters, histograms, gauges
+- [x] Detailed health endpoint (/health/detail) with latency info
+- [x] `monitoring/prometheus.yml` — Prometheus scrape config
+- [x] `monitoring/grafana_dashboards/` — 3 dashboard JSON files
+- [x] `monitoring/alerting/rules.yml` — Alertmanager rules
+- [x] Tests: 112 new
 
-### GAP 1.4: Celery Task Modules for All 7 Queues
-- [ ] `email_tasks.py` — send_email_task, render_template_task, send_bulk_notification_task
-- [ ] `analytics_tasks.py` — aggregate_metrics, calculate_roi, drift_detection
-- [ ] `ai_tasks.py` — classify_ticket (light), generate_response (heavy), score_confidence (light)
-- [ ] `training_tasks.py` — prepare_dataset, check_mistake_threshold, schedule_training
-- [ ] `approval_tasks.py` — timeout_check, reminder_dispatch, batch_approval
-- [ ] `billing_tasks.py` — daily_overage_charge, invoice_sync, subscription_check
-- [ ] New Beat schedule entries: approval timeout (15min), reminders (30min), overage (daily 02:00), drift (daily 03:00), metrics (5min), training check (hourly)
-- [ ] All tasks follow BC-004 pattern (company_id, retry, DLQ, idempotency)
-- [ ] Tests: ~120 new
+### GAP 1.4: Celery Task Modules for All 7 Queues ✅ Day 22
+- [x] `email_tasks.py` — send_email, render_template, send_bulk_notification
+- [x] `analytics_tasks.py` — aggregate_metrics, calculate_roi, drift_detection
+- [x] `ai_tasks.py` — classify_ticket (light), generate_response (heavy), score_confidence (light)
+- [x] `training_tasks.py` — prepare_dataset, check_mistake_threshold, schedule_training
+- [x] `approval_tasks.py` — approval_timeout_check, approval_reminder, batch_process
+- [x] `billing_tasks.py` — daily_overage_charge, invoice_sync, subscription_check
+- [x] New Beat schedule entries: approval timeout (15min), reminders (30min), overage (daily 02:00), drift (daily 03:00), metrics (5min), training check (hourly)
+- [x] All tasks follow BC-004 pattern (company_id, retry, DLQ, idempotency)
+- [x] Tests: 270 new
 
-### GAP 1.5: Webhook Provider Handlers + Email Templates + Cleanup
-- [ ] `webhooks/paddle_handler.py` — subscription.created/updated/cancelled, payment.succeeded/failed
-- [ ] `webhooks/brevo_handler.py` — inbound_email parse → ticket creation
-- [ ] `webhooks/twilio_handler.py` — sms.incoming, voice.call.started/ended
-- [ ] `webhooks/shopify_handler.py` — orders.create, customers.create
-- [ ] 6 additional email templates: welcome, mfa_enabled, session_revoked, api_key_created, approval_notification, overage_notification
-- [ ] `AGENT_COMMS.md` — Inter-agent communication log
-- [ ] `ERROR_LOG.md` — Error tracking log
-- [ ] `PROJECT_STATE.md` — Live project state memory
-- [ ] Delete stale `infra/docker/docker-compose.prod.yml`
-- [ ] Delete stale `infra/docker/.env.example`
-- [ ] Tests: ~70 new
+### GAP 1.5: Webhook Provider Handlers + Email Templates + Cleanup ✅ Day 23
+- [x] `webhooks/paddle_handler.py` — subscription.created/updated/cancelled, payment.succeeded/failed
+- [x] `webhooks/brevo_handler.py` — inbound_email parse → ticket creation
+- [x] `webhooks/twilio_handler.py` — sms.incoming, voice.call.started/ended
+- [x] `webhooks/shopify_handler.py` — orders.create, customers.create
+- [x] 6 additional email templates: welcome, mfa_enabled, session_revoked, api_key_created, approval_notification, overage_notification
+- [x] `AGENT_COMMS.md` — Inter-agent communication log
+- [x] `ERROR_LOG.md` — Error tracking log
+- [x] `PROJECT_STATE.md` — Live project state memory
+- [x] Delete stale `infra/docker/docker-compose.prod.yml`
+- [x] Delete stale `infra/docker/.env.example`
+- [x] Tests: ~80 new
 
 ---
 
@@ -348,8 +348,8 @@ These infrastructure items were built in Week 1 (Day 6 fixes) to unblock future 
 - [ ] DC4: `sessions` table rename to `support_sessions`? (awaiting user confirmation)
 
 ### Stale Config Files (Found in Pre-Week 3 Audit)
-- [ ] Delete `infra/docker/docker-compose.prod.yml` (stale, conflicts with root version)
-- [ ] Delete `infra/docker/.env.example` (stale, references OPENAI/SENDGRID/ANTHROPIC)
+- [x] Delete `infra/docker/docker-compose.prod.yml` (stale, conflicts with root version) ✅ Day 23
+- [x] Delete `infra/docker/.env.example` (stale, references OPENAI/SENDGRID/ANTHROPIC) ✅ Day 23
 - [ ] DC2: Some docs say `tenant_id` vs `company_id` -> standardize to company_id (deferred — requires doc edits in /documents/)
 
 ### CI/CD Gaps
@@ -398,6 +398,6 @@ These infrastructure items were built in Week 1 (Day 6 fixes) to unblock future 
 |--------|-------|
 | Total gaps tracked | 170+ items across 21 weeks |
 | Week 1-2 gaps | All 24 resolved ✅ |
-| Week 3 gaps | 47 items (5 categories) — IN PROGRESS |
+| Week 3 gaps | 47 items (5 categories) — ALL DONE ✅ |
 | Week 4-21 gaps | 120+ items — FUTURE |
 | Cross-phase infra gaps | 15 items — ONGOING |
