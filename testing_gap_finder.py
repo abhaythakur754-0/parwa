@@ -128,6 +128,35 @@ DAY_FILES = {
             "backend/app/api/sla.py",
             "backend/app/tasks/sla_tasks.py",
         ]
+    },
+    30: {
+        "name": "Omnichannel + Customer Identity Resolution",
+        "files": [
+            "backend/app/services/channel_service.py",
+            "backend/app/services/customer_service.py",
+            "backend/app/services/identity_resolution_service.py",
+            "backend/app/api/channels.py",
+            "backend/app/api/customers.py",
+        ]
+    },
+    31: {
+        "name": "Notification System + Email Templates",
+        "files": [
+            "backend/app/services/notification_service.py",
+            "backend/app/services/notification_template_service.py",
+            "backend/app/services/notification_preference_service.py",
+            "backend/app/api/notifications.py",
+            "backend/app/tasks/notification_tasks.py",
+        ]
+    },
+    32: {
+        "name": "Production Situation Handlers + Ticket State Machine",
+        "files": [
+            "backend/app/services/ticket_state_machine.py",
+            "backend/app/services/ticket_lifecycle_service.py",
+            "backend/app/api/ticket_lifecycle.py",
+            "backend/app/tasks/ticket_lifecycle_tasks.py",
+        ]
     }
 }
 
@@ -138,7 +167,10 @@ DAY_DESCRIPTIONS = {
     26: "Day 26: Ticket CRUD Service + REST API - create, read, update, delete tickets with SLA tracking, auto-assignment, mentions parsing, and merge operations.",
     27: "Day 27: Ticket Conversation + Internal Notes - message CRUD with edit window, thread management, internal notes with pinning, activity timeline tracking for all ticket changes.",
     28: "Day 28: Ticket Search + Classification + Assignment - Full-text search with fuzzy matching and suggestions, rule-based intent/urgency classification with human correction workflow, score-based auto-assignment with rules engine.",
-    29: "Day 29: Bulk Actions + Merge/Split + SLA System - Bulk operations on tickets with undo capability, ticket merging with message transfer and unmerge support, SLA policy management with timer tracking and breach detection."
+    29: "Day 29: Bulk Actions + Merge/Split + SLA System - Bulk operations on tickets with undo capability, ticket merging with message transfer and unmerge support, SLA policy management with timer tracking and breach detection.",
+    30: "Day 30: Omnichannel + Customer Identity Resolution (F-052, F-070) - Channel configuration with PS13 variant down handling, customer CRUD with channel linking, identity resolution with confidence scoring and PS14 grandfathered tickets.",
+    31: "Day 31: Notification System + Email Templates (MF05) - Notification dispatch with PS03/PS10 handlers, template CRUD with variable validation, user preferences with priority thresholds and digest settings.",
+    32: "Day 32: Production Situation Handlers + Ticket State Machine (PS01-PS15) - State transitions with validation, lifecycle automation, human fallback routing, incident subscriber notifications."
 }
 
 
