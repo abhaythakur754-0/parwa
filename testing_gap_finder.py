@@ -116,6 +116,18 @@ DAY_FILES = {
             "backend/app/api/ticket_assignment.py",
             "backend/app/tasks/ticket_tasks.py",
         ]
+    },
+    29: {
+        "name": "Bulk Actions + Merge/Split + SLA System",
+        "files": [
+            "backend/app/services/bulk_action_service.py",
+            "backend/app/services/ticket_merge_service.py",
+            "backend/app/services/sla_service.py",
+            "backend/app/api/ticket_bulk.py",
+            "backend/app/api/ticket_merge.py",
+            "backend/app/api/sla.py",
+            "backend/app/tasks/sla_tasks.py",
+        ]
     }
 }
 
@@ -125,7 +137,8 @@ DAY_DESCRIPTIONS = {
     25: "Day 25: Business logic layer - service classes that orchestrate database operations.",
     26: "Day 26: Ticket CRUD Service + REST API - create, read, update, delete tickets with SLA tracking, auto-assignment, mentions parsing, and merge operations.",
     27: "Day 27: Ticket Conversation + Internal Notes - message CRUD with edit window, thread management, internal notes with pinning, activity timeline tracking for all ticket changes.",
-    28: "Day 28: Ticket Search + Classification + Assignment - Full-text search with fuzzy matching and suggestions, rule-based intent/urgency classification with human correction workflow, score-based auto-assignment with rules engine."
+    28: "Day 28: Ticket Search + Classification + Assignment - Full-text search with fuzzy matching and suggestions, rule-based intent/urgency classification with human correction workflow, score-based auto-assignment with rules engine.",
+    29: "Day 29: Bulk Actions + Merge/Split + SLA System - Bulk operations on tickets with undo capability, ticket merging with message transfer and unmerge support, SLA policy management with timer tracking and breach detection."
 }
 
 
