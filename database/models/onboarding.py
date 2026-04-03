@@ -105,8 +105,14 @@ class KnowledgeDocument(Base):
     file_type = Column(String(50))
     file_size = Column(Integer)
     category = Column(String(100))
-    status = Column(String(50), default="processing")
+    status = Column(String(50), default="processing")  # processing, completed, failed
     chunk_count = Column(Integer, default=0)
+
+    # GAP 6: Failed document handling
+    error_message = Column(Text, nullable=True)  # Error message if processing failed
+    retry_count = Column(Integer, default=0)  # Number of retry attempts
+    failed_at = Column(DateTime, nullable=True)  # When the last failure occurred
+
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
