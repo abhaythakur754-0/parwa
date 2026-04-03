@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block body %}
+<h2 style="margin:0 0 20px;color:#d32f2f">Payment Failed</h2>
+
+<p>Hi {{ company_name }},</p>
+
+<p>Your payment of <strong>${{ amount }}</strong> for PARWA <strong>{{ variant }}</strong> has failed.</p>
+
+<div style="background:#fff3e0;padding:15px;border-radius:6px;margin:20px 0">
+    <p style="margin:0 0 10px"><strong>Reason:</strong> {{ failure_reason }}</p>
+    <p style="margin:0"><strong>Transaction ID:</strong> {{ transaction_id }}</p>
+</div>
+
+<p style="color:#d32f2f;font-weight:600">Your service has been paused.</p>
+
+<p>To resume your PARWA service, please update your payment method:</p>
+
+<p style="text-align:center;margin:30px 0">
+    <a href="{{ update_payment_url }}" class="btn" style="background:#d32f2f">Update Payment Method</a>
+</p>
+
+<p>You won't be charged until your payment method is updated and the next billing cycle begins.</p>
+
+<p>If you have any questions, please contact our support team.</p>
+
+<p>Best regards,<br>
+PARWA Support Team</p>
+{% endblock %}

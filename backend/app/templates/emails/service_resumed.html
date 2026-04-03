@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block body %}
+<h2 style="margin:0 0 20px;color:#2e7d32">Service Resumed</h2>
+
+<p>Hi {{ company_name }},</p>
+
+<p>Great news! Your payment has been processed successfully and your PARWA service has been resumed.</p>
+
+<div style="background:#e8f5e9;padding:15px;border-radius:6px;margin:20px 0">
+    <p style="margin:0 0 10px"><strong>Transaction ID:</strong> {{ transaction_id }}</p>
+    <p style="margin:0"><strong>Amount:</strong> ${{ amount }} {{ currency }}</p>
+</div>
+
+<p style="color:#2e7d32;font-weight:600">Your PARWA service is now fully active.</p>
+
+<p>All your AI agents are back online and your tickets have been unfrozen. You can continue using PARWA without any interruption.</p>
+
+<p>If you have any questions, please contact our support team.</p>
+
+<p>Best regards,<br>
+PARWA Support Team</p>
+{% endblock %}
