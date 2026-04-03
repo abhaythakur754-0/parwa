@@ -645,79 +645,94 @@ Stage Summary:
 - Day 27 COMPLETE
 
 ---
-Task ID: w5d1-gap-finder
-Agent: Super Z (main)
-Task: Week 5 Day 1 — Gap Finder Tool + W5D1 Gap Analysis
+Task ID: d28-build
+Agent: Main Agent
+Task: Day 28 — Ticket Search + Classification + Assignment (F-048, F-049, F-050)
 
 Work Log:
-- Created reusable gap finder tool at scripts/gap_finder.py
-- Ran gap analysis on W5D1 billing code
-- Found 5 gaps requiring additional tests
-- Created test_w5d1_billing_gaps.py with 40 tests
+- Created backend/app/services/ticket_search_service.py: Full-text search with fuzzy matching, suggestions, recent searches in Redis
+- Created backend/app/services/classification_service.py: Rule-based intent/urgency classification with human correction workflow
+- Created backend/app/services/assignment_service.py: Score-based auto-assignment with rules engine
+- Created backend/app/api/ticket_search.py: Search API endpoints (GET/POST /search, suggestions, recent searches, similar tickets)
+- Created backend/app/api/ticket_classification.py: Classification API endpoints (classify, corrections, stats)
+- Created backend/app/api/ticket_assignment.py: Assignment API endpoints (auto-assign, manual assign, rules management)
+- Created backend/app/tasks/ticket_tasks.py: Ticket Celery tasks (classify_ticket, auto_assign_ticket, check_duplicate_ticket, index_ticket_for_search)
+- Updated testing_gap_finder.py with Day 28 file mappings
+- Created tests/unit/test_day28_services.py with 55 comprehensive tests
+- Fixed SQLAlchemy case() usage (import from sqlalchemy instead of func.case)
+- Fixed Company model usage (required industry and subscription_tier fields)
+- Fixed User model usage (full_name instead of name, password_hash required)
+- Fixed ClassificationCorrection.corrected_by NOT NULL constraint
+- Fixed tenant isolation in assignment service (cross-tenant user check)
 
 Stage Summary:
-- Gap finder created and tested
-- 78 W5D1 tests passing
-- Total project tests: 2,882
-- Git commit: 3679aef pushed to GitHub main
-- Tool ready for reuse on W5D2-W5D6
-
+- 55 Day 28 tests passing
+- Total tests: 3333 (from 3278)
+- BC-001: All services properly tenant-isolated via company_id
+- Commit: 2a093ee pushed to GitHub main
+- Files created: 7 (3 services, 3 APIs, 1 tasks file)
+- Files modified: 2 (testing_gap_finder.py, worklog.md)
+- Day 28 COMPLETE
 ---
-Task ID: w5d2-build
+Task ID: d29-build
 Agent: Super Z (main)
-Task: Week 5 Day 2 — Subscription Service + Proration (F-021, F-025, F-026)
+Task: Day 29 — Bulk Actions + Merge/Split + SLA System (F-051, MF06, PS11, PS17)
 
 Work Log:
-- Created backend/app/services/subscription_service.py: Full subscription lifecycle
-  - create_subscription(): Create new subscription for company (all 3 variants)
-  - get_subscription(): Retrieve subscription details
-  - upgrade_subscription(): Immediate upgrade with proration calculation
-  - downgrade_subscription(): Scheduled for next billing cycle
-  - cancel_subscription(): Netflix-style cancellation (access until period end)
-  - reactivate_subscription(): Undo pending cancellation
-  - _calculate_proration(): BC-002 compliant Decimal calculations
-  - _is_upgrade(): Variant tier comparison logic
-- Created backend/app/services/proration_service.py: Proration calculations
-  - calculate_upgrade_proration(): Full proration with billing period
-  - apply_proration_credit(): Create audit record in database
-  - get_proration_audit_log(): History retrieval
-  - calculate_first_day_proration(): Edge case - full credit
-  - calculate_last_day_proration(): Edge case - no credit
-  - calculate_mid_month_proration(): Convenience method
-  - estimate_upgrade_cost(): Quick preview before committing
-- Created backend/app/api/billing.py: Billing API routes
-  - GET /subscription: Get current subscription
-  - POST /subscription: Create new subscription
-  - PATCH /subscription: Upgrade/downgrade
-  - DELETE /subscription: Cancel subscription
-  - POST /subscription/reactivate: Undo cancellation
-  - POST /proration/preview: Preview upgrade cost
-  - GET /proration/history: Audit trail
-  - GET /status: Billing status summary
-- Added MessageResponse schema to billing.py schemas
-- Updated Company model in core.py with billing relationships (client_refunds, payment_methods, usage_records, proration_audits, payment_failures)
-- Created 64 new tests across 3 test files:
-  - test_subscription_service.py: 22 tests (creation, retrieval, upgrade, downgrade, cancel, reactivate, prices, isolation, precision)
-  - test_proration_service.py: 25 tests (calculation, validation, edge cases, estimates, audit, precision, validation)
-  - test_billing_api.py: 17 tests (all API endpoints, error handling)
-- All 142 billing-related tests passing
-
-Phase B Loophole Check — via Gap Finder:
-- 5 gaps identified by AI gap finder:
-  1. CRITICAL: Subscription state machine race condition (concurrent webhooks)
-  2. HIGH: Webhook replay attack vulnerability
-  3. HIGH: Tenant isolation leak in webhook processing
-  4. CRITICAL: Partial failure in subscription cancellation
-  5. HIGH: Missing webhook event validation
+- Created backend/app/services/bulk_action_service.py: Bulk operations with undo
+  - Max 500 tickets per bulk action
+  - 24-hour undo window
+  - Status change, reassign, tag, priority, close actions
+  - Failure tracking per ticket
+  - Status transition validation
+- Created backend/app/services/ticket_merge_service.py: Merge/unmerge logic
+  - Merge multiple tickets into primary
+  - Message/attachment/note transfer
+  - Unmerge capability (PS26)
+  - Cross-tenant protection
+- Created backend/app/services/sla_service.py: SLA policy + timer + breach detection
+  - Policy CRUD with tier × priority matrix
+  - Default policies: Starter/Growth/High (1h/8h critical, 4h/24h high, etc.)
+  - Timer creation and tracking
+  - Breach detection (PS11)
+  - Approaching warning at 75% (PS17)
+  - Auto-escalation on breach
+- Created backend/app/api/ticket_bulk.py: Bulk action API endpoints
+  - POST /tickets/bulk: Generic bulk action
+  - POST /tickets/bulk/status: Status change
+  - POST /tickets/bulk/assign: Reassignment
+  - POST /tickets/bulk/tags: Tag operations
+  - POST /tickets/bulk/priority: Priority change
+  - POST /tickets/bulk/close: Bulk close
+  - POST /tickets/bulk/undo/:token: Undo action
+- Created backend/app/api/ticket_merge.py: Merge/unmerge API endpoints
+  - POST /tickets/merge: Merge tickets
+  - POST /tickets/merge/unmerge/:id: Unmerge (PS26)
+  - GET /tickets/merge/history/:id: Merge history
+- Created backend/app/api/sla.py: SLA API endpoints
+  - Policy CRUD endpoints
+  - GET /sla/tickets/:id: Timer status
+  - GET /sla/breached: Breached tickets
+  - GET /sla/approaching: Approaching breach (PS17)
+  - GET /sla/stats: Statistics
+- Created backend/app/tasks/sla_tasks.py: SLA Celery tasks
+  - run_sla_check: Monitor all active timers
+  - send_sla_warning: 75% threshold notification
+  - send_sla_breach_notification: Breach escalation
+  - check_first_response_sla: First response check
+  - seed_sla_policies: Default policy seeding
+  - daily_sla_report: Daily stats
+- Updated testing_gap_finder.py with Day 29 config
 
 Stage Summary:
-- 64 W5D2 tests passing
-- Total billing tests: 142 (78 W5D1 + 64 W5D2)
-- 3 new services (subscription, proration, billing API)
-- 7 new API routes
-- BC-001: company_id validated in all operations
-- BC-002: All money calculations use Decimal
-- Netflix-style cancellation implemented (access until period end)
-- Proration calculations with full audit trail
-- Gap finder identified 5 areas for additional testing
-- Ready for Week 5 Day 3: Usage Tracking + Variant Limits
+- 53 Day 29 tests passing (40 unit + 13 loophole)
+- Files created: 7 (3 services, 3 APIs, 1 tasks, 2 test files)
+- Files modified: 1 (testing_gap_finder.py)
+- BC-001: All operations filtered by company_id
+- BC-002: Decimal for SLA calculations
+- F-051: Bulk actions + merge/unmerge complete
+- MF06: SLA management complete
+- PS11: SLA breach detection complete
+- PS17: SLA approaching warning complete
+- Git commit: 8158b2e
+- Day 29 COMPLETE
