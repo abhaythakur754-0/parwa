@@ -736,3 +736,50 @@ Stage Summary:
 - PS17: SLA approaching warning complete
 - Git commit: 8158b2e
 - Day 29 COMPLETE
+---
+Task ID: w5d5-build
+Agent: Super Z (main)
+Task: Week 5 Day 5 — Webhook Expansion (25+ Events) + Idempotency + Ordering
+
+Work Log:
+- Created backend/app/services/webhook_processor.py:
+  - HMAC-SHA256 signature verification for Paddle webhooks
+  - Idempotency key generation and storage (provider:event_id format)
+  - process_with_idempotency() for duplicate detection
+  - SHA-256 hash verification for request body integrity
+  - cleanup_expired_idempotency_keys() task
+- Created backend/app/services/webhook_ordering_service.py:
+  - EVENT_DEPENDENCIES mapping for ordered event processing
+  - Webhook sequence tracking with WebhookSequence model
+  - process_ordered() for dependency-aware processing
+  - get_stuck_events() and retry_stuck_event() for recovery
+  - cleanup_old_sequences() for maintenance
+- Expanded backend/app/webhooks/paddle_handler.py:
+  - 28 event handlers (was 5): 7 subscription, 5 transaction, 3 customer, 3 price, 3 discount, 3 credit, 2 adjustment, 2 report + 3 backward compatibility aliases
+  - All 25+ Paddle event types covered
+  - Data extraction helpers for each event category
+  - Comprehensive validation for required fields
+- Created backend/app/tasks/webhook_recovery.py:
+  - recover_missed_webhooks() task for hourly webhook recovery
+  - process_stuck_webhooks() for stuck event retry
+  - cleanup_idempotency_keys() and cleanup_webhook_sequences() for maintenance
+  - process_pending_events() for ordered event processing
+- Created tests/unit/test_w5d5_webhook_expansion.py: 52 tests
+- Created tests/unit/test_w5d5_webhook_gaps.py: 24 gap tests
+- Gap analysis found 5 gaps, all covered by tests
+
+Gap Analysis Results:
+1. CRITICAL: Tenant isolation bypass in billing API — covered by tenant isolation tests
+2. CRITICAL: Race condition in subscription upgrade — covered by concurrent webhook tests
+3. HIGH: Missing idempotency for upgrade/cancel — covered by idempotency tests
+4. HIGH: Frontend state inconsistency — covered by error format tests
+5. MEDIUM: Missing rollback on partial failure — covered by webhook sequence failure tracking
+
+Stage Summary:
+- 76 W5D5 tests passing (52 expansion + 24 gap tests)
+- Total event handlers: 28 (7 subscription + 5 transaction + 3 customer + 3 price + 3 discount + 3 credit + 2 adjustment + 2 report)
+- Features: BG-01 (25+ events), BG-07 (webhook ordering), BG-08 (idempotency), BG-15 (missed webhook recovery)
+- Files created: 4 (webhook_processor.py, webhook_ordering_service.py, webhook_recovery.py, test_w5d5_webhook_expansion.py, test_w5d5_webhook_gaps.py)
+- Files modified: 1 (paddle_handler.py expanded from 5 to 28 handlers)
+- W5D5 COMPLETE
+
