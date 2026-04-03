@@ -85,7 +85,7 @@ class QAScore(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     agent_id = Column(String(36), ForeignKey("agents.id"))
     accuracy = Column(Numeric(5, 2))
     tone = Column(Numeric(5, 2))

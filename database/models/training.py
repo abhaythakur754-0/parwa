@@ -70,7 +70,7 @@ class AgentMistake(Base):
         String(36), ForeignKey("agents.id"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     mistake_type = Column(String(100), nullable=False)
     original_response = Column(Text)
     expected_response = Column(Text)

@@ -139,7 +139,7 @@ class ClassificationLog(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     interaction_id = Column(String(36))
     input_text = Column(Text)
     classified_intent = Column(String(100))
@@ -161,7 +161,7 @@ class GuardrailsAuditLog(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     # audit, policy_violation, escalation, manual_review
     event_type = Column(String(50), nullable=False)
     rule_id = Column(String(36))
@@ -185,7 +185,7 @@ class GuardrailsBlockedQueue(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     block_type = Column(String(50), nullable=False)
     original_response = Column(Text)
     block_reason = Column(Text)
@@ -208,7 +208,7 @@ class AIResponseFeedback(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     interaction_id = Column(String(36))
     feedback_type = Column(String(50), nullable=False)  # thumbs_up, thumbs_down, correction
     feedback_text = Column(Text)
@@ -255,7 +255,7 @@ class HumanCorrection(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     interaction_id = Column(String(36))
     original_response = Column(Text)
     corrected_response = Column(Text, nullable=False)

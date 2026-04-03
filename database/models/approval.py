@@ -30,7 +30,7 @@ class ApprovalQueue(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     action_type = Column(String(100), nullable=False)
     confidence_score = Column(Numeric(5, 2))
     risk_level = Column(String(50))
@@ -72,7 +72,7 @@ class ExecutedAction(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     approval_id = Column(
         String(36), ForeignKey("approval_queues.id"),
     )

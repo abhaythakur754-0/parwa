@@ -125,7 +125,7 @@ class EventBuffer(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     event_type = Column(String(100), nullable=False)
     event_data = Column(Text)
     # 24h default (BC-005)

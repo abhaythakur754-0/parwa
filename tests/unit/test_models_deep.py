@@ -291,12 +291,11 @@ class TestColumnTypes:
                 f"BC-002: {table}.{money_col} uses Float!"
             )
 
-    def test_sessions_have_correct_status_default(self):
-        """Session status defaults to 'open'."""
+    def test_tickets_have_correct_status_default(self):
+        """Ticket status defaults to 'open'."""
         inspector = inspect(engine)
-        cols = {c["name"]: c for c in inspector.get_columns("sessions")}
+        cols = {c["name"]: c for c in inspector.get_columns("tickets")}
         # Check the column exists
-        assert "status" in cols
         assert "status" in cols
 
     def test_all_tables_have_primary_key(self):
@@ -421,30 +420,30 @@ class TestRelationships:
         db.close()
 
     def test_session_interactions_relationship(self):
-        """Session.interactions returns associated interactions."""
+        """Ticket.messages returns associated messages (was Session.interactions)."""
         db = SessionLocal()
         from database.models.core import Company
-        from database.models.tickets import Session, Interaction
+        from database.models.tickets import Ticket, TicketMessage
         co = Company(
             id="co1", name="Test Co", industry="tech",
             subscription_tier="growth",
         )
         db.add(co)
         db.flush()
-        sess = Session(id="s1", company_id="co1", channel="chat")
-        db.add(sess)
+        ticket = Ticket(id="s1", company_id="co1", channel="chat")
+        db.add(ticket)
         db.flush()
-        db.add(Interaction(
-            id="i1", session_id="s1", company_id="co1",
+        db.add(TicketMessage(
+            id="i1", ticket_id="s1", company_id="co1",
             role="customer", content="hi", channel="chat",
         ))
-        db.add(Interaction(
-            id="i2", session_id="s1", company_id="co1",
+        db.add(TicketMessage(
+            id="i2", ticket_id="s1", company_id="co1",
             role="agent", content="hello", channel="chat",
         ))
         db.commit()
-        fetched = db.query(Session).filter_by(id="s1").first()
-        assert len(fetched.interactions) == 2
+        fetched = db.query(Ticket).filter_by(id="s1").first()
+        assert len(fetched.messages) == 2
         db.close()
 
     def test_api_provider_service_configs_relationship(self):

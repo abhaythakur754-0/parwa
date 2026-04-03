@@ -68,7 +68,7 @@ class GSDSession(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
-        String(36), ForeignKey("sessions.id"),
+        String(36), ForeignKey("tickets.id"),
         nullable=False, index=True,
     )
     company_id = Column(
@@ -87,7 +87,7 @@ class ConfidenceScore(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
-        String(36), ForeignKey("sessions.id"),
+        String(36), ForeignKey("tickets.id"),
         nullable=False, index=True,
     )
     company_id = Column(
@@ -107,7 +107,7 @@ class GuardrailBlock(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
-        String(36), ForeignKey("sessions.id"),
+        String(36), ForeignKey("tickets.id"),
         nullable=False, index=True,
     )
     company_id = Column(
@@ -167,7 +167,7 @@ class ModelUsageLog(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("sessions.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id"))
     provider_name = Column(String(100), nullable=False)
     model_name = Column(String(100), nullable=False)
     input_tokens = Column(Integer, default=0)
