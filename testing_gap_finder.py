@@ -157,6 +157,19 @@ DAY_FILES = {
             "backend/app/api/ticket_lifecycle.py",
             "backend/app/tasks/ticket_lifecycle_tasks.py",
         ]
+    },
+    33: {
+        "name": "SHOULD-HAVE Features: Templates, Triggers, Custom Fields, Collision Detection",
+        "files": [
+            "backend/app/services/template_service.py",
+            "backend/app/services/trigger_service.py",
+            "backend/app/services/custom_field_service.py",
+            "backend/app/services/collision_service.py",
+            "backend/app/api/ticket_templates.py",
+            "backend/app/api/triggers.py",
+            "backend/app/api/custom_fields.py",
+            "backend/app/api/collisions.py",
+        ]
     }
 }
 
@@ -170,7 +183,8 @@ DAY_DESCRIPTIONS = {
     29: "Day 29: Bulk Actions + Merge/Split + SLA System - Bulk operations on tickets with undo capability, ticket merging with message transfer and unmerge support, SLA policy management with timer tracking and breach detection.",
     30: "Day 30: Omnichannel + Customer Identity Resolution (F-052, F-070) - Channel configuration with PS13 variant down handling, customer CRUD with channel linking, identity resolution with confidence scoring and PS14 grandfathered tickets.",
     31: "Day 31: Notification System + Email Templates (MF05) - Notification dispatch with PS03/PS10 handlers, template CRUD with variable validation, user preferences with priority thresholds and digest settings.",
-    32: "Day 32: Production Situation Handlers + Ticket State Machine (PS01-PS15) - State transitions with validation, lifecycle automation, human fallback routing, incident subscriber notifications."
+    32: "Day 32: Production Situation Handlers + Ticket State Machine (PS01-PS15) - State transitions with validation, lifecycle automation, human fallback routing, incident subscriber notifications.",
+    33: "Day 33: SHOULD-HAVE Features (MF07-12, PS12, PS16) - Response templates with variables, automated trigger rules engine, custom ticket fields per category, collision detection for concurrent editing, soft delete/redaction, bad feedback auto-review."
 }
 
 
