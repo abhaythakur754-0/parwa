@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}SLA Breached{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h2 style="color: #dc3545; margin-bottom: 20px;">🚨 SLA Breached - Immediate Action Required</h2>
+    
+    <p style="color: #666; font-size: 16px; line-height: 1.6;">
+        A ticket SLA deadline has been breached. This ticket requires immediate attention.
+    </p>
+    
+    <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; color: #721c24; width: 140px; font-weight: bold;">Ticket ID:</td>
+                <td style="padding: 8px 0; color: #721c24;">{{ ticket_id }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #721c24; font-weight: bold;">Subject:</td>
+                <td style="padding: 8px 0; color: #721c24;">{{ ticket_subject }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #721c24; font-weight: bold;">SLA Type:</td>
+                <td style="padding: 8px 0; color: #721c24; text-transform: capitalize;">{{ breach_type }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #721c24; font-weight: bold;">Breached At:</td>
+                <td style="padding: 8px 0; color: #721c24;">{{ breached_at }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #721c24; font-weight: bold;">Time Elapsed:</td>
+                <td style="padding: 8px 0; color: #721c24; font-size: 18px; font-weight: bold;">{{ time_elapsed }} over SLA</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #721c24; font-weight: bold;">Escalation Level:</td>
+                <td style="padding: 8px 0; color: #721c24;">{{ escalation_level }}</td>
+            </tr>
+        </table>
+    </div>
+    
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <h3 style="color: #dc3545; margin: 0 0 10px 0; font-size: 16px;">Immediate Actions Required:</h3>
+        <ul style="color: #666; margin: 0; padding-left: 20px; line-height: 1.8;">
+            <li><strong>Respond to the customer immediately</strong> with an apology and status update</li>
+            <li>Provide a resolution or clear timeline for resolution</li>
+            <li>Consider offering compensation or service credit if appropriate</li>
+            <li>Document the reason for the breach</li>
+        </ul>
+    </div>
+    
+    <div style="margin: 20px 0;">
+        <a href="{{ ticket_url }}" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Take Action Now</a>
+    </div>
+    
+    <p style="color: #888; font-size: 14px; margin-top: 30px;">
+        SLA breaches impact customer satisfaction and may affect service level reporting. This ticket has been automatically escalated.
+    </p>
+</div>
+{% endblock %}
