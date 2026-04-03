@@ -139,6 +139,29 @@ def require_roles(*roles: str):
     return checker
 
 
+def get_company_id(
+    user: User = Depends(get_current_user),
+) -> str:
+    """Extract company_id from authenticated user.
+
+    BC-001: Every user belongs to exactly one company.
+
+    Args:
+        user: Authenticated user (from get_current_user).
+
+    Returns:
+        Company ID string.
+
+    Raises:
+        AuthenticationError: If user has no company.
+    """
+    if not user.company_id:
+        raise AuthenticationError(
+            message="User has no associated company"
+        )
+    return str(user.company_id)
+
+
 def optional_user(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
