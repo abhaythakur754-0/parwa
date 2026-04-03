@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base Styles ───────────────────────────────────────────────────── */
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+  
+  body {
+    @apply bg-secondary-50 text-secondary-900 antialiased;
+  }
+  
+  * {
+    @apply border-secondary-200;
+  }
+  
+  input:focus,
+  textarea:focus,
+  select:focus {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+  }
+}
+
+/* ── Component Styles ──────────────────────────────────────────────── */
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-secondary-200 text-secondary-900 hover:bg-secondary-300 active:bg-secondary-400;
+  }
+  
+  .btn-outline {
+    @apply btn border border-secondary-300 bg-transparent hover:bg-secondary-100 active:bg-secondary-200;
+  }
+  
+  .btn-ghost {
+    @apply btn bg-transparent hover:bg-secondary-100 active:bg-secondary-200;
+  }
+  
+  .btn-danger {
+    @apply btn bg-error-500 text-white hover:bg-error-600 active:bg-error-600;
+  }
+  
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+  
+  .input {
+    @apply w-full rounded-lg border border-secondary-300 bg-white px-4 py-2.5 text-sm placeholder:text-secondary-400 focus:border-primary-500 focus:ring-primary-500;
+  }
+  
+  .input-error {
+    @apply border-error-500 focus:border-error-500 focus:ring-error-500;
+  }
+  
+  .label {
+    @apply block text-sm font-medium text-secondary-700 mb-1.5;
+  }
+  
+  .error-text {
+    @apply mt-1 text-sm text-error-500;
+  }
+  
+  .card {
+    @apply rounded-xl border border-secondary-200 bg-white shadow-sm;
+  }
+  
+  .card-padding {
+    @apply p-6;
+  }
+}
+
+/* ── Utility Styles ─────────────────────────────────────────────────── */
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-600 to-primary-400 bg-clip-text text-transparent;
+  }
+  
+  .animate-in {
+    animation: animateIn 0.3s ease-out forwards;
+  }
+  
+  @keyframes animateIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* ── Custom Scrollbar ──────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-secondary-100 rounded-full;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-secondary-300 rounded-full hover:bg-secondary-400;
+}
+
+/* ── Form Styles ────────────────────────────────────────────────────── */
+
+.form-group {
+  @apply space-y-1.5;
+}
+
+.form-row {
+  @apply grid gap-4 sm:grid-cols-2;
+}
+
+/* ── Progress Steps ─────────────────────────────────────────────────── */
+
+.step-indicator {
+  @apply flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-200;
+}
+
+.step-indicator-active {
+  @apply border-primary-500 bg-primary-500 text-white;
+}
+
+.step-indicator-completed {
+  @apply border-success-500 bg-success-500 text-white;
+}
+
+.step-indicator-pending {
+  @apply border-secondary-300 bg-white text-secondary-400;
+}
+
+/* ── Loading Spinner ────────────────────────────────────────────────── */
+
+.spinner {
+  @apply animate-spin rounded-full border-2 border-secondary-200 border-t-primary-500;
+}
+
+.spinner-sm {
+  @apply spinner w-4 h-4;
+}
+
+.spinner-md {
+  @apply spinner w-6 h-6;
+}
+
+.spinner-lg {
+  @apply spinner w-8 h-8;
+}
