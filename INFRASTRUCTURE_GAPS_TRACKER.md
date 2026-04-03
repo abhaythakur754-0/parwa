@@ -233,16 +233,87 @@ Features that real production ticket systems (Zendesk, Freshdesk, Intercom) have
 
 ## Week 5 GAPS — Billing System (Paddle)
 
-- [ ] F-020: Paddle checkout integration (subscription creation, plan IDs, tax)
+### Business Rules (LOCKED)
+
+| Rule | Decision | Impact |
+|------|----------|--------|
+| **Payment Failure** | STOP immediately - Netflix style | No dunning system needed |
+| **Free Trials** | NOT offered | No trial management needed |
+| **Dunning** | NOT needed | Skip BG-02 gap |
+| **Grace Period** | NOT needed | Skip BG-03 gap |
+| **Refunds** | NO REFUNDS - Netflix style | Only track client refunds (PARWA clients to THEIR customers) |
+| **Cancellation** | Cancel anytime, access until month end | No partial refunds |
+| **Overage Rate** | $0.10/ticket (daily billing) | Confirmed |
+
+### Variant Structure (LOCKED)
+
+| Variant | Price | Tickets/mo | AI Agents | Team | Voice Slots | KB Docs |
+|---------|-------|------------|-----------|------|-------------|---------|
+| **PARWA Starter** | $999 | 2,000 | 1 | 3 | 0 | 100 |
+| **PARWA Growth** | $2,499 | 5,000 | 3 | 10 | 2 | 500 |
+| **PARWA High** | $3,999 | 15,000 | 5 | 25 | 5 | 2,000 |
+
+### Feature Gaps
+
+- [ ] F-020: Paddle checkout integration (subscription creation, variant IDs, tax)
 - [ ] F-021: Subscription management (upgrade/downgrade with proration)
-- [ ] F-022: Paddle webhook handler (all events — depends on Day 23 paddle_handler.py)
+- [ ] F-022: Paddle webhook handler (all 25+ events — depends on Day 23 paddle_handler.py)
 - [ ] F-023: Invoice history (paginated list from Paddle, PDF download)
 - [ ] F-024: Daily overage charging ($0.10/ticket over plan limit — Celery task exists from Day 22)
-- [ ] F-025: Graceful cancellation flow (multi-step with retention offers)
+- [ ] F-025: Cancellation flow (cancel auto-renewal, access until month end - NO retention offers per Netflix model)
 - [ ] F-026: Cancellation request tracking (reason capture, analytics)
 - [ ] F-027: Payment confirmation + verification (entitlement activation, welcome email)
 - [ ] Billing API routes + service + schemas
-- [ ] Plan entitlement enforcement middleware (check plan limits on API calls)
+- [ ] Variant entitlement enforcement middleware (check variant limits on API calls)
+
+### Production Billing Gaps (CRITICAL)
+
+| Gap ID | Severity | Description | Status |
+|--------|----------|-------------|--------|
+| BG-01 | 🔴 Critical | Only 5 Paddle events handled, 25+ exist | NEEDED |
+| BG-02 | ~~Critical~~ | ~~Dunning management~~ | **NOT NEEDED** |
+| BG-03 | ~~Critical~~ | ~~Grace period handling~~ | **NOT NEEDED** |
+| BG-04 | 🔴 Critical | No variant change proration calculation | NEEDED |
+| BG-05 | 🔴 Critical | No outbound calls TO Paddle (API client) | NEEDED |
+| BG-06 | 🔴 Critical | No reconciliation if DB/Paddle diverge | NEEDED |
+| BG-07 | 🟡 High | Webhook ordering/parallel processing | NEEDED |
+| BG-08 | 🟡 High | No idempotency key storage for retries | NEEDED |
+| BG-09 | 🟡 High | Client refund tracking (PARWA clients to THEIR customers) | NEEDED |
+| BG-10 | ~~High~~ | ~~Trial management~~ | **NOT NEEDED** |
+| BG-11 | 🟡 High | No payment method update flow | NEEDED |
+| BG-12 | 🟡 High | No PDF invoice generation | NEEDED |
+| BG-13 | 🔴 Critical | No real-time usage counting | NEEDED |
+| BG-14 | 🔴 Critical | No feature blocking on variant limits | NEEDED |
+| BG-15 | 🟡 High | No missed webhook detection | NEEDED |
+| BG-16 | 🔴 Critical | Payment failure → immediate service stop | NEEDED |
+
+### New Files Required
+
+| File | Purpose | Priority |
+|------|---------|----------|
+| `backend/app/clients/paddle_client.py` | Paddle API client | 🔴 Critical |
+| `backend/app/services/subscription_service.py` | Subscription lifecycle | 🔴 Critical |
+| `backend/app/services/proration_service.py` | Variant change calculations | 🔴 Critical |
+| `backend/app/services/payment_failure_service.py` | Immediate stop handling | 🔴 Critical |
+| `backend/app/services/variant_limit_service.py` | Feature limit enforcement | 🔴 Critical |
+| `backend/app/services/usage_tracking_service.py` | Usage counting | 🔴 Critical |
+| `backend/app/services/client_refund_service.py` | Client refund processing | 🟡 High |
+| `backend/app/services/invoice_service.py` | PDF generation | 🟡 High |
+| `backend/app/tasks/reconciliation_tasks.py` | DB ↔ Paddle sync | 🔴 Critical |
+| `backend/app/tasks/webhook_recovery.py` | Missed webhook recovery | 🟡 High |
+
+### New Database Tables
+
+| Table | Purpose |
+|-------|---------|
+| `client_refunds` | Client refund tracking (PARWA clients to THEIR customers) |
+| `payment_methods` | Payment method summary cache |
+| `usage_records` | Monthly usage tracking |
+| `variant_limits` | Variant feature limits |
+| `idempotency_keys` | Idempotency key storage |
+| `webhook_sequences` | Webhook ordering tracking |
+| `proration_audits` | Proration calculation audit trail |
+| `payment_failures` | Payment failure audit log |
 
 ---
 
@@ -529,6 +600,13 @@ Features that real production ticket systems (Zendesk, Freshdesk, Intercom) have
 4. **Vector DB**: pgvector (no Qdrant).
 5. **LLM Keys**: User has own set of provider keys (not OpenAI/OpenRouter). Will provide when needed.
 6. **$1 demo re-payment**: After initial 3-min demo expires, visitor can pay another $1 for more time.
+7. **Payment Failure (Netflix-style)**: If payment fails → STOP service immediately. No grace period, no retry, no dunning. Like Netflix.
+8. **Free Trials**: NOT offered. Paid subscription only.
+9. **Dunning**: NOT needed. Payment fails = service stops.
+10. **Grace Period**: NOT needed. Immediate stop on payment failure.
+11. **Refunds (Netflix-style)**: NO REFUNDS. Pay for the month, use the month. No money back for cancelled subscriptions.
+12. **Cancellation**: Cancel auto-renewal anytime. Access continues until the paid month ends. No partial refunds for unused days.
+13. **Overage Rate**: $0.10/ticket over plan limit, billed daily.
 
 ## Unresolved Decisions (Still Blocked)
 

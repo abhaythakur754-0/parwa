@@ -3,6 +3,7 @@
 > **⚠️ CORRECTION NOTICE — This document has been corrected per the loopwholws.md decisions.**
 > The following corrections were applied (Decision references in parentheses):
 > - **D12:** Pricing names corrected (Mini → Starter, Junior → Growth) and prices ($1,000→$999, $2,500→$2,499, $4,000→$3,999)
+> - **D13:** Cancellation & Refund Policy - Netflix style (no refunds, cancel anytime, access until month end, no free trials, payment fails = stop immediately)
 > - **D1:** Stripe → Paddle for all payment references
 > - **D11:** Microsoft OAuth removed (Email + Google OAuth only)
 > - **D2/D3:** Supabase → PostgreSQL on GCP VM, Socket.io (not Supabase Realtime), GCP Cloud Storage

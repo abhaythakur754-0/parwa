@@ -784,9 +784,46 @@ These objectives are achieved through a combination of automated backups, point-
 | SMS Pack (1000) | $15/month |
 | Social Media Pack | $100/month |
 
-### 15.5 Cancellation Policy (D13)
+### 15.5 Cancellation & Refund Policy (D13)
 
-No fixed grace period. Subscription works until the ticket limit is hit OR the month ends — whichever is **last**. This ensures clients always get full value from their subscription.
+#### Cancellation Policy (Netflix-Style)
+
+| Rule | Description |
+|------|-------------|
+| **No Refunds** | No refunds for cancelled subscriptions - once paid, no money back |
+| **Cancel Anytime** | Client can cancel auto-renewal anytime during the month |
+| **Access Until Month End** | After cancellation, access continues until the billing period ends |
+| **No Partial Refunds** | No refund for unused days in the month |
+
+**Flow:**
+```
+Client pays for Month X (e.g., April 1-30)
+        ↓
+Client cancels auto-renewal on April 15
+        ↓
+Access continues until April 30 (month end)
+        ↓
+No charge for May (auto-renewal cancelled)
+        ↓
+No refund for April 16-30 (unused days)
+```
+
+**Subscription End Logic:**
+- Subscription works until the ticket limit is hit OR the month ends — whichever is **last**
+- This ensures clients always get full value from their subscription
+- No fixed grace period
+
+#### Refund Policy
+
+| Scenario | Refund? |
+|----------|---------|
+| Client cancels mid-month | ❌ No refund |
+| Client unused tickets | ❌ No refund |
+| Client upgrades mid-month | Proration credit applied (not refund) |
+| Service outage | Credit applied to next billing (not refund) |
+| Billing error by PARWA | ✅ Full refund of erroneous charge |
+
+**Key Principle:** Like Netflix - pay for the month, use the month. No money back.
 
 ---
 
