@@ -33,7 +33,10 @@ from database.models.tickets import (
     SLATimer,
     AssignmentRule,
     BulkActionFailure,
+    BulkActionLog,
     NotificationTemplate,
+    TicketTrigger,
+    CustomField,
     TicketStatus,
     TicketPriority,
     TicketCategory,
@@ -496,8 +499,8 @@ def notification_id():
 
 @pytest.fixture
 def mock_notification(user_id):
-    """Mock notification."""
-    notification = Notification()
+    """Mock notification (using MagicMock since Notification model doesn't exist yet)."""
+    notification = MagicMock()
     notification.id = "notification-123"
     notification.company_id = "test-company-123"
     notification.user_id = user_id
@@ -529,8 +532,8 @@ def mock_notification_template():
 
 @pytest.fixture
 def mock_notification_preference(user_id):
-    """Mock notification preference."""
-    pref = NotificationPreference()
+    """Mock notification preference (using MagicMock since model doesn't exist yet)."""
+    pref = MagicMock()
     pref.id = "pref-123"
     pref.company_id = "test-company-123"
     pref.user_id = user_id
@@ -551,8 +554,8 @@ def template_id():
 
 @pytest.fixture
 def mock_template(company_id):
-    """Mock response template."""
-    template = Template()
+    """Mock response template (using MagicMock since Template model doesn't exist yet)."""
+    template = MagicMock()
     template.id = "template-123"
     template.company_id = company_id
     template.name = "Billing Refund"
@@ -573,18 +576,18 @@ def trigger_id():
 
 @pytest.fixture
 def mock_trigger(company_id):
-    """Mock automation trigger."""
-    trigger = Trigger()
+    """Mock automation trigger using TicketTrigger model."""
+    trigger = TicketTrigger()
     trigger.id = "trigger-123"
     trigger.company_id = company_id
     trigger.name = "Auto-close resolved tickets"
     trigger.description = "Auto-close tickets after 7 days resolved"
-    trigger.event = "ticket_resolved"
     trigger.conditions = json.dumps({
+        "events": ["ticket_resolved"],
         "status": "resolved",
         "days_since_resolved": 7
     })
-    trigger.actions = json.dumps({
+    trigger.action = json.dumps({
         "change_status": "closed"
     })
     trigger.is_active = True
@@ -608,12 +611,13 @@ def mock_custom_field(company_id):
     field.id = "field-123"
     field.company_id = company_id
     field.name = "Invoice Number"
-    field.key = "invoice_number"
+    field.field_key = "invoice_number"
     field.field_type = "text"
-    field.category = "billing"
+    field.config = json.dumps({"category": "billing"})
+    field.applicable_categories = json.dumps(["billing"])
     field.is_required = False
-    field.options = "[]"
-    field.validation_regex = r"^INV-\d+$"
+    field.is_active = True
+    field.sort_order = 0
     field.created_at = datetime.utcnow()
     return field
 
@@ -628,19 +632,16 @@ def bulk_action_id():
 
 @pytest.fixture
 def mock_bulk_action(company_id, user_id):
-    """Mock bulk action."""
-    action = BulkAction()
+    """Mock bulk action using BulkActionLog model."""
+    action = BulkActionLog()
     action.id = "bulk-123"
     action.company_id = company_id
     action.action_type = "status_change"
     action.ticket_ids = json.dumps(["ticket-1", "ticket-2", "ticket-3"])
-    action.params = json.dumps({"status": "closed"})
-    action.status = "completed"
-    action.success_count = 3
-    action.failure_count = 0
+    action.performed_by = user_id
+    action.result_summary = json.dumps({"status": "completed", "success_count": 3, "failure_count": 0})
     action.undo_token = "undo-token-abc"
-    action.undo_expires_at = datetime.utcnow() + timedelta(hours=24)
-    action.created_by = user_id
+    action.undone = False
     action.created_at = datetime.utcnow()
     return action
 
