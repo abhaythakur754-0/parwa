@@ -381,6 +381,16 @@ Visual progress indicator showing the AI agent's improvement over its 30-day ada
 
 ---
 
+> **⚠️ TICKET SYSTEM GAP ANALYSIS — READ BEFORE BUILDING**
+>
+> This feature spec (F-051) covers bulk actions but is MISSING critical production requirements. Full details in `INFRASTRUCTURE_GAPS_TRACKER.md` under "Week 4 GAPS — Ticket System (Phase 2 Start)".
+>
+> **Missing features that affect bulk operations:** Priority System (MF01) — bulk priority change not in spec. Categories (MF02) — bulk category change not in spec. Tags (MF03) — bulk tag is in spec but tags feature itself is missing. Activity Log (MF04) — every bulk action must be audit-logged. SLA Management (MF06) — bulk status change may trigger SLA clock start/pause.
+>
+> **Production situations this spec doesn't cover:** Merge mistakes → need unmerge capability (PS26), rate limiting on bulk operations (PS15), incident mode bulk-close (PS10), approval workflow for large bulk actions (MF19).
+>
+> **Additional bulk actions needed:** Bulk priority change, bulk category change, bulk SLA recalculation.
+
 # F-051: Ticket Bulk Actions
 
 ## Overview

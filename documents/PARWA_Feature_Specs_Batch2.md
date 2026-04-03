@@ -283,6 +283,16 @@ This feature is the final gate in the onboarding wizard. It validates that all p
 
 ---
 
+> **⚠️ TICKET SYSTEM GAP ANALYSIS — READ BEFORE BUILDING**
+>
+> This feature spec covers CRUD and conversation but is MISSING critical production requirements identified in the pre-Week 4 gap analysis. Full details in `INFRASTRUCTURE_GAPS_TRACKER.md` under "Week 4 GAPS — Ticket System (Phase 2 Start)".
+>
+> **Missing features you MUST also build:** Priority System (MF01), Categories/Departments (MF02), Tags/Labels (MF03), Ticket Activity Log/Timeline (MF04), Email Notification System (MF05), SLA Management (MF06).
+>
+> **Code loopholes to fix first:** Table naming mismatch `sessions`→`tickets`, `interactions`→`ticket_messages` (BL01). 11 missing DB tables (BL02). No rate limiting on ticket endpoints (BL05).
+>
+> **Production situations this spec doesn't cover:** Out-of-plan scope (PS01), AI can't solve → human escalation (PS02), client disputes resolution → reopen (PS04), duplicate detection (PS05), stale ticket timeout (PS06), account frozen on suspend (PS07), awaiting client action (PS08), attachment size/format limits (PS09), incident mode (PS10).
+
 # F-046: Ticket List (Filterable, Sortable)
 
 ## Overview
