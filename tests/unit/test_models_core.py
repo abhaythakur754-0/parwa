@@ -38,13 +38,23 @@ ROOT_TABLES_NO_COMPANY_ID = {
 }
 
 # Tables that MUST have company_id (BC-001)
+# Updated Day 24: sessions→tickets, interactions→ticket_messages (BL01)
 TABLES_WITH_COMPANY_ID_REQUIRED = {
     "users", "refresh_tokens", "mfa_secrets", "backup_codes", "api_keys",
     "agents", "emergency_states", "user_notification_preferences",
     "subscriptions", "invoices", "overage_charges", "transactions",
     "webhook_events", "cancellation_requests",
-    "sessions", "interactions", "customers", "ticket_attachments",
+    # Day 24 rename: sessions→tickets, interactions→ticket_messages
+    "tickets", "ticket_messages", "customers", "ticket_attachments",
     "ticket_internal_notes",
+    # Day 24 new tables (BL02)
+    "ticket_status_changes", "sla_policies", "sla_timers",
+    "ticket_assignments", "bulk_action_logs", "ticket_merges",
+    "notification_templates", "ticket_feedbacks", "customer_channels",
+    "identity_match_logs", "ticket_intents", "classification_corrections",
+    "assignment_rules", "bulk_action_failures", "channel_configs",
+    "customer_merge_audits",
+    # Existing tables
     "gsd_sessions", "confidence_scores", "guardrail_blocks",
     "guardrail_rules", "prompt_templates", "model_usage_logs",
     "approval_queues", "auto_approve_rules", "executed_actions", "undo_log",
