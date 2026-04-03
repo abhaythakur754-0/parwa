@@ -20,7 +20,9 @@ from backend.app.services.notification_service import NotificationService
 from backend.app.services.notification_template_service import NotificationTemplateService
 from backend.app.services.notification_preference_service import NotificationPreferenceService
 from database.base import get_db
-from database.models.tickets import Notification, User, Ticket
+from database.models.tickets import Ticket
+from database.models.core import User
+from database.models.remaining import Notification
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
