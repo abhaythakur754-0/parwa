@@ -18,7 +18,7 @@ from backend.app.api.deps import get_current_user, get_db, get_tenant_context
 from backend.app.services.notification_service import NotificationService
 from backend.app.services.notification_template_service import NotificationTemplateService
 from backend.app.services.notification_preference_service import NotificationPreferenceService
-from database.models.tickets import User
+from database.models.core import User
 
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
