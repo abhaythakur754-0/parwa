@@ -300,19 +300,84 @@ class Notification(Base):
         nullable=False, index=True,
     )
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    # ticket, approval, system, billing, ai
-    notification_type = Column(String(50), nullable=False)
+    # Event type: ticket_created, ticket_assigned, sla_warning, etc.
+    event_type = Column(String(100))
+    # Notification priority: low, medium, high, urgent
+    priority = Column(String(20), default="medium")
     title = Column(String(255), nullable=False)
     message = Column(Text)
-    # unread, read, dismissed
-    status = Column(String(50), default="unread")
-    # in_app, email, push
-    channel = Column(String(50), default="in_app")
+    # pending, sent, read, failed
+    status = Column(String(50), default="pending")
+    # JSON list of channels this notification was sent to
+    channels = Column(Text, default='["in_app"]')
+    # Related ticket if applicable
+    ticket_id = Column(String(36), ForeignKey("tickets.id"))
+    # User who triggered the notification
+    sender_id = Column(String(36), ForeignKey("users.id"))
+    # Additional data as JSON
+    data_json = Column(Text, default="{}")
     action_url = Column(String(500))
-    metadata_json = Column(Text, default="{}")
     read_at = Column(DateTime)
-    dismissed_at = Column(DateTime)
+    sent_at = Column(DateTime)
     expires_at = Column(DateTime)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+# ── Notification Preferences (Day 31: MF05) ────────────────────────
+
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    # Event type: ticket_created, ticket_assigned, sla_warning, etc.
+    event_type = Column(String(100), nullable=False)
+    # Whether notifications are enabled for this event
+    enabled = Column(Boolean, default=True)
+    # JSON list of channels: ["email", "in_app", "push"]
+    channels = Column(Text, default='["in_app"]')
+    # Minimum priority threshold: low, medium, high, urgent
+    priority_threshold = Column(String(20), default="low")
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id", "user_id", "event_type",
+            name="uq_notification_prefs_company_user_event",
+        ),
+    )
+
+
+# ── Notification Logs (Day 31: MF05) ───────────────────────────────
+
+class NotificationLog(Base):
+    __tablename__ = "notification_logs"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    notification_id = Column(String(36), ForeignKey("notifications.id"))
+    # Event that triggered notification
+    event_type = Column(String(100), nullable=False)
+    # Channel used: email, in_app, push
+    channel = Column(String(50), nullable=False)
+    # Input data for matching
+    input_email = Column(String(255))
+    input_phone = Column(String(50))
+    input_social_id = Column(String(255))
+    # Match result
+    match_method = Column(String(50))
+    confidence_score = Column(Numeric(5, 2))
+    # Action taken: matched, created, suggested, none
+    action_taken = Column(String(50))
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
