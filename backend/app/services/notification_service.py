@@ -18,8 +18,8 @@ from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session
 
 from backend.app.exceptions import NotFoundError, ValidationError
-from database.models.tickets import Ticket, Company, NotificationTemplate
-from database.models.core import User
+from database.models.tickets import Ticket, NotificationTemplate
+from database.models.core import User, Company
 from database.models.remaining import Notification, NotificationLog, NotificationPreference
 
 

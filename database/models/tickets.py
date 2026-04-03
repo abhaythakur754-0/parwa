@@ -423,6 +423,9 @@ class NotificationTemplate(Base):
     event_type = Column(String(50), nullable=False)
     # email, in_app, push
     channel = Column(String(50), nullable=False)
+    name = Column(String(100))  # Human-readable template name
+    description = Column(Text)  # Template description
+    version = Column(Integer, default=1)  # Template version for versioning
     subject_template = Column(Text)
     body_template = Column(Text, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
