@@ -1,7 +1,8 @@
 # PARWA Week 6 - Onboarding System Implementation Plan
 
-> **Document Version:** 1.1  
+> **Document Version:** 1.2  
 > **Created:** Day 33 (Week 5)  
+> **Updated:** Day 34 (Week 6 Day 1)  
 > **Scope:** WEEK 6 ONLY - Onboarding System (F-028 to F-035) + Frontend + Backend
 
 ---
@@ -70,28 +71,72 @@ PAYMENT SUCCESS (from Paddle)
 
 ---
 
+## Database Status
+
+### ✅ ALREADY EXISTS (Migration 006):
+
+| Table | Status | Notes |
+|-------|--------|-------|
+| `onboarding_sessions` | ✅ EXISTS | Basic columns, needs extension |
+| `consent_records` | ✅ EXISTS | Full schema complete |
+| `knowledge_documents` | ✅ EXISTS | Full schema complete |
+| `document_chunks` | ✅ EXISTS | Full schema complete |
+| `demo_sessions` | ✅ EXISTS | For demo chat/call |
+| `newsletter_subscribers` | ✅ EXISTS | For newsletter |
+
+**Models Location:** `database/models/onboarding.py`
+
+### ❌ MISSING TABLES:
+
+| Table | Description | Migration |
+|-------|-------------|-----------|
+| `user_details` | Post-payment details (name, company, industry, work_email) | 010 |
+
+### ❌ MISSING COLUMNS (in `onboarding_sessions`):
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| `legal_accepted` | BOOLEAN | Legal consent flag |
+| `terms_accepted_at` | TIMESTAMPTZ | Terms timestamp |
+| `privacy_accepted_at` | TIMESTAMPTZ | Privacy timestamp |
+| `ai_data_accepted_at` | TIMESTAMPTZ | AI data timestamp |
+| `integrations` | JSONB | Selected integrations |
+| `knowledge_base_files` | JSONB | Uploaded files list |
+| `ai_name` | VARCHAR(50) | AI assistant name |
+| `ai_tone` | VARCHAR(20) | AI tone setting |
+| `ai_response_style` | VARCHAR(20) | AI response style |
+| `ai_greeting` | TEXT | Custom greeting |
+| `first_victory_completed` | BOOLEAN | Victory flag |
+
+---
+
 ## Implementation Plan (8 Days)
 
 ### Day 1: Database Schema + Post-Payment Details API
 
-**Database Migrations:**
-- [ ] `user_details` table
-- [ ] `onboarding_state` table
-- [ ] `consent_records` table
-- [ ] `knowledge_documents` table
-- [ ] `knowledge_chunks` table
+**Database Migration (010_onboarding_extended.py):**
+- [ ] Create `user_details` table
+- [ ] Add missing columns to `onboarding_sessions` table
 
 **Backend APIs:**
-- [ ] `GET /api/onboarding/state` - Get current state
+- [ ] `GET /api/onboarding/state` - Get onboarding state
+- [ ] `GET /api/user/details` - Get current user details
 - [ ] `POST /api/user/details` - Submit user details
-- [ ] `POST /api/user/verify-work-email` - Verify work email
+- [ ] `PATCH /api/user/details` - Update user details
+- [ ] `POST /api/user/verify-work-email` - Send verification email
+
+**Services:**
+- [ ] `UserDetailsService` - CRUD for user details
 
 **Files:**
 ```
-backend/app/models/onboarding.py
-backend/app/schemas/onboarding.py
+database/alembic/versions/010_onboarding_extended.py
 backend/app/api/user_details.py
-database/migrations/009_onboarding_tables.sql
+backend/app/api/onboarding.py (partial)
+backend/app/schemas/onboarding.py
+backend/app/services/user_details_service.py
+database/models/user_details.py
+database/models/onboarding.py (update)
 ```
 
 ---
@@ -128,7 +173,7 @@ frontend/src/components/onboarding/WorkEmailVerification.tsx
 
 **Files:**
 ```
-backend/app/api/onboarding.py
+backend/app/api/onboarding.py (complete)
 backend/app/services/onboarding_service.py
 backend/app/services/consent_service.py
 ```
@@ -185,6 +230,7 @@ frontend/src/components/onboarding/CustomIntegrationBuilder.tsx
 - [ ] `POST /api/knowledge/upload` - Upload document
 - [ ] `GET /api/knowledge` - List documents
 - [ ] `DELETE /api/knowledge/:id` - Delete document
+- [ ] `GET /api/knowledge/:id/status` - Get processing status
 
 **Frontend:**
 - [ ] `frontend/src/components/onboarding/KnowledgeUpload.tsx`
@@ -235,6 +281,7 @@ frontend/src/components/onboarding/ActivationButton.tsx
 
 **Backend:**
 - [ ] `GET /api/onboarding/first-victory` - Get first victory status
+- [ ] `POST /api/onboarding/first-victory` - Mark complete
 - [ ] First victory event tracking
 - [ ] Celebration event emission
 
@@ -250,7 +297,6 @@ frontend/src/components/onboarding/ActivationButton.tsx
 
 **Files:**
 ```
-backend/app/api/first_victory.py
 backend/app/services/victory_service.py
 frontend/src/components/onboarding/FirstVictory.tsx
 tests/unit/test_onboarding.py
@@ -263,13 +309,13 @@ tests/integration/test_onboarding_flow.py
 
 | Day | Focus | Backend | Frontend |
 |-----|-------|---------|----------|
-| 1 | DB + Post-Payment API | 3 APIs | 0 |
+| 1 | DB + Post-Payment API | 5 APIs | 0 |
 | 2 | Post-Payment UI | 0 | 4 components |
 | 3 | Wizard Backend | 4 APIs | 0 |
 | 4 | Wizard Frontend | 0 | 5 components |
-| 5 | Integrations | 4 APIs | 3 components |
-| 6 | KB Upload | 3 APIs | 3 components |
-| 7 | KB Processing + AI | 2 APIs + Tasks | 3 components |
+| 5 | Integrations | 3 APIs | 3 components |
+| 6 | KB Upload | 4 APIs | 3 components |
+| 7 | KB Processing + AI | 1 API + Tasks | 3 components |
 | 8 | First Victory + Tests | 2 APIs | 1 component |
 | **Total** | **8 Days** | **18 APIs** | **19 Components** |
 
@@ -277,11 +323,12 @@ tests/integration/test_onboarding_flow.py
 
 ## Database Tables
 
-### `user_details`
+### `user_details` (NEW)
 ```sql
 CREATE TABLE user_details (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) UNIQUE NOT NULL,
+    company_id UUID REFERENCES companies(id) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     company_name VARCHAR(100) NOT NULL,
     work_email VARCHAR(255),
@@ -294,74 +341,19 @@ CREATE TABLE user_details (
 );
 ```
 
-### `onboarding_state`
+### `onboarding_sessions` (EXTEND - add columns)
 ```sql
-CREATE TABLE onboarding_state (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) UNIQUE NOT NULL,
-    company_id UUID REFERENCES companies(id) NOT NULL,
-    current_step INTEGER DEFAULT 1,
-    legal_accepted BOOLEAN DEFAULT FALSE,
-    terms_accepted_at TIMESTAMPTZ,
-    privacy_accepted_at TIMESTAMPTZ,
-    ai_data_accepted_at TIMESTAMPTZ,
-    integrations JSONB DEFAULT '{}',
-    knowledge_base_files JSONB DEFAULT '[]',
-    ai_name VARCHAR(50) DEFAULT 'Jarvis',
-    ai_tone VARCHAR(20) DEFAULT 'professional',
-    ai_response_style VARCHAR(20) DEFAULT 'concise',
-    ai_greeting TEXT,
-    first_victory_completed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-### `consent_records`
-```sql
-CREATE TABLE consent_records (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID REFERENCES companies(id) NOT NULL,
-    user_id UUID REFERENCES users(id) NOT NULL,
-    consent_type VARCHAR(50) NOT NULL,  -- 'tcpa', 'gdpr', 'call_recording'
-    consented BOOLEAN DEFAULT FALSE,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    consented_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-### `knowledge_documents`
-```sql
-CREATE TABLE knowledge_documents (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID REFERENCES companies(id) NOT NULL,
-    file_name VARCHAR(255) NOT NULL,
-    file_type VARCHAR(20) NOT NULL,
-    file_size INTEGER NOT NULL,
-    storage_path VARCHAR(500) NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending',  -- pending, processing, indexed, failed
-    chunk_count INTEGER DEFAULT 0,
-    processed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-### `knowledge_chunks`
-```sql
-CREATE TABLE knowledge_chunks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    document_id UUID REFERENCES knowledge_documents(id) NOT NULL,
-    company_id UUID REFERENCES companies(id) NOT NULL,
-    chunk_index INTEGER NOT NULL,
-    content TEXT NOT NULL,
-    embedding VECTOR(1536),  -- OpenAI embedding dimension
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_knowledge_chunks_embedding ON knowledge_chunks 
-USING ivfflat (embedding vector_cosine_ops);
+ALTER TABLE onboarding_sessions ADD COLUMN legal_accepted BOOLEAN DEFAULT FALSE;
+ALTER TABLE onboarding_sessions ADD COLUMN terms_accepted_at TIMESTAMPTZ;
+ALTER TABLE onboarding_sessions ADD COLUMN privacy_accepted_at TIMESTAMPTZ;
+ALTER TABLE onboarding_sessions ADD COLUMN ai_data_accepted_at TIMESTAMPTZ;
+ALTER TABLE onboarding_sessions ADD COLUMN integrations JSONB DEFAULT '{}';
+ALTER TABLE onboarding_sessions ADD COLUMN knowledge_base_files JSONB DEFAULT '[]';
+ALTER TABLE onboarding_sessions ADD COLUMN ai_name VARCHAR(50) DEFAULT 'Jarvis';
+ALTER TABLE onboarding_sessions ADD COLUMN ai_tone VARCHAR(20) DEFAULT 'professional';
+ALTER TABLE onboarding_sessions ADD COLUMN ai_response_style VARCHAR(20) DEFAULT 'concise';
+ALTER TABLE onboarding_sessions ADD COLUMN ai_greeting TEXT;
+ALTER TABLE onboarding_sessions ADD COLUMN first_victory_completed BOOLEAN DEFAULT FALSE;
 ```
 
 ---
@@ -372,8 +364,10 @@ USING ivfflat (embedding vector_cosine_ops);
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/onboarding/state` | Get onboarding state |
+| GET | `/api/user/details` | Get current user details |
 | POST | `/api/user/details` | Submit user details |
-| POST | `/api/user/verify-work-email` | Verify work email |
+| PATCH | `/api/user/details` | Update user details |
+| POST | `/api/user/verify-work-email` | Send verification email |
 
 ### Onboarding Wizard
 | Method | Endpoint | Description |
@@ -396,11 +390,13 @@ USING ivfflat (embedding vector_cosine_ops);
 | POST | `/api/knowledge/upload` | Upload document |
 | GET | `/api/knowledge` | List documents |
 | DELETE | `/api/knowledge/:id` | Delete document |
+| GET | `/api/knowledge/:id/status` | Get processing status |
 
 ### First Victory
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/onboarding/first-victory` | Get first victory status |
+| POST | `/api/onboarding/first-victory` | Mark complete |
 
 ---
 
@@ -414,15 +410,18 @@ backend/app/
 │   ├── integrations.py        # Integration APIs
 │   └── knowledge.py           # KB APIs
 ├── models/
-│   └── onboarding.py          # SQLAlchemy models
+│   ├── onboarding.py          # SQLAlchemy models (update)
+│   └── user_details.py        # User details model
 ├── schemas/
 │   └── onboarding.py          # Pydantic schemas
 ├── services/
-│   ├── onboarding_service.py  # State machine
-│   ├── consent_service.py     # Consent handling
-│   ├── integration_service.py # Integration logic
-│   ├── knowledge_service.py   # File handling
-│   └── embedding_service.py   # Vector embeddings
+│   ├── user_details_service.py
+│   ├── onboarding_service.py
+│   ├── consent_service.py
+│   ├── integration_service.py
+│   ├── knowledge_service.py
+│   ├── embedding_service.py
+│   └── victory_service.py
 └── tasks/
     └── knowledge_tasks.py     # Celery tasks
 
@@ -454,19 +453,15 @@ frontend/src/
 
 ---
 
-## API Keys (Provided)
+## API Keys
 
-| Service | Key | Usage |
-|---------|-----|-------|
-| Google AI | `YOUR_GOOGLE_AI_KEY` | AI responses |
-| Cerebras | `YOUR_CEREBRAS_KEY` | AI responses |
-| Groq | `YOUR_GROQ_KEY` | AI responses |
-| Brevo | `YOUR_BREVO_KEY` | Emails |
-| Twilio SID | `YOUR_TWILIO_SID` | SMS/Voice |
-| Twilio Token | `YOUR_TWILIO_TOKEN` | SMS/Voice |
-| Twilio API Key | `YOUR_TWILIO_API_KEY` | SMS/Voice |
-| Paddle Client | `YOUR_PADDLE_CLIENT` | Payments |
-| Paddle API | `YOUR_PADDLE_API_KEY` | Payments |
+API keys are stored in environment variables. See `.env.example` for required keys.
+
+Required services:
+- Google AI / Cerebras / Groq (AI responses)
+- Brevo (Emails)
+- Twilio (SMS/Voice)
+- Paddle (Payments)
 
 ---
 
@@ -476,6 +471,7 @@ frontend/src/
 |---------|------|---------|
 | 1.0 | Day 33 | Initial plan (too broad) |
 | 1.1 | Day 33 | Focused to Week 6 only (F-028 to F-035) |
+| 1.2 | Day 34 | Added database status (what exists/missing), updated Day 1 with 5 APIs |
 
 ---
 
