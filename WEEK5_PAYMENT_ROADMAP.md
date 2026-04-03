@@ -1,9 +1,22 @@
 # PARWA — Week 5: Payment & Billing System Roadmap
 
 > **Phase**: 2 - Core Business Logic
-> **Duration**: 6 Days (Day 24-29)
-> **Focus**: Paddle Integration, Subscription Lifecycle, Usage Tracking, Payment Failure Handling
+> **Duration**: 6 Days (Week 5 Day 1-6)
+> **Focus**: Complete Billing System Implementation
 > **Last Updated**: Pre-Week 5 Planning
+
+---
+
+## What This Week Covers
+
+This roadmap covers **ALL** billing/payment requirements, not just gaps:
+
+| Category | Items | Source |
+|----------|-------|--------|
+| **Features (F-020 to F-027)** | 8 billing features | PARWA_Build_Roadmap_v1.md |
+| **Building Code (BC-002)** | Billing-specific rules | PARWA_Building_Codes_v1.md |
+| **Production Gaps (BG-01 to BG-16)** | 13 gaps found | INFRASTRUCTURE_GAPS_TRACKER.md |
+| **Infrastructure Code** | Update existing billing files | backend/, database/ |
 
 ---
 
@@ -33,14 +46,14 @@
 
 ## Week 5 Goals
 
-| Day | Focus | Critical Deliverables |
-|-----|-------|----------------------|
-| Day 24 | Paddle Client + Database Tables | paddle_client.py, 8 new DB tables, migrations |
-| Day 25 | Subscription Service + Proration | subscription_service.py, proration_service.py |
-| Day 26 | Usage Tracking + Variant Limits | usage_tracking_service.py, variant_limit_service.py |
-| Day 27 | Payment Failure + Immediate Stop | payment_failure_service.py, BG-16 implementation |
-| Day 28 | Webhook Expansion (25+ Events) | Extend paddle_handler.py, idempotency, ordering |
-| Day 29 | Invoice + Reconciliation + Integration | invoice_service.py, reconciliation_tasks.py, full integration |
+| Day | Focus | Features | Gaps Closed |
+|-----|-------|----------|-------------|
+| Week 5 Day 1 | Paddle Client + Database Tables | F-020 | BG-05 |
+| Week 5 Day 2 | Subscription Service + Proration | F-021, F-025, F-026 | BG-04, BG-11 |
+| Week 5 Day 3 | Usage Tracking + Variant Limits | F-024 | BG-13, BG-14 |
+| Week 5 Day 4 | Payment Failure + Immediate Stop | F-027 | BG-16 |
+| Week 5 Day 5 | Webhook Expansion (25+ Events) | F-022 | BG-01, BG-07, BG-08, BG-15 |
+| Week 5 Day 6 | Invoice + Reconciliation + Integration | F-023 | BG-06, BG-09, BG-12 |
 
 ---
 
@@ -48,7 +61,9 @@
 
 ---
 
-### Day 24 — Paddle Client + Database Tables
+### Week 5 Day 1 — Paddle Client + Database Tables
+
+**Features Covered**: F-020 (Paddle checkout integration)
 
 **Goal**: Build Paddle API client and create all billing-related database tables.
 
@@ -206,12 +221,14 @@ CREATE TABLE payment_failures (
 
 #### Commit Message
 ```
-Week 5 Day 24: Paddle API client + 8 billing tables + migrations
+Week 5 Day 1: Paddle API client + 8 billing tables + migrations
 ```
 
 ---
 
-### Day 25 — Subscription Service + Proration
+### Week 5 Day 2 — Subscription Service + Proration
+
+**Features Covered**: F-021 (Subscription management), F-025 (Cancellation flow), F-026 (Cancellation tracking)
 
 **Goal**: Build subscription lifecycle management and variant change proration logic.
 
@@ -290,21 +307,6 @@ class ProrationService:
     ) -> List[ProrationAudit]
 ```
 
-#### Proration Example
-
-```
-Scenario: Growth ($2,499) → High ($3,999) upgrade on day 15 of 30-day month
-
-Calculation:
-- Days remaining: 15
-- Days in period: 30
-- Unused Growth: ($2,499 / 30) * 15 = $1,249.50
-- New High charge: ($3,999 / 30) * 15 = $1,999.50
-- Net charge: $1,999.50 - $1,249.50 = $750.00
-
-Result: Customer charged $750 immediately, full High access granted
-```
-
 #### Tests Required
 - Create subscription (all 3 variants)
 - Upgrade subscription with proration calculation
@@ -315,12 +317,14 @@ Result: Customer charged $750 immediately, full High access granted
 
 #### Commit Message
 ```
-Week 5 Day 25: Subscription service + proration calculations + billing routes
+Week 5 Day 2: Subscription service + proration calculations + billing routes
 ```
 
 ---
 
-### Day 26 — Usage Tracking + Variant Limits
+### Week 5 Day 3 — Usage Tracking + Variant Limits
+
+**Features Covered**: F-024 (Daily overage charging)
 
 **Goal**: Real-time usage counting and variant limit enforcement.
 
@@ -465,12 +469,14 @@ def daily_overage_charge():
 
 #### Commit Message
 ```
-Week 5 Day 26: Usage tracking + variant limit enforcement + overage charging
+Week 5 Day 3: Usage tracking + variant limit enforcement + overage charging
 ```
 
 ---
 
-### Day 27 — Payment Failure + Immediate Stop
+### Week 5 Day 4 — Payment Failure + Immediate Stop
+
+**Features Covered**: F-027 (Payment confirmation)
 
 **Goal**: Implement payment failure handling with immediate service stop (Netflix style).
 
@@ -605,12 +611,14 @@ PARWA Support
 
 #### Commit Message
 ```
-Week 5 Day 27: Payment failure handling + immediate service stop (Netflix style)
+Week 5 Day 4: Payment failure handling + immediate service stop (Netflix style)
 ```
 
 ---
 
-### Day 28 — Webhook Expansion (25+ Events)
+### Week 5 Day 5 — Webhook Expansion (25+ Events)
+
+**Features Covered**: F-022 (Paddle webhook handler)
 
 **Goal**: Extend Paddle webhook handler from 5 events to 25+ events with idempotency and ordering.
 
@@ -775,12 +783,14 @@ def recover_missed_webhooks():
 
 #### Commit Message
 ```
-Week 5 Day 28: Paddle webhook expansion (25+ events) + idempotency + ordering
+Week 5 Day 5: Paddle webhook expansion (25+ events) + idempotency + ordering
 ```
 
 ---
 
-### Day 29 — Invoice + Reconciliation + Integration
+### Week 5 Day 6 — Invoice + Reconciliation + Integration
+
+**Features Covered**: F-023 (Invoice history)
 
 **Goal**: Invoice generation, DB↔Paddle reconciliation, and full billing integration testing.
 
@@ -957,12 +967,48 @@ POST   /webhooks/paddle       # Receive Paddle webhooks
 
 #### Commit Message
 ```
-Week 5 Day 29: Invoice service + reconciliation tasks + full billing integration
+Week 5 Day 6: Invoice service + reconciliation tasks + full billing integration
 ```
 
 ---
 
 ## Week 5 Summary
+
+### Features Covered (F-020 to F-027)
+
+| Feature ID | Title | Day |
+|------------|-------|-----|
+| F-020 | Paddle checkout integration | Week 5 Day 1 |
+| F-021 | Subscription management (upgrade/downgrade) | Week 5 Day 2 |
+| F-022 | Paddle webhook handler (25+ events) | Week 5 Day 5 |
+| F-023 | Invoice history + PDF download | Week 5 Day 6 |
+| F-024 | Daily overage charging | Week 5 Day 3 |
+| F-025 | Cancellation flow | Week 5 Day 2 |
+| F-026 | Cancellation request tracking | Week 5 Day 2 |
+| F-027 | Payment confirmation + verification | Week 5 Day 4 |
+
+### Production Gaps Closed (BG-01 to BG-16)
+
+| Gap ID | Description | Day |
+|--------|-------------|-----|
+| BG-01 | 25+ Paddle events handled | Week 5 Day 5 |
+| BG-04 | Variant change proration | Week 5 Day 2 |
+| BG-05 | Paddle API client | Week 5 Day 1 |
+| BG-06 | DB ↔ Paddle reconciliation | Week 5 Day 6 |
+| BG-07 | Webhook ordering | Week 5 Day 5 |
+| BG-08 | Idempotency key storage | Week 5 Day 5 |
+| BG-09 | Client refund tracking | Week 5 Day 6 |
+| BG-11 | Payment method update flow | Week 5 Day 2 |
+| BG-12 | PDF invoice generation | Week 5 Day 6 |
+| BG-13 | Real-time usage counting | Week 5 Day 3 |
+| BG-14 | Feature blocking on limits | Week 5 Day 3 |
+| BG-15 | Missed webhook detection | Week 5 Day 5 |
+| BG-16 | Payment failure → immediate stop | Week 5 Day 4 |
+
+**NOT NEEDED** (per business rules):
+- BG-02: Dunning management
+- BG-03: Grace period handling
+- BG-10: Trial management
 
 ### Files Created/Updated
 
@@ -984,45 +1030,14 @@ Week 5 Day 29: Invoice service + reconciliation tasks + full billing integration
 
 | Day | New Tests | Cumulative |
 |-----|-----------|------------|
-| Day 24 | ~80 | 2,327 |
-| Day 25 | ~70 | 2,397 |
-| Day 26 | ~90 | 2,487 |
-| Day 27 | ~60 | 2,547 |
-| Day 28 | ~100 | 2,647 |
-| Day 29 | ~80 | 2,727 |
+| Week 5 Day 1 | ~80 | 2,327 |
+| Week 5 Day 2 | ~70 | 2,397 |
+| Week 5 Day 3 | ~90 | 2,487 |
+| Week 5 Day 4 | ~60 | 2,547 |
+| Week 5 Day 5 | ~100 | 2,647 |
+| Week 5 Day 6 | ~80 | 2,727 |
 
 **Target: 2,727 tests by end of Week 5**
-
-### Production Gaps Closed
-
-| Gap ID | Description | Day |
-|--------|-------------|-----|
-| BG-01 | 25+ Paddle events handled | Day 28 |
-| BG-04 | Variant change proration | Day 25 |
-| BG-05 | Paddle API client | Day 24 |
-| BG-06 | DB ↔ Paddle reconciliation | Day 29 |
-| BG-07 | Webhook ordering | Day 28 |
-| BG-08 | Idempotency key storage | Day 28 |
-| BG-09 | Client refund tracking | Day 29 |
-| BG-11 | Payment method update flow | Day 25 |
-| BG-12 | PDF invoice generation | Day 29 |
-| BG-13 | Real-time usage counting | Day 26 |
-| BG-14 | Feature blocking on limits | Day 26 |
-| BG-15 | Missed webhook detection | Day 28 |
-| BG-16 | Payment failure → immediate stop | Day 27 |
-
-### Features Delivered
-
-| Feature ID | Title | Day |
-|------------|-------|-----|
-| F-020 | Paddle checkout integration | Day 24 |
-| F-021 | Subscription management (upgrade/downgrade) | Day 25 |
-| F-022 | Paddle webhook handler (25+ events) | Day 28 |
-| F-023 | Invoice history + PDF download | Day 29 |
-| F-024 | Daily overage charging | Day 26 |
-| F-025 | Cancellation flow | Day 25 |
-| F-026 | Cancellation request tracking | Day 25 |
-| F-027 | Payment confirmation + verification | Day 27 |
 
 ---
 
@@ -1032,9 +1047,9 @@ Week 5 Day 29: Invoice service + reconciliation tasks + full billing integration
 
 | File | Current State | Update Needed |
 |------|---------------|---------------|
-| `backend/app/webhooks/paddle_handler.py` | 5 events | Expand to 25+ events |
-| `backend/app/tasks/billing_tasks.py` | Stubs | Complete implementation |
-| `database/models/billing.py` | Basic tables | Add 8 new tables |
+| `backend/app/webhooks/paddle_handler.py` | 5 events | **Expand to 25+ events** |
+| `backend/app/tasks/billing_tasks.py` | Stubs | **Complete implementation** |
+| `database/models/billing.py` | Basic tables | **Add 8 new tables** |
 | `backend/app/main.py` | Basic routes | Mount billing routes |
 | `.env.example` | Missing vars | Add PADDLE_* vars |
 
@@ -1068,12 +1083,12 @@ reportlab>=4.0.0          # PDF generation
 ## Week 6 Preview
 
 After Week 5 completion, Week 6 will cover:
-- Onboarding wizard backend
-- Legal consent collection
-- Integration setup (OAuth flows)
-- Knowledge base upload and processing
+- Onboarding wizard backend (F-028)
+- Legal consent collection (F-029)
+- Integration setup (OAuth flows) (F-030, F-031)
+- Knowledge base upload and processing (F-032, F-033)
 
 ---
 
 *Roadmap created: Pre-Week 5 Planning*
-*Ready to begin: Day 24*
+*Ready to begin: Week 5 Day 1*

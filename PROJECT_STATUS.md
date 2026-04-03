@@ -26,8 +26,8 @@
 | Week 3 | Day 21 | ✅ DONE | Health Check System + Monitoring (GAP 1.3 + GAP 2.1) | 1647 → 1759 (+112) |
 | Week 3 | Day 22 | ✅ DONE | Celery Task Modules + Beat Schedule (GAP 1.4 + GAP 3.2) | 1759 → 2029 (+270) |
 | Week 3 | Day 23 | ✅ DONE | Webhook Handlers + Templates + Cleanup (GAP 1.5 + GAP 2.2 + GAP 3.1) | 2029 → 2247 (+218) |
-| Week 4 | Day 24-29 | 🔵 PLANNED | Ticket System (F-046 to F-052) | See WEEK4_ROADMAP.md |
-| Week 5 | Day 24-29 | 🟡 NEXT | Payment & Billing System (F-020 to F-027) | See WEEK5_PAYMENT_ROADMAP.md |
+| Week 4 | W4D1-6 | 🔵 PLANNED | Ticket System (F-046 to F-052) | See WEEK4_ROADMAP.md |
+| Week 5 | W5D1-6 | 🟡 NEXT | Payment & Billing System (F-020 to F-027) | See WEEK5_PAYMENT_ROADMAP.md |
 
 **Total Tests: 2247 (current) | Loopholes Fixed: 74 (L1-L74) | GitHub: PUSHED ✅**
 
