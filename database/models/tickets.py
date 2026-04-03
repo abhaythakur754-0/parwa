@@ -29,6 +29,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -638,6 +639,81 @@ class CustomerMergeAudit(Base):
     # merge_reason, unmerge
     action_type = Column(String(50), nullable=False)
     reason = Column(Text)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+# ── Ticket Triggers (MF08: Automated trigger rules) ────────────────
+
+class TicketTrigger(Base):
+    __tablename__ = "ticket_triggers"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    # JSON: {"events": ["ticket_created", "ticket_updated"], "conditions": [...]}
+    conditions = Column(Text, default="{}")
+    # JSON: {"action": "change_status", "params": {"status": "in_progress"}}
+    action = Column(Text, default="{}")
+    is_active = Column(Boolean, default=True)
+    priority_order = Column(Integer, default=0)
+    execution_count = Column(Integer, default=0)
+    last_executed_at = Column(DateTime)
+    created_by = Column(String(36), ForeignKey("users.id"))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+# ── Custom Fields (MF09: Custom ticket fields) ──────────────────────
+
+class CustomField(Base):
+    __tablename__ = "custom_fields"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    name = Column(String(255), nullable=False)
+    field_key = Column(String(100), nullable=False)  # Used in metadata_json
+    field_type = Column(String(50), nullable=False)  # text, number, dropdown, multi_select, date, checkbox
+    # JSON: {"options": ["option1", "option2"], "required": true, "default": "..."}
+    config = Column(Text, default="{}")
+    # Which categories this field applies to (empty = all)
+    applicable_categories = Column(Text, default="[]")
+    is_required = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id", "field_key",
+            name="uq_custom_fields_company_key",
+        ),
+    )
+
+
+# ── Ticket Collision (MF11: Concurrent editing detection) ───────────
+
+class TicketCollision(Base):
+    __tablename__ = "ticket_collisions"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    ticket_id = Column(String(36), ForeignKey("tickets.id"), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    session_id = Column(String(100))  # Browser session identifier
+    started_at = Column(DateTime, default=lambda: datetime.utcnow())
+    last_activity_at = Column(DateTime, default=lambda: datetime.utcnow())
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
