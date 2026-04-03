@@ -95,9 +95,14 @@ DAY_FILES = {
         ]
     },
     27: {
-        "name": "Ticket Views + Templates",
+        "name": "Ticket Conversation + Internal Notes",
         "files": [
-            "backend/app/templates/emails/",
+            "backend/app/services/message_service.py",
+            "backend/app/services/activity_log_service.py",
+            "backend/app/services/internal_note_service.py",
+            "backend/app/api/ticket_messages.py",
+            "backend/app/api/ticket_notes.py",
+            "backend/app/api/ticket_timeline.py",
         ]
     },
     28: {
@@ -115,7 +120,7 @@ DAY_DESCRIPTIONS = {
     24: "Day 24: Database models for ticket system - Ticket, TicketComment, TicketAttachment, SLAPolicy, SLATimer, AssignmentRule, AssignmentLog, TicketMention, TicketMerge. Includes relationships, constraints, and model methods.",
     25: "Day 25: Business logic layer - service classes that orchestrate database operations.",
     26: "Day 26: Ticket CRUD Service + REST API - create, read, update, delete tickets with SLA tracking, auto-assignment, mentions parsing, and merge operations.",
-    27: "Day 27: Ticket Views + Templates - web UI for ticket management.",
+    27: "Day 27: Ticket Conversation + Internal Notes - message CRUD with edit window, thread management, internal notes with pinning, activity timeline tracking for all ticket changes.",
     28: "Day 28: Full ticket flow integration - end-to-end testing."
 }
 

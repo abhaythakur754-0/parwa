@@ -48,6 +48,27 @@ class Company(Base):
         "APIKey", back_populates="company",
         cascade="all, delete-orphan",
     )
+    # Billing extended relationships (Week 5)
+    client_refunds = relationship(
+        "ClientRefund", back_populates="company",
+        cascade="all, delete-orphan",
+    )
+    payment_methods = relationship(
+        "PaymentMethod", back_populates="company",
+        cascade="all, delete-orphan",
+    )
+    usage_records = relationship(
+        "UsageRecord", back_populates="company",
+        cascade="all, delete-orphan",
+    )
+    proration_audits = relationship(
+        "ProrationAudit", back_populates="company",
+        cascade="all, delete-orphan",
+    )
+    payment_failures = relationship(
+        "PaymentFailure", back_populates="company",
+        cascade="all, delete-orphan",
+    )
 
 
 # ── Users ──────────────────────────────────────────────────────────
