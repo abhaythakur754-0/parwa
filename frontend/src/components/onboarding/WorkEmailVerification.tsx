@@ -3,7 +3,7 @@
 import React from 'react';
 import { Mail, CheckCircle, AlertCircle, Send, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { userDetailsApi } from '@/lib/api';
+import { userDetailsApi, getErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface WorkEmailVerificationProps {
@@ -44,6 +44,7 @@ export function WorkEmailVerification({
   
   /**
    * Send verification email.
+   * GAP-002: Uses safe error message handling.
    */
   const handleSendVerification = async () => {
     if (!workEmail || isSending || cooldown > 0) return;
@@ -57,7 +58,9 @@ export function WorkEmailVerification({
       toast.success('Verification email sent! Check your inbox.');
     } catch (error) {
       console.error('Failed to send verification:', error);
-      toast.error('Failed to send verification email. Please try again.');
+      // GAP-002: Use safe error message handling
+      const errorMessage = getErrorMessage(error);
+      toast.error(errorMessage);
     } finally {
       setIsSending(false);
     }

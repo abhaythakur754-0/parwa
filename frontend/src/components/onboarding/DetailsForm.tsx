@@ -8,7 +8,15 @@ import { User, Building2, Globe, Mail, Users, ArrowRight, Loader2 } from 'lucide
 import toast from 'react-hot-toast';
 
 import { cn } from '@/lib/utils';
-import { userDetailsApi } from '@/lib/api';
+import { 
+  sanitizeInput, 
+  sanitizeUrl, 
+  validateEmail,
+  saveFormDataToStorage,
+  loadFormDataFromStorage,
+  clearFormDataFromStorage 
+} from '@/lib/utils';
+import { userDetailsApi, getErrorMessage } from '@/lib/api';
 import { Industry, CompanySize, UserDetails } from '@/types/onboarding';
 import { IndustrySelect } from './IndustrySelect';
 import { WorkEmailVerification } from './WorkEmailVerification';
@@ -76,6 +84,11 @@ const COMPANY_SIZE_OPTIONS: { value: CompanySize; label: string }[] = [
  * - Industry selection (required)
  * - Company size (optional)
  * - Website (optional)
+ * 
+ * Security Features (GAP-001, GAP-007):
+ * - XSS sanitization on all inputs
+ * - localStorage persistence for form state
+ * - Safe API error handling
  */
 export function DetailsForm({
   initialData,
@@ -86,6 +99,9 @@ export function DetailsForm({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [savedData, setSavedData] = React.useState<UserDetails | null>(initialData || null);
   
+  // Load saved form data from localStorage (GAP-007)
+  const storedData = React.useMemo(() => loadFormDataFromStorage<Partial<DetailsFormData>>(), []);
+  
   const {
     register,
     control,
@@ -95,33 +111,57 @@ export function DetailsForm({
   } = useForm<DetailsFormData>({
     resolver: zodResolver(detailsFormSchema),
     defaultValues: {
-      full_name: initialData?.full_name || '',
-      company_name: initialData?.company_name || '',
-      work_email: initialData?.work_email || '',
-      industry: initialData?.industry as Industry || undefined,
-      company_size: initialData?.company_size as CompanySize || undefined,
-      website: initialData?.website || '',
+      full_name: initialData?.full_name || storedData?.full_name || '',
+      company_name: initialData?.company_name || storedData?.company_name || '',
+      work_email: initialData?.work_email || storedData?.work_email || '',
+      industry: initialData?.industry as Industry || storedData?.industry as Industry || undefined,
+      company_size: initialData?.company_size as CompanySize || storedData?.company_size as CompanySize || undefined,
+      website: initialData?.website || storedData?.website || '',
     },
     mode: 'onChange',
   });
   
   const workEmail = watch('work_email');
   
+  // Save form data to localStorage whenever it changes (GAP-007)
+  React.useEffect(() => {
+    const subscription = watch((value) => {
+      saveFormDataToStorage(value as Record<string, unknown>);
+    });
+    return () => subscription.unsubscribe();
+  }, [watch]);
+  
   /**
-   * Handle form submission.
+   * Handle form submission with sanitization (GAP-001).
    */
   const onFormSubmit = async (data: DetailsFormData) => {
     setIsSubmitting(true);
     
     try {
-      const response = await userDetailsApi.create({
-        full_name: data.full_name,
-        company_name: data.company_name,
-        work_email: data.work_email || undefined,
+      // Sanitize all inputs before sending to API (GAP-001)
+      const sanitizedData = {
+        full_name: sanitizeInput(data.full_name),
+        company_name: sanitizeInput(data.company_name),
+        work_email: data.work_email ? validateEmail(data.work_email).sanitized : undefined,
         industry: data.industry,
         company_size: data.company_size,
-        website: data.website,
-      });
+        website: data.website ? sanitizeUrl(data.website) : undefined,
+      };
+      
+      // Validate email format if provided
+      if (data.work_email) {
+        const emailValidation = validateEmail(data.work_email);
+        if (!emailValidation.isValid) {
+          toast.error('Please enter a valid email address');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
+      const response = await userDetailsApi.create(sanitizedData);
+      
+      // Clear localStorage after successful submission (GAP-007)
+      clearFormDataFromStorage();
       
       setSavedData(response);
       toast.success('Details saved successfully!');
@@ -129,8 +169,10 @@ export function DetailsForm({
       onSubmit?.(response);
       onNext?.();
     } catch (error) {
+      // Use safe error message handling (GAP-002)
+      const errorMessage = getErrorMessage(error);
       console.error('Failed to save details:', error);
-      toast.error('Failed to save details. Please try again.');
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
