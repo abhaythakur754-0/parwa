@@ -105,7 +105,8 @@ class TestHandlePaddleEvent:
         event = {**SAMPLE_SUB_EVENT, "event_type": "unknown.event"}
         result = handle_paddle_event(event)
         assert result["status"] == "validation_error"
-        assert "Unknown Paddle event type" in result["error"]
+        # GAP 5 fix: Changed error message
+        assert "Unsupported event_type" in result["error"]
 
     def test_unknown_event_includes_supported_types(self):
         event = {**SAMPLE_SUB_EVENT, "event_type": "unknown.event"}

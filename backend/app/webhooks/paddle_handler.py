@@ -79,13 +79,24 @@ def _validate_required_fields(
 ) -> Optional[str]:
     """Validate that required fields exist in extracted data.
 
+    GAP 5 fix: Enhanced validation for:
+    - Missing fields
+    - Empty strings
+    - Null values
+
     Returns:
         Error message string if validation fails, None if OK.
     """
     required = REQUIRED_FIELDS.get(event_type, [])
     for field in required:
-        if field not in data or not data[field]:
+        if field not in data:
             return f"Missing required field: {field}"
+        # GAP 5 fix: Also check for empty/whitespace-only values
+        value = data[field]
+        if value is None:
+            return f"Field {field} cannot be null"
+        if isinstance(value, str) and not value.strip():
+            return f"Field {field} cannot be empty"
     return None
 
 
@@ -237,6 +248,30 @@ _PADDLE_HANDLERS = {
 }
 
 
+def _validate_event_type(event_type: str) -> Optional[str]:
+    """Validate event_type is supported.
+
+    GAP 5 fix: Validate event_type against supported types.
+
+    Returns:
+        Error message if invalid, None if valid.
+    """
+    if not event_type or not isinstance(event_type, str):
+        return "event_type is required and must be a string"
+    
+    event_type = event_type.strip()
+    if not event_type:
+        return "event_type cannot be empty"
+    
+    if event_type not in _PADDLE_HANDLERS:
+        return (
+            f"Unsupported event_type: {event_type}. "
+            f"Supported types: {', '.join(_PADDLE_HANDLERS.keys())}"
+        )
+    
+    return None
+
+
 @register_handler("paddle")
 def handle_paddle_event(event: dict) -> dict:
     """Main Paddle webhook handler dispatcher.
@@ -255,6 +290,46 @@ def handle_paddle_event(event: dict) -> dict:
         Dict with status, action, and extracted data.
     """
     event_type = event.get("event_type", "")
+    
+    # GAP 5 fix: Validate event_type
+    type_error = _validate_event_type(event_type)
+    if type_error:
+        logger.warning(
+            "paddle_invalid_event_type type=%s event_id=%s error=%s",
+            event_type,
+            event.get("event_id"),
+            type_error,
+            extra={"company_id": event.get("company_id")},
+        )
+        return {
+            "status": "validation_error",
+            "error": type_error,
+            "supported_types": list(_PADDLE_HANDLERS.keys()),
+        }
+    
+    # GAP 5 fix: Validate company_id is present
+    company_id = event.get("company_id")
+    if not company_id:
+        logger.warning(
+            "paddle_missing_company_id event_id=%s",
+            event.get("event_id"),
+        )
+        return {
+            "status": "validation_error",
+            "error": "Missing company_id in event",
+        }
+    
+    # GAP 5 fix: Validate event_id is present
+    event_id = event.get("event_id")
+    if not event_id:
+        logger.warning(
+            "paddle_missing_event_id company_id=%s",
+            company_id,
+        )
+        return {
+            "status": "validation_error",
+            "error": "Missing event_id in event",
+        }
 
     handler = _PADDLE_HANDLERS.get(event_type)
     if not handler:

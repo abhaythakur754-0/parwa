@@ -112,10 +112,20 @@ class TestSubscriptionCreation:
             mock_subscription.created_at = datetime.now(timezone.utc)
             MockSubscription.return_value = mock_subscription
 
-            mock_db_session.query.return_value.filter.return_value.first.side_effect = [
-                None,  # No existing subscription
-                mock_company,  # Company found
-            ]
+            # Mock the query chain to handle both subscription and company queries
+            def mock_query_side_effect(model):
+                mock_query = MagicMock()
+                # First call: existing subscription check (with_for_update chain)
+                mock_filter = MagicMock()
+                mock_query.filter.return_value = mock_filter
+                mock_for_update = MagicMock()
+                mock_filter.with_for_update.return_value = mock_for_update
+                mock_for_update.first.return_value = None  # No existing subscription
+                # Company query will call .first() directly after .filter()
+                mock_query.filter.return_value.first.return_value = mock_company
+                return mock_query
+            
+            mock_db_session.query.side_effect = mock_query_side_effect
             mock_db_session.add = MagicMock()
             mock_db_session.commit = MagicMock()
             mock_db_session.refresh = MagicMock()
@@ -175,7 +185,8 @@ class TestSubscriptionCreation:
             "backend.app.services.subscription_service.SessionLocal",
             return_value=mock_db_session
         ):
-            mock_db_session.query.return_value.filter.return_value.first.return_value = mock_existing
+            # Mock query chain with with_for_update: query().filter().with_for_update().first()
+            mock_db_session.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = mock_existing
 
             with pytest.raises(SubscriptionAlreadyExistsError):
                 await subscription_service.create_subscription(
@@ -353,7 +364,8 @@ class TestSubscriptionDowngrade:
             "backend.app.services.subscription_service.SessionLocal",
             return_value=mock_db_session
         ):
-            mock_db_session.query.return_value.filter.return_value.first.return_value = mock_subscription
+            # Mock query chain with with_for_update
+            mock_db_session.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = mock_subscription
 
             result = await subscription_service.downgrade_subscription(
                 company_id=sample_company_id,
@@ -384,7 +396,8 @@ class TestSubscriptionDowngrade:
             "backend.app.services.subscription_service.SessionLocal",
             return_value=mock_db_session
         ):
-            mock_db_session.query.return_value.filter.return_value.first.return_value = mock_subscription
+            # Mock query chain with with_for_update
+            mock_db_session.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = mock_subscription
 
             result = await subscription_service.downgrade_subscription(
                 company_id=sample_company_id,
@@ -429,8 +442,13 @@ class TestSubscriptionCancellation:
             mock_cancellation.id = str(uuid4())
             MockCancellation.return_value = mock_cancellation
 
-            mock_db_session.query.return_value.filter.return_value.first.side_effect = [
+            # Mock query chain with with_for_update
+            mock_db_session.query.return_value.filter.return_value.with_for_update.return_value.first.side_effect = [
                 mock_subscription,  # Subscription found
+            ]
+            # Company query (no with_for_update)
+            mock_db_session.query.return_value.filter.return_value.first.side_effect = [
+                mock_subscription,  # Subscription (handled by with_for_update above)
                 mock_company,  # Company found
             ]
             mock_db_session.add = MagicMock()
@@ -477,8 +495,13 @@ class TestSubscriptionCancellation:
             mock_cancellation.id = str(uuid4())
             MockCancellation.return_value = mock_cancellation
 
-            mock_db_session.query.return_value.filter.return_value.first.side_effect = [
+            # Mock query chain with with_for_update
+            mock_db_session.query.return_value.filter.return_value.with_for_update.return_value.first.side_effect = [
                 mock_subscription,
+            ]
+            # Company query (no with_for_update)
+            mock_db_session.query.return_value.filter.return_value.first.side_effect = [
+                mock_subscription,  # Subscription (handled by with_for_update above)
                 mock_company,
             ]
             mock_db_session.add = MagicMock()
@@ -503,7 +526,8 @@ class TestSubscriptionCancellation:
             "backend.app.services.subscription_service.SessionLocal",
             return_value=mock_db_session
         ):
-            mock_db_session.query.return_value.filter.return_value.first.return_value = None
+            # Mock query chain with with_for_update
+            mock_db_session.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = None
 
             with pytest.raises(SubscriptionNotFoundError):
                 await subscription_service.cancel_subscription(
@@ -535,7 +559,8 @@ class TestSubscriptionReactivation:
             "backend.app.services.subscription_service.SessionLocal",
             return_value=mock_db_session
         ):
-            mock_db_session.query.return_value.filter.return_value.first.return_value = mock_subscription
+            # Mock query chain with with_for_update
+            mock_db_session.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = mock_subscription
             mock_db_session.commit = MagicMock()
 
             result = await subscription_service.reactivate_subscription(sample_company_id)
@@ -552,7 +577,8 @@ class TestSubscriptionReactivation:
             "backend.app.services.subscription_service.SessionLocal",
             return_value=mock_db_session
         ):
-            mock_db_session.query.return_value.filter.return_value.first.return_value = None
+            # Mock query chain with with_for_update
+            mock_db_session.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = None
 
             with pytest.raises(InvalidStatusTransitionError):
                 await subscription_service.reactivate_subscription(sample_company_id)
