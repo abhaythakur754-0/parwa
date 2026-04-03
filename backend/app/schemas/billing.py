@@ -357,3 +357,11 @@ class WebhookSequenceInfo(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Common Response Schemas ────────────────────────────────────────────────
+
+class MessageResponse(BaseModel):
+    """Generic message response."""
+    message: str
+    code: Optional[str] = None
