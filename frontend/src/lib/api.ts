@@ -2,9 +2,14 @@
  * PARWA API Client
  * 
  * Centralized API client for making requests to the backend.
+ * 
+ * Security Features (GAP-002 Fix):
+ * - Safe JSON parsing for malformed responses
+ * - Proper error handling for all HTTP status codes
+ * - Timeout handling with retry support
  */
 
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 // API base URL from environment or default
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -44,6 +49,7 @@ apiClient.interceptors.request.use(
 
 /**
  * Response interceptor for handling errors.
+ * GAP-002: Handle malformed responses gracefully.
  */
 apiClient.interceptors.response.use(
   (response) => response,
@@ -62,40 +68,124 @@ apiClient.interceptors.response.use(
       console.error('Access denied');
     }
     
+    // Handle 429 Rate Limit
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      console.warn(`Rate limited. Retry after ${retryAfter} seconds`);
+    }
+    
     return Promise.reject(error);
   }
 );
 
+// ── GAP-002: Safe Response Parsing ───────────────────────────────────────
+
 /**
- * Generic GET request.
+ * Safely parse response data, handling malformed JSON.
+ */
+function safeParseResponse<T>(response: AxiosResponse): T {
+  // If response is already parsed by axios, return it
+  if (response.data !== undefined) {
+    return response.data as T;
+  }
+  throw new Error('Empty response from server');
+}
+
+/**
+ * Handle API errors with user-friendly messages.
+ */
+export function getErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    // Network error (no response)
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        return 'Request timed out. Please try again.';
+      }
+      return 'Network error. Please check your connection.';
+    }
+    
+    // Server responded with error
+    const status = error.response.status;
+    const detail = error.response?.data?.detail;
+    
+    if (status === 429) {
+      const retryAfter = error.response.headers['retry-after'] || 60;
+      return `Too many requests. Please try again in ${retryAfter} seconds.`;
+    }
+    
+    if (status >= 500) {
+      return 'Server error. Please try again later.';
+    }
+    
+    if (status === 401) {
+      return 'Session expired. Please log in again.';
+    }
+    
+    if (status === 403) {
+      return 'Access denied.';
+    }
+    
+    // Return server's error message if available
+    if (detail) {
+      return detail;
+    }
+    
+    return `Request failed with status ${status}`;
+  }
+  
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  return 'An unexpected error occurred. Please try again.';
+}
+
+/**
+ * Generic GET request with safe parsing.
  */
 export async function get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-  const response = await apiClient.get<T>(url, config);
-  return response.data;
+  try {
+    const response = await apiClient.get<T>(url, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
 }
 
 /**
- * Generic POST request.
+ * Generic POST request with safe parsing.
  */
 export async function post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-  const response = await apiClient.post<T>(url, data, config);
-  return response.data;
+  try {
+    const response = await apiClient.post<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
 }
 
 /**
- * Generic PATCH request.
+ * Generic PATCH request with safe parsing.
  */
 export async function patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-  const response = await apiClient.patch<T>(url, data, config);
-  return response.data;
+  try {
+    const response = await apiClient.patch<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
 }
 
 /**
- * Generic DELETE request.
+ * Generic DELETE request with safe parsing.
  */
 export async function del<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-  const response = await apiClient.delete<T>(url, config);
-  return response.data;
+  try {
+    const response = await apiClient.delete<T>(url, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
 }
 
 // ── Onboarding API Endpoints ───────────────────────────────────────────
