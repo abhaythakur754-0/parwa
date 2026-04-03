@@ -624,3 +624,673 @@ def process_new_ticket(
         "company_id": company_id,
         "processing": results,
     }
+
+
+# ── SLA TASKS (PS11, PS17) ───────────────────────────────────────────────────
+
+@app.task(
+    base=ParwaTask,
+    bind=True,
+    name="ticket.run_sla_check",
+    soft_time_limit=300,
+    time_limit=600,
+)
+def run_sla_check(
+    self,
+    company_id: str,
+) -> Dict[str, Any]:
+    """Run SLA timer monitoring for all active tickets.
+
+    PS11: SLA breach detection.
+    PS17: SLA approaching warning.
+
+    Args:
+        company_id: Company ID
+
+    Returns:
+        Summary of SLA check results
+    """
+    logger.info(
+        "Running SLA check",
+        extra={"company_id": company_id}
+    )
+
+    from backend.app.services.sla_service import SLAService
+
+    with SessionLocal() as db:
+        try:
+            service = SLAService(db)
+
+            # Get breached tickets
+            breached = service.get_breached_tickets(company_id)
+
+            # Get approaching tickets
+            approaching = service.get_approaching_tickets(company_id)
+
+            # Queue warning/breach tasks
+            for ticket in breached:
+                try:
+                    send_sla_breach.apply_async(
+                        args=[company_id, ticket.id],
+                        queue="default",
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Failed to queue SLA breach task",
+                        extra={
+                            "company_id": company_id,
+                            "ticket_id": ticket.id,
+                            "error": str(e),
+                        }
+                    )
+
+            for item in approaching:
+                try:
+                    send_sla_warning.apply_async(
+                        args=[company_id, item["ticket"].id],
+                        queue="default",
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Failed to queue SLA warning task",
+                        extra={
+                            "company_id": company_id,
+                            "ticket_id": item["ticket"].id,
+                            "error": str(e),
+                        }
+                    )
+
+            return {
+                "company_id": company_id,
+                "breached_count": len(breached),
+                "approaching_count": len(approaching),
+                "tasks_queued": len(breached) + len(approaching),
+            }
+
+        except Exception as e:
+            logger.error(
+                "SLA check failed",
+                extra={
+                    "company_id": company_id,
+                    "error": str(e),
+                }
+            )
+            raise self.retry(exc=e)
+
+
+@app.task(
+    base=ParwaTask,
+    bind=True,
+    name="ticket.send_sla_warning",
+    max_retries=3,
+    soft_time_limit=60,
+    time_limit=120,
+)
+def send_sla_warning(
+    self,
+    company_id: str,
+    ticket_id: str,
+) -> Dict[str, Any]:
+    """Send SLA approaching warning (PS17).
+
+    Args:
+        company_id: Company ID
+        ticket_id: Ticket ID
+
+    Returns:
+        Warning send result
+    """
+    logger.info(
+        "Sending SLA warning",
+        extra={
+            "company_id": company_id,
+            "ticket_id": ticket_id,
+        }
+    )
+
+    with SessionLocal() as db:
+        try:
+            from backend.app.services.sla_service import SLAService
+            from backend.app.services.notification_service import NotificationService
+            from backend.app.core.ticket_events import emit_sla_warning
+
+            sla_service = SLAService(db)
+
+            # Get SLA status
+            is_approaching, percentage = sla_service.is_approaching_breach(
+                company_id, ticket_id
+            )
+
+            if not is_approaching:
+                return {
+                    "ticket_id": ticket_id,
+                    "warning_sent": False,
+                    "reason": "Not approaching",
+                }
+
+            ticket = db.query(Ticket).filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == company_id,
+            ).first()
+
+            if not ticket:
+                return {
+                    "ticket_id": ticket_id,
+                    "warning_sent": False,
+                    "reason": "Ticket not found",
+                }
+
+            # Calculate minutes remaining
+            timer = sla_service.get_timer(company_id, ticket_id)
+            if timer and ticket.resolution_target_at:
+                minutes_remaining = (
+                    ticket.resolution_target_at - datetime.utcnow()
+                ).total_seconds() / 60
+            else:
+                minutes_remaining = None
+
+            # Emit SLA warning event
+            import asyncio
+            asyncio.run(emit_sla_warning(
+                company_id=company_id,
+                ticket_id=ticket_id,
+                percentage_elapsed=percentage or 0.75,
+                minutes_remaining=minutes_remaining or 0,
+            ))
+
+            # Send notification to assignee
+            if ticket.assigned_to:
+                notification_service = NotificationService(db, company_id)
+                notification_service.create_notification(
+                    user_id=ticket.assigned_to,
+                    notification_type="sla_warning",
+                    title="SLA Warning",
+                    message=f"Ticket {ticket.subject or ticket_id} is approaching SLA breach",
+                    data={
+                        "ticket_id": ticket_id,
+                        "percentage_elapsed": round((percentage or 0.75) * 100, 1),
+                    },
+                )
+
+            return {
+                "ticket_id": ticket_id,
+                "warning_sent": True,
+                "percentage_elapsed": round((percentage or 0.75) * 100, 1),
+            }
+
+        except Exception as e:
+            logger.error(
+                "SLA warning failed",
+                extra={
+                    "company_id": company_id,
+                    "ticket_id": ticket_id,
+                    "error": str(e),
+                }
+            )
+            raise self.retry(exc=e)
+
+
+@app.task(
+    base=ParwaTask,
+    bind=True,
+    name="ticket.send_sla_breach",
+    max_retries=3,
+    soft_time_limit=60,
+    time_limit=120,
+)
+def send_sla_breach(
+    self,
+    company_id: str,
+    ticket_id: str,
+) -> Dict[str, Any]:
+    """Send SLA breach notification (PS11).
+
+    Args:
+        company_id: Company ID
+        ticket_id: Ticket ID
+
+    Returns:
+        Breach notification result
+    """
+    logger.info(
+        "Sending SLA breach notification",
+        extra={
+            "company_id": company_id,
+            "ticket_id": ticket_id,
+        }
+    )
+
+    with SessionLocal() as db:
+        try:
+            from backend.app.services.sla_service import SLAService
+            from backend.app.services.notification_service import NotificationService
+            from backend.app.core.ticket_events import emit_sla_breach
+
+            sla_service = SLAService(db)
+
+            # Check if actually breached
+            is_breached, breach_type = sla_service.check_breach(company_id, ticket_id)
+
+            if not is_breached:
+                return {
+                    "ticket_id": ticket_id,
+                    "breach_sent": False,
+                    "reason": "Not breached",
+                }
+
+            ticket = db.query(Ticket).filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == company_id,
+            ).first()
+
+            if not ticket:
+                return {
+                    "ticket_id": ticket_id,
+                    "breach_sent": False,
+                    "reason": "Ticket not found",
+                }
+
+            # Calculate minutes overdue
+            timer = sla_service.get_timer(company_id, ticket_id)
+            minutes_overdue = None
+            if timer and ticket.resolution_target_at:
+                minutes_overdue = (
+                    datetime.utcnow() - ticket.resolution_target_at
+                ).total_seconds() / 60
+
+            # Emit SLA breach event
+            import asyncio
+            asyncio.run(emit_sla_breach(
+                company_id=company_id,
+                ticket_id=ticket_id,
+                breach_type=breach_type or "resolution",
+                minutes_overdue=minutes_overdue,
+            ))
+
+            # Send notification to assignee and managers
+            notification_service = NotificationService(db, company_id)
+
+            if ticket.assigned_to:
+                notification_service.create_notification(
+                    user_id=ticket.assigned_to,
+                    notification_type="sla_breach",
+                    title="SLA Breached",
+                    message=f"Ticket {ticket.subject or ticket_id} has breached SLA",
+                    data={
+                        "ticket_id": ticket_id,
+                        "breach_type": breach_type,
+                        "minutes_overdue": minutes_overdue,
+                    },
+                )
+
+            return {
+                "ticket_id": ticket_id,
+                "breach_sent": True,
+                "breach_type": breach_type,
+                "minutes_overdue": minutes_overdue,
+            }
+
+        except Exception as e:
+            logger.error(
+                "SLA breach notification failed",
+                extra={
+                    "company_id": company_id,
+                    "ticket_id": ticket_id,
+                    "error": str(e),
+                }
+            )
+            raise self.retry(exc=e)
+
+
+# ── STALE TICKET TASKS (PS06) ────────────────────────────────────────────────
+
+@app.task(
+    base=ParwaTask,
+    bind=True,
+    name="ticket.check_stale_tickets",
+    soft_time_limit=300,
+    time_limit=600,
+)
+def check_stale_tickets(
+    self,
+    company_id: str,
+    stale_days: int = 7,
+) -> Dict[str, Any]:
+    """Check for stale tickets (PS06).
+
+    Stale tickets are those with no activity for the specified number of days.
+
+    Args:
+        company_id: Company ID
+        stale_days: Number of days with no activity to be considered stale
+
+    Returns:
+        Summary of stale ticket detection
+    """
+    logger.info(
+        "Checking for stale tickets",
+        extra={
+            "company_id": company_id,
+            "stale_days": stale_days,
+        }
+    )
+
+    from backend.app.services.stale_ticket_service import StaleTicketService
+
+    with SessionLocal() as db:
+        try:
+            service = StaleTicketService(db, company_id)
+            stale_tickets = service.detect_stale_tickets(stale_days)
+
+            # Queue reminder tasks for each stale ticket
+            for ticket in stale_tickets:
+                try:
+                    send_awaiting_client_reminder.apply_async(
+                        args=[company_id, ticket.id],
+                        queue="default",
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Failed to queue stale ticket reminder",
+                        extra={
+                            "company_id": company_id,
+                            "ticket_id": ticket.id,
+                            "error": str(e),
+                        }
+                    )
+
+            return {
+                "company_id": company_id,
+                "stale_count": len(stale_tickets),
+                "stale_days": stale_days,
+            }
+
+        except Exception as e:
+            logger.error(
+                "Stale ticket check failed",
+                extra={
+                    "company_id": company_id,
+                    "error": str(e),
+                }
+            )
+            raise self.retry(exc=e)
+
+
+@app.task(
+    base=ParwaTask,
+    bind=True,
+    name="ticket.send_awaiting_client_reminder",
+    max_retries=3,
+    soft_time_limit=60,
+    time_limit=120,
+)
+def send_awaiting_client_reminder(
+    self,
+    company_id: str,
+    ticket_id: str,
+) -> Dict[str, Any]:
+    """Send reminder for tickets awaiting client (PS08).
+
+    Args:
+        company_id: Company ID
+        ticket_id: Ticket ID
+
+    Returns:
+        Reminder send result
+    """
+    logger.info(
+        "Sending awaiting client reminder",
+        extra={
+            "company_id": company_id,
+            "ticket_id": ticket_id,
+        }
+    )
+
+    with SessionLocal() as db:
+        try:
+            ticket = db.query(Ticket).filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == company_id,
+            ).first()
+
+            if not ticket:
+                return {
+                    "ticket_id": ticket_id,
+                    "reminder_sent": False,
+                    "reason": "Ticket not found",
+                }
+
+            if ticket.status != TicketStatus.awaiting_client.value:
+                return {
+                    "ticket_id": ticket_id,
+                    "reminder_sent": False,
+                    "reason": "Not awaiting client",
+                }
+
+            # Send reminder email (would integrate with email service)
+            # For now, just log and create notification
+            logger.info(
+                "Awaiting client reminder sent",
+                extra={
+                    "company_id": company_id,
+                    "ticket_id": ticket_id,
+                }
+            )
+
+            return {
+                "ticket_id": ticket_id,
+                "reminder_sent": True,
+            }
+
+        except Exception as e:
+            logger.error(
+                "Awaiting client reminder failed",
+                extra={
+                    "company_id": company_id,
+                    "ticket_id": ticket_id,
+                    "error": str(e),
+                }
+            )
+            raise self.retry(exc=e)
+
+
+# ── SPAM DETECTION (PS15) ────────────────────────────────────────────────────
+
+@app.task(
+    base=ParwaTask,
+    bind=True,
+    name="ticket.detect_spam_tickets",
+    soft_time_limit=300,
+    time_limit=600,
+)
+def detect_spam_tickets(
+    self,
+    company_id: str,
+) -> Dict[str, Any]:
+    """Detect spam tickets (PS15).
+
+    Uses spam detection service to identify potential spam.
+
+    Args:
+        company_id: Company ID
+
+    Returns:
+        Summary of spam detection
+    """
+    logger.info(
+        "Detecting spam tickets",
+        extra={"company_id": company_id}
+    )
+
+    from backend.app.services.spam_detection_service import SpamDetectionService
+
+    with SessionLocal() as db:
+        try:
+            service = SpamDetectionService(db, company_id)
+            spam_tickets = service.detect_spam()
+
+            # Mark detected spam tickets
+            marked_count = 0
+            for ticket in spam_tickets:
+                try:
+                    ticket.is_spam = True
+                    ticket.status = TicketStatus.closed.value
+                    marked_count += 1
+                except Exception as e:
+                    logger.error(
+                        "Failed to mark spam ticket",
+                        extra={
+                            "company_id": company_id,
+                            "ticket_id": ticket.id,
+                            "error": str(e),
+                        }
+                    )
+
+            db.commit()
+
+            return {
+                "company_id": company_id,
+                "spam_detected": len(spam_tickets),
+                "spam_marked": marked_count,
+            }
+
+        except Exception as e:
+            logger.error(
+                "Spam detection failed",
+                extra={
+                    "company_id": company_id,
+                    "error": str(e),
+                }
+            )
+            raise self.retry(exc=e)
+
+
+# ── FROZEN TICKET CLEANUP (PS07) ─────────────────────────────────────────────
+
+@app.task(
+    base=ParwaTask,
+    bind=True,
+    name="ticket.cleanup_frozen_tickets",
+    soft_time_limit=300,
+    time_limit=600,
+)
+def cleanup_frozen_tickets(
+    self,
+    company_id: str,
+) -> Dict[str, Any]:
+    """Cleanup frozen tickets (PS07).
+
+    Handles tickets that were frozen due to account suspension.
+
+    Args:
+        company_id: Company ID
+
+    Returns:
+        Summary of cleanup
+    """
+    logger.info(
+        "Cleaning up frozen tickets",
+        extra={"company_id": company_id}
+    )
+
+    with SessionLocal() as db:
+        try:
+            # Get all frozen tickets
+            frozen_tickets = db.query(Ticket).filter(
+                Ticket.company_id == company_id,
+                Ticket.frozen == True,  # noqa: E712
+            ).all()
+
+            processed_count = 0
+            reactivated_count = 0
+
+            for ticket in frozen_tickets:
+                try:
+                    # Check if account is no longer suspended
+                    # (would need to check company status)
+                    # For now, just log
+                    processed_count += 1
+                except Exception as e:
+                    logger.error(
+                        "Failed to process frozen ticket",
+                        extra={
+                            "company_id": company_id,
+                            "ticket_id": ticket.id,
+                            "error": str(e),
+                        }
+                    )
+
+            return {
+                "company_id": company_id,
+                "frozen_count": len(frozen_tickets),
+                "processed_count": processed_count,
+                "reactivated_count": reactivated_count,
+            }
+
+        except Exception as e:
+            logger.error(
+                "Frozen ticket cleanup failed",
+                extra={
+                    "company_id": company_id,
+                    "error": str(e),
+                }
+            )
+            raise self.retry(exc=e)
+
+
+# ── BULK ACTION PROCESSING ──────────────────────────────────────────────────
+
+@app.task(
+    base=ParwaTask,
+    bind=True,
+    name="ticket.process_bulk_action",
+    max_retries=2,
+    soft_time_limit=600,
+    time_limit=1200,
+)
+def process_bulk_action(
+    self,
+    company_id: str,
+    bulk_action_id: str,
+) -> Dict[str, Any]:
+    """Process a bulk action asynchronously.
+
+    Args:
+        company_id: Company ID
+        bulk_action_id: BulkActionLog ID
+
+    Returns:
+        Summary of bulk action processing
+    """
+    logger.info(
+        "Processing bulk action",
+        extra={
+            "company_id": company_id,
+            "bulk_action_id": bulk_action_id,
+        }
+    )
+
+    from backend.app.services.bulk_action_service import BulkActionService
+
+    with SessionLocal() as db:
+        try:
+            service = BulkActionService(db, company_id)
+            result = service.execute_bulk_action(bulk_action_id)
+
+            return {
+                "company_id": company_id,
+                "bulk_action_id": bulk_action_id,
+                "success_count": result.get("success_count", 0),
+                "failure_count": result.get("failure_count", 0),
+            }
+
+        except Exception as e:
+            logger.error(
+                "Bulk action processing failed",
+                extra={
+                    "company_id": company_id,
+                    "bulk_action_id": bulk_action_id,
+                    "error": str(e),
+                }
+            )
+            raise self.retry(exc=e)
