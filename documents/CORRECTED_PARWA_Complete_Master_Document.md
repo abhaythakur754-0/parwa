@@ -457,7 +457,16 @@ Manager Overhead 4+ hrs/day 30 min/day The "Real" Infrastructure Cost Model (v4.
 Hosting" myth to ensure reliability. Monthly Infrastructure Budget (Per Client Share): - Hosting (Frontend): Vercel Hobby ($0). - Hosting (Backend): GCP VM (~$25-30/mo, free first 10-12 months with credits). - Database (PostgreSQL on GCP VM): Included with GCP VM. - Total Overhead: ~$25-30/mo (free first 10-12 months with GCP credits)
 across all clients. Pricing Strategy: - PARWA Starter: $999/mo - PARWA Growth: $2,499/mo - PARWA High: $3,999/mo Economics:
 Even with the ~$25-30/mo (free first 10-12 months with GCP credits) overhead, gross margins remain >95%. This budgeting ensures that as we scale, we don't hit "Free
-Tier" walls that crash production. 6. Product Architecture: Universal Core + Niche Specialization The Universal PARWA Core
+Tier" walls that crash production. 
+
+CANCELLATION & REFUND POLICY (D13 - Netflix Style):
+- Payment Failure: STOP service immediately. No grace period, no retry, no dunning. Like Netflix.
+- No Refunds: Once paid, no money back. Pay for the month, use the month.
+- Cancel Anytime: Client can cancel auto-renewal anytime during the month.
+- Access Until Month End: After cancellation, access continues until the billing period ends.
+- No Partial Refunds: No refund for unused days in the month.
+- Free Trials: NOT offered. Paid subscription only.
+- Overage Rate: $0.10/ticket over plan limit, billed daily. 6. Product Architecture: Universal Core + Niche Specialization The Universal PARWA Core
 
 === PAGE 10 ===
 There is ONE universal intelligence engine that powers all variants and all niches. This core is designed to be modular, safe,

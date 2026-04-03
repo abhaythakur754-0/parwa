@@ -13,6 +13,7 @@
 > - **D9**: Added Brevo Inbound Parse webhook for email receiving
 > - **D10**: Added daily overage charging model ($0.10/ticket)
 > - **D11**: Microsoft OAuth removed — Google OAuth + email/password only
+> - **D13**: Cancellation & Refund Policy - Netflix style (no refunds, cancel anytime, access until month end, no free trials, payment fails = stop immediately)
 > - **D19**: Added notification preferences table and APIs
 > - **D22**: Added OutgoingWebhookService and outgoing_webhooks table
 > - **D23**: Added CircuitBreakerService
