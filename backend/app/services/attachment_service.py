@@ -11,7 +11,10 @@ Implements BL06: Attachment whitelist with:
 from __future__ import annotations
 
 import hashlib
-import magic
+try:
+    import magic
+except ImportError:
+    magic = None  # type: ignore
 import os
 import uuid
 from datetime import datetime
@@ -134,14 +137,18 @@ class AttachmentService:
 
         # Detect MIME type from content
         try:
-            mime_type = magic.from_buffer(file_content, mime=True)
-            metadata["mime_type"] = mime_type
+            if magic is not None:
+                mime_type = magic.from_buffer(file_content, mime=True)
+                metadata["mime_type"] = mime_type
 
-            # Verify MIME type matches extension
-            expected_ext = self.ALLOWED_MIME_TYPES.get(mime_type)
-            if expected_ext and expected_ext != ext:
-                # MIME type doesn't match extension - suspicious
-                return False, f"File content does not match extension '{ext}'", metadata
+                # Verify MIME type matches extension
+                expected_ext = self.ALLOWED_MIME_TYPES.get(mime_type)
+                if expected_ext and expected_ext != ext:
+                    # MIME type doesn't match extension - suspicious
+                    return False, f"File content does not match extension '{ext}'", metadata
+            else:
+                # If magic not available, use extension-based MIME type
+                metadata["mime_type"] = self._get_mime_from_extension(ext)
 
         except Exception:
             # If we can't detect MIME, proceed cautiously
@@ -303,3 +310,32 @@ class AttachmentService:
         """
         ext = extension.lower().lstrip(".")
         return ext in self.ALLOWED_EXTENSIONS and ext not in self.DANGEROUS_EXTENSIONS
+
+    def _get_mime_from_extension(self, extension: str) -> Optional[str]:
+        """Get MIME type from extension when magic is not available.
+        
+        Args:
+            extension: File extension (without dot)
+            
+        Returns:
+            MIME type string or None
+        """
+        ext_to_mime = {
+            "pdf": "application/pdf",
+            "doc": "application/msword",
+            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "txt": "text/plain",
+            "rtf": "application/rtf",
+            "odt": "application/vnd.oasis.opendocument.text",
+            "xls": "application/vnd.ms-excel",
+            "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "csv": "text/csv",
+            "png": "image/png",
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "gif": "image/gif",
+            "bmp": "image/bmp",
+            "webp": "image/webp",
+            "zip": "application/zip",
+        }
+        return ext_to_mime.get(extension.lower())
