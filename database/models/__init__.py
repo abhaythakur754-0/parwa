@@ -44,6 +44,7 @@ from database.models.billing_extended import (  # noqa: F401
     calculate_overage,
 )
 from database.models.onboarding import *  # noqa: F401, F403
+from database.models.user_details import UserDetails  # noqa: F401
 from database.models.analytics import *  # noqa: F401, F403
 from database.models.training import *  # noqa: F401, F403
 from database.models.approval import *  # noqa: F401, F403

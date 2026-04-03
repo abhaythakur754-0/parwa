@@ -24,6 +24,11 @@ def _uuid() -> str:
 
 
 class OnboardingSession(Base):
+    """Onboarding wizard session state.
+
+    Week 6: Tracks user progress through 5-step onboarding wizard.
+    BC-001: company_id for tenant isolation.
+    """
     __tablename__ = "onboarding_sessions"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -34,10 +39,35 @@ class OnboardingSession(Base):
     user_id = Column(
         String(36), ForeignKey("users.id"), nullable=False,
     )
-    current_step = Column(Integer, default=1)  # 1-5
+    # Wizard progress (1-5)
+    current_step = Column(Integer, default=1)
     completed_steps = Column(Text, default="[]")
     # in_progress, completed, abandoned
     status = Column(String(50), default="in_progress")
+
+    # Week 6: Legal consent tracking (Step 2)
+    legal_accepted = Column(Boolean, default=False)
+    terms_accepted_at = Column(DateTime)
+    privacy_accepted_at = Column(DateTime)
+    ai_data_accepted_at = Column(DateTime)
+
+    # Week 6: Integration state (Step 3)
+    integrations = Column(Text, default="{}")  # JSON: {"email": true, "chat": false}
+
+    # Week 6: Knowledge base files (Step 4)
+    knowledge_base_files = Column(Text, default="[]")  # JSON array of file info
+
+    # Week 6: AI personality config (Step 5)
+    ai_name = Column(String(50), default="Jarvis")
+    ai_tone = Column(String(20), default="professional")  # professional, friendly, casual
+    ai_response_style = Column(String(20), default="concise")  # concise, detailed
+    ai_greeting = Column(Text)
+
+    # Week 6: Progress flags
+    details_completed = Column(Boolean, default=False)  # Post-payment details done
+    wizard_started = Column(Boolean, default=False)  # Wizard started
+    first_victory_completed = Column(Boolean, default=False)  # First victory done
+
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
     completed_at = Column(DateTime)
