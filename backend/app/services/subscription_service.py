@@ -146,11 +146,11 @@ class SubscriptionService:
         variant = self._validate_variant(variant)
 
         with SessionLocal() as db:
-            # Check for existing subscription
+            # Check for existing subscription with row lock (GAP 1 fix)
             existing = db.query(Subscription).filter(
                 Subscription.company_id == str(company_id),
                 Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).first()
+            ).with_for_update().first()
 
             if existing:
                 raise SubscriptionAlreadyExistsError(
@@ -288,10 +288,11 @@ class SubscriptionService:
         new_variant = self._validate_variant(new_variant)
 
         with SessionLocal() as db:
+            # GAP 1 fix: Use row-level lock to prevent race conditions
             subscription = db.query(Subscription).filter(
                 Subscription.company_id == str(company_id),
                 Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).first()
+            ).with_for_update().first()
 
             if not subscription:
                 raise SubscriptionNotFoundError(
@@ -416,10 +417,11 @@ class SubscriptionService:
         new_variant = self._validate_variant(new_variant)
 
         with SessionLocal() as db:
+            # GAP 1 fix: Use row-level lock to prevent race conditions
             subscription = db.query(Subscription).filter(
                 Subscription.company_id == str(company_id),
                 Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).first()
+            ).with_for_update().first()
 
             if not subscription:
                 raise SubscriptionNotFoundError(
@@ -495,10 +497,11 @@ class SubscriptionService:
             SubscriptionNotFoundError: No active subscription
         """
         with SessionLocal() as db:
+            # GAP 1 fix: Use row-level lock to prevent race conditions
             subscription = db.query(Subscription).filter(
                 Subscription.company_id == str(company_id),
                 Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).first()
+            ).with_for_update().first()
 
             if not subscription:
                 raise SubscriptionNotFoundError(
@@ -611,11 +614,12 @@ class SubscriptionService:
             InvalidStatusTransitionError: Cannot reactivate this subscription
         """
         with SessionLocal() as db:
+            # GAP 1 fix: Use row-level lock to prevent race conditions
             subscription = db.query(Subscription).filter(
                 Subscription.company_id == str(company_id),
                 Subscription.cancel_at_period_end == True,
                 Subscription.status == SubscriptionStatus.ACTIVE.value,
-            ).first()
+            ).with_for_update().first()
 
             if not subscription:
                 raise InvalidStatusTransitionError(
