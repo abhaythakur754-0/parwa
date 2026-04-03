@@ -103,6 +103,20 @@
 
 **Depends on:** Phase 1 (auth, DB, Celery, Socket.io)
 
+> **⚠️ PRE-WEEK 4 GAP ANALYSIS — EXPAND THIS WEEK'S SCOPE**
+>
+> The above modules are the FOUNDATION but are INSUFFICIENT for production. A comprehensive gap analysis identified 62 additional items across 3 categories. Full details in `INFRASTRUCTURE_GAPS_TRACKER.md` under "Week 4 GAPS — Ticket System (Phase 2 Start)".
+>
+> **Additional modules to build in Week 4:**
+> - **Priority System (MF01):** Critical/High/Medium/Low priority with auto-assignment based on client plan
+> - **Categories/Departments (MF02):** Tech Support, Billing, Feature Request, Bug Report, General, Complaint — with routing rules
+> - **Tags/Labels (MF03):** Custom tags, auto-tagging, filterable
+> - **Activity Log/Timeline (MF04):** Every ticket change audit-logged with who/when/old→new
+> - **Email Notifications (MF05):** Templates for created/updated/assigned/resolved/closed/reopened
+> - **SLA Management (MF06):** SLA policies per plan × priority, visible timers, breach alerts
+> - **9 Code Loophole Fixes (BL01-BL09):** Table rename, missing tables, rate limiting, attachment validation, PII scanning, audit trail
+> - **10 Production Situation Handlers (PS01-PS10):** Out-of-scope, AI failure escalation, human escalation, reopen flow, duplicate detection, stale timeout, frozen tickets, awaiting client, attachment limits, incident mode
+
 **🔄 You'll return to this:** When building channels (Phase 4), you'll discover ticket ingestion needs you didn't anticipate — add them then.
 
 ---

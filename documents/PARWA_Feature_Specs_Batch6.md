@@ -155,6 +155,16 @@ The Key Metrics Overview is a widget grid displaying the tenant's most important
 
 ---
 
+> **⚠️ TICKET SYSTEM GAP ANALYSIS — READ BEFORE BUILDING**
+>
+> The ticket features in this file (F-048→F-052, F-070) cover search, classification, assignment, omnichannel, and identity resolution. However, they are MISSING critical production requirements identified in the pre-Week 4 gap analysis. Full details in `INFRASTRUCTURE_GAPS_TRACKER.md` under "Week 4 GAPS — Ticket System (Phase 2 Start)".
+>
+> **Missing features you MUST also build:** Priority System (MF01) — needed before assignment can route by priority. Categories/Departments (MF02) — needed before classification can route by department. Tags/Labels (MF03) — needed for search filtering. Activity Log (MF04) — needed for all ticket state changes. Email Notifications (MF05) — needed to notify clients of status changes. SLA Management (MF06) — needed to track response/resolution times.
+>
+> **Code loopholes:** 11 missing DB tables for these features (BL02) — `ticket_intents`, `classification_corrections`, `ticket_assignments`, `assignment_rules`, `customer_channels`, `channel_configs`, `identity_match_log`, `customer_merge_audit`, etc.
+>
+> **Production situations these specs don't cover:** AI can't solve after N attempts → human escalation (PS02), out-of-plan scope detection (PS01), duplicate ticket detection on creation (PS05), stale ticket timeout (PS06), variant down → queue tickets (PS13), plan downgrade mid-ticket → grandfather (PS14), rate limiting (PS15), sensitive data scanning on messages (PS29), unauthorized source verification (PS24).
+
 # F-048: Ticket Search
 
 ## Overview

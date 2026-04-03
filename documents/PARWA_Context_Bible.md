@@ -260,6 +260,26 @@ Over 50 PostgreSQL tables defined across 8 migration groups:
 Auth (F-013) → Tickets (F-046) → Classification (F-049) → RAG (F-064) → Auto-Response (F-065) → Guardrails (F-057) → Confidence (F-059) → Approval (F-074) → Auto-Approve (F-077) → Undo (F-084) → Dashboard (F-036) → Analytics (F-109) → ROI Dashboard (F-113)
 ```
 
+### Ticket System — Phase 2 Gap Analysis (Pre-Week 4)
+
+> **⚠️ IMPORTANT FOR AI AGENTS:** Before building ANY ticket feature, read the full gap analysis in `INFRASTRUCTURE_GAPS_TRACKER.md` under "Week 4 GAPS — Ticket System (Phase 2 Start)". The original feature specs (F-046→F-052, F-070) cover CRUD/search/bulk/omnichannel but are MISSING critical production requirements discovered during pre-Week 4 analysis.
+
+**Three categories of gaps identified:**
+
+1. **Code Loopholes (BL01-BL09, 9 items):** Table naming mismatch (`sessions`/`interactions` vs `tickets`/`ticket_messages`), 11 missing DB tables, float types on money columns, no rate limiting on ticket endpoints, no file type whitelist on attachments, no PII scanning on messages, audit trail still deferred, test isolation issues.
+
+2. **Production Situations (PS01-PS29, 29 items):** Real scenarios that WILL happen in production. MUST handle in Week 4: out-of-plan scope (PS01), AI can't solve (PS02), client asks for human (PS03), disputes resolution (PS04), duplicate detection (PS05), stale tickets (PS06), frozen on account suspend (PS07), awaiting client action (PS08), attachment limits (PS09), incident mode (PS10). SHOULD handle: SLA breach (PS11), deletion/redaction (PS12), variant down (PS13), plan downgrade (PS14), rate limiting (PS15), bad feedback (PS16). CAN defer: credit limits (PS18), cross-variant (PS19), conflicting info (PS20), recurring issues (PS21), trial limits (PS22), timezone SLA (PS23), unauthorized source (PS24), variant update mid-ticket (PS25), merge mistakes (PS26), manager escalation (PS27), multi-language (PS28), sensitive data (PS29).
+
+3. **Missing Features (MF01-MF24, 24 items):** Features real ticket systems have that we never planned. MUST add to Week 4: Priority System (MF01), Categories/Departments (MF02), Tags/Labels (MF03), Activity Log/Timeline (MF04), Email Notification System (MF05), SLA Management (MF06). SHOULD add: Templates/Macros (MF07), Automated Triggers (MF08), Custom Fields (MF09), Analytics Dashboard (MF10), Collision Detection (MF11), Rich Text/Markdown (MF12). CAN defer: CSAT/NPS (MF13), Watchers (MF14), @Mentions (MF15), Export (MF16), KB Suggestions (MF17), Sharing (MF18), Approval Workflow (MF19), Knowledge Sharing (MF20), Spam Moderation (MF21), Client Portal (MF22), Ticket Linking (MF23), Transfer Between Accounts (MF24).
+
+**Key decisions needed before building:**
+- BL01: Rename `sessions` table to `tickets` and `interactions` to `ticket_messages`? (DC4 — unresolved)
+- MF01: Add `priority` enum column to tickets table (critical/medium/high/low)
+- MF02: Add `category` enum column to tickets table (tech_support/billing/feature_request/bug_report/general/complaint)
+- MF03: Add `tags` JSONB column to tickets table
+- MF06: Create `sla_policies` table with plan × priority matrix
+- MF05: Create `notification_templates` + `notification_preferences` tables
+
 ---
 
 ## 8. FEATURE VARIANTS (Important Subtleties)
