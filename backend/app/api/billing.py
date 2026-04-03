@@ -1,5 +1,5 @@
 """
-Billing API Routes (F-021, F-025, F-026)
+Billing API Routes (F-021, F-023, F-025, F-026)
 
 Endpoints for subscription and billing management:
 - GET  /subscription - Get current subscription
@@ -9,16 +9,26 @@ Endpoints for subscription and billing management:
 - POST /subscription/reactivate - Reactivate canceled subscription
 - GET /proration/preview - Preview upgrade cost
 - GET /proration/history - Get proration audit log
+- GET /invoices - List invoices
+- GET /invoices/{id} - Get invoice details
+- GET /invoices/{id}/pdf - Download invoice PDF
+- GET /usage - Get current usage
+- GET /usage/history - Get usage history
+- GET /client-refunds - List client refunds
+- POST /client-refunds - Create client refund request
 
 BC-001: All endpoints require company_id from JWT
 BC-012: Structured JSON error responses
 """
 
 import logging
-from typing import Any, Dict, Optional
+from datetime import date
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from backend.app.schemas.billing import (
@@ -44,6 +54,23 @@ from backend.app.services.proration_service import (
     ProrationService,
     ProrationError,
     get_proration_service,
+)
+from backend.app.services.invoice_service import (
+    InvoiceService,
+    InvoiceError,
+    InvoiceNotFoundError,
+    InvoiceAccessDeniedError,
+    get_invoice_service,
+)
+from backend.app.services.client_refund_service import (
+    ClientRefundService,
+    ClientRefundError,
+    ClientRefundNotFoundError,
+    get_client_refund_service,
+)
+from backend.app.services.overage_service import (
+    OverageService,
+    get_overage_service,
 )
 
 logger = logging.getLogger("parwa.api.billing")
@@ -548,3 +575,392 @@ async def get_billing_status(
         "cancel_at_period_end": subscription.cancel_at_period_end if subscription else False,
         "current_period_end": subscription.current_period_end if subscription else None,
     }
+
+
+# ── Invoice Endpoints ─────────────────────────────────────────────────────
+
+class InvoiceListResponse(BaseModel):
+    """Response for invoice list."""
+    invoices: List[Dict[str, Any]]
+    pagination: Dict[str, Any]
+
+
+class InvoiceResponse(BaseModel):
+    """Response for single invoice."""
+    id: str
+    company_id: str
+    paddle_invoice_id: Optional[str]
+    amount: str
+    currency: str
+    status: str
+    invoice_date: Optional[str]
+    due_date: Optional[str]
+    paid_at: Optional[str]
+    created_at: Optional[str]
+
+
+@router.get("/invoices", response_model=InvoiceListResponse)
+async def list_invoices(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+    page: int = 1,
+    page_size: int = 20,
+) -> InvoiceListResponse:
+    """
+    List invoices for the company.
+
+    Args:
+        page: Page number (1-indexed)
+        page_size: Items per page (max 50)
+
+    Returns:
+        Paginated list of invoices
+    """
+    service = get_invoice_service()
+    result = await service.get_invoice_list(
+        company_id=company_id,
+        page=page,
+        page_size=page_size,
+    )
+    return InvoiceListResponse(**result)
+
+
+@router.get("/invoices/{invoice_id}", response_model=InvoiceResponse)
+async def get_invoice(
+    request: Request,
+    invoice_id: str,
+    company_id: UUID = Depends(get_company_id),
+) -> InvoiceResponse:
+    """
+    Get single invoice details.
+
+    Args:
+        invoice_id: Invoice UUID
+
+    Returns:
+        Invoice details
+    """
+    service = get_invoice_service()
+
+    try:
+        invoice = await service.get_invoice(
+            company_id=company_id,
+            invoice_id=invoice_id,
+        )
+        return InvoiceResponse(**invoice)
+
+    except InvoiceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "invoice_not_found",
+                "message": str(e),
+            },
+        )
+    except InvoiceAccessDeniedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "access_denied",
+                "message": str(e),
+            },
+        )
+
+
+@router.get("/invoices/{invoice_id}/pdf")
+async def get_invoice_pdf(
+    request: Request,
+    invoice_id: str,
+    company_id: UUID = Depends(get_company_id),
+) -> Response:
+    """
+    Download invoice PDF.
+
+    Args:
+        invoice_id: Invoice UUID
+
+    Returns:
+        PDF file download
+    """
+    service = get_invoice_service()
+
+    try:
+        pdf_bytes = await service.get_invoice_pdf(
+            company_id=company_id,
+            invoice_id=invoice_id,
+        )
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=invoice_{invoice_id}.pdf"
+            },
+        )
+
+    except InvoiceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "invoice_not_found",
+                "message": str(e),
+            },
+        )
+    except InvoiceAccessDeniedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "access_denied",
+                "message": str(e),
+            },
+        )
+
+
+# ── Usage Endpoints ────────────────────────────────────────────────────────
+
+class UsageResponse(BaseModel):
+    """Response for current usage."""
+    current_month: str
+    tickets_used: int
+    ticket_limit: int
+    overage_tickets: int
+    overage_charges: str
+    usage_percentage: float
+
+
+class UsageHistoryResponse(BaseModel):
+    """Response for usage history."""
+    history: List[Dict[str, Any]]
+    total: int
+
+
+@router.get("/usage", response_model=UsageResponse)
+async def get_current_usage(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+) -> UsageResponse:
+    """
+    Get current month's usage.
+
+    Returns:
+        Current usage with ticket count, limit, and overage
+    """
+    service = get_overage_service()
+
+    usage = await service.get_current_usage(company_id)
+    limit = await service.get_ticket_limit(company_id)
+
+    tickets_used = usage.get("tickets_used", 0)
+    ticket_limit = limit.get("limit", 2000)
+    overage = max(0, tickets_used - ticket_limit)
+
+    return UsageResponse(
+        current_month=usage.get("month", date.today().strftime("%Y-%m")),
+        tickets_used=tickets_used,
+        ticket_limit=ticket_limit,
+        overage_tickets=overage,
+        overage_charges=str(Decimal(str(overage)) * Decimal("0.10")),
+        usage_percentage=min(1.0, tickets_used / ticket_limit) if ticket_limit > 0 else 0,
+    )
+
+
+@router.get("/usage/history", response_model=UsageHistoryResponse)
+async def get_usage_history(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+    months: int = 12,
+) -> UsageHistoryResponse:
+    """
+    Get historical usage data.
+
+    Args:
+        months: Number of months to return (max 24)
+
+    Returns:
+        List of monthly usage records
+    """
+    service = get_overage_service()
+
+    history = await service.get_usage_history(
+        company_id=company_id,
+        months=min(months, 24),
+    )
+
+    return UsageHistoryResponse(
+        history=history,
+        total=len(history),
+    )
+
+
+# ── Client Refund Endpoints ────────────────────────────────────────────────
+
+class ClientRefundCreate(BaseModel):
+    """Request to create a client refund."""
+    amount: Decimal = Field(..., gt=0, description="Refund amount")
+    currency: str = Field(default="USD", max_length=3)
+    ticket_id: Optional[UUID] = None
+    reason: Optional[str] = None
+
+
+class ClientRefundResponse(BaseModel):
+    """Response for client refund."""
+    id: str
+    company_id: str
+    ticket_id: Optional[str]
+    amount: str
+    currency: str
+    reason: str
+    status: str
+    processed_at: Optional[str]
+    created_at: Optional[str]
+
+
+class ClientRefundListResponse(BaseModel):
+    """Response for client refund list."""
+    refunds: List[Dict[str, Any]]
+    pagination: Dict[str, Any]
+
+
+class ClientRefundProcessRequest(BaseModel):
+    """Request to process a refund."""
+    external_ref: Optional[str] = None
+
+
+@router.get("/client-refunds", response_model=ClientRefundListResponse)
+async def list_client_refunds(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+    status_filter: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> ClientRefundListResponse:
+    """
+    List client refund requests.
+
+    PARWA clients refunding THEIR customers.
+
+    Args:
+        status_filter: Filter by status (pending/processed/failed/canceled)
+        page: Page number
+        page_size: Items per page
+
+    Returns:
+        Paginated list of refund requests
+    """
+    service = get_client_refund_service()
+    result = service.list_refunds(
+        company_id=company_id,
+        status=status_filter,
+        page=page,
+        page_size=page_size,
+    )
+    return ClientRefundListResponse(**result)
+
+
+@router.post(
+    "/client-refunds",
+    response_model=ClientRefundResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_client_refund(
+    request: Request,
+    data: ClientRefundCreate,
+    company_id: UUID = Depends(get_company_id),
+) -> ClientRefundResponse:
+    """
+    Create a client refund request.
+
+    This records when a PARWA client issues a refund
+    to their customer (NOT PARWA refunding the client).
+
+    Args:
+        data: Refund details
+
+    Returns:
+        Created refund request
+    """
+    service = get_client_refund_service()
+
+    try:
+        refund = service.create_refund_request(
+            company_id=company_id,
+            amount=data.amount,
+            currency=data.currency,
+            ticket_id=data.ticket_id,
+            reason=data.reason,
+        )
+        return ClientRefundResponse(**refund)
+
+    except ClientRefundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "refund_error",
+                "message": str(e),
+            },
+        )
+
+
+@router.post(
+    "/client-refunds/{refund_id}/process",
+    response_model=ClientRefundResponse,
+)
+async def process_client_refund(
+    request: Request,
+    refund_id: str,
+    data: ClientRefundProcessRequest,
+    company_id: UUID = Depends(get_company_id),
+) -> ClientRefundResponse:
+    """
+    Mark a refund as processed.
+
+    Called when the client confirms the refund was processed
+    in their payment system.
+
+    Args:
+        refund_id: Refund UUID
+        data: Process request with optional external reference
+
+    Returns:
+        Updated refund request
+    """
+    service = get_client_refund_service()
+
+    try:
+        refund = service.process_refund(
+            company_id=company_id,
+            refund_id=refund_id,
+            external_ref=data.external_ref,
+        )
+        return ClientRefundResponse(**refund)
+
+    except ClientRefundNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "refund_not_found",
+                "message": str(e),
+            },
+        )
+    except ClientRefundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "refund_error",
+                "message": str(e),
+            },
+        )
+
+
+@router.get("/client-refunds/stats")
+async def get_client_refund_stats(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+) -> Dict[str, Any]:
+    """
+    Get client refund statistics.
+
+    Returns:
+        Stats with counts and totals
+    """
+    service = get_client_refund_service()
+    return service.get_refund_stats(company_id)
