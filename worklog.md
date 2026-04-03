@@ -613,3 +613,33 @@ Stage Summary:
 - Testing Gap Finder tool saved for reuse
 - Gap finder file: /home/z/my-project/parwa/testing_gap_finder.py
 - Tests file: /home/z/my-project/parwa/tests/unit/test_day26_loopholes.py
+
+---
+Task ID: d27-gap-tests
+Agent: Main Agent
+Task: Day 27 — Fix Model Relationships + Add Gap Tests
+
+Work Log:
+- Fixed SQLAlchemy model relationship error in database/models/core.py
+  - Added missing relationships to Company model for Week 5 billing models:
+    - client_refunds, payment_methods, usage_records, proration_audits, payment_failures
+- Updated testing_gap_finder.py with correct Day 27 files:
+  - message_service.py, activity_log_service.py, internal_note_service.py
+  - ticket_messages.py, ticket_notes.py, ticket_timeline.py (APIs)
+- Ran LLM-powered gap analysis using z-ai CLI
+- Found 8 potential gaps, identified 3 new gaps not covered by existing tests
+- Added 9 new tests (GAP 11-15) to test_day27_loopholes.py:
+  - GAP11: Edit window timezone bypass protection (2 tests)
+  - GAP12: Timeline deleted items handling (documented)
+  - GAP13: Activity log for failed operations (2 tests)
+  - GAP14: Message service edge cases (2 tests)
+  - GAP15: Internal note edge cases (2 tests)
+- All 111 Day 27 tests passing
+
+Stage Summary:
+- Fixed 1 model relationship bug (Company → billing relationships)
+- Added 9 new gap tests
+- Total Day 27 tests: 111 passing (up from 102)
+- Git commit: f25837b
+- Files modified: database/models/core.py, testing_gap_finder.py, tests/unit/test_day27_loopholes.py
+- Day 27 COMPLETE

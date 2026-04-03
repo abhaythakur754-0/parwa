@@ -106,11 +106,15 @@ DAY_FILES = {
         ]
     },
     28: {
-        "name": "Full Ticket Flow Integration",
+        "name": "Search + Classification + Assignment",
         "files": [
-            "backend/app/services/ticket_service.py",
-            "backend/app/api/tickets.py",
-            "database/models/tickets.py",
+            "backend/app/services/ticket_search_service.py",
+            "backend/app/services/classification_service.py",
+            "backend/app/services/assignment_service.py",
+            "backend/app/api/ticket_search.py",
+            "backend/app/api/ticket_classification.py",
+            "backend/app/api/ticket_assignment.py",
+            "backend/app/tasks/ticket_tasks.py",
         ]
     }
 }
@@ -121,7 +125,7 @@ DAY_DESCRIPTIONS = {
     25: "Day 25: Business logic layer - service classes that orchestrate database operations.",
     26: "Day 26: Ticket CRUD Service + REST API - create, read, update, delete tickets with SLA tracking, auto-assignment, mentions parsing, and merge operations.",
     27: "Day 27: Ticket Conversation + Internal Notes - message CRUD with edit window, thread management, internal notes with pinning, activity timeline tracking for all ticket changes.",
-    28: "Day 28: Full ticket flow integration - end-to-end testing."
+    28: "Day 28: Ticket Search + Classification + Assignment - Full-text search with fuzzy matching and suggestions, rule-based intent/urgency classification with human correction workflow, score-based auto-assignment with rules engine."
 }
 
 
