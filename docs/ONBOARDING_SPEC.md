@@ -1,8 +1,8 @@
 # PARWA Onboarding System Specification
 
-> **Document Version:** 1.0  
-> **Last Updated:** Day 33 (Week 5)  
-> **Status:** Planning Phase - Subject to Changes
+> **Document Version:** 2.0  
+> **Last Updated:** Day 35 (Week 6)  
+> **Status:** Updated - Landing Page & Navigation Details Added
 
 ---
 
@@ -142,6 +142,219 @@ Unlike traditional SaaS onboarding:
 | Login Page | Existing user | Authenticate, check subscription |
 | After Demo | Interested | CTA to View Plans |
 | After Payment | Success | Collect details → Onboarding |
+
+---
+
+### 2.3 Landing Page Structure (Home Page)
+
+> **Added in Version 2.0** - Detailed landing page layout with psychological design
+
+The landing page is structured to psychologically attract customers, following a Netflix/Prime Video style carousel approach.
+
+#### 2.3.1 Navigation Bar
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🤖 PARWA              Home    Models    ROI    Jarvis Chatbot    [Login]  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Navigation Items:**
+| Item | Position | Link | Notes |
+|------|----------|------|-------|
+| Logo | Left | `/` | PARWA branding |
+| Home | Center | `/` | Landing page |
+| Models | Center | `/models` | Pricing/variants page |
+| ROI | Center | `/roi` | ROI calculator |
+| Jarvis Chatbot | Center | Opens Jarvis Chat | AI chat interface |
+| Login | Right | `/login` | Contains signup option inside |
+
+**Important:** No separate Signup button - signup is included inside the Login page.
+
+#### 2.3.2 Page Section Order (By Psychology)
+
+The landing page sections are ordered based on psychological impact:
+
+| Order | Section | Purpose | Psychology |
+|-------|---------|---------|------------|
+| 1 | Feature Carousel | First impression, grab attention | Instant engagement |
+| 2 | Hero Section | Cost/Time comparison | Value realization |
+| 3 | Why Choose PARWA | WHAT Jarvis does | Benefit understanding |
+| 4 | How It Works | HOW Jarvis works | Trust building |
+| 5 | Footer | Links & copyright | Navigation |
+
+#### 2.3.3 Section 1: Feature Carousel (Netflix/Prime Style)
+
+**Position:** Immediately below Navigation Bar (FIRST thing users see)
+
+5-slide carousel with psychological triggers:
+
+| Slide | Title | Content | Psychological Trigger |
+|-------|-------|---------|----------------------|
+| 1 | **Control Everything by Chat** | Just type and control - no complex dashboards. No training needed. Just talk. | **SIMPLICITY** - Removes overwhelm |
+| 2 | **No Tech Skills Needed** | Not technical? Never done customer care? Perfect. Jarvis handles everything. You just focus on your business. | **FEAR REMOVAL** - Anyone can use it |
+| 3 | **Self-Learning AI** | Upload your docs. Jarvis learns. Every question makes it smarter. Zero manual training needed. | **EFFORT REDUCTION** - No manual training |
+| 4 | **Eliminates 90% Daily Work** | 90% of support tickets are repetitive. Jarvis handles them all. You get 40+ hours back every week. | **TIME FREEDOM** - Direct benefit |
+| 5 | **Your Iron Man Jarvis** | Like Tony Stark's Jarvis, but for your business. Your personal AI officer that never sleeps, never complains, and always delivers. | **ASPIRATION** - Emotional connection |
+
+**Visual Structure:**
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  < ┌────────────────┐ ┌────────────────┐ ┌────────────────┐ >              │
+│    │ 💬 Control     │ │ 🎯 No Tech     │ │ 🧠 Self        │              │
+│    │ Everything     │ │ Skills Needed  │ │ Learning       │              │
+│    │ by Chat        │ │                │ │                │              │
+│    └────────────────┘ └────────────────┘ └────────────────┘              │
+│                                                                             │
+│  < ┌────────────────┐ ┌────────────────┐ >                                 │
+│    │ ⚡ Eliminates  │ │ 🦾 Your Iron   │                                  │
+│    │ 90% Daily Work │ │ Man Jarvis     │                                  │
+│    └────────────────┘ └────────────────┘                                   │
+│                          ● ○ ○ ○ ○ (dots indicator)                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 2.3.4 Section 2: Hero Section
+
+**Position:** Below Feature Carousel
+
+**Purpose:** Cost/Time comparison - show value without fake statistics
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│     ┌────────────────────────────┐  ┌────────────────────────────┐        │
+│     │  ❌ Traditional Support    │  │  ✅ PARWA AI               │        │
+│     │                            │  │                            │        │
+│     │  $50,000/year per agent    │  │  Starting at $999/month    │        │
+│     │  8 hours/day only          │  │  24/7/365 availability     │        │
+│     │  Training costs            │  │  Learns automatically      │        │
+│     │  Sick days & turnover      │  │  Never takes a day off     │        │
+│     │  Inconsistent responses    │  │  Always consistent         │        │
+│     └────────────────────────────┘  └────────────────────────────┘        │
+│                                                                             │
+│     🤖 JARVIS PREVIEW - Chat with your AI Employee                         │
+│     ┌────────────────────────────────────────────────────────────────┐    │
+│     │ 🤖 Jarvis: Hi! I'm your AI customer care officer. I handle    │    │
+│     │            tickets, answer questions, and learn from your     │    │
+│     │            knowledge base. What would you like to know?       │    │
+│     │                                                                │    │
+│     │ [Type your message...]                              [Send]    │    │
+│     └────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│     [Get Started with Jarvis]                                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Points:**
+- Starting price: $999/month (not fake stats)
+- No misleading response time claims
+- Show real cost comparison
+- Include interactive Jarvis chat preview
+
+#### 2.3.5 Section 3: Why Choose PARWA
+
+**Position:** Below Hero Section
+
+**Purpose:** Show WHAT Jarvis does (people care about WHAT before HOW)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│     ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
+│     │ 💡 Smart            │  │ 🔮 Predictive       │  │ 🎯 Industry         │
+│     │ Recommendations     │  │ Support             │  │ Specific            │
+│     │                     │  │                     │  │                     │
+│     │ Suggests best       │  │ Anticipates         │  │ E-commerce, SaaS,   │
+│     │ solutions, not      │  │ customer needs      │  │ Logistics & more    │
+│     │ just answers        │  │ before they ask     │  │ tailored for you    │
+│     └─────────────────────┘  └─────────────────────┘  └─────────────────────┘
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Features (with animated cards):**
+
+| Feature | Description | Animation |
+|---------|-------------|-----------|
+| Smart Recommendations | Jarvis suggests best solutions, not just answers | Card hover effect |
+| Predictive Support | Anticipates customer needs before they ask | Subtle glow effect |
+| Industry Specific | E-commerce, SaaS, Logistics & more - tailored for you | Industry icons animation |
+
+#### 2.3.6 Section 4: How It Works
+
+**Position:** Below Why Choose PARWA
+
+**Purpose:** Show HOW Jarvis works (people care about HOW after understanding WHAT)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          HOW JARVIS WORKS                                   │
+│                                                                             │
+│       📩              🧠              💡              ✅                   │
+│    Customer         Jarvis          Smart           Happy                 │
+│    Message          Analyzes        Response        Client                │
+│    (envelope        (brain          (lightbulb      (checkmark            │
+│     flying)          pulsing)        glowing)        celebration)         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Animated Steps:**
+
+| Step | Icon | Description | Animation |
+|------|------|-------------|-----------|
+| 1 | 📩 Envelope | Customer Message | Envelope flying in |
+| 2 | 🧠 Brain | Jarvis Analyzes | Brain pulsing |
+| 3 | 💡 Lightbulb | Smart Response | Lightbulb glowing |
+| 4 | ✅ Checkmark | Happy Client | Celebration effect |
+
+#### 2.3.7 Section 5: Footer
+
+**Position:** Bottom of page
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🤖 PARWA                                                                   │
+│                                                                             │
+│  Product          Resources         Company          Legal                 │
+│  Features         Blog              About Us         Privacy Policy        │
+│  Models           Documentation     Careers          Terms of Service      │
+│  ROI Calculator   API Reference     Contact          Cookie Policy         │
+│                                                                             │
+│  © 2026 PARWA. All rights reserved.    🔗 LinkedIn  Twitter  GitHub        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Changes:**
+- Year: 2026 (not 2024)
+- "Pricing" renamed to "Models"
+
+#### 2.3.8 Important Clarifications
+
+> **⚠️ CRITICAL:** Understanding who Jarvis is for
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PARWA USER STRUCTURE                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  YOUR CLIENT (Business Owner)                                               │
+│  ─────────────────────────────                                              │
+│  • Takes subscription from PARWA                                            │
+│  • Gets JARVIS - the AI employee that handles their support                 │
+│  • Jarvis works FOR the business owner                                      │
+│                                                                             │
+│  YOUR CLIENT'S CUSTOMERS (End Users)                                        │
+│  ─────────────────────────────────                                          │
+│  • They interact with a NORMAL chatbot on the client's website              │
+│  • They don't see Jarvis - they see a branded support chat                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Jarvis is for YOUR clients (business owners), NOT their end customers.**
 
 ---
 
