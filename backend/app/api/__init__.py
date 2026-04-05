@@ -11,6 +11,9 @@ from backend.app.api import auth, health, admin, api_keys, mfa, client, webhooks
 # Day 26: Ticket API
 from backend.app.api import tickets
 
+# Day 35: Public API (Landing Page)
+from backend.app.api import public
+
 api_router = APIRouter()
 
 # Register all routers
@@ -24,3 +27,6 @@ api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"]
 
 # Day 26: Ticket routes
 api_router.include_router(tickets.router, prefix="/v1", tags=["tickets"])
+
+# Day 35: Public routes (Landing Page - no auth required)
+api_router.include_router(public.router, tags=["public"])

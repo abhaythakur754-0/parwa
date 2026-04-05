@@ -10,6 +10,7 @@
  */
 
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { UserDetails, OnboardingState } from '@/types/onboarding';
 
 // API base URL from environment or default
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -194,29 +195,29 @@ export const onboardingApi = {
   /**
    * Get current onboarding state.
    */
-  getState: () => get('/api/onboarding/state'),
+  getState: () => get<OnboardingState>('/api/onboarding/state'),
   
   /**
    * Start onboarding wizard.
    */
-  start: () => post('/api/onboarding/start'),
+  start: () => post<OnboardingState>('/api/onboarding/start'),
   
   /**
    * Complete a step.
    */
-  completeStep: (step: number) => post(`/api/onboarding/step/${step}`),
+  completeStep: (step: number) => post<OnboardingState>(`/api/onboarding/step/${step}`),
   
   /**
    * Submit legal consents.
    */
   submitLegal: (consents: { terms: boolean; privacy: boolean; ai_data: boolean }) => 
-    post('/api/onboarding/legal', consents),
+    post<OnboardingState>('/api/onboarding/legal', consents),
   
   /**
    * Activate AI assistant.
    */
   activateAI: (config?: { ai_name?: string; ai_tone?: string; ai_response_style?: string }) => 
-    post('/api/onboarding/activate', config),
+    post<OnboardingState>('/api/onboarding/activate', config),
   
   /**
    * Get first victory status.
@@ -235,7 +236,7 @@ export const userDetailsApi = {
   /**
    * Get current user details.
    */
-  get: () => get('/api/user/details'),
+  get: () => get<UserDetails>('/api/user/details'),
   
   /**
    * Create user details.
@@ -247,7 +248,7 @@ export const userDetailsApi = {
     industry: string;
     company_size?: string;
     website?: string;
-  }) => post('/api/user/details', data),
+  }) => post<UserDetails>('/api/user/details', data),
   
   /**
    * Update user details.
@@ -259,7 +260,7 @@ export const userDetailsApi = {
     industry: string;
     company_size: string;
     website: string;
-  }>) => patch('/api/user/details', data),
+  }>) => patch<UserDetails>('/api/user/details', data),
   
   /**
    * Send work email verification.

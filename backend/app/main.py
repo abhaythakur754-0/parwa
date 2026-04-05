@@ -51,6 +51,7 @@ from backend.app.api.admin import router as admin_router
 from backend.app.api.webhooks import router as webhook_router
 from backend.app.api.health import router as health_router
 from backend.app.api.user_details import router as user_details_router
+from backend.app.api.public import router as public_router
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
@@ -208,6 +209,7 @@ app.include_router(client_router)
 app.include_router(admin_router)
 app.include_router(webhook_router)
 app.include_router(user_details_router)
+app.include_router(public_router)  # Public API for landing page (no auth required)
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

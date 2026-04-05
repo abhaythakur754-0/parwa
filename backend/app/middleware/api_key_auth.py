@@ -17,7 +17,7 @@ from backend.app.middleware.error_handler import build_error_response
 
 # Paths that skip API key auth (public endpoints)
 SKIP_PATHS = {"/health", "/ready", "/metrics"}
-SKIP_PREFIXES = ("/api/public/", "/api/auth/")
+SKIP_PREFIXES = ("/api/public/", "/api/auth/", "/public/")
 
 
 class APIKeyAuthMiddleware(BaseHTTPMiddleware):
