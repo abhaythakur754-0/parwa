@@ -120,11 +120,11 @@ export function WorkEmailVerification({
       {emailSent ? (
         <div className="space-y-2 mb-3">
           <p className="text-sm text-secondary-600">
-            We've sent a verification link to <strong>{workEmail}</strong>. 
+            We&apos;ve sent a verification link to <strong>{workEmail}</strong>. 
             Please check your inbox and click the link to verify your email.
           </p>
           <p className="text-xs text-secondary-500">
-            Didn't receive the email? Check your spam folder or wait 60 seconds to resend.
+            Didn&apos;t receive the email? Check your spam folder or wait 60 seconds to resend.
           </p>
         </div>
       ) : (

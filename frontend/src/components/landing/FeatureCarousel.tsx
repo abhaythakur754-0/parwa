@@ -15,6 +15,11 @@ import { useState, useEffect, useCallback } from 'react';
  * 4. Eliminates 90% Daily Work - TIME FREEDOM
  * 5. Your Iron Man Jarvis - ASPIRATION
  * 
+ * Color scheme based on Frontend Docs:
+ * - E-commerce: Teal/Gold
+ * - SaaS: Navy/Silver
+ * - Logistics: Charcoal/Orange
+ * 
  * Based on ONBOARDING_SPEC.md v2.0 Section 2.3.3
  */
 
@@ -34,7 +39,7 @@ const slides: Slide[] = [
     title: 'Control Everything by Chat',
     description: 'Just type and control - no complex dashboards. No training needed. Just talk.',
     psychologicalTrigger: 'SIMPLICITY',
-    gradient: 'from-primary-500 to-primary-700',
+    gradient: 'from-teal-500 to-teal-700',
   },
   {
     id: 2,
@@ -42,7 +47,7 @@ const slides: Slide[] = [
     title: 'No Tech Skills Needed',
     description: 'Not technical? Never done customer care? Perfect. Jarvis handles everything. You just focus on your business.',
     psychologicalTrigger: 'FEAR REMOVAL',
-    gradient: 'from-success-500 to-success-700',
+    gradient: 'from-navy-600 to-navy-800',
   },
   {
     id: 3,
@@ -50,7 +55,7 @@ const slides: Slide[] = [
     title: 'Self-Learning AI',
     description: 'Upload your docs. Jarvis learns. Every question makes it smarter. Zero manual training needed.',
     psychologicalTrigger: 'EFFORT REDUCTION',
-    gradient: 'from-purple-500 to-purple-700',
+    gradient: 'from-charcoal-600 to-charcoal-800',
   },
   {
     id: 4,
@@ -58,7 +63,7 @@ const slides: Slide[] = [
     title: 'Eliminates 90% Daily Work',
     description: '90% of support tickets are repetitive. Jarvis handles them all. You get 40+ hours back every week.',
     psychologicalTrigger: 'TIME FREEDOM',
-    gradient: 'from-warning-500 to-warning-700',
+    gradient: 'from-orange-500 to-orange-700',
   },
   {
     id: 5,
@@ -66,7 +71,7 @@ const slides: Slide[] = [
     title: 'Your Iron Man Jarvis',
     description: "Like Tony Stark's Jarvis, but for your business. Your personal AI officer that never sleeps, never complains, and always delivers.",
     psychologicalTrigger: 'ASPIRATION',
-    gradient: 'from-primary-600 to-purple-600',
+    gradient: 'from-gold-500 to-gold-700',
   },
 ];
 
@@ -179,7 +184,7 @@ export default function FeatureCarousel() {
               }}
               className={`w-3 h-3 rounded-full transition-all duration-300 ${
                 index === currentSlide
-                  ? 'bg-white w-8'
+                  ? 'bg-gold-500 w-8'
                   : 'bg-white/40 hover:bg-white/60'
               }`}
               aria-label={`Go to slide ${index + 1}`}
@@ -198,7 +203,7 @@ export default function FeatureCarousel() {
               }}
               className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-300 ${
                 index === currentSlide
-                  ? 'bg-white/20 text-white'
+                  ? 'bg-gold-500/20 text-white border border-gold-500/50'
                   : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80'
               }`}
             >

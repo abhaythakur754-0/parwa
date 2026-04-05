@@ -11,6 +11,9 @@ import Link from 'next/link';
  * - Navigation links: Home, Models, ROI, Jarvis Chatbot
  * - Login button (signup is inside login page)
  * 
+ * Color scheme based on Frontend Docs:
+ * - Teal accent for active/hover states
+ * 
  * Based on ONBOARDING_SPEC.md v2.0 Section 2.3.1
  */
 
@@ -35,7 +38,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <span className="text-2xl">🤖</span>
-            <span className="text-xl font-bold text-secondary-900 group-hover:text-primary-600 transition-colors">
+            <span className="text-xl font-bold text-secondary-900 group-hover:text-teal-600 transition-colors">
               PARWA
             </span>
           </Link>
@@ -47,7 +50,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <button
                   key={link.name}
                   onClick={link.onClick}
-                  className="text-secondary-600 hover:text-primary-600 font-medium transition-colors"
+                  className="text-secondary-600 hover:text-teal-600 font-medium transition-colors"
                 >
                   {link.name}
                 </button>
@@ -55,7 +58,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <Link
                   key={link.name}
                   href={link.href}
-                  className="text-secondary-600 hover:text-primary-600 font-medium transition-colors"
+                  className="text-secondary-600 hover:text-teal-600 font-medium transition-colors"
                 >
                   {link.name}
                 </Link>
@@ -67,7 +70,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
           <div className="hidden md:flex items-center gap-4">
             <Link
               href="/login"
-              className="btn-primary px-5 py-2.5"
+              className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors"
             >
               Login
             </Link>
@@ -116,7 +119,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                       link.onClick?.();
                       setIsMobileMenuOpen(false);
                     }}
-                    className="text-left text-secondary-600 hover:text-primary-600 font-medium py-2"
+                    className="text-left text-secondary-600 hover:text-teal-600 font-medium py-2"
                   >
                     {link.name}
                   </button>
@@ -124,7 +127,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                   <Link
                     key={link.name}
                     href={link.href}
-                    className="text-secondary-600 hover:text-primary-600 font-medium py-2"
+                    className="text-secondary-600 hover:text-teal-600 font-medium py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {link.name}
@@ -133,7 +136,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
               ))}
               <Link
                 href="/login"
-                className="btn-primary px-5 py-2.5 text-center mt-2"
+                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg font-medium text-center mt-2 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Login
