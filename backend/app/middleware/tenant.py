@@ -42,6 +42,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
     PUBLIC_PREFIXES = (
         "/api/auth/",
         "/api/public/",
+        "/public/",
         "/api/api-keys",
         "/api/mfa/",
         "/api/billing/",
