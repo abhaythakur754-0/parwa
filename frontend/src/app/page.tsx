@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import {
   NavigationBar,
+  DogfoodingBanner,
   FeatureCarousel,
   HeroSection,
   WhyChooseUs,
@@ -14,12 +15,19 @@ import {
  * Landing Page (Home)
  * 
  * Page structure based on psychological impact:
+ * 0. DogfoodingBanner - Trust indicator (Gold banner)
  * 1. NavigationBar - Top navigation
  * 2. FeatureCarousel - Netflix-style 5 slides (FIRST impression)
  * 3. HeroSection - Cost comparison + Jarvis preview
  * 4. WhyChooseUs - WHAT Jarvis does
  * 5. HowItWorks - HOW Jarvis works
  * 6. Footer - Links + Copyright 2026
+ * 
+ * Color scheme based on Frontend Docs:
+ * - E-commerce: Teal/Gold
+ * - SaaS: Navy/Silver
+ * - Logistics: Charcoal/Orange
+ * - Dogfooding Banner: Gold (#FFD700)
  * 
  * Based on ONBOARDING_SPEC.md v2.0 Section 2.3
  */
@@ -35,6 +43,9 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Dogfooding Banner - Trust indicator */}
+      <DogfoodingBanner onOpenDemo={handleOpenJarvis} />
+
       {/* Navigation */}
       <NavigationBar onOpenJarvis={handleOpenJarvis} />
 

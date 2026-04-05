@@ -1,4 +1,5 @@
 export { default as NavigationBar } from './NavigationBar';
+export { default as DogfoodingBanner } from './DogfoodingBanner';
 export { default as FeatureCarousel } from './FeatureCarousel';
 export { default as HeroSection } from './HeroSection';
 export { default as WhyChooseUs } from './WhyChooseUs';

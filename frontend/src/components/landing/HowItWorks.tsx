@@ -12,6 +12,10 @@ import { useState, useEffect } from 'react';
  * 3. Smart Response (lightbulb glowing)
  * 4. Happy Client (celebration)
  * 
+ * Color scheme based on Frontend Docs:
+ * - Uses Teal theme for active states
+ * - Gold accent for highlights
+ * 
  * Based on ONBOARDING_SPEC.md v2.0 Section 2.3.6
  */
 
@@ -66,7 +70,7 @@ export default function HowItWorks() {
         {/* Section Header */}
         <div className="text-center mb-12 md:mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-secondary-900 mb-4">
-            How Jarvis Works
+            How <span className="text-teal-600">Jarvis</span> Works
           </h2>
           <p className="text-lg text-secondary-600 max-w-2xl mx-auto">
             See how Jarvis transforms customer support in 4 simple steps
@@ -77,7 +81,7 @@ export default function HowItWorks() {
         <div className="hidden md:block">
           <div className="relative">
             {/* Connection Line */}
-            <div className="absolute top-1/2 left-0 right-0 h-1 bg-secondary-200 -translate-y-1/2 z-0" />
+            <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-teal-200 via-navy-200 to-gold-200 -translate-y-1/2 z-0" />
             
             <div className="relative z-10 flex justify-between">
               {steps.map((step, index) => (
@@ -90,7 +94,7 @@ export default function HowItWorks() {
                   <div
                     className={`w-20 h-20 rounded-full flex items-center justify-center text-4xl transition-all duration-500 ${
                       activeStep === index
-                        ? 'bg-primary-600 shadow-lg scale-110 ring-4 ring-primary-200'
+                        ? 'bg-teal-600 shadow-lg scale-110 ring-4 ring-teal-200'
                         : activeStep > index
                         ? 'bg-success-500 shadow-md'
                         : 'bg-white shadow-md hover:shadow-lg'
@@ -104,7 +108,7 @@ export default function HowItWorks() {
                   {/* Step Number */}
                   <span
                     className={`mt-4 text-sm font-medium ${
-                      activeStep >= index ? 'text-primary-600' : 'text-secondary-400'
+                      activeStep >= index ? 'text-teal-600' : 'text-secondary-400'
                     }`}
                   >
                     Step {index + 1}
@@ -139,7 +143,7 @@ export default function HowItWorks() {
             <div
               key={index}
               className={`card p-6 transition-all duration-300 ${
-                activeStep === index ? 'ring-2 ring-primary-500' : ''
+                activeStep === index ? 'ring-2 ring-teal-500' : ''
               }`}
               onClick={() => setActiveStep(index)}
             >
@@ -147,7 +151,7 @@ export default function HowItWorks() {
                 <div
                   className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl flex-shrink-0 transition-all duration-300 ${
                     activeStep === index
-                      ? 'bg-primary-600'
+                      ? 'bg-teal-600'
                       : activeStep > index
                       ? 'bg-success-500'
                       : 'bg-secondary-100'
@@ -156,7 +160,7 @@ export default function HowItWorks() {
                   {step.icon}
                 </div>
                 <div>
-                  <span className="text-xs text-primary-600 font-medium">
+                  <span className="text-xs text-teal-600 font-medium">
                     Step {index + 1}
                   </span>
                   <h4 className="text-lg font-semibold text-secondary-900">
@@ -179,7 +183,7 @@ export default function HowItWorks() {
               onClick={() => setActiveStep(index)}
               className={`w-3 h-3 rounded-full transition-all duration-300 ${
                 index === activeStep
-                  ? 'bg-primary-600 w-8'
+                  ? 'bg-gold-500 w-8'
                   : 'bg-secondary-300 hover:bg-secondary-400'
               }`}
               aria-label={`Go to step ${index + 1}`}
@@ -187,16 +191,21 @@ export default function HowItWorks() {
           ))}
         </div>
 
-        {/* Stats */}
+        {/* Stats with Industry Colors */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-12 border-t border-secondary-200">
           {[
-            { value: '<2s', label: 'Response Time' },
-            { value: '90%', label: 'Automation Rate' },
-            { value: '24/7', label: 'Availability' },
-            { value: '40+', label: 'Hours Saved/Week' },
+            { value: '<2s', label: 'Response Time', color: 'teal' },
+            { value: '90%', label: 'Automation Rate', color: 'navy' },
+            { value: '24/7', label: 'Availability', color: 'charcoal' },
+            { value: '40+', label: 'Hours Saved/Week', color: 'gold' },
           ].map((stat, index) => (
             <div key={index} className="text-center">
-              <div className="text-2xl md:text-3xl font-bold text-primary-600">
+              <div className={`text-2xl md:text-3xl font-bold ${
+                stat.color === 'teal' ? 'text-teal-600' :
+                stat.color === 'navy' ? 'text-navy-600' :
+                stat.color === 'charcoal' ? 'text-charcoal-600' :
+                'text-gold-600'
+              }`}>
                 {stat.value}
               </div>
               <div className="text-sm text-secondary-600 mt-1">

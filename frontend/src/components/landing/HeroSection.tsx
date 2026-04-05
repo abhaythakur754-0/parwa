@@ -15,6 +15,10 @@ import Link from 'next/link';
  * - Show real cost comparison
  * - Include interactive Jarvis chat preview
  * 
+ * Color scheme based on Frontend Docs:
+ * - Uses Teal/Gold theme for E-commerce (default)
+ * - Highlights PARWA AI benefits in Teal
+ * 
  * Based on ONBOARDING_SPEC.md v2.0 Section 2.3.4
  */
 
@@ -92,17 +96,17 @@ export default function HeroSection({ onOpenJarvis }: HeroSectionProps) {
             </ul>
           </div>
 
-          {/* PARWA AI */}
-          <div className="card p-6 md:p-8 border-primary-300 bg-primary-50/30 ring-2 ring-primary-500/20">
+          {/* PARWA AI - Using Teal theme */}
+          <div className="card p-6 md:p-8 border-teal-300 bg-teal-50/30 ring-2 ring-teal-500/20">
             <div className="flex items-center gap-3 mb-6">
               <span className="text-3xl">✅</span>
               <h3 className="text-xl font-bold text-secondary-900">PARWA AI</h3>
             </div>
             <ul className="space-y-4">
               {comparisonData.parwa.map((item, index) => (
-                <li key={index} className="flex justify-between items-center py-2 border-b border-primary-200 last:border-0">
+                <li key={index} className="flex justify-between items-center py-2 border-b border-teal-200 last:border-0">
                   <span className="text-secondary-600">{item.label}</span>
-                  <span className="font-semibold text-primary-700">{item.value}</span>
+                  <span className="font-semibold text-teal-700">{item.value}</span>
                 </li>
               ))}
             </ul>
@@ -115,16 +119,16 @@ export default function HeroSection({ onOpenJarvis }: HeroSectionProps) {
             🤖 JARVIS PREVIEW - Chat with your AI Employee
           </h4>
           <div className="card overflow-hidden">
-            {/* Chat Header */}
-            <div className="bg-secondary-900 px-4 py-3 flex items-center gap-3">
+            {/* Chat Header - Using Teal theme */}
+            <div className="bg-gradient-to-r from-teal-600 to-teal-700 px-4 py-3 flex items-center gap-3">
               <span className="text-2xl">🤖</span>
               <div>
                 <h5 className="font-medium text-white">Jarvis</h5>
-                <p className="text-xs text-secondary-400">AI Customer Care Officer</p>
+                <p className="text-xs text-teal-100">AI Customer Care Officer</p>
               </div>
               <span className="ml-auto flex items-center gap-1.5">
                 <span className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></span>
-                <span className="text-xs text-success-500">Online</span>
+                <span className="text-xs text-success-400">Online</span>
               </span>
             </div>
 
@@ -138,7 +142,7 @@ export default function HeroSection({ onOpenJarvis }: HeroSectionProps) {
                   <div
                     className={`max-w-[80%] px-4 py-2.5 rounded-2xl ${
                       message.type === 'user'
-                        ? 'bg-primary-600 text-white rounded-br-md'
+                        ? 'bg-teal-600 text-white rounded-br-md'
                         : 'bg-white text-secondary-900 shadow-sm rounded-bl-md'
                     }`}
                   >
@@ -154,9 +158,9 @@ export default function HeroSection({ onOpenJarvis }: HeroSectionProps) {
                   <div className="bg-white px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm">
                     <span className="text-sm mr-2">🤖</span>
                     <span className="flex gap-1">
-                      <span className="w-2 h-2 bg-secondary-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                      <span className="w-2 h-2 bg-secondary-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                      <span className="w-2 h-2 bg-secondary-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                      <span className="w-2 h-2 bg-teal-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                      <span className="w-2 h-2 bg-teal-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                      <span className="w-2 h-2 bg-teal-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                     </span>
                   </div>
                 </div>
@@ -172,12 +176,12 @@ export default function HeroSection({ onOpenJarvis }: HeroSectionProps) {
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                   placeholder="Type your message..."
-                  className="input flex-1"
+                  className="input flex-1 focus:ring-teal-500 focus:border-teal-500"
                 />
                 <button
                   onClick={handleSendMessage}
                   disabled={!chatInput.trim()}
-                  className="btn-primary px-4"
+                  className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -187,11 +191,11 @@ export default function HeroSection({ onOpenJarvis }: HeroSectionProps) {
             </div>
           </div>
 
-          {/* CTA Button */}
+          {/* CTA Button - Using Gold accent */}
           <div className="mt-8 text-center">
             <button
               onClick={onOpenJarvis}
-              className="btn-primary btn-lg px-8"
+              className="bg-gold-500 hover:bg-gold-600 text-secondary-900 font-semibold px-8 py-3 rounded-lg transition-colors shadow-lg hover:shadow-xl"
             >
               Get Started with Jarvis
             </button>
