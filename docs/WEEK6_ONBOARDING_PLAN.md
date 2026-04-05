@@ -1,467 +1,464 @@
 # PARWA Week 6 - Onboarding System Implementation Plan
 
-> **Document Version:** 1.2  
+> **Document Version:** 2.0  
 > **Created:** Day 33 (Week 5)  
-> **Updated:** Day 34 (Week 6 Day 1)  
-> **Scope:** WEEK 6 ONLY - Onboarding System (F-028 to F-035) + Frontend + Backend
+> **Updated:** Day 35 (Week 6)  
+> **Scope:** COMPLETE Onboarding System (Corrected Flow)
 
 ---
 
-## Scope Definition
+## ⚠️ IMPORTANT: Day Renaming
 
-### ✅ What We ARE Building (Week 6):
-
-| Feature ID | Feature Name | Backend | Frontend |
-|------------|--------------|---------|----------|
-| **F-028** | Onboarding Wizard | State machine API | 5-step wizard UI |
-| **F-029** | Legal Consent Collection | Consent storage | Checkboxes UI |
-| **F-030** | Pre-built Integration Setup | OAuth flows | Integration cards |
-| **F-031** | Custom Integration Builder | API config storage | Builder form |
-| **F-032** | KB Document Upload | File upload API | Drag-drop UI |
-| **F-033** | KB Processing + Indexing | Vector embedding | Progress UI |
-| **F-034** | AI Activation Gate | Validation API | Activation UI |
-| **F-035** | First Victory Celebration | Event tracking | Celebration UI |
-| **NEW** | Post-Payment Details | Details API | Form UI |
-
-### ❌ What We Are NOT Building (Separate Weeks):
-
-- Landing Page (F-001) → Week 18
-- Pricing Page (F-004) → Week 18
-- ROI Calculator (F-007) → Week 18
-- Demo Chat Widget (F-003) → Week 11-12
-- Demo Voice Call (F-008) → Week 11-12
+> **Days are now ordered by the ACTUAL user flow, not by when components were built.**
+> Old Day 1-2 work (User Details API + Frontend) is marked as DONE and positioned at its correct place in the flow (after payment).
 
 ---
 
-## User Flow (Week 6 Scope Only)
+## Corrected User Flow
 
 ```
-PAYMENT SUCCESS (from Paddle)
-         │
-         ▼
-┌─────────────────────────┐
-│  POST-PAYMENT DETAILS   │  ◄── NEW (discussed)
-│  - Full Name            │
-│  - Company Name         │
-│  - Work Email           │
-│  - Industry             │
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│  ONBOARDING WIZARD      │  ◄── F-028
-│  Step 1: Welcome        │
-│  Step 2: Legal (F-029)  │
-│  Step 3: Integrations   │
-│         (F-030, F-031)  │
-│  Step 4: KB (F-032,33)  │
-│  Step 5: AI (F-034)     │
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│  FIRST VICTORY          │  ◄── F-035
-│  - Test ticket resolved │
-│  - Celebration UI       │
-└───────────┬─────────────┘
-            │
-            ▼
-        DASHBOARD
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        PARWA COMPLETE USER JOURNEY                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Step 1: LANDING PAGE           Day 1-2   🔲 TODO
+          ↓
+  Step 2: SIGNUP/LOGIN           Day 3-5   🔲 TODO
+          ↓
+  Step 3: PRICING + VARIANTS     Day 6-7   🔲 TODO
+          ↓
+  Step 4: JARVIS CHAT            Day 8-9   🔲 TODO
+          ↓
+  Step 5: BUSINESS EMAIL OTP     Day 10-11 🔲 TODO
+          ↓
+  Step 6: PAYMENT (PADDLE)       Day 12-13 🔲 TODO
+          ↓
+  ─────────────────────────────────────────────────────────
+  Step 7: DETAILS COLLECTION     Day 14    ✅ DONE (Old Day 1-2)
+  ─────────────────────────────────────────────────────────
+          ↓
+  Step 8: INTEGRATIONS           Day 15    🔲 TODO
+          ↓
+  Step 9: DASHBOARD              Day 16    🔲 TODO
+          ↓
+  Step 10: TESTING + POLISH      Day 17-18 🔲 TODO
 ```
 
 ---
 
-## Database Status
+## Implementation Status
 
-### ✅ ALREADY EXISTS (Migration 006):
+### ✅ ALREADY COMPLETED (Old Day 1-2):
 
-| Table | Status | Notes |
-|-------|--------|-------|
-| `onboarding_sessions` | ✅ EXISTS | Basic columns, needs extension |
-| `consent_records` | ✅ EXISTS | Full schema complete |
-| `knowledge_documents` | ✅ EXISTS | Full schema complete |
-| `document_chunks` | ✅ EXISTS | Full schema complete |
-| `demo_sessions` | ✅ EXISTS | For demo chat/call |
-| `newsletter_subscribers` | ✅ EXISTS | For newsletter |
+| Component | Status | Files |
+|-----------|--------|-------|
+| **User Details Migration** | ✅ DONE | `database/alembic/versions/010_onboarding_extended.py` |
+| **User Details Model** | ✅ DONE | `database/models/user_details.py` |
+| **User Details API** | ✅ DONE | `backend/app/api/user_details.py` |
+| **User Details Service** | ✅ DONE | `backend/app/services/user_details_service.py` |
+| **Onboarding Schemas** | ✅ DONE | `backend/app/schemas/onboarding.py` |
+| **Onboarding Service** | ✅ DONE | `backend/app/services/onboarding_service.py` |
+| **Details Page** | ✅ DONE | `frontend/src/app/welcome/details/page.tsx` |
+| **DetailsForm Component** | ✅ DONE | `frontend/src/components/onboarding/DetailsForm.tsx` |
+| **IndustrySelect Component** | ✅ DONE | `frontend/src/components/onboarding/IndustrySelect.tsx` |
+| **WorkEmailVerification Component** | ✅ DONE | `frontend/src/components/onboarding/WorkEmailVerification.tsx` |
 
-**Models Location:** `database/models/onboarding.py`
-
-### ❌ MISSING TABLES:
-
-| Table | Description | Migration |
-|-------|-------------|-----------|
-| `user_details` | Post-payment details (name, company, industry, work_email) | 010 |
-
-### ❌ MISSING COLUMNS (in `onboarding_sessions`):
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| `legal_accepted` | BOOLEAN | Legal consent flag |
-| `terms_accepted_at` | TIMESTAMPTZ | Terms timestamp |
-| `privacy_accepted_at` | TIMESTAMPTZ | Privacy timestamp |
-| `ai_data_accepted_at` | TIMESTAMPTZ | AI data timestamp |
-| `integrations` | JSONB | Selected integrations |
-| `knowledge_base_files` | JSONB | Uploaded files list |
-| `ai_name` | VARCHAR(50) | AI assistant name |
-| `ai_tone` | VARCHAR(20) | AI tone setting |
-| `ai_response_style` | VARCHAR(20) | AI response style |
-| `ai_greeting` | TEXT | Custom greeting |
-| `first_victory_completed` | BOOLEAN | Victory flag |
+**Note:** These components need to be integrated INTO Jarvis Chat after payment.
 
 ---
 
-## Implementation Plan (8 Days)
+## Day-by-Day Roadmap (Corrected Flow)
 
-### Day 1: Database Schema + Post-Payment Details API
+### 🔲 Day 1-2: Landing Page + Navigation (Phase 1)
 
-**Database Migration (010_onboarding_extended.py):**
-- [ ] Create `user_details` table
-- [ ] Add missing columns to `onboarding_sessions` table
+**Position in Flow:** Step 1 (First thing users see)
+
+**Frontend Components:**
+
+| # | Component | Path | Description |
+|---|-----------|------|-------------|
+| 1 | NavigationBar | `components/landing/NavigationBar.tsx` | Logo + Home/Models/ROI/Jarvis Chatbot + Login |
+| 2 | FeatureCarousel | `components/landing/FeatureCarousel.tsx` | Netflix-style 5-slide carousel |
+| 3 | HeroSection | `components/landing/HeroSection.tsx` | Cost comparison + Jarvis preview |
+| 4 | WhyChooseUs | `components/landing/WhyChooseUs.tsx` | 3 feature cards (WHAT Jarvis does) |
+| 5 | HowItWorks | `components/landing/HowItWorks.tsx` | 4 animated steps (HOW Jarvis works) |
+| 6 | Footer | `components/landing/Footer.tsx` | © 2026, Models link |
+| 7 | Landing Page | `app/page.tsx` | Main landing page |
+
+**Backend APIs (Optional):**
+- [ ] `GET /api/public/features` - Feature highlights
+
+**Files to Create:**
+```
+frontend/src/app/page.tsx
+frontend/src/components/landing/NavigationBar.tsx
+frontend/src/components/landing/FeatureCarousel.tsx
+frontend/src/components/landing/HeroSection.tsx
+frontend/src/components/landing/WhyChooseUs.tsx
+frontend/src/components/landing/HowItWorks.tsx
+frontend/src/components/landing/Footer.tsx
+backend/app/api/public.py (optional)
+```
+
+---
+
+### 🔲 Day 3: Auth System - Backend (Phase 2)
+
+**Position in Flow:** Step 2 (Signup/Login)
+
+**Database:**
+- [ ] `users` table (extend if needed)
+- [ ] `sessions` table for JWT sessions
+- [ ] `email_otps` table for OTP verification
 
 **Backend APIs:**
-- [ ] `GET /api/onboarding/state` - Get onboarding state
-- [ ] `GET /api/user/details` - Get current user details
-- [ ] `POST /api/user/details` - Submit user details
-- [ ] `PATCH /api/user/details` - Update user details
-- [ ] `POST /api/user/verify-work-email` - Send verification email
+- [ ] `POST /api/auth/register` - Email/password signup
+- [ ] `POST /api/auth/login` - Login
+- [ ] `POST /api/auth/logout` - Logout
+- [ ] `POST /api/auth/google` - Google OAuth
+- [ ] `POST /api/auth/verify-email` - Email verification
+- [ ] `POST /api/auth/forgot-password` - Password reset
 
 **Services:**
-- [ ] `UserDetailsService` - CRUD for user details
+- [ ] `AuthService` - Authentication logic
+- [ ] `OAuthService` - Google OAuth handling
+- [ ] JWT token generation/validation
 
-**Files:**
+**Files to Create:**
 ```
-database/alembic/versions/010_onboarding_extended.py
-backend/app/api/user_details.py
-backend/app/api/onboarding.py (partial)
-backend/app/schemas/onboarding.py
-backend/app/services/user_details_service.py
-database/models/user_details.py
-database/models/onboarding.py (update)
+backend/app/services/auth_service.py
+backend/app/services/oauth_service.py
+backend/app/schemas/auth.py
+database/alembic/versions/011_auth_system.py
+tests/unit/test_auth.py
 ```
 
 ---
 
-### Day 2: Post-Payment Details Frontend
+### 🔲 Day 4-5: Auth System - Frontend (Phase 2)
+
+**Position in Flow:** Step 2 (Signup/Login)
 
 **Frontend:**
-- [ ] `frontend/src/app/welcome/details/page.tsx`
-- [ ] `frontend/src/components/onboarding/DetailsForm.tsx`
-- [ ] `frontend/src/components/onboarding/IndustrySelect.tsx`
-- [ ] `frontend/src/components/onboarding/WorkEmailVerification.tsx`
+- [ ] `frontend/src/app/(auth)/signup/page.tsx`
+- [ ] `frontend/src/app/(auth)/login/page.tsx`
+- [ ] `frontend/src/components/auth/SignupForm.tsx`
+- [ ] `frontend/src/components/auth/LoginForm.tsx`
+- [ ] `frontend/src/components/auth/SocialLogin.tsx`
+- [ ] `frontend/src/contexts/AuthContext.tsx`
 
-**Files:**
+**Files to Create:**
 ```
-frontend/src/app/welcome/details/page.tsx
-frontend/src/components/onboarding/DetailsForm.tsx
-frontend/src/components/onboarding/IndustrySelect.tsx
-frontend/src/components/onboarding/WorkEmailVerification.tsx
+frontend/src/app/(auth)/signup/page.tsx
+frontend/src/app/(auth)/login/page.tsx
+frontend/src/components/auth/SignupForm.tsx
+frontend/src/components/auth/LoginForm.tsx
+frontend/src/components/auth/SocialLogin.tsx
+frontend/src/contexts/AuthContext.tsx
+frontend/src/hooks/useAuth.ts
 ```
 
 ---
 
-### Day 3: Onboarding Wizard Backend (F-028, F-029)
+### 🔲 Day 6-7: Pricing Page + Industry Selector + Variants (Phase 3)
+
+**Position in Flow:** Step 3 (Pricing + Variants)
+
+**Frontend:**
+- [ ] `frontend/src/app/pricing/page.tsx`
+- [ ] `frontend/src/components/pricing/IndustrySelector.tsx` (4 industries only)
+- [ ] `frontend/src/components/pricing/VariantCard.tsx`
+- [ ] `frontend/src/components/pricing/QuantitySelector.tsx` ([-] N [+])
+- [ ] `frontend/src/components/pricing/TotalSummary.tsx`
+
+**Backend:**
+- [ ] `GET /api/pricing/industries` - Get 4 industries
+- [ ] `GET /api/pricing/variants/:industry` - Get variants by industry
+- [ ] `POST /api/pricing/calculate` - Calculate total
+
+**Database:**
+- [ ] `industry_variants` table
+- [ ] `pricing_variants` table
+
+**Files to Create:**
+```
+frontend/src/app/pricing/page.tsx
+frontend/src/components/pricing/IndustrySelector.tsx
+frontend/src/components/pricing/VariantCard.tsx
+frontend/src/components/pricing/QuantitySelector.tsx
+frontend/src/components/pricing/TotalSummary.tsx
+backend/app/api/pricing.py
+backend/app/services/pricing_service.py
+database/alembic/versions/012_pricing_variants.py
+```
+
+---
+
+### 🔲 Day 8-9: Jarvis Chat System (Phase 4)
+
+**Position in Flow:** Step 4 (Jarvis Chat with Bill Summary)
+
+**Database:**
+- [ ] `jarvis_sessions` table migration
+- [ ] `jarvis_messages` table migration
 
 **Backend APIs:**
-- [ ] `POST /api/onboarding/start` - Initialize wizard
-- [ ] `GET /api/onboarding/state` - Get current step
-- [ ] `POST /api/onboarding/legal` - Save legal consents
-- [ ] `POST /api/onboarding/step/{n}` - Complete step
+- [ ] `POST /api/jarvis/session` - Start/continue session
+- [ ] `POST /api/jarvis/message` - Send message
+- [ ] `GET /api/jarvis/history` - Get chat history
+- [ ] WebSocket endpoint for real-time chat
+- [ ] AI integration (z-ai-web-dev-sdk)
 
 **Services:**
-- [ ] `OnboardingService` - State machine management
-- [ ] `ConsentService` - Legal consent handling
-
-**Files:**
-```
-backend/app/api/onboarding.py (complete)
-backend/app/services/onboarding_service.py
-backend/app/services/consent_service.py
-```
-
----
-
-### Day 4: Onboarding Wizard Frontend (F-028, F-029)
+- [ ] `JarvisService` - AI chat handling
+- [ ] Bill summary generation
 
 **Frontend:**
-- [ ] `frontend/src/app/onboarding/page.tsx`
-- [ ] `frontend/src/components/onboarding/OnboardingWizard.tsx`
-- [ ] `frontend/src/components/onboarding/ProgressIndicator.tsx`
-- [ ] `frontend/src/components/onboarding/WelcomeScreen.tsx`
-- [ ] `frontend/src/components/onboarding/LegalCompliance.tsx`
+- [ ] `frontend/src/components/jarvis/JarvisChat.tsx`
+- [ ] `frontend/src/components/jarvis/ChatWindow.tsx`
+- [ ] `frontend/src/components/jarvis/ChatMessage.tsx`
+- [ ] `frontend/src/components/jarvis/ChatInput.tsx`
+- [ ] `frontend/src/components/jarvis/BillSummary.tsx`
+- [ ] `frontend/src/components/jarvis/TypingIndicator.tsx`
 
-**Files:**
+**Files to Create:**
 ```
-frontend/src/app/onboarding/page.tsx
-frontend/src/components/onboarding/OnboardingWizard.tsx
-frontend/src/components/onboarding/ProgressIndicator.tsx
-frontend/src/components/onboarding/WelcomeScreen.tsx
-frontend/src/components/onboarding/LegalCompliance.tsx
+database/alembic/versions/013_jarvis_system.py
+database/models/jarvis.py
+backend/app/api/jarvis.py
+backend/app/services/jarvis_service.py
+backend/app/schemas/jarvis.py
+frontend/src/components/jarvis/JarvisChat.tsx
+frontend/src/components/jarvis/ChatWindow.tsx
+frontend/src/components/jarvis/ChatMessage.tsx
+frontend/src/components/jarvis/ChatInput.tsx
+frontend/src/components/jarvis/BillSummary.tsx
+frontend/src/components/jarvis/TypingIndicator.tsx
+frontend/src/hooks/useJarvisChat.ts
+tests/unit/test_jarvis_service.py
 ```
 
 ---
 
-### Day 5: Integration Setup (F-030, F-031)
+### 🔲 Day 10-11: Business Email OTP Verification (Phase 5)
+
+**Position in Flow:** Step 5 (Anti-scam verification)
+
+**Database:**
+- [ ] `business_email_otps` table
+
+**Backend APIs:**
+- [ ] `POST /api/verification/send-otp` - Send OTP to business email
+- [ ] `POST /api/verification/verify-otp` - Verify OTP
+- [ ] Rate limiting for OTP requests
+
+**Services:**
+- [ ] `OTPService` - OTP generation and verification
+- [ ] Email sending (Brevo/SendGrid)
+
+**Frontend:**
+- [ ] `frontend/src/components/verification/BusinessEmailInput.tsx`
+- [ ] `frontend/src/components/verification/OTPInput.tsx`
+- [ ] `frontend/src/components/verification/OTPCounter.tsx` (60s countdown)
+- [ ] Integrate into Jarvis Chat flow
+
+**Files to Create:**
+```
+database/alembic/versions/014_email_verification.py
+backend/app/services/otp_service.py
+backend/app/api/verification.py
+frontend/src/components/verification/BusinessEmailInput.tsx
+frontend/src/components/verification/OTPInput.tsx
+frontend/src/components/verification/OTPCounter.tsx
+frontend/src/hooks/useOTPVerification.ts
+tests/unit/test_otp_service.py
+```
+
+---
+
+### 🔲 Day 12-13: Payment Integration (Phase 6)
+
+**Position in Flow:** Step 6 (Payment via Paddle)
+
+**Backend APIs:**
+- [ ] `POST /api/payments/create-session` - Create Paddle checkout
+- [ ] `POST /api/payments/webhook` - Handle Paddle webhooks
+- [ ] `GET /api/payments/status` - Check payment status
+- [ ] `POST /api/payments/confirm` - Confirm payment
+
+**Services:**
+- [ ] `PaddleService` - Paddle SDK integration
+- [ ] Payment verification logic
+
+**Frontend:**
+- [ ] `frontend/src/components/payment/PaddleCheckout.tsx`
+- [ ] `frontend/src/components/payment/PaymentSuccess.tsx`
+- [ ] `frontend/src/components/payment/PaymentFailed.tsx`
+- [ ] Integrate into Jarvis Chat
+
+**Files to Create:**
+```
+backend/app/services/paddle_service.py
+backend/app/api/payments.py
+backend/app/schemas/payment.py
+frontend/src/components/payment/PaddleCheckout.tsx
+frontend/src/components/payment/PaymentSuccess.tsx
+frontend/src/components/payment/PaymentFailed.tsx
+frontend/src/hooks/usePayment.ts
+tests/unit/test_paddle_service.py
+```
+
+---
+
+### ✅ Day 14: Details Collection (Phase 7) - ALREADY DONE
+
+**Position in Flow:** Step 7 (After Payment)
+
+**Status:** ✅ Backend DONE, ⚠️ Frontend needs integration into Jarvis Chat
+
+**Already Completed:**
+- [x] `user_details` table migration
+- [x] `GET /api/onboarding/state` - Get onboarding state
+- [x] `GET /api/user/details` - Get current user details
+- [x] `POST /api/user/details` - Submit user details
+- [x] `PATCH /api/user/details` - Update user details
+- [x] `POST /api/user/verify-work-email` - Send verification email
+- [x] `UserDetailsService` - CRUD for user details
+- [x] `DetailsForm.tsx` component (needs integration)
+- [x] `IndustrySelect.tsx` component (can reuse)
+- [x] `WorkEmailVerification.tsx` component (can reuse)
+
+**Remaining Tasks:**
+- [ ] Move DetailsForm INTO Jarvis Chat
+- [ ] Pre-fill known data (email, industry)
+- [ ] Collect remaining: User Name
+- [ ] If "Others" industry: collect industry name, company, website
+
+**Files to Update:**
+```
+frontend/src/components/jarvis/JarvisDetailsForm.tsx (new)
+frontend/src/components/onboarding/DetailsForm.tsx (reuse/modify)
+```
+
+---
+
+### 🔲 Day 15: Integrations Setup (Phase 8)
+
+**Position in Flow:** Step 8 (After Details)
 
 **Backend APIs:**
 - [ ] `GET /api/integrations/available` - List available integrations
 - [ ] `POST /api/integrations` - Create integration
+- [ ] `GET /api/integrations` - List user integrations
 - [ ] `POST /api/integrations/:id/test` - Test connection
-- [ ] OAuth callback handlers
 
 **Frontend:**
 - [ ] `frontend/src/components/onboarding/IntegrationSetup.tsx`
 - [ ] `frontend/src/components/onboarding/IntegrationCard.tsx`
-- [ ] `frontend/src/components/onboarding/CustomIntegrationBuilder.tsx`
 
-**Files:**
+**Files to Create:**
 ```
 backend/app/api/integrations.py
 backend/app/services/integration_service.py
 frontend/src/components/onboarding/IntegrationSetup.tsx
 frontend/src/components/onboarding/IntegrationCard.tsx
-frontend/src/components/onboarding/CustomIntegrationBuilder.tsx
 ```
 
 ---
 
-### Day 6: Knowledge Base Upload (F-032)
+### 🔲 Day 16: Dashboard + Redirect (Phase 8)
 
-**Backend APIs:**
-- [ ] `POST /api/knowledge/upload` - Upload document
-- [ ] `GET /api/knowledge` - List documents
-- [ ] `DELETE /api/knowledge/:id` - Delete document
-- [ ] `GET /api/knowledge/:id/status` - Get processing status
+**Position in Flow:** Step 9 (Final Destination)
 
 **Frontend:**
-- [ ] `frontend/src/components/onboarding/KnowledgeUpload.tsx`
-- [ ] `frontend/src/components/onboarding/FileDropZone.tsx`
-- [ ] `frontend/src/components/onboarding/FileList.tsx`
+- [ ] `frontend/src/app/dashboard/page.tsx`
+- [ ] `frontend/src/components/dashboard/DashboardLayout.tsx`
+- [ ] Redirect logic after payment + details + integrations
 
-**Files:**
+**Files to Create:**
 ```
-backend/app/api/knowledge.py
-backend/app/services/knowledge_service.py
-frontend/src/components/onboarding/KnowledgeUpload.tsx
-frontend/src/components/onboarding/FileDropZone.tsx
-frontend/src/components/onboarding/FileList.tsx
+frontend/src/app/dashboard/page.tsx
+frontend/src/components/dashboard/DashboardLayout.tsx
+frontend/src/components/dashboard/WelcomeCard.tsx
 ```
 
 ---
 
-### Day 7: KB Processing + AI Activation (F-033, F-034)
-
-**Backend:**
-- [ ] Text extraction from documents
-- [ ] Chunking logic
-- [ ] Vector embedding generation (pgvector)
-- [ ] `POST /api/onboarding/activate` - Activate AI
-- [ ] Prerequisites validation
-
-**Celery Tasks:**
-- [ ] `process_knowledge_document` task
-- [ ] `generate_embeddings` task
-
-**Frontend:**
-- [ ] `frontend/src/components/onboarding/ProcessingStatus.tsx`
-- [ ] `frontend/src/components/onboarding/AIConfig.tsx`
-- [ ] `frontend/src/components/onboarding/ActivationButton.tsx`
-
-**Files:**
-```
-backend/app/services/embedding_service.py
-backend/app/tasks/knowledge_tasks.py
-frontend/src/components/onboarding/ProcessingStatus.tsx
-frontend/src/components/onboarding/AIConfig.tsx
-frontend/src/components/onboarding/ActivationButton.tsx
-```
-
----
-
-### Day 8: First Victory + Testing (F-035)
-
-**Backend:**
-- [ ] `GET /api/onboarding/first-victory` - Get first victory status
-- [ ] `POST /api/onboarding/first-victory` - Mark complete
-- [ ] First victory event tracking
-- [ ] Celebration event emission
-
-**Frontend:**
-- [ ] `frontend/src/components/onboarding/FirstVictory.tsx`
-- [ ] Celebration animation/confetti
-- [ ] Redirect to dashboard
+### 🔲 Day 17-18: Testing + Polish (Phase 9)
 
 **Testing:**
-- [ ] End-to-end test: Payment → Details → Onboarding → Victory
-- [ ] Unit tests for all services
-- [ ] Integration tests for all APIs
+- [ ] Test: Landing → Signup → Pricing → Variants → Jarvis → OTP → Payment → Details → Dashboard
+- [ ] Test each industry flow (E-commerce, SaaS, Logistics, Others)
+- [ ] Test variant quantity selection
+- [ ] Test OTP verification
+- [ ] Test payment success/failure
+- [ ] Mobile responsiveness tests
 
-**Files:**
+**Files to Create:**
 ```
-backend/app/services/victory_service.py
-frontend/src/components/onboarding/FirstVictory.tsx
-tests/unit/test_onboarding.py
-tests/integration/test_onboarding_flow.py
+tests/e2e/test_complete_flow.py
+tests/e2e/test_industry_flows.py
+tests/e2e/test_payment_flow.py
 ```
 
 ---
 
 ## Summary
 
-| Day | Focus | Backend | Frontend |
-|-----|-------|---------|----------|
-| 1 | DB + Post-Payment API | 5 APIs | 0 |
-| 2 | Post-Payment UI | 0 | 4 components |
-| 3 | Wizard Backend | 4 APIs | 0 |
-| 4 | Wizard Frontend | 0 | 5 components |
-| 5 | Integrations | 3 APIs | 3 components |
-| 6 | KB Upload | 4 APIs | 3 components |
-| 7 | KB Processing + AI | 1 API + Tasks | 3 components |
-| 8 | First Victory + Tests | 2 APIs | 1 component |
-| **Total** | **8 Days** | **18 APIs** | **19 Components** |
+| Metric | Value |
+|--------|-------|
+| **Total Days** | 18 |
+| **Completed Days** | 2 (Old Day 1-2 - Details Collection) ✅ |
+| **Days in Correct Position** | Phase 7 (After Payment) |
+| **Days BEFORE Details** | 13 days (Day 1-13) 🔲 TODO |
+| **Days AFTER Details** | 4 days (Day 15-18) 🔲 TODO |
+| **Total Backend APIs** | ~25 |
+| **Completed APIs** | 5 ✅ (User Details APIs) |
+| **Total Frontend Components** | ~40 |
+| **Completed Components** | 4 ✅ (needs integration into Jarvis) |
+| **Total Database Tables** | ~10 |
+| **Completed Tables** | 5 ✅ |
 
 ---
 
-## Database Tables
+## Industry Variants Reference
 
-### `user_details` (NEW)
-```sql
-CREATE TABLE user_details (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) UNIQUE NOT NULL,
-    company_id UUID REFERENCES companies(id) NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    company_name VARCHAR(100) NOT NULL,
-    work_email VARCHAR(255),
-    work_email_verified BOOLEAN DEFAULT FALSE,
-    industry VARCHAR(50) NOT NULL,
-    company_size VARCHAR(20),
-    website VARCHAR(255),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
+### E-commerce Variants
 
-### `onboarding_sessions` (EXTEND - add columns)
-```sql
-ALTER TABLE onboarding_sessions ADD COLUMN legal_accepted BOOLEAN DEFAULT FALSE;
-ALTER TABLE onboarding_sessions ADD COLUMN terms_accepted_at TIMESTAMPTZ;
-ALTER TABLE onboarding_sessions ADD COLUMN privacy_accepted_at TIMESTAMPTZ;
-ALTER TABLE onboarding_sessions ADD COLUMN ai_data_accepted_at TIMESTAMPTZ;
-ALTER TABLE onboarding_sessions ADD COLUMN integrations JSONB DEFAULT '{}';
-ALTER TABLE onboarding_sessions ADD COLUMN knowledge_base_files JSONB DEFAULT '[]';
-ALTER TABLE onboarding_sessions ADD COLUMN ai_name VARCHAR(50) DEFAULT 'Jarvis';
-ALTER TABLE onboarding_sessions ADD COLUMN ai_tone VARCHAR(20) DEFAULT 'professional';
-ALTER TABLE onboarding_sessions ADD COLUMN ai_response_style VARCHAR(20) DEFAULT 'concise';
-ALTER TABLE onboarding_sessions ADD COLUMN ai_greeting TEXT;
-ALTER TABLE onboarding_sessions ADD COLUMN first_victory_completed BOOLEAN DEFAULT FALSE;
-```
+| Variant | Description | Tickets/Month | Price/Month |
+|---------|-------------|---------------|-------------|
+| **Order Management** | Order status, tracking, modifications | 500 | $99 |
+| **Returns & Refunds** | Return requests, refund processing | 200 | $49 |
+| **Product FAQ** | Product questions, specifications | 1000 | $79 |
+| **Shipping Inquiries** | Delivery status, shipping options | 300 | $59 |
+| **Payment Issues** | Failed payments, billing questions | 150 | $39 |
 
----
+### SaaS Variants
 
-## API Endpoints Summary
+| Variant | Description | Tickets/Month | Price/Month |
+|---------|-------------|---------------|-------------|
+| **Technical Support** | Bug reports, troubleshooting | 400 | $129 |
+| **Billing Support** | Subscription, invoice questions | 200 | $69 |
+| **Feature Requests** | Feature questions, roadmap | 300 | $89 |
+| **API Support** | API documentation, integration help | 250 | $99 |
+| **Account Issues** | Login, permissions, settings | 350 | $79 |
 
-### Post-Payment Details
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/onboarding/state` | Get onboarding state |
-| GET | `/api/user/details` | Get current user details |
-| POST | `/api/user/details` | Submit user details |
-| PATCH | `/api/user/details` | Update user details |
-| POST | `/api/user/verify-work-email` | Send verification email |
+### Logistics Variants
 
-### Onboarding Wizard
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/onboarding/start` | Initialize wizard |
-| POST | `/api/onboarding/legal` | Save legal consents |
-| POST | `/api/onboarding/step/{n}` | Complete step n |
-| POST | `/api/onboarding/activate` | Activate AI |
+| Variant | Description | Tickets/Month | Price/Month |
+|---------|-------------|---------------|-------------|
+| **Tracking** | Shipment tracking, status updates | 800 | $89 |
+| **Delivery Issues** | Missed deliveries, rescheduling | 400 | $69 |
+| **Warehouse Queries** | Inventory, storage questions | 300 | $59 |
+| **Fleet Management** | Driver coordination, vehicle issues | 200 | $79 |
+| **Customs & Documentation** | Import/export, paperwork | 150 | $99 |
 
-### Integrations
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/integrations/available` | List available integrations |
-| POST | `/api/integrations` | Create integration |
-| POST | `/api/integrations/:id/test` | Test connection |
+### Others Industry Flow
 
-### Knowledge Base
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/knowledge/upload` | Upload document |
-| GET | `/api/knowledge` | List documents |
-| DELETE | `/api/knowledge/:id` | Delete document |
-| GET | `/api/knowledge/:id/status` | Get processing status |
-
-### First Victory
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/onboarding/first-victory` | Get first victory status |
-| POST | `/api/onboarding/first-victory` | Mark complete |
-
----
-
-## File Structure
-
-```
-backend/app/
-├── api/
-│   ├── onboarding.py          # Wizard + Victory APIs
-│   ├── user_details.py        # Post-payment APIs
-│   ├── integrations.py        # Integration APIs
-│   └── knowledge.py           # KB APIs
-├── models/
-│   ├── onboarding.py          # SQLAlchemy models (update)
-│   └── user_details.py        # User details model
-├── schemas/
-│   └── onboarding.py          # Pydantic schemas
-├── services/
-│   ├── user_details_service.py
-│   ├── onboarding_service.py
-│   ├── consent_service.py
-│   ├── integration_service.py
-│   ├── knowledge_service.py
-│   ├── embedding_service.py
-│   └── victory_service.py
-└── tasks/
-    └── knowledge_tasks.py     # Celery tasks
-
-frontend/src/
-├── app/
-│   ├── welcome/
-│   │   └── details/page.tsx   # Post-payment form
-│   └── onboarding/page.tsx    # Wizard page
-└── components/
-    └── onboarding/
-        ├── DetailsForm.tsx
-        ├── IndustrySelect.tsx
-        ├── WorkEmailVerification.tsx
-        ├── OnboardingWizard.tsx
-        ├── ProgressIndicator.tsx
-        ├── WelcomeScreen.tsx
-        ├── LegalCompliance.tsx
-        ├── IntegrationSetup.tsx
-        ├── IntegrationCard.tsx
-        ├── CustomIntegrationBuilder.tsx
-        ├── KnowledgeUpload.tsx
-        ├── FileDropZone.tsx
-        ├── FileList.tsx
-        ├── ProcessingStatus.tsx
-        ├── AIConfig.tsx
-        ├── ActivationButton.tsx
-        └── FirstVictory.tsx
-```
-
----
-
-## API Keys
-
-API keys are stored in environment variables. See `.env.example` for required keys.
-
-Required services:
-- Google AI / Cerebras / Groq (AI responses)
-- Brevo (Emails)
-- Twilio (SMS/Voice)
-- Paddle (Payments)
+When user selects "Others":
+1. Jarvis asks for industry details
+2. Collect: Industry name, Company Name, Company Website
+3. Show generic variants or suggest based on industry input
 
 ---
 
@@ -471,8 +468,9 @@ Required services:
 |---------|------|---------|
 | 1.0 | Day 33 | Initial plan (too broad) |
 | 1.1 | Day 33 | Focused to Week 6 only (F-028 to F-035) |
-| 1.2 | Day 34 | Added database status (what exists/missing), updated Day 1 with 5 APIs |
+| 1.2 | Day 34 | Added database status (what exists/missing) |
+| 2.0 | Day 35 | Complete restructure - days ordered by actual user flow, Old Day 1-2 marked as DONE |
 
 ---
 
-*This is the CORRECTED plan focusing ONLY on Week 6 Onboarding System.*
+*This plan follows the CORRECTED user flow from ONBOARDING_SPEC.md v2.0*
