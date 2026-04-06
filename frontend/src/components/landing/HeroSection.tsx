@@ -17,18 +17,20 @@ interface HeroSectionProps {
 
 const comparisonData = {
   traditional: [
+    { label: 'Who works', value: '1 Person Working Alone', negative: true },
+    { label: 'Response Speed', value: '5-30 minutes average', negative: true },
+    { label: 'Scalability', value: 'Fixed capacity', negative: true },
+    { label: 'Availability', value: '8 hrs/day, 5 days/week', negative: true },
     { label: 'Annual Cost (24/7)', value: '$150,000/year', negative: true },
-    { label: 'Working hours', value: '8 hours/day only', negative: true },
-    { label: 'Who works', value: '1 person alone', negative: true },
-    { label: 'Availability', value: 'Sick days & turnover', negative: true },
-    { label: 'Consistency', value: 'Variable responses', negative: true },
+    { label: 'Reliability', value: 'Sick days, turnover, burnout', negative: true },
   ],
   parwa: [
-    { label: 'Starting at', value: '$999/month', highlight: true },
-    { label: 'Availability', value: '24/7/365', highlight: true },
-    { label: 'Who works', value: 'Team of AI Agents + Security', highlight: true },
-    { label: 'Reliability', value: 'Never takes a day off', highlight: true },
-    { label: 'Savings', value: '$138,000+/year', highlight: true },
+    { label: 'Who works', value: 'Team of Specialized AI Agents with Strict Security Measures', highlight: true },
+    { label: 'Response Speed', value: 'Under 2 seconds', highlight: true },
+    { label: 'Scalability', value: 'Unlimited tickets', highlight: true },
+    { label: 'Availability', value: '24 Hours / 7 Days / 365 Days', highlight: true },
+    { label: 'Annual Cost', value: '$11,988/year', highlight: true },
+    { label: 'Reliability', value: 'No sick days, no turnover, no burnout', highlight: true },
   ],
 };
 
