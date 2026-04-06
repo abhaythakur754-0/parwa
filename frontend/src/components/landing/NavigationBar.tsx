@@ -6,15 +6,10 @@ import Link from 'next/link';
 /**
  * NavigationBar Component
  * 
- * Top navigation bar with:
- * - Logo (PARWA)
+ * Dark transparent navigation bar with:
+ * - PARWA logo (SVG icon, NO emoji)
  * - Navigation links: Home, Models, ROI, Jarvis Chatbot
- * - Login button (signup is inside login page)
- * 
- * Color scheme based on Frontend Docs:
- * - Teal accent for active/hover states
- * 
- * Based on ONBOARDING_SPEC.md v2.0 Section 2.3.1
+ * - Login button
  */
 
 interface NavigationBarProps {
@@ -32,25 +27,29 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 bg-white border-b border-secondary-200 shadow-sm">
+    <nav className="sticky top-0 z-50 bg-navy-900/80 backdrop-blur-xl border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-2xl">🤖</span>
-            <span className="text-xl font-bold text-secondary-900 group-hover:text-teal-600 transition-colors">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20 group-hover:shadow-teal-500/40 transition-shadow">
+              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <span className="text-xl font-bold text-white group-hover:text-teal-400 transition-colors">
               PARWA
             </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
               link.onClick ? (
                 <button
                   key={link.name}
                   onClick={link.onClick}
-                  className="text-secondary-600 hover:text-teal-600 font-medium transition-colors"
+                  className="px-4 py-2 text-white/70 hover:text-white font-medium transition-colors rounded-lg hover:bg-white/5"
                 >
                   {link.name}
                 </button>
@@ -58,7 +57,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <Link
                   key={link.name}
                   href={link.href}
-                  className="text-secondary-600 hover:text-teal-600 font-medium transition-colors"
+                  className="px-4 py-2 text-white/70 hover:text-white font-medium transition-colors rounded-lg hover:bg-white/5"
                 >
                   {link.name}
                 </Link>
@@ -70,7 +69,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
           <div className="hidden md:flex items-center gap-4">
             <Link
               href="/login"
-              className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors"
+              className="bg-teal-600 hover:bg-teal-500 text-white px-5 py-2.5 rounded-lg font-semibold transition-all duration-300 shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40 hover:-translate-y-0.5"
             >
               Login
             </Link>
@@ -79,7 +78,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-secondary-600 hover:bg-secondary-100"
+            className="md:hidden p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors"
             aria-label="Toggle menu"
           >
             <svg
@@ -109,8 +108,8 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-secondary-200">
-            <div className="flex flex-col gap-4">
+          <div className="md:hidden py-4 border-t border-white/10">
+            <div className="flex flex-col gap-1">
               {navLinks.map((link) => (
                 link.onClick ? (
                   <button
@@ -119,7 +118,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                       link.onClick?.();
                       setIsMobileMenuOpen(false);
                     }}
-                    className="text-left text-secondary-600 hover:text-teal-600 font-medium py-2"
+                    className="text-left px-4 py-3 text-white/70 hover:text-white font-medium rounded-lg hover:bg-white/5 transition-colors"
                   >
                     {link.name}
                   </button>
@@ -127,7 +126,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                   <Link
                     key={link.name}
                     href={link.href}
-                    className="text-secondary-600 hover:text-teal-600 font-medium py-2"
+                    className="px-4 py-3 text-white/70 hover:text-white font-medium rounded-lg hover:bg-white/5 transition-colors"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {link.name}
@@ -136,7 +135,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
               ))}
               <Link
                 href="/login"
-                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg font-medium text-center mt-2 transition-colors"
+                className="mt-4 bg-teal-600 hover:bg-teal-500 text-white px-5 py-3 rounded-lg font-semibold text-center transition-all duration-300"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Login
