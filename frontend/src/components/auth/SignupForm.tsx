@@ -1,8 +1,45 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff, Loader2, Mail, Lock, User, Building2, Briefcase } from 'lucide-react';
+
+// ── Security Constants ────────────────────────────────────────────────────
+
+const MAX_EMAIL_LENGTH = 255;
+const MAX_NAME_LENGTH = 255;
+const MAX_COMPANY_NAME_LENGTH = 255;
+const MAX_PASSWORD_LENGTH = 128;
+
+// ── XSS Sanitization ──────────────────────────────────────────────────────
+
+/**
+ * Sanitize input to prevent XSS attacks
+ * Removes HTML tags, javascript:, on* event handlers, data: URLs
+ */
+function sanitizeInput(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  let sanitized = text;
+  // Remove HTML tags
+  sanitized = sanitized.replace(/<[^>]*>/g, '');
+  // Remove javascript: protocol
+  sanitized = sanitized.replace(/javascript:/gi, '');
+  // Remove on* event handlers (onclick, onerror, etc.)
+  sanitized = sanitized.replace(/on\w+\s*=/gi, '');
+  // Remove data: URLs
+  sanitized = sanitized.replace(/data:/gi, '');
+  // Remove vbscript: protocol
+  sanitized = sanitized.replace(/vbscript:/gi, '');
+  return sanitized.trim();
+}
+
+/**
+ * Truncate text to max length while preserving integrity
+ */
+function truncateText(text: string, maxLength: number): string {
+  if (!text) return '';
+  return text.length > maxLength ? text.slice(0, maxLength) : text;
+}
 
 /**
  * SignupForm Component
@@ -95,18 +132,22 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
   // Password strength memoized
   const passwordStrength = useMemo(() => getPasswordStrength(password), [password]);
 
-  // Validate email format
+  // Validate email format with length check and XSS prevention
   const validateEmail = (value: string): string | undefined => {
     if (!value) return 'Email is required';
+    if (value.length > MAX_EMAIL_LENGTH) return `Email must be less than ${MAX_EMAIL_LENGTH} characters`;
+    // Check for XSS attempts in email
+    if (/<|>|javascript:|data:/i.test(value)) return 'Invalid characters in email';
     const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(value)) return 'Please enter a valid email address';
     return undefined;
   };
 
-  // Validate password (L02: must include special character)
+  // Validate password (L02: must include special character) with length check
   const validatePassword = (value: string): string | undefined => {
     if (!value) return 'Password is required';
     if (value.length < 8) return 'Password must be at least 8 characters';
+    if (value.length > MAX_PASSWORD_LENGTH) return `Password must be less than ${MAX_PASSWORD_LENGTH} characters`;
     if (!/[A-Z]/.test(value)) return 'Password must contain at least one uppercase letter';
     if (!/[a-z]/.test(value)) return 'Password must contain at least one lowercase letter';
     if (!/\d/.test(value)) return 'Password must contain at least one digit';
@@ -121,17 +162,23 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
     return undefined;
   };
 
-  // Validate full name
+  // Validate full name with length and XSS check
   const validateFullName = (value: string): string | undefined => {
     if (!value) return 'Full name is required';
     if (value.length < 2) return 'Name must be at least 2 characters';
+    if (value.length > MAX_NAME_LENGTH) return `Name must be less than ${MAX_NAME_LENGTH} characters`;
+    // Check for XSS attempts
+    if (/<|>|javascript:|on\w+=/i.test(value)) return 'Invalid characters in name';
     return undefined;
   };
 
-  // Validate company name
+  // Validate company name with length and XSS check
   const validateCompanyName = (value: string): string | undefined => {
     if (!value) return 'Company name is required';
     if (value.length < 2) return 'Company name must be at least 2 characters';
+    if (value.length > MAX_COMPANY_NAME_LENGTH) return `Company name must be less than ${MAX_COMPANY_NAME_LENGTH} characters`;
+    // Check for XSS attempts
+    if (/<|>|javascript:|on\w+=/i.test(value)) return 'Invalid characters in company name';
     return undefined;
   };
 
@@ -167,9 +214,14 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
     }
   };
 
-  // Handle form submission
+  // Handle form submission with XSS sanitization and error handling
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent double submission (GAP-004: Race Condition Prevention)
+    if (isSubmitting || isLoading) {
+      return;
+    }
 
     // Validate all fields
     const errors: FormErrors = {
@@ -200,13 +252,22 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
 
     setIsSubmitting(true);
     try {
-      await onSubmit({
-        email,
-        password,
-        full_name: fullName,
-        company_name: companyName,
-        industry,
-      });
+      // Sanitize inputs before submission (GAP-001: XSS Prevention)
+      const sanitizedData = {
+        email: sanitizeInput(truncateText(email, MAX_EMAIL_LENGTH)),
+        password: truncateText(password, MAX_PASSWORD_LENGTH), // Don't sanitize password, just truncate
+        full_name: sanitizeInput(truncateText(fullName, MAX_NAME_LENGTH)),
+        company_name: sanitizeInput(truncateText(companyName, MAX_COMPANY_NAME_LENGTH)),
+        industry: industry, // Industry is from dropdown, no sanitization needed
+      };
+      
+      await onSubmit(sanitizedData);
+    } catch (submitError) {
+      // GAP-006: Clear password fields on error for security
+      setPassword('');
+      setConfirmPassword('');
+      // Let the parent component handle the error display via the error prop
+      // Don't rethrow - the parent will set the error state
     } finally {
       setIsSubmitting(false);
     }
@@ -243,6 +304,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
             className={`input pl-10 ${formErrors.email ? 'input-error' : ''}`}
             placeholder="you@example.com"
             disabled={isDisabled}
+            maxLength={MAX_EMAIL_LENGTH}
           />
           {emailChecking && (
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
@@ -287,6 +349,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
             className={`input pl-10 ${formErrors.full_name ? 'input-error' : ''}`}
             placeholder="John Doe"
             disabled={isDisabled}
+            maxLength={MAX_NAME_LENGTH}
           />
         </div>
         {formErrors.full_name && (
@@ -319,6 +382,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
             className={`input pl-10 ${formErrors.company_name ? 'input-error' : ''}`}
             placeholder="Acme Inc."
             disabled={isDisabled}
+            maxLength={MAX_COMPANY_NAME_LENGTH}
           />
         </div>
         {formErrors.company_name && (
@@ -392,6 +456,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
             className={`input pl-10 pr-10 ${formErrors.password ? 'input-error' : ''}`}
             placeholder="••••••••"
             disabled={isDisabled}
+            maxLength={MAX_PASSWORD_LENGTH}
           />
           <button
             type="button"
@@ -455,6 +520,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
             className={`input pl-10 pr-10 ${formErrors.confirm_password ? 'input-error' : ''}`}
             placeholder="••••••••"
             disabled={isDisabled}
+            maxLength={MAX_PASSWORD_LENGTH}
           />
           <button
             type="button"
