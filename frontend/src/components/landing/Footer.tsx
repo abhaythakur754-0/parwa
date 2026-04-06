@@ -3,16 +3,11 @@ import Link from 'next/link';
 /**
  * Footer Component
  * 
- * Footer with:
- * - PARWA logo
- * - Product links
- * - Resources links
- * - Company links
- * - Legal links
+ * Dark premium footer with:
+ * - PARWA logo (SVG icon, NO emoji)
+ * - Product, Resources, Company, Legal links
  * - Social media links
  * - Copyright 2026
- * 
- * Based on ONBOARDING_SPEC.md v2.0 Section 2.3.7
  */
 
 const footerLinks = {
@@ -70,30 +65,36 @@ const socialLinks = [
 
 export default function Footer() {
   return (
-    <footer className="bg-secondary-900 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+    <footer className="bg-navy-900 border-t border-white/10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">🤖</span>
-              <span className="text-xl font-bold">PARWA</span>
+            <Link href="/" className="flex items-center gap-3 mb-6 group">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20 group-hover:shadow-teal-500/40 transition-shadow">
+                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span className="text-xl font-bold text-white group-hover:text-teal-400 transition-colors">
+                PARWA
+              </span>
             </Link>
-            <p className="text-secondary-400 text-sm">
+            <p className="text-white/50 text-sm leading-relaxed">
               AI-powered customer support that actually works.
             </p>
           </div>
 
           {/* Product */}
           <div>
-            <h4 className="font-semibold mb-4">Product</h4>
-            <ul className="space-y-2">
+            <h4 className="font-semibold text-white mb-5">Product</h4>
+            <ul className="space-y-3">
               {footerLinks.product.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
-                    className="text-secondary-400 hover:text-white text-sm transition-colors"
+                    className="text-white/50 hover:text-white text-sm transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -104,13 +105,13 @@ export default function Footer() {
 
           {/* Resources */}
           <div>
-            <h4 className="font-semibold mb-4">Resources</h4>
-            <ul className="space-y-2">
+            <h4 className="font-semibold text-white mb-5">Resources</h4>
+            <ul className="space-y-3">
               {footerLinks.resources.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
-                    className="text-secondary-400 hover:text-white text-sm transition-colors"
+                    className="text-white/50 hover:text-white text-sm transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -121,13 +122,13 @@ export default function Footer() {
 
           {/* Company */}
           <div>
-            <h4 className="font-semibold mb-4">Company</h4>
-            <ul className="space-y-2">
+            <h4 className="font-semibold text-white mb-5">Company</h4>
+            <ul className="space-y-3">
               {footerLinks.company.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
-                    className="text-secondary-400 hover:text-white text-sm transition-colors"
+                    className="text-white/50 hover:text-white text-sm transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -138,13 +139,13 @@ export default function Footer() {
 
           {/* Legal */}
           <div>
-            <h4 className="font-semibold mb-4">Legal</h4>
-            <ul className="space-y-2">
+            <h4 className="font-semibold text-white mb-5">Legal</h4>
+            <ul className="space-y-3">
               {footerLinks.legal.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
-                    className="text-secondary-400 hover:text-white text-sm transition-colors"
+                    className="text-white/50 hover:text-white text-sm transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -155,10 +156,10 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-secondary-800 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6">
           {/* Copyright */}
-          <p className="text-secondary-400 text-sm">
-            © 2026 PARWA. All rights reserved.
+          <p className="text-white/40 text-sm">
+            2026 PARWA. All rights reserved.
           </p>
 
           {/* Social Links */}
@@ -169,7 +170,7 @@ export default function Footer() {
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-secondary-400 hover:text-white transition-colors"
+                className="w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center transition-all duration-300"
                 aria-label={social.name}
               >
                 {social.icon}
