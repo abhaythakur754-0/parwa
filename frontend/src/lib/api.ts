@@ -11,6 +11,17 @@
 
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { UserDetails, OnboardingState } from '@/types/onboarding';
+import {
+  User,
+  AuthResponse,
+  TokenResponse,
+  LoginRequest,
+  RegisterRequest,
+  GoogleAuthRequest,
+  RefreshRequest,
+  EmailCheckResponse,
+  MessageResponse,
+} from '@/types/auth';
 
 // API base URL from environment or default
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -34,7 +45,7 @@ apiClient.interceptors.request.use(
   (config) => {
     // Add auth token if available
     const token = typeof window !== 'undefined' 
-      ? localStorage.getItem('auth_token') 
+      ? localStorage.getItem('parwa_access_token') 
       : null;
     
     if (token) {
@@ -344,6 +355,66 @@ export const knowledgeApi = {
    * Delete document.
    */
   delete: (id: string) => del(`/api/knowledge/${id}`),
+};
+
+// ── Auth API Endpoints ──────────────────────────────────────────────────
+
+export const authApi = {
+  /**
+   * Register a new user.
+   */
+  register: (data: RegisterRequest) => post<AuthResponse>('/api/auth/register', data),
+  
+  /**
+   * Login with email and password.
+   */
+  login: (data: LoginRequest) => post<AuthResponse>('/api/auth/login', data),
+  
+  /**
+   * Login with Google OAuth.
+   */
+  googleAuth: (data: GoogleAuthRequest) => post<AuthResponse>('/api/auth/google', data),
+  
+  /**
+   * Logout user.
+   */
+  logout: (data: RefreshRequest) => post<MessageResponse>('/api/auth/logout', data),
+  
+  /**
+   * Refresh tokens.
+   */
+  refresh: (data: RefreshRequest) => post<TokenResponse>('/api/auth/refresh', data),
+  
+  /**
+   * Get current user profile.
+   */
+  getMe: () => get<User>('/api/auth/me'),
+  
+  /**
+   * Check email availability.
+   */
+  checkEmail: (email: string) => get<EmailCheckResponse>(`/api/auth/check-email?email=${encodeURIComponent(email)}`),
+  
+  /**
+   * Verify email with token.
+   */
+  verifyEmail: (token: string) => get<MessageResponse>(`/api/auth/verify?token=${encodeURIComponent(token)}`),
+  
+  /**
+   * Resend verification email.
+   */
+  resendVerification: (email: string) => post<MessageResponse>('/api/auth/resend-verification', { email }),
+  
+  /**
+   * Request password reset.
+   */
+  forgotPassword: (email: string) => post<MessageResponse>('/api/auth/forgot-password', { email }),
+  
+  /**
+   * Reset password with token.
+   */
+  resetPassword: (token: string, new_password: string) => 
+    post<MessageResponse>('/api/auth/reset-password', { token, new_password }),
 };
 
 export default apiClient;
