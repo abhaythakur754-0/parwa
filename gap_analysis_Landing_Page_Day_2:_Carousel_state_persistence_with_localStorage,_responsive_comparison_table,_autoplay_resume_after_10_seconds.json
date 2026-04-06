@@ -1,0 +1,41 @@
+{
+  "found_count": "5",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Carousel state corruption on quota exceeded",
+      "breaks": "User loses carousel position when switching between tenants that exceed storage quota",
+      "scenario": "User with 3 tenants (A, B, C) views carousel on Tenant A, switches to Tenant B which exceeds localStorage quota, then back to Tenant A - carousel resets to first slide",
+      "prompt": "Write a test that simulates localStorage quota exceeded error during carousel state persistence. Test that carousel maintains position when switching between tenants, even when one tenant exceeds localStorage quota. Verify graceful degradation when quota is exceeded."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Race condition in autoplay resume",
+      "breaks": "Carousel autoplay resumes multiple times when user switches tabs rapidly",
+      "scenario": "User opens landing page, switches to another tab within 10 seconds, then switches back - triggers multiple autoplay resume events causing unpredictable carousel behavior",
+      "prompt": "Write a test that simulates rapid tab switching during carousel autoplay. Verify that only one autoplay resume timer is active at any time, and that multiple tab switches don't cause race conditions in the autoplay functionality."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Tenant isolation in localStorage",
+      "breaks": "Carousel state leaks between different tenant accounts",
+      "scenario": "User logs into Tenant A, views carousel, logs into Tenant B without clearing browser, sees Tenant A's carousel position on Tenant B's page",
+      "prompt": "Write a test that verifies carousel state is properly isolated by tenant ID in localStorage. Test that switching between different tenant accounts doesn't cause carousel state to leak between them."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Responsive table data truncation",
+      "breaks": "Comparison table cells cut off on mobile without proper scrolling",
+      "scenario": "User views pricing table on mobile device - feature descriptions and pricing details are truncated with no horizontal scroll indicator",
+      "prompt": "Write a test that verifies the responsive behavior of the comparison table across different screen sizes. Test that table content is properly accessible on mobile devices with appropriate scrolling mechanisms."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Autoplay resume on page visibility change",
+      "breaks": "Carousel resumes when it shouldn't after page restore",
+      "scenario": "User pauses carousel, minimizes browser window, restores window - carousel resumes automatically despite user having paused it",
+      "prompt": "Write a test that verifies carousel respects user pause state after page visibility changes. Test that autoplay only resumes after 10 seconds of continuous visibility, not immediately when page is restored."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 5\n\nGAP 1\nSeverity: CRITICAL\nTitle: Carousel state corruption on quota exceeded\nWhat breaks: User loses carousel position when switching between tenants that exceed storage quota\nReal scenario: User with 3 tenants (A, B, C) views carousel on Tenant A, switches to Tenant B which exceeds localStorage quota, then back to Tenant A - carousel resets to first slide\nAI agent prompt: Write a test that simulates localStorage quota exceeded error during carousel state persistence. Test that carousel maintains position when switching between tenants, even when one tenant exceeds localStorage quota. Verify graceful degradation when quota is exceeded.\n\nGAP 2\nSeverity: HIGH\nTitle: Race condition in autoplay resume\nWhat breaks: Carousel autoplay resumes multiple times when user switches tabs rapidly\nReal scenario: User opens landing page, switches to another tab within 10 seconds, then switches back - triggers multiple autoplay resume events causing unpredictable carousel behavior\nAI agent prompt: Write a test that simulates rapid tab switching during carousel autoplay. Verify that only one autoplay resume timer is active at any time, and that multiple tab switches don't cause race conditions in the autoplay functionality.\n\nGAP 3\nSeverity: HIGH\nTitle: Tenant isolation in localStorage\nWhat breaks: Carousel state leaks between different tenant accounts\nReal scenario: User logs into Tenant A, views carousel, logs into Tenant B without clearing browser, sees Tenant A's carousel position on Tenant B's page\nAI agent prompt: Write a test that verifies carousel state is properly isolated by tenant ID in localStorage. Test that switching between different tenant accounts doesn't cause carousel state to leak between them.\n\nGAP 4\nSeverity: MEDIUM\nTitle: Responsive table data truncation\nWhat breaks: Comparison table cells cut off on mobile without proper scrolling\nReal scenario: User views pricing table on mobile device - feature descriptions and pricing details are truncated with no horizontal scroll indicator\nAI agent prompt: Write a test that verifies the responsive behavior of the comparison table across different screen sizes. Test that table content is properly accessible on mobile devices with appropriate scrolling mechanisms.\n\nGAP 5\nSeverity: MEDIUM\nTitle: Autoplay resume on page visibility change\nWhat breaks: Carousel resumes when it shouldn't after page restore\nReal scenario: User pauses carousel, minimizes browser window, restores window - carousel resumes automatically despite user having paused it\nAI agent prompt: Write a test that verifies carousel respects user pause state after page visibility changes. Test that autoplay only resumes after 10 seconds of continuous visibility, not immediately when page is restored."
+}
