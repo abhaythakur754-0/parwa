@@ -38,7 +38,7 @@
   }
   
   .btn-secondary {
-    @apply btn bg-surface-default text-white hover:bg-surface-hover active:bg-surface-active border border-white/10;
+    @apply btn bg-surface text-white hover:bg-surface-hover active:bg-surface-active border border-white/10;
   }
   
   .btn-outline {
@@ -66,7 +66,7 @@
   }
   
   .input {
-    @apply w-full rounded-lg border border-white/10 bg-surface-default/50 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-teal-500/50 focus:bg-surface-default;
+    @apply w-full rounded-lg border border-white/10 bg-surface/50 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-teal-500/50 focus:bg-surface;
   }
   
   .input-error {
@@ -82,11 +82,11 @@
   }
   
   .card {
-    @apply rounded-xl border border-white/10 bg-surface-default/30 backdrop-blur-sm;
+    @apply rounded-xl border border-white/10 bg-surface/30 backdrop-blur-sm;
   }
   
   .card-elevated {
-    @apply rounded-xl border border-white/10 bg-gradient-to-br from-surface-default/80 to-surface-hover/40 backdrop-blur-md shadow-xl;
+    @apply rounded-xl border border-white/10 bg-gradient-to-br from-surface/80 to-surface-hover/40 backdrop-blur-md shadow-xl;
   }
   
   .card-padding {
