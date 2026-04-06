@@ -105,20 +105,152 @@
     @apply bg-gradient-to-r from-gold-400 to-gold-300 bg-clip-text text-transparent;
   }
   
-  .animate-in {
-    animation: animateIn 0.3s ease-out forwards;
+  /* ── Scroll-Triggered Animations ───────────────────────────────────── */
+  
+  /* Base state for animated elements */
+  .animate-on-scroll {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
   }
   
-  @keyframes animateIn {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
+  /* Animated state when in view */
+  .animate-on-scroll.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  /* Stagger delays for children */
+  .stagger-1 { transition-delay: 0.1s; }
+  .stagger-2 { transition-delay: 0.2s; }
+  .stagger-3 { transition-delay: 0.3s; }
+  .stagger-4 { transition-delay: 0.4s; }
+  .stagger-5 { transition-delay: 0.5s; }
+  
+  /* Fade in from left */
+  .animate-fade-left {
+    opacity: 0;
+    transform: translateX(-30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+  
+  .animate-fade-left.is-visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  
+  /* Fade in from right */
+  .animate-fade-right {
+    opacity: 0;
+    transform: translateX(30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+  
+  .animate-fade-right.is-visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  
+  /* Scale up animation */
+  .animate-scale {
+    opacity: 0;
+    transform: scale(0.9);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+  }
+  
+  .animate-scale.is-visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+  
+  /* ── Hover Effects ─────────────────────────────────────────────────── */
+  
+  .hover-lift {
+    @apply transition-transform duration-300 hover:-translate-y-2;
+  }
+  
+  .hover-glow {
+    @apply transition-shadow duration-300 hover:shadow-lg hover:shadow-teal-500/20;
+  }
+  
+  .hover-glow-gold {
+    @apply transition-shadow duration-300 hover:shadow-lg hover:shadow-gold-500/20;
+  }
+  
+  /* ── Pulse Animations ──────────────────────────────────────────────── */
+  
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
       opacity: 1;
-      transform: translateY(0);
+    }
+    50% {
+      opacity: 0.7;
     }
   }
+  
+  /* Float animation */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+  
+  /* Shimmer effect */
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+    background-size: 200% 100%;
+  }
+  
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  
+  /* Typing dots animation */
+  .typing-dot {
+    animation: typingBounce 1.4s infinite ease-in-out both;
+  }
+  
+  .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+  .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+  .typing-dot:nth-child(3) { animation-delay: 0s; }
+  
+  @keyframes typingBounce {
+    0%, 80%, 100% { 
+      transform: scale(0.6);
+      opacity: 0.5;
+    }
+    40% { 
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  
+  /* ── Gradient Borders ──────────────────────────────────────────────── */
+  
+  .gradient-border {
+    position: relative;
+    background: linear-gradient(var(--surface), var(--surface)) padding-box,
+                linear-gradient(135deg, rgba(13, 148, 136, 0.5), rgba(255, 215, 0, 0.3)) border-box;
+    border: 1px solid transparent;
+  }
+  
+  /* ── Glow Effects ──────────────────────────────────────────────────── */
   
   .glow {
     box-shadow: 0 0 40px rgba(13, 148, 136, 0.3);
@@ -126,6 +258,59 @@
   
   .glow-gold {
     box-shadow: 0 0 40px rgba(255, 215, 0, 0.3);
+  }
+  
+  .glow-sm {
+    box-shadow: 0 0 20px rgba(13, 148, 136, 0.2);
+  }
+  
+  .glow-lg {
+    box-shadow: 0 0 60px rgba(13, 148, 136, 0.4);
+  }
+  
+  /* ── Responsive Utilities ──────────────────────────────────────────── */
+  
+  .touch-action-pan-x {
+    touch-action: pan-x;
+  }
+  
+  .touch-action-pan-y {
+    touch-action: pan-y;
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* ── Focus States for Accessibility ─────────────────────────────────── */
+  
+  .focus-visible-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900;
+  }
+  
+  /* ── Reduced Motion Support ────────────────────────────────────────── */
+  
+  @media (prefers-reduced-motion: reduce) {
+    .animate-on-scroll,
+    .animate-fade-left,
+    .animate-fade-right,
+    .animate-scale {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+    
+    .animate-pulse-slow,
+    .animate-float,
+    .animate-shimmer {
+      animation: none;
+    }
   }
 }
 
