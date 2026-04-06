@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 
 /**
@@ -6,32 +9,50 @@ import Link from 'next/link';
  * Dark premium footer with:
  * - PARWA logo (SVG icon, NO emoji)
  * - Product, Resources, Company, Legal links
+ * - Collapsible sections for mobile
  * - Social media links
  * - Copyright 2026
  */
 
-const footerLinks = {
-  product: [
-    { name: 'Features', href: '#features' },
-    { name: 'Models', href: '/models' },
-    { name: 'ROI Calculator', href: '/roi' },
-  ],
-  resources: [
-    { name: 'Blog', href: '/blog' },
-    { name: 'Documentation', href: '/docs' },
-    { name: 'API Reference', href: '/api-docs' },
-  ],
-  company: [
-    { name: 'About Us', href: '/about' },
-    { name: 'Careers', href: '/careers' },
-    { name: 'Contact', href: '/contact' },
-  ],
-  legal: [
-    { name: 'Privacy Policy', href: '/privacy' },
-    { name: 'Terms of Service', href: '/terms' },
-    { name: 'Cookie Policy', href: '/cookies' },
-  ],
-};
+interface FooterSection {
+  title: string;
+  links: { name: string; href: string }[];
+}
+
+const footerSections: FooterSection[] = [
+  {
+    title: 'Product',
+    links: [
+      { name: 'Features', href: '#features' },
+      { name: 'Models', href: '/models' },
+      { name: 'ROI Calculator', href: '/roi' },
+    ],
+  },
+  {
+    title: 'Resources',
+    links: [
+      { name: 'Blog', href: '/blog' },
+      { name: 'Documentation', href: '/docs' },
+      { name: 'API Reference', href: '/api-docs' },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { name: 'About Us', href: '/about' },
+      { name: 'Careers', href: '/careers' },
+      { name: 'Contact', href: '/contact' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { name: 'Privacy Policy', href: '/privacy' },
+      { name: 'Terms of Service', href: '/terms' },
+      { name: 'Cookie Policy', href: '/cookies' },
+    ],
+  },
+];
 
 const socialLinks = [
   {
@@ -63,21 +84,75 @@ const socialLinks = [
   },
 ];
 
-export default function Footer() {
+function FooterSectionMobile({ section, isOpen, onToggle }: { 
+  section: FooterSection; 
+  isOpen: boolean; 
+  onToggle: () => void;
+}) {
   return (
-    <footer className="bg-navy-900 border-t border-white/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
+    <div className="border-b border-white/10 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between py-4 text-left focus-visible-ring rounded-lg"
+        aria-expanded={isOpen}
+      >
+        <h4 className="font-semibold text-white text-sm sm:text-base">{section.title}</h4>
+        <svg
+          className={`w-5 h-5 text-white/50 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      <div
+        className={`overflow-hidden transition-all duration-300 ${
+          isOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <ul className="pb-4 space-y-3">
+          {section.links.map((link) => (
+            <li key={link.name}>
+              <Link
+                href={link.href}
+                className="text-white/50 hover:text-white text-sm transition-colors focus-visible-ring rounded"
+              >
+                {link.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+export default function Footer() {
+  const [openSections, setOpenSections] = useState<string[]>([]);
+
+  const toggleSection = (title: string) => {
+    setOpenSections(prev => 
+      prev.includes(title) 
+        ? prev.filter(t => t !== title)
+        : [...prev, title]
+    );
+  };
+
+  return (
+    <footer className="bg-navy-900 border-t border-white/10" role="contentinfo">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 sm:gap-12">
           {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-3 mb-6 group">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20 group-hover:shadow-teal-500/40 transition-shadow">
-                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          <div className="md:col-span-1">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6 group focus-visible-ring rounded-lg">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20 group-hover:shadow-teal-500/40 transition-shadow">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
                 </svg>
               </div>
-              <span className="text-xl font-bold text-white group-hover:text-teal-400 transition-colors">
+              <span className="text-lg sm:text-xl font-bold text-white group-hover:text-teal-400 transition-colors">
                 PARWA
               </span>
             </Link>
@@ -86,91 +161,54 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Product */}
-          <div>
-            <h4 className="font-semibold text-white mb-5">Product</h4>
-            <ul className="space-y-3">
-              {footerLinks.product.map((link) => (
-                <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-white/50 hover:text-white text-sm transition-colors"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          {/* Mobile: Collapsible Sections */}
+          <div className="md:hidden col-span-1">
+            {footerSections.map((section) => (
+              <FooterSectionMobile
+                key={section.title}
+                section={section}
+                isOpen={openSections.includes(section.title)}
+                onToggle={() => toggleSection(section.title)}
+              />
+            ))}
           </div>
 
-          {/* Resources */}
-          <div>
-            <h4 className="font-semibold text-white mb-5">Resources</h4>
-            <ul className="space-y-3">
-              {footerLinks.resources.map((link) => (
-                <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-white/50 hover:text-white text-sm transition-colors"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Company */}
-          <div>
-            <h4 className="font-semibold text-white mb-5">Company</h4>
-            <ul className="space-y-3">
-              {footerLinks.company.map((link) => (
-                <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-white/50 hover:text-white text-sm transition-colors"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Legal */}
-          <div>
-            <h4 className="font-semibold text-white mb-5">Legal</h4>
-            <ul className="space-y-3">
-              {footerLinks.legal.map((link) => (
-                <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-white/50 hover:text-white text-sm transition-colors"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Desktop: Static Sections */}
+          {footerSections.map((section) => (
+            <div key={section.title} className="hidden md:block">
+              <h4 className="font-semibold text-white mb-4 sm:mb-5 text-sm sm:text-base">{section.title}</h4>
+              <ul className="space-y-2 sm:space-y-3">
+                {section.links.map((link) => (
+                  <li key={link.name}>
+                    <Link
+                      href={link.href}
+                      className="text-white/50 hover:text-white text-xs sm:text-sm transition-colors focus-visible-ring rounded"
+                    >
+                      {link.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="mt-10 sm:mt-16 pt-6 sm:pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6">
           {/* Copyright */}
-          <p className="text-white/40 text-sm">
+          <p className="text-white/40 text-xs sm:text-sm">
             2026 PARWA. All rights reserved.
           </p>
 
           {/* Social Links */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             {socialLinks.map((social) => (
               <a
                 key={social.name}
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center transition-all duration-300"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center transition-all duration-300 focus-visible-ring"
                 aria-label={social.name}
               >
                 {social.icon}
