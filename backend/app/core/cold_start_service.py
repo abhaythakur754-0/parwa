@@ -141,11 +141,19 @@ PREWARM_COMBOS: List[PREWARM_COMBO] = [
         max_acceptable_latency_ms=8000,
     ),
     PREWARM_COMBO(
-        model_id="gpt-oss-120b",
-        provider="cerebras",
+        model_id="llama-4-scout-instruct",
+        provider="groq",
         tier="heavy",
         probe_query="Complex analysis",
         max_acceptable_latency_ms=8000,
+    ),
+    # GUARDRAIL tier
+    PREWARM_COMBO(
+        model_id="llama-guard-4-12b",
+        provider="groq",
+        tier="guardrail",
+        probe_query="Is this safe",
+        max_acceptable_latency_ms=3000,
     ),
 ]
 
@@ -153,9 +161,9 @@ PREWARM_COMBOS: List[PREWARM_COMBO] = [
 # Which tiers each variant type is entitled to warm.
 
 VARIANT_TIER_MAP: Dict[str, List[str]] = {
-    "mini_parwa": ["light"],
-    "parwa": ["light", "medium"],
-    "parwa_high": ["light", "medium", "heavy"],
+    "mini_parwa": ["light", "guardrail"],
+    "parwa": ["light", "medium", "guardrail"],
+    "parwa_high": ["light", "medium", "heavy", "guardrail"],
 }
 
 
@@ -178,8 +186,9 @@ class ColdStartService:
       - Graceful fallback to lighter models (BC-008)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, max_tenant_states: int = 10000) -> None:
         self._tenant_states: Dict[str, TenantWarmupState] = {}
+        self._max_tenant_states = max_tenant_states
 
     # ── Public API ───────────────────────────────────────────────────
 
@@ -244,10 +253,27 @@ class ColdStartService:
         )
 
         self._tenant_states[company_id] = state
+
+        # Trim old tenant states to prevent unbounded memory growth
+        if len(self._tenant_states) > self._max_tenant_states:
+            oldest_keys = list(self._tenant_states.keys())
+            for k in oldest_keys[: len(oldest_keys) // 2]:
+                del self._tenant_states[k]
+            logger.debug(
+                "Trimmed tenant states to %d", len(self._tenant_states)
+            )
+
         start_time = time.monotonic()
 
         for combo in combos:
-            model_state = self._warmup_single_model(company_id, combo)
+            # BC-008: Enforce Heavy tier 5s timeout
+            effective_timeout = combo.max_acceptable_latency_ms
+            if combo.tier == "heavy":
+                effective_timeout = min(effective_timeout, HEAVY_WARMUP_TIMEOUT_MS)
+
+            model_state = self._warmup_single_model(
+                company_id, combo, timeout_ms=effective_timeout,
+            )
             key = f"{combo.provider}:{combo.model_id}"
             state.models_warmed[key] = model_state
 
@@ -414,7 +440,8 @@ class ColdStartService:
     # ── Private Methods ──────────────────────────────────────────────
 
     def _warmup_single_model(
-        self, company_id: str, combo: PREWARM_COMBO
+        self, company_id: str, combo: PREWARM_COMBO,
+        timeout_ms: Optional[int] = None,
     ) -> ModelWarmupState:
         """
         Send a probe query to a model, measure latency, record result.
@@ -429,11 +456,12 @@ class ColdStartService:
         start_time = time.monotonic()
 
         try:
+            effective_timeout = timeout_ms or combo.max_acceptable_latency_ms
             result = self._simulate_llm_call(
                 provider=combo.provider,
                 model_id=combo.model_id,
                 query=combo.probe_query,
-                timeout_ms=combo.max_acceptable_latency_ms,
+                timeout_ms=effective_timeout,
             )
 
             elapsed_ms = int((time.monotonic() - start_time) * 1000)
@@ -480,11 +508,20 @@ class ColdStartService:
 
         Returns dict with keys: success (bool), response (str), error (str).
         """
+        from backend.app.config import get_settings
+        try:
+            settings = get_settings()
+        except Exception:
+            # If settings unavailable (e.g., during testing), use empty keys
+            settings = None
+
         provider_urls = {
             "cerebras": "https://api.cerebras.ai/v1/chat/completions",
             "groq": "https://api.groq.com/openai/v1/chat/completions",
-            "google": "https://generativelanguage.googleapis.com/v1beta/models/"
-                      f"{model_id}:generateContent",
+            "google": (
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{model_id}:generateContent"
+            ),
         }
 
         url = provider_urls.get(provider)
@@ -495,6 +532,21 @@ class ColdStartService:
             }
 
         timeout_sec = max(timeout_ms / 1000, 1.0)
+
+        # Build headers with API keys
+        headers = {"Content-Type": "application/json"}
+        if provider == "cerebras" and settings:
+            api_key = getattr(settings, "CEREBRAS_API_KEY", "")
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+        elif provider == "groq" and settings:
+            api_key = getattr(settings, "GROQ_API_KEY", "")
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+        elif provider == "google" and settings:
+            api_key = getattr(settings, "GOOGLE_AI_API_KEY", "")
+            if api_key:
+                url = f"{url}?key={api_key}"
 
         if provider == "google":
             payload = json.dumps({
@@ -510,7 +562,7 @@ class ColdStartService:
         req = urllib.request.Request(
             url,
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
         )
 
         try:

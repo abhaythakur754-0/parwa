@@ -61,6 +61,15 @@ DEFAULT_VARIANT_LIMITS = {
     "parwa_high": {"daily": 5_000_000, "monthly": 150_000_000},
 }
 
+# Per-tier daily request limits to protect MEDIUM bottleneck
+# MEDIUM bottleneck: 2,500 req/day across all providers
+TIER_DAILY_REQUEST_LIMITS = {
+    "light": 100_000,     # Light has plenty of headroom
+    "medium": 2_500,      # MEDIUM bottleneck — strict limit
+    "heavy": 500,         # HEAVY is expensive — conservative
+    "guardrail": 50_000,  # Guardrail checks are cheap
+}
+
 VALID_VARIANT_TYPES = set(DEFAULT_VARIANT_LIMITS.keys())
 VALID_BUDGET_TYPES = {BudgetPeriodType.DAILY.value, BudgetPeriodType.MONTHLY.value}
 
@@ -418,7 +427,7 @@ class CostProtectionService:
                     continue
 
                 budget.used_tokens = (budget.used_tokens or 0) + tokens_used
-                budget.updated_at = datetime.utcnow()
+                budget.updated_at = datetime.now(timezone.utc)
 
                 # Check if budget is now exceeded
                 if budget.used_tokens >= budget.max_tokens:
@@ -603,7 +612,7 @@ class CostProtectionService:
                 budget.used_tokens = 0
                 budget.status = "active"
                 budget.alert_sent = False
-                budget.updated_at = datetime.utcnow()
+                budget.updated_at = datetime.now(timezone.utc)
                 reset_count += 1
 
             self.db.commit()
@@ -667,7 +676,7 @@ class CostProtectionService:
 
             old_max = budget.max_tokens
             budget.max_tokens = new_max_tokens
-            budget.updated_at = datetime.utcnow()
+            budget.updated_at = datetime.now(timezone.utc)
 
             # Re-check status after limit change
             if budget.used_tokens >= budget.max_tokens:
@@ -728,7 +737,7 @@ class CostProtectionService:
                 )
 
             budget.status = "disabled"
-            budget.updated_at = datetime.utcnow()
+            budget.updated_at = datetime.now(timezone.utc)
             self.db.commit()
             self.db.refresh(budget)
 
@@ -780,7 +789,7 @@ class CostProtectionService:
                 )
 
             budget.status = "active"
-            budget.updated_at = datetime.utcnow()
+            budget.updated_at = datetime.now(timezone.utc)
 
             # Re-check if already exceeded
             if budget.used_tokens >= budget.max_tokens:
@@ -907,13 +916,174 @@ class CostProtectionService:
             logger.error("get_all_budgets_failed", extra={"error": str(exc)})
             return []
 
+    # ── Tier-Based Budget Check (Smart Router Integration) ───────
+
+    def check_tier_budget(
+        self,
+        company_id: str,
+        tier: str,
+    ) -> BudgetCheckResult:
+        """
+        Check if a tier has request budget remaining.
+
+        This is the integration point for Smart Router (BC-007).
+        The router calls this before selecting a model for a tier.
+        If tier budget is exhausted, the router should degrade to a
+        lower tier.
+
+        Args:
+            company_id: Tenant identifier (BC-001).
+            tier: Model tier (light/medium/heavy/guardrail).
+
+        Returns:
+            BudgetCheckResult indicating if the tier has capacity.
+        """
+        try:
+            _validate_company_id(company_id)
+
+            tier_lower = tier.lower()
+            # Tiers without limits are always allowed
+            if tier_lower not in TIER_DAILY_REQUEST_LIMITS:
+                return BudgetCheckResult(
+                    allowed=True,
+                    remaining_tokens=0,
+                    usage_pct=0.0,
+                    alert_level=AlertLevel.NONE,
+                    budget_status=BudgetStatus.ACTIVE,
+                    reason=f"Tier '{tier}' has no request limit",
+                )
+
+            period = self._get_current_period("daily")
+            budget_key = f"tier_{tier_lower}"
+
+            budget = self.db.query(AITokenBudget).filter_by(
+                company_id=company_id,
+                budget_type="daily",
+                budget_period=period,
+                instance_id=budget_key,
+            ).first()
+
+            # No budget record — create one with tier limits
+            if budget is None:
+                budget = self._get_or_create_budget(
+                    company_id=company_id,
+                    budget_type="daily",
+                    budget_period=period,
+                    instance_id=budget_key,
+                    max_tokens=TIER_DAILY_REQUEST_LIMITS[tier_lower],
+                )
+
+            tier_limit = TIER_DAILY_REQUEST_LIMITS[tier_lower]
+            remaining = max(0, tier_limit - (budget.used_tokens or 0))
+            usage_pct = self._calc_usage_pct(budget.used_tokens or 0, tier_limit)
+
+            if remaining <= 0:
+                return BudgetCheckResult(
+                    allowed=False,
+                    remaining_tokens=0,
+                    usage_pct=usage_pct,
+                    alert_level=AlertLevel.EXHAUSTED,
+                    budget_status=BudgetStatus.EXHAUSTED,
+                    reason=f"Tier '{tier}' daily request limit exhausted ({tier_limit})",
+                )
+
+            return BudgetCheckResult(
+                allowed=True,
+                remaining_tokens=remaining,
+                usage_pct=usage_pct,
+                alert_level=self._check_alert(budget),
+                budget_status=BudgetStatus.ACTIVE,
+                reason=f"Tier '{tier}' has {remaining} requests remaining today",
+            )
+
+        except ParwaBaseError:
+            raise
+        except Exception as exc:
+            logger.error(
+                "tier_budget_check_failed",
+                extra={"company_id": company_id, "tier": tier, "error": str(exc)},
+            )
+            # BC-008: Allow on error
+            return BudgetCheckResult(
+                allowed=True,
+                remaining_tokens=0,
+                usage_pct=0.0,
+                alert_level=AlertLevel.NONE,
+                budget_status=BudgetStatus.ACTIVE,
+                reason=f"Tier budget check error — allowed (graceful degradation): {str(exc)}",
+            )
+
+    def record_tier_usage(
+        self,
+        company_id: str,
+        tier: str,
+        tokens_used: int = 1,
+    ) -> None:
+        """
+        Record a single request against a tier's daily budget.
+        Called by Smart Router after each successful LLM call.
+
+        Args:
+            company_id: Tenant identifier (BC-001).
+            tier: Model tier that was used.
+            tokens_used: Count of requests (default 1 per call).
+        """
+        try:
+            tier_lower = tier.lower()
+            if tier_lower not in TIER_DAILY_REQUEST_LIMITS:
+                return
+
+            period = self._get_current_period("daily")
+            budget_key = f"tier_{tier_lower}"
+
+            budget = self.db.query(AITokenBudget).filter_by(
+                company_id=company_id,
+                budget_type="daily",
+                budget_period=period,
+                instance_id=budget_key,
+            ).first()
+
+            if budget is None:
+                budget = self._get_or_create_budget(
+                    company_id=company_id,
+                    budget_type="daily",
+                    budget_period=period,
+                    instance_id=budget_key,
+                    max_tokens=TIER_DAILY_REQUEST_LIMITS[tier_lower],
+                )
+
+            budget.used_tokens = (budget.used_tokens or 0) + tokens_used
+            budget.updated_at = datetime.now(timezone.utc)
+
+            if budget.used_tokens >= budget.max_tokens:
+                budget.status = "exceeded"
+
+            self.db.commit()
+
+            logger.debug(
+                "tier_usage_recorded",
+                extra={
+                    "company_id": company_id,
+                    "tier": tier_lower,
+                    "used": budget.used_tokens,
+                    "max": budget.max_tokens,
+                },
+            )
+
+        except Exception as exc:
+            logger.error(
+                "tier_usage_record_failed",
+                extra={"company_id": company_id, "tier": tier, "error": str(exc)},
+            )
+            # BC-008: Don't crash
+
     # ══════════════════════════════════════════════════════════════
     # PRIVATE HELPERS
     # ══════════════════════════════════════════════════════════════
 
     def _get_current_period(self, budget_type: str) -> str:
         """Return '2026-04-08' for daily, '2026-04' for monthly. UTC. BC-012."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if budget_type == "daily":
             return now.strftime("%Y-%m-%d")
         elif budget_type == "monthly":

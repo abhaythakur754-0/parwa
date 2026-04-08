@@ -24,6 +24,8 @@ import logging
 from datetime import datetime
 from typing import Any, Callable, Optional
 
+import sqlalchemy as sa
+
 from database.base import SessionLocal
 from database.models.variant_engine import (
     VariantInstance,
@@ -337,6 +339,19 @@ def route_ticket(
             status_code=503,
         )
 
+    # Check capacity before routing (GAP 3 fix)
+    cap = _parse_capacity(instance.capacity_config)
+    max_conc = cap.get("max_concurrent_tickets", DEFAULT_MAX_CONCURRENT)
+    if instance.active_tickets_count >= max_conc:
+        raise ParwaBaseError(
+            error_code="INSTANCE_AT_CAPACITY",
+            message=(
+                f"Selected instance '{instance.id}' has reached "
+                f"max capacity ({max_conc})"
+            ),
+            status_code=503,
+        )
+
     # Create distribution record
     distribution = VariantWorkloadDistribution(
         company_id=company_id,
@@ -348,15 +363,22 @@ def route_ticket(
     )
     db.add(distribution)
 
-    # Increment active ticket count on the instance
-    instance.active_tickets_count = (
-        instance.active_tickets_count + 1
+    # Atomic SQL UPDATE for counters (GAP 1 fix)
+    db.execute(
+        sa.text(
+            "UPDATE variant_instances SET "
+            "active_tickets_count = active_tickets_count + 1, "
+            "total_tickets_handled = total_tickets_handled + 1, "
+            "last_activity_at = :now_ts, "
+            "updated_at = :now_ts "
+            "WHERE id = :inst_id AND company_id = :comp_id"
+        ),
+        {
+            "inst_id": instance.id,
+            "comp_id": company_id,
+            "now_ts": datetime.utcnow(),
+        },
     )
-    instance.total_tickets_handled = (
-        instance.total_tickets_handled + 1
-    )
-    instance.last_activity_at = datetime.utcnow()
-
     db.commit()
     db.refresh(distribution)
     return distribution
@@ -544,11 +566,31 @@ def rebalance_workload(
                     under_inst.id
                 )
 
-                # Update counters
-                over_inst.active_tickets_count = max(
-                    0, over_inst.active_tickets_count - 1,
+                # Atomic SQL: decrement overloaded, increment underloaded
+                # (GAP 1 fix — non-atomic counters)
+                # Note: total_tickets_handled stays on overloaded instance
+                # since that instance originally handled the ticket (GAP 6)
+                db.execute(
+                    sa.text(
+                        "UPDATE variant_instances SET "
+                        "active_tickets_count = CASE "
+                        "WHEN active_tickets_count > 0 "
+                        "THEN active_tickets_count - 1 ELSE 0 END, "
+                        "updated_at = :now_ts "
+                        "WHERE id = :inst_id"
+                    ),
+                    {"inst_id": over_inst.id, "now_ts": datetime.utcnow()},
                 )
-                under_inst.active_tickets_count += 1
+                db.execute(
+                    sa.text(
+                        "UPDATE variant_instances SET "
+                        "active_tickets_count = active_tickets_count + 1, "
+                        "total_tickets_handled = total_tickets_handled + 1, "
+                        "updated_at = :now_ts "
+                        "WHERE id = :inst_id"
+                    ),
+                    {"inst_id": under_inst.id, "now_ts": datetime.utcnow()},
+                )
                 migrated += 1
 
         if over_inst.active_tickets_count > 0:
@@ -668,10 +710,6 @@ def escalate_ticket(
     current.status = "escalated"
     current.escalation_target_instance_id = target.id
 
-    # Decrement current instance
-    if current_inst.active_tickets_count > 0:
-        current_inst.active_tickets_count -= 1
-
     # Create new distribution on higher instance
     new_dist = VariantWorkloadDistribution(
         company_id=company_id,
@@ -684,10 +722,30 @@ def escalate_ticket(
     )
     db.add(new_dist)
 
-    # Increment target instance
-    target.active_tickets_count += 1
-    target.total_tickets_handled += 1
-    target.last_activity_at = datetime.utcnow()
+    # Atomic SQL UPDATE: decrement source, increment target (GAP 1 fix)
+    now_ts = datetime.utcnow()
+    db.execute(
+        sa.text(
+            "UPDATE variant_instances SET "
+            "active_tickets_count = CASE "
+            "WHEN active_tickets_count > 0 "
+            "THEN active_tickets_count - 1 ELSE 0 END, "
+            "updated_at = :now_ts "
+            "WHERE id = :inst_id AND company_id = :comp_id"
+        ),
+        {"inst_id": current_inst.id, "comp_id": company_id, "now_ts": now_ts},
+    )
+    db.execute(
+        sa.text(
+            "UPDATE variant_instances SET "
+            "active_tickets_count = active_tickets_count + 1, "
+            "total_tickets_handled = total_tickets_handled + 1, "
+            "last_activity_at = :now_ts, "
+            "updated_at = :now_ts "
+            "WHERE id = :inst_id AND company_id = :comp_id"
+        ),
+        {"inst_id": target.id, "comp_id": company_id, "now_ts": now_ts},
+    )
 
     db.commit()
     db.refresh(new_dist)
@@ -738,16 +796,19 @@ def complete_ticket_assignment(
     dist.completed_at = datetime.utcnow()
     dist.billing_charged_to_instance = dist.instance_id
 
-    # Decrement instance active count
-    inst = db.query(VariantInstance).filter_by(
-        company_id=company_id,
-        id=dist.instance_id,
-    ).first()
-
-    if inst is not None and inst.active_tickets_count > 0:
-        inst.active_tickets_count -= 1
-    if inst is not None:
-        inst.last_activity_at = datetime.utcnow()
+    # Atomic SQL UPDATE: decrement active count (GAP 1 fix)
+    db.execute(
+        sa.text(
+            "UPDATE variant_instances SET "
+            "active_tickets_count = CASE "
+            "WHEN active_tickets_count > 0 "
+            "THEN active_tickets_count - 1 ELSE 0 END, "
+            "last_activity_at = :now_ts, "
+            "updated_at = :now_ts "
+            "WHERE id = :inst_id AND company_id = :comp_id"
+        ),
+        {"inst_id": dist.instance_id, "comp_id": company_id, "now_ts": datetime.utcnow()},
+    )
 
     db.commit()
     db.refresh(dist)
