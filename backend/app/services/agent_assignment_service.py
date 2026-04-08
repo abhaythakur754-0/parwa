@@ -24,7 +24,7 @@ from backend.app.exceptions import (
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
 
-VALID_STATUSES = {"active", "completed", "paused"}
+VALID_STATUSES = {"active", "completed", "paused", "inactive"}
 
 VALID_ROLES = {
     "infrastructure",
@@ -386,4 +386,361 @@ def get_build_progress(db: Session) -> dict:
             * 100,
             1,
         ),
+    }
+
+
+# ══════════════════════════════════════════════════════════════════
+# SG-21 / SG-22: EXTENDED SERVICE FUNCTIONS
+# ══════════════════════════════════════════════════════════════════
+
+
+def get_all_agents(
+    db: Session,
+    status: str | None = None,
+) -> list[AIAgentAssignment]:
+    """List all agent assignments, optionally filtered by status.
+
+    SG-22: Wraps list_agents for API layer compatibility.
+    """
+    return list_agents(db, status=status)
+
+
+def get_agent_by_id(
+    db: Session,
+    agent_id: str,
+) -> AIAgentAssignment:
+    """Get a single agent by its UUID."""
+    if not agent_id or not agent_id.strip():
+        raise ValidationError(
+            message="agent_id is required and cannot be empty",
+        )
+    agent = db.query(AIAgentAssignment).filter(
+        AIAgentAssignment.id == agent_id.strip(),
+    ).first()
+    if agent is None:
+        raise NotFoundError(
+            message=f"Agent with id '{agent_id.strip()}' not found",
+            details={"agent_id": agent_id.strip()},
+        )
+    return agent
+
+
+def get_agent_for_feature(
+    db: Session,
+    feature_id: str,
+) -> AIAgentAssignment | None:
+    """Find which agent owns a specific feature.
+
+    Searches all active agents' feature_ids JSON arrays
+    for the given feature_id.
+
+    Returns None if no agent owns the feature.
+    """
+    if not feature_id or not feature_id.strip():
+        raise ValidationError(
+            message="feature_id is required and cannot be empty",
+        )
+
+    fid = feature_id.strip()
+    agents = db.query(AIAgentAssignment).filter(
+        AIAgentAssignment.status == "active",
+    ).all()
+
+    for agent in agents:
+        features = _parse_json_list(agent.feature_ids)
+        for f in features:
+            f_clean = f.strip() if isinstance(f, str) else str(f)
+            if f_clean == fid:
+                return agent
+
+    return None
+
+
+def create_agent(
+    db: Session,
+    agent_name: str,
+    agent_role: str | None = None,
+    feature_ids: list[str] | None = None,
+    task_ids: list[str] | None = None,
+) -> AIAgentAssignment:
+    """Create a new agent assignment.
+
+    SG-22: Alias for register_agent with explicit parameter names.
+    Validates inputs and checks for duplicate agent names.
+    """
+    return register_agent(
+        db=db,
+        agent_name=agent_name,
+        agent_role=agent_role,
+        feature_ids=feature_ids,
+        task_ids=task_ids,
+    )
+
+
+def update_agent_by_id(
+    db: Session,
+    agent_id: str,
+    **kwargs: object,
+) -> AIAgentAssignment:
+    """Update an agent assignment by ID.
+
+    Accepts any combination of: agent_name, agent_role,
+    feature_ids (list), task_ids (list), status.
+    """
+    if not agent_id or not agent_id.strip():
+        raise ValidationError(
+            message="agent_id is required and cannot be empty",
+        )
+
+    agent = db.query(AIAgentAssignment).filter(
+        AIAgentAssignment.id == agent_id.strip(),
+    ).first()
+    if agent is None:
+        raise NotFoundError(
+            message=f"Agent with id '{agent_id.strip()}' not found",
+            details={"agent_id": agent_id.strip()},
+        )
+
+    allowed_fields = {
+        "agent_name", "agent_role", "feature_ids",
+        "task_ids", "status",
+    }
+
+    for field, value in kwargs.items():
+        if field not in allowed_fields:
+            raise ValidationError(
+                message=(
+                    f"Invalid field '{field}'. "
+                    f"Allowed: {', '.join(sorted(allowed_fields))}"
+                ),
+            )
+
+        if field == "agent_name":
+            _validate_agent_name(str(value))
+            agent.agent_name = str(value).strip()
+
+        elif field == "agent_role":
+            _validate_agent_role(str(value) if value else None)
+            agent.agent_role = (
+                str(value).strip() if value else None
+            )
+
+        elif field == "feature_ids":
+            _validate_feature_ids(list(value))  # type: ignore[arg-type]
+            agent.feature_ids = json.dumps(list(value))
+
+        elif field == "task_ids":
+            _validate_task_ids(list(value))  # type: ignore[arg-type]
+            agent.task_ids = json.dumps(list(value))
+
+        elif field == "status":
+            _validate_status(str(value))
+            agent.status = str(value)
+
+    from datetime import datetime as dt
+    agent.updated_at = dt.utcnow()
+    db.commit()
+    db.refresh(agent)
+    return agent
+
+
+def delete_agent(
+    db: Session,
+    agent_id: str,
+) -> AIAgentAssignment:
+    """Soft-delete an agent by setting status='inactive'."""
+    if not agent_id or not agent_id.strip():
+        raise ValidationError(
+            message="agent_id is required and cannot be empty",
+        )
+
+    agent = db.query(AIAgentAssignment).filter(
+        AIAgentAssignment.id == agent_id.strip(),
+    ).first()
+    if agent is None:
+        raise NotFoundError(
+            message=f"Agent with id '{agent_id.strip()}' not found",
+            details={"agent_id": agent_id.strip()},
+        )
+
+    agent.status = "inactive"
+    from datetime import datetime as dt
+    agent.updated_at = dt.utcnow()
+    db.commit()
+    db.refresh(agent)
+    return agent
+
+
+def get_task_decomposition_summary(db: Session) -> dict:
+    """SG-21: Return task decomposition summary.
+
+    Computes:
+    - total_agents: number of active agents
+    - total_features_mapped: unique features across all active agents
+    - total_tasks_mapped: unique tasks across all active agents
+    - agents: per-agent breakdown with feature/task counts
+    - coverage_stats: agent distribution overview
+    """
+    active_agents = list_agents(db, status="active")
+
+    all_features: set[str] = set()
+    all_tasks: set[str] = set()
+    agent_breakdown = []
+
+    for agent in active_agents:
+        features = _parse_json_list(agent.feature_ids)
+        tasks = _parse_json_list(agent.task_ids)
+
+        unique_features = set()
+        for f in features:
+            f_clean = f.strip() if isinstance(f, str) else str(f)
+            if f_clean:
+                unique_features.add(f_clean)
+                all_features.add(f_clean)
+
+        unique_tasks = set()
+        for t in tasks:
+            t_clean = t.strip() if isinstance(t, str) else str(t)
+            if t_clean:
+                unique_tasks.add(t_clean)
+                all_tasks.add(t_clean)
+
+        agent_breakdown.append({
+            "id": agent.id,
+            "agent_name": agent.agent_name,
+            "agent_role": agent.agent_role,
+            "feature_count": len(unique_features),
+            "task_count": len(unique_tasks),
+            "feature_ids": sorted(unique_features),
+            "task_ids": sorted(unique_tasks),
+            "status": agent.status,
+        })
+
+    # Find features assigned to multiple agents
+    feature_agent_count: dict[str, list[str]] = {}
+    for ab in agent_breakdown:
+        for fid in ab["feature_ids"]:
+            feature_agent_count.setdefault(fid, []).append(
+                ab["agent_name"],
+            )
+    overlapping_features = {
+        fid: names
+        for fid, names in feature_agent_count.items()
+        if len(names) > 1
+    }
+
+    return {
+        "total_agents": len(active_agents),
+        "total_features_mapped": len(all_features),
+        "total_tasks_mapped": len(all_tasks),
+        "agents": agent_breakdown,
+        "coverage_stats": {
+            "features_per_agent": {
+                ab["agent_name"]: ab["feature_count"]
+                for ab in agent_breakdown
+            },
+            "tasks_per_agent": {
+                ab["agent_name"]: ab["task_count"]
+                for ab in agent_breakdown
+            },
+            "overlapping_features": overlapping_features,
+            "avg_features_per_agent": round(
+                len(all_features)
+                / max(len(active_agents), 1),
+                1,
+            ),
+        },
+    }
+
+
+# ── Default Agent Definitions ───────────────────────────────────
+
+_DEFAULT_AGENTS = [
+    {
+        "agent_name": "Agent 1",
+        "agent_role": "Infrastructure",
+        "feature_ids": [
+            "F-055", "F-056", "F-064",
+            "SG-28", "SG-32", "SG-33", "SG-15",
+        ],
+        "task_ids": ["SG-30"],
+    },
+    {
+        "agent_name": "Agent 2",
+        "agent_role": "Routing & Classification",
+        "feature_ids": [
+            "F-054", "SG-03", "F-059", "SG-04",
+            "F-050", "SG-06", "SG-11", "F-053",
+            "F-060", "SG-18", "SG-07", "SG-08",
+            "SG-10", "SG-02", "BC-013",
+        ],
+        "task_ids": [],
+    },
+    {
+        "agent_name": "Agent 3",
+        "agent_role": "Safety & Guardrails",
+        "feature_ids": [
+            "SG-05", "F-057", "SG-36", "SG-27",
+            "F-058", "SG-09", "F-067", "F-068", "F-069",
+        ],
+        "task_ids": [],
+    },
+    {
+        "agent_name": "Agent 4",
+        "agent_role": "Optimization & Data",
+        "feature_ids": [
+            "SG-35", "SG-21", "SG-22", "SG-24",
+            "SG-25", "SG-26", "F-061", "SG-12", "SG-17",
+        ],
+        "task_ids": [],
+    },
+    {
+        "agent_name": "Agent 5",
+        "agent_role": "Operations & Monitoring",
+        "feature_ids": [
+            "SG-38", "SG-19", "SG-20", "SG-13",
+            "SG-16", "SG-29", "SG-23", "SG-31",
+            "SG-34", "SG-14",
+        ],
+        "task_ids": [],
+    },
+]
+
+
+def initialize_default_agents(db: Session) -> dict:
+    """SG-22: Seed the 5 default build agents (idempotent).
+
+    Creates default agents only if they do not already exist.
+    Returns a summary of created vs existing agents.
+    """
+    created = []
+    existing = []
+
+    for spec in _DEFAULT_AGENTS:
+        name = spec["agent_name"]
+        agent = db.query(AIAgentAssignment).filter_by(
+            agent_name=name,
+        ).first()
+
+        if agent is not None:
+            existing.append(name)
+        else:
+            new_agent = AIAgentAssignment(
+                agent_name=name,
+                agent_role=spec["agent_role"],
+                feature_ids=json.dumps(spec["feature_ids"]),
+                task_ids=json.dumps(spec["task_ids"]),
+                status="active",
+            )
+            db.add(new_agent)
+            created.append(name)
+
+    if created:
+        db.commit()
+
+    return {
+        "created": created,
+        "already_existed": existing,
+        "total_default_agents": len(_DEFAULT_AGENTS),
+        "total_created": len(created),
     }

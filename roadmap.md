@@ -1,7 +1,7 @@
 # PARWA Execution Roadmap
 
-> **Last Updated:** Day 34 (Week 6 Day 1 Starting)  
-> **Current Phase:** Week 6 - Onboarding System
+> **Last Updated:** Week 8 Day 2 (AI Engine - Gap Fixes)  
+> **Current Phase:** Week 8 - AI Engine (Phase 3)
 
 ---
 
@@ -14,8 +14,9 @@
 | **Week 3** | Infrastructure | ✅ COMPLETE | Celery, Socket.io, webhooks, health |
 | **Week 4** | Ticket System | ✅ COMPLETE | Tickets, customers, omnichannel |
 | **Week 5** | Billing System | ✅ COMPLETE | Paddle, subscriptions, invoices |
-| **Week 6** | Onboarding | 🔵 CURRENT | F-028 to F-035 + Frontend |
-| **Week 7** | Approval System | ⬜ PLANNED | F-074 to F-086 |
+| **Week 6** | Onboarding | ✅ COMPLETE | F-028 to F-035 + Frontend |
+| **Week 7** | Approval System | ✅ COMPLETE | F-074 to F-086 |
+| **Week 8** | AI Engine (Phase 3) | 🔵 CURRENT | F-054 to F-059 + 14 SG gaps |
 
 ---
 
@@ -504,6 +505,117 @@ Week 7 is the **Human Review System** where managers approve/reject AI actions b
 | F-084 | Undo System - Reverse executed actions |
 
 **Purpose:** Safety layer ensuring every AI action with real-world impact goes through human review.
+
+---
+
+## ✅ Week 8: AI Engine — Phase 3 Core (Days 1-2 COMPLETE, Days 3-5 Pending)
+
+### Scope
+
+Week 8 establishes the AI pipeline foundation — Smart Router, PII Redaction, Guardrails, Confidence Scoring, and Variant-aware routing. Every subsequent Week 9-12 AI feature depends on this.
+
+### Day 1 (COMPLETE) — Database + Variant AI Matrix
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Phase 3 DB Migration (9 tables) | — | ✅ Done | `database/alembic/versions/011_phase3_variant_engine.py` |
+| Variant AI Capability Matrix | SG-01 | ✅ Done | `backend/app/services/variant_capability_service.py` |
+| Unlimited Variant Instance Architecture | SG-37 | ✅ Done | `backend/app/services/variant_instance_service.py` |
+| Variant Orchestration Layer | SG-38 | ✅ Done | `backend/app/services/variant_orchestration_service.py` |
+| AI Feature Entitlement Enforcement | SG-05 | ✅ Done | `backend/app/services/entitlement_middleware.py` |
+| Agent Assignment Strategy | SG-22 | ✅ Done | `backend/app/services/agent_assignment_service.py` |
+| Task Decomposition Plan | SG-21 | ✅ Done | `backend/app/services/agent_assignment_service.py` |
+
+### Day 2 (COMPLETE) — Smart Router + Variant Model Access
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Smart Router (3-tier LLM routing) | F-054 | ✅ Done | `backend/app/core/smart_router.py` |
+| Variant-Specific Router Model Access | SG-03 | ✅ Done | `backend/app/core/smart_router.py` |
+| Model Failover | F-055 | ✅ Done | `backend/app/core/model_failover.py` |
+| AI Engine Cold Start | SG-30 | ✅ Done | `backend/app/core/cold_start_service.py` |
+| AI Engine Cost Overrun Protection | SG-35 | ✅ Done | `backend/app/services/cost_protection_service.py` |
+
+### Day 2 Gap Fixes (COMPLETE)
+
+| Gap | Severity | What Was Fixed |
+|-----|----------|---------------|
+| GAP 1 | CRITICAL | Non-atomic counter race conditions → atomic SQL UPDATE |
+| GAP 2 | CRITICAL | updated_at never auto-updates → onupdate=lambda |
+| GAP 3 | HIGH | route_ticket() missing capacity check → 503 check |
+| GAP 4-8 | HIGH/MED/LOW | Various updated_at, rollback, rebalance, datetime fixes |
+| GAP 9-14 | CRITICAL/HIGH | Smart Router: shared state, 429 handling, async, system prompt |
+| GAP 15-21 | CRITICAL/HIGH | Failover: wrong model IDs, tier chains, guardrail chain, async |
+| GAP 22-26 | HIGH/MEDIUM | Cold Start: API keys, guardrail tier, heavy timeout, cleanup |
+| GAP 27-30 | MEDIUM | Cost Protection: deprecated datetime, tier budgets, router integration |
+
+### Day 2 Infrastructure Gaps (COMPLETE)
+
+| Gap | What Was Built |
+|-----|----------------|
+| No API endpoints | `backend/app/api/ai_engine.py` — 28 REST endpoints for all services |
+| No AI entitlement middleware | `backend/app/middleware/ai_entitlement.py` — ASGI middleware wired in main.py |
+| No Celery tasks for AI Engine | `backend/app/tasks/ai_engine_tasks.py` — rebalancer, budget reset, warmup, cleanup |
+| No agent assignment service | `backend/app/services/agent_assignment_service.py` + `backend/app/api/ai_agent.py` |
+| Celery beat not configured | 3 new beat entries: rebalance 60s, budget reset midnight, injection log cleanup |
+
+### Day 3 (PENDING) — PII Redaction + Guardrails + Prompt Injection
+
+| Task | ID | Status |
+|------|----|--------|
+| PII Redaction Engine | F-056 | ⬜ Pending |
+| Guardrails AI | F-057 | ⬜ Pending |
+| Tenant-Specific Prompt Injection Defense | SG-36 | ⬜ Pending |
+| Hallucination Detection Patterns (12) | SG-27 | ⬜ Pending |
+
+### Day 4 (PENDING) — Confidence Scoring + Blocked Response + Variant Thresholds
+
+| Task | ID | Status |
+|------|----|--------|
+| Confidence Scoring | F-059 | ⬜ Pending |
+| Variant-Specific Confidence Thresholds | SG-04 | ⬜ Pending |
+| Blocked Response Manager + Review Queue | F-058 | ⬜ Pending |
+| LLM Provider Management | — | ⬜ Pending |
+| Prompt Template Management | — | ⬜ Pending |
+
+### Day 5 (PENDING) — Integration + Testing + Monitoring
+
+| Task | ID | Status |
+|------|----|--------|
+| Week 8 Integration Testing | — | ⬜ Pending |
+| Real-Time AI Performance Monitoring | SG-19 | ⬜ Pending |
+| AI Self-Healing Per Variant | SG-20 | ⬜ Pending |
+| Week 8 Error Fix Sprint | — | ⬜ Pending |
+
+### Week 8 Files Created/Modified
+
+| File | Type | Description |
+|------|------|-------------|
+| `database/alembic/versions/011_phase3_variant_engine.py` | Migration | 9 new tables for Phase 3 |
+| `database/models/variant_engine.py` | Model | SQLAlchemy models for 9 tables |
+| `backend/app/core/smart_router.py` | Core | 3-tier LLM routing (Light/Medium/Heavy) |
+| `backend/app/core/model_failover.py` | Core | Provider failover chains |
+| `backend/app/core/cold_start_service.py` | Core | Tenant model warmup |
+| `backend/app/services/cost_protection_service.py` | Service | Token budget management |
+| `backend/app/services/variant_capability_service.py` | Service | Feature→variant mapping |
+| `backend/app/services/variant_instance_service.py` | Service | Unlimited instance management |
+| `backend/app/services/variant_orchestration_service.py` | Service | Celery workload distribution |
+| `backend/app/services/entitlement_middleware.py` | Service | Feature entitlement enforcement |
+| `backend/app/services/agent_assignment_service.py` | Service | Agent→feature/task mapping |
+| `backend/app/api/ai_engine.py` | API | 28 REST endpoints for AI services |
+| `backend/app/api/ai_agent.py` | API | 8 endpoints for agent management |
+| `backend/app/middleware/ai_entitlement.py` | Middleware | AI entitlement ASGI middleware |
+| `backend/app/tasks/ai_engine_tasks.py` | Celery | Rebalancer, budget reset, warmup, cleanup |
+| `backend/app/tests/test_*.py` (4 files) | Tests | 125 tests, all passing |
+
+### Week 8 Test Summary
+
+| Metric | Count |
+|--------|-------|
+| Test files | 4 |
+| Total tests | 125 |
+| Passing | 125 |
+| Failing | 0 |
 
 ---
 
