@@ -1,0 +1,56 @@
+{
+  "day": 6,
+  "name": "Pricing Page + Industry Selector + Variants",
+  "generated_at": "2026-04-08",
+  "gaps_found": 6,
+  "gaps": [
+    {
+      "id": "GAP-6-1",
+      "severity": "CRITICAL",
+      "title": "localStorage data tampering vulnerability",
+      "what_breaks": "User can modify localStorage to change pricing before checkout",
+      "real_scenario": "User opens browser DevTools, modifies parwa_pricing_selection to set totalMonthly: 1 instead of actual price, then proceeds to checkout with manipulated price",
+      "ai_agent_prompt": "Write a test that verifies pricing data integrity between pricing page and checkout. Test should: 1) Create a selection on pricing page, 2) Store in localStorage, 3) Modify localStorage value, 4) Navigate to checkout, 5) Verify backend recalculates and validates pricing from scratch, not trusting client data"
+    },
+    {
+      "id": "GAP-6-2",
+      "severity": "HIGH",
+      "title": "Frontend variants not synced with backend",
+      "what_breaks": "Hardcoded variants in frontend could differ from backend, showing wrong prices",
+      "real_scenario": "Backend updates variant prices but frontend still shows old prices from INDUSTRY_VARIANTS constant. User sees $99 but backend charges $129",
+      "ai_agent_prompt": "Write a test that verifies frontend variants match backend API response. Test should: 1) Fetch variants from GET /api/pricing/variants/{industry}, 2) Compare with hardcoded INDUSTRY_VARIANTS in frontend, 3) Assert all prices, tickets_per_month, and features match exactly"
+    },
+    {
+      "id": "GAP-6-3",
+      "severity": "HIGH",
+      "title": "No server-side price validation on checkout",
+      "what_breaks": "Checkout accepts client-provided pricing without server validation",
+      "real_scenario": "handleContinue() stores pricing in localStorage and navigates to checkout. Backend has no way to verify the prices haven't been tampered with before payment processing",
+      "ai_agent_prompt": "Write a backend API endpoint POST /api/pricing/validate that accepts industry and variants, recalculates pricing server-side, and returns validated pricing with a signed token. Checkout should only accept this validated token, not raw pricing data"
+    },
+    {
+      "id": "GAP-6-4",
+      "severity": "MEDIUM",
+      "title": "Missing input sanitization for 'Others' industry fields",
+      "what_breaks": "Industry name, company name, website fields accept unsanitized input",
+      "real_scenario": "User enters '<script>alert(\"xss\")</script>' as company name. When this data is displayed later in the dashboard, it could execute malicious JavaScript",
+      "ai_agent_prompt": "Write a test that verifies XSS protection for 'Others' industry form. Test should: 1) Enter HTML/script tags in industry name, company name, website fields, 2) Submit form, 3) Verify data is sanitized before storage, 4) Verify data is escaped when displayed"
+    },
+    {
+      "id": "GAP-6-5",
+      "severity": "MEDIUM",
+      "title": "Website URL validation missing",
+      "what_breaks": "Website field accepts any string, not validated as URL",
+      "real_scenario": "User enters 'javascript:alert(1)' or 'file:///etc/passwd' as website URL. Could be used for XSS or phishing when URL is rendered as a link",
+      "ai_agent_prompt": "Write a test for URL validation in 'Others' industry form. Test should: 1) Enter various invalid URLs (javascript:, file:, data:, relative paths), 2) Submit form, 3) Verify validation rejects non-http(s) URLs, 4) Verify valid https:// URLs are accepted"
+    },
+    {
+      "id": "GAP-6-6",
+      "severity": "LOW",
+      "title": "No rate limiting on pricing API endpoints",
+      "what_breaks": "Pricing API can be scraped or abused without rate limiting",
+      "real_scenario": "Attacker makes 10000 requests/second to /api/pricing/calculate, potentially causing resource exhaustion or scraping pricing data",
+      "ai_agent_prompt": "Write a test that verifies rate limiting on pricing endpoints. Test should: 1) Make rapid requests to GET /api/pricing/industries, GET /api/pricing/variants/{industry}, POST /api/pricing/calculate, 2) Verify 429 Too Many Requests is returned after threshold, 3) Verify rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining) are present"
+    }
+  ]
+}
