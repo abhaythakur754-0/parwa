@@ -1,6 +1,6 @@
 # PARWA Execution Roadmap
 
-> **Last Updated:** Week 8 Day 2 (AI Engine - Gap Fixes)  
+> **Last Updated:** Week 8 Day 3 (AI Engine - Safety Layer)  
 > **Current Phase:** Week 8 - AI Engine (Phase 3)
 
 ---
@@ -559,14 +559,25 @@ Week 8 establishes the AI pipeline foundation — Smart Router, PII Redaction, G
 | No agent assignment service | `backend/app/services/agent_assignment_service.py` + `backend/app/api/ai_agent.py` |
 | Celery beat not configured | 3 new beat entries: rebalance 60s, budget reset midnight, injection log cleanup |
 
-### Day 3 (PENDING) — PII Redaction + Guardrails + Prompt Injection
+### Day 3 (COMPLETE) — PII Redaction + Guardrails + Prompt Injection Defense
 
-| Task | ID | Status |
-|------|----|--------|
-| PII Redaction Engine | F-056 | ⬜ Pending |
-| Guardrails AI | F-057 | ⬜ Pending |
-| Tenant-Specific Prompt Injection Defense | SG-36 | ⬜ Pending |
-| Hallucination Detection Patterns (12) | SG-27 | ⬜ Pending |
+| Task | ID | Status | File |
+|------|----|--------|------|
+| PII Redaction Engine (15 PII types, Redis map, deterministic tokens) | F-056 | ✅ Done | `backend/app/core/pii_redaction_engine.py` |
+| Guardrails AI (8-layer safety engine, per-tenant config) | F-057 | ✅ Done | `backend/app/core/guardrails_engine.py` |
+| Tenant-Specific Prompt Injection Defense (25+ rules, 7 categories) | SG-36 | ✅ Done | `backend/app/core/prompt_injection_defense.py` |
+| Hallucination Detection Patterns (12 patterns) | SG-27 | ✅ Done | `backend/app/core/hallucination_detector.py` |
+
+#### Day 3 Gap Analysis (COMPLETE)
+
+| File | Gaps Found | Severity Breakdown |
+|------|------------|-------------------|
+| F-056 PII Redaction | 5 | 2 HIGH, 2 MEDIUM, 1 LOW |
+| F-057 Guardrails | 4 | 1 HIGH, 2 MEDIUM, 1 LOW |
+| SG-36 Prompt Injection | 5 | 2 HIGH, 2 MEDIUM, 1 LOW |
+| SG-27 Hallucination | 6 | 2 HIGH, 3 MEDIUM, 1 LOW |
+
+All gaps identified and fixed during Day 3 build cycle.
 
 ### Day 4 (PENDING) — Confidence Scoring + Blocked Response + Variant Thresholds
 
@@ -606,7 +617,14 @@ Week 8 establishes the AI pipeline foundation — Smart Router, PII Redaction, G
 | `backend/app/api/ai_agent.py` | API | 8 endpoints for agent management |
 | `backend/app/middleware/ai_entitlement.py` | Middleware | AI entitlement ASGI middleware |
 | `backend/app/tasks/ai_engine_tasks.py` | Celery | Rebalancer, budget reset, warmup, cleanup |
-| `backend/app/tests/test_*.py` (4 files) | Tests | 125 tests, all passing |
+| `backend/app/core/pii_redaction_engine.py` | Core | 15 PII types, Redis map, deterministic tokens (F-056) |
+| `backend/app/core/guardrails_engine.py` | Core | 8-layer safety engine, per-tenant config (F-057) |
+| `backend/app/core/prompt_injection_defense.py` | Core | 25+ rules, 7 categories, rate limiting (SG-36) |
+| `backend/app/core/hallucination_detector.py` | Core | 12 detection patterns, recommendation engine (SG-27) |
+| `backend/app/tests/test_pii_redaction.py` | Tests | 60+ tests for PII redaction |
+| `backend/app/tests/test_guardrails.py` | Tests | 55+ tests for guardrails |
+| `backend/app/tests/test_prompt_injection.py` | Tests | 68+ tests for prompt injection |
+| `backend/app/tests/test_hallucination_detector.py` | Tests | 70+ tests for hallucination detection |
 
 ### Week 8 Test Summary
 
