@@ -1,0 +1,55 @@
+{
+  "found_count": "7",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Tenant isolation leak in Variant Capability Matrix",
+      "breaks": "One customer can see another customer's variant configuration data",
+      "scenario": "Tenant A creates a variant with specific configuration, then Tenant B queries the variant matrix without proper filtering and sees Tenant A's configuration details",
+      "prompt": "Write a test that attempts to access variant capability matrix data from one tenant while logged in as another tenant. Verify that data isolation is properly enforced at the database query level and no tenant data can be accessed without proper authorization."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "JSON corruption in technique cache",
+      "breaks": "Malformed JSON in technique_cache leads to silent failures",
+      "scenario": "A technique cache entry gets corrupted due to improper JSON serialization/deserialization, causing the AI agent to fail when trying to retrieve the technique",
+      "prompt": "Write tests that simulate various JSON corruption scenarios in the technique_cache model, including truncated JSON, invalid UTF-8 sequences, and deeply nested structures that exceed storage limits. Verify proper error handling and fallback behavior."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Counter underflow in token budget",
+      "breaks": "Negative token balance not prevented",
+      "scenario": "A tenant's AITokenBudget counter goes below zero due to improper decrement logic, allowing them to exceed their paid token allowance",
+      "prompt": "Write tests that verify token budget enforcement by attempting to decrement the token counter below zero in various scenarios (concurrent requests, edge case calculations, etc.). Ensure proper hard stops are enforced and the system prevents negative balances."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Race condition in variant matrix initialization",
+      "breaks": "Duplicate variant matrix entries created during concurrent initialization",
+      "scenario": "Two background processes simultaneously try to initialize the variant capability matrix for the same tenant, leading to duplicate entries and unique constraint violations",
+      "prompt": "Write a test that simulates concurrent initialization of the variant capability matrix for the same tenant. Verify proper idempotency handling and that only one matrix entry is created regardless of concurrent initialization attempts."
+    },
+    {
+      "severity": "HIGH",
+      "title": "FK cascade deletes causing data loss",
+      "breaks": "Deleting a VariantInstance deletes related data without proper cleanup",
+      "scenario": "When a VariantInstance is deleted, cascade deletes don't properly handle related AIPerformanceVariantMetric records, leaving orphaned data or causing foreign key constraint errors",
+      "prompt": "Write tests that verify proper cascade delete behavior across all related models when a VariantInstance is deleted. Ensure all related data is properly cleaned up and no orphaned records remain."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Prompt injection attempt preview truncation",
+      "breaks": "Query preview data is truncated at wrong boundary",
+      "scenario": "A prompt injection attempt with very long text gets truncated in the middle of a multi-byte character, causing display issues and potentially breaking security analysis",
+      "prompt": "Write tests that verify proper handling of edge cases in prompt_injection_attempt query_preview truncation, including multi-byte characters, extremely long inputs, and special Unicode sequences. Ensure truncation happens at proper boundaries."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Performance metric uniqueness across hours",
+      "breaks": "Duplicate performance metrics allowed across hour boundaries",
+      "scenario": "Performance metrics for the same variant at the same timestamp but different hours are incorrectly allowed, causing data integrity issues in reporting",
+      "prompt": "Write tests that verify uniqueness constraints on AIPerformanceVariantMetric are properly enforced across hour boundaries. Test edge cases around hour transitions and ensure no duplicate metrics can be created for the same variant within the same timestamp."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 7\n\nGAP 1\nSeverity: CRITICAL\nTitle: Tenant isolation leak in Variant Capability Matrix\nWhat breaks: One customer can see another customer's variant configuration data\nReal scenario: Tenant A creates a variant with specific configuration, then Tenant B queries the variant matrix without proper filtering and sees Tenant A's configuration details\nAI agent prompt: Write a test that attempts to access variant capability matrix data from one tenant while logged in as another tenant. Verify that data isolation is properly enforced at the database query level and no tenant data can be accessed without proper authorization.\n\nGAP 2\nSeverity: CRITICAL\nTitle: JSON corruption in technique cache\nWhat breaks: Malformed JSON in technique_cache leads to silent failures\nReal scenario: A technique cache entry gets corrupted due to improper JSON serialization/deserialization, causing the AI agent to fail when trying to retrieve the technique\nAI agent prompt: Write tests that simulate various JSON corruption scenarios in the technique_cache model, including truncated JSON, invalid UTF-8 sequences, and deeply nested structures that exceed storage limits. Verify proper error handling and fallback behavior.\n\nGAP 3\nSeverity: HIGH\nTitle: Counter underflow in token budget\nWhat breaks: Negative token balance not prevented\nReal scenario: A tenant's AITokenBudget counter goes below zero due to improper decrement logic, allowing them to exceed their paid token allowance\nAI agent prompt: Write tests that verify token budget enforcement by attempting to decrement the token counter below zero in various scenarios (concurrent requests, edge case calculations, etc.). Ensure proper hard stops are enforced and the system prevents negative balances.\n\nGAP 4\nSeverity: HIGH\nTitle: Race condition in variant matrix initialization\nWhat breaks: Duplicate variant matrix entries created during concurrent initialization\nReal scenario: Two background processes simultaneously try to initialize the variant capability matrix for the same tenant, leading to duplicate entries and unique constraint violations\nAI agent prompt: Write a test that simulates concurrent initialization of the variant capability matrix for the same tenant. Verify proper idempotency handling and that only one matrix entry is created regardless of concurrent initialization attempts.\n\nGAP 5\nSeverity: HIGH\nTitle: FK cascade deletes causing data loss\nWhat breaks: Deleting a VariantInstance deletes related data without proper cleanup\nReal scenario: When a VariantInstance is deleted, cascade deletes don't properly handle related AIPerformanceVariantMetric records, leaving orphaned data or causing foreign key constraint errors\nAI agent prompt: Write tests that verify proper cascade delete behavior across all related models when a VariantInstance is deleted. Ensure all related data is properly cleaned up and no orphaned records remain.\n\nGAP 6\nSeverity: MEDIUM\nTitle: Prompt injection attempt preview truncation\nWhat breaks: Query preview data is truncated at wrong boundary\nReal scenario: A prompt injection attempt with very long text gets truncated in the middle of a multi-byte character, causing display issues and potentially breaking security analysis\nAI agent prompt: Write tests that verify proper handling of edge cases in prompt_injection_attempt query_preview truncation, including multi-byte characters, extremely long inputs, and special Unicode sequences. Ensure truncation happens at proper boundaries.\n\nGAP 7\nSeverity: MEDIUM\nTitle: Performance metric uniqueness across hours\nWhat breaks: Duplicate performance metrics allowed across hour boundaries\nReal scenario: Performance metrics for the same variant at the same timestamp but different hours are incorrectly allowed, causing data integrity issues in reporting\nAI agent prompt: Write tests that verify uniqueness constraints on AIPerformanceVariantMetric are properly enforced across hour boundaries. Test edge cases around hour transitions and ensure no duplicate metrics can be created for the same variant within the same timestamp."
+}

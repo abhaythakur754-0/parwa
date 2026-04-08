@@ -1,0 +1,55 @@
+{
+  "found_count": "7",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Round-robin counter state loss on restart",
+      "breaks": "Ticket distribution resumes from wrong position after restart, causing uneven workload",
+      "scenario": "System processes 100 tickets with round_robin, restarts at ticket 50, but counter resets to 0, causing first variant to receive tickets 50-100 while others remain idle",
+      "prompt": "Write a test that simulates a Celery worker restart during round-robin ticket processing, verifies counter state persists correctly across restarts, and confirms workload distribution remains even"
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Least-loaded capacity check bypass",
+      "breaks": "Tickets assigned to overloaded variants when capacity checks fail",
+      "scenario": "Variant A has 1000/1000 tickets but appears as 0/1000 due to Redis cache miss, causing new tickets to be assigned to already overloaded variant",
+      "prompt": "Write a test that simulates Redis cache failure for capacity tracking, verifies fallback mechanism works, and prevents ticket assignment to overloaded variants"
+    },
+    {
+      "severity": "HIGH",
+      "title": "Channel_pinned fallback race condition",
+      "breaks": "Fallback to other channels during channel failure causes duplicate assignments",
+      "scenario": "Primary channel for pinned variant fails during fallback, causing same ticket to be assigned to multiple variants simultaneously",
+      "prompt": "Write a test that simulates channel failure during pinned variant assignment, verifies atomic fallback behavior, and prevents duplicate ticket assignments"
+    },
+    {
+      "severity": "HIGH",
+      "title": "Rebalance race condition during concurrent rebalancing",
+      "breaks": "Tickets double-assigned or lost when multiple rebalance operations run simultaneously",
+      "scenario": "Two rebalance operations start at same time, both try to move same ticket from variant A to B, resulting in ticket being assigned to both or lost entirely",
+      "prompt": "Write a test that simulates concurrent rebalance operations with shared resources, verifies proper locking mechanisms, and ensures no double assignments or ticket loss"
+    },
+    {
+      "severity": "HIGH",
+      "title": "Escalation from highest variant",
+      "breaks": "System attempts to escalate beyond highest variant tier",
+      "scenario": "Ticket is in High variant (highest tier), system tries to escalate it further, causing error and ticket loss",
+      "prompt": "Write a test that verifies escalation logic prevents attempts to escalate beyond the highest variant tier and handles this edge case gracefully"
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Complete_ticket idempotency with counter underflow",
+      "breaks": "Counter goes negative when completing same ticket multiple times",
+      "scenario": "complete_ticket called twice for same ticket, causing variant capacity counter to go from 5 to 3 then to 1 instead of staying at 5",
+      "prompt": "Write a test that verifies idempotent behavior of complete_ticket operation, especially with concurrent calls, and prevents counter underflow"
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Orchestration summary accuracy with mixed instance states",
+      "breaks": "Summary shows incorrect counts when some instances are in partial states",
+      "scenario": "Variant has 100 tickets, 50 completed, 30 in progress, 20 pending - but summary shows 100 pending due to not accounting for in-progress state",
+      "prompt": "Write a test that verifies orchestration summary accuracy across different ticket states (pending, in-progress, completed) and accounts for all variants regardless of their state"
+    }
+  ],
+  "raw_response": "GAPS FOUND: 7\n\nGAP 1\nSeverity: CRITICAL\nTitle: Round-robin counter state loss on restart\nWhat breaks: Ticket distribution resumes from wrong position after restart, causing uneven workload\nReal scenario: System processes 100 tickets with round_robin, restarts at ticket 50, but counter resets to 0, causing first variant to receive tickets 50-100 while others remain idle\nAI agent prompt: Write a test that simulates a Celery worker restart during round-robin ticket processing, verifies counter state persists correctly across restarts, and confirms workload distribution remains even\n\nGAP 2\nSeverity: CRITICAL\nTitle: Least-loaded capacity check bypass\nWhat breaks: Tickets assigned to overloaded variants when capacity checks fail\nReal scenario: Variant A has 1000/1000 tickets but appears as 0/1000 due to Redis cache miss, causing new tickets to be assigned to already overloaded variant\nAI agent prompt: Write a test that simulates Redis cache failure for capacity tracking, verifies fallback mechanism works, and prevents ticket assignment to overloaded variants\n\nGAP 3\nSeverity: HIGH\nTitle: Channel_pinned fallback race condition\nWhat breaks: Fallback to other channels during channel failure causes duplicate assignments\nReal scenario: Primary channel for pinned variant fails during fallback, causing same ticket to be assigned to multiple variants simultaneously\nAI agent prompt: Write a test that simulates channel failure during pinned variant assignment, verifies atomic fallback behavior, and prevents duplicate ticket assignments\n\nGAP 4\nSeverity: HIGH\nTitle: Rebalance race condition during concurrent rebalancing\nWhat breaks: Tickets double-assigned or lost when multiple rebalance operations run simultaneously\nReal scenario: Two rebalance operations start at same time, both try to move same ticket from variant A to B, resulting in ticket being assigned to both or lost entirely\nAI agent prompt: Write a test that simulates concurrent rebalance operations with shared resources, verifies proper locking mechanisms, and ensures no double assignments or ticket loss\n\nGAP 5\nSeverity: HIGH\nTitle: Escalation from highest variant\nWhat breaks: System attempts to escalate beyond highest variant tier\nReal scenario: Ticket is in High variant (highest tier), system tries to escalate it further, causing error and ticket loss\nAI agent prompt: Write a test that verifies escalation logic prevents attempts to escalate beyond the highest variant tier and handles this edge case gracefully\n\nGAP 6\nSeverity: MEDIUM\nTitle: Complete_ticket idempotency with counter underflow\nWhat breaks: Counter goes negative when completing same ticket multiple times\nReal scenario: complete_ticket called twice for same ticket, causing variant capacity counter to go from 5 to 3 then to 1 instead of staying at 5\nAI agent prompt: Write a test that verifies idempotent behavior of complete_ticket operation, especially with concurrent calls, and prevents counter underflow\n\nGAP 7\nSeverity: MEDIUM\nTitle: Orchestration summary accuracy with mixed instance states\nWhat breaks: Summary shows incorrect counts when some instances are in partial states\nReal scenario: Variant has 100 tickets, 50 completed, 30 in progress, 20 pending - but summary shows 100 pending due to not accounting for in-progress state\nAI agent prompt: Write a test that verifies orchestration summary accuracy across different ticket states (pending, in-progress, completed) and accounts for all variants regardless of their state"
+}
