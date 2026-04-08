@@ -66,6 +66,18 @@ Keep it tight and actionable. Every gap needs an AI agent prompt they can copy p
 
 # Day-specific file mappings (correct paths)
 DAY_FILES = {
+    6: {
+        "name": "Pricing Page + Industry Selector + Variants",
+        "files": [
+            "frontend/src/app/pricing/page.tsx",
+            "frontend/src/components/pricing/IndustrySelector.tsx",
+            "frontend/src/components/pricing/VariantCard.tsx",
+            "frontend/src/components/pricing/QuantitySelector.tsx",
+            "frontend/src/components/pricing/TotalSummary.tsx",
+            "backend/app/api/pricing.py",
+            "backend/app/services/pricing_service.py",
+        ]
+    },
     24: {
         "name": "Database Models (Ticket System)",
         "files": [
@@ -193,6 +205,7 @@ DAY_FILES = {
 
 # Day descriptions for context
 DAY_DESCRIPTIONS = {
+    6: "Day 6: Pricing Page + Industry Selector + Variants - Industry selection (E-commerce, SaaS, Logistics, Others), variant cards with quantity selectors, total bill summary, localStorage persistence for checkout flow.",
     24: "Day 24: Database models for ticket system - Ticket, TicketComment, TicketAttachment, SLAPolicy, SLATimer, AssignmentRule, AssignmentLog, TicketMention, TicketMerge. Includes relationships, constraints, and model methods.",
     25: "Day 25: Business logic layer - service classes that orchestrate database operations.",
     26: "Day 26: Ticket CRUD Service + REST API - create, read, update, delete tickets with SLA tracking, auto-assignment, mentions parsing, and merge operations.",
