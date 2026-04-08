@@ -1,6 +1,6 @@
 # PARWA Execution Roadmap
 
-> **Last Updated:** Week 8 Day 3 (AI Engine - Safety Layer)  
+> **Last Updated:** Week 8 Day 4 (AI Engine - Confidence & Response Management)  
 > **Current Phase:** Week 8 - AI Engine (Phase 3)
 
 ---
@@ -579,15 +579,15 @@ Week 8 establishes the AI pipeline foundation — Smart Router, PII Redaction, G
 
 All gaps identified and fixed during Day 3 build cycle.
 
-### Day 4 (PENDING) — Confidence Scoring + Blocked Response + Variant Thresholds
+### Day 4 (COMPLETE) — Confidence Scoring + Blocked Response + Variant Thresholds
 
-| Task | ID | Status |
-|------|----|--------|
-| Confidence Scoring | F-059 | ⬜ Pending |
-| Variant-Specific Confidence Thresholds | SG-04 | ⬜ Pending |
-| Blocked Response Manager + Review Queue | F-058 | ⬜ Pending |
-| LLM Provider Management | — | ⬜ Pending |
-| Prompt Template Management | — | ⬜ Pending |
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Confidence Scoring (7 weighted signals, variant thresholds) | F-059 | ✅ Done | `backend/app/core/confidence_scoring_engine.py` |
+| Variant-Specific Confidence Thresholds (mini=95, parwa=85, high=75) | SG-04 | ✅ Done | `backend/app/core/confidence_scoring_engine.py` |
+| Blocked Response Manager + Review Queue (priority, auto-reject, batch) | F-058 | ✅ Done | `backend/app/core/blocked_response_manager.py` |
+| LLM Provider Management (health, alerts, API keys, usage stats) | — | ✅ Done | `backend/app/services/provider_management_service.py` |
+| Prompt Template Management (10 defaults, versioning, A/B testing) | — | ✅ Done | `backend/app/services/prompt_template_service.py` |
 
 ### Day 5 (PENDING) — Integration + Testing + Monitoring
 
@@ -625,14 +625,22 @@ All gaps identified and fixed during Day 3 build cycle.
 | `backend/app/tests/test_guardrails.py` | Tests | 55+ tests for guardrails |
 | `backend/app/tests/test_prompt_injection.py` | Tests | 68+ tests for prompt injection |
 | `backend/app/tests/test_hallucination_detector.py` | Tests | 70+ tests for hallucination detection |
+| `backend/app/core/confidence_scoring_engine.py` | Core | 7 weighted signals, variant thresholds (F-059, SG-04) |
+| `backend/app/core/blocked_response_manager.py` | Core | Review queue, auto-reject, batch review (F-058) |
+| `backend/app/services/provider_management_service.py` | Service | Provider health, alerts, API key rotation |
+| `backend/app/services/prompt_template_service.py` | Service | 10 default templates, versioning, A/B testing |
+| `backend/app/tests/test_confidence_scoring.py` | Tests | 148 tests for confidence scoring |
+| `backend/app/tests/test_blocked_response.py` | Tests | 98 tests for blocked response manager |
+| `backend/app/tests/test_provider_management.py` | Tests | 69 tests for provider management |
+| `backend/app/tests/test_prompt_template.py` | Tests | 83 tests for prompt templates |
 
 ### Week 8 Test Summary
 
 | Metric | Count |
 |--------|-------|
-| Test files | 4 |
-| Total tests | 125 |
-| Passing | 125 |
+| Test files | 8 |
+| Total tests | 523 |
+| Passing | 523 |
 | Failing | 0 |
 
 ---
