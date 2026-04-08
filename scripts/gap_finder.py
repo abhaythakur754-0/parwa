@@ -308,12 +308,94 @@ SG-20 Self-Healing Engine:
 Existing test counts: 106 tests for monitoring, 91 tests for self-healing (197 total)
 
 What testing gaps exist? Focus on: race conditions, state machine edge cases, cooldown bypass, tenant isolation, concurrent healing actions, recovery rollbacks, alert false positives, metric pruning edge cases.""",
+
+    "w9d6": """Week 9 Day 6: Signal Extraction (SG-13) + Intent Classification (F-062) + Intent×Technique Mapping (F-149) + CLARA Quality Gate (F-150)
+
+Building 4 systems:
+
+1. Signal Extraction Layer (SG-13): Extract 10 signals from ticket text (intent, sentiment, complexity, monetary value, customer tier, turn count, previous response status, reasoning loop detection, resolution path count, query breadth). Configurable weights per variant. Signal cache with 60s TTL in Redis. Signal quality validation.
+
+2. F-062 Intent Classification: Multi-label classifier outputting primary + secondary intents (refund/technical/billing/complaint/feature_request/general). Uses Smart Router Light tier. Confidence per intent.
+
+3. F-149 Intent×Technique Mapping: Maps 6 intent types → recommended AI techniques. E.g., Refund→Self-Consistency, Complaint→UoT+Reflexion. Wire classifier output to technique router.
+
+4. F-150 CLARA Quality Gate: 5-stage pipeline (Structure→Logic→Brand→Tone→Delivery). Each stage pass/fail+reason. Failed → regenerate or human review. Tier 1 always-active.
+
+What testing gaps exist? Focus on: signal extraction accuracy, classification edge cases (ambiguous intents), technique mapping correctness, CLARA pipeline bypass/failure, variant weight differences, cache staleness, concurrent classification requests.""",
+
+    "w9d7": """Week 9 Day 7: Sentiment Analysis (F-063) + RAG Retrieval (F-064) + Sentiment×Technique (F-151) + Knowledge Base Module (F-152) + Re-Indexing (F-153)
+
+Building 5 systems:
+
+1. F-063 Sentiment/Empathy Engine: 0-100 frustration score. Escalation at 60+, VIP routing at 80+. Tone adjustment: empathetic at 40+, urgent at 70+, de-escalation at 90+.
+
+2. F-064 RAG Retrieval: pgvector search, top-k retrieval, similarity threshold. Tenant-isolated. Variant complexity: Mini=basic vector, Parwa=+metadata filtering, High=full pipeline.
+
+3. F-151 Sentiment×Technique Mapping: Maps sentiment ranges→techniques. <0.3→UoT+Step-Back, 0.3-0.5→Step-Back only. Priority overrides.
+
+4. F-152 shared/knowledge_base/ Module: Shared vector search module. Reusable pgvector operations across services. Tenant isolation in queries.
+
+5. F-153 RAG Re-Indexing Triggers: Cache invalidation on KB document CRUD. Auto re-embedding via Celery queue.
+
+What testing gaps exist? Focus on: sentiment score accuracy, RAG tenant isolation leaks, vector search edge cases, re-indexing race conditions, cache staleness, sentiment technique override conflicts, concurrent document updates.""",
+
+    "w9d8": """Week 9 Day 8: RAG Reranking (F-064) + Auto-Response (F-065) + Brand Voice (F-154) + Response Templates (F-155) + Token Budget (F-156) + ReAct Tools (F-157) + AI Assignment (F-050) + Rule→AI Migration (F-158)
+
+Building 8 systems:
+
+1. F-064 RAG Reranking: Cross-encoder reranking, metadata filtering, context window assembly, citation tracking. Variant differentiation: Mini=skip reranking, Parwa=cross-encoder, High=retrieve-rewrite-rerank.
+
+2. F-065 Auto-Response: Combine intent + RAG context + sentiment → brand-aligned response. Runs through CLARA quality gate. Smart Router Medium tier.
+
+3. F-154 Brand Voice: Per-company config: tone (professional/friendly/casual), formality, prohibited words, response length, industry terminology.
+
+4. F-155 Response Templates: CRUD for pre-written response bodies per tenant. Distinct from prompt templates.
+
+5. F-156 Token Budget: Track per-conversation token usage. Alert at 70%, compress at 85%, hard stop at 95%.
+
+6. F-157 ReAct Tools: 4 tool adapters (Order API, Billing API, CRM, Ticket System). Each has schema, execute(), validate_input(), format_output().
+
+7. F-050 AI Assignment: Score-based: specialty(40)+workload(30)+accuracy(20)+jitter(10).
+
+8. F-158 Rule→AI Migration: Migrate rule-based classification/assignment to AI with fallback.
+
+What testing gaps exist? Focus on: RAG reranking accuracy, auto-response quality, brand voice enforcement, token budget overflow, ReAct tool failures, assignment scoring fairness, migration rollback, concurrent response generation.""",
+
+    "w9d9": """Week 9 Day 9: Draft Composer (F-066) + Training Data Isolation (SG-12) + Edge Cases (SG-28) + Data Freshness (SG-34) + Technique Tier Access (SG-02)
+
+Building 5 systems:
+
+1. F-066 Draft Composer: Suggest drafts to human agents via Socket.io. Accept/edit/regenerate. Real-time streaming.
+
+2. SG-12 Training Data Isolation: Per-variant datasets. Isolation at: storage (S3 prefixes), processing (variant tag in Celery), vector index (tenant+variant metadata), model configs.
+
+3. SG-28 Edge-Case Handlers: 20 handlers for: empty query, too long, unsupported language, emojis only, code blocks, duplicate, embedded images, multi-question, non-existent ticket, malicious HTML, FAQ match, below confidence, maintenance mode, expired context, blocked user, pricing request, legal terminology, competitor mention, system commands, timeout.
+
+4. SG-34 Data Freshness: Cache invalidation on KB updates. Signal staleness detection (>5min→re-extract). Context freshness check.
+
+5. SG-02 Technique Tier Access: Check variant before technique selection. Mini=Tier1, Parwa=T1+T2, High=all.
+
+What testing gaps exist? Focus on: draft generation quality, Socket.io race conditions, training data cross-contamination, edge case handler ordering, freshness staleness, technique tier bypass, concurrent draft sessions.""",
+
+    "w9d10": """Week 9 Day 10: Cross-Variant Routing (SG-06/SG-11) + Anti-Arbitrage (F-159) + Conversation Summarization (F-160) + Integration Testing
+
+Building 4 systems:
+
+1. SG-06 Cross-Variant Routing Rules: Channel→variant mapping, escalation path (lower→higher), shared context, billing per variant.
+
+2. SG-11 Cross-Variant Ticket Routing: Algorithm: channel match→highest variant→auto-escalate if exceeds capability→bill to originating variant unless escalated.
+
+3. F-159 Anti-Arbitrage: Detect tier gaming (10 Mini instances to get 1 PARWA High capacity). Cap total capacity per tenant. Alert ops on suspicious patterns.
+
+4. F-160 Conversation Summarization: Multi-turn summarization. Modes: extractive, abstractive, hybrid. Context management for long conversations.
+
+What testing gaps exist? Focus on: cross-variant escalation correctness, billing accuracy during escalation, anti-arbitrage bypass, summarization accuracy, concurrent routing conflicts, capacity gaming detection, escalation rollback.""",
 }
 
 
 def main():
     parser = argparse.ArgumentParser(description="PARWA Gap Finder - Find testing gaps in features")
-    parser.add_argument("feature", nargs="?", help="Feature description or day code (w5d1-w5d6, w8d5)")
+    parser.add_argument("feature", nargs="?", help="Feature description or day code (w5d1-w5d6, w8d1-w8d5, w9d6-w9d10)")
     parser.add_argument("--output", "-o", choices=["json", "text"], default="text", help="Output format")
     parser.add_argument("--list", "-l", action="store_true", help="List available W5 prompts")
     parser.add_argument("--raw", "-r", action="store_true", help="Show raw AI response")
@@ -329,7 +411,7 @@ def main():
     if not args.feature:
         print("Usage: python scripts/gap_finder.py \"<feature description>\"")
         print("       python scripts/gap_finder.py w5d1  # for pre-defined Week 5 prompts")
-        print("       python scripts/gap_finder.py w8d5  # for Week 8 AI Engine")
+        print("       python scripts/gap_finder.py w9d6  # for Week 9 AI Core")
         print("       python scripts/gap_finder.py --list  # show all prompts")
         sys.exit(1)
     
