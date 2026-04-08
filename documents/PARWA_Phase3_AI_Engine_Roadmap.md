@@ -245,9 +245,9 @@ These tables are needed by the 38 gap items. Create migrations in the first days
 | Signal Extraction Layer (10 signals) | EXISTING | Extract: intent, sentiment, complexity, monetary value, customer tier, turn count, previous response status, reasoning loop detection, resolution path count, query breadth. Feeds both Smart Router and Technique Router. | BC-007, BC-008 | Agent 2 |
 | SG-13: Signal Extraction Layer Implementation (detailed) | **NEW — SG-13** | Full implementation of all 10 signals with: (1) Each signal has a dedicated extraction function, (2) Signal weights configurable per variant, (3) Signal cache with 60s TTL, (4) Signal quality validation, (5) Signal versioning for A/B testing. | BC-007, BC-008 | Agent 2 |
 | F-062: Ticket Intent Classification | EXISTING | Multi-label classifier: refund/technical/billing/complaint/feature_request/general. Uses Smart Router Light tier. Outputs: primary intent (1), secondary intents (0-3), confidence per intent. | BC-007, BC-008 | Agent 3 |
-| **NEW** N1: Intent × Technique Mapping Table | **NEW — N1** | Map 6 intent types (Refund, Technical, Complaint, Billing, Feature Request, General) → recommended techniques + trigger conditions. Wire F-062 output to Technique Router input. Source: Feature Spec Batch 6. | BC-013, BC-007 | Agent 3 |
+| F-149: Intent × Technique Mapping Table | **F-149** | Map 6 intent types (Refund, Technical, Complaint, Billing, Feature Request, General) → recommended techniques + trigger conditions. Wire F-062 output to Technique Router input. Source: Feature Spec Batch 6. | BC-013, BC-007 | Agent 3 |
 | SG-25: Per-Intent Prompt Templates (~40) | **NEW — SG-25** | Create 40 specialized prompt templates — one for each intent × response type combination. Each template has: system prompt, few-shot examples, output schema, tone instructions. | BC-007, BC-001 | Agent 4 |
-| **NEW** N2: CLARA Quality Gate Pipeline | **NEW — N2** | Build 5-stage CLARA pipeline: (1) Structure Check, (2) Logic Check, (3) Brand Check, (4) Tone Check, (5) Delivery Check. Tier 1 always-active. Required by F-065 auto-response. Each stage returns pass/fail + reason. Failed stages trigger regeneration or human review. Source: AI Technique Framework. | BC-007, BC-012 | Agent 4 |
+| F-150: CLARA Quality Gate Pipeline | **F-150** | Build 5-stage CLARA pipeline: (1) Structure Check, (2) Logic Check, (3) Brand Check, (4) Tone Check, (5) Delivery Check. Tier 1 always-active. Required by F-065 auto-response. Each stage returns pass/fail + reason. Failed stages trigger regeneration or human review. Source: AI Technique Framework. | BC-007, BC-012 | Agent 4 |
 
 **Dependencies:** Signal Extraction depends on Week 8 features. F-062 depends on Signal Extraction. CLARA depends on SG-25 (templates).
 
@@ -263,11 +263,11 @@ These tables are needed by the 38 gap items. Create migrations in the first days
 | Task | Label | Description | Building Codes | Agent |
 |------|-------|-------------|----------------|-------|
 | F-063: Sentiment Analysis / Empathy Engine | EXISTING | 0-100 frustration score. Triggers escalation at 60+. VIP routing at 80+. Tone adjustment: empathetic at 40+, urgent at 70+, de-escalation at 90+. | BC-007, BC-005 | Agent 3 |
-| **NEW** N3: Sentiment × Technique Trigger Mapping | **NEW — N3** | Map sentiment ranges → techniques: <0.3 → UoT + Step-Back; 0.3-0.5 → Step-Back only. Priority override rules (sentiment <0.3 takes precedence over confidence/complexity). Wire to Technique Router. Source: Feature Spec Batch 9. | BC-013, BC-007 | Agent 3 |
+| F-151: Sentiment × Technique Trigger Mapping | **F-151** | Map sentiment ranges → techniques: <0.3 → UoT + Step-Back; 0.3-0.5 → Step-Back only. Priority override rules (sentiment <0.3 takes precedence over confidence/complexity). Wire to Technique Router. Source: Feature Spec Batch 9. | BC-013, BC-007 | Agent 3 |
 | SG-26: Model-Specific Response Formatters (~15) | **NEW — SG-26** | Create 15 response formatters per model variant. Normalize: token limits, markdown rendering, citation formatting, tone normalization, length limits. | BC-007, BC-012 | Agent 4 |
 | F-064: Knowledge Base RAG (part 1 — retrieval) | EXISTING | pgvector search, top-k retrieval, similarity threshold. Tenant-isolated. **RAG complexity by variant:** Mini=basic vector search only, Parwa=+metadata filtering, High=full retrieve-rewrite-rerank pipeline. | BC-007, BC-010 | Agent 1 |
-| **NEW** N4: shared/knowledge_base/ Module | **NEW — N4** | New shared module for RAG + vector search operations. Reusable across services. Includes: vector_search.py, reindexing.py. Source: INFRA GAPS TRACKER. | BC-007, BC-010 | Agent 1 |
-| **NEW** N5: RAG Re-Indexing Triggers | **NEW — N5** | Cache invalidation on KB document updates. Automatic re-embedding when docs change. Trigger: document CRUD → queue re-embedding task → update vector index. Source: Build Roadmap feedback loops. | BC-007, BC-004, BC-010 | Agent 1 |
+| F-152: shared/knowledge_base/ Module | **F-152** | New shared module for RAG + vector search operations. Reusable across services. Includes: vector_search.py, reindexing.py. Source: INFRA GAPS TRACKER. | BC-007, BC-010 | Agent 1 |
+| F-153: RAG Re-Indexing Triggers | **F-153** | Cache invalidation on KB document updates. Automatic re-embedding when docs change. Trigger: document CRUD → queue re-embedding task → update vector index. Source: Build Roadmap feedback loops. | BC-007, BC-004, BC-010 | Agent 1 |
 | SG-29: Language Detection/Translation Pipeline (~8) | **NEW — SG-29** | 8-step pipeline: detection → confidence → tenant language → translate → AI process → translate back → quality check → fallback. | BC-007, BC-006 | Agent 5 |
 
 **Dependencies:** F-063 depends on Signal Extraction (Day 6). F-064 depends on F-056 (PII Redaction from Week 8) and P1/P2 (embeddings exist).
@@ -286,21 +286,21 @@ These tables are needed by the 38 gap items. Create migrations in the first days
 |------|-------|-------------|----------------|-------|
 | F-064: Knowledge Base RAG (part 2 — reranking + context assembly) | EXISTING | Cross-encoder reranking, metadata filtering, context window assembly, citation tracking. **Variant differentiation:** Mini=skip reranking, Parwa=cross-encoder, High=retrieve-rewrite-rerank. | BC-007, BC-010 | Agent 1 |
 | F-065: Auto-Response Generation | EXISTING | Combine intent + RAG context + sentiment → brand-aligned response. Smart Router Medium tier. Runs through CLARA quality gate (built Day 6). | BC-007, BC-006 | Agent 3 |
-| **NEW** N7: Brand Voice Config Per Company | **NEW — N7** | Per-company brand voice settings: tone (professional/friendly/casual), formality level, prohibited words list, response length preference, industry-specific terminology. Source: Build Roadmap v1. | BC-001, BC-007 | Agent 4 |
-| **NEW** N8: Response Template Storage | **NEW — N8** | CRUD for response templates per tenant (distinct from SG-25 prompt templates). Response templates = pre-written response bodies. Prompt templates = system instructions for LLM. Source: Build Roadmap v1. | BC-001, BC-007 | Agent 4 |
-| **NEW** N9: Per-Conversation Token Budget | **NEW — N9** | Track token usage within single conversation thread. Context overflow protection for F-065. Alert at 70%, compress at 85%, hard stop at 95% of context window. Source: Context Bible. | BC-007, BC-008 | Agent 3 |
-| **NEW** N10: ReAct Tool Integrations (4 tools) | **NEW — N10** | Build tool adapters for: (1) Order Management API, (2) Billing System API, (3) CRM Integration, (4) Ticket System. RAG KB already built Day 7. Each tool has: schema definition, execute(), validate_input(), format_output(). Source: AI Technique Framework. | BC-007, BC-008, BC-012 | Agent 2 |
+| F-154: Brand Voice Config Per Company | **F-154** | Per-company brand voice settings: tone (professional/friendly/casual), formality level, prohibited words list, response length preference, industry-specific terminology. Source: Build Roadmap v1. | BC-001, BC-007 | Agent 4 |
+| F-155: Response Template Storage | **F-155** | CRUD for response templates per tenant (distinct from SG-25 prompt templates). Response templates = pre-written response bodies. Prompt templates = system instructions for LLM. Source: Build Roadmap v1. | BC-001, BC-007 | Agent 4 |
+| F-156: Per-Conversation Token Budget | **F-156** | Track token usage within single conversation thread. Context overflow protection for F-065. Alert at 70%, compress at 85%, hard stop at 95% of context window. Source: Context Bible. | BC-007, BC-008 | Agent 3 |
+| F-157: ReAct Tool Integrations (4 tools) | **F-157** | Build tool adapters for: (1) Order Management API, (2) Billing System API, (3) CRM Integration, (4) Ticket System. RAG KB already built Day 7. Each tool has: schema definition, execute(), validate_input(), format_output(). Source: AI Technique Framework. | BC-007, BC-008, BC-012 | Agent 2 |
 | F-050: AI-Powered Ticket Assignment | EXISTING | Score-based: specialty (40) + workload (30) + historical accuracy (20) + jitter (10). | BC-001, BC-008 | Agent 2 |
-| **NEW** N11: Rule→AI Migration (F-049/F-050) | **NEW — N11** | Migrate Week 4 rule-based classification & assignment to AI. Build fallback: if AI classification fails → fall back to rule-based. Migration must be seamless — no downtime. Source: WEEK4_ROADMAP. | BC-007, BC-012 | Agent 3 |
+| F-158: Rule→AI Migration (F-049/F-050) | **F-158** | Migrate Week 4 rule-based classification & assignment to AI. Build fallback: if AI classification fails → fall back to rule-based. Migration must be seamless — no downtime. Source: WEEK4_ROADMAP. | BC-007, BC-012 | Agent 3 |
 | SG-23: Parallel Build Groups | **NEW — SG-23** | Document which Week 9+ tasks can be built simultaneously. Update SG-21. | BC-014 | Agent 5 |
 
-**Dependencies:** F-064 part 2 depends on F-064 part 1. F-065 depends on F-062, F-064, F-057, CLARA (N2). F-050 depends on F-062, F-063.
+**Dependencies:** F-064 part 2 depends on F-064 part 1. F-065 depends on F-062, F-064, F-057, CLARA (F-150). F-050 depends on F-062, F-063.
 
 **Parallel Groups:**
 - Group A: F-064 part 2 (RAG completion) → Agent 1
-- Group B: F-065 + N9 + N11 (Auto-Response + Token Budget + Migration) → Agent 3
-- Group C: N7 + N8 (Brand Voice + Response Templates) → Agent 4
-- Group D: N10 + F-050 (ReAct Tools + Ticket Assignment) → Agent 2
+- Group B: F-065 + F-156 + F-158 (Auto-Response + Token Budget + Migration) → Agent 3
+- Group C: F-154 + F-155 (Brand Voice + Response Templates) → Agent 4
+- Group D: F-157 + F-050 (ReAct Tools + Ticket Assignment) → Agent 2
 - Group E: SG-23 (Parallel Groups) → Agent 5
 
 ---
@@ -313,8 +313,8 @@ These tables are needed by the 38 gap items. Create migrations in the first days
 | SG-12: Variant-Specific Training Data Isolation | **NEW — SG-12** | Per-variant datasets. Isolation at: storage (S3 prefixes), processing (variant tag in Celery), vector index (tenant+variant metadata), model (variant fine-tuning configs). | BC-001, BC-010, BC-004 | Agent 4 |
 | SG-24: 170+ AI Sub-Features Enumeration | **NEW — SG-24** | Complete catalog of ALL 170+ sub-features (must cover ~87 unenumerated sub-features from Context Bible). Map: parent feature, variant access, building codes, complexity, dependencies. | BC-007, BC-014 | Agent 5 |
 | SG-28: Edge-Case Handler Registry (~20) | **NEW — SG-28** | 20 edge-case handlers: empty query, too long, unsupported language, emojis only, code blocks, duplicate, embedded images, multi-question, non-existent ticket, malicious HTML, FAQ match, below confidence, maintenance mode, expired context, blocked user, pricing request, legal terminology, competitor mention, system commands, timeout. | BC-012, BC-007 | Agent 1 |
-| **NEW** N14: SG-34 Early — Data Freshness for RAG | **MOVED — SG-34** | Moved from Week 10. RAG needs: (1) Cache invalidation on KB updates, (2) Signal staleness detection (>5min → re-extract), (3) Context freshness check, (4) Model capability version check. | BC-007, BC-004, BC-008 | Agent 5 |
-| **NEW** N15: SG-02 Early — Technique Tier Access Check | **MOVED — SG-02** | Moved from Week 10.5. Technique Router must check variant before technique selection. Mini=Tier 1 only, Parwa=T1+T2, High=all. Needed by intent/sentiment × technique mappings built Day 6-7. | BC-001, BC-013, BC-007 | Agent 2 |
+| **MOVED** SG-34 Early — Data Freshness for RAG | **MOVED — SG-34** | Moved from Week 10. RAG needs: (1) Cache invalidation on KB updates, (2) Signal staleness detection (>5min → re-extract), (3) Context freshness check, (4) Model capability version check. | BC-007, BC-004, BC-008 | Agent 5 |
+| **MOVED** SG-02 Early — Technique Tier Access Check | **MOVED — SG-02** | Moved from Week 10.5. Technique Router must check variant before technique selection. Mini=Tier 1 only, Parwa=T1+T2, High=all. Needed by intent/sentiment × technique mappings built Day 6-7. | BC-001, BC-013, BC-007 | Agent 2 |
 
 **Dependencies:** F-066 depends on F-064 (RAG), F-063 (sentiment). SG-02 enables N1 and N3 mappings.
 
@@ -334,8 +334,8 @@ These tables are needed by the 38 gap items. Create migrations in the first days
 | Week 9 Integration Testing | EXISTING | End-to-end: ticket → classification → sentiment → RAG → response generation. Test ALL variant tiers (Mini/Parwa/High). | BC-012, BC-007 | Agent 1 |
 | SG-06: Cross-Variant Routing Rules | **NEW — SG-06** | Channel→variant mapping, escalation path (lower→higher), shared context, billing per variant. | BC-001, BC-007 | Agent 2 |
 | SG-11: Cross-Variant Ticket Routing Logic | **NEW — SG-11** | Algorithm: channel match → highest variant → auto-escalate if exceeds capability → bill to originating variant unless escalated. | BC-001, BC-007, BC-002 | Agent 2 |
-| **NEW** N12: Multi-Instance Anti-Arbitrage | **NEW — N12** | Detect tier gaming: e.g., 10 Mini instances to get capacity of 1 PARWA High. Cap total capacity per tenant across all instances. Alert ops on suspicious patterns. Source: Build Roadmap F-006. | BC-001, BC-002, BC-007 | Agent 2 |
-| **NEW** N13: Conversation Summarization Modes | **NEW — N13** | Multi-turn conversation summarization for context management. Modes: extractive (key sentences), abstractive (AI-generated summary), hybrid. Needed before Week 10 context compression (F-067). Source: Context Bible. | BC-007, BC-008 | Agent 3 |
+| F-159: Multi-Instance Anti-Arbitrage | **F-159** | Detect tier gaming: e.g., 10 Mini instances to get capacity of 1 PARWA High. Cap total capacity per tenant across all instances. Alert ops on suspicious patterns. Source: Build Roadmap F-006. | BC-001, BC-002, BC-007 | Agent 2 |
+| F-160: Conversation Summarization Modes | **F-160** | Multi-turn conversation summarization for context management. Modes: extractive (key sentences), abstractive (AI-generated summary), hybrid. Needed before Week 10 context compression (F-067). Source: Context Bible. | BC-007, BC-008 | Agent 3 |
 | Week 9 Gap Analysis Sprint | **NEW** | Run gap_finder.py on ALL Week 9 files. Fix all discovered gaps. | BC-012 | All agents |
 | Week 9 Error Fix Sprint | EXISTING | Fix all bugs found. Update ERROR_LOG.md. | BC-012 | All agents |
 
@@ -361,23 +361,21 @@ These tables are needed by the 38 gap items. Create migrations in the first days
 
 ### New Items Added (N1-N15)
 
-| # | Item | Source | Day |
-|---|------|--------|-----|
-| N1 | Intent × Technique Mapping Table | Feature Spec Batch 6 | Day 6 |
-| N2 | CLARA Quality Gate Pipeline (5-stage) | AI Technique Framework | Day 6 |
-| N3 | Sentiment × Technique Trigger Mapping | Feature Spec Batch 9 | Day 7 |
-| N4 | shared/knowledge_base/ Module | INFRA GAPS TRACKER | Day 7 |
-| N5 | RAG Re-Indexing Triggers | Build Roadmap feedback loops | Day 7 |
-| N6 | RAG Complexity Per Variant (3 tiers) | Phase 3 Variant Mapping Table | Day 7-8 |
-| N7 | Brand Voice Config Per Company | Build Roadmap v1 | Day 8 |
-| N8 | Response Template Storage | Build Roadmap v1 | Day 8 |
-| N9 | Per-Conversation Token Budget | Context Bible | Day 8 |
-| N10 | ReAct Tool Integrations (4 tools) | AI Technique Framework | Day 8 |
-| N11 | Rule→AI Migration (F-049/F-050) | WEEK4_ROADMAP | Day 8 |
-| N12 | Multi-Instance Anti-Arbitrage | Build Roadmap F-006 | Day 10 |
-| N13 | Conversation Summarization Modes | Context Bible | Day 10 |
-| N14 | SG-34 Data Freshness (moved from Week 10) | Phase 3 Roadmap | Day 9 |
-| N15 | SG-02 Technique Tier Access (moved from Week 10.5) | Phase 3 Roadmap | Day 9 |
+| N1 | Intent × Technique Mapping Table | F-149 | Feature Spec Batch 6 | Day 6 |
+| N2 | CLARA Quality Gate Pipeline (5-stage) | F-150 | AI Technique Framework | Day 6 |
+| N3 | Sentiment × Technique Trigger Mapping | F-151 | Feature Spec Batch 9 | Day 7 |
+| N4 | shared/knowledge_base/ Module | F-152 | INFRA GAPS TRACKER | Day 7 |
+| N5 | RAG Re-Indexing Triggers | F-153 | Build Roadmap feedback loops | Day 7 |
+| N6 | RAG Complexity Per Variant (3 tiers) | (F-064) | Phase 3 Variant Mapping Table | Day 7-8 |
+| N7 | Brand Voice Config Per Company | F-154 | Build Roadmap v1 | Day 8 |
+| N8 | Response Template Storage | F-155 | Build Roadmap v1 | Day 8 |
+| N9 | Per-Conversation Token Budget | F-156 | Context Bible | Day 8 |
+| N10 | ReAct Tool Integrations (4 tools) | F-157 | AI Technique Framework | Day 8 |
+| N11 | Rule→AI Migration (F-049/F-050) | F-158 | WEEK4_ROADMAP | Day 8 |
+| N12 | Multi-Instance Anti-Arbitrage | F-159 | Build Roadmap F-006 | Day 10 |
+| N13 | Conversation Summarization Modes | F-160 | Context Bible | Day 10 |
+| N14 | SG-34 Data Freshness (moved early) | SG-34 | Phase 3 Roadmap | Day 9 |
+| N15 | SG-02 Technique Tier Access (moved early) | SG-02 | Phase 3 Roadmap | Day 9 |
 
 > **Note:** SG-34 was originally Week 10 Day 11. Moved to Week 9 because RAG needs cache invalidation from Day 1. SG-02 was originally Week 10.5 Day 16. Moved to Week 9 because intent/sentiment × technique mappings (N1, N3) need the enforcement layer.
 
