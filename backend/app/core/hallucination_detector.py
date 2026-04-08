@@ -196,7 +196,7 @@ RE_PAGE_REFS = re.compile(
 
 # Numerical precision patterns
 RE_PRECISE_PERCENTAGE = re.compile(
-    r"\b\d{1,3}\.\d{2,}%\b",  # e.g. 99.73%
+    r"\b\d{1,3}\.\d{2,}%",  # e.g. 99.73% (no \b after % since % is non-word)
 )
 RE_PRECISE_CURRENCY = re.compile(
     r"\$\d{1,3}(?:,\d{3})+\.\d{2}\b",  # e.g. $1,234.56
@@ -231,7 +231,7 @@ RE_NEGATION = re.compile(
 
 # Days per month (index = month, 0-based, so 1=Jan)
 _DAYS_IN_MONTH: Dict[int, int] = {
-    1: 31, 2: 29, 3: 31, 4: 30, 5: 31, 6: 30,
+    1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
     7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,
 }
 
@@ -604,6 +604,19 @@ class HallucinationDetector:
         if not overconfident_matches:
             return None
 
+        # Even without speculative language, many overconfident phrases = suspicious
+        if len(overconfident_matches) >= 3 and confidence_score < 0.85:
+            first = overconfident_matches[0]
+            return HallucinationMatch(
+                pattern_id="P03_overconfident_claims",
+                pattern_name="Overconfident wrong answers",
+                confidence=0.55,
+                evidence=f"Multiple overconfident phrases ({len(overconfident_matches)}) with low system confidence ({confidence_score:.2f})",
+                start=first.start(),
+                end=first.end(),
+                severity="low",
+            )
+
         speculative_matches = list(RE_SPECULATIVE.finditer(response))
         if not speculative_matches:
             return None
@@ -627,19 +640,6 @@ class HallucinationDetector:
                         end=max(oc.end(), spec.end()),
                         severity="low",
                     )
-
-        # Even without proximity, many overconfident phrases = suspicious
-        if len(overconfident_matches) >= 3 and confidence_score < 0.85:
-            first = overconfident_matches[0]
-            return HallucinationMatch(
-                pattern_id="P03_overconfident_claims",
-                pattern_name="Overconfident wrong answers",
-                confidence=0.55,
-                evidence=f"Multiple overconfident phrases ({len(overconfident_matches)}) with low system confidence ({confidence_score:.2f})",
-                start=first.start(),
-                end=first.end(),
-                severity="low",
-            )
 
         return None
 
@@ -1219,7 +1219,7 @@ class HallucinationDetector:
             pct_str = m.group(0)
             # Extract decimal part
             decimal_match = re.search(r'\.(\d+)%', pct_str)
-            if decimal_match and len(decimal_match.group(1)) > 2:
+            if decimal_match and len(decimal_match.group(1)) >= 2:
                 flags.append(f"Overly precise percentage: {pct_str}")
                 flag_positions.append((m.start(), m.end()))
 
