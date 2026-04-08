@@ -366,14 +366,22 @@ class ProviderHealthTracker:
 
     BC-008: Never crashes. Tracks failures, rate limits, and provides
     availability checks for the Smart Router's fallback logic.
+    Uses class-level shared state so all SmartRouter instances across
+    workers see the same health data.
     """
 
     CONSECUTIVE_FAILURE_THRESHOLD = 3
     RATE_LIMIT_COOLDOWN_SECONDS = 60
+    RATE_LIMIT_RETRY_AFTER_DEFAULT = 60  # seconds when 429 has no Retry-After
+
+    # Class-level shared state — all instances share the same tracker
+    _shared_usage: Dict[str, ProviderUsage] = {}
+    _shared_last_daily_reset: str = ""
 
     def __init__(self) -> None:
-        self._usage: Dict[str, ProviderUsage] = {}
-        self._last_daily_reset: str = ""
+        # Use class-level shared state for multi-worker consistency
+        self._usage = ProviderHealthTracker._shared_usage
+        self._last_daily_reset = ProviderHealthTracker._shared_last_daily_reset
         self._reset_daily_if_needed()
 
     def _reset_daily_if_needed(self) -> None:
@@ -385,6 +393,7 @@ class ProviderHealthTracker:
                 today, self._last_daily_reset,
             )
             self._last_daily_reset = today
+            ProviderHealthTracker._shared_last_daily_reset = today
             for usage in self._usage.values():
                 usage.daily_count = 0
 
@@ -447,6 +456,45 @@ class ProviderHealthTracker:
         logger.debug(
             "Recorded success for %s (daily=%d, minute_tokens=%d)",
             registry_key, usage.daily_count, usage.minute_count,
+        )
+
+    def record_rate_limit(
+        self,
+        provider: ModelProvider,
+        model_id: str,
+        retry_after_seconds: int = 0,
+    ) -> None:
+        """Record a 429 rate limit response. Sets cooldown timer.
+
+        Respects Retry-After header if provided by the API.
+        """
+        registry_key = f"{model_id}-{provider.value}"
+        config = None
+        for k, c in MODEL_REGISTRY.items():
+            if k == registry_key:
+                config = c
+                break
+
+        usage = self._ensure_usage(
+            registry_key,
+            config or ModelConfig(
+                provider=provider, model_id=model_id,
+                display_name=model_id, tier=ModelTier.LIGHT,
+                priority=99, max_requests_per_day=14400,
+                max_tokens_per_minute=30000, context_window=8192,
+                api_endpoint_base="", is_openai_compatible=True,
+            ),
+        )
+
+        cooldown = max(
+            retry_after_seconds if retry_after_seconds > 0 else self.RATE_LIMIT_RETRY_AFTER_DEFAULT,
+            self.RATE_LIMIT_COOLDOWN_SECONDS,
+        )
+        usage.rate_limited_until = time.time() + cooldown
+        usage.last_error = f"rate_limited_for_{cooldown}s"
+        logger.warning(
+            "Rate limited: %s for %d seconds (retry_after=%d)",
+            registry_key, cooldown, retry_after_seconds,
         )
 
     def record_failure(
@@ -587,6 +635,32 @@ class ProviderHealthTracker:
         return status
 
 
+# ── Exceptions ──────────────────────────────────────────────────────
+
+
+class RateLimitError(Exception):
+    """Raised when a provider returns HTTP 429 rate limit.
+
+    Carries provider/model info so the caller can record the cooldown.
+    """
+
+    def __init__(
+        self,
+        provider: ModelProvider,
+        model_id: str,
+        retry_after: int = 0,
+        detail: str = "",
+    ) -> None:
+        self.provider = provider
+        self.model_id = model_id
+        self.retry_after = retry_after
+        self.detail = detail
+        super().__init__(
+            f"Rate limited: {model_id} ({provider.value}), "
+            f"retry_after={retry_after}s, detail={detail}"
+        )
+
+
 # ── Routing Decision ───────────────────────────────────────────────
 
 
@@ -627,8 +701,9 @@ class SmartRouter:
     REQUEST_TIMEOUT_SECONDS = 30
 
     def __init__(self, config: Any = None) -> None:
-        """Initialize the router with model registry and health tracker."""
+        """Initialize the router with model registry and shared health tracker."""
         self._config = config
+        # Share health tracker across all instances
         self._health = ProviderHealthTracker()
         logger.info(
             "Smart Router initialized with %d models across %d tiers",
@@ -746,6 +821,44 @@ class SmartRouter:
                 "model": routing_decision.model_config.model_id,
                 "provider": routing_decision.provider.value,
                 "tier": routing_decision.tier.value,
+                "atomic_step": routing_decision.atomic_step_type.value,
+                "company_id": company_id,
+                "fallback_used": True,
+                "error": "All providers exhausted",
+                "finish_reason": "error",
+            }
+
+    async def async_execute_llm_call(
+        self,
+        company_id: str,
+        routing_decision: RoutingDecision,
+        messages: list,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+    ) -> dict:
+        """Async version of execute_llm_call for MAKER concurrent execution.
+
+        Runs directly in the caller's event loop — no new_event_loop().
+        BC-001: company_id is always second parameter.
+        BC-008: Always returns a dict with 'content' key.
+        """
+        try:
+            return await self._execute_llm_call_safe_async(
+                company_id, routing_decision, messages,
+                temperature, max_tokens,
+            )
+        except Exception:
+            logger.exception(
+                "async_execute_llm_call failed (company_id=%s, model=%s)",
+                company_id, routing_decision.model_config.model_id,
+            )
+            return {
+                "content": "",
+                "model": routing_decision.model_config.model_id,
+                "provider": routing_decision.provider.value,
+                "tier": routing_decision.tier.value,
+                "atomic_step": routing_decision.atomic_step_type.value,
+                "company_id": company_id,
                 "fallback_used": True,
                 "error": "All providers exhausted",
                 "finish_reason": "error",
@@ -1130,6 +1243,18 @@ class SmartRouter:
                         tokens_used=result.get("total_tokens", 0),
                     )
                     return result
+                except RateLimitError as rle:
+                    # Record rate limit with Retry-After, skip retries for 429
+                    self._health.record_rate_limit(
+                        rle.provider, rle.model_id,
+                        retry_after_seconds=rle.retry_after,
+                    )
+                    last_error = str(rle)
+                    logger.warning(
+                        "Rate limited (company_id=%s, model=%s): %s",
+                        company_id, model.display_name, last_error,
+                    )
+                    break  # Don't retry 429, move to next model
                 except Exception as exc:
                     last_error = str(exc)
                     logger.warning(
@@ -1152,6 +1277,91 @@ class SmartRouter:
             "model": routing_decision.model_config.model_id,
             "provider": routing_decision.provider.value,
             "tier": routing_decision.tier.value,
+            "atomic_step": routing_decision.atomic_step_type.value,
+            "company_id": company_id,
+            "fallback_used": True,
+            "error": last_error,
+            "finish_reason": "error",
+        }
+
+    async def _execute_llm_call_safe_async(
+        self,
+        company_id: str,
+        routing_decision: RoutingDecision,
+        messages: list,
+        temperature: float,
+        max_tokens: int,
+    ) -> dict:
+        """Async version of _execute_llm_call_safe.
+
+        Runs directly in the caller's event loop (no new_event_loop).
+        For MAKER framework concurrent LLM calls.
+        """
+        models_to_try = [routing_decision.model_config]
+        models_to_try.extend(routing_decision.fallback_models)
+
+        if routing_decision.tier == ModelTier.HEAVY:
+            lower = self._fallback_to_lower_tier(
+                ModelTier.HEAVY,
+                {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.HEAVY, ModelTier.GUARDRAIL},
+            )
+            if lower and lower not in models_to_try:
+                models_to_try.append(lower)
+        elif routing_decision.tier == ModelTier.MEDIUM:
+            lower = self._fallback_to_lower_tier(
+                ModelTier.MEDIUM,
+                {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.GUARDRAIL},
+            )
+            if lower and lower not in models_to_try:
+                models_to_try.append(lower)
+
+        last_error = ""
+        for model in models_to_try:
+            for attempt in range(self.MAX_RETRIES + 1):
+                try:
+                    if model.is_openai_compatible:
+                        result = await self._call_openai_compatible_async(
+                            model, messages, temperature, max_tokens,
+                        )
+                    else:
+                        result = await self._call_google_async(
+                            model, messages, temperature, max_tokens,
+                        )
+                    self._health.record_success(
+                        model.provider, model.model_id,
+                        tokens_used=result.get("total_tokens", 0),
+                    )
+                    return result
+                except RateLimitError as rle:
+                    self._health.record_rate_limit(
+                        rle.provider, rle.model_id,
+                        retry_after_seconds=rle.retry_after,
+                    )
+                    last_error = str(rle)
+                    logger.warning(
+                        "Async rate limited (company_id=%s, model=%s): %s",
+                        company_id, model.display_name, last_error,
+                    )
+                    break  # Don't retry 429, move to next model
+                except Exception as exc:
+                    last_error = str(exc)
+                    logger.warning(
+                        "Async LLM call failed (company_id=%s, model=%s, "
+                        "attempt=%d/%d): %s",
+                        company_id, model.display_name,
+                        attempt + 1, self.MAX_RETRIES + 1, last_error,
+                    )
+                    self._health.record_failure(
+                        model.provider, model.model_id, last_error,
+                    )
+
+        return {
+            "content": "",
+            "model": routing_decision.model_config.model_id,
+            "provider": routing_decision.provider.value,
+            "tier": routing_decision.tier.value,
+            "atomic_step": routing_decision.atomic_step_type.value,
+            "company_id": company_id,
             "fallback_used": True,
             "error": last_error,
             "finish_reason": "error",
@@ -1210,13 +1420,17 @@ class SmartRouter:
         )
 
         # Convert OpenAI-style messages to Google format
+        # Use systemInstruction for system messages (Google-native)
         contents = []
+        system_instruction = None
         for msg in messages:
             role = msg.get("role", "user")
             text = msg.get("content", "")
-            # Map roles: system -> user for Google
-            google_role = "user" if role == "system" else role
-            contents.append({"role": google_role, "parts": [{"text": text}]})
+            if role == "system":
+                # Google supports system via systemInstruction field
+                system_instruction = text
+            else:
+                contents.append({"role": role, "parts": [{"text": text}]})
 
         payload = {
             "contents": contents,
@@ -1225,6 +1439,10 @@ class SmartRouter:
                 "maxOutputTokens": max_tokens,
             },
         }
+        if system_instruction:
+            payload["systemInstruction"] = {
+                "parts": [{"text": system_instruction}]
+            }
 
         timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -1233,6 +1451,17 @@ class SmartRouter:
                 json=payload,
                 headers={"Content-Type": "application/json"},
             ) as resp:
+                if resp.status == 429:
+                    # Rate limited — extract Retry-After if present
+                    retry_after = int(resp.headers.get("Retry-After", 0))
+                    text = await resp.text()
+                    # Raise a specific exception so caller can record rate limit
+                    raise RateLimitError(
+                        provider=model_config.provider,
+                        model_id=model_config.model_id,
+                        retry_after=retry_after,
+                        detail=text,
+                    )
                 if resp.status != 200:
                     text = await resp.text()
                     raise RuntimeError(
@@ -1308,6 +1537,15 @@ class SmartRouter:
                 json=payload,
                 headers=headers,
             ) as resp:
+                if resp.status == 429:
+                    retry_after = int(resp.headers.get("Retry-After", 0))
+                    text = await resp.text()
+                    raise RateLimitError(
+                        provider=model_config.provider,
+                        model_id=model_config.model_id,
+                        retry_after=retry_after,
+                        detail=text,
+                    )
                 if resp.status != 200:
                     text = await resp.text()
                     raise RuntimeError(

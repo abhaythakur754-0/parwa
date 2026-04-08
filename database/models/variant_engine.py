@@ -86,6 +86,7 @@ class VariantAICapability(Base):
     )
     updated_at = Column(
         DateTime, default=lambda: datetime.utcnow(),
+        onupdate=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
@@ -156,6 +157,7 @@ class VariantInstance(Base):
     )
     updated_at = Column(
         DateTime, default=lambda: datetime.utcnow(),
+        onupdate=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (
@@ -280,6 +282,7 @@ class AIAgentAssignment(Base):
     )
     updated_at = Column(
         DateTime, default=lambda: datetime.utcnow(),
+        onupdate=lambda: datetime.utcnow(),
     )
 
 
@@ -385,6 +388,7 @@ class AITokenBudget(Base):
     )
     updated_at = Column(
         DateTime, default=lambda: datetime.utcnow(),
+        onupdate=lambda: datetime.utcnow(),
     )
 
     __table_args__ = (

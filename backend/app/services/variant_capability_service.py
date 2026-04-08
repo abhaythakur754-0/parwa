@@ -12,6 +12,8 @@ BC-013: Single source of truth (FEATURE_REGISTRY).
 """
 
 import json
+from datetime import datetime
+
 from database.base import SessionLocal
 from database.models.variant_engine import VariantAICapability
 from backend.app.exceptions import ParwaBaseError
@@ -719,6 +721,7 @@ def update_capability_config(
         )
 
     cap.config_json = json.dumps(config_json)
+    cap.updated_at = datetime.utcnow()  # GAP 4 fix
     db.commit()
     db.refresh(cap)
     return cap
@@ -839,12 +842,12 @@ def batch_update_capabilities(
                 continue
 
             cap.is_enabled = en
+            cap.updated_at = datetime.utcnow()  # GAP 4 fix
             result["updated"] += 1
         except Exception:
             # Individual item failure should not break
             # the entire batch (BC-008 graceful degradation)
             result["errors"] += 1
-            db.rollback()
             continue
 
     if result["updated"] > 0:

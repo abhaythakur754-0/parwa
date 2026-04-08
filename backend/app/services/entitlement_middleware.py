@@ -21,6 +21,7 @@ Uses:
 
 import json
 from dataclasses import dataclass
+from datetime import datetime
 
 from database.models.variant_engine import VariantAICapability
 from backend.app.services.variant_capability_service import (
@@ -522,9 +523,7 @@ def create_instance_override(
         existing.is_enabled = is_enabled
         if config_json is not None:
             existing.config_json = json.dumps(config_json)
-        existing.updated_at = (
-            existing.updated_at  # trigger refresh
-        )
+        existing.updated_at = datetime.utcnow()  # GAP 7 fix
         db.commit()
         db.refresh(existing)
         return existing

@@ -13,6 +13,7 @@ BC-001: company_id is second parameter.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import re
@@ -102,27 +103,39 @@ class CircuitBreaker:
 DEFAULT_PROVIDERS = ["google", "cerebras", "groq"]
 
 DEFAULT_MODELS: Dict[str, str] = {
-    "google": "gemini-2.0-flash",
-    "cerebras": "llama3.3-70b",
-    "groq": "llama-3.3-70b-versatile",
+    "google": "gemini-2.0-flash-lite",
+    "cerebras": "llama-3.1-8b",
+    "groq": "llama-3.1-8b",
 }
 
 # Tier → ordered list of (provider, model_id)
+# Model IDs must match SmartRouter MODEL_REGISTRY keys.
+# Each tier has its own chain; on full exhaustion, falls to lower tier.
 FAILOVER_CHAINS: Dict[str, List[Tuple[str, str]]] = {
     "light": [
-        ("google", "gemini-2.0-flash"),
-        ("cerebras", "llama3.3-70b"),
-        ("groq", "llama-3.3-70b-versatile"),
+        ("cerebras", "llama-3.1-8b"),
+        ("groq", "llama-3.1-8b"),
+        ("google", "gemma-3-27b-it"),
     ],
     "medium": [
-        ("google", "gemini-2.0-flash"),
-        ("cerebras", "llama3.3-70b"),
+        ("google", "gemini-2.0-flash-lite"),
         ("groq", "llama-3.3-70b-versatile"),
+        ("groq", "qwen3-32b"),
+        # Falls to LIGHT if all MEDIUM exhausted
+        ("cerebras", "llama-3.1-8b"),
     ],
     "heavy": [
-        ("google", "gemini-2.0-flash"),
-        ("cerebras", "llama3.3-70b"),
-        ("groq", "llama-3.3-70b-versatile"),
+        ("cerebras", "gpt-oss-120b"),
+        ("groq", "gpt-oss-120b"),
+        ("groq", "llama-4-scout-instruct"),
+        # Falls to MEDIUM then LIGHT
+        ("google", "gemini-2.0-flash-lite"),
+        ("cerebras", "llama-3.1-8b"),
+    ],
+    "guardrail": [
+        ("groq", "llama-guard-4-12b"),
+        # Guardrail has no fallback tier
+        ("cerebras", "llama-3.1-8b"),
     ],
 }
 
@@ -342,6 +355,7 @@ class FailoverManager:
         self._recovery_timeout_seconds = recovery_timeout_seconds
         self._circuits: Dict[str, CircuitBreaker] = {}
         self._events: List[FailoverEvent] = []
+        self._max_events = 10000  # Prevent unbounded memory growth
         self._stats_per_company: Dict[str, List[FailoverEvent]] = defaultdict(list)
 
         self._init_circuits()
@@ -396,11 +410,14 @@ class FailoverManager:
         circuit.total_latency_ms += latency_ms
         circuit.last_success_at = now
 
-        # Close circuit if half-open
+        # Close circuit if half-open or degraded
         if circuit.state in (ProviderState.DEGRADED, ProviderState.CIRCUIT_OPEN):
             circuit.state = ProviderState.HEALTHY
             circuit.failure_count = 0
             circuit.half_open_call_count = 0
+        elif circuit.failure_count > 0:
+            # Partial recovery: reduce failure count on success
+            circuit.failure_count = max(0, circuit.failure_count - 1)
             logger.info(
                 "Circuit closed for %s after successful call",
                 circuit.key,
@@ -439,6 +456,11 @@ class FailoverManager:
             http_status_code=http_status,
         )
         self._events.append(event)
+
+        # Trim old events to prevent memory leak
+        if len(self._events) > self._max_events:
+            self._events = self._events[-self._max_events // 2:]
+            logger.debug("Trimmed failover events to %d", len(self._events))
 
         if company_id:
             self._stats_per_company[company_id].append(event)
@@ -787,6 +809,146 @@ class FailoverChainExecutor:
         # ALL providers failed — graceful degradation (BC-008)
         logger.error(
             "ALL providers failed for company %s — returning graceful error",
+            company_id,
+        )
+        return self._build_error_response(failover_events)
+
+    async def async_execute_with_failover(
+        self,
+        company_id: str,
+        chain: List[Tuple[str, str]],
+        call_fn: Callable,
+        max_retries: int = 3,
+    ) -> dict:
+        """Async version of execute_with_failover for MAKER concurrent calls.
+
+        Same logic but uses asyncio.sleep instead of time.sleep
+        and awaits async call_fn.
+        """
+        if not chain:
+            logger.error("Empty async failover chain for company %s", company_id)
+            return self._build_error_response([])
+
+        failover_events: List[FailoverEvent] = []
+
+        for provider, model_id in chain:
+            if not self.manager.is_available(provider, model_id):
+                event = FailoverEvent(
+                    provider=provider,
+                    model_id=model_id,
+                    reason=FailoverReason.SERVER_ERROR,
+                    error_message="Circuit breaker open",
+                    timestamp=self.manager._utc_now(),
+                )
+                failover_events.append(event)
+                continue
+
+            for attempt in range(1, max_retries + 1):
+                try:
+                    # Support both sync and async call_fn
+                    if asyncio.iscoroutinefunction(call_fn):
+                        result = await call_fn(provider, model_id)
+                    else:
+                        result = call_fn(provider, model_id)
+                    if not isinstance(result, dict):
+                        result = {"content": str(result)}
+
+                    latency_ms = result.get("latency_ms", 0)
+
+                    response_text = (
+                        result.get("content")
+                        or result.get("text")
+                        or result.get("message", "")
+                    )
+                    if isinstance(response_text, dict):
+                        response_text = response_text.get("content", "")
+                    if not isinstance(response_text, str):
+                        response_text = str(response_text)
+
+                    is_degraded, degradation_reason = self.detector.is_degraded(
+                        response_text
+                    )
+
+                    if is_degraded:
+                        logger.warning(
+                            "Async degraded response from %s:%s: %s",
+                            provider, model_id, degradation_reason,
+                        )
+                        self.manager.report_failure(
+                            provider=provider,
+                            model_id=model_id,
+                            reason=FailoverReason.DEGRADED_RESPONSE,
+                            error_msg=degradation_reason,
+                            latency_ms=latency_ms,
+                            company_id=company_id,
+                        )
+                        if provider != chain[-1][0]:
+                            failover_events.append(
+                                FailoverEvent(
+                                    provider=provider,
+                                    model_id=model_id,
+                                    reason=FailoverReason.DEGRADED_RESPONSE,
+                                    error_message=degradation_reason,
+                                    timestamp=self.manager._utc_now(),
+                                    latency_ms=latency_ms,
+                                    response_snippet=response_text[:200],
+                                )
+                            )
+                            break
+                        else:
+                            result["_failover_used"] = True
+                            result["_degraded"] = True
+                            result["_degradation_reason"] = degradation_reason
+                            self.manager.report_success(
+                                provider=provider,
+                                model_id=model_id,
+                                latency_ms=latency_ms,
+                                response=result,
+                            )
+                            return result
+
+                    self.manager.report_success(
+                        provider=provider,
+                        model_id=model_id,
+                        latency_ms=latency_ms,
+                        response=result,
+                    )
+                    result["_failover_used"] = bool(failover_events)
+                    return result
+
+                except self.FAILOVER_EXCEPTIONS as exc:
+                    reason, http_status = self._classify_exception(exc)
+                    logger.warning(
+                        "Async attempt %d/%d failed for %s:%s — %s",
+                        attempt, max_retries, provider, model_id,
+                        str(exc)[:100],
+                    )
+                    if attempt < max_retries:
+                        backoff = min(2 ** (attempt - 1), 8)
+                        await asyncio.sleep(backoff)
+
+                    self.manager.report_failure(
+                        provider=provider,
+                        model_id=model_id,
+                        reason=reason,
+                        error_msg=str(exc),
+                        latency_ms=0,
+                        http_status=http_status,
+                        company_id=company_id,
+                    )
+
+            failover_events.append(
+                FailoverEvent(
+                    provider=provider,
+                    model_id=model_id,
+                    reason=FailoverReason.UNKNOWN,
+                    error_message="All retries exhausted",
+                    timestamp=self.manager._utc_now(),
+                )
+            )
+
+        logger.error(
+            "ALL providers failed (async) for company %s — returning graceful error",
             company_id,
         )
         return self._build_error_response(failover_events)
