@@ -31,8 +31,11 @@ export interface IndustryOption {
   color: string;
   hoverColor: string;
   borderColor: string;
+  selectedBg: string;
+  selectedCheckBg: string;
 }
 
+// Using static class names for Tailwind JIT compatibility
 const industries: IndustryOption[] = [
   {
     id: 'ecommerce',
@@ -42,6 +45,8 @@ const industries: IndustryOption[] = [
     color: 'text-teal-400',
     hoverColor: 'hover:border-teal-500/50 hover:bg-teal-500/10',
     borderColor: 'border-teal-500',
+    selectedBg: 'bg-teal-500/20',
+    selectedCheckBg: 'bg-teal-500',
   },
   {
     id: 'saas',
@@ -51,6 +56,8 @@ const industries: IndustryOption[] = [
     color: 'text-blue-400',
     hoverColor: 'hover:border-blue-500/50 hover:bg-blue-500/10',
     borderColor: 'border-blue-500',
+    selectedBg: 'bg-blue-500/20',
+    selectedCheckBg: 'bg-blue-500',
   },
   {
     id: 'logistics',
@@ -60,6 +67,8 @@ const industries: IndustryOption[] = [
     color: 'text-orange-400',
     hoverColor: 'hover:border-orange-500/50 hover:bg-orange-500/10',
     borderColor: 'border-orange-500',
+    selectedBg: 'bg-orange-500/20',
+    selectedCheckBg: 'bg-orange-500',
   },
   {
     id: 'others',
@@ -69,6 +78,8 @@ const industries: IndustryOption[] = [
     color: 'text-purple-400',
     hoverColor: 'hover:border-purple-500/50 hover:bg-purple-500/10',
     borderColor: 'border-purple-500',
+    selectedBg: 'bg-purple-500/20',
+    selectedCheckBg: 'bg-purple-500',
   },
 ];
 
@@ -106,12 +117,11 @@ export function IndustrySelector({
               className={`
                 relative p-4 rounded-xl border-2 transition-all duration-300 text-left
                 ${isSelected
-                  ? `${industry.borderColor} bg-${industry.id === 'ecommerce' ? 'teal' : industry.id === 'saas' ? 'blue' : industry.id === 'logistics' ? 'orange' : 'purple'}-500/20`
+                  ? `${industry.borderColor} ${industry.selectedBg}`
                   : 'border-white/10 bg-surface/30'
                 }
                 ${industry.hoverColor}
                 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                hover-lift
               `}
               aria-pressed={isSelected}
               aria-label={`Select ${industry.name} industry`}
@@ -119,7 +129,7 @@ export function IndustrySelector({
               {/* Selected indicator */}
               {isSelected && (
                 <div className="absolute top-2 right-2">
-                  <div className={`w-6 h-6 rounded-full ${industry.borderColor.replace('border', 'bg')} flex items-center justify-center`}>
+                  <div className={`w-6 h-6 rounded-full ${industry.selectedCheckBg} flex items-center justify-center`}>
                     <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
