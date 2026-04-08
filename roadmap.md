@@ -646,6 +646,223 @@ All gaps identified and fixed during Day 3 build cycle.
 
 ---
 
+## 🔵 CURRENT WEEK: Week 9 - AI Core (Classification + RAG + Response Generation)
+
+### Scope
+
+Week 9 builds the **AI brain** — classification, RAG retrieval, and response generation. This turns PARWA from a routing framework into an **intelligent system**. The Signal Extraction Layer is the critical glue.
+
+**Dependencies:** Week 8 (✅ Smart Router, PII Redaction, Guardrails, Confidence Scoring), Week 6 (KB must be indexed for RAG)
+
+### Week 9 Prerequisite Fixes (Day 0 — Must Complete Before Day 6)
+
+> These are CRITICAL blockers discovered from gap analysis files and INFRA GAPS TRACKER.
+
+| # | Fix | Severity | Source | Action |
+|---|-----|----------|--------|--------|
+| P1 | Verify KB embeddings exist in pgvector | 🔴 CRITICAL | INFRA GAPS TRACKER | Check `knowledge_documents` table has processed docs; verify `document_chunks` has embeddings; confirm pgvector extension enabled |
+| P2 | Build/verify EmbeddingService | 🔴 CRITICAL | Week 6 gap list | If `embedding_service.py` is a stub, build real embedding generation using Google AI/Cerebras |
+| P3 | Fix 3 CRITICAL tenant isolation leaks | 🔴 CRITICAL | `gap_analysis_agent1_models.json`, `gap_analysis_agent2_services.json` | Fix `ai_agent_assignments` company_id filter, `variant_capability_service` isolation, ticket counter race condition |
+| P4 | Fix 8 HIGH gaps from agent1/agent2 JSON | 🟡 HIGH | `gap_analysis_agent1_models.json`, `gap_analysis_agent2_services.json` | Fix counter underflow, JSON corruption, FK cascade, status validation, namespace collision, silent batch failures, instance state, capacity overflow |
+| P5 | Verify DEP-04 package compatibility | 🟡 HIGH | INFRA GAPS TRACKER | Test `langgraph + dspy-ai + litellm` work with FastAPI/Celery/Redis stack |
+| P6 | Resolve tenant_id vs company_id standardization | 🟡 HIGH | INFRA GAPS TRACKER DC2 | Audit all new Week 9 code uses `company_id` consistently |
+
+---
+
+### Day 6 (Monday) — Signal Extraction + Intent Classification + CLARA
+
+| Task | ID | Status | Description |
+|------|----|--------|-------------|
+| Signal Extraction Layer (10 signals) | — | ⬜ | Extract: intent, sentiment, complexity, monetary value, customer tier, turn count, previous response status, reasoning loop detection, resolution path count, query breadth. Feeds Smart Router + Technique Router. |
+| SG-13: Signal Extraction Implementation | SG-13 | ⬜ | Full implementation: dedicated extraction functions, configurable weights per variant, signal cache (60s TTL), quality validation, versioning for A/B testing. |
+| F-062: Ticket Intent Classification | F-062 | ⬜ | Multi-label classifier: refund/technical/billing/complaint/feature_request/general. Uses Smart Router Light tier. Outputs: primary intent (1), secondary intents (0-3), confidence per intent. |
+| **NEW** Intent × Technique Mapping Table | — | ⬜ | Map 6 intent types → recommended techniques + trigger conditions (from Feature Spec Batch 6). Wire F-062 output to Technique Router input. |
+| SG-25: Per-Intent Prompt Templates (~40) | SG-25 | ⬜ | 40 specialized prompt templates — one per intent × response type. Each: system prompt, few-shot examples, output schema, tone instructions. |
+| **NEW** CLARA Quality Gate Pipeline | — | ⬜ | Build 5-stage CLARA pipeline: Structure Check → Logic Check → Brand Check → Tone Check → Delivery. Tier 1 always-active. Required by F-065 auto-response. Source: AI Technique Framework. |
+
+**Files to Build:**
+```
+backend/app/core/signal_extraction.py
+backend/app/core/classification_engine.py
+backend/app/core/clara_quality_gate.py
+backend/app/services/intent_technique_mapper.py
+backend/app/api/classification.py
+backend/app/api/signals.py
+backend/app/tests/test_signal_extraction.py
+backend/app/tests/test_classification.py
+backend/app/tests/test_clara.py
+backend/app/tests/test_intent_technique_mapping.py
+```
+
+---
+
+### Day 7 (Tuesday) — Sentiment Analysis + RAG Part 1 + Language Pipeline
+
+| Task | ID | Status | Description |
+|------|----|--------|-------------|
+| F-063: Sentiment Analysis / Empathy Engine | F-063 | ⬜ | 0-100 frustration score. Triggers escalation at 60+, VIP routing at 80+. Tone adjustment: empathetic at 40+, urgent at 70+, de-escalation at 90+. |
+| **NEW** Sentiment × Technique Trigger Mapping | — | ⬜ | Map sentiment ranges → techniques: <0.3 → UoT + Step-Back; 0.3-0.5 → Step-Back only. Priority override rules (from Feature Spec Batch 9). Wire to Technique Router. |
+| SG-26: Model-Specific Response Formatters (~15) | SG-26 | ⬜ | 15 response formatters per model variant. Normalize: token limits, markdown, citation formatting, tone, length. |
+| F-064: Knowledge Base RAG (part 1 — retrieval) | F-064 | ⬜ | pgvector search, top-k retrieval, similarity threshold. Tenant-isolated. RAG complexity by variant: Mini=basic vector, Parwa=+metadata filtering, High=full pipeline. |
+| **NEW** `shared/knowledge_base/` Module | — | ⬜ | New shared module for RAG + vector search operations. Reusable across services. Source: INFRA GAPS TRACKER. |
+| **NEW** RAG Re-Indexing Triggers | — | ⬜ | Cache invalidation on KB document updates. Automatic re-embedding when docs change. Source: Build Roadmap feedback loops. |
+| SG-29: Language Detection/Translation Pipeline (~8) | SG-29 | ⬜ | 8-step pipeline: detection → confidence → tenant language → translate → AI process → translate back → quality check → fallback. |
+
+**Files to Build:**
+```
+backend/app/core/sentiment_engine.py
+backend/app/core/rag_retrieval.py
+shared/knowledge_base/__init__.py
+shared/knowledge_base/vector_search.py
+shared/knowledge_base/reindexing.py
+backend/app/services/sentiment_technique_mapper.py
+backend/app/api/rag.py
+backend/app/tests/test_sentiment.py
+backend/app/tests/test_rag_retrieval.py
+backend/app/tests/test_language_pipeline.py
+```
+
+---
+
+### Day 8 (Wednesday) — RAG Part 2 + Auto-Response + Ticket Assignment
+
+| Task | ID | Status | Description |
+|------|----|--------|-------------|
+| F-064: Knowledge Base RAG (part 2 — reranking) | F-064 | ⬜ | Cross-encoder reranking, metadata filtering, context window assembly, citation tracking. Variant differentiation: Mini=skip reranking, Parwa=cross-encoder, High=retrieve-rewrite-rerank. |
+| F-065: Auto-Response Generation | F-065 | ⬜ | Combine intent + RAG context + sentiment → brand-aligned response. Smart Router Medium tier. Runs through CLARA quality gate. |
+| **NEW** Brand Voice Config Per Company | — | ⬜ | Per-company brand voice settings: tone, formality, prohibited words, response length preference. Source: Build Roadmap v1. |
+| **NEW** Response Template Storage | — | ⬜ | CRUD for response templates per tenant (distinct from prompt templates in SG-25). Source: Build Roadmap v1. |
+| **NEW** Per-Conversation Token Budget | — | ⬜ | Track token usage within single conversation thread. Context overflow protection for F-065. Source: Context Bible. |
+| **NEW** ReAct Tool Integrations (4 tools) | — | ⬜ | Build tool adapters for: Order Management API, Billing System API, CRM Integration, Ticket System. (RAG KB already built Day 7). Source: AI Technique Framework. |
+| F-050: AI-Powered Ticket Assignment | F-050 | ⬜ | Score-based: specialty (40) + workload (30) + historical accuracy (20) + jitter (10). |
+| **NEW** Rule→AI Migration (F-049/F-050) | — | ⬜ | Migrate Week 4 rule-based classification & assignment to AI. Build fallback: if AI classification fails → fall back to rule-based. |
+| SG-23: Parallel Build Groups | SG-23 | ⬜ | Document which Week 9+ tasks can be built simultaneously. Update SG-21 task decomposition. |
+
+**Files to Build:**
+```
+backend/app/core/rag_reranking.py
+backend/app/core/response_generator.py
+backend/app/services/brand_voice_service.py
+backend/app/services/response_template_service.py
+backend/app/services/token_budget_service.py
+backend/app/core/react_tools/
+backend/app/core/react_tools/order_tool.py
+backend/app/core/react_tools/billing_tool.py
+backend/app/core/react_tools/crm_tool.py
+backend/app/core/react_tools/ticket_tool.py
+backend/app/api/response.py
+backend/app/tests/test_rag_reranking.py
+backend/app/tests/test_response_generation.py
+backend/app/tests/test_react_tools.py
+```
+
+---
+
+### Day 9 (Thursday) — Draft Composer + Training Data + Edge Cases
+
+| Task | ID | Status | Description |
+|------|----|--------|-------------|
+| F-066: AI Draft Composer (Co-Pilot Mode) | F-066 | ⬜ | Suggest drafts to human agents — accept/edit/regenerate. Real-time via Socket.io. |
+| SG-12: Variant-Specific Training Data Isolation | SG-12 | ⬜ | Per-variant datasets. Isolation at: storage (S3 prefixes), processing (variant tag in Celery), vector index (tenant+variant metadata), model (variant fine-tuning configs). |
+| SG-24: 170+ AI Sub-Features Enumeration | SG-24 | ⬜ | Complete catalog of ALL 170+ sub-features. Map: parent feature, variant access, building codes, complexity, dependencies. Must cover the ~87 unenumerated sub-features from Context Bible. |
+| SG-28: Edge-Case Handler Registry (~20) | SG-28 | ⬜ | 20 edge-case handlers: empty query, too long, unsupported language, emojis only, code blocks, duplicate, embedded images, multi-question, non-existent ticket, malicious HTML, FAQ match, below confidence, maintenance mode, expired context, blocked user, pricing request, legal terminology, competitor mention, system commands, timeout. |
+| **NEW** SG-34 Early: Data Freshness for RAG | SG-34 | ⬜ | Moved from Week 10. RAG needs cache invalidation on KB updates, signal staleness detection (>5min → re-extract), context freshness check. |
+| **NEW** SG-02 Early: Technique Tier Access Check | SG-02 | ⬜ | Moved from Week 10.5. Technique Router must check variant before technique selection. Needed by intent/sentiment × technique mappings built Day 6-7. |
+
+**Files to Build:**
+```
+backend/app/core/draft_composer.py
+backend/app/core/edge_case_handlers.py
+backend/app/services/training_data_isolation.py
+backend/app/services/data_freshness_service.py
+backend/app/tests/test_draft_composer.py
+backend/app/tests/test_edge_cases.py
+backend/app/tests/test_training_isolation.py
+```
+
+---
+
+### Day 10 (Friday) — Cross-Variant Routing + Anti-Arbitrage + Integration
+
+| Task | ID | Status | Description |
+|------|----|--------|-------------|
+| SG-06: Cross-Variant Routing Rules | SG-06 | ⬜ | Channel→variant mapping, escalation path (lower→higher), shared context, billing allocation per variant. |
+| SG-11: Cross-Variant Ticket Routing Logic | SG-11 | ⬜ | Algorithm: channel match → highest variant → auto-escalate if exceeds capability → bill to originating variant unless escalated. |
+| **NEW** Multi-Instance Anti-Arbitrage | — | ⬜ | Detect tier gaming: e.g., 10 Mini instances to get capacity of 1 PARWA High. Cap total capacity per tenant across all instances. Source: Build Roadmap F-006. |
+| **NEW** Conversation Summarization Modes | — | ⬜ | Multi-turn conversation summarization for context management. Needed for long conversations before Week 10 context compression. Source: Context Bible. |
+| Week 9 Integration Testing | — | ⬜ | E2E: ticket → classification → sentiment → RAG → response generation. Test ALL variant tiers (Mini/Parwa/High). |
+| Week 9 Gap Analysis Sprint | — | ⬜ | Run gap_finder.py on ALL Week 9 files. Fix all discovered gaps. |
+| Week 9 Error Fix Sprint | — | ⬜ | Fix all bugs from integration testing. Update ERROR_LOG.md. |
+
+**Files to Build:**
+```
+backend/app/core/cross_variant_router.py
+backend/app/core/anti_arbitrage.py
+backend/app/core/conversation_summarizer.py
+backend/app/api/cross_variant.py
+backend/app/tests/test_cross_variant.py
+backend/app/tests/test_anti_arbitrage.py
+backend/app/tests/test_conversation_summarizer.py
+backend/app/tests/test_week9_integration.py
+```
+
+---
+
+### Week 9 Summary
+
+| Category | Original Count | Added | New Total |
+|----------|---------------|-------|-----------|
+| EXISTING features | 7 | 0 | 7 |
+| SG gap items | 10 | 0 | 10 |
+| NEW items from gap analysis | 0 | 14 | 14 |
+| Prerequisite fixes | 0 | 6 | 6 |
+| **Total Week 9 tasks** | **~25** | **+20** | **~45** |
+
+### Week 9 New Items Added (from comprehensive doc/gap review)
+
+| # | Item | Source | Day |
+|---|------|--------|-----|
+| N1 | CLARA Quality Gate Pipeline (5-stage) | AI Technique Framework | Day 6 |
+| N2 | Intent × Technique Mapping Table | Feature Spec Batch 6 | Day 6 |
+| N3 | Sentiment × Technique Trigger Mapping | Feature Spec Batch 9 | Day 7 |
+| N4 | `shared/knowledge_base/` Module | INFRA GAPS TRACKER | Day 7 |
+| N5 | RAG Re-Indexing Triggers | Build Roadmap feedback loops | Day 7 |
+| N6 | RAG Complexity Per Variant (3 tiers) | Phase 3 Variant Mapping Table | Day 7-8 |
+| N7 | Brand Voice Config Per Company | Build Roadmap v1 | Day 8 |
+| N8 | Response Template Storage | Build Roadmap v1 | Day 8 |
+| N9 | Per-Conversation Token Budget | Context Bible | Day 8 |
+| N10 | ReAct Tool Integrations (4 tools) | AI Technique Framework | Day 8 |
+| N11 | Rule→AI Migration (F-049/F-050) | WEEK4_ROADMAP | Day 8 |
+| N12 | Multi-Instance Anti-Arbitrage | Build Roadmap F-006 | Day 10 |
+| N13 | Conversation Summarization Modes | Context Bible | Day 10 |
+| N14 | SG-34 Data Freshness (moved early) | Phase 3 Roadmap | Day 9 |
+
+### Week 9 Prerequisite Fixes (Day 0)
+
+| # | Fix | Severity | Source |
+|---|-----|----------|--------|
+| P1 | Verify KB embeddings in pgvector | 🔴 CRITICAL | INFRA GAPS TRACKER |
+| P2 | Build EmbeddingService if stub | 🔴 CRITICAL | Week 6 gap list |
+| P3 | Fix 3 CRITICAL tenant isolation leaks | 🔴 CRITICAL | gap_analysis_agent1/2 JSON |
+| P4 | Fix 8 HIGH model/service gaps | 🟡 HIGH | gap_analysis_agent1/2 JSON |
+| P5 | Verify package compatibility | 🟡 HIGH | INFRA GAPS TRACKER DEP-04 |
+| P6 | Standardize company_id usage | 🟡 HIGH | INFRA GAPS TRACKER DC2 |
+
+### Week 9 Files to Create (~45 files)
+
+| Category | Files |
+|----------|-------|
+| Core AI engines | `signal_extraction.py`, `classification_engine.py`, `sentiment_engine.py`, `rag_retrieval.py`, `rag_reranking.py`, `response_generator.py`, `clara_quality_gate.py`, `draft_composer.py`, `edge_case_handlers.py`, `conversation_summarizer.py` |
+| Services | `intent_technique_mapper.py`, `sentiment_technique_mapper.py`, `brand_voice_service.py`, `response_template_service.py`, `token_budget_service.py`, `training_data_isolation.py`, `data_freshness_service.py` |
+| Shared modules | `shared/knowledge_base/__init__.py`, `shared/knowledge_base/vector_search.py`, `shared/knowledge_base/reindexing.py` |
+| ReAct tools | `react_tools/order_tool.py`, `react_tools/billing_tool.py`, `react_tools/crm_tool.py`, `react_tools/ticket_tool.py` |
+| Cross-variant | `cross_variant_router.py`, `anti_arbitrage.py` |
+| API endpoints | `api/classification.py`, `api/signals.py`, `api/rag.py`, `api/response.py`, `api/cross_variant.py` |
+| Tests | 15+ test files |
+| Migrations | 1 migration for new tables (brand_voice_configs, response_templates, technique_mappings, conversation_summaries) |
+
+---
+
 ## 📁 KEY DOCUMENTS
 
 | Document | Purpose |
