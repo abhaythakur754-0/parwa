@@ -19,6 +19,8 @@ from __future__ import annotations
 import copy
 import re
 import uuid
+
+from backend.app.exceptions import ParwaBaseError
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -824,7 +826,7 @@ class PromptTemplateService:
                 ),
             )
 
-        except (ParwaBaseError if "ParwaBaseError" in dir() else Exception):
+        except ParwaBaseError:
             raise
         except Exception as exc:
             logger.error(
