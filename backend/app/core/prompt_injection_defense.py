@@ -210,8 +210,10 @@ _DATA_EXTRACTION_RULES: List[Dict[str, Any]] = [
     {
         "pattern": re.compile(
             r"\b(repeat|show|print|output|reveal|display|dump|echo)\s+"
-            r"(your|the|all|full|entire|complete|exact)\s+"
-            r"(system\s+)?(instructions?|prompt|rules?|directives?|guidelines?)\b",
+            r"(?:(?:me|us|them|it)\s+)?"
+            r"(?:your|the|all)\s+"
+            r"(?:(?:full|entire|complete|exact)\s+)?"
+            r"(?:system\s+)?(instructions?|prompt|rules?|directives?|guidelines?)\b",
             re.IGNORECASE,
         ),
         "rule_id": "EXT-001",
@@ -285,7 +287,9 @@ _PRIVILEGE_ESCALATION_RULES: List[Dict[str, Any]] = [
     },
     {
         "pattern": re.compile(
-            r"\b(unlock|bypass|override|disable)\s+(safety|security|guardrails?|"
+            r"\b(unlock|bypass|override|disable)\s+"
+            r"(?:(?:all|the|these|those|your)\s+)?"
+            r"(safety|security|guardrails?|"
             r"restrictions?|filters?|protections?)\b",
             re.IGNORECASE,
         ),

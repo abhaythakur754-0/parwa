@@ -66,7 +66,7 @@ _RE_SELF_HARM = re.compile(
 )
 
 _RE_CHILD_EXPLOITATION = re.compile(
-    r"\b(child pornography|underage exploitation|minor abuse|"
+    r"\b(child pornography|child exploitation|underage exploitation|minor abuse|"
     r"pedophil|child grooming|child sex|sex with minor)\b",
     re.IGNORECASE,
 )
@@ -146,7 +146,8 @@ _RE_SLA_PROMISES = re.compile(
 _RE_REFUND_PROMISES = re.compile(
     r"\b(full refund guaranteed|money.?back guarantee|we will refund|"
     r"no questions asked refund|guaranteed refund|refund.*any time|"
-    r"return.*full amount|100% money back|guaranteed money back)\b",
+    r"return.*full amount|100% money back|guaranteed money back|"
+    r"guarantee.*refund)\b",
     re.IGNORECASE,
 )
 
