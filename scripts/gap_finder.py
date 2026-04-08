@@ -69,7 +69,7 @@ async def find_gaps(feature_description: str) -> str:
     try:
         # Create a temporary Node.js script to call the SDK
         node_script = f'''
-import ZAI from 'z-ai-web-dev-sdk';
+const ZAI = require('z-ai-web-dev-sdk').default || require('z-ai-web-dev-sdk');
 
 async function main() {{
     const zai = await ZAI.create();
@@ -89,15 +89,17 @@ main().catch(e => {{ console.error('Error:', e.message); process.exit(1); }});
 '''
         
         # Write to temp file and execute
-        with NamedTemporaryFile(mode='w', suffix='.mjs', delete=False, dir='/home/z/my-project/parwa') as f:
+        with NamedTemporaryFile(mode='w', suffix='.cjs', delete=False, dir='/home/z/my-project/parwa') as f:
             f.write(node_script)
             temp_path = f.name
         
+        node_env = {**__import__('os').environ, 'NODE_PATH': '/home/z/.bun/install/global/node_modules'}
         result = subprocess.run(
             ['node', temp_path],
             capture_output=True,
             text=True,
             cwd='/home/z/my-project/parwa',
+            env=node_env,
             timeout=120
         )
         
@@ -191,8 +193,8 @@ def print_gaps(result: dict):
         print(f"└──────────────────────────────────────────────")
 
 
-# Pre-defined prompts for Week 5 Payment features
-W5_PROMPTS = {
+# Pre-defined prompts for Week 5 Payment features and Week 8 AI Engine
+W_PROMPTS = {
     "w5d1": """Week 5 Day 1: Paddle Client + Database Tables
 
 I'm building the Paddle billing client and database tables for PARWA:
@@ -257,20 +259,69 @@ I'm building end-to-end tests for the complete payment flow:
 - Subscription cancellation → service termination
 
 What testing gaps exist? Focus on: full user journeys, timing edge cases, state consistency across services, recovery from failures.""",
+
+    "w8d1": """Week 8 Day 1: AI Routing Engine - Variant Engine + 3-Tier Routing + Provider Clients
+
+Building AI routing with variant-specific config, 3-tier routing (LIGHT/MEDIUM/HEAVY), provider failover, and free provider clients (Google AI Studio, Cerebras, Groq).
+What testing gaps exist? Focus on: routing logic, failover, concurrent routing, variant isolation.""",
+
+    "w8d2": """Week 8 Day 2: AI Response Generation + Prompt Template System
+
+Building AI response generation with prompt template rendering (Jinja2), A/B testing variants, template versioning, and response caching.
+What testing gaps exist? Focus on: template rendering, caching, version conflicts, injection prevention.""",
+
+    "w8d3": """Week 8 Day 3: Confidence Scoring + Guardrails Pipeline
+
+Building multi-dimensional confidence scoring (relevance, completeness, accuracy, sentiment) and a 5-layer guardrails pipeline (PII detection, content policy, hallucination detection, prompt injection, confidence-based blocking).
+What testing gaps exist? Focus on: scoring edge cases, guardrail bypass, false positives/negatives, pipeline failures.""",
+
+    "w8d4": """Week 8 Day 4: Response Cache + Cost Tracker + Performance Optimizations
+
+Building Redis-backed response cache with TTL, cost tracking per provider/model/variant, token counting, budget limits, and performance optimizations for the AI pipeline.
+What testing gaps exist? Focus on: cache invalidation, cost calculation, concurrent access, memory management.""",
+
+    "w8d5": """Week 8 Day 5: AI Monitoring Service (SG-19) + Self-Healing Engine (SG-20)
+
+Building real-time AI monitoring and self-healing system:
+
+SG-19 AI Monitoring Service:
+- Tracks latency, confidence scores, guardrails hits, token usage, error rates per provider/model/variant
+- Rolling-window analytics (1h, 6h, 24h, 7d) with time-based filtering
+- Alert condition detection (error rate > 10/25%, confidence drop < 60%, P90 latency > 5000ms, provider unhealthy > 50%)
+- Dashboard snapshot API aggregating all metrics
+- Thread-safe in-memory storage with max 50 data points per company
+- BC-001: company_id always first parameter on public methods
+- BC-008: Never crash - every method wrapped in try/except
+- Data classes: MetricPoint, LatencyStats, ConfidenceDistribution, GuardrailStats, ProviderComparison, AlertCondition, DashboardSnapshot
+
+SG-20 Self-Healing Engine:
+- Per-variant healing rules (mini_parwa, parwa, parwa_high)
+- Auto-disable providers on consecutive errors (configurable threshold, default 5)
+- Staged recovery: disabled -> recovering_10% -> recovering_25% -> recovering_50% -> active
+- Confidence threshold auto-adjustment on consecutive low confidence scores (default 3 consecutive below 50%)
+- Error rate spike detection with cooldown periods (300s default)
+- Latency spike detection with cooldown periods (300s default)
+- RLock for reentrant locking (recovery triggered inside locked context)
+- deepcopy for rule isolation between variants
+- HealingRule dataclass with provider, state, consecutive_errors, error_threshold, etc.
+
+Existing test counts: 106 tests for monitoring, 91 tests for self-healing (197 total)
+
+What testing gaps exist? Focus on: race conditions, state machine edge cases, cooldown bypass, tenant isolation, concurrent healing actions, recovery rollbacks, alert false positives, metric pruning edge cases.""",
 }
 
 
 def main():
     parser = argparse.ArgumentParser(description="PARWA Gap Finder - Find testing gaps in features")
-    parser.add_argument("feature", nargs="?", help="Feature description or W5 day code (w5d1-w5d6)")
+    parser.add_argument("feature", nargs="?", help="Feature description or day code (w5d1-w5d6, w8d5)")
     parser.add_argument("--output", "-o", choices=["json", "text"], default="text", help="Output format")
     parser.add_argument("--list", "-l", action="store_true", help="List available W5 prompts")
     parser.add_argument("--raw", "-r", action="store_true", help="Show raw AI response")
     args = parser.parse_args()
     
     if args.list:
-        print("\nAvailable Week 5 prompts:")
-        for code, desc in W5_PROMPTS.items():
+        print("\nAvailable prompts:")
+        for code, desc in W_PROMPTS.items():
             print(f"  {code}: {desc.split(chr(10))[0].strip()}")
         print("\nUsage: python scripts/gap_finder.py w5d1")
         return
@@ -278,13 +329,14 @@ def main():
     if not args.feature:
         print("Usage: python scripts/gap_finder.py \"<feature description>\"")
         print("       python scripts/gap_finder.py w5d1  # for pre-defined Week 5 prompts")
-        print("       python scripts/gap_finder.py --list  # show all W5 prompts")
+        print("       python scripts/gap_finder.py w8d5  # for Week 8 AI Engine")
+        print("       python scripts/gap_finder.py --list  # show all prompts")
         sys.exit(1)
     
-    # Check if it's a W5 prompt code
-    feature = W5_PROMPTS.get(args.feature.lower(), args.feature)
+    # Check if it's a pre-defined prompt code
+    feature = W_PROMPTS.get(args.feature.lower(), args.feature)
     
-    print(f"\n🔍 Analyzing: {args.feature if args.feature in W5_PROMPTS else feature[:60]}...")
+    print(f"\n🔍 Analyzing: {args.feature if args.feature in W_PROMPTS else feature[:60]}...")
     print("⏳ Calling AI (this may take 10-30 seconds)...\n")
     
     # Run the gap finder

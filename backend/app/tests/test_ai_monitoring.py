@@ -881,3 +881,202 @@ class TestDataClassStructure:
     def test_dashboard_snapshot(self):
         ds = DashboardSnapshot(snapshot_at=_now_utc())
         assert ds.total_requests == 0
+
+
+# ════════════════════════════════════════════════════════════════
+# 16. GAP TESTS — Alert Threshold Boundaries
+# ════════════════════════════════════════════════════════════════
+
+
+class TestAlertBoundaryConditions:
+    """Gap 5: Test exactly at threshold boundaries (strict > / < checks)."""
+
+    def test_error_rate_exactly_10_percent_no_warning(self, monitor):
+        """Error rate exactly 10% should NOT trigger warning (uses > not >=)."""
+        for i in range(9):
+            monitor.record_query("bnd_co1", "parwa", "q", "r", latency_ms=100)
+        monitor.record_query(
+            "bnd_co1", "parwa", "q", "r", latency_ms=100, error="fail",
+        )
+        alerts = monitor.get_alert_conditions("bnd_co1")
+        error_alerts = [a for a in alerts if "error_rate" in a.condition_id]
+        assert len(error_alerts) == 0
+
+    def test_error_rate_above_10_percent_triggers_warning(self, monitor):
+        """Error rate > 10% should trigger warning."""
+        for i in range(9):
+            monitor.record_query("bnd_co2", "parwa", "q", "r", latency_ms=100)
+        monitor.record_query(
+            "bnd_co2", "parwa", "q", "r", latency_ms=100, error="fail",
+        )
+        monitor.record_query(
+            "bnd_co2", "parwa", "q", "r", latency_ms=100, error="fail",
+        )
+        alerts = monitor.get_alert_conditions("bnd_co2")
+        warning = [
+            a for a in alerts if a.condition_id == "error_rate_warning"
+        ]
+        assert len(warning) == 1
+
+    def test_error_rate_exactly_25_percent_no_critical(self, monitor):
+        """Error rate exactly 25% should NOT trigger critical."""
+        for i in range(3):
+            monitor.record_query(
+                "bnd_co3", "parwa", "q", "r", latency_ms=100, error="fail",
+            )
+        for i in range(9):
+            monitor.record_query("bnd_co3", "parwa", "q", "r", latency_ms=100)
+        alerts = monitor.get_alert_conditions("bnd_co3")
+        critical = [
+            a for a in alerts if a.condition_id == "error_rate_critical"
+        ]
+        assert len(critical) == 0
+
+    def test_confidence_avg_exactly_60_no_alert(self, monitor):
+        """Average confidence exactly 60.0 should NOT trigger warning (< 60)."""
+        monitor.record_query(
+            "bnd_co4", "parwa", "q", "r",
+            confidence_result={"overall_score": 60.0, "passed": True},
+        )
+        alerts = monitor.get_alert_conditions("bnd_co4")
+        conf_alerts = [a for a in alerts if "confidence" in a.condition_id]
+        assert len(conf_alerts) == 0
+
+    def test_confidence_avg_below_60_triggers_alert(self, monitor):
+        """Average confidence < 60 should trigger warning."""
+        for _ in range(5):
+            monitor.record_query(
+                "bnd_co5", "parwa", "q", "r",
+                confidence_result={"overall_score": 50.0, "passed": False},
+            )
+        alerts = monitor.get_alert_conditions("bnd_co5")
+        conf_alerts = [
+            a for a in alerts if "confidence" in a.condition_id
+        ]
+        assert len(conf_alerts) > 0
+
+    def test_p90_latency_exactly_5000_no_alert(self, monitor):
+        """P90 latency exactly 5000ms should NOT trigger warning (> 5000)."""
+        for _ in range(10):
+            monitor.record_query(
+                "bnd_co6", "parwa", "q", "r", latency_ms=5000.0,
+            )
+        alerts = monitor.get_alert_conditions("bnd_co6")
+        lat_alerts = [a for a in alerts if "latency" in a.condition_id]
+        assert len(lat_alerts) == 0
+
+
+# ════════════════════════════════════════════════════════════════
+# 17. GAP TESTS — Bucket Boundary + Helper Edge Cases
+# ════════════════════════════════════════════════════════════════
+
+
+class TestBucketBoundariesAndHelperEdgeCases:
+    """Gap 17 & 20: Bucket edge cases, invalid window, large strings."""
+
+    def test_confidence_bucket_score_0(self):
+        assert _confidence_bucket(0.0) == "0-20"
+
+    def test_confidence_bucket_score_100(self):
+        assert _confidence_bucket(100.0) == "80-100"
+
+    def test_confidence_bucket_score_40(self):
+        assert _confidence_bucket(40.0) == "40-60"
+
+    def test_confidence_bucket_score_60(self):
+        assert _confidence_bucket(60.0) == "60-80"
+
+    def test_confidence_bucket_score_80(self):
+        assert _confidence_bucket(80.0) == "80-100"
+
+    def test_confidence_bucket_negative_score(self):
+        assert _confidence_bucket(-5.0) == "0-20"
+
+    def test_estimate_tokens_very_long_string(self):
+        result = _estimate_tokens("x" * 1_000_000)
+        assert result == 250_000
+
+    def test_window_cutoff_invalid_string(self):
+        import time
+        cutoff = _window_cutoff("invalid_string")
+        expected = time.time() - 86400  # defaults to 24h
+        assert abs(cutoff - expected) < 2
+
+    def test_window_cutoff_empty_string(self):
+        import time
+        cutoff = _window_cutoff("")
+        expected = time.time() - 86400
+        assert abs(cutoff - expected) < 2
+
+
+# ════════════════════════════════════════════════════════════════
+# 18. GAP TESTS — Pruning Boundary
+# ════════════════════════════════════════════════════════════════
+
+
+class TestPruningBoundary:
+    """Gap 11: Exact boundary at _MAX_DATA_POINTS."""
+
+    def test_exactly_at_max_no_prune(self, monitor):
+        from backend.app.core.ai_monitoring_service import _MAX_DATA_POINTS
+        for i in range(_MAX_DATA_POINTS):
+            monitor.record_query(
+                "prune_bnd", "parwa", f"Q{i}", f"R{i}",
+            )
+        assert monitor.get_record_count("prune_bnd") == _MAX_DATA_POINTS
+
+    def test_at_max_plus_one_prunes(self, monitor):
+        from backend.app.core.ai_monitoring_service import _MAX_DATA_POINTS
+        for i in range(_MAX_DATA_POINTS + 1):
+            monitor.record_query(
+                "prune_bnd2", "parwa", f"Q{i}", f"R{i}",
+            )
+        assert monitor.get_record_count("prune_bnd2") == _MAX_DATA_POINTS
+
+
+# ════════════════════════════════════════════════════════════════
+# 19. GAP TESTS — Real Concurrency
+# ════════════════════════════════════════════════════════════════
+
+
+class TestMonitoringConcurrency:
+    """Gap 4: Real multithreading tests for monitoring service."""
+
+    def test_record_and_read_concurrently(self, monitor):
+        """Multiple threads recording and reading should not crash."""
+        import threading
+
+        errors = []
+
+        def writer(tid):
+            try:
+                for j in range(25):
+                    monitor.record_query(
+                        "conc_co", "parwa",
+                        f"q-{tid}-{j}", f"r-{tid}-{j}",
+                        latency_ms=100.0 + tid,
+                    )
+            except Exception as e:
+                errors.append(e)
+
+        def reader():
+            try:
+                for _ in range(25):
+                    monitor.get_latency_stats("conc_co")
+                    monitor.get_confidence_distribution("conc_co")
+                    monitor.get_alert_conditions("conc_co")
+            except Exception as e:
+                errors.append(e)
+
+        threads = []
+        for i in range(4):
+            threads.append(threading.Thread(target=writer, args=(i,)))
+        threads.append(threading.Thread(target=reader))
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
+
+        assert len(errors) == 0, f"Concurrent errors: {errors}"
+        # Records may be less than 100 due to pruning (_MAX_DATA_POINTS=50)
+        assert monitor.get_record_count("conc_co") > 0

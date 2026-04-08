@@ -808,40 +808,41 @@ class SelfHealingEngine:
 
         drop_by = rule.params.get("drop_by", 5.0)
 
-        if state.consecutive_low_scores >= _LOW_SCORE_CONSECUTIVE:
-            new_thresh = current_thresh - drop_by
-            if new_thresh < floor:
-                new_thresh = floor
-            if new_thresh >= current_thresh:
-                return None  # Already at or below adjustment
+        with self._lock:
+            if state.consecutive_low_scores >= _LOW_SCORE_CONSECUTIVE:
+                new_thresh = current_thresh - drop_by
+                if new_thresh < floor:
+                    new_thresh = floor
+                if new_thresh >= current_thresh:
+                    return None  # Already at or below adjustment
 
-            state.threshold_adjustments[adj_key] = ThresholdAdjustment(
-                original_threshold=default_thresh,
-                current_threshold=new_thresh,
-                adjusted_at=_now_utc(),
-                reason=(
-                    f"Consecutive low scores: "
-                    f"{state.consecutive_low_scores}"
-                ),
-                low_score_count=state.consecutive_low_scores,
-            )
-            return (
-                new_thresh,
-                f"Lowered from {current_thresh} to {new_thresh} "
-                f"(floor: {floor})",
-            )
+                state.threshold_adjustments[adj_key] = ThresholdAdjustment(
+                    original_threshold=default_thresh,
+                    current_threshold=new_thresh,
+                    adjusted_at=_now_utc(),
+                    reason=(
+                        f"Consecutive low scores: "
+                        f"{state.consecutive_low_scores}"
+                    ),
+                    low_score_count=state.consecutive_low_scores,
+                )
+                return (
+                    new_thresh,
+                    f"Lowered from {current_thresh} to {new_thresh} "
+                    f"(floor: {floor})",
+                )
 
-        # Check for recovery
-        if (
-            state.consecutive_high_scores >= _RECOVERY_HIGH_SCORE_CONSECUTIVE
-            and adj_key in state.threshold_adjustments
-        ):
-            state.threshold_adjustments.pop(adj_key)
-            return (
-                default_thresh,
-                f"Restored to {default_thresh} after "
-                f"{state.consecutive_high_scores} consecutive high scores",
-            )
+            # Check for recovery
+            if (
+                state.consecutive_high_scores >= _RECOVERY_HIGH_SCORE_CONSECUTIVE
+                and adj_key in state.threshold_adjustments
+            ):
+                state.threshold_adjustments.pop(adj_key)
+                return (
+                    default_thresh,
+                    f"Restored to {default_thresh} after "
+                    f"{state.consecutive_high_scores} consecutive high scores",
+                )
 
         return None
 
@@ -857,11 +858,12 @@ class SelfHealingEngine:
         rule_id: str,
     ) -> HealingAction:
         """Create a disable-provider healing action."""
-        ps.status = "disabled"
-        ps.disabled_at = _now_utc()
-        ps.disabled_reason = reason
-        ps.traffic_percentage = 0
-        ps.recovery_stage = 0
+        with self._lock:
+            ps.status = "disabled"
+            ps.disabled_at = _now_utc()
+            ps.disabled_reason = reason
+            ps.traffic_percentage = 0
+            ps.recovery_stage = 0
 
         return HealingAction(
             timestamp=_now_utc(),
@@ -902,60 +904,61 @@ class SelfHealingEngine:
                 < _RECOVERY_COOLDOWN_SECONDS):
             return None
 
-        ps.status = "recovering"
-        ps.recovery_stage += 1
-        ps.last_recovery_attempt = _now_utc()
+        with self._lock:
+            ps.status = "recovering"
+            ps.recovery_stage += 1
+            ps.last_recovery_attempt = _now_utc()
 
-        if ps.recovery_stage >= len(_RECOVERY_STAGES):
-            # Full recovery
-            ps.status = "healthy"
-            ps.traffic_percentage = 100
-            ps.recovery_stage = 0
-            ps.disabled_at = None
-            ps.disabled_reason = ""
+            if ps.recovery_stage >= len(_RECOVERY_STAGES):
+                # Full recovery
+                ps.status = "healthy"
+                ps.traffic_percentage = 100
+                ps.recovery_stage = 0
+                ps.disabled_at = None
+                ps.disabled_reason = ""
+
+                action = HealingAction(
+                    timestamp=_now_utc(),
+                    company_id=company_id,
+                    variant=variant_type,
+                    condition_type="recovery",
+                    action_type=ActionType.PROVIDER_ENABLE.value,
+                    details={
+                        "provider": ps.provider,
+                        "model_id": ps.model_id,
+                        "traffic_percentage": 100,
+                        "message": "Full recovery achieved",
+                    },
+                    status=HealingStatus.COMPLETED.value,
+                    rule_id="recovery",
+                )
+                self._record_action(company_id, action)
+                return action
+
+            traffic = _RECOVERY_STAGES[ps.recovery_stage - 1]
+            ps.traffic_percentage = traffic
 
             action = HealingAction(
                 timestamp=_now_utc(),
                 company_id=company_id,
                 variant=variant_type,
                 condition_type="recovery",
-                action_type=ActionType.PROVIDER_ENABLE.value,
+                action_type=ActionType.TRAFFIC_RAMP_UP.value,
                 details={
                     "provider": ps.provider,
                     "model_id": ps.model_id,
-                    "traffic_percentage": 100,
-                    "message": "Full recovery achieved",
+                    "recovery_stage": ps.recovery_stage,
+                    "traffic_percentage": traffic,
+                    "message": (
+                        f"Ramping up traffic to {traffic}% "
+                        f"(stage {ps.recovery_stage}/{len(_RECOVERY_STAGES)})"
+                    ),
                 },
-                status=HealingStatus.COMPLETED.value,
+                status=HealingStatus.IN_PROGRESS.value,
                 rule_id="recovery",
             )
             self._record_action(company_id, action)
             return action
-
-        traffic = _RECOVERY_STAGES[ps.recovery_stage - 1]
-        ps.traffic_percentage = traffic
-
-        action = HealingAction(
-            timestamp=_now_utc(),
-            company_id=company_id,
-            variant=variant_type,
-            condition_type="recovery",
-            action_type=ActionType.TRAFFIC_RAMP_UP.value,
-            details={
-                "provider": ps.provider,
-                "model_id": ps.model_id,
-                "recovery_stage": ps.recovery_stage,
-                "traffic_percentage": traffic,
-                "message": (
-                    f"Ramping up traffic to {traffic}% "
-                    f"(stage {ps.recovery_stage}/{len(_RECOVERY_STAGES)})"
-                ),
-            },
-            status=HealingStatus.IN_PROGRESS.value,
-            rule_id="recovery",
-        )
-        self._record_action(company_id, action)
-        return action
 
     # ── Internal State Management ──────────────────────────────
 
@@ -973,10 +976,11 @@ class SelfHealingEngine:
         self, company_id: str, action: HealingAction,
     ) -> None:
         """Record a healing action in the audit trail."""
-        history = self._history[company_id]
-        history.append(action)
-        if len(history) > _MAX_HEALING_HISTORY:
-            self._history[company_id] = history[-_MAX_HEALING_HISTORY:]
+        with self._lock:
+            history = self._history[company_id]
+            history.append(action)
+            if len(history) > _MAX_HEALING_HISTORY:
+                self._history[company_id] = history[-_MAX_HEALING_HISTORY:]
 
     def _get_last_action_for_rule(
         self, company_id: str, rule_id: str,
