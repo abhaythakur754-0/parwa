@@ -169,6 +169,25 @@ def _build_config() -> dict:
                 "schedule": 3600.0,
                 "kwargs": {},
             },
+            # Week 8: AI Engine beat schedule entries
+            "ai-rebalance-workload-60s": {
+                "task": ("backend.app.tasks.ai_engine_tasks"
+                          ".rebalance_workload"),
+                "schedule": 60.0,
+                "kwargs": {},
+            },
+            "ai-reset-daily-budgets-midnight": {
+                "task": ("backend.app.tasks.ai_engine_tasks"
+                          ".reset_daily_budgets"),
+                "schedule": {"hour": 0, "minute": 0},
+                "kwargs": {},
+            },
+            "ai-cleanup-injection-logs-daily": {
+                "task": ("backend.app.tasks.ai_engine_tasks"
+                          ".cleanup_stale_injection_logs"),
+                "schedule": {"hour": 4, "minute": 0},
+                "kwargs": {"days": 90},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,
@@ -185,6 +204,8 @@ def _build_config() -> dict:
             "backend.app.tasks.training_tasks",
             "backend.app.tasks.approval_tasks",
             "backend.app.tasks.billing_tasks",
+            # Week 8: AI Engine task module
+            "backend.app.tasks.ai_engine_tasks",
         ],
     }
 

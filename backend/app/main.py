@@ -43,6 +43,9 @@ from backend.app.middleware.api_key_auth import APIKeyAuthMiddleware
 from backend.app.middleware.ip_allowlist import (
     IPAllowlistMiddleware,
 )
+from backend.app.middleware.ai_entitlement import (
+    AIEntitlementMiddleware,
+)
 from backend.app.api.auth import router as auth_router
 from backend.app.api.mfa import router as mfa_router
 from backend.app.api.api_keys import router as api_keys_router
@@ -53,6 +56,8 @@ from backend.app.api.health import router as health_router
 from backend.app.api.user_details import router as user_details_router
 from backend.app.api.public import router as public_router
 from backend.app.api.pricing import router as pricing_router
+from backend.app.api.ai_engine import router as ai_engine_router
+from backend.app.api.ai_agent import router as ai_agent_router
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
@@ -180,7 +185,10 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Set IP_ALLOWLIST_ENABLED=true to activate
 app.add_middleware(IPAllowlistMiddleware)
 
-# 8. CORS middleware (frontend cross-origin access)
+# 8. AI Entitlement — Week 8: feature gating for /api/ai/ paths
+app.add_middleware(AIEntitlementMiddleware)
+
+# 9. CORS middleware (frontend cross-origin access)
 try:
     _settings = get_settings()
     _cors_origins = (
@@ -212,6 +220,8 @@ app.include_router(webhook_router)
 app.include_router(user_details_router)
 app.include_router(public_router)  # Public API for landing page (no auth required)
 app.include_router(pricing_router)  # Pricing API (no auth required)
+app.include_router(ai_engine_router)  # Week 8: AI Engine endpoints
+app.include_router(ai_agent_router)  # SG-21/SG-22: AI agent assignments
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
