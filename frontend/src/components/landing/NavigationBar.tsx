@@ -6,12 +6,7 @@ import Link from 'next/link';
 /**
  * NavigationBar Component
  * 
- * Dark transparent navigation bar with:
- * - PARWA logo (SVG icon, NO emoji)
- * - Navigation links: Home, Models, ROI, Jarvis Chatbot
- * - Login button
- * - Smooth mobile menu animation
- * - Scroll-aware background
+ * Light premium navigation bar with green accents.
  */
 
 interface NavigationBarProps {
@@ -22,71 +17,63 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // Handle scroll for background change
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
-
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close mobile menu on escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isMobileMenuOpen) {
-        setIsMobileMenuOpen(false);
-      }
+      if (e.key === 'Escape' && isMobileMenuOpen) setIsMobileMenuOpen(false);
     };
-
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isMobileMenuOpen]);
 
-  // Prevent body scroll when mobile menu is open
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
+    return () => { document.body.style.overflow = ''; };
   }, [isMobileMenuOpen]);
 
   const navLinks = [
     { name: 'Home', href: '/' },
     { name: 'Models', href: '/models' },
-    { name: 'ROI', href: '/roi' },
+    { name: 'Pricing', href: '/pricing' },
     { name: 'Jarvis Chatbot', href: '#', onClick: onOpenJarvis },
   ];
 
   return (
     <nav 
-      className={`sticky top-0 z-50 transition-all duration-300 ${
+      className={`sticky top-0 z-50 transition-all duration-500 ${
         isScrolled 
-          ? 'bg-navy-900/95 backdrop-blur-xl shadow-lg border-b border-white/10' 
-          : 'bg-navy-900/80 backdrop-blur-xl border-b border-white/10'
+          ? 'bg-white/95 backdrop-blur-2xl shadow-lg shadow-gray-900/5 border-b border-gray-200' 
+          : 'bg-white/70 backdrop-blur-xl border-b border-transparent'
       }`}
       role="navigation"
       aria-label="Main navigation"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-14 sm:h-16">
+        <div className="flex justify-between items-center h-16 sm:h-18">
           {/* Logo */}
           <Link 
             href="/" 
-            className="flex items-center gap-2 sm:gap-3 group focus-visible-ring rounded-lg"
+            className="flex items-center gap-2.5 sm:gap-3 group focus-visible-ring rounded-xl px-2 py-1.5 -ml-2"
             aria-label="PARWA home"
           >
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20 group-hover:shadow-teal-500/40 transition-shadow">
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-600/25 group-hover:shadow-emerald-600/40 transition-all duration-500 group-hover:scale-105">
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-400/20 to-transparent opacity-0 group-hover:opacity:100 transition-opacity duration-500" />
+              <svg className="w-5 h-5 sm:w-5 sm:h-5 text-white relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
               </svg>
             </div>
-            <span className="text-lg sm:text-xl font-bold text-white group-hover:text-teal-400 transition-colors">
+            <span className="text-lg sm:text-xl font-bold text-gray-900 group-hover:text-emerald-700 transition-colors duration-500 tracking-tight">
               PARWA
             </span>
           </Link>
@@ -98,7 +85,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <button
                   key={link.name}
                   onClick={link.onClick}
-                  className="px-3 lg:px-4 py-2 text-white/70 hover:text-white text-sm lg:text-base font-medium transition-colors rounded-lg hover:bg-white/5 focus-visible-ring"
+                  className="px-3.5 lg:px-4 py-2 text-gray-600 hover:text-gray-900 text-sm font-medium transition-all duration-300 rounded-xl hover:bg-gray-100 focus-visible-ring"
                 >
                   {link.name}
                 </button>
@@ -106,7 +93,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <Link
                   key={link.name}
                   href={link.href}
-                  className="px-3 lg:px-4 py-2 text-white/70 hover:text-white text-sm lg:text-base font-medium transition-colors rounded-lg hover:bg-white/5 focus-visible-ring"
+                  className="px-3.5 lg:px-4 py-2 text-gray-600 hover:text-gray-900 text-sm font-medium transition-all duration-300 rounded-xl hover:bg-gray-100 focus-visible-ring"
                 >
                   {link.name}
                 </Link>
@@ -114,44 +101,37 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
             ))}
           </div>
 
-          {/* Login Button - Desktop */}
+          {/* Login + Social Proof - Desktop */}
           <div className="hidden md:flex items-center gap-4">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-300/50">
+              <div className="flex -space-x-1.5">
+                <div className="w-5 h-5 rounded-full bg-emerald-300/50 border-2 border-white" />
+                <div className="w-5 h-5 rounded-full bg-emerald-400/50 border-2 border-white" />
+                <div className="w-5 h-5 rounded-full bg-emerald-200/50 border-2 border-white" />
+              </div>
+              <span className="text-xs text-gray-500 font-medium">2,400+ businesses trust us</span>
+            </div>
             <Link
               href="/login"
-              className="bg-teal-600 hover:bg-teal-500 text-white px-4 lg:px-5 py-2 lg:py-2.5 rounded-lg text-sm lg:text-base font-semibold transition-all duration-300 shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40 hover:-translate-y-0.5 focus-visible-ring"
+              className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-500 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 hover:-translate-y-0.5 focus-visible-ring badge-pulse"
             >
-              Login
+              🔥 Join 2,400+ businesses
             </Link>
           </div>
 
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors focus-visible-ring"
+            className="md:hidden p-2.5 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-300 focus-visible-ring"
             aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={isMobileMenuOpen}
             aria-controls="mobile-menu"
           >
-            <svg
-              className="w-6 h-6 transition-transform duration-300"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="w-5 h-5 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {isMobileMenuOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               )}
             </svg>
           </button>
@@ -160,25 +140,30 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
         {/* Mobile Menu */}
         <div
           id="mobile-menu"
-          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
-            isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          className={`md:hidden overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            isMobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
           }`}
           aria-hidden={!isMobileMenuOpen}
         >
-          <div className="py-4 border-t border-white/10">
+          <div className="py-5 border-t border-gray-200">
             <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 px-4 py-2 mb-2">
+                <div className="flex -space-x-1.5">
+                  <div className="w-5 h-5 rounded-full bg-emerald-300/50 border-2 border-white" />
+                  <div className="w-5 h-5 rounded-full bg-emerald-400/50 border-2 border-white" />
+                  <div className="w-5 h-5 rounded-full bg-emerald-200/50 border-2 border-white" />
+                </div>
+                <span className="text-xs text-gray-500 font-medium">2,400+ businesses trust us</span>
+              </div>
               {navLinks.map((link, index) => (
                 link.onClick ? (
                   <button
                     key={link.name}
-                    onClick={() => {
-                      link.onClick?.();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`text-left px-4 py-3 text-white/70 hover:text-white text-sm sm:text-base font-medium rounded-lg hover:bg-white/5 transition-all duration-300 focus-visible-ring ${
-                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0'
+                    onClick={() => { link.onClick?.(); setIsMobileMenuOpen(false); }}
+                    className={`text-left px-4 py-3.5 text-gray-600 hover:text-gray-900 text-sm font-medium rounded-xl hover:bg-gray-100 transition-all duration-500 focus-visible-ring ${
+                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                     }`}
-                    style={{ transitionDelay: isMobileMenuOpen ? `${index * 50}ms` : '0ms' }}
+                    style={{ transitionDelay: isMobileMenuOpen ? `${index * 60}ms` : '0ms' }}
                   >
                     {link.name}
                   </button>
@@ -186,10 +171,10 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                   <Link
                     key={link.name}
                     href={link.href}
-                    className={`px-4 py-3 text-white/70 hover:text-white text-sm sm:text-base font-medium rounded-lg hover:bg-white/5 transition-all duration-300 focus-visible-ring ${
-                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0'
+                    className={`px-4 py-3.5 text-gray-600 hover:text-gray-900 text-sm font-medium rounded-xl hover:bg-gray-100 transition-all duration-500 focus-visible-ring ${
+                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                     }`}
-                    style={{ transitionDelay: isMobileMenuOpen ? `${index * 50}ms` : '0ms' }}
+                    style={{ transitionDelay: isMobileMenuOpen ? `${index * 60}ms` : '0ms' }}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {link.name}
@@ -198,10 +183,10 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
               ))}
               <Link
                 href="/login"
-                className={`mt-4 bg-teal-600 hover:bg-teal-500 text-white px-5 py-3 rounded-lg text-sm sm:text-base font-semibold text-center transition-all duration-300 focus-visible-ring ${
-                  isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0'
+                className={`mt-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white px-5 py-3.5 rounded-xl text-sm font-semibold text-center transition-all duration-500 focus-visible-ring ${
+                  isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                 }`}
-                style={{ transitionDelay: isMobileMenuOpen ? '200ms' : '0ms' }}
+                style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Login
@@ -211,10 +196,9 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
         </div>
       </div>
 
-      {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 md:hidden z-[-1]"
+          className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm md:hidden z-[-1] transition-opacity duration-300"
           onClick={() => setIsMobileMenuOpen(false)}
           aria-hidden="true"
         />

@@ -49,45 +49,45 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-navy-900">
+    <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#ECFDF5] to-white">
       <div className="w-full max-w-md space-y-8">
         {/* Header */}
         <div className="text-center">
           {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-600/20">
               <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
               </svg>
             </div>
-            <span className="text-2xl font-bold text-white">PARWA</span>
+            <span className="text-2xl font-bold text-gray-900">PARWA</span>
           </Link>
 
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-gray-900">
             Forgot password?
           </h1>
-          <p className="mt-2 text-sm text-white/60">
+          <p className="mt-2 text-sm text-gray-500">
             No worries! Enter your email and we&apos;ll send you a reset link.
           </p>
         </div>
 
         {/* Main Card */}
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6 sm:p-8">
+        <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-6 sm:p-8">
           {success ? (
             <div className="text-center space-y-4">
-              <div className="w-16 h-16 mx-auto rounded-full bg-teal-500/20 flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-teal-400" />
+              <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-emerald-400" />
               </div>
-              <h2 className="text-xl font-semibold text-white">Check your email</h2>
-              <p className="text-white/60">
-                We sent a password reset link to <span className="text-teal-400">{email}</span>
+              <h2 className="text-xl font-semibold text-gray-900">Check your email</h2>
+              <p className="text-gray-500">
+                We sent a password reset link to <span className="text-emerald-400">{email}</span>
               </p>
-              <p className="text-sm text-white/40">
+              <p className="text-sm text-gray-400">
                 The link will expire in 15 minutes.
               </p>
               <button
                 onClick={() => setSuccess(false)}
-                className="text-sm text-teal-400 hover:text-teal-300 transition-colors"
+                className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
               >
                 Didn&apos;t receive it? Try again
               </button>
@@ -96,12 +96,12 @@ export default function ForgotPasswordPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Email Field */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-white/80 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email address
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-white/40" />
+                    <Mail className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
                     id="email"
@@ -111,7 +111,7 @@ export default function ForgotPasswordPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     placeholder="you@example.com"
                     disabled={isLoading}
                   />
@@ -120,8 +120,8 @@ export default function ForgotPasswordPage() {
 
               {/* Error Message */}
               {error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                  <p className="text-sm text-red-400">{error}</p>
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-600">{error}</p>
                 </div>
               )}
 
@@ -129,7 +129,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading || !email}
-                className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>
@@ -148,7 +148,7 @@ export default function ForgotPasswordPage() {
         <div className="text-center">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-teal-400 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-emerald-400 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to login

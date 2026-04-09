@@ -49,8 +49,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const user = JSON.parse(storedUser) as User;
         
         // Verify the session is still valid by fetching user profile
+        // Use a short timeout (5s) for init check to avoid blocking the UI
         try {
-          const currentUser = await authApi.getMe();
+          const currentUser = await Promise.race([
+            authApi.getMe(),
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+            ),
+          ]);
           setState({
             user: currentUser,
             isAuthenticated: true,
@@ -59,7 +65,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           });
           return;
         } catch {
-          // Session invalid, clear storage
+          // Session invalid or backend unreachable, clear storage
           clearAuthStorage();
         }
       }

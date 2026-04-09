@@ -105,7 +105,7 @@ export default function SignupPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
       </div>
     );
   }
@@ -122,18 +122,18 @@ export default function SignupPage() {
         <div className="text-center">
           {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-600/20">
               <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
               </svg>
             </div>
-            <span className="text-2xl font-bold text-white">PARWA</span>
+            <span className="text-2xl font-bold text-gray-900">PARWA</span>
           </Link>
           
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-gray-900">
             Create your account
           </h1>
-          <p className="mt-2 text-sm text-white/60">
+          <p className="mt-2 text-sm text-gray-500">
             Start your 14-day free trial. No credit card required.
           </p>
         </div>
@@ -159,13 +159,13 @@ export default function SignupPage() {
         </div>
 
         {/* Terms */}
-        <p className="text-center text-xs text-white/40">
+        <p className="text-center text-xs text-gray-400">
           By creating an account, you agree to our{' '}
-          <Link href="/terms" className="text-teal-400 hover:text-teal-300">
+          <Link href="/terms" className="text-emerald-400 hover:text-emerald-300">
             Terms of Service
           </Link>{' '}
           and{' '}
-          <Link href="/privacy" className="text-teal-400 hover:text-teal-300">
+          <Link href="/privacy" className="text-emerald-400 hover:text-emerald-300">
             Privacy Policy
           </Link>
         </p>

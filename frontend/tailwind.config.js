@@ -8,18 +8,19 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Brand Colors - PRIMARY
-        teal: {
-          50: '#f0fdfa',
-          100: '#ccfbf1',
-          200: '#99f6e4',
-          300: '#5eead4',
-          400: '#2dd4bf',
-          500: '#14b8a6',
-          600: '#0D9488', // Primary Teal
-          700: '#0f766e',
-          800: '#115e59',
-          900: '#134e4a',
+        // Brand Colors - PRIMARY (Parrot Green → Dark Green — PARWA)
+        parrot: {
+          50: '#ECFDF5',
+          100: '#D1FAE5',
+          200: '#A7F3D0',
+          300: '#6EE7B7',
+          400: '#34D399',
+          500: '#10B981',  // Main Parrot Green
+          600: '#059669',
+          700: '#047857',
+          800: '#065F46',  // Dark Green
+          900: '#064E3B',  // Deep Dark Green
+          950: '#022C22',  // Almost black-green
         },
         gold: {
           50: '#fffbeb',
@@ -33,18 +34,19 @@ module.exports = {
           800: '#92400e',
           900: '#78350f',
         },
-        // Brand Colors - BACKGROUNDS
+        // Brand Colors - DARK TEXT (Black & White — PARWA)
         navy: {
-          50: '#f0f4f8',
-          100: '#d9e2ec',
-          200: '#bcccdc',
-          300: '#9fb3c8',
-          400: '#829ab1',
-          500: '#627d98',
-          600: '#486581',
-          700: '#334e68',
-          800: '#1E3A5F', // Primary Navy
-          900: '#0a1929',
+          50: '#f8fafc',
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#64748b',
+          600: '#475569',
+          700: '#334155',
+          800: '#0A0A0A', // Near-black for headings
+          900: '#1A1A1A', // Deep charcoal
+          950: '#000000', // Pure black
         },
         charcoal: {
           50: '#f8fafc',
@@ -64,26 +66,26 @@ module.exports = {
           200: '#fed7aa',
           300: '#fdba74',
           400: '#fb923c',
-          500: '#f97316', // Primary Orange
+          500: '#f97316',
           600: '#ea580c',
           700: '#c2410c',
           800: '#9a3412',
           900: '#7c2d12',
         },
-        // UI Colors
+        // UI Colors - PARROT GREEN THEME (PARWA)
         background: {
-          DEFAULT: '#0a1929',
-          secondary: '#0d1f33',
-          tertiary: '#112240',
+          DEFAULT: '#ECFDF5',     // Main bg with parrot green tint
+          secondary: '#D1FAE5',   // Lighter parrot green
+          tertiary: '#A7F3D0',    // Medium parrot green bg
         },
         surface: {
-          DEFAULT: '#1a2744',
-          hover: '#243555',
-          active: '#2d4166',
+          DEFAULT: '#ffffff',     // Cards
+          hover: '#ECFDF5',       // Card hover (parrot tint)
+          active: '#D1FAE5',      // Card active
         },
         border: {
-          DEFAULT: 'rgba(255,255,255,0.1)',
-          hover: 'rgba(255,255,255,0.2)',
+          DEFAULT: 'rgba(16,185,129,0.12)',
+          hover: 'rgba(16,185,129,0.25)',
         },
         // Status Colors
         success: {
@@ -133,6 +135,11 @@ module.exports = {
         'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
         'float': 'float 6s ease-in-out infinite',
         'shimmer': 'shimmer 2s linear infinite',
+        'float-bubble': 'floatBubble 8s ease-in-out infinite',
+        'morph-shape': 'morphShape 6s ease-in-out infinite',
+        'pulse-dot': 'pulseDot 3s ease-in-out infinite',
+        'spin-slow': 'spin 12s linear infinite',
+        'glow-pulse': 'glowPulse 3s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -148,8 +155,8 @@ module.exports = {
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         pulseGlow: {
-          '0%, 100%': { boxShadow: '0 0 20px rgba(13, 148, 136, 0.3)' },
-          '50%': { boxShadow: '0 0 40px rgba(13, 148, 136, 0.6)' },
+          '0%, 100%': { boxShadow: '0 0 20px rgba(16, 185, 129, 0.2)' },
+          '50%': { boxShadow: '0 0 40px rgba(16, 185, 129, 0.4)' },
         },
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
@@ -159,11 +166,29 @@ module.exports = {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
+        floatBubble: {
+          '0%, 100%': { transform: 'translateY(0) scale(1)', opacity: '0.3' },
+          '50%': { transform: 'translateY(-30px) scale(1.1)', opacity: '0.6' },
+        },
+        morphShape: {
+          '0%, 100%': { borderRadius: '30% 70% 70% 30% / 30% 30% 70% 70%' },
+          '25%': { borderRadius: '58% 42% 75% 25% / 76% 46% 54% 24%' },
+          '50%': { borderRadius: '50% 50% 33% 67% / 55% 27% 73% 45%' },
+          '75%': { borderRadius: '33% 67% 58% 42% / 63% 68% 32% 37%' },
+        },
+        pulseDot: {
+          '0%, 100%': { transform: 'scale(1)', opacity: '0.4' },
+          '50%': { transform: 'scale(1.5)', opacity: '0.8' },
+        },
+        glowPulse: {
+          '0%, 100%': { opacity: '0.3', transform: 'scale(1)' },
+          '50%': { opacity: '0.7', transform: 'scale(1.05)' },
+        },
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'shimmer': 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
+        'shimmer': 'linear-gradient(90deg, transparent, rgba(16,185,129,0.08), transparent)',
       },
     },
   },

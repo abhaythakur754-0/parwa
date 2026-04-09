@@ -80,7 +80,7 @@ export function WorkEmailVerification({
   // Email is verified
   if (isVerified) {
     return (
-      <div className={cn('p-4 rounded-lg bg-green-50 border border-green-200', className)}>
+      <div className={cn('p-4 rounded-lg bg-emerald-50 border border-emerald-200', className)}>
         <div className="flex items-center gap-2">
           <CheckCircle className="w-5 h-5 text-success-500" />
           <div>

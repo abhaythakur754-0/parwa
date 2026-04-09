@@ -116,7 +116,7 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Mail className="h-5 w-5 text-white/40" />
+            <Mail className="h-5 w-5 text-gray-400" />
           </div>
           <input
             id="email"
@@ -144,14 +144,14 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
           </label>
           <Link
             href="/forgot-password"
-            className="text-sm text-teal-400 hover:text-teal-300 transition-colors"
+            className="text-sm text-emerald-600 hover:text-emerald-500 transition-colors"
           >
             Forgot password?
           </Link>
         </div>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Lock className="h-5 w-5 text-white/40" />
+            <Lock className="h-5 w-5 text-gray-400" />
           </div>
           <input
             id="password"
@@ -168,7 +168,7 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/40 hover:text-white/60 transition-colors"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 transition-colors"
             tabIndex={-1}
           >
             {showPassword ? (
@@ -207,11 +207,11 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
       </button>
 
       {/* Sign Up Link */}
-      <p className="text-center text-sm text-white/60">
+      <p className="text-center text-sm text-gray-500">
         Don&apos;t have an account?{' '}
         <Link
           href="/signup"
-          className="text-teal-400 hover:text-teal-300 font-medium transition-colors"
+          className="text-emerald-600 hover:text-emerald-500 font-medium transition-colors"
         >
           Sign up
         </Link>

@@ -2,23 +2,24 @@
 
 import React from 'react';
 import {
-  ShoppingBag,
-  Code,
+  ShoppingCart,
+  Cloud,
   Truck,
-  Sparkles,
+  Layers,
+  Check,
 } from 'lucide-react';
 
 /**
  * IndustrySelector Component
  *
- * Day 6: Pricing Page - Industry Selection
- * Allows users to select from 4 industries to see relevant pricing variants.
+ * 4 industry cards:
+ * - E-commerce (ShoppingCart, teal)
+ * - SaaS (Cloud, sky blue)
+ * - Logistics (Truck, amber)
+ * - Others (Layers, green)
  *
- * Industries:
- * 1. E-commerce - Teal theme
- * 2. SaaS - Navy/Silver theme
- * 3. Logistics - Charcoal/Orange theme
- * 4. Others - Custom flow
+ * Selected state: glowing colored border + checkmark.
+ * Hover: lift effect.
  */
 
 export type Industry = 'ecommerce' | 'saas' | 'logistics' | 'others';
@@ -29,57 +30,66 @@ export interface IndustryOption {
   description: string;
   icon: React.ElementType;
   color: string;
-  hoverColor: string;
-  borderColor: string;
-  selectedBg: string;
-  selectedCheckBg: string;
+  iconBg: string;
+  glowClass: string;
+  borderSelected: string;
+  bgSelected: string;
+  checkBg: string;
+  shadowClass: string;
 }
 
-// Using static class names for Tailwind JIT compatibility
 const industries: IndustryOption[] = [
   {
     id: 'ecommerce',
     name: 'E-commerce',
     description: 'Online retail, marketplaces, D2C brands',
-    icon: ShoppingBag,
-    color: 'text-teal-400',
-    hoverColor: 'hover:border-teal-500/50 hover:bg-teal-500/10',
-    borderColor: 'border-teal-500',
-    selectedBg: 'bg-teal-500/20',
-    selectedCheckBg: 'bg-teal-500',
+    icon: ShoppingCart,
+    color: 'text-emerald-400',
+    iconBg: 'bg-emerald-600/15',
+    glowClass: 'hover:shadow-emerald-600/20',
+    borderSelected: 'border-emerald-600',
+    bgSelected: 'bg-emerald-600/10',
+    checkBg: 'bg-emerald-600',
+    shadowClass: 'shadow-emerald-600/25',
   },
   {
     id: 'saas',
     name: 'SaaS',
     description: 'Software companies, tech startups',
-    icon: Code,
-    color: 'text-blue-400',
-    hoverColor: 'hover:border-blue-500/50 hover:bg-blue-500/10',
-    borderColor: 'border-blue-500',
-    selectedBg: 'bg-blue-500/20',
-    selectedCheckBg: 'bg-blue-500',
+    icon: Cloud,
+    color: 'text-sky-400',
+    iconBg: 'bg-sky-500/15',
+    glowClass: 'hover:shadow-sky-500/20',
+    borderSelected: 'border-sky-400',
+    bgSelected: 'bg-sky-400/10',
+    checkBg: 'bg-sky-400',
+    shadowClass: 'shadow-sky-400/25',
   },
   {
     id: 'logistics',
     name: 'Logistics',
     description: 'Shipping, warehousing, supply chain',
     icon: Truck,
-    color: 'text-orange-400',
-    hoverColor: 'hover:border-orange-500/50 hover:bg-orange-500/10',
-    borderColor: 'border-orange-500',
-    selectedBg: 'bg-orange-500/20',
-    selectedCheckBg: 'bg-orange-500',
+    color: 'text-amber-400',
+    iconBg: 'bg-amber-500/15',
+    glowClass: 'hover:shadow-amber-500/20',
+    borderSelected: 'border-amber-400',
+    bgSelected: 'bg-amber-400/10',
+    checkBg: 'bg-amber-400',
+    shadowClass: 'shadow-amber-400/25',
   },
   {
     id: 'others',
     name: 'Others',
     description: 'Healthcare, Finance, Education, etc.',
-    icon: Sparkles,
-    color: 'text-purple-400',
-    hoverColor: 'hover:border-purple-500/50 hover:bg-purple-500/10',
-    borderColor: 'border-purple-500',
-    selectedBg: 'bg-purple-500/20',
-    selectedCheckBg: 'bg-purple-500',
+    icon: Layers,
+    color: 'text-emerald-400',
+    iconBg: 'bg-emerald-500/15',
+    glowClass: 'hover:shadow-emerald-500/20',
+    borderSelected: 'border-emerald-400',
+    bgSelected: 'bg-emerald-400/10',
+    checkBg: 'bg-emerald-400',
+    shadowClass: 'shadow-emerald-400/25',
   },
 ];
 
@@ -96,14 +106,18 @@ export function IndustrySelector({
 }: IndustrySelectorProps) {
   return (
     <div className="w-full">
-      <h2 className="text-xl font-semibold text-white mb-4">
-        Select Your Industry
-      </h2>
-      <p className="text-white/60 mb-6">
-        Choose your industry to see relevant support ticket variants
-      </p>
+      {/* Section Header */}
+      <div className="mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+          Select Your Industry
+        </h2>
+        <p className="text-sm sm:text-base text-gray-500">
+          Choose your industry to see relevant AI support variants
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Industry Cards Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {industries.map((industry) => {
           const isSelected = selectedIndustry === industry.id;
           const Icon = industry.icon;
@@ -115,38 +129,49 @@ export function IndustrySelector({
               disabled={disabled}
               onClick={() => onSelect(industry.id)}
               className={`
-                relative p-4 rounded-xl border-2 transition-all duration-300 text-left
-                ${isSelected
-                  ? `${industry.borderColor} ${industry.selectedBg}`
-                  : 'border-white/10 bg-surface/30'
+                relative p-4 sm:p-5 rounded-xl border-2 text-left
+                transition-all duration-300 ease-out
+                backdrop-blur-sm
+                ${
+                  isSelected
+                    ? `${industry.borderSelected} ${industry.bgSelected} shadow-lg ${industry.shadowClass}`
+                    : 'border-gray-200 bg-white hover:border-gray-300'
                 }
-                ${industry.hoverColor}
+                ${
+                  !isSelected
+                    ? `hover:-translate-y-1 hover:shadow-lg ${industry.glowClass}`
+                    : ''
+                }
                 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
               `}
               aria-pressed={isSelected}
               aria-label={`Select ${industry.name} industry`}
             >
-              {/* Selected indicator */}
+              {/* Selected Checkmark */}
               {isSelected && (
-                <div className="absolute top-2 right-2">
-                  <div className={`w-6 h-6 rounded-full ${industry.selectedCheckBg} flex items-center justify-center`}>
-                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+                <div className="absolute -top-2.5 -right-2.5">
+                  <div
+                    className={`w-6 h-6 rounded-full ${industry.checkBg} flex items-center justify-center shadow-lg`}
+                  >
+                    <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
                   </div>
                 </div>
               )}
 
               {/* Icon */}
-              <div className={`w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center mb-3 ${industry.color}`}>
-                <Icon className="w-6 h-6" />
+              <div
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-lg ${industry.iconBg} flex items-center justify-center mb-3 transition-transform duration-300 ${
+                  isSelected ? 'scale-110' : ''
+                }`}
+              >
+                <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${industry.color}`} />
               </div>
 
               {/* Content */}
-              <h3 className="font-semibold text-white mb-1">
+              <h3 className="font-semibold text-gray-900 text-sm sm:text-base mb-1">
                 {industry.name}
               </h3>
-              <p className="text-sm text-white/50">
+              <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
                 {industry.description}
               </p>
             </button>
