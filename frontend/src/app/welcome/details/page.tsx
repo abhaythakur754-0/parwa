@@ -64,25 +64,25 @@ export default function WelcomeDetailsPage() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-secondary-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#ECFDF5] to-white">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary-600 mx-auto mb-4" />
-          <p className="text-secondary-600">Loading...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-4" />
+          <p className="text-gray-500">Loading...</p>
         </div>
       </div>
     );
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#ECFDF5] to-white py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-xl mx-auto">
         {/* Progress Indicator */}
         <div className="mb-8">
           <div className="flex items-center justify-center gap-4">
             <Step number={1} label="Details" isActive isCompleted={false} />
-            <div className="w-12 h-0.5 bg-secondary-200" />
+            <div className="w-12 h-0.5 bg-gray-200" />
             <Step number={2} label="Setup" isActive={false} isCompleted={false} />
-            <div className="w-12 h-0.5 bg-secondary-200" />
+            <div className="w-12 h-0.5 bg-gray-200" />
             <Step number={3} label="Launch" isActive={false} isCompleted={false} />
           </div>
         </div>
@@ -92,7 +92,7 @@ export default function WelcomeDetailsPage() {
           {/* Logo/Brand */}
           <div className="text-center mb-6">
             <h1 className="text-3xl font-bold text-gradient">PARWA</h1>
-            <p className="text-secondary-500 text-sm mt-1">AI-Powered Customer Support</p>
+            <p className="text-gray-500 text-sm mt-1">AI-Powered Customer Support</p>
           </div>
           
           {/* Details Form */}
@@ -104,10 +104,10 @@ export default function WelcomeDetailsPage() {
         </div>
         
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-secondary-500">
+        <div className="mt-8 text-center text-sm text-gray-500">
           <p>
             Need help?{' '}
-            <a href="mailto:support@parwa.io" className="text-primary-600 hover:text-primary-700">
+            <a href="mailto:support@parwa.io" className="text-emerald-600 hover:text-emerald-700">
               Contact Support
             </a>
           </p>
@@ -137,10 +137,10 @@ function Step({
         className={`
           w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium
           ${isCompleted 
-            ? 'bg-success-500 text-white' 
+            ? 'bg-emerald-500 text-white' 
             : isActive 
-              ? 'bg-primary-500 text-white' 
-              : 'bg-secondary-200 text-secondary-500'
+              ? 'bg-emerald-600 text-white' 
+              : 'bg-gray-200 text-gray-400'
           }
         `}
       >
@@ -152,7 +152,7 @@ function Step({
       </div>
       <span className={`
         mt-2 text-xs font-medium
-        ${isActive ? 'text-primary-600' : 'text-secondary-400'}
+        ${isActive ? 'text-emerald-600' : 'text-gray-400'}
       `}>
         {label}
       </span>

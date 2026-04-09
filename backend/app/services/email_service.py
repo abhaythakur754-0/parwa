@@ -217,6 +217,37 @@ def send_password_reset_email(
     )
 
 
+def send_welcome_email(
+    user_email: str,
+    user_name: str,
+    dashboard_url: str,
+) -> bool:
+    """Send welcome email to a new user.
+
+    Uses Jinja2 template welcome_email.html.
+
+    Args:
+        user_email: User's email address.
+        user_name: User's display name.
+        dashboard_url: URL to the user's dashboard.
+
+    Returns:
+        True if sent successfully.
+    """
+    html = render_email_template(
+        "welcome_email.html",
+        {
+            "user_name": user_name,
+            "dashboard_url": dashboard_url,
+        },
+    )
+    return send_email(
+        to=user_email,
+        subject="Welcome to PARWA AI Workforce",
+        html_content=html,
+    )
+
+
 def reset_circuit_breaker() -> None:
     """Reset circuit breaker state (for testing)."""
     _cb_state["failures"] = 0

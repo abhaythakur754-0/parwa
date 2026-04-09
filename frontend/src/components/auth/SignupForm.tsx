@@ -110,7 +110,7 @@ function getPasswordStrength(password: string): { strength: string; score: numbe
 
   if (score <= 2) return { strength: 'Weak', score, color: 'bg-error-500' };
   if (score <= 4) return { strength: 'Fair', score, color: 'bg-warning-500' };
-  if (score <= 5) return { strength: 'Strong', score, color: 'bg-teal-500' };
+  if (score <= 5) return { strength: 'Strong', score, color: 'bg-emerald-500' };
   return { strength: 'Very Strong', score, color: 'bg-success-500' };
 }
 
@@ -284,7 +284,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Mail className="h-5 w-5 text-white/40" />
+            <Mail className="h-5 w-5 text-gray-400" />
           </div>
           <input
             id="email"
@@ -308,7 +308,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
           />
           {emailChecking && (
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-              <Loader2 className="h-5 w-5 text-teal-400 animate-spin" />
+              <Loader2 className="h-5 w-5 text-emerald-400 animate-spin" />
             </div>
           )}
           {emailAvailable === true && !emailChecking && (
@@ -331,7 +331,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <User className="h-5 w-5 text-white/40" />
+            <User className="h-5 w-5 text-gray-400" />
           </div>
           <input
             id="full_name"
@@ -364,7 +364,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Building2 className="h-5 w-5 text-white/40" />
+            <Building2 className="h-5 w-5 text-gray-400" />
           </div>
           <input
             id="company_name"
@@ -397,7 +397,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Briefcase className="h-5 w-5 text-white/40" />
+            <Briefcase className="h-5 w-5 text-gray-400" />
           </div>
           <select
             id="industry"
@@ -421,7 +421,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
             ))}
           </select>
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
@@ -438,7 +438,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Lock className="h-5 w-5 text-white/40" />
+            <Lock className="h-5 w-5 text-gray-400" />
           </div>
           <input
             id="password"
@@ -461,7 +461,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/40 hover:text-white/60 transition-colors"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 transition-colors"
             tabIndex={-1}
           >
             {showPassword ? (
@@ -482,9 +482,9 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
                   style={{ width: `${(passwordStrength.score / 7) * 100}%` }}
                 />
               </div>
-              <span className="text-xs text-white/60">{passwordStrength.strength}</span>
+              <span className="text-xs text-gray-500">{passwordStrength.strength}</span>
             </div>
-            <p className="text-xs text-white/40">
+            <p className="text-xs text-gray-400">
               Use 8+ characters with uppercase, lowercase, numbers, and special characters
             </p>
           </div>
@@ -502,7 +502,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Lock className="h-5 w-5 text-white/40" />
+            <Lock className="h-5 w-5 text-gray-400" />
           </div>
           <input
             id="confirm_password"
@@ -525,7 +525,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
           <button
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/40 hover:text-white/60 transition-colors"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 transition-colors"
             tabIndex={-1}
           >
             {showConfirmPassword ? (
@@ -564,11 +564,11 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
       </button>
 
       {/* Sign In Link */}
-      <p className="text-center text-sm text-white/60">
+      <p className="text-center text-sm text-gray-500">
         Already have an account?{' '}
         <Link
           href="/login"
-          className="text-teal-400 hover:text-teal-300 font-medium transition-colors"
+          className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
         >
           Sign in
         </Link>

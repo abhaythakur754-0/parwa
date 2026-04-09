@@ -82,19 +82,19 @@ function ResetPasswordContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-navy-900">
+      <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#ECFDF5] to-white">
         <div className="w-full max-w-md">
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6 sm:p-8 text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-teal-500/20 flex items-center justify-center">
-              <CheckCircle className="w-8 h-8 text-teal-400" />
+          <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-6 sm:p-8 text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <CheckCircle className="w-8 h-8 text-emerald-400" />
             </div>
-            <h2 className="text-xl font-semibold text-white">Password Reset Successfully!</h2>
-            <p className="text-white/60">
+            <h2 className="text-xl font-semibold text-gray-900">Password Reset Successfully!</h2>
+            <p className="text-gray-500">
               Your password has been updated. Redirecting to login...
             </p>
             <Link
               href="/login"
-              className="inline-block text-teal-400 hover:text-teal-300 transition-colors"
+              className="inline-block text-emerald-400 hover:text-emerald-300 transition-colors"
             >
               Go to login now
             </Link>
@@ -105,38 +105,38 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-navy-900">
+    <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-emerald-50 to-white">
       <div className="w-full max-w-md space-y-8">
         {/* Header */}
         <div className="text-center">
           {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-600/20">
               <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
               </svg>
             </div>
-            <span className="text-2xl font-bold text-white">PARWA</span>
+            <span className="text-2xl font-bold text-gray-900">PARWA</span>
           </Link>
 
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-gray-900">
             Reset your password
           </h1>
-          <p className="mt-2 text-sm text-white/60">
+          <p className="mt-2 text-sm text-gray-500">
             Enter a new password for your account
           </p>
         </div>
 
         {/* Main Card */}
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6 sm:p-8">
+        <div className="bg-white backdrop-blur-sm border border-gray-200 rounded-xl p-6 sm:p-8">
           {!token ? (
             <div className="text-center space-y-4">
-              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-                <p className="text-red-400">Invalid or missing reset token.</p>
+              <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+                <p className="text-red-600">Invalid or missing reset token.</p>
               </div>
               <Link
                 href="/forgot-password"
-                className="inline-block text-teal-400 hover:text-teal-300 transition-colors"
+                className="inline-block text-emerald-400 hover:text-emerald-300 transition-colors"
               >
                 Request a new reset link
               </Link>
@@ -145,12 +145,12 @@ function ResetPasswordContent() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* New Password Field */}
               <div>
-                <label htmlFor="new-password" className="block text-sm font-medium text-white/80 mb-2">
+                <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-2">
                   New Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-white/40" />
+                    <Lock className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
                     id="new-password"
@@ -159,14 +159,14 @@ function ResetPasswordContent() {
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    className="w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     placeholder="Enter new password"
                     disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/40 hover:text-white/60"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -176,22 +176,22 @@ function ResetPasswordContent() {
               {/* Password Requirements */}
               {newPassword && (
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className={`flex items-center gap-1 ${isLongEnough ? 'text-teal-400' : 'text-white/40'}`}>
+                  <div className={`flex items-center gap-1 ${isLongEnough ? 'text-emerald-400' : 'text-gray-400'}`}>
                     <span>{isLongEnough ? '✓' : '○'}</span> At least 8 characters
                   </div>
-                  <div className={`flex items-center gap-1 ${hasUppercase ? 'text-teal-400' : 'text-white/40'}`}>
+                  <div className={`flex items-center gap-1 ${hasUppercase ? 'text-emerald-400' : 'text-gray-400'}`}>
                     <span>{hasUppercase ? '✓' : '○'}</span> Uppercase letter
                   </div>
-                  <div className={`flex items-center gap-1 ${hasLowercase ? 'text-teal-400' : 'text-white/40'}`}>
+                  <div className={`flex items-center gap-1 ${hasLowercase ? 'text-emerald-400' : 'text-gray-400'}`}>
                     <span>{hasLowercase ? '✓' : '○'}</span> Lowercase letter
                   </div>
-                  <div className={`flex items-center gap-1 ${hasDigit ? 'text-teal-400' : 'text-white/40'}`}>
+                  <div className={`flex items-center gap-1 ${hasDigit ? 'text-emerald-400' : 'text-gray-400'}`}>
                     <span>{hasDigit ? '✓' : '○'}</span> Number
                   </div>
-                  <div className={`flex items-center gap-1 ${hasSpecial ? 'text-teal-400' : 'text-white/40'}`}>
+                  <div className={`flex items-center gap-1 ${hasSpecial ? 'text-emerald-400' : 'text-gray-400'}`}>
                     <span>{hasSpecial ? '✓' : '○'}</span> Special character
                   </div>
-                  <div className={`flex items-center gap-1 ${passwordsMatch ? 'text-teal-400' : 'text-white/40'}`}>
+                  <div className={`flex items-center gap-1 ${passwordsMatch ? 'text-emerald-400' : 'text-gray-400'}`}>
                     <span>{passwordsMatch ? '✓' : '○'}</span> Passwords match
                   </div>
                 </div>
@@ -199,12 +199,12 @@ function ResetPasswordContent() {
 
               {/* Confirm Password Field */}
               <div>
-                <label htmlFor="confirm-password" className="block text-sm font-medium text-white/80 mb-2">
+                <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-2">
                   Confirm Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-white/40" />
+                    <Lock className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
                     id="confirm-password"
@@ -213,7 +213,7 @@ function ResetPasswordContent() {
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     placeholder="Confirm new password"
                     disabled={isLoading}
                   />
@@ -231,7 +231,7 @@ function ResetPasswordContent() {
               <button
                 type="submit"
                 disabled={isLoading || !isPasswordValid}
-                className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>
@@ -250,7 +250,7 @@ function ResetPasswordContent() {
         <div className="text-center">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-teal-400 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-emerald-400 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to login
@@ -264,8 +264,8 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-navy-900">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+      <div className="min-h-screen flex items-center justify-center bg-[#ECFDF5]">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
       </div>
     }>
       <ResetPasswordContent />

@@ -1,11 +1,8 @@
-'use client';
-
-import { AuthProvider } from '@/contexts/AuthContext';
-
 /**
  * Auth Layout
- * 
- * Wraps all auth pages (login, signup) with the AuthProvider.
+ *
+ * Layout for all auth pages (login, signup, forgot-password, reset-password).
+ * AuthProvider is already in the root layout — no need to double-wrap.
  */
 
 export default function AuthLayout({
@@ -13,9 +10,5 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <AuthProvider>
-      {children}
-    </AuthProvider>
-  );
+  return <>{children}</>;
 }
