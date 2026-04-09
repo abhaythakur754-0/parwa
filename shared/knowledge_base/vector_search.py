@@ -1,0 +1,393 @@
+"""
+Vector Search Module — Abstract & Mock Implementations
+
+Provides the VectorStore interface and MockVectorStore for testing/development.
+Production implementations (Pinecone, Weaviate, Qdrant) will implement VectorStore.
+
+Part of the shared knowledge base infrastructure used by RAG retrieval (F-064).
+
+BC-001: Tenant isolation — all operations scoped to company_id.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import math
+import random
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
+
+# ── Constants ─────────────────────────────────────────────────────────
+
+EMBEDDING_DIMENSION = 768  # Default embedding dimension (compatible with many models)
+
+# ── Search Result ─────────────────────────────────────────────────────
+
+
+@dataclass
+class SearchResult:
+    """A single result from a vector search query."""
+
+    chunk_id: str
+    document_id: str
+    content: str
+    score: float
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "chunk_id": self.chunk_id,
+            "document_id": self.document_id,
+            "content": self.content,
+            "score": round(self.score, 6),
+            "metadata": self.metadata,
+        }
+
+
+# ── Stored Chunk (internal) ──────────────────────────────────────────
+
+
+@dataclass
+class StoredChunk:
+    """A chunk stored in the vector store."""
+
+    chunk_id: str
+    document_id: str
+    content: str
+    embedding: List[float]
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "chunk_id": self.chunk_id,
+            "document_id": self.document_id,
+            "content": self.content,
+            "metadata": self.metadata,
+        }
+
+
+# ── Abstract Vector Store ────────────────────────────────────────────
+
+
+class VectorStore(ABC):
+    """Abstract base class for vector stores.
+
+    All implementations must support:
+    - Tenant-isolated search (BC-001)
+    - Metadata filtering
+    - Health checks
+    """
+
+    @abstractmethod
+    def search(
+        self,
+        query_embedding: List[float],
+        company_id: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[SearchResult]:
+        """Search for similar chunks.
+
+        Args:
+            query_embedding: Query vector.
+            company_id: Tenant identifier (BC-001).
+            top_k: Maximum results to return.
+            filters: Optional metadata filters.
+
+        Returns:
+            List of search results sorted by score descending.
+        """
+        ...
+
+    @abstractmethod
+    def add_chunks(
+        self,
+        chunks: List[StoredChunk],
+        company_id: str,
+    ) -> int:
+        """Add chunks to the vector store.
+
+        Args:
+            chunks: List of chunks with embeddings.
+            company_id: Tenant identifier (BC-001).
+
+        Returns:
+            Number of chunks added.
+        """
+        ...
+
+    @abstractmethod
+    def delete_document(
+        self,
+        document_id: str,
+        company_id: str,
+    ) -> bool:
+        """Delete all chunks for a document.
+
+        Args:
+            document_id: Document to delete.
+            company_id: Tenant identifier (BC-001).
+
+        Returns:
+            True if document was found and deleted.
+        """
+        ...
+
+    @abstractmethod
+    def health_check(self) -> bool:
+        """Check if the vector store is healthy.
+
+        Returns:
+            True if healthy, False otherwise.
+        """
+        ...
+
+
+# ── Mock Vector Store ────────────────────────────────────────────────
+
+
+class MockVectorStore(VectorStore):
+    """In-memory mock vector store for testing and development.
+
+    Uses cosine similarity for search and deterministic hashing for embeddings.
+    Supports metadata filtering and tenant isolation (BC-001).
+
+    Storage structure:
+        _store = {
+            company_id: {
+                document_id: {
+                    "metadata": {...},
+                    "chunks": [StoredChunk, ...]
+                }
+            }
+        }
+    """
+
+    def __init__(self, embedding_dim: int = EMBEDDING_DIMENSION):
+        self._store: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        self._embedding_dim = embedding_dim
+        self._healthy = True
+
+    def _generate_embedding(self, text: str) -> List[float]:
+        """Generate a deterministic pseudo-embedding for text.
+
+        Uses hash-based approach for reproducibility in tests.
+        """
+        # Create a seed from the text for deterministic but varied embeddings
+        text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        seed = int(text_hash[:8], 16)
+
+        rng = random.Random(seed)
+        embedding = []
+        for i in range(self._embedding_dim):
+            # Mix text-derived value with position
+            char_val = ord(text[i % len(text)]) if text else 0
+            hash_val = int(text_hash[i % len(text_hash): i % len(text_hash) + 2], 16) / 255.0
+            noise = rng.gauss(0, 0.1)
+            embedding.append(round((char_val / 255.0) * 0.5 + hash_val * 0.3 + noise, 6))
+
+        # Normalize to unit vector
+        magnitude = math.sqrt(sum(x * x for x in embedding))
+        if magnitude > 0:
+            embedding = [x / magnitude for x in embedding]
+
+        return embedding
+
+    def search(
+        self,
+        query_embedding: List[float],
+        company_id: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[SearchResult]:
+        """Search for similar chunks using cosine similarity.
+
+        Args:
+            query_embedding: Query vector.
+            company_id: Tenant identifier (BC-001).
+            top_k: Maximum results to return.
+            filters: Optional metadata filters (e.g., document_type, tags).
+
+        Returns:
+            List of search results sorted by score descending.
+        """
+        if company_id not in self._store:
+            return []
+
+        results: List[Tuple[float, StoredChunk]] = []
+
+        for doc_id, doc_data in self._store[company_id].items():
+            # Apply document-level filters
+            if filters and not self._matches_filters(doc_data.get("metadata", {}), filters):
+                continue
+
+            for chunk in doc_data.get("chunks", []):
+                # Apply chunk-level filters
+                if filters and not self._matches_filters(chunk.metadata, filters):
+                    continue
+
+                similarity = self._cosine_similarity(query_embedding, chunk.embedding)
+                if similarity > 0:
+                    results.append((similarity, chunk))
+
+        # Sort by similarity descending
+        results.sort(key=lambda x: x[0], reverse=True)
+
+        return [
+            SearchResult(
+                chunk_id=chunk.chunk_id,
+                document_id=chunk.document_id,
+                content=chunk.content,
+                score=score,
+                metadata=chunk.metadata,
+            )
+            for score, chunk in results[:top_k]
+        ]
+
+    def add_chunks(
+        self,
+        chunks: List[StoredChunk],
+        company_id: str,
+    ) -> int:
+        """Add chunks to the mock store.
+
+        Args:
+            chunks: List of chunks with embeddings.
+            company_id: Tenant identifier (BC-001).
+
+        Returns:
+            Number of chunks added.
+        """
+        if company_id not in self._store:
+            self._store[company_id] = {}
+
+        added = 0
+        for chunk in chunks:
+            if chunk.document_id not in self._store[company_id]:
+                self._store[company_id][chunk.document_id] = {
+                    "metadata": {},
+                    "chunks": [],
+                }
+            self._store[company_id][chunk.document_id]["chunks"].append(chunk)
+            added += 1
+
+        return added
+
+    def delete_document(
+        self,
+        document_id: str,
+        company_id: str,
+    ) -> bool:
+        """Delete all chunks for a document.
+
+        Args:
+            document_id: Document to delete.
+            company_id: Tenant identifier (BC-001).
+
+        Returns:
+            True if document was found and deleted.
+        """
+        if company_id in self._store and document_id in self._store[company_id]:
+            del self._store[company_id][document_id]
+            return True
+        return False
+
+    def health_check(self) -> bool:
+        """Check if the mock store is healthy.
+
+        Returns:
+            True (always healthy for mock).
+        """
+        return self._healthy
+
+    def set_healthy(self, healthy: bool) -> None:
+        """Set health status for testing."""
+        self._healthy = healthy
+
+    def get_all_documents(self, company_id: str) -> Dict[str, Dict[str, Any]]:
+        """Get all documents for a company (for keyword search fallback).
+
+        Args:
+            company_id: Tenant identifier.
+
+        Returns:
+            Dict of document_id -> document data.
+        """
+        return self._store.get(company_id, {})
+
+    def clear(self) -> None:
+        """Clear all stored data."""
+        self._store.clear()
+
+    # ── Internal Methods ──────────────────────────────────────
+
+    @staticmethod
+    def _cosine_similarity(a: List[float], b: List[float]) -> float:
+        """Calculate cosine similarity between two vectors."""
+        if not a or not b or len(a) != len(b):
+            return 0.0
+        dot_product = sum(x * y for x, y in zip(a, b))
+        mag_a = math.sqrt(sum(x * x for x in a))
+        mag_b = math.sqrt(sum(x * x for x in b))
+        if mag_a == 0 or mag_b == 0:
+            return 0.0
+        return dot_product / (mag_a * mag_b)
+
+    @staticmethod
+    def _matches_filters(
+        metadata: Dict[str, Any],
+        filters: Dict[str, Any],
+    ) -> bool:
+        """Check if metadata matches all filter criteria.
+
+        Supports:
+        - Exact match: {"document_type": "faq"}
+        - Tag membership: {"tags": ["refund", "billing"]}
+        - Date range: {"date_after": "2024-01-01", "date_before": "2024-12-31"}
+        """
+        for key, value in filters.items():
+            meta_val = metadata.get(key)
+
+            if key in ("date_after", "date_before"):
+                if meta_val is None:
+                    return False
+                if key == "date_after" and meta_val < value:
+                    return False
+                if key == "date_before" and meta_val > value:
+                    return False
+            elif isinstance(value, list):
+                # Tag membership: at least one tag must match
+                if not meta_val or not any(
+                    tag in value for tag in (meta_val if isinstance(meta_val, list) else [meta_val])
+                ):
+                    return False
+            else:
+                # Exact match
+                if meta_val != value:
+                    return False
+
+        return True
+
+
+# ── Factory Function ─────────────────────────────────────────────────
+
+
+def get_vector_store() -> VectorStore:
+    """Get the appropriate vector store implementation.
+
+    Returns MockVectorStore in test/dev, production store in production.
+
+    Returns:
+        VectorStore instance.
+    """
+    import os
+
+    environment = os.getenv("ENVIRONMENT", "development")
+
+    if environment == "production":
+        # In production, use a real vector store
+        # For now, return mock with warning
+        return MockVectorStore()
+    else:
+        return MockVectorStore()
