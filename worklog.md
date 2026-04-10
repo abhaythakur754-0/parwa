@@ -889,3 +889,219 @@ Stage Summary:
 - Files created: 15 (7 frontend, 2 backend, 3 tests, 1 gap analysis, 1 updated gap finder)
 - Git commit: 9c6c863 pushed to GitHub main
 - Day 6 COMPLETE
+
+---
+Task ID: 1
+Agent: general-purpose
+Task: Build draft_composer.py (F-066: AI Draft Composer Co-Pilot Mode)
+
+Work Log:
+- Read worklog and existing source files (response_generator.py, clara_quality_gate.py, signal_extraction.py, classification_engine.py, smart_router.py, redis.py, brand_voice_service.py)
+- Created backend/app/core/draft_composer.py with full DraftComposer implementation
+- Implemented 4 dataclasses: DraftRequest, DraftOptions, DraftResult, DraftComposerResponse
+- Implemented DraftComposer class with compose(), _compose_pipeline(), _generate_single_draft(), _regenerate_draft(), get_draft_history()
+- Implemented signal extraction integration (_extract_signals), intent classification integration (_classify_intent)
+- Implemented brand voice retrieval (_get_brand_voice) and generation context builder (_build_generation_context)
+- Implemented technique selection mapping (_select_technique) with 12 intent x 3 sentiment combinations
+- Implemented prompt builder (_build_draft_prompt) with per-variant and per-technique instructions
+- Implemented CLARA quality gate validation (_validate_drafts) with brand/tone score extraction
+- Added W9-GAP-019 (HIGH): Per-draft timeout (8s) + total compose timeout (30s) via asyncio.wait_for
+- Added W9-GAP-020 (MEDIUM): Agent feedback loop with Redis storage (7-day TTL) for improvement tracking
+- Added W9-GAP-021 (MEDIUM): Draft deduplication via SequenceMatcher with 0.85 similarity threshold
+- Implemented Redis caching (120s TTL, fail-open) with SHA-256 query hash key
+- Implemented Socket.io emission to tenant room for real-time draft delivery
+- Implemented draft history storage in Redis (24h TTL, capped at 50 entries per ticket)
+- BC-001: All operations scoped to company_id throughout
+- BC-008: Graceful degradation — every step wrapped in try/except with fallbacks
+- AST parse verified, file is syntactically valid Python
+
+Stage Summary:
+- Created /home/z/my-project/parwa/backend/app/core/draft_composer.py
+- F-066: AI Draft Composer Co-Pilot Mode fully implemented
+- Per-variant: mini_parwa (1 draft), parwa (3 drafts + tone/brand), parwa_high (5 drafts + personalization)
+- 3 GAP fixes included (GAP-019 timeout, GAP-020 feedback loop, GAP-021 deduplication)
+- Files modified: worklog.md
+---
+Task ID: 2
+Agent: general-purpose
+Task: Build edge_case_handlers.py (SG-28: Edge-Case Handler Registry)
+
+Work Log:
+- Created backend/app/core/edge_case_handlers.py with full implementation
+- Implemented EdgeCaseAction enum (PROCEED/REWRITE/REDIRECT/BLOCK/ESCALATE)
+- Implemented EdgeCaseSeverity enum (LOW/MEDIUM/HIGH/CRITICAL)
+- Implemented EdgeCaseResult dataclass with handler_type, action, severity, rewritten_query, redirect_target, reason, metadata
+- Implemented EdgeCaseProcessingResult dataclass with final_action, final_query, handlers_triggered, blocked, rewritten, processing_time_ms, results
+- Implemented EdgeCaseHandler ABC base class with handler_type, priority, can_handle(), handle()
+- Implemented EdgeCaseRegistry with priority-based processing, variant whitelists, and handler replacement
+- Created all 20 concrete handlers:
+  1. EmptyQueryHandler (p1) - BLOCK on empty/whitespace
+  2. TooLongQueryHandler (p2) - REWRITE truncate at 10000 chars
+  3. UnsupportedLanguageHandler (p3) - REDIRECT on CJK/Arabic/Cyrillic/Thai etc
+  4. EmojisOnlyHandler (p4) - BLOCK emoji-only queries
+  5. CodeBlocksHandler (p5) - PROCEED with metadata
+  6. DuplicateQueryHandler (p6) - REWRITE with SequenceMatcher >0.9
+  7. EmbeddedImagesHandler (p7) - PROCEED with metadata
+  8. MultiQuestionHandler (p8) - PROCEED at >3 questions
+  9. NonExistentTicketHandler (p9) - REWRITE with ticket context check
+  10. MaliciousHTMLHandler (p10) - BLOCK on script/iframe/injection patterns
+  11. FAQMatchHandler (p11) - REDIRECT with keyword mapping table
+  12. BelowConfidenceHandler (p12) - ESCALATE on confidence <0.5
+  13. MaintenanceModeHandler (p13) - BLOCK on maintenance flag
+  14. ExpiredContextHandler (p14) - REWRITE on context >30min old
+  15. BlockedUserHandler (p15) - BLOCK on blocked/suspended/banned status
+  16. PricingRequestHandler (p16) - REDIRECT to billing support
+  17. LegalTerminologyHandler (p17) - ESCALATE on legal keywords
+  18. CompetitorMentionHandler (p18) - PROCEED with competitor metadata
+  19. SystemCommandsHandler (p19) - BLOCK on sudo/DROP TABLE/etc
+  20. TimeoutHandler (p20) - ESCALATE safety net
+- Added W9-GAP-022 (HIGH): Per-handler timeout (2s) and total chain timeout (10s) enforcement
+- Added W9-GAP-023 (MEDIUM): Variant-specific handler whitelists (mini_parwa runs 10 of 20)
+- Verified all 20 handlers with comprehensive integration test (19 handler types triggered correctly)
+- Verified variant whitelist: mini_parwa correctly uses 10 handlers only
+- Verified BLOCK action stops chain processing immediately
+- Python syntax validation passed
+- BC-001: All operations scoped to company_id via context dict
+- BC-008: Graceful degradation — handler errors logged and skipped
+
+Stage Summary:
+- Created /home/z/my-project/parwa/backend/app/core/edge_case_handlers.py (~850 lines)
+- SG-28: Edge-Case Handler Registry with 20 handlers fully implemented
+- GAP-022: 2s per-handler timeout, 10s total chain timeout
+- GAP-023: mini_parwa runs 10 handlers, parwa/parwa_high run all 20
+- Files created: 1 (edge_case_handlers.py)
+
+---
+Task ID: sg12-build
+Agent: General-Purpose Sub-Agent
+Task: SG-12 — Variant-Specific Training Data Isolation
+
+Work Log:
+- Created backend/app/services/training_data_isolation.py: Redis-backed training data isolation service (~1630 lines)
+  - TrainingDataset dataclass: dataset_id, company_id, variant_type, name, description, record_count, created_at, updated_at, metadata, storage_path, is_active with to_dict/from_dict
+  - TrainingDataRecord dataclass: record_id, dataset_id, content, label, intent, sentiment, metadata, created_at with to_dict/from_dict
+  - DatasetIsolationResult dataclass: is_isolated, violations, cross_variant_access_attempted, checked_paths
+  - TrainingDataIsolationService class with 16 async methods:
+    1. __init__() - Redis-backed storage
+    2. create_dataset(company_id, variant_type, name, description, metadata) - Validates variant in (mini_parwa, parwa, parwa_high, shared), storage path training_data:{company_id}:{variant_type}:{dataset_id}
+    3. add_records(dataset_id, company_id, records) - Validates ownership, stores with variant isolation, sentiment clamped to [-1,1], null byte sanitization
+    4. get_dataset(dataset_id, company_id) - Ownership validation via company index set membership
+    5. list_datasets(company_id, variant_type=None) - Filter by variant with GAP-024 validation
+    6. validate_isolation(dataset_id, company_id) - Checks no cross-variant duplication, inspects all variant paths for same dataset_id
+    7. delete_dataset(dataset_id, company_id) - Removes meta hash, records list, index hash, company index entry
+    8. get_dataset_stats(company_id, variant_type=None) - Aggregate stats: total/active datasets, record counts, per-variant breakdown
+    9. export_dataset(dataset_id, company_id, format="json") - Full dataset + records export
+    10. check_cross_variant_access(dataset_id, requesting_variant, company_id) - True if would cross boundary; GAP-025 audit logging via create_audit_entry
+    11. get_records(dataset_id, company_id, offset, limit) - Paginated record retrieval
+    12. get_shared_datasets(company_id) - GAP-026 shared dataset listing
+    13. set_dataset_active(dataset_id, company_id, is_active) - Dataset activation toggle
+    14. update_vector_index_metadata(dataset_id, company_id, index_metadata) - Tenant+variant metadata validation for vector index isolation
+    15. get_model_config(company_id, variant_type) - Variant-specific model configs with defaults per tier
+    16. set_model_config(company_id, variant_type, config) - Custom model config storage
+- Redis storage layout: meta hash, records list, index hash per dataset
+- Safety caps: MAX_RECORDS_PER_DATASET=500K, MAX_CONTENT_LENGTH=100K chars, MAX_DATASETS_PER_COMPANY=100, batch add max 10K
+- GAP-024: variant_type validated on every operation via _validate_variant_type()
+- GAP-025: Cross-variant access attempts logged via structlog + audit_service.create_audit_entry
+- GAP-026: Shared datasets (variant_type=shared) accessible by all variants via check_cross_variant_access returning False
+- Fixed F401 unused import (AuditAction removed from audit_service import)
+- BC-001: company_id validated in all methods, company index set membership check
+- BC-008: All Redis operations wrapped in try/except with graceful degradation
+
+Stage Summary:
+- Flake8: 0 errors
+- File created: backend/app/services/training_data_isolation.py (1633 lines)
+- 3 dataclasses, 1 service class with 16 async methods
+- BC-001: All operations scoped by company_id
+- BC-008: Graceful degradation on all Redis failures
+- GAP-024: variant_type validated on every operation
+- GAP-025: Audit logging for cross-variant access attempts
+- GAP-026: Shared dataset support via variant_type=shared
+---
+Task ID: sg34-build
+Agent: General-purpose sub-agent
+Task: SG-34 — Data Freshness Service for RAG
+
+Work Log:
+- Created backend/app/services/data_freshness_service.py (721 lines)
+- FreshnessStatus enum: FRESH, STALE, EXPIRED, UNKNOWN
+- FreshnessCheckResult dataclass: status, age_seconds, max_age_seconds, is_fresh, last_updated, source, metadata
+- StalenessConfig dataclass: signal=300s, context=1800s, rag_cache=120s, embedding=3600s, kb_document=3600s
+- DataFreshnessService class with 12 public methods:
+  1. check_cache_freshness() — Redis EXPIRETIME + GET pipeline
+  2. check_signal_freshness() — Signals <5min old check
+  3. check_context_freshness() — Conversation context <30min
+  4. check_rag_freshness() — RAG cache <2min
+  5. batch_check_freshness() — W9-GAP-028 pipeline batch check
+  6. invalidate_cache() — Delete freshness + data keys
+  7. invalidate_kb_caches() — SCAN-based document invalidation
+  8. record_update() — Store freshness timestamp with TTL
+  9. get_freshness_report() — SCAN aggregate by entity type
+  10. needs_re_extraction() — Convenience predicate
+  11. needs_rag_refresh() — Convenience predicate
+  12. register_kb_update_listener() — Callback registration
+- W9-GAP-027: EXPIRETIME for accurate staleness, fallback to stored timestamp
+- W9-GAP-028: Redis pipeline for batch freshness checks (N keys in 1 round trip)
+- BC-001: All keys scoped parwa:{company_id}:freshness:{type}:{id}
+- BC-008: All Redis ops wrapped in try/except with graceful degradation
+- from __future__ import annotations
+
+Phase B Checks:
+1. PASS BC-001: All Redis keys use make_key(company_id, ...)
+2. PASS BC-008: Every public method catches Exception, returns safe default
+3. PASS W9-GAP-027: _evaluate() checks EXPIRETIME first, falls back to JSON timestamp
+4. PASS W9-GAP-028: batch_check_freshness() uses pipeline, not N+1 calls
+5. PASS Flake8: 0 errors (79 char line limit)
+6. PASS Syntax: AST parse verified, all 12 public + 12 private methods present
+
+Stage Summary:
+- File created: backend/app/services/data_freshness_service.py (721 lines)
+- 4 top-level types: FreshnessStatus, FreshnessCheckResult, StalenessConfig, DataFreshnessService
+- 12 public async methods, 12 private helpers
+- Flake8: 0 errors
+- BC-001: company_id scoped, BC-008: graceful degradation
+- W9-GAP-027: EXPIRETIME + fallback, W9-GAP-028: batch pipeline
+---
+Task ID: sg-02-tier-access
+Agent: PARWA Tech Lead
+Task: SG-02 — Technique Tier Access Check (technique_tier_access.py)
+
+Work Log:
+- Created backend/app/core/technique_tier_access.py (722 lines):
+  - TierAccessDecision enum: ALLOWED, BLOCKED, DOWNGRADED
+  - TierAccessResult dataclass: technique, requested_tier, decision, variant_type, effective_tier, fallback_technique, reason, max_allowed_tier
+  - VariantTierConfig dataclass: variant_type, max_tier, allowed_techniques, blocked_techniques, fallback_map
+  - TechniqueTierAccessChecker class with 10 core methods + 6 utility methods
+  - __init__: Loads tier configurations for all 3 variants (parwa_lite, parwa, parwa_high)
+  - check_access: Single technique access check with 60s cache (W9-GAP-029)
+  - check_batch_access: Batch technique access check
+  - filter_techniques: Returns allowed techniques with fallback substitution and deduplication
+  - get_allowed_techniques / get_blocked_techniques: Variant-aware technique lists
+  - get_tier_for_technique: Technique-to-tier reverse lookup
+  - upgrade_technique: Cross-variant escalation check with logging
+  - validate_pipeline: Full pipeline compliance validation returning {valid, allowed, blocked, downgraded, details}
+  - get_variant_config: Full VariantTierConfig retrieval
+  - W9-GAP-029: Cache tier access decisions for 60s with automatic eviction
+  - W9-GAP-030: Structured logging for every blocked/downgraded access attempt (company_id in logs per BC-001)
+  - BC-008: Graceful degradation on unknown variant, unknown technique, empty inputs
+  - Imports TechniqueID, TechniqueTier from technique_router.py
+  - from __future__ import annotations
+
+Tier Mapping:
+  - parwa_lite (starter): Tier 1 only (3 techniques, 11 blocked)
+  - parwa (growth): Tier 1 + Tier 2 (8 techniques, 6 blocked)
+  - parwa_high (high): All tiers (14 techniques, 0 blocked)
+
+Fallback Map:
+  - Tier 3 → Tier 1: GST→CLARA, UoT→CLARA, ToT→CLARA, SelfConsistency→CRP, Reflexion→GSD, LTM→CLARA
+  - Tier 2 → Tier 1: CoT→CRP, ReAct→CRP, ReverseThinking→CRP, StepBack→GSD, ThoT→GSD
+
+Stage Summary:
+- Flake8: 0 errors (max-line-length=79)
+- 35+ validation tests passing (inline verification)
+- File: backend/app/core/technique_tier_access.py (722 lines)
+- BC-001: company_id included in all log entries
+- BC-008: Graceful degradation for unknown variants/techniques
+- W9-GAP-029: 60s decision cache with automatic eviction
+- W9-GAP-030: Structured logging on every blocked/downgraded access
+- Files created: 1 (technique_tier_access.py)
+- Files modified: 1 (worklog.md)
