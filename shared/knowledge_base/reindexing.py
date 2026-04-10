@@ -10,6 +10,7 @@ BC-008: Never crashes — always returns a result.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -297,3 +298,210 @@ class ReindexingService:
         except Exception:
             pass  # BC-008: fail open
         return invalidated
+
+
+# =========================================================================
+# ReindexJob / ReindexStatus / ReindexingManager
+# =========================================================================
+
+
+@dataclass
+class ReindexJob:
+    """A single reindexing job for a document."""
+    document_id: str
+    company_id: str
+    status: str = "pending"
+    created_at: float = field(default_factory=time.time)
+    error: str = ""
+
+
+@dataclass
+class ReindexStatus:
+    """Snapshot of reindexing status for a company."""
+    pending: int = 0
+    processing: int = 0
+    completed: int = 0
+    failed: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.pending + self.processing + self.completed + self.failed
+
+
+class ReindexingManager:
+    """In-memory reindexing manager with queue, staleness detection,
+    and cache-invalidation tracking.  Scoped to company_id."""
+
+    def __init__(self) -> None:
+        self._doc_timestamps: Dict[str, Dict[str, float]] = {}
+        self._pending_queue: List[ReindexJob] = []
+        self._completed_jobs: List[ReindexJob] = []
+        self._failed_jobs: List[ReindexJob] = []
+        self._invalidated_docs: Dict[str, set] = {}
+
+    # ------------------------------------------------------------------
+    # mark_for_reindex
+    # ------------------------------------------------------------------
+
+    async def mark_for_reindex(
+        self, company_id: str, document_ids: List[str],
+    ) -> int:
+        """Queue *unique* document_ids (within this call) for reindexing.
+
+        Deduplication is per-call: the same doc_id may appear across
+        multiple calls and will create separate jobs.
+        """
+        seen: set = set()
+        count = 0
+        for doc_id in document_ids:
+            if doc_id in seen:
+                continue
+            seen.add(doc_id)
+            job = ReindexJob(
+                document_id=doc_id,
+                company_id=company_id,
+            )
+            self._pending_queue.append(job)
+            count += 1
+        return count
+
+    # ------------------------------------------------------------------
+    # process_reindex_queue
+    # ------------------------------------------------------------------
+
+    async def process_reindex_queue(
+        self,
+        company_id: str,
+        process_fn=None,
+        batch_size: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Process pending jobs for *company_id*.
+
+        Returns dict with keys: processed, succeeded, failed, errors.
+        """
+        # Collect matching pending jobs
+        matching: List[ReindexJob] = [
+            j for j in self._pending_queue if j.company_id == company_id
+        ]
+
+        if batch_size is not None:
+            matching = matching[:batch_size]
+
+        succeeded = 0
+        failed = 0
+        errors: List[str] = []
+
+        for job in matching:
+            self._pending_queue.remove(job)
+            job.status = "processing"
+
+            try:
+                if process_fn is not None:
+                    result = process_fn(job)
+                    if asyncio.iscoroutine(result):
+                        result = await result
+                    # If callback returned False-like, still count as success
+                # No process_fn → auto-succeed
+                job.status = "completed"
+                self._completed_jobs.append(job)
+                succeeded += 1
+            except Exception as exc:
+                job.status = "failed"
+                job.error = str(exc)
+                self._failed_jobs.append(job)
+                failed += 1
+                errors.append(str(exc))
+
+        return {
+            "processed": succeeded + failed,
+            "succeeded": succeeded,
+            "failed": failed,
+            "errors": errors,
+        }
+
+    # ------------------------------------------------------------------
+    # get_reindex_status
+    # ------------------------------------------------------------------
+
+    def get_reindex_status(self, company_id: str) -> ReindexStatus:
+        """Return a status snapshot for *company_id*."""
+        pending = sum(
+            1 for j in self._pending_queue if j.company_id == company_id
+        )
+        processing = 0  # jobs are never left in processing state
+        completed = sum(
+            1 for j in self._completed_jobs if j.company_id == company_id
+        )
+        failed = sum(
+            1 for j in self._failed_jobs if j.company_id == company_id
+        )
+        return ReindexStatus(
+            pending=pending,
+            processing=processing,
+            completed=completed,
+            failed=failed,
+        )
+
+    # ------------------------------------------------------------------
+    # invalidate_cache
+    # ------------------------------------------------------------------
+
+    async def invalidate_cache(
+        self, company_id: str, document_ids: List[str],
+    ) -> int:
+        """Track invalidated documents; returns accumulated unique count."""
+        if company_id not in self._invalidated_docs:
+            self._invalidated_docs[company_id] = set()
+        self._invalidated_docs[company_id].update(document_ids)
+        return len(self._invalidated_docs[company_id])
+
+    # ------------------------------------------------------------------
+    # get_stale_documents
+    # ------------------------------------------------------------------
+
+    async def get_stale_documents(
+        self,
+        company_id: str,
+        max_age_minutes: float = 5,
+    ) -> List[Dict[str, Any]]:
+        """Return stale documents sorted by age (most stale first)."""
+        now = time.time()
+        threshold_seconds = max_age_minutes * 60
+        timestamps = self._doc_timestamps.get(company_id, {})
+        stale: List[Dict[str, Any]] = []
+        for doc_id, ts in timestamps.items():
+            age_seconds = now - ts
+            if age_seconds > threshold_seconds:
+                stale.append({
+                    "document_id": doc_id,
+                    "age_minutes": age_seconds / 60,
+                })
+        # Sort most stale first
+        stale.sort(key=lambda d: d["age_minutes"], reverse=True)
+        return stale
+
+    # ------------------------------------------------------------------
+    # record_index_timestamp
+    # ------------------------------------------------------------------
+
+    def record_index_timestamp(
+        self, company_id: str, document_ids: List[str],
+    ) -> None:
+        """Store the current timestamp for each document."""
+        if company_id not in self._doc_timestamps:
+            self._doc_timestamps[company_id] = {}
+        now = time.time()
+        for doc_id in document_ids:
+            self._doc_timestamps[company_id][doc_id] = now
+
+    # ------------------------------------------------------------------
+    # clear
+    # ------------------------------------------------------------------
+
+    def clear(self) -> None:
+        """Reset all internal state."""
+        self._doc_timestamps.clear()
+        self._pending_queue.clear()
+        self._completed_jobs.clear()
+        self._failed_jobs.clear()
+        self._invalidated_docs.clear()

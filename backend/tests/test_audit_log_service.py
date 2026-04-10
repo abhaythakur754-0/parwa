@@ -9,6 +9,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Module-level stubs — populated by the autouse fixture below.
+# These satisfy pyflakes F821 checks; the real imports happen
+# inside the fixture after the logger is mocked.
+AuditLogService = None  # type: ignore[assignment,misc]
+AuditLogError = None  # type: ignore[assignment,misc]
+AuditLogConfig = None  # type: ignore[assignment,misc]
+AuditLogEntry = None  # type: ignore[assignment,misc]
+AuditRetentionPolicy = None  # type: ignore[assignment,misc]
+AuditStats = None  # type: ignore[assignment,misc]
+AuditIntegrityReport = None  # type: ignore[assignment,misc]
+AuditExportResult = None  # type: ignore[assignment,misc]
+AuditSeverity = None  # type: ignore[assignment,misc]
+AuditCategory = None  # type: ignore[assignment,misc]
+ExportFormat = None  # type: ignore[assignment,misc]
+IntegrityStatus = None  # type: ignore[assignment,misc]
+
 
 @pytest.fixture(autouse=True)
 def _mock_logger_and_lock():
@@ -18,33 +34,31 @@ def _mock_logger_and_lock():
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
             from backend.app.services.audit_log_service import (
-                AuditLogService,
-                AuditLogError,
-                AuditLogConfig,
-                AuditLogEntry,
-                AuditRetentionPolicy,
-                AuditStats,
-                AuditIntegrityReport,
-                AuditExportResult,
-                AuditSeverity,
-                AuditCategory,
-                ExportFormat,
-                IntegrityStatus,
+                AuditLogService as _AuditLogService,
+                AuditLogError as _AuditLogError,
+                AuditLogConfig as _AuditLogConfig,
+                AuditLogEntry as _AuditLogEntry,
+                AuditRetentionPolicy as _AuditRetentionPolicy,
+                AuditStats as _AuditStats,
+                AuditIntegrityReport as _AuditIntegrityReport,
+                AuditExportResult as _AuditExportResult,
+                AuditSeverity as _AuditSeverity,
+                AuditCategory as _AuditCategory,
+                ExportFormat as _ExportFormat,
+                IntegrityStatus as _IntegrityStatus,
             )
-            globals().update({
-                "AuditLogService": AuditLogService,
-                "AuditLogError": AuditLogError,
-                "AuditLogConfig": AuditLogConfig,
-                "AuditLogEntry": AuditLogEntry,
-                "AuditRetentionPolicy": AuditRetentionPolicy,
-                "AuditStats": AuditStats,
-                "AuditIntegrityReport": AuditIntegrityReport,
-                "AuditExportResult": AuditExportResult,
-                "AuditSeverity": AuditSeverity,
-                "AuditCategory": AuditCategory,
-                "ExportFormat": ExportFormat,
-                "IntegrityStatus": IntegrityStatus,
-            })
+            globals()["AuditLogService"] = _AuditLogService
+            globals()["AuditLogError"] = _AuditLogError
+            globals()["AuditLogConfig"] = _AuditLogConfig
+            globals()["AuditLogEntry"] = _AuditLogEntry
+            globals()["AuditRetentionPolicy"] = _AuditRetentionPolicy
+            globals()["AuditStats"] = _AuditStats
+            globals()["AuditIntegrityReport"] = _AuditIntegrityReport
+            globals()["AuditExportResult"] = _AuditExportResult
+            globals()["AuditSeverity"] = _AuditSeverity
+            globals()["AuditCategory"] = _AuditCategory
+            globals()["ExportFormat"] = _ExportFormat
+            globals()["IntegrityStatus"] = _IntegrityStatus
             yield
         finally:
             _svc_mod.threading.Lock = _orig_lock
