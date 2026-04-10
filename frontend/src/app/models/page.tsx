@@ -693,51 +693,76 @@ export default function ModelsPage() {
                           </div>
                         </div>
 
-                        {/* ── Action Buttons: Instant Demo | Live Chat ── */}
-                        <div className="flex flex-col gap-2.5 mb-3">
+                        {/* ══════════ EXPERIENCE BEFORE YOU HIRE ══════════ */}
+                        <div className="mt-5 -mx-2 px-4 py-4 rounded-2xl relative overflow-hidden" style={{
+                          background: `linear-gradient(135deg, rgba(${accentRgb},0.06) 0%, rgba(${accentRgb},0.02) 100%)`,
+                          border: `1px dashed rgba(${accentRgb},0.25)`,
+                        }}>
+                          {/* Decorative corner accents */}
+                          <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 rounded-tl-2xl" style={{ borderColor: accent }} />
+                          <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 rounded-tr-2xl" style={{ borderColor: accent }} />
+                          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 rounded-bl-2xl" style={{ borderColor: accent }} />
+                          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 rounded-br-2xl" style={{ borderColor: accent }} />
+
+                          {/* Section header */}
+                          <div className="text-center mb-4">
+                            <p className="text-[10px] uppercase tracking-[0.2em] font-black mb-1" style={{ color: accent }}>Experience Before You Hire</p>
+                            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Don't take our word for it — try it yourself</p>
+                          </div>
+
+                          {/* Call Demo Button — THE star button */}
                           <button
                             onClick={() => handleDemoClick(variant.name)}
-                            className="group/demo relative flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden"
+                            className="group/demo w-full relative flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-bold transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl overflow-hidden mb-2.5"
                             style={{
-                              background: `linear-gradient(135deg, rgba(${accentRgb},0.25) 0%, rgba(${accentRgb},0.08) 100%)`,
-                              border: `1px solid rgba(${accentRgb},0.4)`,
-                              color: accent,
-                              boxShadow: `0 4px 15px rgba(${accentRgb},0.1)`,
+                              background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.7) 100%)`,
+                              color: primary,
+                              boxShadow: `0 4px 20px rgba(${accentRgb},0.25), 0 0 40px rgba(${accentRgb},0.08)`,
                             }}
-                            title="Book an instant demo to see how this agent talks to your clients"
+                            title="This agent will call you — talk to it, test it, see how it handles your clients"
                           >
-                            <div className="absolute inset-0 opacity-0 group-hover/demo:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(135deg, rgba(${accentRgb},0.35) 0%, rgba(${accentRgb},0.15) 100%)` }} />
-                            <div className="relative flex items-center justify-center gap-2.5">
-                              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `rgba(${accentRgb},0.2)` }}>
-                                <Calendar className="w-4 h-4" />
+                            <div className="absolute inset-0 opacity-0 group-hover/demo:opacity-100 transition-opacity duration-500" style={{ background: `linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%)` }} />
+                            <div className="absolute top-0 right-0 px-2.5 py-1 rounded-bl-xl rounded-tr-[9px]">
+                              <span className="text-[9px] font-black uppercase tracking-wider" style={{ color: primary, opacity: 0.7 }}>$1</span>
+                            </div>
+                            <div className="relative flex items-center gap-3 w-full">
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
+                                <Phone className="w-5 h-5" />
                               </div>
-                              <div className="text-left">
-                                <span className="block text-xs font-bold leading-tight">Book Instant Demo</span>
-                                <span className="block text-[10px] font-medium mt-0.5" style={{ color: `rgba(${accentRgb},0.7)` }}>See how this agent talks to your clients — just $1</span>
+                              <div className="text-left flex-1">
+                                <span className="block text-sm font-black leading-tight">Book Instant Call Demo</span>
+                                <span className="block text-[11px] font-medium mt-0.5" style={{ opacity: 0.8 }}>This agent will call you — talk to it, test it live</span>
                               </div>
                             </div>
                           </button>
+
+                          {/* Chat Demo Button — FREE */}
                           <button
                             onClick={() => { /* Open chat — chat widget is always visible */ }}
-                            className="group/chat relative flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden"
+                            className="group/chat w-full relative flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 overflow-hidden"
                             style={{
-                              background: `linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)`,
-                              border: `1px solid rgba(255,255,255,0.15)`,
-                              color: 'rgba(255,255,255,0.85)',
+                              background: 'rgba(255,255,255,0.04)',
+                              border: `1px solid rgba(255,255,255,0.12)`,
+                              color: 'rgba(255,255,255,0.9)',
                             }}
-                            title="Try live chat to see how it responds to your queries"
+                            title="Free live chat — see how Parwa responds to real queries"
                           >
-                            <div className="absolute inset-0 opacity-0 group-hover/chat:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%)` }} />
-                            <div className="relative flex items-center justify-center gap-2.5">
-                              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
-                                <MessageSquare className="w-4 h-4" style={{ color: accent }} />
+                            <div className="absolute inset-0 opacity-0 group-hover/chat:opacity-100 transition-opacity duration-300" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                            <div className="absolute top-0 right-0 px-2.5 py-1 rounded-bl-xl rounded-tr-[9px]" style={{ background: 'rgba(52,211,153,0.15)' }}>
+                              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Free</span>
+                            </div>
+                            <div className="relative flex items-center gap-3 w-full">
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                                <MessageSquare className="w-5 h-5" style={{ color: accent }} />
                               </div>
-                              <div className="text-left">
-                                <span className="block text-xs font-bold leading-tight">Try Live Chat</span>
-                                <span className="block text-[10px] font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>See how it reacts to you & your clients</span>
+                              <div className="text-left flex-1">
+                                <span className="block text-sm font-bold leading-tight">Try Live Chat — Free</span>
+                                <span className="block text-[11px] font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Chat now — see how Parwa handles your clients' queries</span>
                               </div>
                             </div>
                           </button>
+
+                          <p className="text-center text-[10px] mt-3 italic" style={{ color: 'rgba(255,255,255,0.25)' }}>Both demos show exactly how Parwa works when hired by you</p>
                         </div>
 
                         {/* ── Main CTA ── */}
