@@ -8,6 +8,21 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+# Module-level stubs
+TechniqueTierAccessChecker = None  # type: ignore[assignment,misc]
+TierAccessDecision = None  # type: ignore[assignment,misc]
+TierAccessResult = None  # type: ignore[assignment,misc]
+VariantTierConfig = None  # type: ignore[assignment,misc]
+_TECHNIQUE_TO_TIER = None  # type: ignore[assignment,misc]
+_TIER_1_TECHNIQUES = None  # type: ignore[assignment,misc]
+_TIER_2_TECHNIQUES = None  # type: ignore[assignment,misc]
+_TIER_3_TECHNIQUES = None  # type: ignore[assignment,misc]
+_DOWNGRADE_FALLBACK = None  # type: ignore[assignment,misc]
+_FALLBACK_T3_TO_T1 = None  # type: ignore[assignment,misc]
+_FALLBACK_T2_TO_T1 = None  # type: ignore[assignment,misc]
+_CACHE_TTL_SECONDS = None  # type: ignore[assignment,misc]
+
+
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("backend.app.logger.get_logger", return_value=MagicMock()):

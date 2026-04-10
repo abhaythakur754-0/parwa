@@ -12,6 +12,42 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+# Module-level stubs
+CHAIN_TIMEOUT_SECONDS = None  # type: ignore[assignment,misc]
+CONFIDENCE_THRESHOLD = None  # type: ignore[assignment,misc]
+CONTEXT_EXPIRY_MINUTES = None  # type: ignore[assignment,misc]
+DEFAULT_COMPETITORS = None  # type: ignore[assignment,misc]
+DUPLICATE_SIMILARITY_THRESHOLD = None  # type: ignore[assignment,misc]
+EdgeCaseAction = None  # type: ignore[assignment,misc]
+EdgeCaseHandler = None  # type: ignore[assignment,misc]
+EdgeCaseProcessingResult = None  # type: ignore[assignment,misc]
+EdgeCaseRegistry = None  # type: ignore[assignment,misc]
+EdgeCaseResult = None  # type: ignore[assignment,misc]
+EdgeCaseSeverity = None  # type: ignore[assignment,misc]
+EmptyQueryHandler = None  # type: ignore[assignment,misc]
+EmojisOnlyHandler = None  # type: ignore[assignment,misc]
+BelowConfidenceHandler = None  # type: ignore[assignment,misc]
+BlockedUserHandler = None  # type: ignore[assignment,misc]
+CodeBlocksHandler = None  # type: ignore[assignment,misc]
+CompetitorMentionHandler = None  # type: ignore[assignment,misc]
+DuplicateQueryHandler = None  # type: ignore[assignment,misc]
+EmbeddedImagesHandler = None  # type: ignore[assignment,misc]
+ExpiredContextHandler = None  # type: ignore[assignment,misc]
+FAQMatchHandler = None  # type: ignore[assignment,misc]
+LegalTerminologyHandler = None  # type: ignore[assignment,misc]
+MaintenanceModeHandler = None  # type: ignore[assignment,misc]
+MaliciousHTMLHandler = None  # type: ignore[assignment,misc]
+MultiQuestionHandler = None  # type: ignore[assignment,misc]
+NonExistentTicketHandler = None  # type: ignore[assignment,misc]
+PricingRequestHandler = None  # type: ignore[assignment,misc]
+SystemCommandsHandler = None  # type: ignore[assignment,misc]
+TimeoutHandler = None  # type: ignore[assignment,misc]
+TooLongQueryHandler = None  # type: ignore[assignment,misc]
+UnsupportedLanguageHandler = None  # type: ignore[assignment,misc]
+VARIANT_HANDLER_WHITELIST = None  # type: ignore[assignment,misc]
+_detect_script = None  # type: ignore[assignment,misc]
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════

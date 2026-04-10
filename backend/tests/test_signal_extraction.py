@@ -13,6 +13,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+# Module-level stubs
+CURRENCY_TO_USD = None  # type: ignore[assignment,misc]
+ExtractedSignals = None  # type: ignore[assignment,misc]
+INTENT_KEYWORDS = None  # type: ignore[assignment,misc]
+MONETARY_REGEX = None  # type: ignore[assignment,misc]
+NEGATIVE_WORDS = None  # type: ignore[assignment,misc]
+POSITIVE_WORDS = None  # type: ignore[assignment,misc]
+SignalExtractionRequest = None  # type: ignore[assignment,misc]
+SignalExtractor = None  # type: ignore[assignment,misc]
+TOPIC_CLUSTERS = None  # type: ignore[assignment,misc]
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════

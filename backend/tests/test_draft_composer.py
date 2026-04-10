@@ -15,6 +15,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+# Module-level stubs
+DraftComposer = None  # type: ignore[assignment,misc]
+DraftComposerResponse = None  # type: ignore[assignment,misc]
+DraftOptions = None  # type: ignore[assignment,misc]
+DraftRequest = None  # type: ignore[assignment,misc]
+DraftResult = None  # type: ignore[assignment,misc]
+_DEDUP_SIMILARITY_THRESHOLD = None  # type: ignore[assignment,misc]
+_TECHNIQUE_MAP = None  # type: ignore[assignment,misc]
+_VARIANT_MAX_DRAFTS = None  # type: ignore[assignment,misc]
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════
