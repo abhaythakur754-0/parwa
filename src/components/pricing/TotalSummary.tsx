@@ -104,10 +104,7 @@ export function TotalSummary({
             <Ticket className="w-7 h-7 text-emerald-200/30" />
           </div>
           <p className="text-sm text-emerald-200/30 mb-1 font-medium">
-            No variants selected
-          </p>
-          <p className="text-xs text-emerald-200/20 leading-relaxed">
-            Select variants and adjust quantities to see your bill summary
+            Select variants to see your bill summary
           </p>
         </div>
       ) : (
@@ -138,13 +135,13 @@ export function TotalSummary({
                     {variant.name}
                   </p>
                   <p className="text-[11px] text-emerald-200/30">
-                    {quantity} x ${variant.pricePerMonth}/mo
+                    {(variant.ticketsPerMonth * quantity).toLocaleString()} tickets/month
                   </p>
                 </div>
 
                 {/* Price */}
                 <span className="text-sm font-bold text-gray-100 flex-shrink-0">
-                  ${variant.pricePerMonth * quantity}
+                  ${variant.pricePerMonth * quantity}/mo
                 </span>
               </div>
             ))}
@@ -159,10 +156,7 @@ export function TotalSummary({
                 <span className="text-sm">Total Tickets</span>
               </div>
               <span className="text-sm font-bold text-white">
-                {totalTickets.toLocaleString()}
-                <span className="text-xs font-normal text-emerald-200/30 ml-0.5">
-                  /mo
-                </span>
+                {totalTickets.toLocaleString()}/month
               </span>
             </div>
 
@@ -183,15 +177,9 @@ export function TotalSummary({
             <span className="text-sm font-semibold text-emerald-200/70">
               Monthly Total
             </span>
-            <div className="flex items-baseline gap-0.5">
-              <span className="text-xs text-emerald-400 font-medium">$</span>
-              <span className="text-2xl sm:text-3xl font-extrabold text-emerald-400 tabular-nums">
-                {totalMonthly}
-              </span>
-              <span className="text-xs text-emerald-400/60 font-medium">
-                /mo
-              </span>
-            </div>
+            <span className="text-2xl sm:text-3xl font-extrabold text-emerald-400 tabular-nums">
+              ${totalMonthly}
+            </span>
           </div>
 
           {/* Annual Savings Badge */}
@@ -199,15 +187,8 @@ export function TotalSummary({
             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-4">
               <div className="flex items-center gap-2">
                 <CalendarCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <p className="text-xs sm:text-sm text-amber-300 font-medium">
-                  <span className="text-amber-400 font-bold">
-                    2 months free
-                  </span>{' '}
-                  with annual plan — save{' '}
-                  <span className="text-amber-400 font-bold">
-                    ${annualSavings}
-                  </span>
-                  /year
+                <p className="text-xs sm:text-sm text-amber-400 font-bold">
+                  Save ${annualSavings}/year with annual billing
                 </p>
               </div>
             </div>

@@ -143,7 +143,7 @@ export function VariantCard({
                 isActive ? 'text-emerald-400' : 'text-gray-100'
               }`}
             >
-              {variant.ticketsPerMonth.toLocaleString()}
+              {isActive ? ticketsTotal.toLocaleString() : variant.ticketsPerMonth.toLocaleString()}
             </span>
             <span className="block text-[10px] sm:text-xs text-emerald-200/30">
               tickets/mo
@@ -159,7 +159,7 @@ export function VariantCard({
                 isActive ? 'text-white' : 'text-gray-100'
               }`}
             >
-              ${variant.pricePerMonth}
+              ${isActive ? monthlyTotal : variant.pricePerMonth}
             </span>
           </div>
           <span className="block text-[10px] sm:text-xs text-emerald-200/30">
@@ -233,10 +233,7 @@ export function VariantCard({
             <span className="text-xs font-medium">Monthly subtotal</span>
           </div>
           <span className="text-sm font-bold text-emerald-400">
-            ${monthlyTotal}
-            <span className="text-xs font-normal text-emerald-500/60 ml-1">
-              /mo
-            </span>
+            ${monthlyTotal}/mo
           </span>
         </div>
       )}
