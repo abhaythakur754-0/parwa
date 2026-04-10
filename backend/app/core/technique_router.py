@@ -232,6 +232,7 @@ class QuerySignals:
     query_complexity: float = 0.0          # F-062, range 0.0-1.0
     confidence_score: float = 1.0          # F-059, range 0.0-1.0
     sentiment_score: float = 0.7           # F-063, range 0.0-1.0
+    frustration_score: float = 0.0         # Frustration level, range 0.0-100.0
     customer_tier: str = "free"            # Free/Pro/Enterprise/VIP
     monetary_value: float = 0.0            # $0.00+
     turn_count: int = 0                    # 0+

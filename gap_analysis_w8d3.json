@@ -1,5 +1,55 @@
 {
-  "found_count": 0,
-  "gaps": [],
-  "raw_response": "Error calling AI: Failed to make API request: Error: API request failed with status 401: {\"error\":\"missing X-Token header\"}\n    at ZAI.createChatCompletion (file:///home/z/.bun/install/global/node_modules/z-ai-web-dev-sdk/dist/index.js:100:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/z/my-project/parwa/tmp378j90x6.cjs:7:24)\nError: API request failed with status 401: {\"error\":\"missing X-Token header\"}\n"
+  "found_count": "7",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Confidence Score Race Condition",
+      "breaks": "Concurrent updates to confidence scores create inconsistent final values",
+      "scenario": "Two agents simultaneously process the same ticket, updating different confidence dimensions, resulting in conflicting final scores that average incorrectly",
+      "prompt": "Write a test that simulates two Celery workers processing the same ticket concurrently with different confidence scoring inputs. Verify the final score is consistent and doesn't depend on processing order."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Tenant Isolation in Guardrail Results",
+      "breaks": "Guardrail policies from one tenant leak to another",
+      "scenario": "Tenant A has strict PII detection rules, but when processing a ticket from Tenant B with similar PII patterns, the system incorrectly applies Tenant A's policies and blocks legitimate content",
+      "prompt": "Write a test that creates two tenants with different PII detection policies, then verifies that guardrail processing for Tenant B strictly uses Tenant B's policies and never references Tenant A's configuration."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Confidence Threshold Cascading Failure",
+      "breaks": "Low confidence score triggers guardrail check which fails, creating infinite loop",
+      "scenario": "A response gets a low confidence score (0.6), triggering the confidence-based blocking guardrail. The blocking itself gets a low confidence score, triggering another check, creating an infinite recursion that crashes the system",
+      "prompt": "Write a test that simulates a response with a confidence score just below the threshold, then verifies the guardrail pipeline handles this case without entering an infinite loop or crashing."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Hallucination Detection False Negative",
+      "breaks": "Fabricated information passes as valid due to edge case in detection",
+      "scenario": "An AI response includes completely fabricated statistics that happen to match the statistical distribution of real data, causing the hallucination detector to incorrectly validate the false information",
+      "prompt": "Write a test that generates AI responses with subtly fabricated information that mimics statistical patterns of real data, then verifies the hallucination detection catches these false negatives."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Prompt Injection via Unicode Obfuscation",
+      "breaks": "Guardrails fail to detect obfuscated prompt injection attempts",
+      "scenario": "An attacker uses Unicode homoglyphs and zero-width characters to disguise a prompt injection command that bypasses the prompt injection guardrail but is still executed by the underlying model",
+      "prompt": "Write a test that creates various Unicode-obfuscated prompt injection attempts and verifies they are all caught by the prompt injection guardrail."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "State Loss During Pipeline Processing",
+      "breaks": "Partial pipeline processing lost on system restart",
+      "scenario": "A ticket response is midway through the 5-layer guardrail pipeline when the system restarts. On recovery, the system doesn't resume from the checkpoint and processes the response from the beginning, potentially missing context or causing duplicate checks",
+      "prompt": "Write a test that simulates a system restart during various stages of the guardrail pipeline processing and verifies the system resumes correctly without losing state or duplicating work."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Guardrail Silent Failure",
+      "breaks": "Guardrail failures are not surfaced to users or logged",
+      "scenario": "The PII detection guardrail fails due to an unexpected input format, but the failure is silently caught and the response is still delivered without PII filtering, exposing sensitive customer data",
+      "prompt": "Write a test that introduces various malformed inputs to each guardrail component and verifies all failures are properly logged and surfaced to users rather than being silently ignored."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 7\n\nGAP 1\nSeverity: CRITICAL\nTitle: Confidence Score Race Condition\nWhat breaks: Concurrent updates to confidence scores create inconsistent final values\nReal scenario: Two agents simultaneously process the same ticket, updating different confidence dimensions, resulting in conflicting final scores that average incorrectly\nAI agent prompt: Write a test that simulates two Celery workers processing the same ticket concurrently with different confidence scoring inputs. Verify the final score is consistent and doesn't depend on processing order.\n\nGAP 2\nSeverity: CRITICAL\nTitle: Tenant Isolation in Guardrail Results\nWhat breaks: Guardrail policies from one tenant leak to another\nReal scenario: Tenant A has strict PII detection rules, but when processing a ticket from Tenant B with similar PII patterns, the system incorrectly applies Tenant A's policies and blocks legitimate content\nAI agent prompt: Write a test that creates two tenants with different PII detection policies, then verifies that guardrail processing for Tenant B strictly uses Tenant B's policies and never references Tenant A's configuration.\n\nGAP 3\nSeverity: HIGH\nTitle: Confidence Threshold Cascading Failure\nWhat breaks: Low confidence score triggers guardrail check which fails, creating infinite loop\nReal scenario: A response gets a low confidence score (0.6), triggering the confidence-based blocking guardrail. The blocking itself gets a low confidence score, triggering another check, creating an infinite recursion that crashes the system\nAI agent prompt: Write a test that simulates a response with a confidence score just below the threshold, then verifies the guardrail pipeline handles this case without entering an infinite loop or crashing.\n\nGAP 4\nSeverity: HIGH\nTitle: Hallucination Detection False Negative\nWhat breaks: Fabricated information passes as valid due to edge case in detection\nReal scenario: An AI response includes completely fabricated statistics that happen to match the statistical distribution of real data, causing the hallucination detector to incorrectly validate the false information\nAI agent prompt: Write a test that generates AI responses with subtly fabricated information that mimics statistical patterns of real data, then verifies the hallucination detection catches these false negatives.\n\nGAP 5\nSeverity: HIGH\nTitle: Prompt Injection via Unicode Obfuscation\nWhat breaks: Guardrails fail to detect obfuscated prompt injection attempts\nReal scenario: An attacker uses Unicode homoglyphs and zero-width characters to disguise a prompt injection command that bypasses the prompt injection guardrail but is still executed by the underlying model\nAI agent prompt: Write a test that creates various Unicode-obfuscated prompt injection attempts and verifies they are all caught by the prompt injection guardrail.\n\nGAP 6\nSeverity: MEDIUM\nTitle: State Loss During Pipeline Processing\nWhat breaks: Partial pipeline processing lost on system restart\nReal scenario: A ticket response is midway through the 5-layer guardrail pipeline when the system restarts. On recovery, the system doesn't resume from the checkpoint and processes the response from the beginning, potentially missing context or causing duplicate checks\nAI agent prompt: Write a test that simulates a system restart during various stages of the guardrail pipeline processing and verifies the system resumes correctly without losing state or duplicating work.\n\nGAP 7\nSeverity: MEDIUM\nTitle: Guardrail Silent Failure\nWhat breaks: Guardrail failures are not surfaced to users or logged\nReal scenario: The PII detection guardrail fails due to an unexpected input format, but the failure is silently caught and the response is still delivered without PII filtering, exposing sensitive customer data\nAI agent prompt: Write a test that introduces various malformed inputs to each guardrail component and verifies all failures are properly logged and surfaced to users rather than being silently ignored."
 }

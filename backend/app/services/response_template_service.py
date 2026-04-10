@@ -59,7 +59,7 @@ VALID_VARIABLE_TYPES: Set[str] = {
 }
 
 # Regex helpers
-_VARIABLE_PATTERN = re.compile(r"\{\{(\w+)\}\}")
+_VARIABLE_PATTERN = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
 # Redis cache TTL (30 minutes)
 CACHE_TTL_SECONDS = 1800

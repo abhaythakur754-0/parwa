@@ -1,5 +1,48 @@
 {
-  "found_count": 0,
-  "gaps": [],
-  "raw_response": "Error calling AI: Failed to make API request: Error: API request failed with status 401: {\"error\":\"missing X-Token header\"}\n    at ZAI.createChatCompletion (file:///home/z/.bun/install/global/node_modules/z-ai-web-dev-sdk/dist/index.js:100:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/z/my-project/parwa/tmp13wgskpj.cjs:7:24)\nError: API request failed with status 401: {\"error\":\"missing X-Token header\"}\n"
+  "found_count": "6",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Tier boundary overflow",
+      "breaks": "Requests exceeding tier limits silently route to wrong tier",
+      "scenario": "Growth tier customer (5K ticket limit) has 5,001 tickets but system incorrectly routes LIGHT tier requests to MEDIUM tier, consuming 2x resources",
+      "prompt": "Write a test that creates a tenant at Growth tier (5K tickets), sets their ticket count to 5,001, then attempts to route a request that should be LIGHT tier but gets incorrectly routed to MEDIUM tier. Verify the wrong tier is used and resource consumption is incorrect."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Race condition in provider failover",
+      "breaks": "Concurrent requests during provider failure cause inconsistent routing",
+      "scenario": "Google AI Studio provider fails while 10 concurrent requests are being processed - some get stuck in retry loop, others get routed to fallback provider, causing inconsistent responses",
+      "prompt": "Write a test that simulates 10 concurrent requests to the AI routing engine while simulating a Google AI Studio provider failure. Verify that all requests either successfully failover or fail gracefully, with no requests stuck in an infinite retry state."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Variant isolation breach",
+      "breaks": "Configuration changes to one variant affect other variants",
+      "scenario": "Team updates LIGHT tier variant config to use Groq provider but accidentally affects MEDIUM tier variant, causing all MEDIUM tier requests to use the wrong provider",
+      "prompt": "Write a test that creates two variants (LIGHT and MEDIUM tier) with different provider configurations, then modifies only the LIGHT tier variant configuration. Verify that the MEDIUM tier variant configuration remains unchanged and continues to use its original provider."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Silent failure in provider health check",
+      "breaks": "Unhealthy providers not properly detected, causing routing failures",
+      "scenario": "Cerebras provider has intermittent connectivity issues but health check passes, causing 30% of requests to fail until manually discovered",
+      "prompt": "Write a test that simulates a Cerebras provider with intermittent connectivity issues (random 30% failure rate) while the health check endpoint returns 200 OK. Verify that the routing engine detects these failures and fails over to the backup provider."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Idempotency violation in routing",
+      "breaks": "Duplicate requests get processed multiple times",
+      "scenario": "Payment webhook double-fires while a request is being routed, causing the same request to be processed twice with different provider responses",
+      "prompt": "Write a test that simulates a payment webhook double-firing scenario during a request routing process. Verify that the duplicate request is detected and not processed twice, maintaining idempotency."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Tenant isolation in variant config",
+      "breaks": "Variant configuration leaks between tenants",
+      "scenario": "Tenant A configures their LIGHT tier variant to use Groq provider, but Tenant B's requests start using this configuration due to cache key collision",
+      "prompt": "Write a test that creates two tenants (A and B) with different variant configurations for the same tier. Verify that Tenant B cannot access or be affected by Tenant A's variant configuration, even when both are using the same tier."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 6\n\nGAP 1\nSeverity: CRITICAL\nTitle: Tier boundary overflow\nWhat breaks: Requests exceeding tier limits silently route to wrong tier\nReal scenario: Growth tier customer (5K ticket limit) has 5,001 tickets but system incorrectly routes LIGHT tier requests to MEDIUM tier, consuming 2x resources\nAI agent prompt: Write a test that creates a tenant at Growth tier (5K tickets), sets their ticket count to 5,001, then attempts to route a request that should be LIGHT tier but gets incorrectly routed to MEDIUM tier. Verify the wrong tier is used and resource consumption is incorrect.\n\nGAP 2\nSeverity: HIGH\nTitle: Race condition in provider failover\nWhat breaks: Concurrent requests during provider failure cause inconsistent routing\nReal scenario: Google AI Studio provider fails while 10 concurrent requests are being processed - some get stuck in retry loop, others get routed to fallback provider, causing inconsistent responses\nAI agent prompt: Write a test that simulates 10 concurrent requests to the AI routing engine while simulating a Google AI Studio provider failure. Verify that all requests either successfully failover or fail gracefully, with no requests stuck in an infinite retry state.\n\nGAP 3\nSeverity: HIGH\nTitle: Variant isolation breach\nWhat breaks: Configuration changes to one variant affect other variants\nReal scenario: Team updates LIGHT tier variant config to use Groq provider but accidentally affects MEDIUM tier variant, causing all MEDIUM tier requests to use the wrong provider\nAI agent prompt: Write a test that creates two variants (LIGHT and MEDIUM tier) with different provider configurations, then modifies only the LIGHT tier variant configuration. Verify that the MEDIUM tier variant configuration remains unchanged and continues to use its original provider.\n\nGAP 4\nSeverity: MEDIUM\nTitle: Silent failure in provider health check\nWhat breaks: Unhealthy providers not properly detected, causing routing failures\nReal scenario: Cerebras provider has intermittent connectivity issues but health check passes, causing 30% of requests to fail until manually discovered\nAI agent prompt: Write a test that simulates a Cerebras provider with intermittent connectivity issues (random 30% failure rate) while the health check endpoint returns 200 OK. Verify that the routing engine detects these failures and fails over to the backup provider.\n\nGAP 5\nSeverity: MEDIUM\nTitle: Idempotency violation in routing\nWhat breaks: Duplicate requests get processed multiple times\nReal scenario: Payment webhook double-fires while a request is being routed, causing the same request to be processed twice with different provider responses\nAI agent prompt: Write a test that simulates a payment webhook double-firing scenario during a request routing process. Verify that the duplicate request is detected and not processed twice, maintaining idempotency.\n\nGAP 6\nSeverity: HIGH\nTitle: Tenant isolation in variant config\nWhat breaks: Variant configuration leaks between tenants\nReal scenario: Tenant A configures their LIGHT tier variant to use Groq provider, but Tenant B's requests start using this configuration due to cache key collision\nAI agent prompt: Write a test that creates two tenants (A and B) with different variant configurations for the same tier. Verify that Tenant B cannot access or be affected by Tenant A's variant configuration, even when both are using the same tier."
 }

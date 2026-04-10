@@ -377,6 +377,36 @@ Building 5 systems:
 
 What testing gaps exist? Focus on: draft generation quality, Socket.io race conditions, training data cross-contamination, edge case handler ordering, freshness staleness, technique tier bypass, concurrent draft sessions.""",
 
+    "w10d12": """Week 10 Day 12: LangGraph Workflow Engine (F-060) + Variant-Aware Pipeline Routing (SG-18) + Context Compression (F-067) + Context Health Meter (F-068)
+
+Building 4 systems:
+
+1. F-060 LangGraph Workflow Engine: Graph-based orchestration for multi-step AI workflows as directed state machines with conditional branching and human checkpoints. LangGraphWorkflowEngine class that builds graph nodes, executes workflows, manages state transitions, supports per-variant graphs (Mini=linear chain, Parwa=conditional branching, High=full graph with human checkpoints+loops+technique nodes).
+
+2. SG-18 Variant-Aware Pipeline Routing: Per-variant workflow graphs. Mini PARWA: linear chain only (intake -> classify -> respond). PARWA: conditional branching (intake -> classify -> [simple|complex] -> respond/approve). PARWA High: full graph with human checkpoints + loops + technique nodes. Store graph configs per variant.
+
+3. F-067 Context Compression Trigger: Monitor token usage per conversation, compress prior context when approaching window limits. Trigger compression at 80% of context window. ContextCompressor class with strategies: summarization-based, truncation-based, extractive.
+
+4. F-068 Context Health Meter: Real-time context quality indicator (healthy/warning/critical). Pushes via Socket.io. ContextHealthMeter class that tracks signal staleness, response relevance, context age, compression ratio.
+
+CURRENT STATE: Source code AND test files exist for all 4 modules. Need to find gaps in existing tests.
+
+What testing gaps exist? Focus on: workflow graph construction edge cases, conditional branching correctness, human checkpoint timeout, context compression quality at different ratios, health meter false positives/negatives, variant-specific graph validation, workflow state persistence, concurrent workflow execution, compression-triggered state transitions.""",
+
+    "w10d11": """Week 10 Day 11: State Serialization (SG-15) + GSD State Engine (F-053) + Data Freshness (SG-34)
+
+Building 3 systems:
+
+1. SG-15 State Serialization/Deserialization Layer: Redis primary + PostgreSQL fallback persistence. Serialize LangGraph state for crash recovery, cross-worker handoff, debug replay, audit trail. State schema: current_node, variables, history, technique_stack, model_used, token_count, timestamps. Distributed locks for concurrent access. Named checkpoints with 7d TTL. State diff tracking. PipelineStateSnapshot table. BC-001 company_id scoping. BC-004 retry with backoff. BC-008 never crash. StateSerializer class with save_state, load_state, save_checkpoint, load_checkpoint, list_checkpoints, delete_state, get_state_history, compute_diff, restore_from_checkpoint, get_stats methods. Dataclasses: SaveResult, StateDiff, CheckpointMeta, StateHistoryEntry, StateSerializerConfig.
+
+2. F-053 GSD State Engine: Guided Support Dialogue - structured state machine for multi-step conversations. States: NEW -> GREETING -> DIAGNOSIS -> RESOLUTION -> FOLLOW_UP -> CLOSED. ESCALATE branch to HUMAN_HANDOFF. Per-variant config: mini_parwa (linear, no escalation), parwa (full with escalation), parwa_high (full + human handoff loop). Transition validation with transition tables. Auto-escalation on frustration>80, VIP tier, legal intent, diagnosis loop>3. Escalation cooldown (5 min default). Diagnostic questions per intent. Resolution time estimation. Conversation summary. Satisfaction detection. GSDEngine class with transition, get_next_state, is_terminal, can_transition, get_available_transitions, handle_escalation, reset_conversation, get_conversation_summary, estimate_resolution_time, should_auto_close methods. GSDConfig, TransitionRecord, TransitionEvent dataclasses.
+
+3. SG-34 AI Engine Data Freshness: Cache invalidation on KB updates. RAG re-indexing on document change. Signal staleness detection (>5min old -> re-extract). Context window freshness check. Model capability version check. DataFreshnessChecker class.
+
+CURRENT STATE: Source code exists for all 3 modules. But there are ZERO test files for state_serialization.py and gsd_engine.py. DataFreshness test file exists (test_data_freshness.py).
+
+What testing gaps exist? Focus on: state serialization round-trip fidelity, Redis/PostgreSQL failover, distributed lock contention, checkpoint name sanitization, state diff accuracy, GSD transition validation edge cases, variant-specific transition restrictions, escalation cooldown timing, auto-escalation trigger conditions, diagnosis loop detection, concurrent state modification, recovery from corrupted state data, tenant isolation in state keys, history ring buffer overflow, transition reason accuracy.""",
+
     "w9d10": """Week 9 Day 10: Cross-Variant Routing (SG-06/SG-11) + Anti-Arbitrage (F-159) + Conversation Summarization (F-160) + Integration Testing
 
 Building 4 systems:

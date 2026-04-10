@@ -1,0 +1,55 @@
+{
+  "found_count": "7",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "State serialization round-trip fidelity failure",
+      "breaks": "AI conversation state gets corrupted during serialization/deserialization, leading to hallucinated data or state loss",
+      "scenario": "A conversation with 15 turns, containing complex nested variables and a 500-token technique stack is serialized to Redis, then deserialized. The restored state has missing history entries, incorrect token_count, and a modified current_node, causing the conversation to take a wrong turn",
+      "prompt": "Write a test for state_serialization.py that creates a complex conversation state with nested variables, long history, and a technique stack. Serialize it to Redis, then deserialize it and verify all fields match exactly. Include edge cases with special characters, unicode, and maximum length values."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Redis/PostgreSQL failover data loss",
+      "breaks": "When Redis fails, state fallback to PostgreSQL doesn't preserve all state components, causing silent data truncation",
+      "scenario": "A conversation state is saved with Redis as primary, then Redis crashes. When the system attempts to load the state, it only retrieves the current_node and variables from PostgreSQL, losing the history and technique_stack. The conversation appears to reset to an earlier state",
+      "prompt": "Write a test that simulates Redis failure by mocking Redis operations to raise exceptions. Verify that when Redis is unavailable, the system correctly falls back to PostgreSQL and retrieves the complete state without data loss. Test both save and load operations during Redis failure."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Distributed lock contention causing deadlock",
+      "breaks": "Multiple workers trying to modify the same conversation state simultaneously acquire locks in different order, causing permanent deadlock",
+      "scenario": "Two support agents are working on the same conversation simultaneously. One acquires the lock for state modification, the other tries to acquire the lock for checkpoint creation. They wait indefinitely for each other, causing the conversation to become unresponsive",
+      "prompt": "Write a test that simulates concurrent access to the same state by multiple workers. Create a scenario where two workers attempt to modify the same state simultaneously with different operations (e.g., one updating state, another creating a checkpoint). Verify the system handles this gracefully without deadlocks."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Tenant isolation breach in state keys",
+      "breaks": "State keys are not properly scoped by tenant, causing data leakage between customers",
+      "scenario": "Company A and Company B both have conversations with the same conversation_id. Due to missing company_id in state keys, when Company B's agent loads a conversation, they accidentally see Company A's conversation state",
+      "prompt": "Write a test that creates identical conversation states for two different tenants (company_id). Verify that when loading state by conversation_id, the system returns only the state for the correct tenant. Test edge cases where company_id is missing or malformed."
+    },
+    {
+      "severity": "HIGH",
+      "title": "GSD transition validation bypass",
+      "breaks": "Invalid state transitions are allowed when they shouldn't be, violating the state machine rules",
+      "scenario": "A conversation is in DIAGNOSIS state, but the system allows a direct transition to FOLLOW_UP, skipping the required RESOLUTION state. This breaks the conversation flow and customer experience",
+      "prompt": "Write a comprehensive test for gsd_engine.py that validates all possible state transitions. Create test cases for each variant (mini_parwa, parwa, parwa_high) and verify that only allowed transitions are permitted. Include tests for invalid transitions, missing transition reasons, and variant-specific restrictions."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Auto-escalation trigger condition race condition",
+      "breaks": "Frustration score calculation and escalation decision happen at slightly different times, causing missed escalations",
+      "scenario": "A customer's frustration score crosses the 80 threshold between the time it's calculated and when the auto-escalation check runs. The system fails to escalate, requiring manual intervention",
+      "prompt": "Write a test that simulates the timing race between frustration score calculation and escalation decision. Create a scenario where frustration crosses the threshold during this window and verify the system still correctly triggers escalation. Test with different timing variations."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "History ring buffer overflow corruption",
+      "breaks": "When conversation history exceeds the buffer limit, the system doesn't properly remove oldest entries, causing memory issues",
+      "scenario": "A conversation reaches the maximum history length (e.g., 100 entries). When a new turn is added, the oldest entry is not properly removed, causing the history to grow beyond limits and potentially crash the system",
+      "prompt": "Write a test that creates a conversation history exceeding the maximum buffer size. Verify that when new entries are added, the oldest entries are properly removed and the history size remains constant. Test edge cases with exactly at the limit and just over the limit."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 7\n\nGAP 1\nSeverity: CRITICAL\nTitle: State serialization round-trip fidelity failure\nWhat breaks: AI conversation state gets corrupted during serialization/deserialization, leading to hallucinated data or state loss\nReal scenario: A conversation with 15 turns, containing complex nested variables and a 500-token technique stack is serialized to Redis, then deserialized. The restored state has missing history entries, incorrect token_count, and a modified current_node, causing the conversation to take a wrong turn\nAI agent prompt: Write a test for state_serialization.py that creates a complex conversation state with nested variables, long history, and a technique stack. Serialize it to Redis, then deserialize it and verify all fields match exactly. Include edge cases with special characters, unicode, and maximum length values.\n\nGAP 2\nSeverity: CRITICAL\nTitle: Redis/PostgreSQL failover data loss\nWhat breaks: When Redis fails, state fallback to PostgreSQL doesn't preserve all state components, causing silent data truncation\nReal scenario: A conversation state is saved with Redis as primary, then Redis crashes. When the system attempts to load the state, it only retrieves the current_node and variables from PostgreSQL, losing the history and technique_stack. The conversation appears to reset to an earlier state\nAI agent prompt: Write a test that simulates Redis failure by mocking Redis operations to raise exceptions. Verify that when Redis is unavailable, the system correctly falls back to PostgreSQL and retrieves the complete state without data loss. Test both save and load operations during Redis failure.\n\nGAP 3\nSeverity: HIGH\nTitle: Distributed lock contention causing deadlock\nWhat breaks: Multiple workers trying to modify the same conversation state simultaneously acquire locks in different order, causing permanent deadlock\nReal scenario: Two support agents are working on the same conversation simultaneously. One acquires the lock for state modification, the other tries to acquire the lock for checkpoint creation. They wait indefinitely for each other, causing the conversation to become unresponsive\nAI agent prompt: Write a test that simulates concurrent access to the same state by multiple workers. Create a scenario where two workers attempt to modify the same state simultaneously with different operations (e.g., one updating state, another creating a checkpoint). Verify the system handles this gracefully without deadlocks.\n\nGAP 4\nSeverity: HIGH\nTitle: Tenant isolation breach in state keys\nWhat breaks: State keys are not properly scoped by tenant, causing data leakage between customers\nReal scenario: Company A and Company B both have conversations with the same conversation_id. Due to missing company_id in state keys, when Company B's agent loads a conversation, they accidentally see Company A's conversation state\nAI agent prompt: Write a test that creates identical conversation states for two different tenants (company_id). Verify that when loading state by conversation_id, the system returns only the state for the correct tenant. Test edge cases where company_id is missing or malformed.\n\nGAP 5\nSeverity: HIGH\nTitle: GSD transition validation bypass\nWhat breaks: Invalid state transitions are allowed when they shouldn't be, violating the state machine rules\nReal scenario: A conversation is in DIAGNOSIS state, but the system allows a direct transition to FOLLOW_UP, skipping the required RESOLUTION state. This breaks the conversation flow and customer experience\nAI agent prompt: Write a comprehensive test for gsd_engine.py that validates all possible state transitions. Create test cases for each variant (mini_parwa, parwa, parwa_high) and verify that only allowed transitions are permitted. Include tests for invalid transitions, missing transition reasons, and variant-specific restrictions.\n\nGAP 6\nSeverity: MEDIUM\nTitle: Auto-escalation trigger condition race condition\nWhat breaks: Frustration score calculation and escalation decision happen at slightly different times, causing missed escalations\nReal scenario: A customer's frustration score crosses the 80 threshold between the time it's calculated and when the auto-escalation check runs. The system fails to escalate, requiring manual intervention\nAI agent prompt: Write a test that simulates the timing race between frustration score calculation and escalation decision. Create a scenario where frustration crosses the threshold during this window and verify the system still correctly triggers escalation. Test with different timing variations.\n\nGAP 7\nSeverity: MEDIUM\nTitle: History ring buffer overflow corruption\nWhat breaks: When conversation history exceeds the buffer limit, the system doesn't properly remove oldest entries, causing memory issues\nReal scenario: A conversation reaches the maximum history length (e.g., 100 entries). When a new turn is added, the oldest entry is not properly removed, causing the history to grow beyond limits and potentially crash the system\nAI agent prompt: Write a test that creates a conversation history exceeding the maximum buffer size. Verify that when new entries are added, the oldest entries are properly removed and the history size remains constant. Test edge cases with exactly at the limit and just over the limit."
+}

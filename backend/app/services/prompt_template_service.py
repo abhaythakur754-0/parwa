@@ -70,7 +70,7 @@ class ABTestStatus(str, Enum):
 VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "parwa_high"}
 
 # Regex for extracting Jinja2-style variables from templates.
-_VARIABLE_PATTERN = re.compile(r"\{\{(\w+)\}\}")
+_VARIABLE_PATTERN = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
 
 # ══════════════════════════════════════════════════════════════════

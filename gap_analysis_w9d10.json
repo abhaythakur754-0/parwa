@@ -1,5 +1,55 @@
 {
-  "found_count": 0,
-  "gaps": [],
-  "raw_response": "Error calling AI: Failed to make API request: Error: API request failed with status 401: {\"error\":\"missing X-Token header\"}\n    at ZAI.createChatCompletion (file:///home/z/.bun/install/global/node_modules/z-ai-web-dev-sdk/dist/index.js:100:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/z/my-project/parwa/tmpqo1uhi33.cjs:7:24)\nError: API request failed with status 401: {\"error\":\"missing X-Token header\"}\n"
+  "found_count": "7",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Escalation Billing Integrity Failure",
+      "breaks": "When a ticket escalates between variants, the billing incorrectly charges the higher variant instead of the originating variant.",
+      "scenario": "Starter customer ($999/2K) submits a complex ticket that escalates to Growth tier ($2,499/5K). The system bills the Growth tier for this ticket, causing unexpected charges to the higher tier customer.",
+      "prompt": "Write a test that verifies billing during cross-variant escalation. Create a ticket with a Starter tier customer, escalate it to Growth tier, and verify that the billing correctly charges the Starter tier variant, not the Growth tier. Test both successful and failed escalations."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Race Condition in Concurrent Escalations",
+      "breaks": "Multiple tickets from same tenant escalate simultaneously, causing incorrect variant assignment and double-billing.",
+      "scenario": "A tenant with 5 complex tickets submitted at once triggers concurrent escalations. The race condition causes 3 tickets to be assigned to Growth tier and 2 to remain in Starter, with both tiers being billed for all 5 tickets.",
+      "prompt": "Write a test that simulates high-concurrency ticket submissions from the same tenant. Create 10 tickets simultaneously that should all escalate to Growth tier. Verify that: 1) All tickets are correctly assigned to Growth tier, 2) No double-billing occurs, 3) The escalation logic remains consistent regardless of timing."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Anti-Arbitrage Bypass via Multiple Channels",
+      "breaks": "Tenants bypass capacity limits by creating multiple channels across variants.",
+      "scenario": "A tenant creates 10 channels in Starter tier (each with 200 capacity) and 5 channels in Growth tier (each with 500 capacity), effectively getting 7,000 total capacity while only paying for the Starter tier.",
+      "prompt": "Write a test that detects anti-arbitrage bypass through multiple channel creation across variants. Create a test tenant that creates multiple channels across different variants and verifies that the system correctly calculates and enforces the total capacity limit. Alert when total capacity exceeds the tier's limit."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Escalation Rollback Failure",
+      "breaks": "When an escalation fails, the ticket remains in an undefined state instead of rolling back to the original variant.",
+      "scenario": "A ticket escalates from Starter to Growth tier, but the Growth tier service is unavailable. The ticket gets stuck in a \"pending escalation\" state, inaccessible to both variants.",
+      "prompt": "Write a test that verifies escalation rollback when the target variant is unavailable. Create a ticket that escalates to a variant that fails to respond, and verify that the ticket automatically rolls back to the original variant with all context preserved."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Context Loss During Cross-Variant Escalation",
+      "breaks": "Conversation history and context are not properly transferred during escalation.",
+      "scenario": "A 20-turn conversation escalates from Starter to Growth tier, but only the last 5 messages are transferred, causing the Growth agent to miss critical context from earlier in the conversation.",
+      "prompt": "Write a test that verifies complete context preservation during cross-variant escalation. Create a long conversation (20+ turns), escalate it to a higher variant, and verify that all conversation history, metadata, and context are properly transferred."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Summarization Accuracy Degradation with Long Context",
+      "breaks": "Conversation summarization loses accuracy when context exceeds model token limits.",
+      "scenario": "A 100-turn conversation exceeds the context window, causing the summarization to truncate important details and focus on recent exchanges, missing critical early context that affects resolution.",
+      "prompt": "Write a test that evaluates summarization accuracy with conversations of varying lengths. Create test conversations with 10, 50, and 100 turns, each with critical information at different points. Verify that the summarization captures key details regardless of position in the conversation."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Silent Failure in Shared Context Propagation",
+      "breaks": "Shared context between variants fails silently, causing variant isolation issues.",
+      "scenario": "When a ticket escalates, the shared context fails to propagate, but the system doesn't alert anyone. The escalated variant works with incomplete context, leading to incorrect responses.",
+      "prompt": "Write a test that verifies shared context propagation between variants during escalation. Create a ticket with specific metadata and context, escalate it, and verify that all context is properly transferred. Add a test case that simulates context propagation failure and ensures an alert is generated."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 7\n\nGAP 1\nSeverity: CRITICAL\nTitle: Escalation Billing Integrity Failure\nWhat breaks: When a ticket escalates between variants, the billing incorrectly charges the higher variant instead of the originating variant.\nReal scenario: Starter customer ($999/2K) submits a complex ticket that escalates to Growth tier ($2,499/5K). The system bills the Growth tier for this ticket, causing unexpected charges to the higher tier customer.\nAI agent prompt: Write a test that verifies billing during cross-variant escalation. Create a ticket with a Starter tier customer, escalate it to Growth tier, and verify that the billing correctly charges the Starter tier variant, not the Growth tier. Test both successful and failed escalations.\n\nGAP 2\nSeverity: CRITICAL\nTitle: Race Condition in Concurrent Escalations\nWhat breaks: Multiple tickets from same tenant escalate simultaneously, causing incorrect variant assignment and double-billing.\nReal scenario: A tenant with 5 complex tickets submitted at once triggers concurrent escalations. The race condition causes 3 tickets to be assigned to Growth tier and 2 to remain in Starter, with both tiers being billed for all 5 tickets.\nAI agent prompt: Write a test that simulates high-concurrency ticket submissions from the same tenant. Create 10 tickets simultaneously that should all escalate to Growth tier. Verify that: 1) All tickets are correctly assigned to Growth tier, 2) No double-billing occurs, 3) The escalation logic remains consistent regardless of timing.\n\nGAP 3\nSeverity: HIGH\nTitle: Anti-Arbitrage Bypass via Multiple Channels\nWhat breaks: Tenants bypass capacity limits by creating multiple channels across variants.\nReal scenario: A tenant creates 10 channels in Starter tier (each with 200 capacity) and 5 channels in Growth tier (each with 500 capacity), effectively getting 7,000 total capacity while only paying for the Starter tier.\nAI agent prompt: Write a test that detects anti-arbitrage bypass through multiple channel creation across variants. Create a test tenant that creates multiple channels across different variants and verifies that the system correctly calculates and enforces the total capacity limit. Alert when total capacity exceeds the tier's limit.\n\nGAP 4\nSeverity: HIGH\nTitle: Escalation Rollback Failure\nWhat breaks: When an escalation fails, the ticket remains in an undefined state instead of rolling back to the original variant.\nReal scenario: A ticket escalates from Starter to Growth tier, but the Growth tier service is unavailable. The ticket gets stuck in a \"pending escalation\" state, inaccessible to both variants.\nAI agent prompt: Write a test that verifies escalation rollback when the target variant is unavailable. Create a ticket that escalates to a variant that fails to respond, and verify that the ticket automatically rolls back to the original variant with all context preserved.\n\nGAP 5\nSeverity: HIGH\nTitle: Context Loss During Cross-Variant Escalation\nWhat breaks: Conversation history and context are not properly transferred during escalation.\nReal scenario: A 20-turn conversation escalates from Starter to Growth tier, but only the last 5 messages are transferred, causing the Growth agent to miss critical context from earlier in the conversation.\nAI agent prompt: Write a test that verifies complete context preservation during cross-variant escalation. Create a long conversation (20+ turns), escalate it to a higher variant, and verify that all conversation history, metadata, and context are properly transferred.\n\nGAP 6\nSeverity: MEDIUM\nTitle: Summarization Accuracy Degradation with Long Context\nWhat breaks: Conversation summarization loses accuracy when context exceeds model token limits.\nReal scenario: A 100-turn conversation exceeds the context window, causing the summarization to truncate important details and focus on recent exchanges, missing critical early context that affects resolution.\nAI agent prompt: Write a test that evaluates summarization accuracy with conversations of varying lengths. Create test conversations with 10, 50, and 100 turns, each with critical information at different points. Verify that the summarization captures key details regardless of position in the conversation.\n\nGAP 7\nSeverity: MEDIUM\nTitle: Silent Failure in Shared Context Propagation\nWhat breaks: Shared context between variants fails silently, causing variant isolation issues.\nReal scenario: When a ticket escalates, the shared context fails to propagate, but the system doesn't alert anyone. The escalated variant works with incomplete context, leading to incorrect responses.\nAI agent prompt: Write a test that verifies shared context propagation between variants during escalation. Create a ticket with specific metadata and context, escalate it, and verify that all context is properly transferred. Add a test case that simulates context propagation failure and ensures an alert is generated."
 }
