@@ -108,13 +108,12 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <div className="w-5 h-5 rounded-full bg-emerald-500/40 border-2 border-[#022C22]" />
                 <div className="w-5 h-5 rounded-full bg-emerald-300/40 border-2 border-[#022C22]" />
               </div>
-              <span className="text-xs text-emerald-200/60 font-medium">2,400+ businesses trust us</span>
             </div>
             <Link
-              href="/login"
+              href="/signup"
               className="bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:-translate-y-0.5 focus-visible-ring badge-pulse"
             >
-              🔥 Join 2,400+ businesses
+              Sign Up
             </Link>
           </div>
 
@@ -152,7 +151,6 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                   <div className="w-5 h-5 rounded-full bg-emerald-500/40 border-2 border-[#022C22]" />
                   <div className="w-5 h-5 rounded-full bg-emerald-300/40 border-2 border-[#022C22]" />
                 </div>
-                <span className="text-xs text-emerald-200/60 font-medium">2,400+ businesses trust us</span>
               </div>
               {navLinks.map((link, index) => (
                 link.onClick ? (
@@ -181,14 +179,14 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 )
               ))}
               <Link
-                href="/login"
+                href="/signup"
                 className={`mt-3 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
                   isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                 }`}
                 style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Login
+                Sign Up
               </Link>
             </div>
           </div>

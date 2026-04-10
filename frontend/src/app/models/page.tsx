@@ -963,7 +963,7 @@ export default function ModelsPage() {
                     Ready to automate your {activeIndustry!.label.toLowerCase()} support?
                   </h2>
                   <p className="text-sm sm:text-base mb-8 max-w-lg mx-auto leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    Join businesses using PARWA to handle tickets faster, learn continuously, and scale effortlessly.
+                    Sign up and join thousands of businesses using PARWA to handle tickets faster, learn continuously, and scale effortlessly.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <button

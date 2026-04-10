@@ -219,9 +219,9 @@ class TestTechniqueTierAccessCheckerInit:
         checker = TechniqueTierAccessChecker()
         assert len(checker._configs) == 3
 
-    def test_parwa_lite_max_tier_1(self):
+    def test_mini_parwa_max_tier_1(self):
         checker = TechniqueTierAccessChecker()
-        assert checker._configs["parwa_lite"].max_tier == 1
+        assert checker._configs["mini_parwa"].max_tier == 1
 
     def test_parwa_max_tier_2(self):
         checker = TechniqueTierAccessChecker()
@@ -236,9 +236,9 @@ class TestTechniqueTierAccessCheckerInit:
         assert len(checker._cache) == 0
         assert len(checker._cache_timestamps) == 0
 
-    def test_parwa_lite_allowed_3_techniques(self):
+    def test_mini_parwa_allowed_3_techniques(self):
         checker = TechniqueTierAccessChecker()
-        assert len(checker._configs["parwa_lite"].allowed_techniques) == 3
+        assert len(checker._configs["mini_parwa"].allowed_techniques) == 3
 
     def test_parwa_allowed_8_techniques(self):
         checker = TechniqueTierAccessChecker()
@@ -248,9 +248,9 @@ class TestTechniqueTierAccessCheckerInit:
         checker = TechniqueTierAccessChecker()
         assert len(checker._configs["parwa_high"].allowed_techniques) == 14
 
-    def test_parwa_lite_blocked_11_techniques(self):
+    def test_mini_parwa_blocked_11_techniques(self):
         checker = TechniqueTierAccessChecker()
-        assert len(checker._configs["parwa_lite"].blocked_techniques) == 11
+        assert len(checker._configs["mini_parwa"].blocked_techniques) == 11
 
     def test_parwa_blocked_6_techniques(self):
         checker = TechniqueTierAccessChecker()
@@ -260,9 +260,9 @@ class TestTechniqueTierAccessCheckerInit:
         checker = TechniqueTierAccessChecker()
         assert len(checker._configs["parwa_high"].blocked_techniques) == 0
 
-    def test_parwa_lite_fallback_map_has_11_entries(self):
+    def test_mini_parwa_fallback_map_has_11_entries(self):
         checker = TechniqueTierAccessChecker()
-        assert len(checker._configs["parwa_lite"].fallback_map) == 11
+        assert len(checker._configs["mini_parwa"].fallback_map) == 11
 
     def test_parwa_fallback_map_has_6_entries(self):
         checker = TechniqueTierAccessChecker()
@@ -272,10 +272,10 @@ class TestTechniqueTierAccessCheckerInit:
         checker = TechniqueTierAccessChecker()
         assert len(checker._configs["parwa_high"].fallback_map) == 0
 
-    def test_parwa_lite_allowed_contains_tier_1(self):
+    def test_mini_parwa_allowed_contains_tier_1(self):
         checker = TechniqueTierAccessChecker()
         for tid in _TIER_1_TECHNIQUES:
-            assert tid in checker._configs["parwa_lite"].allowed_techniques
+            assert tid in checker._configs["mini_parwa"].allowed_techniques
 
     def test_parwa_allowed_contains_tier_1_and_tier_2(self):
         checker = TechniqueTierAccessChecker()
@@ -291,40 +291,40 @@ class TestTechniqueTierAccessCheckerInit:
 class TestCheckAccess:
     """Tests for TechniqueTierAccessChecker.check_access."""
 
-    def test_parwa_lite_allows_clara(self):
+    def test_mini_parwa_allows_clara(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("clara", "parwa_lite")
+        result = checker.check_access("clara", "mini_parwa")
         assert result.decision == TierAccessDecision.ALLOWED
 
-    def test_parwa_lite_allows_crp(self):
+    def test_mini_parwa_allows_crp(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("crp", "parwa_lite")
+        result = checker.check_access("crp", "mini_parwa")
         assert result.decision == TierAccessDecision.ALLOWED
 
-    def test_parwa_lite_allows_gsd(self):
+    def test_mini_parwa_allows_gsd(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("gsd", "parwa_lite")
+        result = checker.check_access("gsd", "mini_parwa")
         assert result.decision == TierAccessDecision.ALLOWED
 
-    def test_parwa_lite_blocks_chain_of_thought(self):
+    def test_mini_parwa_blocks_chain_of_thought(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("chain_of_thought", "parwa_lite")
+        result = checker.check_access("chain_of_thought", "mini_parwa")
         assert result.decision == TierAccessDecision.DOWNGRADED
 
-    def test_parwa_lite_blocks_gst(self):
+    def test_mini_parwa_blocks_gst(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("gst", "parwa_lite")
+        result = checker.check_access("gst", "mini_parwa")
         assert result.decision == TierAccessDecision.DOWNGRADED
 
-    def test_parwa_lite_downgrade_has_fallback(self):
+    def test_mini_parwa_downgrade_has_fallback(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("gst", "parwa_lite")
+        result = checker.check_access("gst", "mini_parwa")
         assert result.fallback_technique == "clara"
         assert result.effective_tier == "tier_1"
 
-    def test_parwa_lite_chain_of_thought_fallback(self):
+    def test_mini_parwa_chain_of_thought_fallback(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("chain_of_thought", "parwa_lite")
+        result = checker.check_access("chain_of_thought", "mini_parwa")
         assert result.fallback_technique == "crp"
 
     def test_parwa_allows_chain_of_thought(self):
@@ -382,21 +382,21 @@ class TestCheckAccess:
 
     def test_case_insensitive_technique(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("CLARA", "parwa_lite")
+        result = checker.check_access("CLARA", "mini_parwa")
         assert result.decision == TierAccessDecision.ALLOWED
         assert result.technique == "clara"
 
     def test_whitespace_trimmed_technique(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("  clara  ", "parwa_lite")
+        result = checker.check_access("  clara  ", "mini_parwa")
         assert result.decision == TierAccessDecision.ALLOWED
         assert result.technique == "clara"
 
     def test_case_insensitive_variant(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("clara", "PARWA_LITE")
+        result = checker.check_access("clara", "MINI_PARWA")
         assert result.decision == TierAccessDecision.ALLOWED
-        assert result.variant_type == "parwa_lite"
+        assert result.variant_type == "mini_parwa"
 
     def test_company_id_in_result(self):
         checker = TechniqueTierAccessChecker()
@@ -405,7 +405,7 @@ class TestCheckAccess:
 
     def test_max_allowed_tier_populated(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("clara", "parwa_lite")
+        result = checker.check_access("clara", "mini_parwa")
         assert result.max_allowed_tier == "tier_1"
 
     def test_effective_tier_matches_for_allowed(self):
@@ -425,33 +425,33 @@ class TestCheckAccess:
         assert result.decision == TierAccessDecision.DOWNGRADED
         assert result.fallback_technique == "crp"
 
-    def test_step_back_blocked_on_parwa_lite(self):
+    def test_step_back_blocked_on_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("step_back", "parwa_lite")
+        result = checker.check_access("step_back", "mini_parwa")
         assert result.decision == TierAccessDecision.DOWNGRADED
         assert result.fallback_technique == "gsd"
 
-    def test_thread_of_thought_blocked_on_parwa_lite(self):
+    def test_thread_of_thought_blocked_on_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("thread_of_thought", "parwa_lite")
+        result = checker.check_access("thread_of_thought", "mini_parwa")
         assert result.decision == TierAccessDecision.DOWNGRADED
         assert result.fallback_technique == "gsd"
 
-    def test_universe_of_thoughts_blocked_on_parwa_lite(self):
+    def test_universe_of_thoughts_blocked_on_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("universe_of_thoughts", "parwa_lite")
+        result = checker.check_access("universe_of_thoughts", "mini_parwa")
         assert result.decision == TierAccessDecision.DOWNGRADED
         assert result.fallback_technique == "clara"
 
-    def test_tree_of_thoughts_blocked_on_parwa_lite(self):
+    def test_tree_of_thoughts_blocked_on_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("tree_of_thoughts", "parwa_lite")
+        result = checker.check_access("tree_of_thoughts", "mini_parwa")
         assert result.decision == TierAccessDecision.DOWNGRADED
         assert result.fallback_technique == "clara"
 
-    def test_least_to_most_blocked_on_parwa_lite(self):
+    def test_least_to_most_blocked_on_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.check_access("least_to_most", "parwa_lite")
+        result = checker.check_access("least_to_most", "mini_parwa")
         assert result.decision == TierAccessDecision.DOWNGRADED
         assert result.fallback_technique == "clara"
 
@@ -512,7 +512,7 @@ class TestCacheBehavior:
 
     def test_different_variants_separate_cache(self):
         checker = TechniqueTierAccessChecker()
-        checker.check_access("clara", "parwa_lite")
+        checker.check_access("clara", "mini_parwa")
         checker.check_access("clara", "parwa")
         assert len(checker._cache) == 2
 
@@ -544,7 +544,7 @@ class TestBatchOperations:
 
     def test_check_batch_access_returns_list(self):
         checker = TechniqueTierAccessChecker()
-        results = checker.check_batch_access(["clara", "crp"], "parwa_lite")
+        results = checker.check_batch_access(["clara", "crp"], "mini_parwa")
         assert isinstance(results, list)
         assert len(results) == 2
         assert all(isinstance(r, TierAccessResult) for r in results)
@@ -568,7 +568,7 @@ class TestBatchOperations:
         checker = TechniqueTierAccessChecker()
         results = checker.check_batch_access(
             ["clara", "crp", "gsd"],
-            "parwa_lite",
+            "mini_parwa",
         )
         assert all(r.decision == TierAccessDecision.ALLOWED for r in results)
 
@@ -586,7 +586,7 @@ class TestBatchOperations:
         checker = TechniqueTierAccessChecker()
         filtered = checker.filter_techniques(
             ["clara", "crp", "gsd"],
-            "parwa_lite",
+            "mini_parwa",
         )
         assert set(filtered) == {"clara", "crp", "gsd"}
 
@@ -594,7 +594,7 @@ class TestBatchOperations:
         checker = TechniqueTierAccessChecker()
         filtered = checker.filter_techniques(
             ["chain_of_thought"],
-            "parwa_lite",
+            "mini_parwa",
         )
         assert "crp" in filtered
         assert "chain_of_thought" not in filtered
@@ -604,7 +604,7 @@ class TestBatchOperations:
         # chain_of_thought→crp, react→crp — should only appear once
         filtered = checker.filter_techniques(
             ["chain_of_thought", "react"],
-            "parwa_lite",
+            "mini_parwa",
         )
         assert filtered.count("crp") == 1
 
@@ -613,7 +613,7 @@ class TestBatchOperations:
         # clara is allowed AND is fallback for gst
         filtered = checker.filter_techniques(
             ["clara", "gst"],
-            "parwa_lite",
+            "mini_parwa",
         )
         assert filtered.count("clara") == 1
 
@@ -629,7 +629,7 @@ class TestBatchOperations:
         checker = TechniqueTierAccessChecker()
         filtered = checker.filter_techniques(
             ["", "  ", "clara", ""],
-            "parwa_lite",
+            "mini_parwa",
         )
         assert filtered == ["clara"]
 
@@ -637,7 +637,7 @@ class TestBatchOperations:
         checker = TechniqueTierAccessChecker()
         filtered = checker.filter_techniques(
             ["gsd", "clara", "crp"],
-            "parwa_lite",
+            "mini_parwa",
         )
         assert filtered == ["gsd", "clara", "crp"]
 
@@ -650,9 +650,9 @@ class TestBatchOperations:
 class TestQueryMethods:
     """Tests for get_allowed_techniques, get_blocked_techniques, etc."""
 
-    def test_get_allowed_techniques_parwa_lite(self):
+    def test_get_allowed_techniques_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        allowed = checker.get_allowed_techniques("parwa_lite")
+        allowed = checker.get_allowed_techniques("mini_parwa")
         assert set(allowed) == set(_TIER_1_TECHNIQUES)
 
     def test_get_allowed_techniques_parwa(self):
@@ -670,9 +670,9 @@ class TestQueryMethods:
         checker = TechniqueTierAccessChecker()
         assert checker.get_allowed_techniques("nonexistent") == []
 
-    def test_get_blocked_techniques_parwa_lite(self):
+    def test_get_blocked_techniques_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        blocked = checker.get_blocked_techniques("parwa_lite")
+        blocked = checker.get_blocked_techniques("mini_parwa")
         assert set(blocked) == set(_TIER_2_TECHNIQUES + _TIER_3_TECHNIQUES)
 
     def test_get_blocked_techniques_parwa_high_empty(self):
@@ -716,11 +716,11 @@ class TestQueryMethods:
     def test_get_all_variant_types(self):
         checker = TechniqueTierAccessChecker()
         variants = checker.get_all_variant_types()
-        assert set(variants) == {"parwa_lite", "parwa", "parwa_high"}
+        assert set(variants) == {"mini_parwa", "parwa", "parwa_high"}
 
-    def test_get_max_tier_parwa_lite(self):
+    def test_get_max_tier_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        assert checker.get_max_tier("parwa_lite") == 1
+        assert checker.get_max_tier("mini_parwa") == 1
 
     def test_get_max_tier_parwa(self):
         checker = TechniqueTierAccessChecker()
@@ -737,7 +737,7 @@ class TestQueryMethods:
     def test_is_variant_valid_true(self):
         checker = TechniqueTierAccessChecker()
         assert checker.is_variant_valid("parwa") is True
-        assert checker.is_variant_valid("parwa_lite") is True
+        assert checker.is_variant_valid("mini_parwa") is True
         assert checker.is_variant_valid("parwa_high") is True
 
     def test_is_variant_valid_false(self):
@@ -765,9 +765,9 @@ class TestQueryMethods:
 class TestTechniqueCounts:
     """Tests for get_technique_count_for_variant."""
 
-    def test_parwa_lite_counts(self):
+    def test_mini_parwa_counts(self):
         checker = TechniqueTierAccessChecker()
-        counts = checker.get_technique_count_for_variant("parwa_lite")
+        counts = checker.get_technique_count_for_variant("mini_parwa")
         assert counts["allowed"] == 3
         assert counts["blocked"] == 11
         assert counts["total"] == 14
@@ -802,14 +802,14 @@ class TestTechniqueCounts:
 class TestFallbackLookup:
     """Tests for get_fallback_for_technique."""
 
-    def test_fallback_for_gst_on_parwa_lite(self):
+    def test_fallback_for_gst_on_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        fb = checker.get_fallback_for_technique("gst", "parwa_lite")
+        fb = checker.get_fallback_for_technique("gst", "mini_parwa")
         assert fb == "clara"
 
-    def test_fallback_for_chain_of_thought_on_parwa_lite(self):
+    def test_fallback_for_chain_of_thought_on_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
-        fb = checker.get_fallback_for_technique("chain_of_thought", "parwa_lite")
+        fb = checker.get_fallback_for_technique("chain_of_thought", "mini_parwa")
         assert fb == "crp"
 
     def test_fallback_for_gst_on_parwa(self):
@@ -824,7 +824,7 @@ class TestFallbackLookup:
 
     def test_fallback_for_allowed_technique_returns_none(self):
         checker = TechniqueTierAccessChecker()
-        fb = checker.get_fallback_for_technique("clara", "parwa_lite")
+        fb = checker.get_fallback_for_technique("clara", "mini_parwa")
         assert fb is None
 
     def test_fallback_on_unknown_variant_uses_global_map(self):
@@ -843,11 +843,11 @@ class TestFallbackLookup:
             fb = checker.get_fallback_for_technique(tid, "parwa")
             assert fb is not None, f"{tid} should have fallback on parwa"
 
-    def test_fallback_for_all_tier_2_on_parwa_lite(self):
+    def test_fallback_for_all_tier_2_on_mini_parwa(self):
         checker = TechniqueTierAccessChecker()
         for tid in _TIER_2_TECHNIQUES:
-            fb = checker.get_fallback_for_technique(tid, "parwa_lite")
-            assert fb is not None, f"{tid} should have fallback on parwa_lite"
+            fb = checker.get_fallback_for_technique(tid, "mini_parwa")
+            assert fb is not None, f"{tid} should have fallback on mini_parwa"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -858,17 +858,17 @@ class TestFallbackLookup:
 class TestUpgradeTechnique:
     """Tests for upgrade_technique."""
 
-    def test_upgrade_parwa_lite_to_parwa_unlocks_t2(self):
+    def test_upgrade_mini_parwa_to_parwa_unlocks_t2(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "chain_of_thought", "parwa_lite", "parwa",
+            "chain_of_thought", "mini_parwa", "parwa",
         )
         assert result.decision == TierAccessDecision.ALLOWED
 
-    def test_upgrade_parwa_lite_to_parwa_high_unlocks_all(self):
+    def test_upgrade_mini_parwa_to_parwa_high_unlocks_all(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "gst", "parwa_lite", "parwa_high",
+            "gst", "mini_parwa", "parwa_high",
         )
         assert result.decision == TierAccessDecision.ALLOWED
 
@@ -882,7 +882,7 @@ class TestUpgradeTechnique:
     def test_upgrade_same_variant_no_change(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "clara", "parwa_lite", "parwa_lite",
+            "clara", "mini_parwa", "mini_parwa",
         )
         assert result.decision == TierAccessDecision.ALLOWED
 
@@ -905,7 +905,7 @@ class TestUpgradeTechnique:
     def test_upgrade_t3_still_downgraded_on_parwa(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "gst", "parwa_lite", "parwa",
+            "gst", "mini_parwa", "parwa",
         )
         # gst is Tier 3, parwa max is Tier 2 → still downgraded
         assert result.decision == TierAccessDecision.DOWNGRADED
@@ -914,7 +914,7 @@ class TestUpgradeTechnique:
     def test_upgrade_case_insensitive(self):
         checker = TechniqueTierAccessChecker()
         result = checker.upgrade_technique(
-            "CHAIN_OF_THOUGHT", "PARWA_LITE", "PARWA",
+            "CHAIN_OF_THOUGHT", "MINI_PARWA", "PARWA",
         )
         assert result.decision == TierAccessDecision.ALLOWED
 
@@ -931,7 +931,7 @@ class TestValidatePipeline:
         checker = TechniqueTierAccessChecker()
         result = checker.validate_pipeline(
             ["clara", "crp", "gsd"],
-            "parwa_lite",
+            "mini_parwa",
         )
         assert result["valid"] is True
         assert len(result["blocked"]) == 0
@@ -950,7 +950,7 @@ class TestValidatePipeline:
         checker = TechniqueTierAccessChecker()
         result = checker.validate_pipeline(
             ["clara", "chain_of_thought"],
-            "parwa_lite",
+            "mini_parwa",
         )
         # chain_of_thought is downgraded with fallback crp
         assert "chain_of_thought" in result["downgraded"]
@@ -1022,10 +1022,10 @@ class TestValidatePipeline:
 class TestCompareVariants:
     """Tests for compare_variants."""
 
-    def test_compare_parwa_lite_vs_parwa_high(self):
+    def test_compare_mini_parwa_vs_parwa_high(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.compare_variants("parwa_lite", "parwa_high")
-        assert result["variant_a"] == "parwa_lite"
+        result = checker.compare_variants("mini_parwa", "parwa_high")
+        assert result["variant_a"] == "mini_parwa"
         assert result["variant_b"] == "parwa_high"
         assert result["variant_a_max_tier"] == 1
         assert result["variant_b_max_tier"] == 3
@@ -1061,17 +1061,17 @@ class TestCompareVariants:
         result = checker.compare_variants("unknown_a", "unknown_b")
         assert result["error"] == "unknown_variant"
 
-    def test_compare_parwa_lite_vs_parwa(self):
+    def test_compare_mini_parwa_vs_parwa(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.compare_variants("parwa_lite", "parwa")
+        result = checker.compare_variants("mini_parwa", "parwa")
         assert len(result["common"]) == 3  # Tier 1
         assert len(result["only_in_b"]) == 5  # Tier 2
         assert result["a_has_more"] is False
 
     def test_compare_reversed_order(self):
         checker = TechniqueTierAccessChecker()
-        result_ab = checker.compare_variants("parwa_lite", "parwa")
-        result_ba = checker.compare_variants("parwa", "parwa_lite")
+        result_ab = checker.compare_variants("mini_parwa", "parwa")
+        result_ba = checker.compare_variants("parwa", "mini_parwa")
         # only_in_a and only_in_b should be swapped
         assert result_ab["only_in_a"] == result_ba["only_in_b"]
         assert result_ab["only_in_b"] == result_ba["only_in_a"]
@@ -1149,7 +1149,7 @@ class TestEdgeCases:
         checker = TechniqueTierAccessChecker()
         filtered = checker.filter_techniques(
             ["clara", "clara", "clara"],
-            "parwa_lite",
+            "mini_parwa",
         )
         assert filtered == ["clara"]
 
@@ -1227,7 +1227,7 @@ class TestBC008GracefulDegradation:
 
     def test_no_crash_on_upgrade_empty_technique(self):
         checker = TechniqueTierAccessChecker()
-        result = checker.upgrade_technique("", "parwa_lite", "parwa")
+        result = checker.upgrade_technique("", "mini_parwa", "parwa")
         assert result.decision == TierAccessDecision.BLOCKED
 
     def test_unknown_variant_returns_restrictive_blocked_list(self):

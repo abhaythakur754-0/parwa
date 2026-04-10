@@ -7,7 +7,7 @@ selects it.  Used by intent/sentiment × technique mappings built
 on Days 6-7.
 
 Architecture:
-  parwa_lite  (starter)  → Tier 1 only
+  mini_parwa  (starter)  → Tier 1 only
   parwa       (growth)   → Tier 1 + Tier 2
   parwa_high  (high)     → Tier 1 + Tier 2 + Tier 3
 
@@ -63,7 +63,7 @@ _DOWNGRADE_FALLBACK: Dict[str, str] = {
 }
 
 # Known variant types
-VALID_VARIANTS = ("parwa_lite", "parwa", "parwa_high")
+VALID_VARIANTS = ("mini_parwa", "parwa", "parwa_high")
 
 # Technique → tier mapping
 _TECHNIQUE_TO_TIER: Dict[str, str] = {
@@ -202,14 +202,14 @@ class TechniqueTierAccessChecker:
             + _TIER_3_TECHNIQUES
         )
 
-        # parwa_lite: Tier 1 only
+        # mini_parwa: Tier 1 only
         t1_blocked = list(_TIER_2_TECHNIQUES + _TIER_3_TECHNIQUES)
         t1_fallback = {
             **_FALLBACK_T2_TO_T1,
             **_FALLBACK_T3_TO_T1,
         }
-        self._configs["parwa_lite"] = VariantTierConfig(
-            variant_type="parwa_lite",
+        self._configs["mini_parwa"] = VariantTierConfig(
+            variant_type="mini_parwa",
             max_tier=1,
             allowed_techniques=list(_TIER_1_TECHNIQUES),
             blocked_techniques=t1_blocked,

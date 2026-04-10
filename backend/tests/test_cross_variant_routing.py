@@ -158,7 +158,7 @@ class TestDataclasses:
 
     def test_channel_mapping_custom_priority(self):
         cm = ChannelMapping(
-            channel=ChannelType.CHAT, default_variant="parwa_lite", priority=20
+            channel=ChannelType.CHAT, default_variant="mini_parwa", priority=20
         )
         assert cm.priority == 20
 
@@ -167,13 +167,13 @@ class TestDataclasses:
     def test_escalation_path_defaults(self):
         now = datetime.now(timezone.utc)
         ep = EscalationPath(
-            from_variant="parwa_lite",
+            from_variant="mini_parwa",
             to_variant="parwa",
             reason=EscalationReason.CAPACITY_EXCEEDED,
             timestamp=now,
         )
         assert ep.ticket_id == ""
-        assert ep.from_variant == "parwa_lite"
+        assert ep.from_variant == "mini_parwa"
         assert ep.to_variant == "parwa"
         assert ep.reason == EscalationReason.CAPACITY_EXCEEDED
 
@@ -220,18 +220,18 @@ class TestDataclasses:
         rr = RoutingResult(
             ticket_id="T1",
             target_variant="parwa_high",
-            original_variant="parwa_lite",
+            original_variant="mini_parwa",
             decision=RoutingDecisionType.ESCALATE,
             channel=ChannelType.CHAT,
             company_id="co1",
             reason="capacity",
             escalated=True,
-            billed_to_variant="parwa_lite",
+            billed_to_variant="mini_parwa",
             complexity_score=0.95,
             timestamp=now,
         )
         assert rr.escalated is True
-        assert rr.billed_to_variant == "parwa_lite"
+        assert rr.billed_to_variant == "mini_parwa"
         assert rr.complexity_score == 0.95
 
     # ── CapacitySnapshot ──
@@ -301,10 +301,10 @@ class TestInitialization:
         assert CAPACITY_THRESHOLD_PCT == 90.0
         assert ESCALATION_FALLBACK_SECONDS == 30.0
         assert AI_OVERLOAD_FLAG == "AI_OVERLOAD"
-        assert ESCALATION_CHAIN == ["parwa_lite", "parwa", "parwa_high"]
+        assert ESCALATION_CHAIN == ["mini_parwa", "parwa", "parwa_high"]
 
     def test_valid_variants_set(self):
-        assert VALID_VARIANTS == {"parwa_lite", "parwa", "parwa_high"}
+        assert VALID_VARIANTS == {"mini_parwa", "parwa", "parwa_high"}
 
     def test_default_channel_mappings_exist(self):
         assert set(DEFAULT_CHANNEL_MAPPINGS.keys()) == {
@@ -328,14 +328,14 @@ class TestChannelMapping:
     def test_email_maps_to_parwa(self):
         assert self.router.get_default_variant_for_channel(ChannelType.EMAIL) == "parwa"
 
-    def test_chat_maps_to_parwa_lite(self):
-        assert self.router.get_default_variant_for_channel(ChannelType.CHAT) == "parwa_lite"
+    def test_chat_maps_to_mini_parwa(self):
+        assert self.router.get_default_variant_for_channel(ChannelType.CHAT) == "mini_parwa"
 
     def test_phone_maps_to_parwa_high(self):
         assert self.router.get_default_variant_for_channel(ChannelType.PHONE) == "parwa_high"
 
-    def test_web_widget_maps_to_parwa_lite(self):
-        assert self.router.get_default_variant_for_channel(ChannelType.WEB_WIDGET) == "parwa_lite"
+    def test_web_widget_maps_to_mini_parwa(self):
+        assert self.router.get_default_variant_for_channel(ChannelType.WEB_WIDGET) == "mini_parwa"
 
     def test_social_maps_to_parwa(self):
         assert self.router.get_default_variant_for_channel(ChannelType.SOCIAL) == "parwa"
@@ -369,7 +369,7 @@ class TestChannelMapping:
             "co1", ChannelType.EMAIL, "parwa_high"
         )
         mapping = self.router._resolve_channel_mapping("co1", ChannelType.CHAT)
-        assert mapping.default_variant == "parwa_lite"
+        assert mapping.default_variant == "mini_parwa"
 
     def test_register_multiple_overrides_same_company(self):
         self.router.register_channel_mapping("co1", ChannelType.EMAIL, "parwa_high")
@@ -457,20 +457,20 @@ class TestShouldEscalate:
         self.router.reset_capacity("test_co")
 
     def test_no_escalation_at_low_capacity(self):
-        self.router.update_capacity("test_co", "parwa_lite", 50, 100)
-        should, target = self.router.should_escalate("test_co", "parwa_lite")
+        self.router.update_capacity("test_co", "mini_parwa", 50, 100)
+        should, target = self.router.should_escalate("test_co", "mini_parwa")
         assert should is False
         assert target is None
 
     def test_no_escalation_at_exactly_90_percent(self):
-        self.router.update_capacity("test_co", "parwa_lite", 90, 100)
-        should, target = self.router.should_escalate("test_co", "parwa_lite")
+        self.router.update_capacity("test_co", "mini_parwa", 90, 100)
+        should, target = self.router.should_escalate("test_co", "mini_parwa")
         assert should is False
         assert target is None
 
     def test_escalation_above_90_percent(self):
-        self.router.update_capacity("test_co", "parwa_lite", 91, 100)
-        should, target = self.router.should_escalate("test_co", "parwa_lite")
+        self.router.update_capacity("test_co", "mini_parwa", 91, 100)
+        should, target = self.router.should_escalate("test_co", "mini_parwa")
         assert should is True
         assert target == "parwa"
 
@@ -486,9 +486,9 @@ class TestShouldEscalate:
         assert should is True
         assert target is None
 
-    def test_complexity_trigger_on_parwa_lite(self):
-        self.router.update_capacity("test_co", "parwa_lite", 50, 100)
-        should, target = self.router.should_escalate("test_co", "parwa_lite", complexity_score=0.9)
+    def test_complexity_trigger_on_mini_parwa(self):
+        self.router.update_capacity("test_co", "mini_parwa", 50, 100)
+        should, target = self.router.should_escalate("test_co", "mini_parwa", complexity_score=0.9)
         assert should is True
         assert target == "parwa"
 
@@ -505,8 +505,8 @@ class TestShouldEscalate:
         assert target is None
 
     def test_complexity_boundary_0_8_does_not_trigger(self):
-        self.router.update_capacity("test_co", "parwa_lite", 50, 100)
-        should, target = self.router.should_escalate("test_co", "parwa_lite", complexity_score=0.8)
+        self.router.update_capacity("test_co", "mini_parwa", 50, 100)
+        should, target = self.router.should_escalate("test_co", "mini_parwa", complexity_score=0.8)
         assert should is False
         assert target is None
 
@@ -540,10 +540,10 @@ class TestRouteTicket:
         assert result.escalated is False
         assert result.reason == "default_channel_routing"
 
-    def test_normal_route_chat_to_parwa_lite(self):
+    def test_normal_route_chat_to_mini_parwa(self):
         result = self.router.route_ticket("test_co", "T2", ChannelType.CHAT)
         assert result.decision == RoutingDecisionType.ROUTE
-        assert result.target_variant == "parwa_lite"
+        assert result.target_variant == "mini_parwa"
 
     def test_normal_route_phone_to_parwa_high(self):
         result = self.router.route_ticket("test_co", "T3", ChannelType.PHONE)
@@ -556,12 +556,12 @@ class TestRouteTicket:
 
     # ── Auto-escalate ──
 
-    def test_auto_escalate_parwa_lite_to_parwa(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+    def test_auto_escalate_mini_parwa_to_parwa(self):
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         result = self.router.route_ticket("test_co", "T5", ChannelType.CHAT)
         assert result.decision == RoutingDecisionType.ESCALATE
         assert result.target_variant == "parwa"
-        assert result.original_variant == "parwa_lite"
+        assert result.original_variant == "mini_parwa"
         assert result.escalated is True
 
     def test_auto_escalate_parwa_to_parwa_high(self):
@@ -572,15 +572,15 @@ class TestRouteTicket:
         assert result.original_variant == "parwa"
 
     def test_auto_escalate_skips_full_intermediate(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         result = self.router.route_ticket("test_co", "T7", ChannelType.CHAT)
         assert result.decision == RoutingDecisionType.ESCALATE
         assert result.target_variant == "parwa_high"
-        assert result.original_variant == "parwa_lite"
+        assert result.original_variant == "mini_parwa"
 
     def test_escalate_records_reason(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         result = self.router.route_ticket("test_co", "T8", ChannelType.CHAT)
         assert "escalated_through" in result.reason
         assert "parwa" in result.reason
@@ -597,7 +597,7 @@ class TestRouteTicket:
     # ── Queue when all variants at capacity ──
 
     def test_all_tiers_full_queues_ticket(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa_high", 95, 100)
         result = self.router.route_ticket("test_co", "T10", ChannelType.CHAT)
@@ -605,7 +605,7 @@ class TestRouteTicket:
         assert result.escalated is True
 
     def test_all_tiers_full_adds_to_pending_queue(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa_high", 95, 100)
         self.router.route_ticket("test_co", "T11", ChannelType.CHAT)
@@ -636,9 +636,9 @@ class TestRouteTicket:
         assert result.billed_to_variant == "parwa"
 
     def test_billed_to_original_variant_on_escalation(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         result = self.router.route_ticket("test_co", "T15", ChannelType.CHAT)
-        assert result.billed_to_variant == "parwa_lite"
+        assert result.billed_to_variant == "mini_parwa"
         assert result.target_variant == "parwa"
 
     def test_billed_to_original_on_force_variant(self):
@@ -649,8 +649,8 @@ class TestRouteTicket:
 
     # ── Complexity score routing ──
 
-    def test_high_complexity_escalates_parwa_lite(self):
-        self.router.update_capacity("test_co", "parwa_lite", 50, 100)
+    def test_high_complexity_escalates_mini_parwa(self):
+        self.router.update_capacity("test_co", "mini_parwa", 50, 100)
         result = self.router.route_ticket(
             "test_co", "T17", ChannelType.CHAT, complexity_score=0.9
         )
@@ -678,16 +678,16 @@ class TestEscalateTicket:
         self.router = CrossVariantRouter()
         self.router.reset_capacity("test_co")
 
-    def test_valid_escalation_parwa_lite_to_parwa(self):
+    def test_valid_escalation_mini_parwa_to_parwa(self):
         result = self.router.escalate_ticket(
-            "test_co", "T1", "parwa_lite", "parwa",
+            "test_co", "T1", "mini_parwa", "parwa",
             EscalationReason.MANUAL_REQUEST
         )
         assert result.decision == RoutingDecisionType.ESCALATE
         assert result.target_variant == "parwa"
-        assert result.original_variant == "parwa_lite"
+        assert result.original_variant == "mini_parwa"
         assert result.escalated is True
-        assert result.billed_to_variant == "parwa_lite"
+        assert result.billed_to_variant == "mini_parwa"
 
     def test_valid_escalation_parwa_to_parwa_high(self):
         result = self.router.escalate_ticket(
@@ -697,16 +697,16 @@ class TestEscalateTicket:
         assert result.target_variant == "parwa_high"
         assert result.escalated is True
 
-    def test_valid_escalation_parwa_lite_to_parwa_high(self):
+    def test_valid_escalation_mini_parwa_to_parwa_high(self):
         result = self.router.escalate_ticket(
-            "test_co", "T3", "parwa_lite", "parwa_high",
+            "test_co", "T3", "mini_parwa", "parwa_high",
             EscalationReason.TECHNIQUE_UNAVAILABLE
         )
         assert result.target_variant == "parwa_high"
 
     def test_invalid_escalation_reverse_direction(self):
         result = self.router.escalate_ticket(
-            "test_co", "T4", "parwa_high", "parwa_lite",
+            "test_co", "T4", "parwa_high", "mini_parwa",
             EscalationReason.MANUAL_REQUEST
         )
         assert result.decision == RoutingDecisionType.ROUTE
@@ -724,7 +724,7 @@ class TestEscalateTicket:
     def test_escalation_to_full_target_queues(self):
         self.router.update_capacity("test_co", "parwa", 95, 100)
         result = self.router.escalate_ticket(
-            "test_co", "T6", "parwa_lite", "parwa",
+            "test_co", "T6", "mini_parwa", "parwa",
             EscalationReason.CAPACITY_EXCEEDED
         )
         # _handle_escalation_timeout: next_tier = parwa_high (default 0%)
@@ -740,14 +740,14 @@ class TestEscalateTicket:
 
     def test_escalation_records_history(self):
         self.router.escalate_ticket(
-            "test_co", "T8", "parwa_lite", "parwa",
+            "test_co", "T8", "mini_parwa", "parwa",
             EscalationReason.MANUAL_REQUEST
         )
         history = self.router.get_routing_history("test_co", "T8")
         # escalate_ticket calls _record_escalation directly, then _record_routing
         # which calls _record_escalation again when escalated=True → 2 entries
         assert len(history) >= 1
-        assert history[0].from_variant == "parwa_lite"
+        assert history[0].from_variant == "mini_parwa"
         assert history[0].to_variant == "parwa"
 
 
@@ -762,8 +762,8 @@ class TestEscalationChain:
     def setup_method(self):
         self.router = CrossVariantRouter()
 
-    def test_get_next_variant_parwa_lite(self):
-        assert self.router.get_next_variant("parwa_lite") == "parwa"
+    def test_get_next_variant_mini_parwa(self):
+        assert self.router.get_next_variant("mini_parwa") == "parwa"
 
     def test_get_next_variant_parwa(self):
         assert self.router.get_next_variant("parwa") == "parwa_high"
@@ -774,9 +774,9 @@ class TestEscalationChain:
     def test_get_next_variant_unknown_is_none(self):
         assert self.router.get_next_variant("unknown") is None
 
-    def test_get_escalation_chain_from_parwa_lite(self):
-        chain = self.router.get_escalation_chain("parwa_lite")
-        assert chain == ["parwa_lite", "parwa", "parwa_high"]
+    def test_get_escalation_chain_from_mini_parwa(self):
+        chain = self.router.get_escalation_chain("mini_parwa")
+        assert chain == ["mini_parwa", "parwa", "parwa_high"]
 
     def test_get_escalation_chain_from_parwa(self):
         chain = self.router.get_escalation_chain("parwa")
@@ -788,7 +788,7 @@ class TestEscalationChain:
 
     def test_get_escalation_chain_unknown_returns_full(self):
         chain = self.router.get_escalation_chain("nonexistent")
-        assert chain == ["parwa_lite", "parwa", "parwa_high"]
+        assert chain == ["mini_parwa", "parwa", "parwa_high"]
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -852,7 +852,7 @@ class TestValidateRouting:
         self.router.reset_capacity("test_co")
 
     def test_valid_routing(self):
-        result = self.router.validate_routing("test_co", "T1", "parwa", "parwa_lite")
+        result = self.router.validate_routing("test_co", "T1", "parwa", "mini_parwa")
         assert result["valid"] is True
         assert result["reasons"] == []
         assert result["warnings"] == []
@@ -869,14 +869,14 @@ class TestValidateRouting:
 
     def test_invalid_escalation_direction(self):
         result = self.router.validate_routing(
-            "test_co", "T4", "parwa_lite", "parwa_high"
+            "test_co", "T4", "mini_parwa", "parwa_high"
         )
         assert result["valid"] is False
         assert any("Escalation direction invalid" in r for r in result["reasons"])
 
     def test_valid_escalation_direction(self):
         result = self.router.validate_routing(
-            "test_co", "T5", "parwa_high", "parwa_lite"
+            "test_co", "T5", "parwa_high", "mini_parwa"
         )
         assert result["valid"] is True
 
@@ -913,20 +913,20 @@ class TestRoutingHistory:
         assert history == []
 
     def test_history_after_escalation(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.route_ticket("test_co", "T2", ChannelType.CHAT)
         history = self.router.get_routing_history("test_co", "T2")
         assert len(history) >= 1
 
     def test_history_records_from_and_to(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.route_ticket("test_co", "T3", ChannelType.CHAT)
         history = self.router.get_routing_history("test_co", "T3")
-        assert history[0].from_variant == "parwa_lite"
+        assert history[0].from_variant == "mini_parwa"
         assert history[0].to_variant == "parwa"
 
     def test_history_timestamp_is_utc(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.route_ticket("test_co", "T4", ChannelType.CHAT)
         history = self.router.get_routing_history("test_co", "T4")
         assert history[0].timestamp.tzinfo == timezone.utc
@@ -937,7 +937,7 @@ class TestRoutingHistory:
         assert len(history) == 0
 
     def test_multi_step_escalation_records_multiple(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.route_ticket("test_co", "T6", ChannelType.CHAT)
         history = self.router.get_routing_history("test_co", "T6")
@@ -958,7 +958,7 @@ class TestVariantLoadSummary:
 
     def test_summary_contains_all_variants(self):
         summary = self.router.get_variant_load_summary("test_co")
-        assert set(summary.keys()) == {"parwa_lite", "parwa", "parwa_high"}
+        assert set(summary.keys()) == {"mini_parwa", "parwa", "parwa_high"}
 
     def test_summary_defaults_to_zero(self):
         summary = self.router.get_variant_load_summary("test_co")
@@ -970,7 +970,7 @@ class TestVariantLoadSummary:
         self.router.update_capacity("test_co", "parwa", 75, 100)
         summary = self.router.get_variant_load_summary("test_co")
         assert summary["parwa"].utilization_pct == 75.0
-        assert summary["parwa_lite"].utilization_pct == 0.0
+        assert summary["mini_parwa"].utilization_pct == 0.0
 
     def test_summary_isolated_per_company(self):
         self.router.update_capacity("co1", "parwa", 80, 100)
@@ -995,7 +995,7 @@ class TestW9GAP015:
         self.router.reset_capacity("test_co")
 
     def test_ticket_queued_when_all_tiers_full(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa_high", 95, 100)
         result = self.router.route_ticket("test_co", "T1", ChannelType.CHAT)
@@ -1004,7 +1004,7 @@ class TestW9GAP015:
         assert "30.0s" in result.reason
 
     def test_queue_has_elevated_priority(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa_high", 95, 100)
         self.router.route_ticket("test_co", "T2", ChannelType.CHAT)
@@ -1012,7 +1012,7 @@ class TestW9GAP015:
             assert self.router._pending_queue[0].priority == 10
 
     def test_process_queue_before_timer_returns_empty(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa_high", 95, 100)
         self.router.route_ticket("test_co", "T3", ChannelType.CHAT)
@@ -1041,7 +1041,7 @@ class TestW9GAP015:
         assert results[0].target_variant == "parwa_high"
 
     def test_process_queue_all_tiers_still_full_goes_to_human(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa_high", 95, 100)
         self.router.route_ticket("test_co", "T5", ChannelType.CHAT)
@@ -1057,7 +1057,7 @@ class TestW9GAP015:
         assert AI_OVERLOAD_FLAG in results[0].reason
 
     def test_queue_drained_after_processing(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa_high", 95, 100)
         self.router.route_ticket("test_co", "T6", ChannelType.CHAT)
@@ -1070,7 +1070,7 @@ class TestW9GAP015:
         assert self.router.get_pending_queue_size("test_co") == 0
 
     def test_process_queue_filters_by_company(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa_high", 95, 100)
         self.router.route_ticket("test_co", "T7", ChannelType.CHAT)
@@ -1085,14 +1085,14 @@ class TestW9GAP015:
         assert self.router.get_pending_queue_size("test_co") == 1
 
     def test_fallback_timer_in_reason(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa_high", 95, 100)
         result = self.router.route_ticket("test_co", "T8", ChannelType.CHAT)
         assert "fallback_timer=30.0s" in result.reason
 
     def test_multiple_tickets_in_queue(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa", 95, 100)
         self.router.update_capacity("test_co", "parwa_high", 95, 100)
         self.router.route_ticket("test_co", "T9", ChannelType.CHAT)
@@ -1223,7 +1223,7 @@ class TestEdgeCases:
         assert result.complexity_score == 0.75
 
     def test_get_pending_queue_size_all_companies(self):
-        self.router.update_capacity("co1", "parwa_lite", 95, 100)
+        self.router.update_capacity("co1", "mini_parwa", 95, 100)
         self.router.update_capacity("co1", "parwa", 95, 100)
         self.router.update_capacity("co1", "parwa_high", 95, 100)
         self.router.route_ticket("co1", "T3", ChannelType.CHAT)
@@ -1257,7 +1257,7 @@ class TestEdgeCases:
 
     def test_route_ticket_web_widget_channel(self):
         result = self.router.route_ticket("test_co", "T6", ChannelType.WEB_WIDGET)
-        assert result.target_variant == "parwa_lite"
+        assert result.target_variant == "mini_parwa"
 
     def test_route_ticket_social_channel(self):
         result = self.router.route_ticket("test_co", "T7", ChannelType.SOCIAL)
@@ -1284,7 +1284,7 @@ class TestEdgeCases:
 
     def test_get_escalation_chain_empty_string(self):
         chain = self.router.get_escalation_chain("")
-        assert chain == ["parwa_lite", "parwa", "parwa_high"]
+        assert chain == ["mini_parwa", "parwa", "parwa_high"]
 
     def test_process_queue_no_pending_returns_empty(self):
         results = self.router.process_pending_queue("test_co")
@@ -1296,7 +1296,7 @@ class TestEdgeCases:
         assert mapping.priority == 0
 
     def test_routing_stats_after_escalation(self):
-        self.router.update_capacity("test_co", "parwa_lite", 95, 100)
+        self.router.update_capacity("test_co", "mini_parwa", 95, 100)
         self.router.route_ticket("test_co", "T8", ChannelType.CHAT)
         stats = self.router.get_routing_stats()
         assert stats["total_tickets_routed"] >= 1

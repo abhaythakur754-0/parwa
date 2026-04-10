@@ -3,7 +3,7 @@ Cross-Variant Routing (SG-06 + SG-11) — Combined Module.
 
 SG-06  Cross-Variant Routing Rules:
     - Channel → Variant default mapping
-    - Escalation path: parwa_lite → parwa → parwa_high
+    - Escalation path: mini_parwa → parwa → parwa_high
     - Shared context on escalation
     - Bill to originating variant unless explicitly escalated
 
@@ -47,7 +47,7 @@ AI_OVERLOAD_FLAG: str = "AI_OVERLOAD"
 
 # Ordered escalation chain — lowest to highest variant tier.
 ESCALATION_CHAIN: List[str] = [
-    "parwa_lite",   # Tier 1 — Starter
+    "mini_parwa",   # Tier 1 — Starter
     "parwa",        # Tier 2 — Growth
     "parwa_high",   # Tier 3 — High
 ]
@@ -57,9 +57,9 @@ VALID_VARIANTS: set = set(ESCALATION_CHAIN)
 # Default channel → variant mapping (before per-company overrides).
 DEFAULT_CHANNEL_MAPPINGS: Dict[str, Tuple[str, int]] = {
     "email":       ("parwa",        10),
-    "chat":        ("parwa_lite",    20),
+    "chat":        ("mini_parwa",    20),
     "phone":       ("parwa_high",    30),
-    "web_widget":  ("parwa_lite",    20),
+    "web_widget":  ("mini_parwa",    20),
     "social":      ("parwa",         10),
 }
 
@@ -529,7 +529,7 @@ class CrossVariantRouter:
             complexity_trigger = False
 
             # Complexity escalation only for lower variants
-            if complexity_score > 0.8 and variant_type in ("parwa_lite", "parwa"):
+            if complexity_score > 0.8 and variant_type in ("mini_parwa", "parwa"):
                 complexity_trigger = True
 
             if not (capacity_trigger or complexity_trigger):

@@ -164,20 +164,20 @@ class TestTechniqueTierBypass:
     """W9-GAP-029 / HIGH: mini_parwa cannot access Tier 2/3."""
 
     def test_mini_parwa_cannot_access_tier2(self):
-        """parwa_lite blocked from chain_of_thought (Tier 2)."""
+        """mini_parwa blocked from chain_of_thought (Tier 2)."""
         checker = TechniqueTierAccessChecker()
         result = checker.check_access(
             TechniqueID.CHAIN_OF_THOUGHT.value,
-            "parwa_lite",
+            "mini_parwa",
         )
         assert result.decision in (TierAccessDecision.BLOCKED, TierAccessDecision.DOWNGRADED)
 
     def test_mini_parwa_cannot_access_tier3(self):
-        """parwa_lite blocked from gst (Tier 3)."""
+        """mini_parwa blocked from gst (Tier 3)."""
         checker = TechniqueTierAccessChecker()
         result = checker.check_access(
             TechniqueID.GST.value,
-            "parwa_lite",
+            "mini_parwa",
         )
         assert result.decision in (TierAccessDecision.BLOCKED, TierAccessDecision.DOWNGRADED)
 
@@ -216,7 +216,7 @@ class TestTechniqueTierBypass:
         checker = TechniqueTierAccessChecker()
         filtered = checker.filter_techniques(
             [TechniqueID.GST.value, TechniqueID.CLARA.value],
-            "parwa_lite",
+            "mini_parwa",
         )
         # GST should be replaced by its fallback (CLARA), deduped
         assert TechniqueID.CLARA.value in filtered
@@ -327,7 +327,7 @@ class TestCrossVariantEscalationBilling:
     def test_capacity_overflow_triggers_escalation(self):
         """When variant is >90% capacity, escalation happens."""
         router = CrossVariantRouter()
-        router.update_capacity("co1", "parwa_lite", 95, 100)
+        router.update_capacity("co1", "mini_parwa", 95, 100)
         result = router.route_ticket(
             company_id="co1", ticket_id="t2",
             channel=ChannelType.CHAT,
@@ -338,12 +338,12 @@ class TestCrossVariantEscalationBilling:
     def test_escalation_still_bills_to_origin(self):
         """Escalated ticket bills to original variant, not target."""
         router = CrossVariantRouter()
-        router.update_capacity("co1", "parwa_lite", 95, 100)
+        router.update_capacity("co1", "mini_parwa", 95, 100)
         result = router.route_ticket(
             company_id="co1", ticket_id="t3",
             channel=ChannelType.CHAT,
         )
-        assert result.billed_to_variant == "parwa_lite"
+        assert result.billed_to_variant == "mini_parwa"
 
     def test_all_tiers_full_routes_to_queue_or_human(self):
         """All tiers at capacity → QUEUE or HUMAN_OVERRIDE (not normal route)."""
