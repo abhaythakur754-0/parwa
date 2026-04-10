@@ -10,6 +10,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+# Module-level stubs
+BurstSeverity = None  # type: ignore[assignment,misc]
+BurstAction = None  # type: ignore[assignment,misc]
+UsageMetrics = None  # type: ignore[assignment,misc]
+BurstDetection = None  # type: ignore[assignment,misc]
+ThrottleDecision = None  # type: ignore[assignment,misc]
+BurstProtectionConfig = None  # type: ignore[assignment,misc]
+BurstProtectionError = None  # type: ignore[assignment,misc]
+UsageBurstProtectionService = None  # type: ignore[assignment,misc]
+
+
 @pytest.fixture(autouse=True)
 def _mock_logger_and_lock():
     with patch("backend.app.logger.get_logger", return_value=MagicMock()):

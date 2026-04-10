@@ -15,6 +15,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+# Module-level stubs
+ConversationTrendAnalyzer = None  # type: ignore[assignment,misc]
+EmotionClassifier = None  # type: ignore[assignment,misc]
+EmotionType = None  # type: ignore[assignment,misc]
+EMPATHY_PATTERNS = None  # type: ignore[assignment,misc]
+EmpathySignalDetector = None  # type: ignore[assignment,misc]
+FRUSTRATION_MILD = None  # type: ignore[assignment,misc]
+FRUSTRATION_MODERATE = None  # type: ignore[assignment,misc]
+FRUSTRATION_STRONG = None  # type: ignore[assignment,misc]
+FrustrationDetector = None  # type: ignore[assignment,misc]
+POSITIVE_WORDS = None  # type: ignore[assignment,misc]
+SentimentAnalyzer = None  # type: ignore[assignment,misc]
+SentimentResult = None  # type: ignore[assignment,misc]
+ToneAdvisor = None  # type: ignore[assignment,misc]
+ToneRecommendation = None  # type: ignore[assignment,misc]
+TrendDirection = None  # type: ignore[assignment,misc]
+UrgencyLevel = None  # type: ignore[assignment,misc]
+UrgencyScorer = None  # type: ignore[assignment,misc]
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════

@@ -17,6 +17,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+# Module-level stubs
+DatasetIsolationResult = None  # type: ignore[assignment,misc]
+TrainingDataIsolationService = None  # type: ignore[assignment,misc]
+TrainingDataRecord = None  # type: ignore[assignment,misc]
+TrainingDataset = None  # type: ignore[assignment,misc]
+VALID_VARIANT_TYPES = None  # type: ignore[assignment,misc]
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════
