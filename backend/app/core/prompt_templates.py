@@ -26,8 +26,8 @@ from backend.app.logger import get_logger
 
 logger = get_logger("prompt_templates")
 
-# Regex for Jinja2-style ``{{variable}}`` placeholders
-_VARIABLE_PATTERN = re.compile(r"\{\{(\w+)\}\}")
+# Regex for Jinja2-style ``{{variable}}`` and ``{{ variable }}`` placeholders
+_VARIABLE_PATTERN = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
 # ── All 12 supported intent types ───────────────────────────────────
 
