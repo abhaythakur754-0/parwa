@@ -15,6 +15,9 @@ import pytest
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════
 
+# Runtime-injected by _mock_logger fixture — satisfies flake8 F821
+ClassificationEngine = IntentType = IntentResult = KeywordClassifier = INTENT_PATTERNS = INTENT_TO_CATEGORY_MAP = None
+
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("backend.app.logger.get_logger", return_value=MagicMock()):

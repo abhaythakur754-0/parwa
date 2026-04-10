@@ -18,6 +18,9 @@ import pytest
 # Fixtures — import source modules with mocked logger
 # ═══════════════════════════════════════════════════════════════════════
 
+# Runtime-injected by _mock_logger fixture — satisfies flake8 F821
+CACHE_TTL_SECONDS = QUERY_SYNONYMS = RAGChunk = RAGResult = RAGRetriever = VARIANT_CONFIG = MockVectorStore = SearchResult = StoredChunk = VectorStore = None
+
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("backend.app.logger.get_logger", return_value=MagicMock()):
