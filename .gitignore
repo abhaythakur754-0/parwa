@@ -145,3 +145,7 @@ download/
 .dmypy.json
 dmypy.json
 .env
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
