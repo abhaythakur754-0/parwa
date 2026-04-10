@@ -26,9 +26,9 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import ValidationError
-from backend.app.logger import get_logger
-from backend.app.schemas.onboarding import (
+from app.exceptions import ValidationError
+from app.logger import get_logger
+from app.schemas.onboarding import (
     UserDetailsResponse,
     OnboardingStateResponse,
 )

@@ -24,8 +24,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel, Field
 
-from backend.app.config import get_settings
-from backend.app.services.payment_failure_service import (
+from app.config import get_settings
+from app.services.payment_failure_service import (
     get_payment_failure_service,
     PaymentFailureError,
 )
@@ -200,7 +200,7 @@ async def handle_paddle_webhook(
     )
 
     # Check idempotency (via webhook_service)
-    from backend.app.services.webhook_service import process_webhook
+    from app.services.webhook_service import process_webhook
 
     result = process_webhook(
         company_id=company_id,
@@ -273,7 +273,7 @@ async def handle_payment_failed_webhook(
 
         # Trigger background tasks for service stop
         if result.get("status") == "stopped":
-            from backend.app.tasks.payment_failure_tasks import stop_service_immediately
+            from app.tasks.payment_failure_tasks import stop_service_immediately
             stop_service_immediately.delay(
                 company_id=webhook.company_id,
                 failure_id=result["failure_id"],
@@ -316,7 +316,7 @@ async def handle_payment_succeeded_webhook(
 
         # Trigger background tasks for service resume
         if result.get("status") == "resumed":
-            from backend.app.tasks.payment_failure_tasks import resume_service
+            from app.tasks.payment_failure_tasks import resume_service
             resume_service.delay(
                 company_id=webhook.company_id,
                 transaction_id=webhook.paddle_transaction_id,
@@ -394,7 +394,7 @@ async def _process_payment_failed(
         )
 
         if result.get("status") == "stopped":
-            from backend.app.tasks.payment_failure_tasks import stop_service_immediately
+            from app.tasks.payment_failure_tasks import stop_service_immediately
             stop_service_immediately.delay(
                 company_id=company_id,
                 failure_id=result["failure_id"],
@@ -436,7 +436,7 @@ async def _process_payment_succeeded(
             )
 
             if result.get("status") == "resumed":
-                from backend.app.tasks.payment_failure_tasks import resume_service
+                from app.tasks.payment_failure_tasks import resume_service
                 resume_service.delay(
                     company_id=company_id,
                     transaction_id=transaction_id,

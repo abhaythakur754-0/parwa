@@ -24,8 +24,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from backend.app.exceptions import ParwaBaseError
-from backend.app.logger import get_logger
+from app.exceptions import ParwaBaseError
+from app.logger import get_logger
 
 logger = get_logger("training_data_isolation")
 
@@ -420,7 +420,7 @@ class TrainingDataIsolationService:
         )
 
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             meta_key = storage_path + _META_SUFFIX
@@ -572,7 +572,7 @@ class TrainingDataIsolationService:
 
         added = 0
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             records_key = (
@@ -653,7 +653,7 @@ class TrainingDataIsolationService:
             return None
 
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             idx_key = ":".join([
@@ -735,7 +735,7 @@ class TrainingDataIsolationService:
         datasets: List[TrainingDataset] = []
 
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             idx_key = ":".join([
@@ -858,7 +858,7 @@ class TrainingDataIsolationService:
             return result
 
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
 
@@ -983,7 +983,7 @@ class TrainingDataIsolationService:
         )
 
         try:
-            from backend.app.services.audit_service import (
+            from app.services.audit_service import (
                 ActorType,
                 create_audit_entry,
             )
@@ -1034,7 +1034,7 @@ class TrainingDataIsolationService:
             return False
 
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             meta_key = dataset.storage_path + _META_SUFFIX
@@ -1180,7 +1180,7 @@ class TrainingDataIsolationService:
         records: List[Dict[str, Any]] = []
 
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             records_key = (
@@ -1269,7 +1269,7 @@ class TrainingDataIsolationService:
 
         records: List[Dict[str, Any]] = []
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             records_key = (
@@ -1345,7 +1345,7 @@ class TrainingDataIsolationService:
             return None
 
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             meta_key = dataset.storage_path + _META_SUFFIX
@@ -1454,7 +1454,7 @@ class TrainingDataIsolationService:
         merged_meta = {**dataset.metadata, **index_metadata}
 
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             meta_key = dataset.storage_path + _META_SUFFIX
@@ -1547,7 +1547,7 @@ class TrainingDataIsolationService:
         }
 
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             config_key = ":".join([
@@ -1595,7 +1595,7 @@ class TrainingDataIsolationService:
             )
 
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis = await get_redis()
             config_key = ":".join([

@@ -16,7 +16,7 @@ from uuid import uuid4
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 from database.models.core import User
 from database.models.remaining import NotificationPreference
 

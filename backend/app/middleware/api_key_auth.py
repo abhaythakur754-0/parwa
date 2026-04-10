@@ -13,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from backend.app.middleware.error_handler import build_error_response
+from app.middleware.error_handler import build_error_response
 
 # Paths that skip API key auth (public endpoints)
 SKIP_PATHS = {"/health", "/ready", "/metrics"}
@@ -149,7 +149,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         """Validate key against database."""
         try:
             from database.base import SessionLocal
-            from backend.app.services import api_key_service
+            from app.services import api_key_service
 
             db = SessionLocal()
             try:
@@ -203,7 +203,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
             finally:
                 db.close()
         except Exception as _exc:
-            from backend.app.logger import get_logger
+            from app.logger import get_logger
             get_logger("api_key_auth").warning(
                 "api_key_db_validation_failed",
                 error=str(_exc),

@@ -31,8 +31,8 @@ StalenessConfig = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.services.data_freshness_service import (
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.services.data_freshness_service import (
             DataFreshnessService,
             FreshnessCheckResult,
             FreshnessStatus,
@@ -88,7 +88,7 @@ def _redis_patches(mock_redis, *, track_keys=False):
     stack = ExitStack()
     stack.enter_context(
         patch(
-            "backend.app.core.redis.get_redis",
+            "app.core.redis.get_redis",
             new_callable=AsyncMock,
             return_value=mock_redis,
         ),
@@ -100,11 +100,11 @@ def _redis_patches(mock_redis, *, track_keys=False):
             called_keys.append(k)
             return k
         stack.enter_context(
-            patch("backend.app.core.redis.make_key", side_effect=_track),
+            patch("app.core.redis.make_key", side_effect=_track),
         )
     else:
         stack.enter_context(
-            patch("backend.app.core.redis.make_key", side_effect=_make_key),
+            patch("app.core.redis.make_key", side_effect=_make_key),
         )
     return stack, called_keys
 
@@ -832,12 +832,12 @@ class TestInvalidateKBCaches:
         mock_redis = MagicMock()
         mock_redis.scan = AsyncMock(return_value=[0, []])
         with patch(
-            "backend.app.core.redis.get_redis",
+            "app.core.redis.get_redis",
             new_callable=AsyncMock,
             return_value=mock_redis,
         ):
             with patch(
-                "backend.app.core.redis.make_key",
+                "app.core.redis.make_key",
                 side_effect=_make_key,
             ) as mk:
                 await self.svc.invalidate_kb_caches(
@@ -1221,12 +1221,12 @@ class TestGetFreshnessReport:
         mock_redis = MagicMock()
         mock_redis.scan = AsyncMock(return_value=[0, []])
         with patch(
-            "backend.app.core.redis.get_redis",
+            "app.core.redis.get_redis",
             new_callable=AsyncMock,
             return_value=mock_redis,
         ):
             with patch(
-                "backend.app.core.redis.make_key",
+                "app.core.redis.make_key",
                 side_effect=_make_key,
             ) as mk:
                 await self.svc.get_freshness_report("company_X")

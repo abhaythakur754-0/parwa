@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from backend.app.core.classification_engine import (
+from app.core.classification_engine import (
     ClassificationEngine,
     IntentType,
     IntentResult,
@@ -93,7 +93,7 @@ class TestIntentTypeEnum:
             assert len(t.value) > 0
 
     def test_compat_map(self):
-        from backend.app.core.classification_engine import INTENT_TO_CATEGORY_MAP
+        from app.core.classification_engine import INTENT_TO_CATEGORY_MAP
         assert len(INTENT_TO_CATEGORY_MAP) == 12
 
 

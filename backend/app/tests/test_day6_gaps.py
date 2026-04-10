@@ -16,24 +16,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from backend.app.core.signal_extraction import (
+from app.core.signal_extraction import (
     SignalExtractor,
     SignalExtractionRequest,
     ExtractedSignals,
 )
-from backend.app.core.classification_engine import (
+from app.core.classification_engine import (
     ClassificationEngine,
     KeywordClassifier,
     IntentType,
 )
-from backend.app.core.clara_quality_gate import (
+from app.core.clara_quality_gate import (
     CLARAQualityGate,
     BrandVoiceConfig,
     CLARAStage,
     StageResult,
 )
-from backend.app.services.intent_technique_mapper import IntentTechniqueMapper
-from backend.app.core.technique_router import TechniqueID, TechniqueTier
+from app.services.intent_technique_mapper import IntentTechniqueMapper
+from app.core.technique_router import TechniqueID, TechniqueTier
 
 
 # =========================================================================
@@ -1097,7 +1097,7 @@ class TestIntentToCategoryMapCompleteness:
 
     def test_all_intents_mapped(self):
         """All 12 IntentType values should have a category mapping."""
-        from backend.app.core.classification_engine import INTENT_TO_CATEGORY_MAP
+        from app.core.classification_engine import INTENT_TO_CATEGORY_MAP
         for intent in IntentType:
             assert intent.value in INTENT_TO_CATEGORY_MAP, (
                 f"Missing category mapping for {intent.value}"
@@ -1105,7 +1105,7 @@ class TestIntentToCategoryMapCompleteness:
 
     def test_all_categories_valid(self):
         """All mapped categories should be known categories."""
-        from backend.app.core.classification_engine import INTENT_TO_CATEGORY_MAP
+        from app.core.classification_engine import INTENT_TO_CATEGORY_MAP
         valid_categories = {"refund", "technical", "billing", "complaint", "feature_request", "general"}
         for intent, category in INTENT_TO_CATEGORY_MAP.items():
             assert category in valid_categories, (
@@ -1133,8 +1133,8 @@ class TestCacheIsolationAcrossVariants:
         )
 
         # Extract with all 3 variants (no cache mocking - fresh extraction)
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result_mini = await extractor.extract(req_mini)
                 result_parwa = await extractor.extract(req_parwa)
                 result_high = await extractor.extract(req_high)

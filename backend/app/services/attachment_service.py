@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Tuple, BinaryIO
 
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import ValidationError
+from app.exceptions import ValidationError
 from database.models.tickets import Ticket, TicketAttachment
 
 
@@ -272,7 +272,7 @@ class AttachmentService:
         ).first()
 
         if not attachment:
-            from backend.app.exceptions import NotFoundError
+            from app.exceptions import NotFoundError
             raise NotFoundError(f"Attachment {attachment_id} not found")
 
         # Delete from storage

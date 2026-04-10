@@ -41,12 +41,12 @@ _RECOVERY_HIGH_SCORE_CONSECUTIVE = None  # type: ignore[assignment,misc]
 @pytest.fixture(autouse=True)
 def _mock_logger():
     """Mock logger to allow importing source modules without real logging."""
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.ai_monitoring_service import (
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.ai_monitoring_service import (
             AIMonitoringService,
             _MAX_DATA_POINTS,
         )
-        from backend.app.core.self_healing_engine import (
+        from app.core.self_healing_engine import (
             SelfHealingEngine,
             HealingRule,
             HealingAction,
@@ -322,7 +322,7 @@ class TestSelfHealingStateTransitionRaceCondition:
 
         # Send successes to trigger recovery (bypass cooldown for testing)
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,  # Far past cooldown
         ):
             for _ in range(10):
@@ -437,7 +437,7 @@ class TestCooldownPeriodBypass:
 
         # Trigger first disable
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(5):
@@ -462,7 +462,7 @@ class TestCooldownPeriodBypass:
         # Now try to trigger again — cooldown should prevent it
         # (seconds_since returns a small value, simulating cooldown not elapsed)
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=10.0,  # 10 seconds < 300 second cooldown
         ):
             for i in range(10):
@@ -493,7 +493,7 @@ class TestCooldownPeriodBypass:
 
         # First trigger
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(5):
@@ -516,7 +516,7 @@ class TestCooldownPeriodBypass:
 
         # After cooldown elapses, trigger again
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,  # Cooldown elapsed
         ):
             # Need to reset provider state's consecutive failures
@@ -563,7 +563,7 @@ class TestCooldownPeriodBypass:
 
         # First batch triggers disable
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(5):
@@ -585,7 +585,7 @@ class TestCooldownPeriodBypass:
 
         # Rapid flood with cooldown active
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=1.0,  # 1 second — well within cooldown
         ):
             for i in range(1000):
@@ -642,7 +642,7 @@ class TestIncompleteRollbackAfterFailedHealing:
 
         # Disable provider first
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(5):
@@ -674,7 +674,7 @@ class TestIncompleteRollbackAfterFailedHealing:
 
         # Disable provider
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(5):
@@ -697,7 +697,7 @@ class TestIncompleteRollbackAfterFailedHealing:
         # Each success triggers recovery (bypass cooldown)
         recovery_stages_seen = []
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for _ in range(5):
@@ -729,7 +729,7 @@ class TestIncompleteRollbackAfterFailedHealing:
         engine = _make_healing_engine()
 
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(5):
@@ -758,7 +758,7 @@ class TestIncompleteRollbackAfterFailedHealing:
         engine = _make_healing_engine()
 
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(5):
@@ -935,7 +935,7 @@ class TestSilentFailureConfidenceThresholdAdjustment:
 
         # Record enough consecutive low-confidence scores
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(_LOW_SCORE_CONSECUTIVE):
@@ -964,7 +964,7 @@ class TestSilentFailureConfidenceThresholdAdjustment:
         engine = _make_healing_engine()
 
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             # Record many low scores to try to push threshold below floor
@@ -995,7 +995,7 @@ class TestSilentFailureConfidenceThresholdAdjustment:
 
         # Lower threshold first
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(_LOW_SCORE_CONSECUTIVE):
@@ -1019,7 +1019,7 @@ class TestSilentFailureConfidenceThresholdAdjustment:
 
         # Now send high scores to trigger restore
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(_RECOVERY_HIGH_SCORE_CONSECUTIVE + 5):
@@ -1079,7 +1079,7 @@ class TestSilentFailureConfidenceThresholdAdjustment:
         engine = _make_healing_engine()
 
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             # First trigger: lower threshold
@@ -1102,7 +1102,7 @@ class TestSilentFailureConfidenceThresholdAdjustment:
 
         # Try again immediately — cooldown should block
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=10.0,  # Within cooldown
         ):
             for i in range(_LOW_SCORE_CONSECUTIVE):
@@ -1137,7 +1137,7 @@ class TestSilentFailureConfidenceThresholdAdjustment:
 
         # Record enough low scores to trigger adjustment
         with patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999.0,
         ):
             for i in range(_LOW_SCORE_CONSECUTIVE):

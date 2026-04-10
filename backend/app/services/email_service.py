@@ -16,9 +16,9 @@ import time
 import httpx
 from httpx import HTTPError, TimeoutException
 
-from backend.app.config import get_settings
-from backend.app.core.email_renderer import render_email_template
-from backend.app.logger import get_logger
+from app.config import get_settings
+from app.core.email_renderer import render_email_template
+from app.logger import get_logger
 
 logger = get_logger("email_service")
 

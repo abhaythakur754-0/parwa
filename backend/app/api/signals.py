@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("signals_api")
 
@@ -74,7 +74,7 @@ def _get_extractor():
     global _extractor  # noqa: PLW0603
     if _extractor is None:
         try:
-            from backend.app.core.signal_extraction import (
+            from app.core.signal_extraction import (
                 SignalExtractor,
             )
             _extractor = SignalExtractor()
@@ -94,7 +94,7 @@ def _get_extractor():
 async def extract_signals(req: SignalRequest) -> Dict[str, Any]:
     """Extract 10 real-time signals from a ticket query.
 
-    Uses SignalExtractor from backend.app.core.signal_extraction.
+    Uses SignalExtractor from app.core.signal_extraction.
     Returns ExtractedSignals as JSON with intent, sentiment, complexity,
     monetary_value, customer_tier, turn_count,
     previous_response_status, reasoning_loop_detected,
@@ -114,7 +114,7 @@ async def extract_signals(req: SignalRequest) -> Dict[str, Any]:
         return _safe_default_signals("extractor_unavailable")
 
     try:
-        from backend.app.core.signal_extraction import (
+        from app.core.signal_extraction import (
             SignalExtractionRequest,
         )
 

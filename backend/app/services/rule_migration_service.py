@@ -13,9 +13,9 @@ BC-001: All operations scoped to company_id.
 
 from typing import Any, Dict
 
-from backend.app.core.technique_router import TRIGGER_RULES
-from backend.app.exceptions import ValidationError
-from backend.app.logger import get_logger
+from app.core.technique_router import TRIGGER_RULES
+from app.exceptions import ValidationError
+from app.logger import get_logger
 
 logger = get_logger("rule_migration_service")
 
@@ -104,7 +104,7 @@ class RuleMigrationService:
 
         Used in shadow mode to evaluate AI rule quality.
         """
-        from backend.app.core.technique_router import TechniqueRouter, QuerySignals
+        from app.core.technique_router import TechniqueRouter, QuerySignals
 
         # Build signals
         signals = QuerySignals(

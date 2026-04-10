@@ -19,14 +19,14 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.schemas.bulk_action import (
+from app.api.deps import get_current_user, get_db
+from app.schemas.bulk_action import (
     BulkActionRequest,
     BulkActionResponse,
     BulkActionUndo,
     BulkActionType,
 )
-from backend.app.services.bulk_action_service import (
+from app.services.bulk_action_service import (
     BulkActionService,
     BulkActionError,
     BulkActionNotFoundError,

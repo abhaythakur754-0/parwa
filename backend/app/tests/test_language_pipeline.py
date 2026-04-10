@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.app.core.language_pipeline import (
+from app.core.language_pipeline import (
     Language,
     LanguageDetector,
     LanguagePipeline,
@@ -28,7 +28,7 @@ from backend.app.core.language_pipeline import (
     TranslationQualityChecker,
     TranslationSimulator,
 )
-from backend.app.core.response_formatters import (
+from app.core.response_formatters import (
     ActionItemFormatter,
     BaseFormatter,
     BoldFormatter,
@@ -613,12 +613,12 @@ class TestLanguagePipeline:
     async def test_cache_fail_open(self):
         """Redis failure should not crash pipeline (BC-008)."""
         with patch(
-            "backend.app.core.redis.cache_get",
+            "app.core.redis.cache_get",
             new_callable=AsyncMock,
             side_effect=Exception("Redis down"),
         ):
             with patch(
-                "backend.app.core.redis.cache_set",
+                "app.core.redis.cache_set",
                 new_callable=AsyncMock,
                 side_effect=Exception("Redis down"),
             ):

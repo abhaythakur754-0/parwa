@@ -17,7 +17,7 @@ from uuid import uuid4
 from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 from database.models.tickets import Ticket, TicketStatus
 from database.models.core import User
 
@@ -323,7 +323,7 @@ class IncidentService:
             }
         
         # Import notification service
-        from backend.app.services.notification_service import NotificationService
+        from app.services.notification_service import NotificationService
         
         notification_service = NotificationService(self.db, self.company_id)
         
@@ -583,7 +583,7 @@ class IncidentService:
         message: Optional[str] = None,
     ) -> None:
         """Send incident notification to admins."""
-        from backend.app.services.notification_service import NotificationService
+        from app.services.notification_service import NotificationService
         
         notification_service = NotificationService(self.db, self.company_id)
         

@@ -14,8 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from backend.app.exceptions import ValidationError, NotFoundError
-from backend.app.services.brand_voice_service import (
+from app.exceptions import ValidationError, NotFoundError
+from app.services.brand_voice_service import (
     VALID_APOLOGY_STYLES,
     VALID_EMOJI_USAGE,
     VALID_ESCALATION_TONES,

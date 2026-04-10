@@ -15,8 +15,8 @@ import uuid
 from collections import defaultdict
 from typing import Any, Dict, Optional
 
-from backend.app.core.events import EventRegistry, get_event_registry
-from backend.app.logger import get_logger
+from app.core.events import EventRegistry, get_event_registry
+from app.logger import get_logger
 
 logger = get_logger("event_emitter")
 
@@ -150,7 +150,7 @@ async def emit_event(
 
     # Emit to tenant room (never crash the caller — BC-005)
     try:
-        from backend.app.core.socketio import emit_to_tenant
+        from app.core.socketio import emit_to_tenant
 
         await emit_to_tenant(
             company_id=company_id,

@@ -14,7 +14,7 @@ import json
 
 from database.base import SessionLocal
 from database.models.variant_engine import VariantInstance
-from backend.app.exceptions import ParwaBaseError
+from app.exceptions import ParwaBaseError
 
 
 # ══════════════════════════════════════════════════════════════════

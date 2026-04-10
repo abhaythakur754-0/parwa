@@ -17,13 +17,13 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.schemas.bulk_action import (
+from app.api.deps import get_current_user, get_db
+from app.schemas.bulk_action import (
     TicketMergeRequest,
     TicketUnmergeRequest,
     TicketMergeResponse,
 )
-from backend.app.services.ticket_merge_service import (
+from app.services.ticket_merge_service import (
     TicketMergeService,
     TicketMergeError,
     TicketNotFoundError,

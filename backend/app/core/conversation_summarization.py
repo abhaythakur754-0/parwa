@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger(__name__)
 

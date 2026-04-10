@@ -25,8 +25,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from backend.app.exceptions import ParwaBaseError
-from backend.app.logger import get_logger
+from app.exceptions import ParwaBaseError
+from app.logger import get_logger
 
 # Header names
 CORRELATION_ID_HEADER = "X-Correlation-ID"

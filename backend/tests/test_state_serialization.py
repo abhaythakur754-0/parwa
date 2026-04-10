@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 from datetime import datetime, timezone
 from enum import Enum
 
-from backend.app.core.state_serialization import (
+from app.core.state_serialization import (
     StateSerializationError,
     SnapshotType,
     StorageBackend,
@@ -33,7 +33,7 @@ from backend.app.core.state_serialization import (
     _safe_json_loads,
     _safe_json,
 )
-from backend.app.core.techniques.base import (
+from app.core.techniques.base import (
     ConversationState,
     GSDState,
 )
@@ -51,7 +51,7 @@ def _make_signals(
     confidence_score=0.9,
     turn_count=2,
 ):
-    from backend.app.core.technique_router import QuerySignals
+    from app.core.technique_router import QuerySignals
     return QuerySignals(
         intent_type=intent_type,
         sentiment_score=sentiment_score,
@@ -125,7 +125,7 @@ class TestStateSerializationError:
         assert err.details is None
 
     def test_inheritance(self):
-        from backend.app.exceptions import ParwaBaseError
+        from app.exceptions import ParwaBaseError
         err = StateSerializationError()
         assert isinstance(err, ParwaBaseError)
         assert isinstance(err, Exception)

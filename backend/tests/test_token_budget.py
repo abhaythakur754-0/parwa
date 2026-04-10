@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 import pytest
 
-from backend.app.services.token_budget_service import (
+from app.services.token_budget_service import (
     TokenBudgetService,
     TokenBudget,
     ReserveResult,

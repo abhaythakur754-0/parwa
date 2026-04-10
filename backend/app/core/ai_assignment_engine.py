@@ -444,7 +444,7 @@ class AIAssignmentEngine:
         """Lazy-load the AssignmentService (import inside property to avoid circular imports)."""
         if self._assignment_service is None and self.db is not None:
             try:
-                from backend.app.services.assignment_service import AssignmentService
+                from app.services.assignment_service import AssignmentService
                 self._assignment_service = AssignmentService(self.db, company_id="__placeholder__")
             except Exception as exc:
                 logger.warning("Could not lazy-load AssignmentService: %s", exc)

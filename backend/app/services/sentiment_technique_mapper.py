@@ -23,11 +23,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from backend.app.core.technique_router import (
+from app.core.technique_router import (
     TechniqueID,
     TechniqueTier,
 )
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("sentiment_technique_mapper")
 

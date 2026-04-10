@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from backend.app.core.smart_router import (
+from app.core.smart_router import (
     AtomicStepType,
     ModelProvider,
     ModelTier,

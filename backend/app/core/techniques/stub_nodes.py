@@ -8,8 +8,8 @@ respective Week (8-12) when dependent features are ready.
 
 from typing import TYPE_CHECKING
 
-from backend.app.core.technique_router import TechniqueID
-from backend.app.core.techniques.base import (
+from app.core.technique_router import TechniqueID
+from app.core.techniques.base import (
     BaseTechniqueNode,
     ConversationState,
     GSDState,

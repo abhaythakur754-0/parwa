@@ -31,7 +31,7 @@ from shared.knowledge_base.reindexing import (
     ReindexingManager,
     ReindexStatus,
 )
-from backend.app.core.rag_retrieval import (
+from app.core.rag_retrieval import (
     RAGChunk,
     RAGRetriever,
     RAGResult,
@@ -1042,7 +1042,7 @@ class TestRAGRetrieverCache:
             "variant_tier_used": "parwa",
         }
         with patch(
-            "backend.app.core.redis.cache_get",
+            "app.core.redis.cache_get",
             new_callable=AsyncMock,
             return_value=cached_data,
         ):
@@ -1059,12 +1059,12 @@ class TestRAGRetrieverCache:
     async def test_cache_fail_open(self):
         """Redis failure doesn't crash retrieval."""
         with patch(
-            "backend.app.core.redis.cache_get",
+            "app.core.redis.cache_get",
             new_callable=AsyncMock,
             side_effect=Exception("Redis down"),
         ):
             with patch(
-                "backend.app.core.redis.cache_set",
+                "app.core.redis.cache_set",
                 new_callable=AsyncMock,
                 side_effect=Exception("Redis down"),
             ):

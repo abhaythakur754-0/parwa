@@ -28,7 +28,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("parwa.hallucination_detector")
 
@@ -963,7 +963,7 @@ class HallucinationDetector:
         # Try to import FEATURE_REGISTRY from variant_capability_service
         known_features: Set[str] = set(KNOWN_FEATURE_PHRASES)
         try:
-            from backend.app.services.variant_capability_service import FEATURE_REGISTRY as _FR  # noqa: E501
+            from app.services.variant_capability_service import FEATURE_REGISTRY as _FR  # noqa: E501
             for _fid, finfo in _FR.items():
                 feat_name = finfo.get("name", "").lower()
                 if feat_name:

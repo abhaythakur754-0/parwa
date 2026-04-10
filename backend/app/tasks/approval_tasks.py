@@ -10,8 +10,8 @@ Celery tasks for approval workflow:
 import logging
 from datetime import datetime, timedelta, timezone
 
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.tasks.approval")
 
@@ -23,7 +23,7 @@ APPROVAL_REMINDER_INTERVAL_HOURS = 24
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.approval.timeout_check",
+    name="app.tasks.approval.timeout_check",
     max_retries=3,
     soft_time_limit=60,
     time_limit=120,
@@ -65,7 +65,7 @@ def approval_timeout_check(self, company_id: str) -> dict:
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.approval.reminder",
+    name="app.tasks.approval.reminder",
     max_retries=3,
     soft_time_limit=60,
     time_limit=120,
@@ -106,7 +106,7 @@ def approval_reminder(self, company_id: str) -> dict:
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.approval.batch_process",
+    name="app.tasks.approval.batch_process",
     max_retries=2,
     soft_time_limit=120,
     time_limit=300,

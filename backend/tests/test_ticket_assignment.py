@@ -31,7 +31,7 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
 os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
 
-from backend.app.core.ticket_assignment import (
+from app.core.ticket_assignment import (
     AgentProfile,
     AgentStatus,
     AssignmentEngine,

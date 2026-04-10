@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import (
+from app.exceptions import (
     NotFoundError,
     AuthorizationError,
     ValidationError,

@@ -15,12 +15,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db, get_tenant_context
-from backend.app.services.ticket_lifecycle_service import TicketLifecycleService
-from backend.app.services.ticket_state_machine import TicketStateMachine, TransitionValidator
-from backend.app.services.stale_ticket_service import StaleTicketService
-from backend.app.services.incident_service import IncidentService, Incident
-from backend.app.services.spam_detection_service import SpamDetectionService
+from app.api.deps import get_current_user, get_db, get_tenant_context
+from app.services.ticket_lifecycle_service import TicketLifecycleService
+from app.services.ticket_state_machine import TicketStateMachine, TransitionValidator
+from app.services.stale_ticket_service import StaleTicketService
+from app.services.incident_service import IncidentService, Incident
+from app.services.spam_detection_service import SpamDetectionService
 from database.models.core import User
 from database.models.tickets import Ticket, TicketStatus
 

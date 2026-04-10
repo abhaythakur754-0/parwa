@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from backend.app.services.prompt_template_service import (
+from app.services.prompt_template_service import (
     ABTestConfig,
     ABTestStatus,
     PromptTemplate,
@@ -28,7 +28,7 @@ from backend.app.services.prompt_template_service import (
     extract_variables,
     render_variables,
 )
-from backend.app.exceptions import (
+from app.exceptions import (
     NotFoundError,
     ParwaBaseError,
     ValidationError,

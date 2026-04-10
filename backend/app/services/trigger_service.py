@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 from database.models.tickets import TicketTrigger, Ticket
 
 

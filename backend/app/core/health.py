@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("health")
 
@@ -199,7 +199,7 @@ async def check_redis() -> SubsystemHealth:
     """
     start = time.monotonic()
     try:
-        from backend.app.core.redis import get_redis
+        from app.core.redis import get_redis
         client = await get_redis()
         await client.ping()
 
@@ -263,7 +263,7 @@ async def check_celery() -> SubsystemHealth:
     """
     start = time.monotonic()
     try:
-        from backend.app.tasks.celery_health import (
+        from app.tasks.celery_health import (
             celery_health_check,
             get_active_workers,
         )
@@ -322,7 +322,7 @@ async def check_celery_queues() -> SubsystemHealth:
     ]
 
     try:
-        from backend.app.tasks.celery_app import app as celery_app
+        from app.tasks.celery_app import app as celery_app
         inspect = celery_app.control.inspect(timeout=3)
 
         queue_depths: Dict[str, int] = {q: 0 for q in queue_names}
@@ -390,7 +390,7 @@ async def check_socketio() -> SubsystemHealth:
     start = time.monotonic()
     try:
         # Check if socketio module is available
-        from backend.app.core.socketio import get_socketio_manager
+        from app.core.socketio import get_socketio_manager
 
         manager = get_socketio_manager()
         connected = manager.get_connected_count() if manager else 0
@@ -586,7 +586,7 @@ async def run_health_checks(
     if include_external:
         if not ext_urls:
             try:
-                from backend.app.config import get_settings
+                from app.config import get_settings
                 get_settings()  # noqa: F841 — verify config is valid
                 ext_urls = {
                     "external_paddle": "https://vendors.paddle.com",

@@ -31,7 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from backend.app.schemas.billing import (
+from app.schemas.billing import (
     SubscriptionCreate,
     SubscriptionUpdate,
     SubscriptionCancel,
@@ -41,7 +41,7 @@ from backend.app.schemas.billing import (
     ProrationResult,
     ProrationAudit,
 )
-from backend.app.services.subscription_service import (
+from app.services.subscription_service import (
     SubscriptionService,
     SubscriptionError,
     SubscriptionNotFoundError,
@@ -50,25 +50,25 @@ from backend.app.services.subscription_service import (
     InvalidStatusTransitionError,
     get_subscription_service,
 )
-from backend.app.services.proration_service import (
+from app.services.proration_service import (
     ProrationService,
     ProrationError,
     get_proration_service,
 )
-from backend.app.services.invoice_service import (
+from app.services.invoice_service import (
     InvoiceService,
     InvoiceError,
     InvoiceNotFoundError,
     InvoiceAccessDeniedError,
     get_invoice_service,
 )
-from backend.app.services.client_refund_service import (
+from app.services.client_refund_service import (
     ClientRefundService,
     ClientRefundError,
     ClientRefundNotFoundError,
     get_client_refund_service,
 )
-from backend.app.services.overage_service import (
+from app.services.overage_service import (
     OverageService,
     get_overage_service,
 )

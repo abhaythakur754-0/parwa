@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("context_health")
 

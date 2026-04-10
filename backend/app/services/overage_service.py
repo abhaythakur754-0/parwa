@@ -28,13 +28,13 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
-from backend.app.schemas.billing import (
+from app.schemas.billing import (
     OverageChargeInfo,
     UsageInfo,
     VariantType,
     VARIANT_LIMITS,
 )
-from backend.app.clients.paddle_client import (
+from app.clients.paddle_client import (
     PaddleClient,
     PaddleError,
     get_paddle_client,
@@ -407,7 +407,7 @@ class OverageService:
 
         # Send Socket.io notification
         try:
-            from backend.app.core.event_emitter import emit_billing_event
+            from app.core.event_emitter import emit_billing_event
 
             await emit_billing_event(
                 company_id=str(company.id),
@@ -429,7 +429,7 @@ class OverageService:
 
         # Send email notification
         try:
-            from backend.app.services.email_service import send_overage_notification
+            from app.services.email_service import send_overage_notification
 
             await send_overage_notification(
                 company_id=str(company.id),

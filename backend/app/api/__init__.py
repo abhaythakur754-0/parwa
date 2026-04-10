@@ -6,13 +6,13 @@ All FastAPI routers are registered here.
 
 from fastapi import APIRouter
 
-from backend.app.api import auth, health, admin, api_keys, mfa, client, webhooks
+from app.api import auth, health, admin, api_keys, mfa, client, webhooks
 
 # Day 26: Ticket API
-from backend.app.api import tickets
+from app.api import tickets
 
 # Day 35: Public API (Landing Page)
-from backend.app.api import public
+from app.api import public
 
 api_router = APIRouter()
 

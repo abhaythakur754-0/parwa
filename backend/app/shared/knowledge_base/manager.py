@@ -22,10 +22,10 @@ from typing import Any, Dict, List, Optional
 import httpx
 from sqlalchemy.orm import Session
 
-from backend.app.config import get_settings
-from backend.app.exceptions import NotFoundError, ValidationError
-from backend.app.shared.knowledge_base.chunker import DocumentChunker
-from backend.app.shared.knowledge_base.retriever import KnowledgeRetriever
+from app.config import get_settings
+from app.exceptions import NotFoundError, ValidationError
+from app.shared.knowledge_base.chunker import DocumentChunker
+from app.shared.knowledge_base.retriever import KnowledgeRetriever
 from database.models.onboarding import DocumentChunk, KnowledgeDocument
 
 logger = logging.getLogger("parwa.knowledge_base.manager")

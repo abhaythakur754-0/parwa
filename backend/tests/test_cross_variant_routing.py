@@ -31,8 +31,8 @@ DEFAULT_CHANNEL_MAPPINGS = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.cross_variant_routing import (
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.cross_variant_routing import (
             CrossVariantRouter,
             CrossVariantRoutingError,
             ChannelType,

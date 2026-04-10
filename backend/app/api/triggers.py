@@ -10,9 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.exceptions import NotFoundError, ValidationError
-from backend.app.services.trigger_service import TriggerService
+from app.api.deps import get_current_user, get_db
+from app.exceptions import NotFoundError, ValidationError
+from app.services.trigger_service import TriggerService
 from database.models.core import User
 
 

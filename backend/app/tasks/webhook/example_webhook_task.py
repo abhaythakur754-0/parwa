@@ -7,7 +7,7 @@ it as processed. Real implementation comes in Week 5.
 
 import logging
 
-from backend.app.tasks.base import ParwaBaseTask
+from app.tasks.base import ParwaBaseTask
 
 logger = logging.getLogger("parwa.webhook_tasks")
 
@@ -38,7 +38,7 @@ def process_paddle_webhook(
     )
 
     try:
-        from backend.app.services.webhook_service import (
+        from app.services.webhook_service import (
             get_webhook_event,
             mark_webhook_processed,
         )
@@ -69,7 +69,7 @@ def process_paddle_webhook(
             error=str(exc),
         )
         try:
-            from backend.app.services.webhook_service import (
+            from app.services.webhook_service import (
                 mark_webhook_processed,
             )
             mark_webhook_processed(

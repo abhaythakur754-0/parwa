@@ -10,9 +10,9 @@ Celery tasks for asynchronous event emission with:
 
 from typing import Any, Dict, List, Optional
 
-from backend.app.logger import get_logger
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app as celery_app
+from app.logger import get_logger
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app as celery_app
 
 logger = get_logger("event_tasks")
 
@@ -57,7 +57,7 @@ def fanout_event_task(
         loop = asyncio.new_event_loop()
 
     async def _emit():
-        from backend.app.core.event_emitter import emit_event
+        from app.core.event_emitter import emit_event
 
         if target_user_ids:
             for uid in target_user_ids:
@@ -121,7 +121,7 @@ def cleanup_event_buffer_task(company_id: str) -> Dict[str, Any]:
         loop = asyncio.new_event_loop()
 
     async def _cleanup():
-        from backend.app.core.event_buffer import cleanup_old_events
+        from app.core.event_buffer import cleanup_old_events
         return await cleanup_old_events(company_id)
 
     try:

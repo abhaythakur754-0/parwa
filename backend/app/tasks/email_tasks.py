@@ -9,8 +9,8 @@ Celery tasks for email operations via Brevo:
 
 import logging
 import uuid
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.tasks.email")
 
@@ -19,7 +19,7 @@ logger = logging.getLogger("parwa.tasks.email")
     base=ParwaBaseTask,
     bind=True,
     queue="email",
-    name="backend.app.tasks.email.send_email",
+    name="app.tasks.email.send_email",
     max_retries=3,
     soft_time_limit=30,
     time_limit=60,
@@ -72,7 +72,7 @@ def send_email(self, company_id: str, to: str, subject: str,
     base=ParwaBaseTask,
     bind=True,
     queue="email",
-    name="backend.app.tasks.email.render_template",
+    name="app.tasks.email.render_template",
     max_retries=2,
     soft_time_limit=15,
     time_limit=30,
@@ -113,7 +113,7 @@ def render_template(self, company_id: str, template_name: str,
     base=ParwaBaseTask,
     bind=True,
     queue="email",
-    name="backend.app.tasks.email.send_bulk_notification",
+    name="app.tasks.email.send_bulk_notification",
     max_retries=3,
     soft_time_limit=120,
     time_limit=300,

@@ -23,8 +23,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from backend.app.webhooks import register_handler
-from backend.app.schemas.paddle import PaddleEventType, SUPPORTED_EVENT_TYPES
+from app.webhooks import register_handler
+from app.schemas.paddle import PaddleEventType, SUPPORTED_EVENT_TYPES
 
 logger = logging.getLogger("parwa.webhooks.paddle")
 

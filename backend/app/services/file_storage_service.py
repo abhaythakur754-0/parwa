@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.core.storage import (
+from app.core.storage import (
     ALLOWED_EXTENSIONS,
     FileMetadata,
     LocalStorageBackend,
@@ -30,7 +30,7 @@ from backend.app.core.storage import (
     UPLOAD_SUBDIR,
     validate_file_upload,
 )
-from backend.app.core.storage import (
+from app.core.storage import (
     get_storage_backend as _get_storage_backend,
 )
 
@@ -137,7 +137,7 @@ class FileStorageService:
 
         # Audit log
         try:
-            from backend.app.services.audit_service import log_audit
+            from app.services.audit_service import log_audit
 
             log_audit(
                 company_id=company_id,
@@ -241,7 +241,7 @@ class FileStorageService:
 
             # Audit log
             try:
-                from backend.app.services.audit_service import log_audit
+                from app.services.audit_service import log_audit
 
                 log_audit(
                     company_id=company_id,
@@ -339,7 +339,7 @@ class FileStorageService:
         size = self.backend.get_file_size(company_id, file_path)
         file_name = Path(file_path).name
         ext = Path(file_path).suffix.lower()
-        from backend.app.core.storage import EXTENSION_TO_CONTENT_TYPE
+        from app.core.storage import EXTENSION_TO_CONTENT_TYPE
 
         content_type = EXTENSION_TO_CONTENT_TYPE.get(
             ext, "application/octet-stream"

@@ -13,7 +13,7 @@ Room naming convention: tenant_{company_id}
 - No global rooms, no cross-tenant room access
 
 Usage:
-    from backend.app.core.socketio import (
+    from app.core.socketio import (
         sio, get_socketio_server, get_tenant_room, emit_to_tenant
     )
 
@@ -27,7 +27,7 @@ Usage:
 
 from typing import Any, Dict
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("socketio")
 
@@ -168,7 +168,7 @@ def _register_handlers() -> None:
 
         if token:
             try:
-                from backend.app.core.auth import (
+                from app.core.auth import (
                     verify_access_token,
                 )
                 payload = verify_access_token(token)
@@ -270,7 +270,7 @@ async def emit_to_tenant(
 
     # Store in event buffer for reconnection recovery (BC-005)
     try:
-        from backend.app.core.event_buffer import store_event
+        from app.core.event_buffer import store_event
 
         await store_event(
             company_id=company_id,
@@ -356,7 +356,7 @@ def register_business_handlers() -> None:
             event_types = data.get("event_types", []) if data else []
             registry = None
             try:
-                from backend.app.core.events import get_event_registry
+                from app.core.events import get_event_registry
                 registry = get_event_registry()
             except Exception:
                 pass

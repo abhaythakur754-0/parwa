@@ -58,19 +58,19 @@ _mock_modules = {
     "shared.utils.security": ({"hash_password": lambda x: x, "verify_password": lambda x, y: True}, False),
     "shared.utils.pagination": ({"PaginatedResponse": MagicMock, "paginate_query": lambda *a, **kw: None}, False),
     # Auth core
-    "backend.app.core.auth": ({"verify_access_token": lambda t: {"sub": "user-1"}}, False),
+    "app.core.auth": ({"verify_access_token": lambda t: {"sub": "user-1"}}, False),
     # Prevent __init__.py cascade by pre-registering sub-modules that fail
-    "backend.app.api.auth": ({"router": MagicMock()}, False),
-    "backend.app.api.health": ({"router": MagicMock()}, False),
-    "backend.app.api.admin": ({"router": MagicMock()}, False),
-    "backend.app.api.api_keys": ({"router": MagicMock()}, False),
-    "backend.app.api.mfa": ({"router": MagicMock()}, False),
-    "backend.app.api.client": ({"router": MagicMock()}, False),
-    "backend.app.api.webhooks": ({"router": MagicMock()}, False),
-    "backend.app.api.tickets": ({"router": MagicMock()}, False),
-    "backend.app.api.public": ({"router": MagicMock()}, False),
+    "app.api.auth": ({"router": MagicMock()}, False),
+    "app.api.health": ({"router": MagicMock()}, False),
+    "app.api.admin": ({"router": MagicMock()}, False),
+    "app.api.api_keys": ({"router": MagicMock()}, False),
+    "app.api.mfa": ({"router": MagicMock()}, False),
+    "app.api.client": ({"router": MagicMock()}, False),
+    "app.api.webhooks": ({"router": MagicMock()}, False),
+    "app.api.tickets": ({"router": MagicMock()}, False),
+    "app.api.public": ({"router": MagicMock()}, False),
     # Services that may be imported
-    "backend.app.services.notification_service": ({"NotificationService": MagicMock}, False),
+    "app.services.notification_service": ({"NotificationService": MagicMock}, False),
 }
 
 for _mod_name, (_attrs, _is_pkg) in _mock_modules.items():
@@ -81,18 +81,18 @@ for _mod_name, (_attrs, _is_pkg) in _mock_modules.items():
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.app.api.response import (
+from app.api.response import (
     response_router,
     brand_voice_router,
     assignment_router,
     migration_router,
 )
-from backend.app.api.deps import (
+from app.api.deps import (
     get_current_user,
     get_company_id,
     require_roles,
 )
-from backend.app.exceptions import NotFoundError
+from app.exceptions import NotFoundError
 
 import pytest
 
@@ -104,7 +104,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def _reset_in_memory_store():
     """Reset class-level in-memory store between tests."""
-    from backend.app.services.response_template_service import ResponseTemplateService
+    from app.services.response_template_service import ResponseTemplateService
     ResponseTemplateService._store.clear()
     ResponseTemplateService._defaults_loaded.clear()
     yield
@@ -172,7 +172,7 @@ def client(app):
 class TestGenerateResponse:
     """Tests for POST /api/response/generate"""
 
-    @patch("backend.app.core.response_generator.ResponseGenerator", create=True)
+    @patch("app.core.response_generator.ResponseGenerator", create=True)
     def test_generate_success(self, mock_gen_cls, client):
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"response": "Hello!"}
@@ -188,7 +188,7 @@ class TestGenerateResponse:
         assert data["status"] == "ok"
         assert "data" in data
 
-    @patch("backend.app.core.response_generator.ResponseGenerator", create=True)
+    @patch("app.core.response_generator.ResponseGenerator", create=True)
     def test_generate_with_all_fields(self, mock_gen_cls, client):
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"response": "ok"}
@@ -230,9 +230,9 @@ class TestGenerateResponse:
         resp = client.post("/api/response/generate", json={})
         assert resp.status_code == 422
 
-    @patch("backend.app.core.response_generator.ResponseGenerator", create=True)
+    @patch("app.core.response_generator.ResponseGenerator", create=True)
     def test_generate_service_raises_validation_error(self, mock_gen_cls, client):
-        from backend.app.exceptions import ValidationError
+        from app.exceptions import ValidationError
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(
             side_effect=ValidationError(message="Bad input")
@@ -243,7 +243,7 @@ class TestGenerateResponse:
         })
         assert resp.status_code == 422
 
-    @patch("backend.app.core.response_generator.ResponseGenerator", create=True)
+    @patch("app.core.response_generator.ResponseGenerator", create=True)
     def test_generate_service_raises_not_found_error(self, mock_gen_cls, client):
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(
@@ -255,7 +255,7 @@ class TestGenerateResponse:
         })
         assert resp.status_code == 404
 
-    @patch("backend.app.core.response_generator.ResponseGenerator", create=True)
+    @patch("app.core.response_generator.ResponseGenerator", create=True)
     def test_generate_service_raises_generic_error(self, mock_gen_cls, client):
         mock_gen = mock_gen_cls.return_value
         mock_gen.generate = AsyncMock(side_effect=RuntimeError("boom"))
@@ -266,7 +266,7 @@ class TestGenerateResponse:
         assert resp.status_code == 500
         assert "Failed to generate response" in resp.json()["detail"]
 
-    @patch("backend.app.core.response_generator.ResponseGenerator", create=True)
+    @patch("app.core.response_generator.ResponseGenerator", create=True)
     def test_generate_default_variant_type(self, mock_gen_cls, client):
         """Default variant_type should be 'parwa'."""
         mock_result = MagicMock()
@@ -291,7 +291,7 @@ class TestGenerateResponse:
 class TestBatchGeneration:
     """Tests for POST /api/response/generate/batch"""
 
-    @patch("backend.app.core.response_generator.ResponseGenerator", create=True)
+    @patch("app.core.response_generator.ResponseGenerator", create=True)
     def test_batch_all_succeed(self, mock_gen_cls, client):
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"response": "ok"}
@@ -311,7 +311,7 @@ class TestBatchGeneration:
         assert data["data"]["succeeded"] == 2
         assert data["data"]["failed"] == 0
 
-    @patch("backend.app.core.response_generator.ResponseGenerator", create=True)
+    @patch("app.core.response_generator.ResponseGenerator", create=True)
     def test_batch_partial_failure(self, mock_gen_cls, client):
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"response": "ok"}
@@ -367,7 +367,7 @@ class TestBatchGeneration:
         })
         assert resp.status_code == 422
 
-    @patch("backend.app.core.response_generator.ResponseGenerator", create=True)
+    @patch("app.core.response_generator.ResponseGenerator", create=True)
     def test_batch_single_item(self, mock_gen_cls, client):
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"response": "ok"}
@@ -388,7 +388,7 @@ class TestBatchGeneration:
 class TestTokenBudget:
     """Tests for token budget endpoints."""
 
-    @patch("backend.app.services.token_budget_service.TokenBudgetService", create=True)
+    @patch("app.services.token_budget_service.TokenBudgetService", create=True)
     def test_get_budget_status(self, mock_svc_cls, client):
         @dataclass
         class Status:
@@ -406,14 +406,14 @@ class TestTokenBudget:
         data = resp.json()
         assert data["status"] == "ok"
 
-    @patch("backend.app.services.token_budget_service.TokenBudgetService", create=True)
+    @patch("app.services.token_budget_service.TokenBudgetService", create=True)
     def test_get_budget_service_error(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         mock_svc.get_budget_status = AsyncMock(side_effect=RuntimeError("err"))
         resp = client.get("/api/response/budget/conv-001")
         assert resp.status_code == 500
 
-    @patch("backend.app.services.token_budget_service.TokenBudgetService", create=True)
+    @patch("app.services.token_budget_service.TokenBudgetService", create=True)
     def test_initialize_budget(self, mock_svc_cls, client):
         @dataclass
         class Budget:
@@ -430,10 +430,10 @@ class TestTokenBudget:
         })
         assert resp.status_code == 200
 
-    @patch("backend.app.services.token_budget_service.TokenBudgetService", create=True)
+    @patch("app.services.token_budget_service.TokenBudgetService", create=True)
     def test_initialize_budget_default_variant(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
-        from backend.app.services.token_budget_service import TokenBudget
+        from app.services.token_budget_service import TokenBudget
         now = datetime.now(timezone.utc)
         mock_budget = TokenBudget(
             conversation_id="conv-001", company_id="company-001", variant_type="parwa",
@@ -444,7 +444,7 @@ class TestTokenBudget:
         resp = client.post("/api/response/budget/conv-001/initialize", json={})
         assert resp.status_code == 200
 
-    @patch("backend.app.services.token_budget_service.TokenBudgetService", create=True)
+    @patch("app.services.token_budget_service.TokenBudgetService", create=True)
     def test_check_overflow(self, mock_svc_cls, client):
         @dataclass
         class OverflowResult:
@@ -463,7 +463,7 @@ class TestTokenBudget:
         data = resp.json()["data"]
         assert data["can_fit"] is True
 
-    @patch("backend.app.services.token_budget_service.TokenBudgetService", create=True)
+    @patch("app.services.token_budget_service.TokenBudgetService", create=True)
     def test_check_overflow_cannot_fit(self, mock_svc_cls, client):
         @dataclass
         class OverflowResult:
@@ -493,7 +493,7 @@ class TestTokenBudget:
         })
         assert resp.status_code == 422
 
-    @patch("backend.app.services.token_budget_service.TokenBudgetService", create=True)
+    @patch("app.services.token_budget_service.TokenBudgetService", create=True)
     def test_check_overflow_service_error(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         mock_svc.check_overflow = AsyncMock(side_effect=RuntimeError("err"))
@@ -502,7 +502,7 @@ class TestTokenBudget:
         })
         assert resp.status_code == 500
 
-    @patch("backend.app.services.token_budget_service.TokenBudgetService", create=True)
+    @patch("app.services.token_budget_service.TokenBudgetService", create=True)
     def test_initialize_service_error(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         mock_svc.initialize_budget = AsyncMock(side_effect=RuntimeError("err"))
@@ -746,7 +746,7 @@ class TestTemplatesCRUD:
 class TestBrandVoice:
     """Tests for brand voice endpoints."""
 
-    @patch("backend.app.services.brand_voice_service.BrandVoiceService", create=True)
+    @patch("app.services.brand_voice_service.BrandVoiceService", create=True)
     def test_get_brand_voice_success(self, mock_svc_cls, client):
         @dataclass
         class Config:
@@ -780,17 +780,17 @@ class TestBrandVoice:
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
-    @patch("backend.app.services.brand_voice_service.BrandVoiceService", create=True)
+    @patch("app.services.brand_voice_service.BrandVoiceService", create=True)
     def test_get_brand_voice_error(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         mock_svc.get_config = AsyncMock(side_effect=RuntimeError("fail"))
         resp = client.get("/api/brand-voice")
         assert resp.status_code == 500
 
-    @patch("backend.app.services.brand_voice_service.BrandVoiceService", create=True)
+    @patch("app.services.brand_voice_service.BrandVoiceService", create=True)
     def test_upsert_brand_voice_success(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
-        from backend.app.services.brand_voice_service import BrandVoiceConfig
+        from app.services.brand_voice_service import BrandVoiceConfig
         now = datetime.now(timezone.utc)
         mock_config = BrandVoiceConfig(
             company_id="co-1", tone="friendly", formality_level=0.3,
@@ -809,11 +809,11 @@ class TestBrandVoice:
         })
         assert resp.status_code == 200
 
-    @patch("backend.app.services.brand_voice_service.BrandVoiceService", create=True)
+    @patch("app.services.brand_voice_service.BrandVoiceService", create=True)
     def test_upsert_brand_voice_create_fallback(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         mock_svc.update_config = AsyncMock(side_effect=NotFoundError("not found"))
-        from backend.app.services.brand_voice_service import BrandVoiceConfig
+        from app.services.brand_voice_service import BrandVoiceConfig
         now = datetime.now(timezone.utc)
         mock_config = BrandVoiceConfig(
             company_id="co-1", tone="casual", formality_level=0.5,
@@ -829,7 +829,7 @@ class TestBrandVoice:
         resp = client.post("/api/brand-voice", json={"tone": "casual"})
         assert resp.status_code == 200
 
-    @patch("backend.app.services.brand_voice_service.BrandVoiceService", create=True)
+    @patch("app.services.brand_voice_service.BrandVoiceService", create=True)
     def test_delete_brand_voice_success(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         mock_svc.delete_config = AsyncMock(return_value=True)
@@ -837,7 +837,7 @@ class TestBrandVoice:
         assert resp.status_code == 200
         assert resp.json()["data"]["deleted"] is True
 
-    @patch("backend.app.services.brand_voice_service.BrandVoiceService", create=True)
+    @patch("app.services.brand_voice_service.BrandVoiceService", create=True)
     def test_check_prohibited_words(self, mock_svc_cls, client):
         @dataclass
         class Result:
@@ -860,7 +860,7 @@ class TestBrandVoice:
         })
         assert resp.status_code == 422
 
-    @patch("backend.app.services.brand_voice_service.BrandVoiceService", create=True)
+    @patch("app.services.brand_voice_service.BrandVoiceService", create=True)
     def test_validate_brand_voice(self, mock_svc_cls, client):
         @dataclass
         class ValidationResult:
@@ -931,7 +931,7 @@ class TestAIAssignment:
 class TestMigration:
     """Tests for migration endpoints."""
 
-    @patch("backend.app.services.rule_migration_service.RuleMigrationService", create=True)
+    @patch("app.services.rule_migration_service.RuleMigrationService", create=True)
     def test_get_migration_status(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         mock_svc.get_migration_status = MagicMock(return_value=MagicMock(
@@ -944,7 +944,7 @@ class TestMigration:
         resp = client.post("/api/migration/status", json={})
         assert resp.status_code == 200
 
-    @patch("backend.app.services.rule_migration_service.RuleMigrationService", create=True)
+    @patch("app.services.rule_migration_service.RuleMigrationService", create=True)
     def test_get_migration_status_with_feature(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         mock_svc.get_migration_status = MagicMock(return_value=MagicMock(
@@ -969,7 +969,7 @@ class TestMigration:
         })
         assert resp.status_code == 422
 
-    @patch("backend.app.services.rule_migration_service.RuleMigrationService", create=True)
+    @patch("app.services.rule_migration_service.RuleMigrationService", create=True)
     def test_toggle_migration_success(self, mock_svc_cls, client):
         mock_svc = mock_svc_cls.return_value
         mock_svc.toggle_feature = MagicMock(return_value=MagicMock(

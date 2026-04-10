@@ -19,8 +19,8 @@ from typing import Any, Dict, List, Optional, Set
 
 from sqlalchemy.orm import Session
 
-from backend.app.core.redis import get_redis
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.core.redis import get_redis
+from app.exceptions import NotFoundError, ValidationError
 from database.models.tickets import TicketCollision, Ticket
 from database.models.core import User
 

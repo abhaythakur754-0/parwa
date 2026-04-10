@@ -17,8 +17,8 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Dict, Any, Optional
 
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 from database.base import SessionLocal
 from database.models.core import Company
 from database.models.billing import Subscription
@@ -30,7 +30,7 @@ logger = logging.getLogger("parwa.tasks.payment_failure")
     base=ParwaBaseTask,
     bind=True,
     queue="billing",
-    name="backend.app.tasks.payment_failure.stop_service_immediately",
+    name="app.tasks.payment_failure.stop_service_immediately",
     max_retries=2,
     soft_time_limit=60,
     time_limit=120,
@@ -133,7 +133,7 @@ def stop_service_immediately(
     base=ParwaBaseTask,
     bind=True,
     queue="billing",
-    name="backend.app.tasks.payment_failure.resume_service",
+    name="app.tasks.payment_failure.resume_service",
     max_retries=2,
     soft_time_limit=60,
     time_limit=120,
@@ -231,7 +231,7 @@ def resume_service(
     base=ParwaBaseTask,
     bind=True,
     queue="email",
-    name="backend.app.tasks.payment_failure.send_payment_failed_notification",
+    name="app.tasks.payment_failure.send_payment_failed_notification",
     max_retries=3,
     soft_time_limit=60,
     time_limit=120,
@@ -259,7 +259,7 @@ def send_payment_failed_notification(
         Dict with notification status
     """
     try:
-        from backend.app.services.email_service import send_email
+        from app.services.email_service import send_email
         from database.models.billing_extended import PaymentFailure
 
         with SessionLocal() as db:
@@ -302,7 +302,7 @@ def send_payment_failed_notification(
 
             # Emit Socket.io event for real-time UI update
             try:
-                from backend.app.core.event_buffer import store_event
+                from app.core.event_buffer import store_event
                 import asyncio
 
                 loop = asyncio.new_event_loop()
@@ -350,7 +350,7 @@ def send_payment_failed_notification(
     base=ParwaBaseTask,
     bind=True,
     queue="email",
-    name="backend.app.tasks.payment_failure.send_service_resumed_notification",
+    name="app.tasks.payment_failure.send_service_resumed_notification",
     max_retries=3,
     soft_time_limit=60,
     time_limit=120,
@@ -390,7 +390,7 @@ def send_service_resumed_notification(
 
             # Emit Socket.io event for real-time UI update
             try:
-                from backend.app.core.event_buffer import store_event
+                from app.core.event_buffer import store_event
                 import asyncio
 
                 loop = asyncio.new_event_loop()
@@ -435,7 +435,7 @@ def send_service_resumed_notification(
     base=ParwaBaseTask,
     bind=True,
     queue="billing",
-    name="backend.app.tasks.payment_failure.check_stopped_services",
+    name="app.tasks.payment_failure.check_stopped_services",
     max_retries=2,
     soft_time_limit=300,
     time_limit=600,

@@ -25,13 +25,13 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import (
+from app.api.deps import (
     get_company_id,
     get_current_user,
     require_roles,
 )
-from backend.app.exceptions import NotFoundError, ValidationError
-from backend.app.logger import get_logger
+from app.exceptions import NotFoundError, ValidationError
+from app.logger import get_logger
 from database.base import get_db
 from database.models.core import User
 
@@ -60,7 +60,7 @@ async def rag_search(
       - filters (optional): Metadata filters dict
       - similarity_threshold (optional): Minimum similarity score
     """
-    from backend.app.core.rag_retrieval import RAGRetriever
+    from app.core.rag_retrieval import RAGRetriever
 
     query = body.get("query")
     if not query or not query.strip():

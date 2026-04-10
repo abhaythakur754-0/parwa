@@ -25,9 +25,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from backend.app.core.redis import get_redis, make_key
-from backend.app.exceptions import InternalError
-from backend.app.logger import get_logger
+from app.core.redis import get_redis, make_key
+from app.exceptions import InternalError
+from app.logger import get_logger
 
 logger = get_logger("pii_redaction_engine")
 

@@ -29,7 +29,7 @@ from database.models.tickets import (
     TicketPriority,
     TicketStatus,
 )
-from backend.app.schemas.sla import Priority, PlanTier, BreachType
+from app.schemas.sla import Priority, PlanTier, BreachType
 
 
 class SLAError(Exception):

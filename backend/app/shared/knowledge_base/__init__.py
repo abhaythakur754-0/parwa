@@ -10,8 +10,8 @@ Centralized knowledge base functionality:
 All operations are tenant-scoped via company_id (BC-001).
 """
 
-from backend.app.shared.knowledge_base.manager import KnowledgeBaseManager
-from backend.app.shared.knowledge_base.chunker import DocumentChunker
-from backend.app.shared.knowledge_base.retriever import KnowledgeRetriever
+from app.shared.knowledge_base.manager import KnowledgeBaseManager
+from app.shared.knowledge_base.chunker import DocumentChunker
+from app.shared.knowledge_base.retriever import KnowledgeRetriever
 
 __all__ = ["KnowledgeBaseManager", "DocumentChunker", "KnowledgeRetriever"]

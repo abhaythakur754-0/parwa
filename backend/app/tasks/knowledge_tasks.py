@@ -23,7 +23,7 @@ from typing import Optional
 from celery import shared_task
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import ValidationError
+from app.exceptions import ValidationError
 from database.base import get_db_context
 from database.models.onboarding import KnowledgeDocument, DocumentChunk
 

@@ -31,7 +31,7 @@ os.environ["ENVIRONMENT"] = "test"
 
 import pytest
 
-from backend.app.core.self_healing_engine import (
+from app.core.self_healing_engine import (
     ActionType,
     ConditionType,
     HealingAction,
@@ -647,7 +647,7 @@ class TestHealingHistory:
         assert other_history == []
 
     def test_history_pruned_to_max(self, engine):
-        from backend.app.core.self_healing_engine import _MAX_HEALING_HISTORY
+        from app.core.self_healing_engine import _MAX_HEALING_HISTORY
         for _ in range(_MAX_HEALING_HISTORY + 20):
             engine.manually_disable_provider(
                 COMPANY_ID, VARIANT_PARWA, PROVIDER, MODEL_ID,
@@ -1066,7 +1066,7 @@ class TestMidRecoveryFailure:
 
         # Mock _seconds_since to bypass cooldown and send success
         with unittest.mock.patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999,
         ):
             engine.record_query_result(
@@ -1108,7 +1108,7 @@ class TestMidRecoveryFailure:
 
         # Recover to stage 1
         with unittest.mock.patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999,
         ):
             engine.record_query_result(
@@ -1155,7 +1155,7 @@ class TestFullRecoveryProgression:
 
         # Stage 1: 10%
         with unittest.mock.patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999,
         ):
             engine.record_query_result(
@@ -1171,7 +1171,7 @@ class TestFullRecoveryProgression:
 
         # Stage 2: 25%
         with unittest.mock.patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999,
         ):
             engine.record_query_result(
@@ -1183,7 +1183,7 @@ class TestFullRecoveryProgression:
 
         # Stage 3: 50%
         with unittest.mock.patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999,
         ):
             engine.record_query_result(
@@ -1195,7 +1195,7 @@ class TestFullRecoveryProgression:
 
         # Stage 4: 100% -> fully healthy
         with unittest.mock.patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999,
         ):
             engine.record_query_result(
@@ -1249,7 +1249,7 @@ class TestCooldownEnforcement:
 
         # Mock cooldown as expired
         with unittest.mock.patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999,
         ):
             actions = engine.record_query_result(
@@ -1334,7 +1334,7 @@ class TestHistoryPruningBoundary:
     """Gap 18: Exact boundary at _MAX_HEALING_HISTORY."""
 
     def test_exactly_at_max_no_prune(self, engine):
-        from backend.app.core.self_healing_engine import _MAX_HEALING_HISTORY
+        from app.core.self_healing_engine import _MAX_HEALING_HISTORY
         for i in range(_MAX_HEALING_HISTORY):
             action = HealingAction(
                 timestamp=_now_utc(), company_id="co_hprune",
@@ -1346,7 +1346,7 @@ class TestHistoryPruningBoundary:
         assert len(history) == _MAX_HEALING_HISTORY
 
     def test_at_max_plus_one_prunes(self, engine):
-        from backend.app.core.self_healing_engine import _MAX_HEALING_HISTORY
+        from app.core.self_healing_engine import _MAX_HEALING_HISTORY
         for i in range(_MAX_HEALING_HISTORY + 1):
             action = HealingAction(
                 timestamp=_now_utc(), company_id="co_hprune2",
@@ -1383,7 +1383,7 @@ class TestRecoveryReturnBehavior:
 
         # Trigger recovery
         with unittest.mock.patch(
-            "backend.app.core.self_healing_engine._seconds_since",
+            "app.core.self_healing_engine._seconds_since",
             return_value=9999,
         ):
             result = engine.record_query_result(

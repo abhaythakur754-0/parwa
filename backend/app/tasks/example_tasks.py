@@ -12,15 +12,15 @@ BC-001: Every task's first parameter is company_id.
 
 import logging
 
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.tasks")
 
 
 @app.task(
     base=ParwaBaseTask,
-    name="backend.app.tasks.email.send_welcome_email",
+    name="app.tasks.email.send_welcome_email",
     queue="email",
     bind=True,
 )
@@ -56,7 +56,7 @@ def send_welcome_email_task(
 
 @app.task(
     base=ParwaBaseTask,
-    name="backend.app.tasks.webhook.process_webhook",
+    name="app.tasks.webhook.process_webhook",
     queue="webhook",
     bind=True,
 )
@@ -92,7 +92,7 @@ def process_webhook_task(
 
 @app.task(
     base=ParwaBaseTask,
-    name="backend.app.tasks.analytics.calculate_analytics",
+    name="app.tasks.analytics.calculate_analytics",
     queue="analytics",
     bind=True,
 )

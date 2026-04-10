@@ -50,7 +50,7 @@ class LazySettings:
 
     def __getattr__(self, name):
         if self._settings is None:
-            from backend.app.config import get_settings
+            from app.config import get_settings
             self._settings = get_settings()
         return getattr(self._settings, name)
 
@@ -90,40 +90,40 @@ def _build_config() -> dict:
         },
         # Task routing
         "task_routes": {
-            "backend.app.tasks.email.*": {"queue": "email"},
-            "backend.app.tasks.webhook.*": {"queue": "webhook"},
-            "backend.app.tasks.analytics.*": {"queue": "analytics"},
-            "backend.app.tasks.ai.heavy.*": {"queue": "ai_heavy"},
-            "backend.app.tasks.ai.light.*": {"queue": "ai_light"},
-            "backend.app.tasks.training.*": {"queue": "training"},
+            "app.tasks.email.*": {"queue": "email"},
+            "app.tasks.webhook.*": {"queue": "webhook"},
+            "app.tasks.analytics.*": {"queue": "analytics"},
+            "app.tasks.ai.heavy.*": {"queue": "ai_heavy"},
+            "app.tasks.ai.light.*": {"queue": "ai_light"},
+            "app.tasks.training.*": {"queue": "training"},
         },
         # Day 16: Beat scheduler (periodic tasks)
         "beat_schedule": {
             "cleanup-stale-sessions-daily": {
-                "task": "backend.app.tasks.periodic.cleanup_stale_sessions",
+                "task": "app.tasks.periodic.cleanup_stale_sessions",
                 "schedule": 86400.0,  # Every 24 hours
                 "kwargs": {},
             },
             "purge-dead-letter-queue-hourly": {
-                "task": ("backend.app.tasks.periodic"
+                "task": ("app.tasks.periodic"
                           ".purge_dead_letter_queue"),
                 "schedule": 3600.0,  # Every hour
                 "kwargs": {},
             },
             "check-webhook-health-every-5min": {
-                "task": ("backend.app.tasks.periodic"
+                "task": ("app.tasks.periodic"
                           ".check_webhook_health"),
                 "schedule": 300.0,  # Every 5 minutes
                 "kwargs": {},
             },
             "flush-audit-queue": {
-                "task": ("backend.app.tasks.periodic"
+                "task": ("app.tasks.periodic"
                           ".flush_audit_queue"),
                 "schedule": 60.0,  # Every 60 seconds
                 "kwargs": {},
             },
             "cleanup-audit-trail": {
-                "task": ("backend.app.tasks.periodic"
+                "task": ("app.tasks.periodic"
                           ".cleanup_audit_trail"),
                 "schedule": {
                     # Daily at 03:00 UTC
@@ -134,56 +134,56 @@ def _build_config() -> dict:
             },
             # Day 22: New Beat schedule entries
             "approval-timeout-check-every-15min": {
-                "task": ("backend.app.tasks.periodic"
+                "task": ("app.tasks.periodic"
                           ".approval_timeout_check"),
                 "schedule": 900.0,
                 "kwargs": {},
             },
             "approval-reminder-every-30min": {
-                "task": ("backend.app.tasks.periodic"
+                "task": ("app.tasks.periodic"
                           ".approval_reminder_dispatch"),
                 "schedule": 1800.0,
                 "kwargs": {},
             },
             "daily-overage-charge-02utc": {
-                "task": ("backend.app.tasks.periodic"
+                "task": ("app.tasks.periodic"
                           ".daily_overage_charge"),
                 "schedule": {"hour": 2, "minute": 0},
                 "kwargs": {},
             },
             "drift-detection-daily-03utc": {
-                "task": ("backend.app.tasks.periodic"
+                "task": ("app.tasks.periodic"
                           ".drift_detection_analysis"),
                 "schedule": {"hour": 3, "minute": 30},
                 "kwargs": {},
             },
             "metric-aggregation-every-5min": {
-                "task": ("backend.app.tasks.periodic"
+                "task": ("app.tasks.periodic"
                           ".metric_aggregation"),
                 "schedule": 300.0,
                 "kwargs": {},
             },
             "training-mistake-check-hourly": {
-                "task": ("backend.app.tasks.periodic"
+                "task": ("app.tasks.periodic"
                           ".training_mistake_check"),
                 "schedule": 3600.0,
                 "kwargs": {},
             },
             # Week 8: AI Engine beat schedule entries
             "ai-rebalance-workload-60s": {
-                "task": ("backend.app.tasks.ai_engine_tasks"
+                "task": ("app.tasks.ai_engine_tasks"
                           ".rebalance_workload"),
                 "schedule": 60.0,
                 "kwargs": {},
             },
             "ai-reset-daily-budgets-midnight": {
-                "task": ("backend.app.tasks.ai_engine_tasks"
+                "task": ("app.tasks.ai_engine_tasks"
                           ".reset_daily_budgets"),
                 "schedule": {"hour": 0, "minute": 0},
                 "kwargs": {},
             },
             "ai-cleanup-injection-logs-daily": {
-                "task": ("backend.app.tasks.ai_engine_tasks"
+                "task": ("app.tasks.ai_engine_tasks"
                           ".cleanup_stale_injection_logs"),
                 "schedule": {"hour": 4, "minute": 0},
                 "kwargs": {"days": 90},
@@ -194,18 +194,18 @@ def _build_config() -> dict:
         "task_track_started": True,
         # Autodiscover
         "imports": [
-            "backend.app.tasks.example_tasks",
-            "backend.app.tasks.periodic",
-            "backend.app.tasks.webhook_tasks",
+            "app.tasks.example_tasks",
+            "app.tasks.periodic",
+            "app.tasks.webhook_tasks",
             # Day 22: New task modules
-            "backend.app.tasks.email_tasks",
-            "backend.app.tasks.analytics_tasks",
-            "backend.app.tasks.ai_tasks",
-            "backend.app.tasks.training_tasks",
-            "backend.app.tasks.approval_tasks",
-            "backend.app.tasks.billing_tasks",
+            "app.tasks.email_tasks",
+            "app.tasks.analytics_tasks",
+            "app.tasks.ai_tasks",
+            "app.tasks.training_tasks",
+            "app.tasks.approval_tasks",
+            "app.tasks.billing_tasks",
             # Week 8: AI Engine task module
-            "backend.app.tasks.ai_engine_tasks",
+            "app.tasks.ai_engine_tasks",
         ],
     }
 
@@ -214,4 +214,4 @@ def _build_config() -> dict:
 app.config_from_object(_build_config())
 
 # ── Autodiscover tasks ────────────────────────────────────────────
-app.autodiscover_tasks(["backend.app.tasks"])
+app.autodiscover_tasks(["app.tasks"])

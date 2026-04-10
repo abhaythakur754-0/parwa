@@ -32,7 +32,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 import pytest
 
 # ── Smart Router imports ──────────────────────────────────────────
-from backend.app.core.smart_router import (
+from app.core.smart_router import (
     AtomicStepType,
     ModelProvider,
     ModelTier,
@@ -46,7 +46,7 @@ from backend.app.core.smart_router import (
 )
 
 # ── Prompt Template imports ───────────────────────────────────────
-from backend.app.core.prompt_templates import (
+from app.core.prompt_templates import (
     PromptTemplate,
     PromptTemplateManager,
     _extract_variables,
@@ -115,7 +115,7 @@ class TestTierBoundaryOverflow:
     ):
         """MAD_ATOM_REASONING normally maps to MEDIUM. Under mini_parwa
         (LIGHT-only), it must degrade to LIGHT, never upgrade to MEDIUM."""
-        with patch("backend.app.core.smart_router.logger"):
+        with patch("app.core.smart_router.logger"):
             decision = router.route(
                 COMPANY_A,
                 "mini_parwa",
@@ -132,7 +132,7 @@ class TestTierBoundaryOverflow:
     ):
         """REFLEXION_CYCLE is MEDIUM normally. Under mini_parwa it must
         stay at LIGHT tier."""
-        with patch("backend.app.core.smart_router.logger"):
+        with patch("app.core.smart_router.logger"):
             decision = router.route(
                 COMPANY_A,
                 "mini_parwa",
@@ -147,7 +147,7 @@ class TestTierBoundaryOverflow:
     ):
         """DRAFT_RESPONSE_COMPLEX maps to MEDIUM. Under parwa (no HEAVY),
         it must stay MEDIUM and never silently upgrade to HEAVY."""
-        with patch("backend.app.core.smart_router.logger"):
+        with patch("app.core.smart_router.logger"):
             decision = router.route(
                 COMPANY_A,
                 "parwa",
@@ -174,7 +174,7 @@ class TestTierBoundaryOverflow:
             AtomicStepType.FAKE_VOTING,
             AtomicStepType.CONSENSUS_ANALYSIS,
         ]
-        with patch("backend.app.core.smart_router.logger"):
+        with patch("app.core.smart_router.logger"):
             for step in light_steps:
                 decision = router.route(
                     COMPANY_A,
@@ -196,7 +196,7 @@ class TestTierBoundaryOverflow:
             AtomicStepType.DRAFT_RESPONSE_COMPLEX,
             AtomicStepType.REFLEXION_CYCLE,
         ]
-        with patch("backend.app.core.smart_router.logger"):
+        with patch("app.core.smart_router.logger"):
             for step in medium_steps:
                 decision = router.route(
                     COMPANY_A,
@@ -226,7 +226,7 @@ class TestTierBoundaryOverflow:
                         config.provider, config.model_id,
                     )
 
-        with patch("backend.app.core.smart_router.logger"):
+        with patch("app.core.smart_router.logger"):
             decision = router.route(
                 COMPANY_A,
                 "mini_parwa",
@@ -276,7 +276,7 @@ class TestTierBoundaryOverflow:
         """GUARDRAIL_CHECK must always get GUARDRAIL tier, even under
         mini_parwa which doesn't explicitly list it in its allowed set
         for non-guardrail steps."""
-        with patch("backend.app.core.smart_router.logger"):
+        with patch("app.core.smart_router.logger"):
             for variant in ("mini_parwa", "parwa", "parwa_high"):
                 decision = router.route(
                     COMPANY_A,
@@ -320,7 +320,7 @@ class TestTemplateInjectionPrevention:
                 "Config: {{config.__dict__}}"
             ),
         )
-        with patch("backend.app.core.prompt_templates.logger"):
+        with patch("app.core.prompt_templates.logger"):
             rendered = _render_variables(
                 malicious_template.template_text,
                 {"customer_name": "Alice"},
@@ -336,7 +336,7 @@ class TestTemplateInjectionPrevention:
     ):
         """If a variable VALUE contains {{malicious}} markers, they
         must NOT be recursively rendered."""
-        with patch("backend.app.core.prompt_templates.logger"):
+        with patch("app.core.prompt_templates.logger"):
             rendered = template_manager.render_template(
                 "general",
                 {
@@ -366,7 +366,7 @@ class TestTemplateInjectionPrevention:
                 "Amount: {{amount}}"
             ),
         )
-        with patch("backend.app.core.prompt_templates.logger"):
+        with patch("app.core.prompt_templates.logger"):
             rendered = _render_variables(
                 malicious_template.template_text,
                 {"customer_name": "Bob", "amount": "$50"},
@@ -407,7 +407,7 @@ class TestTemplateInjectionPrevention:
         self, template_manager: PromptTemplateManager,
     ):
         """BC-008: Passing None for variables must not crash."""
-        with patch("backend.app.core.prompt_templates.logger"):
+        with patch("app.core.prompt_templates.logger"):
             rendered = template_manager.render_template("refund", None)
         # Should return template with unresolved {{variables}}
         assert isinstance(rendered, str)
@@ -417,7 +417,7 @@ class TestTemplateInjectionPrevention:
         self, template_manager: PromptTemplateManager,
     ):
         """BC-008: Passing empty dict must not crash."""
-        with patch("backend.app.core.prompt_templates.logger"):
+        with patch("app.core.prompt_templates.logger"):
             rendered = template_manager.render_template("refund", {})
         assert isinstance(rendered, str)
         assert "{{company_name}}" in rendered  # Left as-is
@@ -427,7 +427,7 @@ class TestTemplateInjectionPrevention:
     ):
         """Non-string variable values must be str()-coerced, not cause
         exceptions."""
-        with patch("backend.app.core.prompt_templates.logger"):
+        with patch("app.core.prompt_templates.logger"):
             rendered = template_manager.render_template(
                 "billing",
                 {
@@ -459,7 +459,7 @@ class TestTemplateInjectionPrevention:
                 "Payload: {{self.__init__.__globals__}}"
             ),
         )
-        with patch("backend.app.core.prompt_templates.logger"):
+        with patch("app.core.prompt_templates.logger"):
             template_manager.add_template(injection_template)
 
         # Retrieve the stored template
@@ -518,7 +518,7 @@ class TestCacheInvalidationRaceCondition:
         sys.modules["database.models.variant_engine"] = mock_variant_engine
 
         try:
-            from backend.app.services.technique_cache_service import (
+            from app.services.technique_cache_service import (
                 _safe_parse_json as _spj,
                 _validate_cache_result as _vcr,
                 _validate_company_id as _vci,
@@ -613,7 +613,7 @@ class TestCacheInvalidationRaceCondition:
         return None for the same key."""
         mock_db = self._make_mock_db()
 
-        with patch("backend.app.services.technique_cache_service.logger"):
+        with patch("app.services.technique_cache_service.logger"):
             # Store a result
             entry = self.set_cached_result(
                 mock_db,
@@ -657,7 +657,7 @@ class TestCacheInvalidationRaceCondition:
         never return stale data after invalidation completes."""
         mock_db = self._make_mock_db()
 
-        with patch("backend.app.services.technique_cache_service.logger"):
+        with patch("app.services.technique_cache_service.logger"):
             # Pre-populate cache
             self.set_cached_result(
                 mock_db,
@@ -716,7 +716,7 @@ class TestCacheInvalidationRaceCondition:
         served — not the old one."""
         mock_db = self._make_mock_db()
 
-        with patch("backend.app.services.technique_cache_service.logger"):
+        with patch("app.services.technique_cache_service.logger"):
             # Store v1
             self.set_cached_result(
                 mock_db,
@@ -760,7 +760,7 @@ class TestCacheInvalidationRaceCondition:
         without crashing (BC-008)."""
         mock_db = self._make_mock_db()
 
-        with patch("backend.app.services.technique_cache_service.logger"):
+        with patch("app.services.technique_cache_service.logger"):
             result = self.invalidate_cached_result(
                 mock_db,
                 company_id=COMPANY_A,
@@ -777,7 +777,7 @@ class TestCacheInvalidationRaceCondition:
             side_effect=Exception("Database connection lost"),
         )
 
-        with patch("backend.app.services.technique_cache_service.logger"):
+        with patch("app.services.technique_cache_service.logger"):
             result = self.invalidate_cached_result(
                 mock_db,
                 company_id=COMPANY_A,
@@ -797,7 +797,7 @@ class TestCacheInvalidationRaceCondition:
             side_effect=Exception("Constraint violation"),
         )
 
-        with patch("backend.app.services.technique_cache_service.logger"):
+        with patch("app.services.technique_cache_service.logger"):
             result = self.invalidate_cached_result(
                 mock_db,
                 company_id=COMPANY_A,
@@ -824,7 +824,7 @@ class TestCacheInvalidationRaceCondition:
         mock_db.query.return_value.filter_by.return_value.first.return_value = mock_entry
         mock_db.commit = MagicMock()
 
-        with patch("backend.app.services.technique_cache_service.logger"):
+        with patch("app.services.technique_cache_service.logger"):
             result = self.get_cached_result(
                 mock_db,
                 company_id=COMPANY_A,
@@ -846,7 +846,7 @@ class TestCacheInvalidationRaceCondition:
         mock_db = MagicMock()
         mock_db.query.return_value.filter_by.return_value.first.return_value = mock_entry
 
-        with patch("backend.app.services.technique_cache_service.logger"):
+        with patch("app.services.technique_cache_service.logger"):
             result = self.get_cached_result(
                 mock_db,
                 company_id=COMPANY_A,
@@ -857,7 +857,7 @@ class TestCacheInvalidationRaceCondition:
 
     def test_set_validates_json_serializable(self):
         """set_cached_result must reject non-JSON-serializable data."""
-        from backend.app.exceptions import ParwaBaseError
+        from app.exceptions import ParwaBaseError
 
         mock_db = MagicMock()
         mock_db.query = MagicMock(return_value=MagicMock(
@@ -865,7 +865,7 @@ class TestCacheInvalidationRaceCondition:
         ))
 
         # Non-serializable object (a set)
-        with patch("backend.app.services.technique_cache_service.logger"):
+        with patch("app.services.technique_cache_service.logger"):
             with pytest.raises(ParwaBaseError, match="not valid JSON-serializable"):
                 self.set_cached_result(
                     mock_db,
@@ -897,7 +897,7 @@ class TestCacheInvalidationRaceCondition:
     def test_validate_company_id_rejects_empty_and_whitespace(self):
         """BC-001: company_id validation must reject empty and
         whitespace-only values."""
-        from backend.app.exceptions import ParwaBaseError
+        from app.exceptions import ParwaBaseError
 
         with pytest.raises(ParwaBaseError, match="company_id is required"):
             self.validate_company_id("")

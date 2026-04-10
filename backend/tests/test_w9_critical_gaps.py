@@ -45,13 +45,13 @@ ParwaBaseError = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.signal_extraction import (  # noqa: F811,F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.signal_extraction import (  # noqa: F811,F401
             ExtractedSignals,
             SignalExtractionRequest,
             SignalExtractor,
         )
-        from backend.app.core.sentiment_engine import (  # noqa: F811,F401
+        from app.core.sentiment_engine import (  # noqa: F811,F401
             EmotionClassifier,
             FrustrationDetector,
             SentimentAnalyzer,
@@ -59,13 +59,13 @@ def _mock_logger():
             ToneAdvisor,
             UrgencyScorer,
         )
-        from backend.app.core.rag_retrieval import (  # noqa: F811,F401
+        from app.core.rag_retrieval import (  # noqa: F811,F401
             RAGChunk,
             RAGResult,
             RAGRetriever,
         )
-        from backend.app.exceptions import ParwaBaseError as _PBE  # noqa: F811,F401
-        from backend.app.services.training_data_isolation import (  # noqa: F811,F401
+        from app.exceptions import ParwaBaseError as _PBE  # noqa: F811,F401
+        from app.services.training_data_isolation import (  # noqa: F811,F401
             DatasetIsolationResult,
             TrainingDataIsolationService,
             TrainingDataset,
@@ -119,8 +119,8 @@ class TestSignalExtractionRaceCondition:
         cache_miss = AsyncMock(return_value=None)
         cache_set_mock = AsyncMock()
 
-        with patch("backend.app.core.redis.cache_get", cache_miss), \
-             patch("backend.app.core.redis.cache_set", cache_set_mock):
+        with patch("app.core.redis.cache_get", cache_miss), \
+             patch("app.core.redis.cache_set", cache_set_mock):
             results = await asyncio.gather(
                 self.extractor.extract(req),
                 self.extractor.extract(req),
@@ -149,8 +149,8 @@ class TestSignalExtractionRaceCondition:
         cache_miss = AsyncMock(return_value=None)
         cache_set_mock = AsyncMock()
 
-        with patch("backend.app.core.redis.cache_get", cache_miss), \
-             patch("backend.app.core.redis.cache_set", cache_set_mock):
+        with patch("app.core.redis.cache_get", cache_miss), \
+             patch("app.core.redis.cache_set", cache_set_mock):
             result_parwa, result_mini = await asyncio.gather(
                 self.extractor.extract(req_parwa),
                 self.extractor.extract(req_mini),
@@ -184,8 +184,8 @@ class TestSignalExtractionRaceCondition:
         cache_miss = AsyncMock(return_value=None)
         cache_set_mock = AsyncMock()
 
-        with patch("backend.app.core.redis.cache_get", cache_miss), \
-             patch("backend.app.core.redis.cache_set", cache_set_mock):
+        with patch("app.core.redis.cache_get", cache_miss), \
+             patch("app.core.redis.cache_set", cache_set_mock):
             result_refund, result_shipping = await asyncio.gather(
                 self.extractor.extract(req_refund),
                 self.extractor.extract(req_shipping),
@@ -223,8 +223,8 @@ class TestSignalExtractionRaceCondition:
         cache_get_mock = AsyncMock(side_effect=_cache_get)
         cache_set_mock = AsyncMock()
 
-        with patch("backend.app.core.redis.cache_get", cache_get_mock), \
-             patch("backend.app.core.redis.cache_set", cache_set_mock):
+        with patch("app.core.redis.cache_get", cache_get_mock), \
+             patch("app.core.redis.cache_set", cache_set_mock):
             results = await asyncio.gather(
                 self.extractor.extract(req),
                 self.extractor.extract(req),
@@ -263,8 +263,8 @@ class TestSignalExtractionRaceCondition:
         cache_miss = AsyncMock(return_value=None)
         cache_set_err = AsyncMock(side_effect=Exception("Redis connection lost"))
 
-        with patch("backend.app.core.redis.cache_get", cache_miss), \
-             patch("backend.app.core.redis.cache_set", cache_set_err):
+        with patch("app.core.redis.cache_get", cache_miss), \
+             patch("app.core.redis.cache_set", cache_set_err):
             result = await self.extractor.extract(req)
 
         assert isinstance(result, ExtractedSignals)
@@ -402,8 +402,8 @@ class TestSentimentScoreBoundaries:
         """Sentiment score (0.0-1.0) = 1.0 - (frustration_score/100)."""
         cache_miss = AsyncMock(return_value=None)
         cache_set = AsyncMock()
-        with patch("backend.app.core.redis.cache_get", cache_miss), \
-             patch("backend.app.core.redis.cache_set", cache_set):
+        with patch("app.core.redis.cache_get", cache_miss), \
+             patch("app.core.redis.cache_set", cache_set):
             result = await self.analyzer.analyze("This is OUTRAGEOUS and UNACCEPTABLE!!!", company_id="c1")
         # High frustration → sentiment_score should be < 1.0
         # sentiment_score = max(0, min(1, 1.0 - frustration/100))
@@ -416,8 +416,8 @@ class TestSentimentScoreBoundaries:
         """Empty/null input returns safe defaults without crashing."""
         cache_miss = AsyncMock(return_value=None)
         cache_set = AsyncMock()
-        with patch("backend.app.core.redis.cache_get", cache_miss), \
-             patch("backend.app.core.redis.cache_set", cache_set):
+        with patch("app.core.redis.cache_get", cache_miss), \
+             patch("app.core.redis.cache_set", cache_set):
             result = await self.analyzer.analyze("", company_id="c1")
         assert result.frustration_score == 0.0
         assert result.sentiment_score == 0.5
@@ -763,7 +763,7 @@ def mock_redis():
 def _patch_get_redis(mock_redis_obj):
     """Return a patcher for backend.app.core.redis.get_redis."""
     return patch(
-        "backend.app.core.redis.get_redis",
+        "app.core.redis.get_redis",
         new_callable=AsyncMock,
         return_value=mock_redis_obj,
     )

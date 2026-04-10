@@ -9,8 +9,8 @@ Celery tasks for AI model training:
 
 import logging
 
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.tasks.training")
 
@@ -19,7 +19,7 @@ logger = logging.getLogger("parwa.tasks.training")
     base=ParwaBaseTask,
     bind=True,
     queue="training",
-    name="backend.app.tasks.training.prepare_dataset",
+    name="app.tasks.training.prepare_dataset",
     max_retries=2,
     soft_time_limit=300,
     time_limit=600,
@@ -62,7 +62,7 @@ def prepare_dataset(self, company_id: str,
     base=ParwaBaseTask,
     bind=True,
     queue="training",
-    name="backend.app.tasks.training.check_mistake_threshold",
+    name="app.tasks.training.check_mistake_threshold",
     max_retries=2,
     soft_time_limit=60,
     time_limit=120,
@@ -103,7 +103,7 @@ def check_mistake_threshold(self, company_id: str,
     base=ParwaBaseTask,
     bind=True,
     queue="training",
-    name="backend.app.tasks.training.schedule_training",
+    name="app.tasks.training.schedule_training",
     max_retries=1,
     soft_time_limit=60,
     time_limit=120,

@@ -17,7 +17,7 @@ from uuid import uuid4
 from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 from database.models.tickets import Ticket, NotificationTemplate
 from database.models.core import User, Company
 from database.models.remaining import Notification, NotificationLog, NotificationPreference
@@ -428,7 +428,7 @@ class NotificationService:
     ) -> Dict[str, Any]:
         """Send email notification via email service."""
         # Import here to avoid circular dependency
-        from backend.app.services.email_service import EmailService
+        from app.services.email_service import EmailService
         
         # Get recipient email
         user = self.db.query(User).filter(User.id == notification.user_id).first()
@@ -468,7 +468,7 @@ class NotificationService:
         """Send in-app notification via Socket.io."""
         try:
             # Import event emitter
-            from backend.app.core.event_emitter import EventEmitter
+            from app.core.event_emitter import EventEmitter
             
             emitter = EventEmitter()
             emitter.emit_to_user(

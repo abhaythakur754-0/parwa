@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from backend.app.core.technique_router import (
+from app.core.technique_router import (
     TechniqueID,
     TechniqueTier,
     ExecutionResultStatus,

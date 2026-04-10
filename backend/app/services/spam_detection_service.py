@@ -18,7 +18,7 @@ from uuid import uuid4
 from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 from database.models.tickets import Ticket, TicketStatus
 from database.models.core import User
 
@@ -177,7 +177,7 @@ class SpamDetectionService:
         
         # Close the ticket if not already closed
         if ticket.status != TicketStatus.closed.value:
-            from backend.app.services.ticket_state_machine import TicketStateMachine
+            from app.services.ticket_state_machine import TicketStateMachine
             
             state_machine = TicketStateMachine(self.db, self.company_id)
             state_machine.transition(
@@ -224,7 +224,7 @@ class SpamDetectionService:
         ticket.spam_unmark_reason = reason
         
         # Reopen the ticket
-        from backend.app.services.ticket_state_machine import TicketStateMachine
+        from app.services.ticket_state_machine import TicketStateMachine
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
@@ -539,7 +539,7 @@ class SpamDetectionService:
         reason: str,
     ) -> None:
         """Notify admins about spam event."""
-        from backend.app.services.notification_service import NotificationService
+        from app.services.notification_service import NotificationService
         
         notification_service = NotificationService(self.db, self.company_id)
         

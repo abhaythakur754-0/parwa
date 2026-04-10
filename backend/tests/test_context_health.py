@@ -15,8 +15,8 @@ ContextHealthMeter = HealthConfig = HealthMetrics = HealthReport = HealthAlert =
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.context_health import (  # noqa: F811,F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.context_health import (  # noqa: F811,F401
             ContextHealthError,
             ContextHealthMeter,
             HealthAlert,

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("clara_quality_gate")
 

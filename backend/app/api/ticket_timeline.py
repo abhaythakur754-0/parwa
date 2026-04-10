@@ -31,9 +31,9 @@ from fastapi import status as http_status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_db, get_current_user, get_company_id
-from backend.app.services.activity_log_service import ActivityLogService
-from backend.app.exceptions import NotFoundError
+from app.api.deps import get_db, get_current_user, get_company_id
+from app.services.activity_log_service import ActivityLogService
+from app.exceptions import NotFoundError
 
 
 router = APIRouter(prefix="/tickets", tags=["tickets", "timeline"])

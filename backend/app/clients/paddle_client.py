@@ -27,7 +27,7 @@ from urllib.parse import urljoin
 
 import httpx
 
-from backend.app.config import get_settings
+from app.config import get_settings
 
 logger = logging.getLogger("parwa.clients.paddle")
 

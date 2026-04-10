@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.app.core.signal_extraction import (
+from app.core.signal_extraction import (
     CURRENCY_TO_USD,
     ExtractedSignals,
     INTENT_KEYWORDS,
@@ -454,8 +454,8 @@ class TestFullPipeline:
         req = SignalExtractionRequest(
             query="test query", company_id="c1", variant_type="parwa"
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Redis down")):
                 result = await self.extractor.extract(req)
                 assert result.cached is False
 
@@ -473,8 +473,8 @@ class TestFullPipeline:
             "reasoning_loop_detected": False, "resolution_path_count": 2,
             "query_breadth": 0.5, "extraction_version": "1.0",
         }
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.intent == "refund"
                 assert result.cached is True

@@ -22,7 +22,7 @@ from uuid import uuid4
 from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 from database.models.tickets import Ticket, TicketStatus, TicketPriority
 from database.models.core import User, Company
 
@@ -123,7 +123,7 @@ class TicketLifecycleService:
         # Check if limit reached
         if attempt_count >= self.AI_ATTEMPT_LIMIT:
             # Escalate to human
-            from backend.app.services.ticket_state_machine import TicketStateMachine
+            from app.services.ticket_state_machine import TicketStateMachine
             
             state_machine = TicketStateMachine(self.db, self.company_id)
             
@@ -159,7 +159,7 @@ class TicketLifecycleService:
         """
         ticket = self._get_ticket(ticket_id)
         
-        from backend.app.services.ticket_state_machine import TicketStateMachine
+        from app.services.ticket_state_machine import TicketStateMachine
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
@@ -178,7 +178,7 @@ class TicketLifecycleService:
         self.db.commit()
         
         # Notify human queue
-        from backend.app.services.notification_service import NotificationService
+        from app.services.notification_service import NotificationService
         
         notification_service = NotificationService(self.db, self.company_id)
         
@@ -209,7 +209,7 @@ class TicketLifecycleService:
         """
         ticket = self._get_ticket(ticket_id)
         
-        from backend.app.services.ticket_state_machine import TicketStateMachine, TransitionValidator
+        from app.services.ticket_state_machine import TicketStateMachine, TransitionValidator
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
@@ -301,7 +301,7 @@ class TicketLifecycleService:
         """
         PS07: Freeze all open tickets when account is suspended.
         """
-        from backend.app.services.ticket_state_machine import TicketStateMachine
+        from app.services.ticket_state_machine import TicketStateMachine
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
@@ -345,7 +345,7 @@ class TicketLifecycleService:
         """
         PS07: Thaw all frozen tickets when account is reactivated.
         """
-        from backend.app.services.ticket_state_machine import TicketStateMachine
+        from app.services.ticket_state_machine import TicketStateMachine
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
@@ -378,7 +378,7 @@ class TicketLifecycleService:
         """
         PS07: Close frozen tickets after 30 days.
         """
-        from backend.app.services.ticket_state_machine import TicketStateMachine
+        from app.services.ticket_state_machine import TicketStateMachine
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
@@ -425,7 +425,7 @@ class TicketLifecycleService:
             "14d": "Last reminder: This ticket will be closed if we don't hear from you soon.",
         }
         
-        from backend.app.services.notification_service import NotificationService
+        from app.services.notification_service import NotificationService
         
         notification_service = NotificationService(self.db, self.company_id)
         
@@ -508,7 +508,7 @@ class TicketLifecycleService:
             ]),
         ).all()
         
-        from backend.app.services.ticket_state_machine import TicketStateMachine
+        from app.services.ticket_state_machine import TicketStateMachine
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
@@ -547,7 +547,7 @@ class TicketLifecycleService:
             Ticket.status == TicketStatus.queued.value,
         ).all()
         
-        from backend.app.services.ticket_state_machine import TicketStateMachine
+        from app.services.ticket_state_machine import TicketStateMachine
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         

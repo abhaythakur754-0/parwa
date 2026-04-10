@@ -17,8 +17,8 @@ Tasks:
 import logging
 from datetime import datetime, timedelta, timezone
 
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.webhook_recovery")
 
@@ -27,7 +27,7 @@ logger = logging.getLogger("parwa.webhook_recovery")
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.webhook_recovery.recover_missed_webhooks",
+    name="app.tasks.webhook_recovery.recover_missed_webhooks",
 )
 def recover_missed_webhooks(self):
     """
@@ -101,14 +101,14 @@ def _recover_company_webhooks(company_id: str, subscription_id: str) -> int:
 
     Returns count of recovered events.
     """
-    from backend.app.services.webhook_ordering_service import (
+    from app.services.webhook_ordering_service import (
         get_or_create_webhook_sequence,
         get_pending_events_ordered,
         mark_sequence_processing,
         mark_sequence_processed,
         mark_sequence_failed,
     )
-    from backend.app.clients.paddle_client import get_paddle_client
+    from app.clients.paddle_client import get_paddle_client
     from database.base import SessionLocal
     from database.models.billing_extended import WebhookSequence
 
@@ -167,13 +167,13 @@ def _recover_company_webhooks(company_id: str, subscription_id: str) -> int:
 
 def _process_recovered_event(company_id: str, event: dict) -> None:
     """Process a recovered webhook event."""
-    from backend.app.services.webhook_ordering_service import (
+    from app.services.webhook_ordering_service import (
         get_or_create_webhook_sequence,
         mark_sequence_processing,
         mark_sequence_processed,
         mark_sequence_failed,
     )
-    from backend.app.webhooks.paddle_handler import handle_paddle_event
+    from app.webhooks.paddle_handler import handle_paddle_event
 
     event_id = event.get("event_id") or event.get("id")
     event_type = event.get("event_type")
@@ -233,7 +233,7 @@ def _process_recovered_event(company_id: str, event: dict) -> None:
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.webhook_recovery.process_stuck_webhooks",
+    name="app.tasks.webhook_recovery.process_stuck_webhooks",
 )
 def process_stuck_webhooks(self):
     """
@@ -244,7 +244,7 @@ def process_stuck_webhooks(self):
     """
     logger.info("stuck_webhooks_processing_started")
 
-    from backend.app.services.webhook_ordering_service import (
+    from app.services.webhook_ordering_service import (
         get_stuck_events,
         retry_stuck_event,
     )
@@ -283,7 +283,7 @@ def process_stuck_webhooks(self):
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.webhook_recovery.cleanup_idempotency_keys",
+    name="app.tasks.webhook_recovery.cleanup_idempotency_keys",
 )
 def cleanup_idempotency_keys(self):
     """
@@ -294,7 +294,7 @@ def cleanup_idempotency_keys(self):
     """
     logger.info("idempotency_cleanup_started")
 
-    from backend.app.services.webhook_processor import cleanup_expired_idempotency_keys
+    from app.services.webhook_processor import cleanup_expired_idempotency_keys
 
     deleted = cleanup_expired_idempotency_keys()
 
@@ -307,7 +307,7 @@ def cleanup_idempotency_keys(self):
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.webhook_recovery.cleanup_webhook_sequences",
+    name="app.tasks.webhook_recovery.cleanup_webhook_sequences",
 )
 def cleanup_webhook_sequences(self):
     """
@@ -318,7 +318,7 @@ def cleanup_webhook_sequences(self):
     """
     logger.info("sequence_cleanup_started")
 
-    from backend.app.services.webhook_ordering_service import cleanup_old_sequences
+    from app.services.webhook_ordering_service import cleanup_old_sequences
 
     deleted = cleanup_old_sequences(days=30)
 
@@ -331,7 +331,7 @@ def cleanup_webhook_sequences(self):
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.webhook_recovery.process_pending_events",
+    name="app.tasks.webhook_recovery.process_pending_events",
 )
 @with_company_id
 def process_pending_events(self, company_id: str):
@@ -345,14 +345,14 @@ def process_pending_events(self, company_id: str):
     """
     logger.info("pending_events_processing_started company_id=%s", company_id)
 
-    from backend.app.services.webhook_ordering_service import (
+    from app.services.webhook_ordering_service import (
         get_pending_events_ordered,
         mark_sequence_processing,
         mark_sequence_processed,
         mark_sequence_failed,
         get_next_processing_order,
     )
-    from backend.app.webhooks.paddle_handler import handle_paddle_event
+    from app.webhooks.paddle_handler import handle_paddle_event
 
     events = get_pending_events_ordered(company_id)
     processed_count = 0

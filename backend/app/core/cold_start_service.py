@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from backend.app.exceptions import ParwaBaseError
+from app.exceptions import ParwaBaseError
 
 logger = logging.getLogger(__name__)
 
@@ -508,7 +508,7 @@ class ColdStartService:
 
         Returns dict with keys: success (bool), response (str), error (str).
         """
-        from backend.app.config import get_settings
+        from app.config import get_settings
         try:
             settings = get_settings()
         except Exception:

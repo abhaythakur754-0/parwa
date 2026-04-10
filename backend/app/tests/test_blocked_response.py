@@ -23,7 +23,7 @@ from unittest.mock import patch
 
 import pytest
 
-from backend.app.core.blocked_response_manager import (
+from app.core.blocked_response_manager import (
     BlockedResponse,
     BlockedResponseManager,
     BlockReason,

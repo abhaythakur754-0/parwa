@@ -18,7 +18,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
-from backend.app.exceptions import (
+from app.exceptions import (
     ValidationError,
     NotFoundError,
 )

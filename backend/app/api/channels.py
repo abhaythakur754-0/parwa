@@ -11,9 +11,9 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.exceptions import NotFoundError, ValidationError
-from backend.app.services.channel_service import ChannelService
+from app.api.deps import get_current_user, get_db
+from app.exceptions import NotFoundError, ValidationError
+from app.services.channel_service import ChannelService
 
 
 router = APIRouter(prefix="/channels", tags=["channels"])

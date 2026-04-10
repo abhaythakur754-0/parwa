@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("guardrails_engine")
 
@@ -1728,7 +1728,7 @@ class BlockedResponseManager:
         }
 
         try:
-            from backend.app.core.redis import get_redis, make_key
+            from app.core.redis import get_redis, make_key
 
             redis = await get_redis()
             key = make_key(
@@ -1774,7 +1774,7 @@ class BlockedResponseManager:
             List of blocked response entries.
         """
         try:
-            from backend.app.core.redis import get_redis, make_key
+            from app.core.redis import get_redis, make_key
 
             redis = await get_redis()
             pattern = make_key(
@@ -1819,7 +1819,7 @@ class BlockedResponseManager:
             Dict with blocking stats by layer, severity, and totals.
         """
         try:
-            from backend.app.core.redis import get_redis, make_key
+            from app.core.redis import get_redis, make_key
 
             redis = await get_redis()
             stats_key = make_key(company_id, self.STATS_KEY)
@@ -1869,7 +1869,7 @@ class BlockedResponseManager:
             guard_result: The guardrail result to record.
         """
         try:
-            from backend.app.core.redis import make_key
+            from app.core.redis import make_key
 
             stats_key = make_key(company_id, self.STATS_KEY)
 

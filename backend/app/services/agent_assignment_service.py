@@ -13,7 +13,7 @@ import json
 from sqlalchemy.orm.session import Session
 
 from database.models.variant_engine import AIAgentAssignment
-from backend.app.exceptions import (
+from app.exceptions import (
     ParwaBaseError,
     ValidationError,
     NotFoundError,

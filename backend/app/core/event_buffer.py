@@ -17,7 +17,7 @@ Key namespace: parwa:{company_id}:events (BC-001 — tenant isolation)
 Key type: Redis Sorted Set (score = epoch timestamp for range queries)
 
 Usage:
-    from backend.app.core.event_buffer import (
+    from app.core.event_buffer import (
         store_event, get_events_since, cleanup_old_events
     )
 
@@ -36,8 +36,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from backend.app.core.redis import get_redis, make_key
-from backend.app.logger import get_logger
+from app.core.redis import get_redis, make_key
+from app.logger import get_logger
 
 logger = get_logger("event_buffer")
 

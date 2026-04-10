@@ -15,7 +15,7 @@ can access the current tenant without explicit parameter passing.
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from backend.app.core.tenant_context import (
+from app.core.tenant_context import (
     clear_tenant_context,
     set_tenant_context,
 )

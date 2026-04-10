@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("language_pipeline")
 
@@ -981,7 +981,7 @@ class LanguagePipeline:
         # ── Cache result (BC-001: scoped to company_id) ─────────────
         total_ms = round((time.monotonic() - start_time) * 1000, 2)
         try:
-            from backend.app.core.redis import cache_get, cache_set
+            from app.core.redis import cache_get, cache_set
             query_hash = hashlib.sha256(
                 original_text.lower().strip().encode("utf-8")
             ).hexdigest()[:16]

@@ -21,10 +21,10 @@ from typing import Optional
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 
-from backend.app.schemas.webhook import (
+from app.schemas.webhook import (
     WebhookResponse,
 )
-from backend.app.services import webhook_service
+from app.services import webhook_service
 
 logger = logging.getLogger("parwa.webhook_api")
 
@@ -125,10 +125,10 @@ def _verify_provider_signature(
 
     try:
         if provider == "paddle":
-            from backend.app.security.hmac_verification import (
+            from app.security.hmac_verification import (
                 verify_paddle_signature,
             )
-            from backend.app.config import get_settings
+            from app.config import get_settings
             settings = get_settings()
             signature = request.headers.get(
                 "paddle-signature", "",
@@ -144,10 +144,10 @@ def _verify_provider_signature(
             return result
 
         if provider == "shopify":
-            from backend.app.security.hmac_verification import (
+            from app.security.hmac_verification import (
                 verify_shopify_hmac,
             )
-            from backend.app.config import get_settings
+            from app.config import get_settings
             settings = get_settings()
             signature = request.headers.get(
                 "x-shopify-hmac-sha256", "",
@@ -165,10 +165,10 @@ def _verify_provider_signature(
             return result
 
         if provider == "twilio":
-            from backend.app.security.hmac_verification import (
+            from app.security.hmac_verification import (
                 verify_twilio_signature,
             )
-            from backend.app.config import get_settings
+            from app.config import get_settings
             settings = get_settings()
             signature = request.headers.get(
                 "x-twilio-signature", "",
@@ -186,7 +186,7 @@ def _verify_provider_signature(
             return result
 
         if provider == "brevo":
-            from backend.app.security.hmac_verification import (
+            from app.security.hmac_verification import (
                 verify_brevo_ip,
             )
             forwarded = request.headers.get(

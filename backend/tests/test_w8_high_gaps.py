@@ -34,7 +34,7 @@ sys.modules["database.models.variant_engine"] = _mock_variant_engine
 
 # ── Source imports ────────────────────────────────────────────────────
 
-from backend.app.core.model_failover import (
+from app.core.model_failover import (
     FailoverManager,
     FailoverChainExecutor,
     FailoverReason,
@@ -44,14 +44,14 @@ from backend.app.core.model_failover import (
     DegradedResponseDetector,
     FAILOVER_CHAINS,
 )
-from backend.app.core.confidence_scoring_engine import (
+from app.core.confidence_scoring_engine import (
     ConfidenceScoringEngine,
     ConfidenceConfig,
     ConfidenceResult,
     SignalScore,
     VariantType,
 )
-from backend.app.core.guardrails_engine import (
+from app.core.guardrails_engine import (
     GuardrailsEngine,
     GuardrailConfig,
     GuardrailResult,
@@ -62,18 +62,18 @@ from backend.app.core.guardrails_engine import (
     StrictnessLevel,
     _build_config,
 )
-from backend.app.core.prompt_templates import (
+from app.core.prompt_templates import (
     PromptTemplateManager,
     PromptTemplate,
     ALL_INTENTS,
 )
-from backend.app.services.prompt_template_service import (
+from app.services.prompt_template_service import (
     PromptTemplateService,
     ABTestConfig,
     ABTestStatus,
     TemplateStatus,
 )
-from backend.app.services.technique_cache_service import (
+from app.services.technique_cache_service import (
     _validate_company_id,
     _safe_parse_json,
     _validate_cache_result,
@@ -83,7 +83,7 @@ from backend.app.services.technique_cache_service import (
     invalidate_cached_result as tcs_invalidate_cached_result,
     DEFAULT_CACHE_TTL_HOURS,
 )
-from backend.app.core.self_healing_engine import (
+from app.core.self_healing_engine import (
     SelfHealingEngine,
     HealingRule,
     HealingAction,
@@ -99,7 +99,7 @@ from backend.app.core.self_healing_engine import (
     _RECOVERY_HIGH_SCORE_CONSECUTIVE,
     _ERROR_SPIKE_THRESHOLD,
 )
-from backend.app.core.ai_monitoring_service import (
+from app.core.ai_monitoring_service import (
     AIMonitoringService,
     AlertLevel,
     AlertCondition,
@@ -107,7 +107,7 @@ from backend.app.core.ai_monitoring_service import (
     LatencyStats,
     ConfidenceDistribution,
 )
-from backend.app.exceptions import ParwaBaseError
+from app.exceptions import ParwaBaseError
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -291,7 +291,7 @@ class TestABTestContamination:
 
     def test_traffic_split_bounds_enforced(self):
         """Traffic split outside 0-1 raises error."""
-        from backend.app.services.prompt_template_service import _validate_traffic_split
+        from app.services.prompt_template_service import _validate_traffic_split
         with pytest.raises(ParwaBaseError):
             _validate_traffic_split(1.5)
         with pytest.raises(ParwaBaseError):

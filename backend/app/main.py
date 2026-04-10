@@ -22,8 +22,8 @@ from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from backend.app.config import get_settings
-from backend.app.exceptions import (
+from app.config import get_settings
+from app.exceptions import (
     AuthenticationError,
     AuthorizationError,
     NotFoundError,
@@ -31,33 +31,33 @@ from backend.app.exceptions import (
     RateLimitError,
     ValidationError,
 )
-from backend.app.logger import configure_logging, get_logger
-from backend.app.middleware.error_handler import ErrorHandlerMiddleware
-from backend.app.middleware.tenant import TenantMiddleware
-from backend.app.middleware.rate_limit import RateLimitMiddleware
-from backend.app.middleware.request_logger import RequestLoggerMiddleware
-from backend.app.middleware.security_headers import (
+from app.logger import configure_logging, get_logger
+from app.middleware.error_handler import ErrorHandlerMiddleware
+from app.middleware.tenant import TenantMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.request_logger import RequestLoggerMiddleware
+from app.middleware.security_headers import (
     SecurityHeadersMiddleware,
 )
-from backend.app.middleware.api_key_auth import APIKeyAuthMiddleware
-from backend.app.middleware.ip_allowlist import (
+from app.middleware.api_key_auth import APIKeyAuthMiddleware
+from app.middleware.ip_allowlist import (
     IPAllowlistMiddleware,
 )
-from backend.app.middleware.ai_entitlement import (
+from app.middleware.ai_entitlement import (
     AIEntitlementMiddleware,
 )
-from backend.app.api.auth import router as auth_router
-from backend.app.api.mfa import router as mfa_router
-from backend.app.api.api_keys import router as api_keys_router
-from backend.app.api.client import router as client_router
-from backend.app.api.admin import router as admin_router
-from backend.app.api.webhooks import router as webhook_router
-from backend.app.api.health import router as health_router
-from backend.app.api.user_details import router as user_details_router
-from backend.app.api.public import router as public_router
-from backend.app.api.pricing import router as pricing_router
-from backend.app.api.ai_engine import router as ai_engine_router
-from backend.app.api.ai_agent import router as ai_agent_router
+from app.api.auth import router as auth_router
+from app.api.mfa import router as mfa_router
+from app.api.api_keys import router as api_keys_router
+from app.api.client import router as client_router
+from app.api.admin import router as admin_router
+from app.api.webhooks import router as webhook_router
+from app.api.health import router as health_router
+from app.api.user_details import router as user_details_router
+from app.api.public import router as public_router
+from app.api.pricing import router as pricing_router
+from app.api.ai_engine import router as ai_engine_router
+from app.api.ai_agent import router as ai_agent_router
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
@@ -104,7 +104,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize Redis connection pool (BC-012: fail-open on error)
     try:
-        from backend.app.core.redis import get_redis
+        from app.core.redis import get_redis
         redis_client = await get_redis()
         await redis_client.ping()
         logger = get_logger("lifespan")
@@ -118,7 +118,7 @@ async def lifespan(app: FastAPI):
 
     # Register Socket.io ASGI app on /ws path
     try:
-        from backend.app.core.socketio import create_socketio_app
+        from app.core.socketio import create_socketio_app
         socketio_app = create_socketio_app()
         app.mount("/ws", socketio_app)
         logger.info("socketio_mounted", path="/ws")
@@ -139,7 +139,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown: close Redis pool
     try:
-        from backend.app.core.redis import close_redis
+        from app.core.redis import close_redis
         await close_redis()
         logger.info("redis_closed")
     except Exception as exc:
@@ -332,7 +332,7 @@ async def get_events_since_endpoint(
             },
         )
 
-    from backend.app.core.event_buffer import get_events_since
+    from app.core.event_buffer import get_events_since
     events = await get_events_since(
         company_id=company_id,
         last_seen=last_seen,

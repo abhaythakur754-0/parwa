@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from backend.app.exceptions import (
+from app.exceptions import (
     InternalError,
     NotFoundError,
     ParwaBaseError,

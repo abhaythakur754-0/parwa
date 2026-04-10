@@ -20,13 +20,13 @@ import copy
 import re
 import uuid
 
-from backend.app.exceptions import ParwaBaseError
+from app.exceptions import ParwaBaseError
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("prompt_template")
 
@@ -214,7 +214,7 @@ def _now_iso() -> str:
 def _validate_company_id(company_id: str) -> None:
     """BC-001: company_id is required and non-empty."""
     if not company_id or not str(company_id).strip():
-        from backend.app.exceptions import ParwaBaseError
+        from app.exceptions import ParwaBaseError
         raise ParwaBaseError(
             error_code="INVALID_COMPANY_ID",
             message="company_id is required and cannot be empty",
@@ -225,7 +225,7 @@ def _validate_company_id(company_id: str) -> None:
 def _validate_variant_type(variant_type: Optional[str]) -> None:
     """Validate that variant_type, if provided, is known."""
     if variant_type is not None and variant_type not in VALID_VARIANT_TYPES:
-        from backend.app.exceptions import ParwaBaseError
+        from app.exceptions import ParwaBaseError
         raise ParwaBaseError(
             error_code="INVALID_VARIANT_TYPE",
             message=(
@@ -239,7 +239,7 @@ def _validate_variant_type(variant_type: Optional[str]) -> None:
 def _validate_traffic_split(traffic_split: float) -> None:
     """Validate traffic_split is between 0.0 and 1.0."""
     if not isinstance(traffic_split, (int, float)) or not (0.0 <= traffic_split <= 1.0):
-        from backend.app.exceptions import ParwaBaseError
+        from app.exceptions import ParwaBaseError
         raise ParwaBaseError(
             error_code="INVALID_TRAFFIC_SPLIT",
             message="traffic_split must be a float between 0.0 and 1.0",
@@ -818,7 +818,7 @@ class PromptTemplateService:
             if default is not None:
                 return default
 
-            from backend.app.exceptions import NotFoundError
+            from app.exceptions import NotFoundError
             raise NotFoundError(
                 message=(
                     f"Template '{name}' not found for company "
@@ -841,7 +841,7 @@ class PromptTemplateService:
             default = self.__class__._default_templates.get(name)
             if default is not None:
                 return default
-            from backend.app.exceptions import InternalError
+            from app.exceptions import InternalError
             raise InternalError(
                 message=f"Failed to retrieve template '{name}'",
                 details={"error": str(exc)},
@@ -1151,7 +1151,7 @@ class PromptTemplateService:
             template = company_templates.get(template_id)
 
             if template is None or template.is_default:
-                from backend.app.exceptions import NotFoundError
+                from app.exceptions import NotFoundError
                 raise NotFoundError(
                     message=(
                         f"Template '{template_id}' not found or is "
@@ -1574,7 +1574,7 @@ class PromptTemplateService:
             )
 
             if template_a.id == template_b.id:
-                from backend.app.exceptions import ValidationError
+                from app.exceptions import ValidationError
                 raise ValidationError(
                     message=(
                         "Template A and B must be different. "

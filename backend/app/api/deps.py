@@ -13,9 +13,9 @@ from typing import Optional
 from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
-from backend.app.core.auth import verify_access_token
-from backend.app.exceptions import AuthenticationError
-from backend.app.exceptions import AuthorizationError
+from app.core.auth import verify_access_token
+from app.exceptions import AuthenticationError
+from app.exceptions import AuthorizationError
 from database.base import get_db
 from database.models.core import User, Company
 

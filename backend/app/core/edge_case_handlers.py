@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Type
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("edge_case_handlers")
 

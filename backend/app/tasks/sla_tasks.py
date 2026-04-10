@@ -18,7 +18,7 @@ from typing import Dict, List, Any, Optional
 
 from celery import shared_task
 
-from backend.app.tasks.base import ParwaTask
+from app.tasks.base import ParwaTask
 from database.base import SessionLocal
 from database.models.tickets import (
     SLAPolicy,
@@ -410,7 +410,7 @@ def seed_sla_policies(self, company_id: str) -> Dict[str, Any]:
     
     Called when a new company is provisioned.
     """
-    from backend.app.services.sla_service import SLAService
+    from app.services.sla_service import SLAService
     
     db = SessionLocal()
     
@@ -450,7 +450,7 @@ def daily_sla_report(self, company_id: str) -> Dict[str, Any]:
     
     Runs daily via Beat schedule.
     """
-    from backend.app.services.sla_service import SLAService
+    from app.services.sla_service import SLAService
     
     db = SessionLocal()
     

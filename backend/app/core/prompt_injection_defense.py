@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("prompt_injection_defense")
 
@@ -1173,7 +1173,7 @@ class InjectionDefenseService:
         tenant_blocklist: Optional[List[str]] = None
 
         try:
-            from backend.app.core.redis import get_redis, make_key
+            from app.core.redis import get_redis, make_key
 
             redis_client = await get_redis()
 
@@ -1526,7 +1526,7 @@ class InjectionDefenseService:
             company_id: Tenant identifier.
             user_id: Optional user identifier.
         """
-        from backend.app.core.redis import get_redis, make_key
+        from app.core.redis import get_redis, make_key
 
         redis_client = await get_redis()
         user_key = user_id or "anon"
@@ -1565,7 +1565,7 @@ class InjectionDefenseService:
             # Validate the regex pattern before storing
             re.compile(pattern)
 
-            from backend.app.core.redis import get_redis, make_key
+            from app.core.redis import get_redis, make_key
 
             redis_client = await get_redis()
             blocklist_key = make_key(company_id, "tenant_blocklist")
@@ -1647,7 +1647,7 @@ class InjectionDefenseService:
             True if removed, False if not found or error.
         """
         try:
-            from backend.app.core.redis import get_redis, make_key
+            from app.core.redis import get_redis, make_key
 
             redis_client = await get_redis()
             blocklist_key = make_key(company_id, "tenant_blocklist")
@@ -1704,7 +1704,7 @@ class InjectionDefenseService:
             List of dicts with 'pattern', 'description', 'added_at'.
         """
         try:
-            from backend.app.core.redis import get_redis, make_key
+            from app.core.redis import get_redis, make_key
 
             redis_client = await get_redis()
             blocklist_key = make_key(company_id, "tenant_blocklist")

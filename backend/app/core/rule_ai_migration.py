@@ -603,14 +603,14 @@ class RuleAIMigrationEngine:
     def _get_classification_engine(self) -> Any:
         """Lazily import and return the AI classification engine."""
         if self._classification_engine is None:
-            from backend.app.core.classification_engine import ClassificationEngine
+            from app.core.classification_engine import ClassificationEngine
             self._classification_engine = ClassificationEngine()
         return self._classification_engine
 
     def _get_assignment_engine(self) -> Any:
         """Lazily import and return the AI assignment engine."""
         if self._assignment_engine is None:
-            from backend.app.core.ai_assignment_engine import AIAssignmentEngine
+            from app.core.ai_assignment_engine import AIAssignmentEngine
             self._assignment_engine = AIAssignmentEngine()
         return self._assignment_engine
 
@@ -1206,7 +1206,7 @@ class RuleAIMigrationEngine:
         ``ai_assignment_engine`` has not been created yet.
         """
         try:
-            from backend.app.core.ai_assignment_engine import TicketAssignmentRequest
+            from app.core.ai_assignment_engine import TicketAssignmentRequest
             return TicketAssignmentRequest(
                 ticket_id=ticket_data.get("ticket_id", ""),
                 company_id=ticket_data.get("company_id", ""),

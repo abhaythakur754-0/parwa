@@ -25,7 +25,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("sentiment_engine")
 
@@ -728,7 +728,7 @@ class SentimentAnalyzer:
         cache_key = f"sentiment_cache:{company_id}:{variant_type}:{query_hash}:{history_hash}"
 
         try:
-            from backend.app.core.redis import cache_get, cache_set
+            from app.core.redis import cache_get, cache_set
             cached = await cache_get(company_id, cache_key)
             if cached is not None and isinstance(cached, dict):
                 logger.debug("sentiment_cache_hit", key=cache_key)
@@ -806,7 +806,7 @@ class SentimentAnalyzer:
 
         # ── Cache store ─────────────────────────────────────────
         try:
-            from backend.app.core.redis import cache_set
+            from app.core.redis import cache_set
             await cache_set(
                 company_id, cache_key,
                 result.to_dict(), ttl_seconds=self.CACHE_TTL_SECONDS,

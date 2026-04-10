@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
-from backend.app.config import get_settings
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 

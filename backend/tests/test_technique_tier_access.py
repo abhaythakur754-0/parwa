@@ -25,8 +25,8 @@ _CACHE_TTL_SECONDS = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.technique_tier_access import (
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.technique_tier_access import (
             TechniqueTierAccessChecker,
             TierAccessDecision,
             TierAccessResult,
@@ -490,7 +490,7 @@ class TestCacheBehavior:
         # Fast-forward time past TTL
         original_time = time.time
 
-        with patch("backend.app.core.technique_tier_access.time.time") as mock_time:
+        with patch("app.core.technique_tier_access.time.time") as mock_time:
             # First call at t=0
             mock_time.return_value = original_time()
             result1 = checker.check_access("clara", "parwa")

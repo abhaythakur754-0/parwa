@@ -11,14 +11,14 @@ from unittest.mock import patch, MagicMock
 
 @pytest.fixture
 def detector():
-    from backend.app.core.hallucination_detector import HallucinationDetector
+    from app.core.hallucination_detector import HallucinationDetector
     return HallucinationDetector()
 
 # ── HallucinationMatch Tests ───────────────────────────────────
 
 class TestHallucinationMatch:
     def test_valid_match_creation(self):
-        from backend.app.core.hallucination_detector import HallucinationMatch
+        from app.core.hallucination_detector import HallucinationMatch
         m = HallucinationMatch(
             pattern_id="P01_kb_contradiction", pattern_name="Test",
             confidence=0.85, evidence="test", start=0, end=10, severity="high",
@@ -27,7 +27,7 @@ class TestHallucinationMatch:
         assert m.severity == "high"
 
     def test_confidence_clamped_high(self):
-        from backend.app.core.hallucination_detector import HallucinationMatch
+        from app.core.hallucination_detector import HallucinationMatch
         m = HallucinationMatch(
             pattern_id="P01", pattern_name="T", confidence=1.5,
             evidence="e", start=0, end=1, severity="high",
@@ -35,7 +35,7 @@ class TestHallucinationMatch:
         assert m.confidence <= 1.0
 
     def test_confidence_clamped_low(self):
-        from backend.app.core.hallucination_detector import HallucinationMatch
+        from app.core.hallucination_detector import HallucinationMatch
         m = HallucinationMatch(
             pattern_id="P01", pattern_name="T", confidence=-0.5,
             evidence="e", start=0, end=1, severity="high",
@@ -43,7 +43,7 @@ class TestHallucinationMatch:
         assert m.confidence >= 0.0
 
     def test_invalid_severity_defaults_medium(self):
-        from backend.app.core.hallucination_detector import HallucinationMatch
+        from app.core.hallucination_detector import HallucinationMatch
         m = HallucinationMatch(
             pattern_id="P01", pattern_name="T", confidence=0.5,
             evidence="e", start=0, end=1, severity="invalid",
@@ -55,23 +55,23 @@ class TestHallucinationMatch:
 
 class TestHallucinationReport:
     def test_safe_report(self):
-        from backend.app.core.hallucination_detector import HallucinationReport
+        from app.core.hallucination_detector import HallucinationReport
         r = HallucinationReport(is_hallucination=False, overall_confidence=0.0, recommendation="safe")
         assert r.recommendation == "safe"
         assert r.is_hallucination is False
 
     def test_block_report(self):
-        from backend.app.core.hallucination_detector import HallucinationReport
+        from app.core.hallucination_detector import HallucinationReport
         r = HallucinationReport(is_hallucination=True, overall_confidence=0.90, recommendation="block")
         assert r.recommendation == "block"
 
     def test_invalid_recommendation_defaults_review(self):
-        from backend.app.core.hallucination_detector import HallucinationReport
+        from app.core.hallucination_detector import HallucinationReport
         r = HallucinationReport(is_hallucination=True, overall_confidence=0.6, recommendation="invalid")
         assert r.recommendation == "review"
 
     def test_confidence_clamped(self):
-        from backend.app.core.hallucination_detector import HallucinationReport
+        from app.core.hallucination_detector import HallucinationReport
         r = HallucinationReport(is_hallucination=True, overall_confidence=1.5)
         assert r.overall_confidence <= 1.0
 
@@ -446,14 +446,14 @@ class TestPatternTemporalInconsistency:
 
 class TestReportBuilding:
     def test_no_matches_safe(self, detector):
-        from backend.app.core.hallucination_detector import HallucinationMatch
+        from app.core.hallucination_detector import HallucinationMatch
         report = detector._build_report([], "query", "response")
         assert report.is_hallucination is False
         assert report.overall_confidence == 0.0
         assert report.recommendation == "safe"
 
     def test_single_medium_match_review(self, detector):
-        from backend.app.core.hallucination_detector import HallucinationMatch
+        from app.core.hallucination_detector import HallucinationMatch
         match = HallucinationMatch(
             pattern_id="P04", pattern_name="Test", confidence=0.55,
             evidence="test", start=0, end=10, severity="low",
@@ -464,7 +464,7 @@ class TestReportBuilding:
         assert report.recommendation == "review"
 
     def test_single_high_match_block(self, detector):
-        from backend.app.core.hallucination_detector import HallucinationMatch
+        from app.core.hallucination_detector import HallucinationMatch
         match = HallucinationMatch(
             pattern_id="P05", pattern_name="Test", confidence=0.90,
             evidence="test", start=0, end=10, severity="high",
@@ -474,7 +474,7 @@ class TestReportBuilding:
         assert report.recommendation == "block"
 
     def test_multiple_matches_boosted_confidence(self, detector):
-        from backend.app.core.hallucination_detector import HallucinationMatch
+        from app.core.hallucination_detector import HallucinationMatch
         matches = [
             HallucinationMatch(
                 pattern_id="P04", pattern_name="Test", confidence=0.45,
@@ -490,7 +490,7 @@ class TestReportBuilding:
         assert report.overall_confidence > 0.50
 
     def test_critical_severity_elevates_to_block(self, detector):
-        from backend.app.core.hallucination_detector import HallucinationMatch
+        from app.core.hallucination_detector import HallucinationMatch
         match = HallucinationMatch(
             pattern_id="P05", pattern_name="Test", confidence=0.80,
             evidence="test", start=0, end=10, severity="critical",
@@ -499,7 +499,7 @@ class TestReportBuilding:
         assert report.recommendation == "block"
 
     def test_summary_severity_breakdown(self, detector):
-        from backend.app.core.hallucination_detector import HallucinationMatch
+        from app.core.hallucination_detector import HallucinationMatch
         matches = [
             HallucinationMatch(
                 pattern_id="P04", pattern_name="N", confidence=0.5,
@@ -559,19 +559,19 @@ class TestGracefulFailure:
 
 class TestConstants:
     def test_known_plans_has_all_variants(self):
-        from backend.app.core.hallucination_detector import KNOWN_PLANS
+        from app.core.hallucination_detector import KNOWN_PLANS
         assert "mini parwa" in KNOWN_PLANS
         assert "parwa" in KNOWN_PLANS
         assert "parwa high" in KNOWN_PLANS
 
     def test_known_plans_prices_correct(self):
-        from backend.app.core.hallucination_detector import KNOWN_PLANS
+        from app.core.hallucination_detector import KNOWN_PLANS
         assert KNOWN_PLANS["mini parwa"] == 999.0
         assert KNOWN_PLANS["parwa"] == 2499.0
         assert KNOWN_PLANS["parwa high"] == 3999.0
 
     def test_all_pii_types_defined(self):
-        from backend.app.core.hallucination_detector import (
+        from app.core.hallucination_detector import (
             KNOWN_FEATURE_PHRASES, BUZZWORDS,
         )
         assert len(KNOWN_FEATURE_PHRASES) > 20

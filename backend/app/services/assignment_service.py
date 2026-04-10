@@ -29,7 +29,7 @@ from database.models.tickets import (
     TicketPriority,
 )
 from database.models.core import User
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 
 
 class AssigneeType:

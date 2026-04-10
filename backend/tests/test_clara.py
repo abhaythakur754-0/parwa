@@ -22,8 +22,8 @@ BrandVoiceConfig = CLARAQualityGate = CLARAStage = CLARAResult = StageOutput = S
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.clara_quality_gate import (  # noqa: F811,F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.clara_quality_gate import (  # noqa: F811,F401
             BrandVoiceConfig,
             CLARAQualityGate,
             CLARAStage,

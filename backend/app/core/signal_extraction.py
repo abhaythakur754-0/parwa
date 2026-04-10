@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("signal_extraction")
 
@@ -227,7 +227,7 @@ class SignalExtractor:
 
         # Check cache (fail-open — never crash on Redis errors)
         try:
-            from backend.app.core.redis import cache_get, cache_set
+            from app.core.redis import cache_get, cache_set
             cached = await cache_get(request.company_id, cache_key)
             if cached is not None and isinstance(cached, dict):
                 logger.debug("signal_cache_hit", key=cache_key)
@@ -292,7 +292,7 @@ class SignalExtractor:
 
         # Store in cache (GAP-007: key already includes variant_type)
         try:
-            from backend.app.core.redis import cache_set
+            from app.core.redis import cache_set
             await cache_set(
                 request.company_id, cache_key,
                 result.to_dict(), ttl_seconds=self.CACHE_TTL_SECONDS,
@@ -562,7 +562,7 @@ class SignalExtractor:
 
         This bridges Signal Extraction → Technique Router.
         """
-        from backend.app.core.technique_router import QuerySignals
+        from app.core.technique_router import QuerySignals
 
         return QuerySignals(
             query_complexity=extracted.complexity,

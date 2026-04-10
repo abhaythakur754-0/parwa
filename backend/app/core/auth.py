@@ -15,8 +15,8 @@ from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
 
-from backend.app.config import get_settings
-from backend.app.exceptions import AuthenticationError
+from app.config import get_settings
+from app.exceptions import AuthenticationError
 
 
 # JWT algorithm — HS256 is industry standard for symmetric keys

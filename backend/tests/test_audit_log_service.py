@@ -28,12 +28,12 @@ IntegrityStatus = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger_and_lock():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        import backend.app.services.audit_log_service as _svc_mod
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        import app.services.audit_log_service as _svc_mod
         _orig_lock = _svc_mod.threading.Lock
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
-            from backend.app.services.audit_log_service import (
+            from app.services.audit_log_service import (
                 AuditLogService as _AuditLogService,
                 AuditLogError as _AuditLogError,
                 AuditLogConfig as _AuditLogConfig,

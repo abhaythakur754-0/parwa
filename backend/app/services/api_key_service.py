@@ -13,7 +13,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 from database.models.api_key_audit import APIKeyAuditLog
 from database.models.core import APIKey
 from security.api_keys import (

@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.app.core.clara_quality_gate import (
+from app.core.clara_quality_gate import (
     BrandVoiceConfig,
     CLARAQualityGate,
     CLARAStage,

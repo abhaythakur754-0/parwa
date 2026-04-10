@@ -21,9 +21,9 @@ Session endpoints (authenticated):
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user
-from backend.app.core.auth import hash_refresh_token
-from backend.app.schemas.mfa import (
+from app.api.deps import get_current_user
+from app.core.auth import hash_refresh_token
+from app.schemas.mfa import (
     BackupCodeRegenerateRequest,
     BackupCodeUseRequest,
     BackupCodesResponse,
@@ -36,7 +36,7 @@ from backend.app.schemas.mfa import (
     SessionListResponse,
     SessionRevokeResponse,
 )
-from backend.app.services.mfa_service import (
+from app.services.mfa_service import (
     get_remaining_backup_codes,
     initiate_mfa_setup,
     regenerate_backup_codes,
@@ -44,7 +44,7 @@ from backend.app.services.mfa_service import (
     verify_mfa_login,
     verify_mfa_setup,
 )
-from backend.app.services.session_service import (
+from app.services.session_service import (
     list_sessions,
     revoke_other_sessions,
     revoke_session,

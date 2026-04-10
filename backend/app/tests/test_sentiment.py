@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.app.core.sentiment_engine import (
+from app.core.sentiment_engine import (
     ConversationTrendAnalyzer,
     EmotionClassifier,
     EmotionType,
@@ -32,11 +32,11 @@ from backend.app.core.sentiment_engine import (
     UrgencyLevel,
     UrgencyScorer,
 )
-from backend.app.services.sentiment_technique_mapper import (
+from app.services.sentiment_technique_mapper import (
     SentimentMappingResult,
     SentimentTechniqueMapper,
 )
-from backend.app.core.technique_router import (
+from app.core.technique_router import (
     TechniqueID,
     TechniqueTier,
 )
@@ -672,7 +672,7 @@ class TestCacheBehavior:
             "processing_time_ms": 2.5,
             "conversation_trend": "stable",
         }
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock,
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
                    return_value=cached_data):
             result = await self.analyzer.analyze(
                 "any query", company_id="c1", variant_type="parwa",
@@ -684,9 +684,9 @@ class TestCacheBehavior:
     @pytest.mark.asyncio
     async def test_cache_miss_computes_result(self):
         """Cache miss computes result and stores it."""
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock,
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
                    return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
                 result = await self.analyzer.analyze(
                     "hello", company_id="c1", variant_type="parwa",
                 )
@@ -696,9 +696,9 @@ class TestCacheBehavior:
     @pytest.mark.asyncio
     async def test_cache_fail_open(self):
         """Redis failure should not crash analysis."""
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock,
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
                    side_effect=Exception("Redis down")):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock,
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock,
                        side_effect=Exception("Redis down")):
                 result = await self.analyzer.analyze(
                     "test query", company_id="c1",
@@ -1184,9 +1184,9 @@ class TestConcurrentAccess:
         analyzer = SentimentAnalyzer()
         queries = ["test query " + str(i) for i in range(20)]
 
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock,
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
                    side_effect=Exception("Redis down")):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock,
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock,
                        side_effect=Exception("Redis down")):
                 tasks = [
                     analyzer.analyze(q, company_id="c1")

@@ -15,7 +15,7 @@ from __future__ import annotations
 import time
 import pytest
 
-from backend.app.core.model_failover import (
+from app.core.model_failover import (
     FailoverManager,
     FailoverChainExecutor,
     DegradedResponseDetector,

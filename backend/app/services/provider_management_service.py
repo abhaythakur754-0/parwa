@@ -25,8 +25,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from backend.app.exceptions import ParwaBaseError
-from backend.app.logger import get_logger
+from app.exceptions import ParwaBaseError
+from app.logger import get_logger
 
 logger = get_logger("provider_management")
 
@@ -278,7 +278,7 @@ class ProviderManagementService:
         """Lazy-load ProviderHealthTracker from SmartRouter."""
         if self._health_tracker is None:
             try:
-                from backend.app.core.smart_router import ProviderHealthTracker
+                from app.core.smart_router import ProviderHealthTracker
 
                 self._health_tracker = ProviderHealthTracker()
             except Exception as exc:
@@ -293,7 +293,7 @@ class ProviderManagementService:
         """Lazy-load MODEL_REGISTRY from SmartRouter."""
         if self._model_registry is None:
             try:
-                from backend.app.core.smart_router import MODEL_REGISTRY
+                from app.core.smart_router import MODEL_REGISTRY
 
                 self._model_registry = MODEL_REGISTRY
             except Exception as exc:
@@ -308,7 +308,7 @@ class ProviderManagementService:
         """Lazy-load SmartRouter instance."""
         if self._smart_router is None:
             try:
-                from backend.app.core.smart_router import SmartRouter
+                from app.core.smart_router import SmartRouter
 
                 self._smart_router = SmartRouter()
             except Exception as exc:
@@ -732,7 +732,7 @@ class ProviderManagementService:
 
                     # Check availability via tracker.
                     try:
-                        from backend.app.core.smart_router import ModelProvider
+                        from app.core.smart_router import ModelProvider
 
                         mp = ModelProvider(provider)
                         available = tracker.is_available(
@@ -746,7 +746,7 @@ class ProviderManagementService:
                     if not available:
                         # Check if rate limited.
                         try:
-                            from backend.app.core.smart_router import (
+                            from app.core.smart_router import (
                                 ModelProvider,
                             )
 
@@ -1459,7 +1459,7 @@ class ProviderManagementService:
 
             if tracker:
                 try:
-                    from backend.app.core.smart_router import ModelProvider
+                    from app.core.smart_router import ModelProvider
 
                     mp = ModelProvider(provider)
                     daily_requests = tracker.get_daily_usage(
@@ -1560,7 +1560,7 @@ class ProviderManagementService:
                 continue
 
             try:
-                from backend.app.core.smart_router import ModelProvider
+                from app.core.smart_router import ModelProvider
 
                 mp = ModelProvider(provider)
                 daily = tracker.get_daily_usage(mp, config.model_id)

@@ -19,23 +19,23 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 # ── Imports under test ─────────────────────────────────────────────
 
-from backend.app.core.signal_extraction import (
+from app.core.signal_extraction import (
     SignalExtractor,
     SignalExtractionRequest,
     ExtractedSignals,
 )
-from backend.app.core.classification_engine import (
+from app.core.classification_engine import (
     ClassificationEngine,
     KeywordClassifier,
     IntentType,
     IntentResult,
 )
-from backend.app.core.technique_tier_access import (
+from app.core.technique_tier_access import (
     TechniqueTierAccessChecker,
     TierAccessDecision,
 )
-from backend.app.core.technique_router import TechniqueID
-from backend.app.core.edge_case_handlers import (
+from app.core.technique_router import TechniqueID
+from app.core.edge_case_handlers import (
     EdgeCaseRegistry,
     EdgeCaseAction,
     EdgeCaseSeverity,
@@ -51,7 +51,7 @@ from backend.app.core.edge_case_handlers import (
     VARIANT_HANDLER_WHITELIST,
     CHAIN_TIMEOUT_SECONDS,
 )
-from backend.app.core.cross_variant_routing import (
+from app.core.cross_variant_routing import (
     CrossVariantRouter,
     ChannelType,
     RoutingDecisionType,
@@ -60,14 +60,14 @@ from backend.app.core.cross_variant_routing import (
     AI_OVERLOAD_FLAG,
     ESCALATION_CHAIN,
 )
-from backend.app.core.langgraph_workflow import (
+from app.core.langgraph_workflow import (
     LangGraphWorkflow,
     WorkflowConfig,
     WorkflowResult,
     WorkflowStepResult,
     VARIANT_PIPELINE_CONFIG,
 )
-from backend.app.core.gsd_engine import (
+from app.core.gsd_engine import (
     GSDEngine,
     GSDConfig,
     GSDVariant,
@@ -77,7 +77,7 @@ from backend.app.core.gsd_engine import (
     MINI_TRANSITION_TABLE,
     ESCALATION_ELIGIBLE_STATES,
 )
-from backend.app.core.state_serialization import (
+from app.core.state_serialization import (
     StateSerializer,
     StateSerializerConfig,
     StateSerializationError,
@@ -86,7 +86,7 @@ from backend.app.core.state_serialization import (
     _build_lock_key,
     _build_state_key,
 )
-from backend.app.core.techniques.base import GSDState, ConversationState
+from app.core.techniques.base import GSDState, ConversationState
 
 
 # ══════════════════════════════════════════════════════════════════
