@@ -689,31 +689,33 @@ export default function ModelsPage() {
                           </div>
                         </div>
 
-                        {/* ── Action Buttons: Book Demo | Chat ── */}
-                        <div className="flex gap-2 mb-3">
+                        {/* ── Action Buttons: Instant Demo | Live Chat ── */}
+                        <div className="flex flex-col gap-2 mb-3">
                           <button
                             onClick={() => handleDemoClick(variant.name)}
-                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5"
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5"
                             style={{
                               background: 'rgba(255,255,255,0.06)',
                               border: '1px solid rgba(255,255,255,0.15)',
                               color: 'rgba(255,255,255,0.7)',
                             }}
+                            title="Book an instant demo to see how this agent talks to your clients"
                           >
-                            <Calendar className="w-3.5 h-3.5" />
-                            Book Demo
+                            <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span className="leading-tight">Book Instant Demo — See how this agent talks to your clients for just $1</span>
                           </button>
                           <button
                             onClick={() => { /* Open chat — chat widget is always visible */ }}
-                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5"
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5"
                             style={{
                               background: 'rgba(255,255,255,0.06)',
                               border: '1px solid rgba(255,255,255,0.15)',
                               color: 'rgba(255,255,255,0.7)',
                             }}
+                            title="Try live chat to see how it responds to your queries"
                           >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            Chat Now
+                            <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span className="leading-tight">Try Live Chat — See how it reacts to your queries</span>
                           </button>
                         </div>
 
@@ -835,7 +837,7 @@ export default function ModelsPage() {
                           style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)' }}
                         >
                           <Calendar className="w-4 h-4" />
-                          Book Demo
+                          Book Instant Demo — Just $1
                         </button>
                         <div
                           className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold"
