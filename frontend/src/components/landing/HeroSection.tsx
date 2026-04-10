@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Check } from 'lucide-react';
 
 /**
- * HeroSection - Light green theme with REDUCED gaps
+ * HeroSection - Dark premium theme with parrot-green animated background
  */
 
 const humanSupportItems = [
@@ -31,6 +31,7 @@ export default function HeroSection() {
   const [isInView, setIsInView] = useState(false);
   const [visibleCards, setVisibleCards] = useState<number[]>([]);
   const [counterValue, setCounterValue] = useState(0);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -40,6 +41,19 @@ export default function HeroSection() {
     );
     if (sectionRef.current) observer.observe(sectionRef.current);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!sectionRef.current) return;
+      const rect = sectionRef.current.getBoundingClientRect();
+      setMousePos({
+        x: ((e.clientX - rect.left) / rect.width - 0.5) * 2,
+        y: ((e.clientY - rect.top) / rect.height - 0.5) * 2,
+      });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
   useEffect(() => {
@@ -65,15 +79,83 @@ export default function HeroSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden bg-gradient-to-b from-[#F0FDF4] to-white"
+      className="relative overflow-hidden"
+      style={{
+        background: 'linear-gradient(165deg, #022C22 0%, #064E3B 30%, #065F46 60%, #047857 80%, #022C22 100%)',
+      }}
     >
-      {/* Background ambient glow */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/3 left-0 w-80 h-80 bg-red-100/50 rounded-full blur-[100px]" />
-        <div className="absolute top-1/3 right-0 w-80 h-80 bg-emerald-200/30 rounded-full blur-[100px]" />
+      {/* Animated Background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Floating orbs with parallax */}
+        <div
+          className="absolute w-[400px] h-[400px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, rgba(16,185,129,0.03) 60%, transparent 80%)',
+            top: '20%',
+            left: '10%',
+            transform: `translate(${mousePos.x * 12}px, ${mousePos.y * 8}px)`,
+            transition: 'transform 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
+            animation: 'jarvisOrbFloat1 10s ease-in-out infinite',
+          }}
+        />
+        <div
+          className="absolute w-[350px] h-[350px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(255,215,0,0.08) 0%, rgba(255,215,0,0.01) 60%, transparent 80%)',
+            top: '60%',
+            right: '5%',
+            transform: `translate(${mousePos.x * -15}px, ${mousePos.y * -10}px)`,
+            transition: 'transform 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
+            animation: 'jarvisOrbFloat2 12s ease-in-out infinite',
+          }}
+        />
+        <div
+          className="absolute w-[250px] h-[250px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(52,211,153,0.12) 0%, rgba(52,211,153,0.02) 60%, transparent 80%)',
+            top: '10%',
+            right: '30%',
+            transform: `translate(${mousePos.x * 8}px, ${mousePos.y * 6}px)`,
+            transition: 'transform 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
+            animation: 'jarvisOrbFloat3 9s ease-in-out infinite',
+          }}
+        />
+
+        {/* Particle grid dots */}
+        <div className="absolute inset-0" style={{ opacity: 0.3 }}>
+          {Array.from({ length: 20 }).map((_, i) => {
+            const row = Math.floor(i / 5);
+            const col = i % 5;
+            return (
+              <div
+                key={i}
+                className="absolute w-1 h-1 rounded-full bg-emerald-400"
+                style={{
+                  left: `${(col + 0.5) * 20}%`,
+                  top: `${(row + 0.5) * 20}%`,
+                  animation: `jarvisDotPulse 3s ease-in-out infinite ${(i * 0.4) % 4}s`,
+                  opacity: 0,
+                }}
+              />
+            );
+          })}
+        </div>
+
+        {/* Rising particles */}
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={`particle-${i}`}
+            className="absolute w-1.5 h-1.5 rounded-full bg-emerald-400/50"
+            style={{
+              left: `${12 + i * 15}%`,
+              animation: `jarvisParticleRise ${7 + i * 0.6}s linear infinite ${i * 0.9}s`,
+              opacity: 0,
+            }}
+          />
+        ))}
       </div>
 
-      {/* REDUCED PADDING — was py-16 sm:py-20 md:py-28 lg:py-36 */}
+      {/* Content */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 md:py-16 lg:py-20">
         {/* Section Header */}
         <div
@@ -81,23 +163,23 @@ export default function HeroSection() {
             isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 sm:mb-5 text-balance">
-            Human Support vs <span className="text-gradient">PARWA AI</span>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-5 text-balance">
+            Human Support vs <span className="bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-200 bg-clip-text text-transparent">PARWA AI</span>
           </h2>
           
-          <div className="inline-flex items-center gap-3 sm:gap-4 mt-6 mb-4 px-5 sm:px-6 py-3 sm:py-4 rounded-2xl bg-emerald-50 border border-emerald-300/50 animate-pulse-slow">
+          <div className="inline-flex items-center gap-3 sm:gap-4 mt-6 mb-4 px-5 sm:px-6 py-3 sm:py-4 rounded-2xl border border-emerald-500/20 backdrop-blur-sm" style={{ background: 'rgba(16,185,129,0.08)' }}>
             <div className="flex items-baseline gap-1">
-              <span className={`text-3xl sm:text-4xl lg:text-5xl font-bold text-emerald-800 ${counterValue === 92 ? 'counter-bounce' : ''}`}>
+              <span className={`text-3xl sm:text-4xl lg:text-5xl font-bold text-emerald-300 ${counterValue === 92 ? 'counter-bounce' : ''}`}>
                 {counterValue}%
               </span>
             </div>
-            <span className="text-sm sm:text-base text-gray-600 font-medium">cost reduction</span>
-            <div className="hidden sm:flex items-center gap-2 ml-2 pl-3 border-l border-gray-200">
-              <span className="text-sm text-red-500 font-semibold line-through decoration-2">$150,000/yr</span>
-              <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span className="text-sm sm:text-base text-emerald-200/50 font-medium">cost reduction</span>
+            <div className="hidden sm:flex items-center gap-2 ml-2 pl-3 border-l border-emerald-500/20">
+              <span className="text-sm text-rose-400/70 font-semibold line-through decoration-2">$150,000/yr</span>
+              <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
-              <span className="text-sm text-gray-700 font-semibold">$999/mo</span>
+              <span className="text-sm text-emerald-300 font-semibold">$999/mo</span>
             </div>
           </div>
           
@@ -105,12 +187,12 @@ export default function HeroSection() {
           <div className="flex items-center justify-center gap-2 mt-3 mb-2">
             <div className="relative w-2 h-2">
               <div className="absolute inset-0 rounded-full bg-emerald-400 pulse-live" />
-              <div className="absolute inset-0 rounded-full bg-emerald-500" />
+              <div className="absolute inset-0 rounded-full bg-emerald-400" />
             </div>
-            <span className="text-xs sm:text-sm text-gray-400 font-medium">Based on 2,400+ businesses using PARWA daily</span>
+            <span className="text-xs sm:text-sm text-emerald-200/40 font-medium">Based on 2,400+ businesses using PARWA daily</span>
           </div>
           
-          <p className="text-base sm:text-lg text-gray-500 max-w-xl mx-auto px-4">
+          <p className="text-base sm:text-lg text-emerald-100/40 max-w-xl mx-auto px-4">
             The numbers don&apos;t lie. See the real comparison.
           </p>
         </div>
@@ -119,32 +201,38 @@ export default function HeroSection() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 max-w-6xl mx-auto">
           {/* Human Support Card */}
           <div
-            className={`rounded-2xl border-2 border-red-300 bg-red-50/50 backdrop-blur-sm p-6 sm:p-8 lg:p-10 transition-all duration-700 shadow-lg shadow-red-100/50 ${
+            className={`rounded-2xl p-6 sm:p-8 lg:p-10 relative overflow-hidden transition-all duration-700 ${
               visibleCards.includes(0) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
             }`}
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+              border: '1px solid rgba(244,63,94,0.25)',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.2), 0 0 60px rgba(244,63,94,0.05)',
+            }}
           >
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center">
-                <X className="w-5 h-5 text-red-500" />
+            <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full blur-[80px] pointer-events-none" style={{ background: 'rgba(244,63,94,0.08)' }} />
+            <div className="relative flex items-center gap-3 mb-8">
+              <div className="w-11 h-11 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                <X className="w-5 h-5 text-rose-400" />
               </div>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Human Support</h3>
-              <span className="hidden sm:inline-flex ml-auto px-3 py-1 rounded-full bg-red-50 border border-red-200 text-red-500 text-xs font-semibold tracking-wide">
+              <h3 className="text-lg sm:text-xl font-bold text-white">Human Support</h3>
+              <span className="hidden sm:inline-flex ml-auto px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold tracking-wide">
                 BEFORE
               </span>
             </div>
-            <ul className="space-y-4 sm:space-y-5">
+            <ul className="relative space-y-4 sm:space-y-5">
               {humanSupportItems.map((item, index) => (
-                <li key={index} className="flex flex-col gap-0.5 border-b border-gray-200 last:border-0 pb-4 sm:pb-5 last:pb-0">
+                <li key={index} className="flex flex-col gap-0.5 border-b border-white/5 last:border-0 pb-4 sm:pb-5 last:pb-0">
                   <div className="flex items-start gap-3">
-                    <X className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                    <X className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
                     <span className={`text-sm sm:text-base ${
-                      item.quote ? 'text-red-600 italic font-medium' : 'text-gray-600'
+                      item.quote ? 'text-rose-300/80 italic font-medium' : 'text-gray-300'
                     }`}>
                       {item.value}
                     </span>
                   </div>
                   {item.note && (
-                    <span className="text-xs text-red-400/80 ml-7 font-medium">{item.note}</span>
+                    <span className="text-xs text-rose-400/60 ml-7 font-medium">{item.note}</span>
                   )}
                 </li>
               ))}
@@ -153,37 +241,42 @@ export default function HeroSection() {
 
           {/* PARWA AI Card */}
           <div
-            className={`rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50/80 to-white backdrop-blur-sm p-6 sm:p-8 lg:p-10 relative overflow-hidden transition-all duration-700 shadow-xl shadow-emerald-200/30 ${
+            className={`rounded-2xl p-6 sm:p-8 lg:p-10 relative overflow-hidden transition-all duration-700 ${
               visibleCards.includes(1) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
             }`}
+            style={{
+              background: 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.02) 100%)',
+              border: '1px solid rgba(16,185,129,0.3)',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.2), 0 0 80px rgba(16,185,129,0.08), inset 0 1px 0 rgba(255,255,255,0.05)',
+            }}
           >
-            <div className="absolute -top-20 -right-20 w-48 h-48 bg-emerald-200/40 rounded-full blur-[80px] pointer-events-none" />
+            <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full blur-[80px] pointer-events-none" style={{ background: 'rgba(16,185,129,0.15)' }} />
             <div className="relative flex items-center gap-3 mb-8">
-              <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center">
-                <Check className="w-5 h-5 text-emerald-700" />
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center">
+                <Check className="w-5 h-5 text-emerald-400" />
               </div>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">PARWA AI</h3>
-              <span className="hidden sm:inline-flex ml-auto px-3 py-1 rounded-full bg-emerald-100 border border-emerald-300/50 text-emerald-700 text-xs font-semibold tracking-wide recommended-glow">
+              <h3 className="text-lg sm:text-xl font-bold text-white">PARWA AI</h3>
+              <span className="hidden sm:inline-flex ml-auto px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold tracking-wide recommended-glow">
                 ✨ RECOMMENDED
               </span>
             </div>
             <ul className="relative space-y-4 sm:space-y-5">
               {parwaItems.map((item, index) => (
-                <li key={index} className="flex flex-col gap-0.5 border-b border-emerald-100 last:border-0 pb-4 sm:pb-5 last:pb-0">
+                <li key={index} className="flex flex-col gap-0.5 border-b border-emerald-500/10 last:border-0 pb-4 sm:pb-5 last:pb-0">
                   <div className="flex items-start gap-3">
-                    <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <Check className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
                     <span className={`text-sm sm:text-base ${
                       item.quote
-                        ? 'text-emerald-700 italic font-medium'
+                        ? 'text-emerald-300 italic font-medium'
                         : item.highlight
-                        ? 'text-gray-800 font-medium'
-                        : 'text-gray-600'
+                        ? 'text-gray-100 font-medium'
+                        : 'text-gray-300'
                     }`}>
                       {item.value}
                     </span>
                   </div>
                   {item.note && (
-                    <span className="text-xs text-emerald-600 ml-7 font-semibold">{item.note}</span>
+                    <span className="text-xs text-emerald-400/70 ml-7 font-semibold">{item.note}</span>
                   )}
                 </li>
               ))}
@@ -191,23 +284,51 @@ export default function HeroSection() {
           </div>
         </div>
 
-        {/* Bottom text — REDUCED MARGIN */}
+        {/* Bottom text */}
         <div
           className={`text-center mt-6 sm:mt-8 lg:mt-10 transition-all duration-700 delay-500 ${
             isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
-          <p className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-700">
+          <p className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-100">
             The math is simple.{' '}
-            <span className="text-gradient">The choice is yours.</span>
+            <span className="bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-200 bg-clip-text text-transparent">The choice is yours.</span>
           </p>
-          <p className="mt-3 text-sm sm:text-base text-gray-400 font-medium">
+          <p className="mt-3 text-sm sm:text-base text-emerald-100/30 font-medium">
             ⏳ Every day without automation costs you{' '}
             <span className="loss-aversion-text font-bold text-base sm:text-lg">$410</span>
-            <span className="text-gray-400"> in wasted support hours</span>
+            <span className="text-emerald-100/30"> in wasted support hours</span>
           </p>
         </div>
       </div>
+
+      {/* Keyframes */}
+      <style jsx global>{`
+        @keyframes jarvisOrbFloat1 {
+          0%, 100% { transform: translateY(0) scale(1); }
+          33% { transform: translateY(-25px) scale(1.04); }
+          66% { transform: translateY(12px) scale(0.97); }
+        }
+        @keyframes jarvisOrbFloat2 {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-35px) scale(1.06); }
+        }
+        @keyframes jarvisOrbFloat3 {
+          0%, 100% { transform: translateY(0) scale(1); }
+          33% { transform: translateY(-18px) scale(1.02); }
+          66% { transform: translateY(20px) scale(0.96); }
+        }
+        @keyframes jarvisDotPulse {
+          0%, 100% { opacity: 0; transform: scale(0.5); }
+          50% { opacity: 0.8; transform: scale(1.2); }
+        }
+        @keyframes jarvisParticleRise {
+          0% { transform: translateY(100%) translateX(0); opacity: 0; }
+          10% { opacity: 0.6; }
+          90% { opacity: 0.6; }
+          100% { transform: translateY(-100vh) translateX(25px); opacity: 0; }
+        }
+      `}</style>
     </section>
   );
 }

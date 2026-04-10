@@ -66,8 +66,8 @@ export function TotalSummary({
         backdrop-blur-xl transition-all duration-300
         ${
           hasSelection
-            ? 'border-emerald-300 bg-emerald-50 shadow-lg shadow-emerald-600/10'
-            : 'border-gray-200 bg-white'
+            ? 'border-emerald-500/30 bg-emerald-500/5 shadow-lg shadow-emerald-600/10'
+            : 'border-white/10 bg-white/[0.05]'
         }
       `}
     >
@@ -75,21 +75,21 @@ export function TotalSummary({
       <div className="flex items-center gap-2.5 mb-5">
         <div
           className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-            hasSelection ? 'bg-emerald-50' : 'bg-gray-100'
+            hasSelection ? 'bg-emerald-500/10' : 'bg-white/10'
           }`}
         >
           <ShoppingCart
             className={`w-5 h-5 ${
-              hasSelection ? 'text-emerald-600' : 'text-gray-300'
+              hasSelection ? 'text-emerald-400' : 'text-emerald-200/30'
             }`}
           />
         </div>
         <div>
-          <h3 className="text-base sm:text-lg font-bold text-gray-900">
+          <h3 className="text-base sm:text-lg font-bold text-white">
             Total Summary
           </h3>
           {hasSelection && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-emerald-200/50">
               {totalVariants} {totalVariants === 1 ? 'variant' : 'variants'}{' '}
               selected
             </p>
@@ -100,13 +100,13 @@ export function TotalSummary({
       {/* Empty State */}
       {!hasSelection ? (
         <div className="text-center py-8">
-          <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-            <Ticket className="w-7 h-7 text-gray-300" />
+          <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
+            <Ticket className="w-7 h-7 text-emerald-200/30" />
           </div>
-          <p className="text-sm text-gray-400 mb-1 font-medium">
+          <p className="text-sm text-emerald-200/30 mb-1 font-medium">
             No variants selected
           </p>
-          <p className="text-xs text-gray-300 leading-relaxed">
+          <p className="text-xs text-emerald-200/20 leading-relaxed">
             Select variants and adjust quantities to see your bill summary
           </p>
         </div>
@@ -117,7 +117,7 @@ export function TotalSummary({
             {selectedVariants.map(({ variant, quantity }) => (
               <div
                 key={variant.id}
-                className="group flex items-center gap-2.5 p-2.5 rounded-lg bg-gray-50 border border-gray-200 hover:border-gray-300 transition-colors"
+                className="group flex items-center gap-2.5 p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
               >
                 {/* Remove button */}
                 {onRemoveVariant && (
@@ -125,7 +125,7 @@ export function TotalSummary({
                     type="button"
                     onClick={() => onRemoveVariant(variant.id)}
                     disabled={disabled}
-                    className="w-5 h-5 rounded flex items-center justify-center text-transparent group-hover:text-gray-400 hover:!text-red-500 hover:!bg-red-50 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0"
+                    className="w-5 h-5 rounded flex items-center justify-center text-transparent group-hover:text-emerald-200/40 hover:!text-red-400 hover:!bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0"
                     aria-label={`Remove ${variant.name}`}
                   >
                     <X className="w-3 h-3" />
@@ -134,16 +134,16 @@ export function TotalSummary({
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
+                  <p className="text-sm font-semibold text-white truncate">
                     {variant.name}
                   </p>
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-[11px] text-emerald-200/30">
                     {quantity} x ${variant.pricePerMonth}/mo
                   </p>
                 </div>
 
                 {/* Price */}
-                <span className="text-sm font-bold text-gray-800 flex-shrink-0">
+                <span className="text-sm font-bold text-gray-100 flex-shrink-0">
                   ${variant.pricePerMonth * quantity}
                 </span>
               </div>
@@ -151,16 +151,16 @@ export function TotalSummary({
           </div>
 
           {/* Totals Section */}
-          <div className="space-y-3 py-4 border-t border-gray-200">
+          <div className="space-y-3 py-4 border-t border-white/10">
             {/* Total Tickets */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-gray-500">
+              <div className="flex items-center gap-2 text-emerald-200/50">
                 <Ticket className="w-4 h-4" />
                 <span className="text-sm">Total Tickets</span>
               </div>
-              <span className="text-sm font-bold text-gray-900">
+              <span className="text-sm font-bold text-white">
                 {totalTickets.toLocaleString()}
-                <span className="text-xs font-normal text-gray-400 ml-0.5">
+                <span className="text-xs font-normal text-emerald-200/30 ml-0.5">
                   /mo
                 </span>
               </span>
@@ -168,27 +168,27 @@ export function TotalSummary({
 
             {/* Total Variants */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-gray-500">
+              <div className="flex items-center gap-2 text-emerald-200/50">
                 <Sparkles className="w-4 h-4" />
                 <span className="text-sm">Active Variants</span>
               </div>
-              <span className="text-sm font-bold text-gray-900">
+              <span className="text-sm font-bold text-white">
                 {totalVariants}
               </span>
             </div>
           </div>
 
           {/* Monthly Total */}
-          <div className="flex items-center justify-between py-4 border-t border-gray-200">
-            <span className="text-sm font-semibold text-gray-700">
+          <div className="flex items-center justify-between py-4 border-t border-white/10">
+            <span className="text-sm font-semibold text-emerald-200/70">
               Monthly Total
             </span>
             <div className="flex items-baseline gap-0.5">
-              <span className="text-xs text-emerald-600 font-medium">$</span>
-              <span className="text-2xl sm:text-3xl font-extrabold text-emerald-600 tabular-nums">
+              <span className="text-xs text-emerald-400 font-medium">$</span>
+              <span className="text-2xl sm:text-3xl font-extrabold text-emerald-400 tabular-nums">
                 {totalMonthly}
               </span>
-              <span className="text-xs text-emerald-500 font-medium">
+              <span className="text-xs text-emerald-400/60 font-medium">
                 /mo
               </span>
             </div>
@@ -196,15 +196,15 @@ export function TotalSummary({
 
           {/* Annual Savings Badge */}
           {totalMonthly > 0 && (
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 mb-4">
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-4">
               <div className="flex items-center gap-2">
-                <CalendarCheck className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                <p className="text-xs sm:text-sm text-amber-700 font-medium">
-                  <span className="text-amber-600 font-bold">
+                <CalendarCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <p className="text-xs sm:text-sm text-amber-300 font-medium">
+                  <span className="text-amber-400 font-bold">
                     2 months free
                   </span>{' '}
                   with annual plan — save{' '}
-                  <span className="text-amber-600 font-bold">
+                  <span className="text-amber-400 font-bold">
                     ${annualSavings}
                   </span>
                   /year
@@ -221,10 +221,10 @@ export function TotalSummary({
             className={`
               w-full flex items-center justify-center gap-2
               px-5 py-3 rounded-lg text-sm font-bold
-              bg-gradient-to-r from-emerald-600 to-emerald-700
-              text-white shadow-lg shadow-emerald-600/25
-              hover:from-emerald-500 hover:to-emerald-600
-              hover:shadow-emerald-600/40 hover:-translate-y-0.5
+              bg-gradient-to-r from-emerald-500 to-emerald-400
+              text-[#022C22] shadow-lg shadow-emerald-500/25
+              hover:from-emerald-400 hover:to-emerald-300
+              hover:shadow-emerald-500/40 hover:-translate-y-0.5
               active:translate-y-0 active:shadow-md
               transition-all duration-300
               disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0
@@ -233,7 +233,7 @@ export function TotalSummary({
           >
             {isSubmitting ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-[#022C22]/30 border-t-[#022C22] rounded-full animate-spin" />
                 Processing...
               </>
             ) : (

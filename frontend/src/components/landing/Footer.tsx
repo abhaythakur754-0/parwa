@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 
 /**
- * Footer - Dark footer for contrast anchoring on light page
+ * Footer - Dark premium footer with emerald accents
  */
 
 interface FooterSection {
@@ -38,7 +38,7 @@ function FooterSectionMobile({ section, isOpen, onToggle }: { section: FooterSec
         <ul className="pb-4 space-y-2.5">
           {section.links.map((link) => (
             <li key={link.name}>
-              <Link href={link.href} className="text-gray-400 hover:text-white text-sm transition-colors focus-visible-ring rounded">{link.name}</Link>
+              <Link href={link.href} className="text-gray-400 hover:text-emerald-300 text-sm transition-colors duration-300 focus-visible-ring rounded">{link.name}</Link>
             </li>
           ))}
         </ul>
@@ -52,13 +52,14 @@ export default function Footer() {
   const toggleSection = (title: string) => setOpenSections(prev => prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]);
 
   return (
-    <footer className="relative bg-gray-900 border-t border-gray-800" role="contentinfo">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
+    <footer className="relative bg-[#011a13]" role="contentinfo">
+      {/* Emerald gradient top border line */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-18 md:py-20">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-10 sm:gap-14">
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5 mb-5 group focus-visible-ring rounded-xl px-1 py-0.5">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-600/20">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
                 <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
                 </svg>
@@ -79,19 +80,19 @@ export default function Footer() {
               <ul className="space-y-2.5">
                 {section.links.map((link) => (
                   <li key={link.name}>
-                    <Link href={link.href} className="text-gray-400 hover:text-white text-sm transition-colors duration-300 focus-visible-ring rounded">{link.name}</Link>
+                    <Link href={link.href} className="text-gray-400 hover:text-emerald-300 text-sm transition-colors duration-300 focus-visible-ring rounded">{link.name}</Link>
                   </li>
                 ))}
               </ul>
             </div>
           ))}
         </div>
-        <div className="mt-12 sm:mt-16 pt-6 sm:pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-5 sm:gap-6">
+        <div className="mt-12 sm:mt-16 pt-6 sm:pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-5 sm:gap-6">
           <p className="text-gray-500 text-xs sm:text-sm">&copy; 2026 PARWA. All rights reserved.</p>
           <div className="flex items-center gap-2">
             {socialLinks.map((social) => (
               <a key={social.name} href={social.href} target="_blank" rel="noopener noreferrer"
-                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-emerald-600/10 flex items-center justify-center transition-all duration-500 focus-visible-ring"
+                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-emerald-500/10 text-gray-400 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/10 flex items-center justify-center transition-all duration-500 focus-visible-ring"
                 aria-label={social.name}>
                 {social.icon}
               </a>

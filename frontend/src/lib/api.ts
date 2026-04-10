@@ -66,12 +66,16 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    // Handle 401 Unauthorized
+    // Handle 401 Unauthorized — don't redirect from login page to avoid loops
     if (error.response?.status === 401) {
-      // Clear auth token and redirect to login
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth_token');
-        window.location.href = '/login';
+        localStorage.removeItem('parwa_access_token');
+        localStorage.removeItem('parwa_refresh_token');
+        localStorage.removeItem('parwa_user');
+        // Only redirect if NOT already on an auth page
+        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/signup') && !window.location.pathname.startsWith('/forgot-password')) {
+          window.location.href = '/login';
+        }
       }
     }
     

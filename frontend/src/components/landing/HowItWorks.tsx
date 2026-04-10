@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { MessageSquare, MessageCircle, Sparkles, PartyPopper, BarChart3 } from 'lucide-react';
 
 /**
- * HowItWorks - Light green theme, REDUCED gaps, no unwanted line
+ * HowItWorks - Dark premium emerald theme
  */
 
 const steps = [
@@ -42,25 +42,25 @@ const steps = [
 
 const colorMap: Record<string, { bg: string; border: string; text: string; ring: string; dot: string }> = {
   green: {
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-300',
-    text: 'text-emerald-600',
-    ring: 'ring-emerald-200',
-    dot: 'bg-emerald-500',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/30',
+    text: 'text-emerald-400',
+    ring: 'ring-emerald-500/20',
+    dot: 'bg-emerald-400',
   },
   amber: {
-    bg: 'bg-amber-50',
-    border: 'border-amber-300',
-    text: 'text-amber-600',
-    ring: 'ring-amber-200',
-    dot: 'bg-amber-500',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/30',
+    text: 'text-amber-400',
+    ring: 'ring-amber-500/20',
+    dot: 'bg-amber-400',
   },
   emerald: {
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-300',
-    text: 'text-emerald-600',
-    ring: 'ring-emerald-200',
-    dot: 'bg-emerald-500',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/30',
+    text: 'text-emerald-400',
+    ring: 'ring-emerald-500/20',
+    dot: 'bg-emerald-400',
   },
 };
 
@@ -89,29 +89,32 @@ export default function HowItWorks() {
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden bg-gradient-to-b from-[#F0FDF4] to-white"
+      className="relative overflow-hidden bg-gradient-to-b from-[#022C22] to-[#064E3B]"
     >
+      {/* Ambient glow orbs */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 right-0 w-80 h-80 bg-emerald-200/30 rounded-full blur-[100px]" />
+        <div className="absolute top-1/4 right-0 w-80 h-80 bg-emerald-500/15 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 left-0 w-64 h-64 bg-emerald-600/10 rounded-full blur-[100px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/8 rounded-full blur-[140px]" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header — REDUCED MARGIN */}
+        {/* Section Header */}
         <div
           className={`text-center mb-8 sm:mb-10 lg:mb-12 transition-all duration-700 ${
             isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 sm:mb-5">
-            How <span className="text-gradient">PARWA</span> Works
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-5">
+            How <span className="bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent">PARWA</span> Works
           </h2>
-          <p className="text-base sm:text-lg text-gray-500 max-w-2xl mx-auto px-4">
+          <p className="text-base sm:text-lg text-gray-400 max-w-2xl mx-auto px-4">
             Your support runs on autopilot — instant, automatic, zero effort.
           </p>
-          {/* Setup time badge - urgency + simplicity trigger */}
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200 mx-auto">
+          {/* Setup time badge */}
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 mx-auto">
             <span className="text-base">⚡</span>
-            <span className="text-sm font-semibold text-amber-700">Average setup time: 5 minutes</span>
+            <span className="text-sm font-semibold text-emerald-300">Average setup time: 5 minutes</span>
           </div>
         </div>
 
@@ -143,29 +146,29 @@ export default function HowItWorks() {
                           ? `${colors.bg} ${colors.border} ring ${colors.ring} scale-110`
                           : isPast
                           ? `${colors.bg} ring ${colors.ring}`
-                          : 'bg-white border border-gray-200 ring-transparent'
+                          : 'bg-white/[0.03] border border-white/10 ring-transparent'
                       }`}
                     >
                       <span className={`transition-all duration-300 ${
-                        isActive ? colors.text : isPast ? colors.text : 'text-gray-400'
+                        isActive ? colors.text : isPast ? colors.text : 'text-gray-500'
                       }`}>
                         {step.icon}
                       </span>
                     </div>
 
                     <span className={`mt-4 text-xs font-semibold tracking-wider uppercase transition-colors duration-300 ${
-                      isActive || isPast ? colors.text : 'text-gray-400'
+                      isActive || isPast ? colors.text : 'text-gray-500'
                     }`}>
                       Step {index + 1}
                     </span>
 
                     <h4 className={`mt-1.5 text-base font-bold text-center transition-colors duration-300 ${
-                      isActive ? 'text-gray-900' : 'text-gray-500'
+                      isActive ? 'text-white' : 'text-gray-500'
                     }`}>
                       {step.title}
                     </h4>
 
-                    <div className={`mt-3 text-sm text-gray-500 text-center max-w-[180px] transition-all duration-500 ${
+                    <div className={`mt-3 text-sm text-gray-400 text-center max-w-[180px] transition-all duration-500 ${
                       isActive ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0 overflow-hidden'
                     }`}>
                       {step.description}
@@ -186,10 +189,10 @@ export default function HowItWorks() {
             return (
               <div
                 key={index}
-                className={`rounded-xl border p-4 sm:p-5 transition-all duration-500 cursor-pointer ${
+                className={`rounded-xl border p-4 sm:p-5 transition-all duration-500 cursor-pointer backdrop-blur-sm ${
                   isActive
-                    ? `${colors.border} ${colors.bg}`
-                    : 'border-gray-200 bg-white hover:bg-gray-50'
+                    ? `${colors.border} ${colors.bg} shadow-lg shadow-emerald-500/10`
+                    : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
                 } ${isInView ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'}`}
                 style={{ transitionDelay: `${index * 100}ms` }}
                 onClick={() => setActiveStep(index)}
@@ -201,7 +204,7 @@ export default function HowItWorks() {
                 <div className="flex items-start gap-3.5">
                   <div
                     className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-                      isActive ? `${colors.bg} ${colors.text}` : 'bg-gray-100 text-gray-400'
+                      isActive ? `${colors.bg} ${colors.text}` : 'bg-white/[0.05] text-gray-500'
                     }`}
                   >
                     {step.icon}
@@ -209,18 +212,18 @@ export default function HowItWorks() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-semibold tracking-wider uppercase ${
-                        isActive ? colors.text : 'text-gray-400'
+                        isActive ? colors.text : 'text-gray-500'
                       }`}>
                         Step {index + 1}
                       </span>
                     </div>
                     <h4 className={`text-base font-bold mt-0.5 transition-colors ${
-                      isActive ? 'text-gray-900' : 'text-gray-600'
+                      isActive ? 'text-white' : 'text-gray-400'
                     }`}>
                       {step.title}
                     </h4>
                     <p className={`text-sm mt-1 transition-all duration-300 ${
-                      isActive ? 'text-gray-500 opacity-100 max-h-10' : 'text-gray-400 opacity-0 max-h-0 overflow-hidden'
+                      isActive ? 'text-gray-400 opacity-100 max-h-10' : 'text-gray-500 opacity-0 max-h-0 overflow-hidden'
                     }`}>
                       {step.description}
                     </p>
@@ -242,7 +245,7 @@ export default function HowItWorks() {
                 className={`h-2 rounded-full transition-all duration-500 focus-visible-ring ${
                   index === activeStep
                     ? `w-8 ${colors.dot}`
-                    : 'w-2 bg-gray-300 hover:bg-gray-400'
+                    : 'w-2 bg-gray-600 hover:bg-gray-500'
                 }`}
                 aria-label={`Go to step ${index + 1}`}
                 aria-selected={index === activeStep}

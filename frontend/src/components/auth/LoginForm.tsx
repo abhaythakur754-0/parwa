@@ -4,21 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react';
 
-/**
- * LoginForm Component
- * 
- * Email/password login form with validation.
- * Based on F-010: Email/password login
- * 
- * Features:
- * - Email validation
- * - Password visibility toggle
- * - Loading state
- * - Error display
- * - Link to signup
- * - Link to forgot password
- */
-
 interface LoginFormProps {
   onSubmit: (email: string, password: string) => Promise<void>;
   isLoading?: boolean;
@@ -37,72 +22,37 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Validate email format
   const validateEmail = (value: string): string | undefined => {
-    if (!value) {
-      return 'Email is required';
-    }
+    if (!value) return 'Email is required';
     const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(value)) {
-      return 'Please enter a valid email address';
-    }
+    if (!emailRegex.test(value)) return 'Please enter a valid email address';
     return undefined;
   };
 
-  // Validate password
   const validatePassword = (value: string): string | undefined => {
-    if (!value) {
-      return 'Password is required';
-    }
+    if (!value) return 'Password is required';
     return undefined;
   };
 
-  // Handle email change
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setEmail(value);
-    if (formErrors.email) {
-      setFormErrors(prev => ({ ...prev, email: validateEmail(value) }));
-    }
+    if (formErrors.email) setFormErrors(prev => ({ ...prev, email: validateEmail(value) }));
   };
 
-  // Handle password change
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setPassword(value);
-    if (formErrors.password) {
-      setFormErrors(prev => ({ ...prev, password: validatePassword(value) }));
-    }
+    if (formErrors.password) setFormErrors(prev => ({ ...prev, password: validatePassword(value) }));
   };
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Validate all fields
-    const errors: FormErrors = {
-      email: validateEmail(email),
-      password: validatePassword(password),
-    };
-
-    // Remove undefined errors
-    Object.keys(errors).forEach(key => {
-      if (errors[key as keyof FormErrors] === undefined) {
-        delete errors[key as keyof FormErrors];
-      }
-    });
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
+    const errors: FormErrors = { email: validateEmail(email), password: validatePassword(password) };
+    Object.keys(errors).forEach(key => { if (errors[key as keyof FormErrors] === undefined) delete errors[key as keyof FormErrors]; });
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
     setIsSubmitting(true);
-    try {
-      await onSubmit(email, password);
-    } finally {
-      setIsSubmitting(false);
-    }
+    try { await onSubmit(email, password); } finally { setIsSubmitting(false); }
   };
 
   const isDisabled = isLoading || isSubmitting;
@@ -111,12 +61,12 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Email Field */}
       <div>
-        <label htmlFor="email" className="label">
+        <label htmlFor="email" className="block text-sm font-medium text-emerald-200/70 mb-1.5">
           Email address
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Mail className="h-5 w-5 text-gray-400" />
+            <Mail className="h-5 w-5 text-emerald-400/50" />
           </div>
           <input
             id="email"
@@ -126,32 +76,31 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
             required
             value={email}
             onChange={handleEmailChange}
-            className={`input pl-10 ${formErrors.email ? 'input-error' : ''}`}
+            className={`w-full pl-10 pr-4 py-3 bg-white/5 border rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
+              formErrors.email
+                ? 'border-rose-500/40 focus:ring-rose-500/30'
+                : 'border-white/10 focus:ring-emerald-500/30 focus:border-emerald-500/40'
+            }`}
             placeholder="you@example.com"
             disabled={isDisabled}
           />
         </div>
-        {formErrors.email && (
-          <p className="error-text">{formErrors.email}</p>
-        )}
+        {formErrors.email && <p className="mt-1 text-sm text-rose-300">{formErrors.email}</p>}
       </div>
 
       {/* Password Field */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label htmlFor="password" className="label mb-0">
+          <label htmlFor="password" className="block text-sm font-medium text-emerald-200/70">
             Password
           </label>
-          <Link
-            href="/forgot-password"
-            className="text-sm text-emerald-600 hover:text-emerald-500 transition-colors"
-          >
+          <Link href="/forgot-password" className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors">
             Forgot password?
           </Link>
         </div>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Lock className="h-5 w-5 text-gray-400" />
+            <Lock className="h-5 w-5 text-emerald-400/50" />
           </div>
           <input
             id="password"
@@ -161,32 +110,30 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
             required
             value={password}
             onChange={handlePasswordChange}
-            className={`input pl-10 pr-10 ${formErrors.password ? 'input-error' : ''}`}
-            placeholder="••••••••"
+            className={`w-full pl-10 pr-10 py-3 bg-white/5 border rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
+              formErrors.password
+                ? 'border-rose-500/40 focus:ring-rose-500/30'
+                : 'border-white/10 focus:ring-emerald-500/30 focus:border-emerald-500/40'
+            }`}
+            placeholder="Enter your password"
             disabled={isDisabled}
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 transition-colors"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-400/50 hover:text-emerald-400 transition-colors"
             tabIndex={-1}
           >
-            {showPassword ? (
-              <EyeOff className="h-5 w-5" />
-            ) : (
-              <Eye className="h-5 w-5" />
-            )}
+            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
           </button>
         </div>
-        {formErrors.password && (
-          <p className="error-text">{formErrors.password}</p>
-        )}
+        {formErrors.password && <p className="mt-1 text-sm text-rose-300">{formErrors.password}</p>}
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="p-3 rounded-lg bg-error-500/10 border border-error-500/20">
-          <p className="text-sm text-error-400">{error}</p>
+        <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+          <p className="text-sm text-rose-300">{error}</p>
         </div>
       )}
 
@@ -194,11 +141,11 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
       <button
         type="submit"
         disabled={isDisabled}
-        className="btn btn-primary w-full py-3"
+        className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40"
       >
         {isDisabled ? (
           <>
-            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            <Loader2 className="w-5 h-5 animate-spin" />
             Signing in...
           </>
         ) : (
@@ -207,12 +154,9 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
       </button>
 
       {/* Sign Up Link */}
-      <p className="text-center text-sm text-gray-500">
+      <p className="text-center text-sm text-emerald-200/40">
         Don&apos;t have an account?{' '}
-        <Link
-          href="/signup"
-          className="text-emerald-600 hover:text-emerald-500 font-medium transition-colors"
-        >
+        <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
           Sign up
         </Link>
       </p>

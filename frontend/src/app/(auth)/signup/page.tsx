@@ -8,59 +8,58 @@ import toast from 'react-hot-toast';
 
 import { SignupForm, SignupFormData } from '@/components/auth/SignupForm';
 import { SocialLogin } from '@/components/auth/SocialLogin';
-import { useAuth } from '@/hooks/useAuth';
-
-/**
- * Signup Page
- * 
- * Registration page for new users.
- * Based on F-010: User registration
- * 
- * Flow:
- * 1. User enters email, password, name, company, industry
- * 2. On success, redirects to pricing page or demo
- * 3. If already authenticated, redirects to dashboard
- */
 
 export default function SignupPage() {
   const router = useRouter();
-  const { register, loginWithGoogle, checkEmailAvailability, isAuthenticated, isLoading: authLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
-  // Redirect if already authenticated
+  // Check if already logged in via localStorage
   useEffect(() => {
-    if (isAuthenticated && !authLoading) {
-      router.push('/models');
+    try {
+      const storedUser = localStorage.getItem('parwa_user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        if (user && user.email) {
+          router.push('/models');
+          return;
+        }
+      }
+    } catch {
+      // ignore parse errors
     }
-  }, [isAuthenticated, authLoading, router]);
+    setIsChecking(false);
+  }, [router]);
 
-  // Handle signup form submission
   const handleSignup = async (data: SignupFormData) => {
     setError(null);
     setIsSubmitting(true);
 
     try {
-      const response = await register({
-        email: data.email,
-        password: data.password,
-        confirm_password: data.password,
-        full_name: data.full_name,
-        company_name: data.company_name,
-        industry: data.industry,
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          fullName: data.full_name,
+          companyName: data.company_name,
+          industry: data.industry,
+        }),
       });
 
-      toast.success('Account created successfully!');
+      const result = await res.json();
 
-      // Redirect based on whether user is new
-      if (response.is_new_user) {
-        // New users go to pricing/plan selection
-        router.push('/models');
-      } else {
-        // Existing users go to dashboard
-        router.push('/dashboard');
+      if (!res.ok) {
+        throw new Error(result.message || 'Registration failed. Please try again.');
       }
+
+      toast.success('Account created successfully! Redirecting to login...');
+
+      // Redirect to login page
+      router.push('/login');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(message);
@@ -70,25 +69,35 @@ export default function SignupPage() {
     }
   };
 
-  // Handle Google OAuth
   const handleGoogleLogin = async (idToken: string) => {
     setGoogleError(null);
     setIsSubmitting(true);
 
     try {
-      const response = await loginWithGoogle(idToken);
+      // Call local Next.js Google auth route
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token: idToken }),
+      });
 
-      toast.success('Signed in with Google!');
+      const result = await res.json();
 
-      // Redirect based on whether user is new
-      if (response.is_new_user) {
-        // New users from Google OAuth need to complete profile
-        router.push('/welcome/details');
-      } else {
-        router.push('/dashboard');
+      if (result.status !== 'success') {
+        throw new Error(result.message || 'Google sign-in failed. Please try again.');
       }
+
+      // Store user in localStorage
+      if (result.user) {
+        localStorage.setItem('parwa_user', JSON.stringify(result.user));
+      }
+
+      toast.success(result.is_new_user ? 'Account created with Google!' : 'Signed in with Google!');
+      router.push('/models');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Google sign-in failed. Please try again.';
+      const message = err instanceof Error
+        ? err.message
+        : 'Google sign-in failed. Please try again.';
       setGoogleError(message);
       toast.error(message);
     } finally {
@@ -96,50 +105,104 @@ export default function SignupPage() {
     }
   };
 
-  // Handle email availability check
   const handleCheckEmail = async (email: string): Promise<boolean> => {
-    return checkEmailAvailability(email);
+    try {
+      const res = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      return !data.exists;
+    } catch {
+      return false;
+    }
   };
 
-  // Show loading if checking auth status
-  if (authLoading) {
+  if (isChecking) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #022C22 0%, #064E3B 50%, #047857 100%)' }}>
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
       </div>
     );
   }
 
-  // Don't render if already authenticated
-  if (isAuthenticated) {
-    return null;
-  }
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+      style={{ background: 'linear-gradient(165deg, #022C22 0%, #064E3B 40%, #065F46 70%, #047857 100%)' }}
+    >
+      {/* Animated background elements */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute w-[400px] h-[400px] rounded-full" style={{
+          background: 'radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.02) 60%, transparent 80%)',
+          top: '15%',
+          right: '10%',
+          animation: 'jarvisOrbFloat1 10s ease-in-out infinite',
+        }} />
+        <div className="absolute w-[350px] h-[350px] rounded-full" style={{
+          background: 'radial-gradient(circle, rgba(255,215,0,0.06) 0%, rgba(255,215,0,0.01) 60%, transparent 80%)',
+          bottom: '15%',
+          left: '5%',
+          animation: 'jarvisOrbFloat2 12s ease-in-out infinite',
+        }} />
+        <div className="absolute w-[250px] h-[250px] rounded-full" style={{
+          background: 'radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 70%)',
+          top: '50%',
+          left: '40%',
+          animation: 'jarvisOrbFloat3 9s ease-in-out infinite',
+        }} />
+        {Array.from({ length: 12 }).map((_, i) => {
+          const row = Math.floor(i / 4);
+          const col = i % 4;
+          return (
+            <div
+              key={i}
+              className="absolute w-1 h-1 rounded-full bg-emerald-400"
+              style={{
+                left: `${(col + 0.5) * 25}%`,
+                top: `${(row + 0.5) * 25}%`,
+                animation: `jarvisDotPulse 3s ease-in-out infinite ${(i * 0.4) % 4}s`,
+                opacity: 0,
+              }}
+            />
+          );
+        })}
+      </div>
+
+      <div className="w-full max-w-md space-y-8 relative z-10">
         {/* Header */}
         <div className="text-center">
-          {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-600/20">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-600/30">
               <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
               </svg>
             </div>
-            <span className="text-2xl font-bold text-gray-900">PARWA</span>
+            <span className="text-2xl font-bold text-white">PARWA</span>
           </Link>
-          
-          <h1 className="text-3xl font-bold text-gray-900">
+
+          <h1 className="text-3xl font-bold text-white">
             Create your account
           </h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Start your 14-day free trial. No credit card required.
+          <p className="mt-2 text-sm text-emerald-200/50">
+            Create your account to get started with Parwa
           </p>
         </div>
 
-        {/* Main Card */}
-        <div className="card card-padding">
+        {/* Glass Card */}
+        <div
+          className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)',
+            border: '1px solid rgba(16,185,129,0.2)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(16,185,129,0.06)',
+          }}
+        >
+          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(16,185,129,0.1)' }} />
+          <div className="absolute -bottom-16 -left-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,215,0,0.05)' }} />
+
           {/* Social Login */}
           <SocialLogin
             onGoogleLogin={handleGoogleLogin}
@@ -159,17 +222,36 @@ export default function SignupPage() {
         </div>
 
         {/* Terms */}
-        <p className="text-center text-xs text-gray-400">
+        <p className="text-center text-xs text-emerald-200/30">
           By creating an account, you agree to our{' '}
-          <Link href="/terms" className="text-emerald-400 hover:text-emerald-300">
+          <Link href="/terms" className="text-emerald-400 hover:text-emerald-300 transition-colors">
             Terms of Service
           </Link>{' '}
           and{' '}
-          <Link href="/privacy" className="text-emerald-400 hover:text-emerald-300">
+          <Link href="/privacy" className="text-emerald-400 hover:text-emerald-300 transition-colors">
             Privacy Policy
           </Link>
         </p>
       </div>
+
+      <style jsx global>{`
+        @keyframes jarvisOrbFloat1 {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-30px) scale(1.05); }
+        }
+        @keyframes jarvisOrbFloat2 {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-35px) scale(1.06); }
+        }
+        @keyframes jarvisOrbFloat3 {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-20px) scale(1.03); }
+        }
+        @keyframes jarvisDotPulse {
+          0%, 100% { opacity: 0; transform: scale(0.5); }
+          50% { opacity: 0.6; transform: scale(1.2); }
+        }
+      `}</style>
     </div>
   );
 }
