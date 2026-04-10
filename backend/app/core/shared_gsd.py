@@ -594,6 +594,17 @@ class SharedGSDManager:
         if ticket_id in self._state_entry_times.get(company_id, {}):
             self._state_entry_times[company_id].pop(ticket_id, None)
 
+        # BUG FIX: Rebuild _transition_counts from remaining history
+        # for this company_id, since _transition_counts is keyed by
+        # (company_id, (from_state, to_state)) — not by ticket_id —
+        # the deleted ticket's transitions would otherwise linger.
+        self._transition_counts[company_id] = defaultdict(int)
+        remaining = self._transition_history.get(company_id, {})
+        for tid, entries in remaining.items():
+            for entry in entries:
+                key = (entry.from_state, entry.to_state)
+                self._transition_counts[company_id][key] += 1
+
     def clear_company_data(self, company_id: str) -> None:
         """Clear all tracked data for a company.
 
