@@ -21,10 +21,36 @@ from unittest.mock import AsyncMock, MagicMock, patch, call
 
 import pytest
 
-
-# ═══════════════════════════════════════════════════════════════════════
-# Fixtures — import source modules with mocked logger
-# ═══════════════════════════════════════════════════════════════════════
+# Module-level stubs for F821 (pyflakes can't see runtime globals().update())
+ConfidenceScoringEngine = None  # type: ignore[assignment,misc]
+ConfidenceConfig = None  # type: ignore[assignment,misc]
+ConfidenceResult = None  # type: ignore[assignment,misc]
+SignalScore = None  # type: ignore[assignment,misc]
+SignalName = None  # type: ignore[assignment,misc]
+GuardrailsEngine = None  # type: ignore[assignment,misc]
+GuardrailConfig = None  # type: ignore[assignment,misc]
+GuardrailResult = None  # type: ignore[assignment,misc]
+GuardrailsReport = None  # type: ignore[assignment,misc]
+GuardrailLayer = None  # type: ignore[assignment,misc]
+GuardAction = None  # type: ignore[assignment,misc]
+SeverityLevel = None  # type: ignore[assignment,misc]
+StrictnessLevel = None  # type: ignore[assignment,misc]
+_build_config = None  # type: ignore[assignment,misc]
+ContentSafetyGuard = None  # type: ignore[assignment,misc]
+TopicRelevanceGuard = None  # type: ignore[assignment,misc]
+HallucinationCheckGuard = None  # type: ignore[assignment,misc]
+PolicyComplianceGuard = None  # type: ignore[assignment,misc]
+ToneValidationGuard = None  # type: ignore[assignment,misc]
+LengthControlGuard = None  # type: ignore[assignment,misc]
+PIILeakGuard = None  # type: ignore[assignment,misc]
+ConfidenceGateGuard = None  # type: ignore[assignment,misc]
+HallucinationDetector = None  # type: ignore[assignment,misc]
+HallucinationReport = None  # type: ignore[assignment,misc]
+HallucinationMatch = None  # type: ignore[assignment,misc]
+PromptInjectionDetector = None  # type: ignore[assignment,misc]
+InjectionScanResult = None  # type: ignore[assignment,misc]
+InjectionMatch = None  # type: ignore[assignment,misc]
+sanitize_query = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
