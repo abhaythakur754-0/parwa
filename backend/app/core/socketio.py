@@ -27,11 +27,17 @@ Usage:
 
 from typing import Any, Dict
 
-import socketio
-
 from backend.app.logger import get_logger
 
 logger = get_logger("socketio")
+
+# Graceful degradation: python-socketio may not be installed in test
+# environments or lightweight deployments.  We still need this module
+# importable so that ``unittest.mock.patch`` can resolve it.
+try:
+    import socketio as _socketio_pkg
+except ImportError:
+    _socketio_pkg = None  # type: ignore[assignment]
 
 # Room naming prefix — BC-005
 TENANT_ROOM_PREFIX = "tenant_"
@@ -110,25 +116,36 @@ def _extract_token_from_qs(query_string: str) -> str:
 
 
 # Create Async Socket.io server (attached to FastAPI in main.py)
-sio = socketio.AsyncServer(
-    async_mode="asgi",
-    cors_allowed_origins="*",
-    ping_timeout=60,
-    ping_interval=25,
-    max_http_buffer_size=1_000_000,  # 1MB max message size
-    transports=["websocket", "polling"],
-)
+if _socketio_pkg is not None:
+    sio = _socketio_pkg.AsyncServer(
+        async_mode="asgi",
+        cors_allowed_origins="*",
+        ping_timeout=60,
+        ping_interval=25,
+        max_http_buffer_size=1_000_000,  # 1MB max message size
+        transports=["websocket", "polling"],
+    )
+else:
+    sio = None  # type: ignore[assignment]
 
 
-def create_socketio_app() -> socketio.ASGIApp:
+def create_socketio_app():
     """Create the Socket.io ASGI application (wrapped around sio server).
 
     Returns:
         Socket.io ASGIApp that can be mounted on FastAPI.
+
+    Raises:
+        RuntimeError: If python-socketio is not installed.
     """
+    if _socketio_pkg is None:
+        raise RuntimeError(
+            "python-socketio is not installed. "
+            "Install it with: pip install python-socketio"
+        )
     # Register connect/disconnect handlers
     _register_handlers()
-    return socketio.ASGIApp(sio, socketio_path="/ws/socket.io")
+    return _socketio_pkg.ASGIApp(sio, socketio_path="/ws/socket.io")
 
 
 def _register_handlers() -> None:
@@ -293,11 +310,12 @@ async def emit_to_session(
     await sio.emit(event_type, payload, room=session_id)
 
 
-def get_socketio_server() -> socketio.AsyncServer:
+def get_socketio_server():
     """Get the Socket.io server instance.
 
     Returns:
-        The shared Socket.io AsyncServer instance.
+        The shared Socket.io AsyncServer instance,
+        or None if python-socketio is not installed.
     """
     return sio
 
@@ -415,6 +433,7 @@ def register_business_handlers() -> None:
 
 # Auto-register business handlers when module is imported
 try:
-    register_business_handlers()
+    if sio is not None:
+        register_business_handlers()
 except Exception:
     pass  # Don't fail imports if Socket.io not ready
