@@ -16,14 +16,14 @@ from typing import Optional
 from fastapi import APIRouter, Query
 from fastapi.responses import PlainTextResponse
 
-from backend.app.core.health import (
+from app.core.health import (
     HealthStatus,
     run_health_checks,
     run_readiness_check,
     clear_health_cache,
 )
-from backend.app.core.metrics import registry, record_http_request
-from backend.app.logger import get_logger
+from app.core.metrics import registry, record_http_request
+from app.logger import get_logger
 
 logger = get_logger("health_api")
 

@@ -28,15 +28,15 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.confidence_scoring_engine import (  # noqa: F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.confidence_scoring_engine import (  # noqa: F401
             ConfidenceScoringEngine,
             ConfidenceConfig,
             ConfidenceResult,
             SignalScore,
             SignalName,
         )
-        from backend.app.core.guardrails_engine import (  # noqa: F401
+        from app.core.guardrails_engine import (  # noqa: F401
             GuardrailsEngine,
             GuardrailConfig,
             GuardrailResult,
@@ -55,12 +55,12 @@ def _mock_logger():
             PIILeakGuard,
             ConfidenceGateGuard,
         )
-        from backend.app.core.hallucination_detector import (  # noqa: F401
+        from app.core.hallucination_detector import (  # noqa: F401
             HallucinationDetector,
             HallucinationReport,
             HallucinationMatch,
         )
-        from backend.app.core.prompt_injection_defense import (  # noqa: F401
+        from app.core.prompt_injection_defense import (  # noqa: F401
             PromptInjectionDetector,
             InjectionScanResult,
             InjectionMatch,

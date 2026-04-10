@@ -21,7 +21,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import ValidationError
+from app.exceptions import ValidationError
 from database.models.tickets import Ticket, TicketStatus
 
 

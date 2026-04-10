@@ -15,8 +15,8 @@ LangGraphWorkflow = WorkflowConfig = WorkflowStep = WorkflowStepResult = Workflo
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.langgraph_workflow import (  # noqa: F811,F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.langgraph_workflow import (  # noqa: F811,F401
             VARIANT_PIPELINE_CONFIG,
             WORKFLOW_STEP_DEFINITIONS,
             LangGraphWorkflow,

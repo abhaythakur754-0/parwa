@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import (
+from app.exceptions import (
     NotFoundError,
     AuthorizationError,
     ValidationError,
@@ -33,7 +33,7 @@ from database.models.tickets import (
     Ticket,
     TicketStatus,
 )
-from backend.app.schemas.customer import ChannelType
+from app.schemas.customer import ChannelType
 
 
 class CustomerService:

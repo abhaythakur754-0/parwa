@@ -21,11 +21,11 @@ import pyotp
 import qrcode
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import (
+from app.exceptions import (
     AuthenticationError,
     ValidationError,
 )
-from backend.app.logger import get_logger
+from app.logger import get_logger
 from database.models.core import (
     BackupCode,
     MFASecret,

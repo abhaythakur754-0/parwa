@@ -94,9 +94,9 @@ def _dispatch_celery_task(
     (BC-003: response under 3 seconds).
     """
     try:
-        from backend.app.tasks.celery_app import app
+        from app.tasks.celery_app import app
         app.send_task(
-            "backend.app.tasks.webhook_tasks."
+            "app.tasks.webhook_tasks."
             "process_webhook_event",
             args=[company_id, event_db_id],
             queue="webhook",

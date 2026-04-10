@@ -54,8 +54,8 @@ _detect_script = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.edge_case_handlers import (  # noqa: F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.edge_case_handlers import (  # noqa: F401
             CHAIN_TIMEOUT_SECONDS,
             CONFIDENCE_THRESHOLD,
             CONTEXT_EXPIRY_MINUTES,
@@ -1179,11 +1179,11 @@ class TestRegistryAdvanced:
 
 class TestConstants:
     def test_max_query_length(self):
-        from backend.app.core.edge_case_handlers import MAX_QUERY_LENGTH
+        from app.core.edge_case_handlers import MAX_QUERY_LENGTH
         assert MAX_QUERY_LENGTH == 10000
 
     def test_handler_timeout(self):
-        from backend.app.core.edge_case_handlers import HANDLER_TIMEOUT_SECONDS
+        from app.core.edge_case_handlers import HANDLER_TIMEOUT_SECONDS
         assert HANDLER_TIMEOUT_SECONDS == 2.0
 
     def test_chain_timeout(self):

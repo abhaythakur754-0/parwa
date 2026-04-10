@@ -33,8 +33,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.exceptions import ParwaBaseError
-from backend.app.logger import get_logger
+from app.exceptions import ParwaBaseError
+from app.logger import get_logger
 
 logger = get_logger(__name__)
 

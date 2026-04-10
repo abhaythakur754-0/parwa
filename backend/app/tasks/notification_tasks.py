@@ -15,10 +15,10 @@ from typing import Any, Dict, List, Optional
 from celery import shared_task
 from sqlalchemy.orm import Session
 
-from backend.app.core.tenant_context import TenantContext
-from backend.app.services.notification_service import NotificationService
-from backend.app.services.notification_template_service import NotificationTemplateService
-from backend.app.services.notification_preference_service import NotificationPreferenceService
+from app.core.tenant_context import TenantContext
+from app.services.notification_service import NotificationService
+from app.services.notification_template_service import NotificationTemplateService
+from app.services.notification_preference_service import NotificationPreferenceService
 from database.base import get_db
 from database.models.tickets import Ticket
 from database.models.core import User

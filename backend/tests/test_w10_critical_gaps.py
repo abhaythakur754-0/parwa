@@ -17,13 +17,13 @@ from typing import Any, Dict, List, Optional
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.app.core.langgraph_workflow import (
+from app.core.langgraph_workflow import (
     LangGraphWorkflow,
     WorkflowConfig,
     WorkflowResult,
     WorkflowStepResult,
 )
-from backend.app.core.context_compression import (
+from app.core.context_compression import (
     CompressionConfig,
     CompressionInput,
     CompressionLevel,
@@ -31,18 +31,18 @@ from backend.app.core.context_compression import (
     CompressionStrategy,
     ContextCompressor,
 )
-from backend.app.core.state_serialization import (
+from app.core.state_serialization import (
     StateSerializer,
     StateSerializerConfig,
     _safe_json_dumps,
     _safe_json_loads,
     _serialize_enum,
 )
-from backend.app.core.techniques.base import (
+from app.core.techniques.base import (
     ConversationState,
     GSDState,
 )
-from backend.app.core.technique_router import QuerySignals
+from app.core.technique_router import QuerySignals
 
 
 # ════════════════════════════════════════════════════════════════════

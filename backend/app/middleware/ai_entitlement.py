@@ -205,7 +205,7 @@ class AIEntitlementMiddleware(BaseHTTPMiddleware):
         # ── Check entitlement ──
         try:
             from database.base import SessionLocal
-            from backend.app.services.entitlement_middleware import (
+            from app.services.entitlement_middleware import (
                 enforce_entitlement,
             )
 

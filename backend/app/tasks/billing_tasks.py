@@ -14,8 +14,8 @@ from datetime import datetime, timedelta, timezone, date
 from decimal import Decimal
 from typing import Dict, List, Any
 
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 from database.base import SessionLocal
 from database.models.core import Company
 from database.models.billing import Subscription
@@ -27,7 +27,7 @@ logger = logging.getLogger("parwa.tasks.billing")
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.billing.daily_overage_charge",
+    name="app.tasks.billing.daily_overage_charge",
     max_retries=3,
     soft_time_limit=120,
     time_limit=300,
@@ -56,7 +56,7 @@ def daily_overage_charge(self, company_id: str) -> dict:
         Dict with charge status and details
     """
     try:
-        from backend.app.services.overage_service import get_overage_service
+        from app.services.overage_service import get_overage_service
         import asyncio
 
         overage_service = get_overage_service()
@@ -107,7 +107,7 @@ def daily_overage_charge(self, company_id: str) -> dict:
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.billing.process_all_overages",
+    name="app.tasks.billing.process_all_overages",
     max_retries=2,
     soft_time_limit=600,
     time_limit=900,
@@ -193,7 +193,7 @@ def process_all_overages(self, target_date: str = None) -> dict:
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.billing.invoice_sync",
+    name="app.tasks.billing.invoice_sync",
     max_retries=3,
     soft_time_limit=120,
     time_limit=300,
@@ -218,7 +218,7 @@ def invoice_sync(self, company_id: str) -> dict:
         Dict with sync status and invoice count
     """
     try:
-        from backend.app.clients.paddle_client import get_paddle_client
+        from app.clients.paddle_client import get_paddle_client
         from database.models.billing import Invoice
         import asyncio
 
@@ -321,7 +321,7 @@ def invoice_sync(self, company_id: str) -> dict:
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.billing.subscription_check",
+    name="app.tasks.billing.subscription_check",
     max_retries=2,
     soft_time_limit=60,
     time_limit=120,
@@ -341,7 +341,7 @@ def subscription_check(self, company_id: str) -> dict:
         Dict with subscription status
     """
     try:
-        from backend.app.clients.paddle_client import get_paddle_client
+        from app.clients.paddle_client import get_paddle_client
         import asyncio
 
         with SessionLocal() as db:
@@ -410,7 +410,7 @@ def subscription_check(self, company_id: str) -> dict:
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.billing.send_usage_warning",
+    name="app.tasks.billing.send_usage_warning",
     max_retries=2,
     soft_time_limit=60,
     time_limit=120,
@@ -431,7 +431,7 @@ def send_usage_warning(self, company_id: str, threshold: float = 80.0) -> dict:
         Dict with warning status
     """
     try:
-        from backend.app.services.overage_service import get_overage_service
+        from app.services.overage_service import get_overage_service
         import asyncio
 
         overage_service = get_overage_service()
@@ -450,7 +450,7 @@ def send_usage_warning(self, company_id: str, threshold: float = 80.0) -> dict:
 
         if check_result["approaching_limit"]:
             # Send notification
-            from backend.app.core.event_emitter import emit_billing_event
+            from app.core.event_emitter import emit_billing_event
 
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -504,7 +504,7 @@ def send_usage_warning(self, company_id: str, threshold: float = 80.0) -> dict:
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.billing.check_all_usage_warnings",
+    name="app.tasks.billing.check_all_usage_warnings",
     max_retries=2,
     soft_time_limit=300,
     time_limit=600,

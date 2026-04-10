@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 @pytest.fixture
 def default_config():
-    from backend.app.core.guardrails_engine import GuardrailConfig
+    from app.core.guardrails_engine import GuardrailConfig
     return GuardrailConfig(
         company_id="test_company",
         variant_type="parwa",
@@ -23,7 +23,7 @@ def default_config():
 
 @pytest.fixture
 def mini_parwa_config():
-    from backend.app.core.guardrails_engine import GuardrailConfig
+    from app.core.guardrails_engine import GuardrailConfig
     return GuardrailConfig(
         company_id="mini_co",
         variant_type="mini_parwa",
@@ -33,55 +33,55 @@ def mini_parwa_config():
 
 @pytest.fixture
 def content_safety():
-    from backend.app.core.guardrails_engine import ContentSafetyGuard
+    from app.core.guardrails_engine import ContentSafetyGuard
     return ContentSafetyGuard()
 
 
 @pytest.fixture
 def topic_relevance():
-    from backend.app.core.guardrails_engine import TopicRelevanceGuard
+    from app.core.guardrails_engine import TopicRelevanceGuard
     return TopicRelevanceGuard()
 
 
 @pytest.fixture
 def hallucination_check():
-    from backend.app.core.guardrails_engine import HallucinationCheckGuard
+    from app.core.guardrails_engine import HallucinationCheckGuard
     return HallucinationCheckGuard()
 
 
 @pytest.fixture
 def policy_compliance():
-    from backend.app.core.guardrails_engine import PolicyComplianceGuard
+    from app.core.guardrails_engine import PolicyComplianceGuard
     return PolicyComplianceGuard()
 
 
 @pytest.fixture
 def tone_validation():
-    from backend.app.core.guardrails_engine import ToneValidationGuard
+    from app.core.guardrails_engine import ToneValidationGuard
     return ToneValidationGuard()
 
 
 @pytest.fixture
 def length_control():
-    from backend.app.core.guardrails_engine import LengthControlGuard
+    from app.core.guardrails_engine import LengthControlGuard
     return LengthControlGuard()
 
 
 @pytest.fixture
 def pii_leak():
-    from backend.app.core.guardrails_engine import PIILeakGuard
+    from app.core.guardrails_engine import PIILeakGuard
     return PIILeakGuard()
 
 
 @pytest.fixture
 def confidence_gate():
-    from backend.app.core.guardrails_engine import ConfidenceGateGuard
+    from app.core.guardrails_engine import ConfidenceGateGuard
     return ConfidenceGateGuard()
 
 
 @pytest.fixture
 def engine():
-    from backend.app.core.guardrails_engine import GuardrailsEngine
+    from app.core.guardrails_engine import GuardrailsEngine
     return GuardrailsEngine()
 
 
@@ -133,7 +133,7 @@ class TestContentSafetyGuard:
         assert result.passed is True
 
     def test_blocked_keyword(self, content_safety):
-        from backend.app.core.guardrails_engine import GuardrailConfig
+        from app.core.guardrails_engine import GuardrailConfig
         config = GuardrailConfig(
             company_id="test",
             blocked_keywords=["secretword"],
@@ -145,7 +145,7 @@ class TestContentSafetyGuard:
         assert "secretword" in result.reason
 
     def test_custom_rule(self, content_safety):
-        from backend.app.core.guardrails_engine import GuardrailConfig
+        from app.core.guardrails_engine import GuardrailConfig
         config = GuardrailConfig(
             company_id="test",
             custom_rules=[{
@@ -160,7 +160,7 @@ class TestContentSafetyGuard:
 
     def test_invalid_regex_custom_rule(self, content_safety):
         """Invalid regex should not crash."""
-        from backend.app.core.guardrails_engine import GuardrailConfig
+        from app.core.guardrails_engine import GuardrailConfig
         config = GuardrailConfig(
             company_id="test",
             custom_rules=[{
@@ -363,7 +363,7 @@ class TestToneValidationGuard:
 
     def test_casual_tone_casual_context(self, tone_validation):
         """Casual language in casual context should pass."""
-        from backend.app.core.guardrails_engine import GuardrailConfig
+        from app.core.guardrails_engine import GuardrailConfig
         config = GuardrailConfig(
             company_id="test",
             tone_requirements=["casual"],
@@ -404,7 +404,7 @@ class TestLengthControlGuard:
         assert "below minimum" in result.reason.lower()
 
     def test_custom_max_length(self, length_control):
-        from backend.app.core.guardrails_engine import GuardrailConfig
+        from app.core.guardrails_engine import GuardrailConfig
         config = GuardrailConfig(
             company_id="test", max_response_length=50,
         )
@@ -444,7 +444,7 @@ class TestPIILeakGuard:
         assert result.severity == "high"  # SSN is sensitive
 
     def test_pii_check_disabled(self, pii_leak):
-        from backend.app.core.guardrails_engine import GuardrailConfig
+        from app.core.guardrails_engine import GuardrailConfig
         config = GuardrailConfig(
             company_id="test", pii_check_enabled=False,
         )
@@ -488,7 +488,7 @@ class TestConfidenceGateGuard:
 
 class TestBuildConfig:
     def test_default_config_no_override(self):
-        from backend.app.core.guardrails_engine import (
+        from app.core.guardrails_engine import (
             _build_config, GuardrailConfig, StrictnessLevel,
         )
         config = _build_config("co1", "parwa")
@@ -498,7 +498,7 @@ class TestBuildConfig:
         assert config.confidence_threshold == 85.0
 
     def test_mini_parwa_defaults(self):
-        from backend.app.core.guardrails_engine import (
+        from app.core.guardrails_engine import (
             _build_config, StrictnessLevel,
         )
         config = _build_config("co1", "mini_parwa")
@@ -506,7 +506,7 @@ class TestBuildConfig:
         assert config.confidence_threshold == 95.0
 
     def test_parwa_high_defaults(self):
-        from backend.app.core.guardrails_engine import (
+        from app.core.guardrails_engine import (
             _build_config, StrictnessLevel,
         )
         config = _build_config("co1", "parwa_high")
@@ -515,7 +515,7 @@ class TestBuildConfig:
 
     def test_override_merges_confidence(self):
         """GAP FIX: Override with partial config should keep variant defaults."""
-        from backend.app.core.guardrails_engine import (
+        from app.core.guardrails_engine import (
             _build_config, GuardrailConfig,
         )
         override = GuardrailConfig(
@@ -529,7 +529,7 @@ class TestBuildConfig:
 
     def test_override_explicit_confidence(self):
         """Explicitly set confidence should be preserved."""
-        from backend.app.core.guardrails_engine import (
+        from app.core.guardrails_engine import (
             _build_config, GuardrailConfig,
         )
         override = GuardrailConfig(
@@ -541,7 +541,7 @@ class TestBuildConfig:
 
     def test_override_with_tone(self):
         """Override tone requirements should be preserved."""
-        from backend.app.core.guardrails_engine import (
+        from app.core.guardrails_engine import (
             _build_config, GuardrailConfig,
         )
         override = GuardrailConfig(
@@ -553,7 +553,7 @@ class TestBuildConfig:
 
     def test_default_tone_preserved(self):
         """Without override, default tone should be professional+empathetic."""
-        from backend.app.core.guardrails_engine import _build_config
+        from app.core.guardrails_engine import _build_config
         config = _build_config("co1", "parwa")
         assert config.tone_requirements == ["professional", "empathetic"]
 
@@ -563,7 +563,7 @@ class TestBuildConfig:
 
 class TestGuardrailsEngine:
     def test_full_check_all_pass(self, engine):
-        from backend.app.core.guardrails_engine import GuardrailsReport
+        from app.core.guardrails_engine import GuardrailsReport
         report = engine.run_full_check(
             query="reset password",
             response="Go to Settings to reset your password.",
@@ -574,7 +574,7 @@ class TestGuardrailsEngine:
         assert report.passed is True
 
     def test_full_check_content_block(self, engine):
-        from backend.app.core.guardrails_engine import GuardrailsReport
+        from app.core.guardrails_engine import GuardrailsReport
         report = engine.run_full_check(
             query="hello",
             response="hate speech content here",
@@ -584,14 +584,14 @@ class TestGuardrailsEngine:
         assert report.passed is False
 
     def test_single_layer_check(self, engine):
-        from backend.app.core.guardrails_engine import GuardrailResult
+        from app.core.guardrails_engine import GuardrailResult
         result = engine.run_single_layer(
             "length_control", "Hi", "Hi", 85.0, company_id="test_co",
         )
         assert isinstance(result, GuardrailResult)
 
     def test_config_for_variant(self, engine):
-        from backend.app.core.guardrails_engine import (
+        from app.core.guardrails_engine import (
             GuardrailConfig, StrictnessLevel,
         )
         config = engine.get_config_for_variant("test_co", "mini_parwa")
@@ -603,6 +603,6 @@ class TestGuardrailsEngine:
 
 # Fix import in PolicyComplianceGuard fixture
 import importlib
-_backend = importlib.import_module("backend.app.core.guardrails_engine")
+_backend = importlib.import_module("app.core.guardrails_engine")
 # Patch the fixture
 pytest.fixture = pytest.fixture

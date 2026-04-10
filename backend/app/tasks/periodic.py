@@ -12,8 +12,8 @@ BC-004: All tasks use ParwaBaseTask with retry config.
 import logging
 from datetime import datetime, timezone
 
-from backend.app.tasks.base import ParwaBaseTask
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.periodic")
 
@@ -22,7 +22,7 @@ logger = logging.getLogger("parwa.periodic")
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.periodic.cleanup_stale_sessions",
+    name="app.tasks.periodic.cleanup_stale_sessions",
     max_retries=1,
 )
 def cleanup_stale_sessions(self):
@@ -76,7 +76,7 @@ def cleanup_stale_sessions(self):
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.periodic.purge_dead_letter_queue",
+    name="app.tasks.periodic.purge_dead_letter_queue",
     max_retries=1,
 )
 def purge_dead_letter_queue(self):
@@ -89,7 +89,7 @@ def purge_dead_letter_queue(self):
     BC-004: Runs hourly via Celery Beat.
     """
     try:
-        from backend.app.tasks.celery_app import app as celery_app
+        from app.tasks.celery_app import app as celery_app
 
         # Clean up old task results from result backend
         backend = celery_app.backend
@@ -120,7 +120,7 @@ def purge_dead_letter_queue(self):
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.periodic.check_webhook_health",
+    name="app.tasks.periodic.check_webhook_health",
     max_retries=1,
 )
 def check_webhook_health(self):
@@ -176,7 +176,7 @@ def check_webhook_health(self):
     base=ParwaBaseTask,
     bind=True,
     queue="analytics",
-    name="backend.app.tasks.periodic.flush_audit_queue",
+    name="app.tasks.periodic.flush_audit_queue",
     max_retries=1,
 )
 def flush_audit_queue(self):
@@ -195,7 +195,7 @@ def flush_audit_queue(self):
     BC-004: Runs every 60 seconds via Celery Beat.
     """
     try:
-        from backend.app.services.audit_service import process_audit_queue
+        from app.services.audit_service import process_audit_queue
 
         result = process_audit_queue()
         logger.info("flush_audit_queue completed result=%s", result)
@@ -212,7 +212,7 @@ def flush_audit_queue(self):
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.periodic.cleanup_audit_trail",
+    name="app.tasks.periodic.cleanup_audit_trail",
     max_retries=1,
 )
 def cleanup_audit_trail(self):
@@ -226,7 +226,7 @@ def cleanup_audit_trail(self):
     BC-004: Runs daily at 03:00 UTC via Celery Beat.
     """
     try:
-        from backend.app.services.audit_service import cleanup_old_audit_entries
+        from app.services.audit_service import cleanup_old_audit_entries
 
         deleted = cleanup_old_audit_entries()
         logger.info(
@@ -249,7 +249,7 @@ def cleanup_audit_trail(self):
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.periodic.approval_timeout_check",
+    name="app.tasks.periodic.approval_timeout_check",
     max_retries=1,
 )
 def dispatch_approval_timeout_check(self):
@@ -264,7 +264,7 @@ def dispatch_approval_timeout_check(self):
             ).all()
             dispatched = 0
             for company in companies:
-                from backend.app.tasks.approval_tasks import (
+                from app.tasks.approval_tasks import (
                     approval_timeout_check,
                 )
                 approval_timeout_check.delay(company.id)
@@ -287,7 +287,7 @@ def dispatch_approval_timeout_check(self):
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.periodic.approval_reminder_dispatch",
+    name="app.tasks.periodic.approval_reminder_dispatch",
     max_retries=1,
 )
 def dispatch_approval_reminder(self):
@@ -302,7 +302,7 @@ def dispatch_approval_reminder(self):
             ).all()
             dispatched = 0
             for company in companies:
-                from backend.app.tasks.approval_tasks import (
+                from app.tasks.approval_tasks import (
                     approval_reminder,
                 )
                 approval_reminder.delay(company.id)
@@ -325,7 +325,7 @@ def dispatch_approval_reminder(self):
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.periodic.daily_overage_charge",
+    name="app.tasks.periodic.daily_overage_charge",
     max_retries=1,
 )
 def dispatch_daily_overage(self):
@@ -340,7 +340,7 @@ def dispatch_daily_overage(self):
             ).all()
             dispatched = 0
             for company in companies:
-                from backend.app.tasks.billing_tasks import (
+                from app.tasks.billing_tasks import (
                     daily_overage_charge,
                 )
                 daily_overage_charge.delay(company.id)
@@ -363,7 +363,7 @@ def dispatch_daily_overage(self):
     base=ParwaBaseTask,
     bind=True,
     queue="analytics",
-    name="backend.app.tasks.periodic.drift_detection_analysis",
+    name="app.tasks.periodic.drift_detection_analysis",
     max_retries=1,
 )
 def dispatch_drift_detection(self):
@@ -378,7 +378,7 @@ def dispatch_drift_detection(self):
             ).all()
             dispatched = 0
             for company in companies:
-                from backend.app.tasks.analytics_tasks import (
+                from app.tasks.analytics_tasks import (
                     drift_detection,
                 )
                 drift_detection.delay(company.id)
@@ -401,7 +401,7 @@ def dispatch_drift_detection(self):
     base=ParwaBaseTask,
     bind=True,
     queue="analytics",
-    name="backend.app.tasks.periodic.metric_aggregation",
+    name="app.tasks.periodic.metric_aggregation",
     max_retries=1,
 )
 def dispatch_metric_aggregation(self):
@@ -416,7 +416,7 @@ def dispatch_metric_aggregation(self):
             ).all()
             dispatched = 0
             for company in companies:
-                from backend.app.tasks.analytics_tasks import (
+                from app.tasks.analytics_tasks import (
                     aggregate_metrics,
                 )
                 aggregate_metrics.delay(
@@ -441,7 +441,7 @@ def dispatch_metric_aggregation(self):
     base=ParwaBaseTask,
     bind=True,
     queue="training",
-    name="backend.app.tasks.periodic.training_mistake_check",
+    name="app.tasks.periodic.training_mistake_check",
     max_retries=1,
 )
 def dispatch_training_mistake_check(self):
@@ -456,7 +456,7 @@ def dispatch_training_mistake_check(self):
             ).all()
             dispatched = 0
             for company in companies:
-                from backend.app.tasks.training_tasks import (
+                from app.tasks.training_tasks import (
                     check_mistake_threshold,
                 )
                 check_mistake_threshold.delay(company.id)

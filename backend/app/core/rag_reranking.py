@@ -33,8 +33,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from backend.app.logger import get_logger
-from backend.app.core.rag_retrieval import (
+from app.logger import get_logger
+from app.core.rag_retrieval import (
     RAGChunk,
     RAGResult,
     VARIANT_CONFIG,
@@ -1443,7 +1443,7 @@ async def get_cached_rerank(
         Cached ``RAGResult`` or ``None`` if not found / error.
     """
     try:
-        from backend.app.core.redis import cache_get
+        from app.core.redis import cache_get
 
         cache_key = _build_rerank_cache_key(
             query, company_id, variant_type, top_k, filters
@@ -1509,7 +1509,7 @@ async def set_cached_rerank(
         ``True`` if caching succeeded, ``False`` otherwise.
     """
     try:
-        from backend.app.core.redis import cache_set
+        from app.core.redis import cache_set
 
         cache_key = _build_rerank_cache_key(
             query, company_id, variant_type, top_k, filters
@@ -1551,7 +1551,7 @@ async def invalidate_rerank_cache(
         ``True`` if invalidation succeeded, ``False`` otherwise.
     """
     try:
-        from backend.app.core.redis import cache_delete
+        from app.core.redis import cache_delete
 
         if query:
             # Delete specific cache entry
@@ -1567,7 +1567,7 @@ async def invalidate_rerank_cache(
         else:
             # Pattern-based deletion for all rerank keys
             try:
-                from backend.app.core.redis import get_redis, make_key
+                from app.core.redis import get_redis, make_key
 
                 redis = await get_redis()
                 pattern = make_key(company_id, "cache", "rerank:*")

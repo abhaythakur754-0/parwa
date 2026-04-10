@@ -26,8 +26,8 @@ Protected endpoints (JWT required):
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user
-from backend.app.schemas.auth import (
+from app.api.deps import get_current_user
+from app.schemas.auth import (
     AuthResponse,
     EmailCheckResponse,
     GoogleAuthRequest,
@@ -38,18 +38,18 @@ from backend.app.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
-from backend.app.schemas.email import (
+from app.schemas.email import (
     ForgotPasswordRequest,
     ResendVerificationRequest,
     ResetPasswordRequest,
 )
-from backend.app.schemas.phone_otp import (
+from app.schemas.phone_otp import (
     SendOTPRequest,
     SendOTPResponse,
     VerifyOTPRequest,
     VerifyOTPResponse,
 )
-from backend.app.services.auth_service import (
+from app.services.auth_service import (
     authenticate_user,
     check_email_availability,
     google_auth,
@@ -57,15 +57,15 @@ from backend.app.services.auth_service import (
     refresh_tokens,
     register_user,
 )
-from backend.app.services.password_reset_service import (
+from app.services.password_reset_service import (
     initiate_password_reset,
     reset_password,
 )
-from backend.app.services.verification_service import (
+from app.services.verification_service import (
     resend_verification_email,
     verify_email,
 )
-from backend.app.services.phone_otp_service import (
+from app.services.phone_otp_service import (
     send_otp,
     verify_otp,
 )

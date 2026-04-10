@@ -15,12 +15,12 @@ from typing import Any, Dict, List, Tuple
 
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import (
+from app.exceptions import (
     AuthorizationError,
     NotFoundError,
     ValidationError,
 )
-from backend.app.logger import get_logger
+from app.logger import get_logger
 from database.models.core import Company, CompanySetting, User
 from shared.utils.security import hash_password, verify_password
 

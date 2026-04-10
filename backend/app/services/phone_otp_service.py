@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 from shared.utils.security import constant_time_compare
 
 logger = get_logger("phone_otp_service")
@@ -71,7 +71,7 @@ def send_otp(
     # In non-test environments, send via Twilio
     if os.environ.get("ENVIRONMENT") != "test":
         try:
-            from backend.app.config import get_settings
+            from app.config import get_settings
             settings = get_settings()
             if settings.TWILIO_ACCOUNT_SID:
                 success = _send_via_twilio(

@@ -17,7 +17,7 @@ BC-008: Never crash — graceful degradation on Redis/DB failure.
 BC-012: UTC timestamps throughout.
 
 Usage:
-    from backend.app.core.state_serialization import StateSerializer
+    from app.core.state_serialization import StateSerializer
 
     serializer = StateSerializer()
     await serializer.save_state(
@@ -38,12 +38,12 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.core.techniques.base import (
+from app.core.techniques.base import (
     ConversationState,
     GSDState,
 )
-from backend.app.exceptions import ParwaBaseError
-from backend.app.logger import get_logger
+from app.exceptions import ParwaBaseError
+from app.logger import get_logger
 
 logger = get_logger("state_serialization")
 
@@ -620,7 +620,7 @@ class StateSerializer:
                         gsd_history.append(item)
 
             # Deserialize QuerySignals
-            from backend.app.core.technique_router import QuerySignals
+            from app.core.technique_router import QuerySignals
 
             signals_raw = data.get("signals")
             if isinstance(signals_raw, dict):
@@ -1529,7 +1529,7 @@ class StateSerializer:
             True if save succeeded, False otherwise.
         """
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis_client = await get_redis()
             checkpoint_key = _build_checkpoint_key(
@@ -1610,7 +1610,7 @@ class StateSerializer:
             ConversationState if found, None otherwise.
         """
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis_client = await get_redis()
             checkpoint_key = _build_checkpoint_key(
@@ -1666,7 +1666,7 @@ class StateSerializer:
             is unavailable.
         """
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis_client = await get_redis()
             index_key = _build_checkpoint_index_key(company_id, ticket_id)
@@ -1771,7 +1771,7 @@ class StateSerializer:
             True if set succeeded, False on error.
         """
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis_client = await get_redis()
             await redis_client.set(key, value, ex=ttl)
@@ -1792,7 +1792,7 @@ class StateSerializer:
             String value if found, None otherwise.
         """
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis_client = await get_redis()
             result = await redis_client.get(key)
@@ -1817,7 +1817,7 @@ class StateSerializer:
             True if delete succeeded, False on error.
         """
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
 
             redis_client = await get_redis()
             await redis_client.delete(key)

@@ -23,8 +23,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional
 
-from backend.app.logger import get_logger
-from backend.app.core.technique_router import (
+from app.logger import get_logger
+from app.core.technique_router import (
     TechniqueID,
     TechniqueTier,
 )

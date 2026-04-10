@@ -30,7 +30,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.app.core.smart_router import (
+from app.core.smart_router import (
     AtomicStepType,
     ModelProvider,
     ModelTier,
@@ -44,7 +44,7 @@ from backend.app.core.smart_router import (
     TIER_FALLBACK_ORDER,
     RateLimitError,
 )
-from backend.app.core.model_failover import (
+from app.core.model_failover import (
     FailoverChainExecutor,
     FailoverManager,
     FailoverReason,

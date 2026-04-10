@@ -39,8 +39,8 @@ TokenBudgetService = None  # type: ignore[assignment,misc]
 @pytest.fixture(autouse=True)
 def _mock_logger():
     """Mock logger to allow importing source modules without real logging."""
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.redis import (
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.redis import (
             cache_get,
             cache_set,
             cache_delete,
@@ -97,7 +97,7 @@ class TestCacheInvalidationRaceCondition:
         mock_redis.set = AsyncMock(return_value=True)
         mock_redis.delete = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Read old cached response
             old = await cache_get("co1", "query:hello")
             assert old is not None  # Old value exists
@@ -126,7 +126,7 @@ class TestCacheInvalidationRaceCondition:
         mock_redis.set = AsyncMock(side_effect=mock_set)
         mock_redis.delete = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Two concurrent writes
             await asyncio.gather(
                 cache_set("co1", "key1", "version_2"),
@@ -147,7 +147,7 @@ class TestCacheInvalidationRaceCondition:
         mock_redis.set = AsyncMock(return_value=True)
         mock_redis.delete = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             cached = await cache_get("co1", "prompt:v1")
 
             # If current model version is 3.0, cached 2.0 response is stale
@@ -165,7 +165,7 @@ class TestCacheInvalidationRaceCondition:
         mock_redis.delete = AsyncMock(side_effect=Exception("Redis connection lost"))
         mock_redis.get = AsyncMock(return_value="old_value")
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Should NOT raise, returns False
             result = await cache_delete("co1", "some_key")
             assert result is False
@@ -202,7 +202,7 @@ class TestCostCalculationInconsistency:
         mock_redis.get = AsyncMock(side_effect=get_side_effect)
         mock_redis.set = AsyncMock(side_effect=set_side_effect)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             result = await cache_get("co1", "prompt:p1", default=None)
             assert result is None  # Miss → fresh generation needed
 
@@ -237,7 +237,7 @@ class TestCostCalculationInconsistency:
         )
         mock_redis.set = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Simulate serving cached response 10 times
             total_serve_count = 0
             for _ in range(10):
@@ -262,7 +262,7 @@ class TestCostCalculationInconsistency:
         )
         mock_redis.set = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Simulate budget of $10.00
             budget = 10.00
             cost_per_cached_serve = 0.001  # minimal serving cost
@@ -288,7 +288,7 @@ class TestCostCalculationInconsistency:
         mock_redis.get = AsyncMock(side_effect=Exception("Redis down"))
         mock_redis.set = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             result = await cache_get("co1", "key1", default="fallback")
             # Should return fallback, not crash
             assert result == "fallback"
@@ -314,7 +314,7 @@ class TestMemoryLeakLargeResponses:
 
         large_payload = {"data": "x" * 10_000_000}  # 10MB
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             await cache_set("co1", "large_key", large_payload, ttl_seconds=300)
 
             # Verify set was called with ex=300
@@ -341,7 +341,7 @@ class TestMemoryLeakLargeResponses:
         huge_payload = {"data": "b" * 20_000_000}  # ~20MB
         assert len(json.dumps(huge_payload)) > MAX_CACHE_VALUE_BYTES
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Small payload should be cached
             await cache_set("co1", "small", small_payload)
             assert mock_redis.set.call_count >= 1
@@ -359,7 +359,7 @@ class TestMemoryLeakLargeResponses:
         mock_redis.get = AsyncMock(return_value=None)
         mock_redis.set = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Simulate tenant flooding cache with large responses
             for i in range(50):
                 await cache_set(
@@ -387,7 +387,7 @@ class TestMemoryLeakLargeResponses:
         mock_redis.get = AsyncMock(side_effect=get_side_effect)
         mock_redis.set = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Tenant A stores large data
             await cache_set("co_a", "big_response", {"data": "x" * 1000})
 
@@ -466,7 +466,7 @@ class TestTenantIsolationInCache:
         mock_redis.get = AsyncMock(side_effect=get_side_effect)
         mock_redis.set = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             result_a = await cache_get("co_a", "private_data")
             result_b = await cache_get("co_b", "private_data", default="empty")
 
@@ -478,8 +478,8 @@ class TestTenantIsolationInCache:
         """validate_tenant_keys must reject keys not belonging to the current tenant."""
         mock_redis = MagicMock()
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
-            with patch("backend.app.core.tenant_context.get_tenant_context", return_value="co_a"):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
+            with patch("app.core.tenant_context.get_tenant_context", return_value="co_a"):
                 # validate_tenant_keys filters to only current tenant's keys
                 result = validate_tenant_keys([
                     "parwa:co_a:cache:key1",     # matches
@@ -509,7 +509,7 @@ class TestCacheStampedeEffect:
         mock_redis.get = AsyncMock(return_value=None)  # Cache miss
         mock_redis.set = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             result = await cache_get("co1", "prompt:popular", default="MISS")
             assert result == "MISS"
             assert mock_redis.get.call_count == 1
@@ -538,7 +538,7 @@ class TestCacheStampedeEffect:
         mock_redis.get = AsyncMock(side_effect=mock_get_with_lock)
         mock_redis.set = AsyncMock(side_effect=mock_set_with_lock)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Simulate 5 concurrent requests
             tasks = [cache_get("co1", "hot_key", default="MISS") for _ in range(5)]
             results = await asyncio.gather(*tasks)
@@ -568,7 +568,7 @@ class TestCacheStampedeEffect:
         mock_redis.get = AsyncMock(side_effect=get_side_effect)
         mock_redis.set = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # First request: cache miss
             r1 = await cache_get("co1", "key1", default="MISS")
             assert r1 == "MISS"
@@ -591,7 +591,7 @@ class TestCacheStampedeEffect:
         mock_redis.get = AsyncMock(return_value=None)
         mock_redis.set = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             # Simulate 10 concurrent requests for expired key
             tasks = [cache_get("co1", "expired_key") for _ in range(10)]
             results = await asyncio.gather(*tasks)
@@ -717,7 +717,7 @@ class TestCostTrackingPrecisionLoss:
         mock_redis.get = AsyncMock(return_value=json.dumps(precise_cost))
         mock_redis.set = AsyncMock(return_value=True)
 
-        with patch("backend.app.core.redis.get_redis", return_value=mock_redis):
+        with patch("app.core.redis.get_redis", return_value=mock_redis):
             result = await cache_get("co1", "cost_key")
             assert isinstance(result, dict)
             # JSON preserves float precision reasonably

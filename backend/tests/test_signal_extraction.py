@@ -31,8 +31,8 @@ TOPIC_CLUSTERS = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.signal_extraction import (  # noqa: F811,F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.signal_extraction import (  # noqa: F811,F401
             CURRENCY_TO_USD,
             ExtractedSignals,
             INTENT_KEYWORDS,
@@ -596,8 +596,8 @@ class TestCacheBehavior:
             "reasoning_loop_detected": False, "resolution_path_count": 2,
             "query_breadth": 0.5, "extraction_version": "1.0",
         }
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.intent == "refund"
                 assert result.cached is True
@@ -607,8 +607,8 @@ class TestCacheBehavior:
         req = SignalExtractionRequest(
             query="refund my order", company_id="c1", variant_type="parwa"
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.cached is False
                 assert result.intent == "refund"
@@ -630,16 +630,16 @@ class TestCacheBehavior:
     @pytest.mark.asyncio
     async def test_cache_fail_open_read_error(self):
         req = SignalExtractionRequest(query="test", company_id="c1")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.cached is False
 
     @pytest.mark.asyncio
     async def test_cache_fail_open_write_error(self):
         req = SignalExtractionRequest(query="test", company_id="c1")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Redis down")):
                 result = await self.extractor.extract(req)
                 assert result.cached is False
 
@@ -655,8 +655,8 @@ class TestCacheBehavior:
     @pytest.mark.asyncio
     async def test_cache_stores_result(self):
         req = SignalExtractionRequest(query="test query", company_id="c1")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None) as mock_get:
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None) as mock_get:
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
                 await self.extractor.extract(req)
                 mock_set.assert_called_once()
                 call_args = mock_set.call_args
@@ -667,8 +667,8 @@ class TestCacheBehavior:
     async def test_cache_non_dict_ignored(self):
         """Non-dict cached values are ignored."""
         req = SignalExtractionRequest(query="test", company_id="c1")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value="not a dict"):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value="not a dict"):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.cached is False
 
@@ -778,8 +778,8 @@ class TestExtractIntegration:
             query="I want a refund for my $50 order, this is terrible!",
             company_id="test_company", variant_type="parwa",
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.intent == "refund"
                 assert 0.0 <= result.sentiment <= 1.0
@@ -793,8 +793,8 @@ class TestExtractIntegration:
             query="How do I reset my password?",
             company_id="c1", variant_type="mini_parwa",
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.intent == "account"
                 assert result.customer_tier == "free"
@@ -806,8 +806,8 @@ class TestExtractIntegration:
             company_id="c1",
             conversation_history=["refund my order", "refund my order now", "refund my order please"],
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.reasoning_loop_detected is True
 
@@ -817,8 +817,8 @@ class TestExtractIntegration:
             query="I have a question about my bill",
             company_id="c1", customer_tier="vip",
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.customer_tier == "vip"
 
@@ -828,8 +828,8 @@ class TestExtractIntegration:
             query="complaint about terrible service",
             company_id="c1", variant_type="parwa_high",
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.intent == "complaint"
 
@@ -839,8 +839,8 @@ class TestExtractIntegration:
             query="I paid $100 and €50 for my order",
             company_id="c1", variant_type="parwa",
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.monetary_value > 100
 
@@ -850,8 +850,8 @@ class TestExtractIntegration:
             query="I need help with my account settings",
             company_id="c1",
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.monetary_value == 0.0
                 assert result.monetary_currency is None
@@ -861,8 +861,8 @@ class TestExtractIntegration:
         req = SignalExtractionRequest(
             query="hello", company_id="c1", turn_count=7,
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.turn_count == 7
 
@@ -873,8 +873,8 @@ class TestExtractIntegration:
             company_id="c1",
             previous_response_status="rejected",
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.previous_response_status == "rejected"
 
@@ -886,8 +886,8 @@ class TestExtractIntegration:
             customer_tier="free",
             customer_metadata={"tier": "enterprise"},
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.extractor.extract(req)
                 assert result.customer_tier == "enterprise"
 

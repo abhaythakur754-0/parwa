@@ -23,12 +23,12 @@ UsageBurstProtectionService = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger_and_lock():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        import backend.app.services.usage_burst_protection as _svc_mod
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        import app.services.usage_burst_protection as _svc_mod
         _orig_lock = _svc_mod.threading.Lock
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
-            from backend.app.services.usage_burst_protection import (
+            from app.services.usage_burst_protection import (
                 BurstSeverity,
                 BurstAction,
                 UsageMetrics,
@@ -438,7 +438,7 @@ class TestValidation:
     """Test validation helpers via service public methods."""
 
     def test_empty_company_id_raises(self):
-        from backend.app.services.usage_burst_protection import (
+        from app.services.usage_burst_protection import (
             _validate_company_id,
         )
         with pytest.raises(BurstProtectionError) as exc_info:
@@ -446,7 +446,7 @@ class TestValidation:
         assert exc_info.value.error_code == "INVALID_COMPANY_ID"
 
     def test_whitespace_company_id_raises(self):
-        from backend.app.services.usage_burst_protection import (
+        from app.services.usage_burst_protection import (
             _validate_company_id,
         )
         with pytest.raises(BurstProtectionError) as exc_info:
@@ -454,20 +454,20 @@ class TestValidation:
         assert exc_info.value.error_code == "INVALID_COMPANY_ID"
 
     def test_none_company_id_raises(self):
-        from backend.app.services.usage_burst_protection import (
+        from app.services.usage_burst_protection import (
             _validate_company_id,
         )
         with pytest.raises(BurstProtectionError):
             _validate_company_id(None)
 
     def test_valid_company_id_passes(self):
-        from backend.app.services.usage_burst_protection import (
+        from app.services.usage_burst_protection import (
             _validate_company_id,
         )
         _validate_company_id("valid-company")  # should not raise
 
     def test_invalid_variant_type_raises(self):
-        from backend.app.services.usage_burst_protection import (
+        from app.services.usage_burst_protection import (
             _validate_variant_type,
         )
         with pytest.raises(BurstProtectionError) as exc_info:
@@ -475,26 +475,26 @@ class TestValidation:
         assert exc_info.value.error_code == "INVALID_VARIANT_TYPE"
 
     def test_empty_variant_type_raises(self):
-        from backend.app.services.usage_burst_protection import (
+        from app.services.usage_burst_protection import (
             _validate_variant_type,
         )
         with pytest.raises(BurstProtectionError):
             _validate_variant_type("")
 
     def test_valid_variant_mini_parwa(self):
-        from backend.app.services.usage_burst_protection import (
+        from app.services.usage_burst_protection import (
             _validate_variant_type,
         )
         _validate_variant_type("mini_parwa")  # should not raise
 
     def test_valid_variant_parwa(self):
-        from backend.app.services.usage_burst_protection import (
+        from app.services.usage_burst_protection import (
             _validate_variant_type,
         )
         _validate_variant_type("parwa")  # should not raise
 
     def test_valid_variant_parwa_high(self):
-        from backend.app.services.usage_burst_protection import (
+        from app.services.usage_burst_protection import (
             _validate_variant_type,
         )
         _validate_variant_type("parwa_high")  # should not raise
@@ -1590,7 +1590,7 @@ class TestAlertCreation:
 
     def test_alert_cap_enforced(self):
         """Alerts capped at _MAX_ALERTS_PER_COMPANY."""
-        from backend.app.services.usage_burst_protection import _MAX_ALERTS_PER_COMPANY
+        from app.services.usage_burst_protection import _MAX_ALERTS_PER_COMPANY
         cfg = BurstProtectionConfig(alert_cooldown_seconds=0)
         svc = UsageBurstProtectionService(config=cfg)
         svc.reset("co-1")

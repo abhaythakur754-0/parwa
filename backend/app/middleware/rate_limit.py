@@ -13,8 +13,8 @@ module (the old limiter is still available but not used here).
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from backend.app.middleware.error_handler import build_error_response
-from backend.app.services.rate_limit_service import (
+from app.middleware.error_handler import build_error_response
+from app.services.rate_limit_service import (
     get_rate_limit_service,
 )
 

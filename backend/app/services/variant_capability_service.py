@@ -16,7 +16,7 @@ from datetime import datetime
 
 from database.base import SessionLocal
 from database.models.variant_engine import VariantAICapability
-from backend.app.exceptions import ParwaBaseError
+from app.exceptions import ParwaBaseError
 
 # ══════════════════════════════════════════════════════════════════
 # FEATURE REGISTRY — Single Source of Truth (BC-013)

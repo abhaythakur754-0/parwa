@@ -21,8 +21,8 @@ from typing import Any, Dict, Optional
 
 from celery import shared_task
 
-from backend.app.tasks.base import ParwaTask
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaTask
+from app.tasks.celery_app import app
 from database.base import SessionLocal
 from database.models.tickets import (
     Ticket,
@@ -74,7 +74,7 @@ def classify_ticket(
         }
     )
 
-    from backend.app.services.classification_service import ClassificationService
+    from app.services.classification_service import ClassificationService
 
     with SessionLocal() as db:
         try:
@@ -200,7 +200,7 @@ def score_assignments(
         }
     )
 
-    from backend.app.services.assignment_service import AssignmentService
+    from app.services.assignment_service import AssignmentService
 
     with SessionLocal() as db:
         try:
@@ -254,7 +254,7 @@ def auto_assign_ticket(
         }
     )
 
-    from backend.app.services.assignment_service import AssignmentService
+    from app.services.assignment_service import AssignmentService
 
     with SessionLocal() as db:
         try:
@@ -381,8 +381,8 @@ def check_duplicate_ticket(
         }
     )
 
-    from backend.app.services.ticket_search_service import TicketSearchService
-    from backend.app.services.ticket_service import TicketService
+    from app.services.ticket_search_service import TicketSearchService
+    from app.services.ticket_service import TicketService
 
     with SessionLocal() as db:
         try:
@@ -655,7 +655,7 @@ def run_sla_check(
         extra={"company_id": company_id}
     )
 
-    from backend.app.services.sla_service import SLAService
+    from app.services.sla_service import SLAService
 
     with SessionLocal() as db:
         try:
@@ -750,9 +750,9 @@ def send_sla_warning(
 
     with SessionLocal() as db:
         try:
-            from backend.app.services.sla_service import SLAService
-            from backend.app.services.notification_service import NotificationService
-            from backend.app.core.ticket_events import emit_sla_warning
+            from app.services.sla_service import SLAService
+            from app.services.notification_service import NotificationService
+            from app.core.ticket_events import emit_sla_warning
 
             sla_service = SLAService(db)
 
@@ -862,9 +862,9 @@ def send_sla_breach(
 
     with SessionLocal() as db:
         try:
-            from backend.app.services.sla_service import SLAService
-            from backend.app.services.notification_service import NotificationService
-            from backend.app.core.ticket_events import emit_sla_breach
+            from app.services.sla_service import SLAService
+            from app.services.notification_service import NotificationService
+            from app.core.ticket_events import emit_sla_breach
 
             sla_service = SLAService(db)
 
@@ -975,7 +975,7 @@ def check_stale_tickets(
         }
     )
 
-    from backend.app.services.stale_ticket_service import StaleTicketService
+    from app.services.stale_ticket_service import StaleTicketService
 
     with SessionLocal() as db:
         try:
@@ -1122,7 +1122,7 @@ def detect_spam_tickets(
         extra={"company_id": company_id}
     )
 
-    from backend.app.services.spam_detection_service import SpamDetectionService
+    from app.services.spam_detection_service import SpamDetectionService
 
     with SessionLocal() as db:
         try:
@@ -1270,7 +1270,7 @@ def process_bulk_action(
         }
     )
 
-    from backend.app.services.bulk_action_service import BulkActionService
+    from app.services.bulk_action_service import BulkActionService
 
     with SessionLocal() as db:
         try:

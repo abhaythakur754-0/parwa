@@ -19,13 +19,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.services.classification_service import (
+from app.api.deps import get_current_user, get_db
+from app.services.classification_service import (
     ClassificationService,
     IntentCategory,
     UrgencyLevel,
 )
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 
 
 router = APIRouter(prefix="/tickets", tags=["ticket-classification"])

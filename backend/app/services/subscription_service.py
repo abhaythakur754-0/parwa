@@ -21,12 +21,12 @@ from uuid import UUID
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from backend.app.clients.paddle_client import (
+from app.clients.paddle_client import (
     PaddleClient,
     PaddleError,
     get_paddle_client,
 )
-from backend.app.schemas.billing import (
+from app.schemas.billing import (
     SubscriptionInfo,
     SubscriptionStatus,
     VariantType,
@@ -729,7 +729,7 @@ class SubscriptionService:
     def _get_paddle_price_id(self, variant: str) -> str:
         """Get Paddle price ID for variant (from config)."""
         # In production, these come from environment variables
-        from backend.app.config import get_settings
+        from app.config import get_settings
         settings = get_settings()
 
         price_map = {

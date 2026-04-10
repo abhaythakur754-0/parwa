@@ -15,7 +15,7 @@ Day 20: Added key validation enforcement:
 - Warning logged for raw key access attempts
 
 Usage:
-    from backend.app.core.redis import get_redis, make_key
+    from app.core.redis import get_redis, make_key
 
     redis = get_redis()
     await redis.set(make_key("session", company_id, session_id), "data")
@@ -29,8 +29,8 @@ from typing import Any, List, Optional
 
 import redis.asyncio as aioredis
 
-from backend.app.config import get_settings
-from backend.app.logger import get_logger
+from app.config import get_settings
+from app.logger import get_logger
 
 logger = get_logger("redis")
 
@@ -118,7 +118,7 @@ def validate_tenant_keys(keys: list) -> list:
     Returns:
         Filtered list containing only keys matching the current tenant.
     """
-    from backend.app.core.tenant_context import get_tenant_context
+    from app.core.tenant_context import get_tenant_context
 
     company_id = get_tenant_context()
     if not company_id:

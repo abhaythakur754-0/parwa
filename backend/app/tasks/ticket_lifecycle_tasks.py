@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from celery import shared_task
 from sqlalchemy.orm import Session
 
-from backend.app.core.tenant_context import TenantContext
+from app.core.tenant_context import TenantContext
 from database.base import get_db
 from database.models.tickets import Ticket, TicketStatus
 from database.models.core import User
@@ -34,7 +34,7 @@ def detect_stale_tickets_task(
     
     try:
         with TenantContext(company_id):
-            from backend.app.services.stale_ticket_service import StaleTicketService
+            from app.services.stale_ticket_service import StaleTicketService
             
             service = StaleTicketService(db, company_id)
             
@@ -76,7 +76,7 @@ def auto_close_stale_tickets_task(
     
     try:
         with TenantContext(company_id):
-            from backend.app.services.stale_ticket_service import StaleTicketService
+            from app.services.stale_ticket_service import StaleTicketService
             
             service = StaleTicketService(db, company_id)
             
@@ -115,7 +115,7 @@ def send_awaiting_client_reminders_task(
     
     try:
         with TenantContext(company_id):
-            from backend.app.services.ticket_lifecycle_service import TicketLifecycleService
+            from app.services.ticket_lifecycle_service import TicketLifecycleService
             
             service = TicketLifecycleService(db, company_id)
             
@@ -178,7 +178,7 @@ def cleanup_frozen_tickets_task(
     
     try:
         with TenantContext(company_id):
-            from backend.app.services.ticket_lifecycle_service import TicketLifecycleService
+            from app.services.ticket_lifecycle_service import TicketLifecycleService
             
             service = TicketLifecycleService(db, company_id)
             
@@ -209,7 +209,7 @@ def detect_spam_patterns_task(
     
     try:
         with TenantContext(company_id):
-            from backend.app.services.spam_detection_service import SpamDetectionService
+            from app.services.spam_detection_service import SpamDetectionService
             
             service = SpamDetectionService(db, company_id)
             
@@ -270,7 +270,7 @@ def escalate_ticket_task(
     
     try:
         with TenantContext(company_id):
-            from backend.app.services.ticket_lifecycle_service import TicketLifecycleService
+            from app.services.ticket_lifecycle_service import TicketLifecycleService
             
             service = TicketLifecycleService(db, company_id)
             
@@ -310,7 +310,7 @@ def notify_incident_update_task(
     
     try:
         with TenantContext(company_id):
-            from backend.app.services.incident_service import IncidentService
+            from app.services.incident_service import IncidentService
             
             service = IncidentService(db, company_id)
             
@@ -343,7 +343,7 @@ def handle_variant_status_change_task(
     
     try:
         with TenantContext(company_id):
-            from backend.app.services.ticket_lifecycle_service import TicketLifecycleService
+            from app.services.ticket_lifecycle_service import TicketLifecycleService
             
             service = TicketLifecycleService(db, company_id)
             

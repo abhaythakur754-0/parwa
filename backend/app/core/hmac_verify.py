@@ -10,7 +10,7 @@ All new code should import from:
 This module is kept for backward compatibility only.
 """
 
-from backend.app.security.hmac_verification import (
+from app.security.hmac_verification import (
     verify_paddle_signature,
     verify_twilio_signature,
     verify_shopify_hmac as verify_shopify_signature,

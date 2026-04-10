@@ -24,14 +24,14 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from database.models.variant_engine import VariantAICapability
-from backend.app.services.variant_capability_service import (
+from app.services.variant_capability_service import (
     VARIANT_LEVELS,
     FEATURE_REGISTRY,
     check_feature_enabled,
     _validate_company_id,
     _validate_variant_type,
 )
-from backend.app.exceptions import ParwaBaseError
+from app.exceptions import ParwaBaseError
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -142,7 +142,7 @@ def _check_instance_override(
     the feature. Returns EntitlementResult based on
     the override.
     """
-    from backend.app.services.variant_capability_service import (
+    from app.services.variant_capability_service import (
         get_capability,
     )
 

@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 from shared.utils.datetime import format_duration
 
 logger = get_logger("request_logger")

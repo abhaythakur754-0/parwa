@@ -29,7 +29,7 @@ from database.models.tickets import (
     ClassificationCorrection,
     TicketPriority,
 )
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 
 
 class IntentCategory:

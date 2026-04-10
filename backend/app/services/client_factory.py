@@ -19,9 +19,9 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import ValidationError
-from backend.app.logger import get_logger
-from backend.app.services.audit_service import log_audit
+from app.exceptions import ValidationError
+from app.logger import get_logger
+from app.services.audit_service import log_audit
 from database.models.core import (
     Agent,
     Company,
@@ -300,7 +300,7 @@ def get_company_entitlements(
     Raises:
         NotFoundError: If company not found.
     """
-    from backend.app.exceptions import NotFoundError
+    from app.exceptions import NotFoundError
 
     company = db.query(Company).filter(
         Company.id == company_id,

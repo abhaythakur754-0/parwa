@@ -15,7 +15,7 @@ All handlers:
 import logging
 from typing import Optional
 
-from backend.app.webhooks import register_handler
+from app.webhooks import register_handler
 
 logger = logging.getLogger("parwa.webhooks.shopify")
 

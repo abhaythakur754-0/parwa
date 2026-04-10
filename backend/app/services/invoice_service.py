@@ -20,7 +20,7 @@ from uuid import UUID
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from backend.app.clients.paddle_client import (
+from app.clients.paddle_client import (
     PaddleClient,
     PaddleError,
     get_paddle_client,

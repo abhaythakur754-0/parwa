@@ -398,7 +398,7 @@ def process_audit_queue() -> dict:
         try:
             # Synchronous Redis for Celery worker context
             import redis as sync_redis
-            from backend.app.config import get_settings
+            from app.config import get_settings
 
             settings = get_settings()
             r = sync_redis.from_url(

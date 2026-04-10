@@ -1,7 +1,7 @@
 """PARWA Pydantic schemas package."""
 
 # Ticket schemas - Day 25
-from backend.app.schemas.ticket import (
+from app.schemas.ticket import (
     TicketCreate,
     TicketUpdate,
     TicketResponse,
@@ -14,7 +14,7 @@ from backend.app.schemas.ticket import (
 )
 
 # Ticket message schemas - Day 25
-from backend.app.schemas.ticket_message import (
+from app.schemas.ticket_message import (
     MessageCreate,
     MessageUpdate,
     MessageResponse,
@@ -25,7 +25,7 @@ from backend.app.schemas.ticket_message import (
 )
 
 # SLA schemas - Day 25
-from backend.app.schemas.sla import (
+from app.schemas.sla import (
     SLAPolicyCreate,
     SLAPolicyUpdate,
     SLAPolicyResponse,
@@ -35,7 +35,7 @@ from backend.app.schemas.sla import (
 )
 
 # Assignment schemas - Day 25
-from backend.app.schemas.assignment import (
+from app.schemas.assignment import (
     AssignmentRuleCreate,
     AssignmentRuleUpdate,
     AssignmentRuleResponse,
@@ -44,7 +44,7 @@ from backend.app.schemas.assignment import (
 )
 
 # Bulk action schemas - Day 25
-from backend.app.schemas.bulk_action import (
+from app.schemas.bulk_action import (
     BulkActionRequest,
     BulkActionResponse,
     BulkActionUndo,
@@ -54,7 +54,7 @@ from backend.app.schemas.bulk_action import (
 )
 
 # Notification schemas - Day 25
-from backend.app.schemas.notification import (
+from app.schemas.notification import (
     NotificationTemplateCreate,
     NotificationTemplateUpdate,
     NotificationTemplateResponse,
@@ -64,7 +64,7 @@ from backend.app.schemas.notification import (
 )
 
 # Customer schemas - Day 25
-from backend.app.schemas.customer import (
+from app.schemas.customer import (
     CustomerCreate,
     CustomerUpdate,
     CustomerResponse,
@@ -76,7 +76,7 @@ from backend.app.schemas.customer import (
 )
 
 # Existing schemas - using correct class names
-from backend.app.schemas.pagination import PaginatedResponseSchema
+from app.schemas.pagination import PaginatedResponseSchema
 
 # Alias for backward compatibility
 PaginatedResponse = PaginatedResponseSchema

@@ -10,7 +10,7 @@ Technique execution order: Tier 1 → Tier 2 → Tier 3 (sequential).
 Parent Framework: TRIVYA Optimization Framework (AI Technique Framework v1.0)
 """
 
-from backend.app.core.techniques.base import (  # noqa: F401
+from app.core.techniques.base import (  # noqa: F401
     BaseTechniqueNode,
     ConversationState,
     GSDState,
@@ -18,7 +18,7 @@ from backend.app.core.techniques.base import (  # noqa: F401
 )
 
 # Stub nodes — full implementations in their respective weeks
-from backend.app.core.techniques.stub_nodes import (  # noqa: F401
+from app.core.techniques.stub_nodes import (  # noqa: F401
     CRPNode,
     ReverseThinkingNode,
     StepBackNode,

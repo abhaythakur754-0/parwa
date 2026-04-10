@@ -147,7 +147,7 @@ class EmbeddingService:
         """Lazily load API key from settings (BC-008 safe)."""
         if self._api_key is None:
             try:
-                from backend.app.config import get_settings
+                from app.config import get_settings
 
                 settings = get_settings()
                 self._api_key = settings.GOOGLE_AI_API_KEY or ""

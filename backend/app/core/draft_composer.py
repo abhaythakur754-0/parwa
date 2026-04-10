@@ -44,7 +44,7 @@ from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("draft_composer")
 
@@ -314,9 +314,9 @@ class DraftComposer:
             brand_voice_service: Brand Voice Service for tone matching.
                 Defaults to ``BrandVoiceService()`` if not provided.
         """
-        from backend.app.core.smart_router import SmartRouter
-        from backend.app.core.clara_quality_gate import CLARAQualityGate
-        from backend.app.services.brand_voice_service import (
+        from app.core.smart_router import SmartRouter
+        from app.core.clara_quality_gate import CLARAQualityGate
+        from app.services.brand_voice_service import (
             BrandVoiceService,
         )
 
@@ -582,7 +582,7 @@ class DraftComposer:
         safe defaults (BC-008).
         """
         try:
-            from backend.app.core.signal_extraction import (
+            from app.core.signal_extraction import (
                 SignalExtractor,
                 SignalExtractionRequest,
             )
@@ -625,7 +625,7 @@ class DraftComposer:
         classification method.  On failure, returns safe defaults.
         """
         try:
-            from backend.app.core.classification_engine import (
+            from app.core.classification_engine import (
                 ClassificationEngine,
             )
 
@@ -937,7 +937,7 @@ class DraftComposer:
         messages.append({"role": "user", "content": query})
 
         # Route through Smart Router — Medium tier
-        from backend.app.core.smart_router import (
+        from app.core.smart_router import (
             AtomicStepType,
             ModelTier,
         )
@@ -1486,7 +1486,7 @@ class DraftComposer:
             messages = [{"role": "system", "content": system_prompt}]
 
             # Route through Smart Router Medium tier
-            from backend.app.core.smart_router import (
+            from app.core.smart_router import (
                 AtomicStepType,
             )
 
@@ -1599,7 +1599,7 @@ class DraftComposer:
             return []
 
         try:
-            from backend.app.core.redis import cache_get
+            from app.core.redis import cache_get
 
             key = _HISTORY_KEY_TEMPLATE.format(
                 company_id=company_id,
@@ -1633,7 +1633,7 @@ class DraftComposer:
         On Redis failure, silently continues (BC-008).
         """
         try:
-            from backend.app.core.redis import cache_get, cache_set
+            from app.core.redis import cache_get, cache_set
 
             # Get existing history
             history_key = f"draft_history:{ticket_id}"
@@ -1697,7 +1697,7 @@ class DraftComposer:
             company_id: Tenant identifier (BC-001).
         """
         try:
-            from backend.app.core.redis import cache_set
+            from app.core.redis import cache_set
 
             feedback_data = {
                 "draft_id": draft_id,
@@ -1776,7 +1776,7 @@ class DraftComposer:
             Cached ``DraftComposerResponse`` or ``None``.
         """
         try:
-            from backend.app.core.redis import cache_get
+            from app.core.redis import cache_get
 
             cached = await cache_get(company_id, cache_key)
             if cached is not None and isinstance(cached, dict):
@@ -1828,7 +1828,7 @@ class DraftComposer:
             response: The response to cache.
         """
         try:
-            from backend.app.core.redis import cache_set
+            from app.core.redis import cache_set
 
             await cache_set(
                 company_id, cache_key, response.to_dict(),
@@ -1860,7 +1860,7 @@ class DraftComposer:
             response: The composed response to emit.
         """
         try:
-            from backend.app.core.socketio import emit_to_tenant
+            from app.core.socketio import emit_to_tenant
 
             payload = {
                 "event": "draft_suggestions",

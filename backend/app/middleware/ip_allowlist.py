@@ -239,7 +239,7 @@ class IPAllowlistMiddleware:
     ) -> list | None:
         """Get allowlist from Redis."""
         try:
-            from backend.app.core.redis import get_redis
+            from app.core.redis import get_redis
             redis_client = await get_redis()
             redis_key = f"parwa:ip_allowlist:{key}"
             raw = await redis_client.get(redis_key)

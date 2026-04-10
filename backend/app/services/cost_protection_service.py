@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional
 
-from backend.app.exceptions import ParwaBaseError
+from app.exceptions import ParwaBaseError
 from database.models.variant_engine import AITokenBudget
 
 

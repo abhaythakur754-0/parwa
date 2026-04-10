@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("data_freshness_service")
 
@@ -264,7 +264,7 @@ class DataFreshnessService:
         Uses SCAN for non-blocking iteration. Triggers registered
         KB update listeners after invalidation.
         """
-        from backend.app.core.redis import make_key
+        from app.core.redis import make_key
 
         pattern = make_key(
             company_id, "freshness", "rag_cache", "*",
@@ -395,7 +395,7 @@ class DataFreshnessService:
         Scans all freshness keys for the tenant and returns
         counts by status and entity type.
         """
-        from backend.app.core.redis import make_key
+        from app.core.redis import make_key
 
         pattern = make_key(company_id, "freshness", "*")
         report: Dict[str, Any] = {
@@ -518,7 +518,7 @@ class DataFreshnessService:
     # ── Internal: Redis Interaction ────────────────────────────────
 
     async def _get_redis(self):
-        from backend.app.core.redis import get_redis
+        from app.core.redis import get_redis
         return await get_redis()
 
     async def _safe_check(
@@ -673,14 +673,14 @@ class DataFreshnessService:
         self, company_id: str, et: str, eid: str,
     ) -> str:
         """Build freshness Redis key (BC-001)."""
-        from backend.app.core.redis import make_key
+        from app.core.redis import make_key
         return make_key(company_id, "freshness", et, eid)
 
     def _dkey(
         self, company_id: str, et: str, eid: str,
     ) -> str:
         """Build data Redis key (BC-001)."""
-        from backend.app.core.redis import make_key
+        from app.core.redis import make_key
         return make_key(company_id, "cache", et, eid)
 
     @staticmethod

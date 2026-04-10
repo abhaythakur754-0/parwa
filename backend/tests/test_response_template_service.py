@@ -19,7 +19,7 @@ import pytest_asyncio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from backend.app.services.response_template_service import (
+from app.services.response_template_service import (
     ResponseTemplateService,
     ResponseTemplate,
     TemplateVariable,
@@ -32,7 +32,7 @@ from backend.app.services.response_template_service import (
     sanitize_template_variable,
     _VARIABLE_PATTERN,
 )
-from backend.app.exceptions import (
+from app.exceptions import (
     ValidationError,
     NotFoundError,
     InternalError,

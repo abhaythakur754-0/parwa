@@ -21,7 +21,7 @@ from typing import Any, Callable, Dict, Optional
 
 from celery import Task
 
-from backend.app.tasks.celery_app import app
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.tasks")
 
@@ -80,7 +80,7 @@ class ParwaTask(Task):
         3. Executes the task
         4. Clears the tenant context after execution
         """
-        from backend.app.core.tenant_context import (
+        from app.core.tenant_context import (
             clear_tenant_context,
             set_tenant_context,
         )
@@ -255,7 +255,7 @@ def inject_tenant_context(func: Callable) -> Callable:
         # Context is already set by ParwaTask.__call__
         # This decorator is a safety net for tasks that might
         # bypass the base class
-        from backend.app.core.tenant_context import get_tenant_context
+        from app.core.tenant_context import get_tenant_context
 
         company_id = get_tenant_context()
         if not company_id:

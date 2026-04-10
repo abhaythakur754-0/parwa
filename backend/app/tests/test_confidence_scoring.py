@@ -18,7 +18,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import patch, MagicMock
 
-from backend.app.core.confidence_scoring_engine import (
+from app.core.confidence_scoring_engine import (
     ConfidenceScoringEngine,
     ConfidenceConfig,
     ConfidenceResult,

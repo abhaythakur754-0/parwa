@@ -14,21 +14,21 @@ import math
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import (
+from app.api.deps import (
     get_current_company,
     get_current_user,
     require_roles,
 )
-from backend.app.exceptions import NotFoundError
-from backend.app.schemas.admin import (
+from app.exceptions import NotFoundError
+from app.schemas.admin import (
     CompanyProfileUpdate,
     CompanySettingsUpdate,
     MessageResponse,
     PasswordChangeRequest,
     TeamMemberUpdate,
 )
-from backend.app.services import company_service
-from backend.app.services.audit_service import log_audit
+from app.services import company_service
+from app.services.audit_service import log_audit
 from database.base import get_db
 from database.models.core import User, Company
 

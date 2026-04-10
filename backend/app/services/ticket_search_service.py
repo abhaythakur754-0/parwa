@@ -30,7 +30,7 @@ from database.models.tickets import (
     TicketStatus,
     TicketPriority,
 )
-from backend.app.core.redis import get_redis, make_key
+from app.core.redis import get_redis, make_key
 
 
 class TicketSearchService:

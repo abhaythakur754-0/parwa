@@ -15,9 +15,9 @@ import pytest
 import pytest_asyncio
 
 # ── Mock external dependencies before importing source ────────────
-with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-    from backend.app.core.rag_retrieval import RAGChunk, RAGResult
-    from backend.app.core.rag_reranking import (
+with patch("app.logger.get_logger", return_value=MagicMock()):
+    from app.core.rag_retrieval import RAGChunk, RAGResult
+    from app.core.rag_reranking import (
         AssembledContext,
         Citation,
         CitationTracker,

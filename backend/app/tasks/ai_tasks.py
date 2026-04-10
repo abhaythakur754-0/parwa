@@ -10,8 +10,8 @@ Celery tasks for AI operations:
 import logging
 from typing import List, Optional
 
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.tasks.ai")
 
@@ -20,7 +20,7 @@ logger = logging.getLogger("parwa.tasks.ai")
     base=ParwaBaseTask,
     bind=True,
     queue="ai_light",
-    name="backend.app.tasks.ai.classify_ticket",
+    name="app.tasks.ai.classify_ticket",
     max_retries=3,
     soft_time_limit=30,
     time_limit=60,
@@ -63,7 +63,7 @@ def classify_ticket(self, company_id: str, ticket_id: str,
     base=ParwaBaseTask,
     bind=True,
     queue="ai_heavy",
-    name="backend.app.tasks.ai.generate_response",
+    name="app.tasks.ai.generate_response",
     max_retries=3,
     soft_time_limit=120,
     time_limit=300,
@@ -105,7 +105,7 @@ def generate_response(self, company_id: str, ticket_id: str,
     base=ParwaBaseTask,
     bind=True,
     queue="ai_light",
-    name="backend.app.tasks.ai.score_confidence",
+    name="app.tasks.ai.score_confidence",
     max_retries=2,
     soft_time_limit=15,
     time_limit=30,

@@ -26,12 +26,12 @@ ArbitrageAlert = None  # type: ignore[assignment,misc]
 def _mock_logger_and_lock():
     # Patch Lock -> RLock to avoid deadlock: check_instance_creation_allowed
     # holds self._lock then calls _get_rapid_count which also acquires it.
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        import backend.app.services.anti_arbitrage_service as _svc_mod
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        import app.services.anti_arbitrage_service as _svc_mod
         _orig_lock = _svc_mod.threading.Lock
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
-            from backend.app.services.anti_arbitrage_service import (
+            from app.services.anti_arbitrage_service import (
                 AntiArbitrageService as _AntiArbitrageService,
                 AntiArbitrageError as _AntiArbitrageError,
                 AntiArbitrageConfig as _AntiArbitrageConfig,
@@ -2011,7 +2011,7 @@ class TestAntiArbitrageError:
     """Test custom error class."""
 
     def test_error_is_parwa_base_error(self):
-        from backend.app.exceptions import ParwaBaseError
+        from app.exceptions import ParwaBaseError
         err = AntiArbitrageError(
             error_code="TEST",
             message="test message",

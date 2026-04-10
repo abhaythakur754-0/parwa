@@ -20,8 +20,8 @@ INTENT_TECHNIQUE_MAP = IntentTechniqueMapper = IntentTechniqueMapping = MappingR
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.services.intent_technique_mapper import (  # noqa: F811,F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.services.intent_technique_mapper import (  # noqa: F811,F401
             INTENT_TECHNIQUE_MAP,
             IntentTechniqueMapper,
             IntentTechniqueMapping,
@@ -29,7 +29,7 @@ def _mock_logger():
             TECHNIQUE_TIER1_FALLBACKS,
             VARIANT_TIER_LIMITS,
         )
-        from backend.app.core.technique_router import TechniqueID, TechniqueTier  # noqa: F811,F401
+        from app.core.technique_router import TechniqueID, TechniqueTier  # noqa: F811,F401
         globals().update({
             "INTENT_TECHNIQUE_MAP": INTENT_TECHNIQUE_MAP,
             "IntentTechniqueMapper": IntentTechniqueMapper,

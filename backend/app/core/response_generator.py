@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("response_generator")
 
@@ -157,17 +157,17 @@ class ResponseGenerator:
     """
 
     def __init__(self, redis_client: Any = None) -> None:
-        from backend.app.core.sentiment_engine import SentimentAnalyzer
-        from backend.app.core.rag_retrieval import RAGRetriever
-        from backend.app.core.rag_reranking import (
+        from app.core.sentiment_engine import SentimentAnalyzer
+        from app.core.rag_retrieval import RAGRetriever
+        from app.core.rag_reranking import (
             CrossEncoderReranker,
             ContextWindowAssembler,
         )
-        from backend.app.core.clara_quality_gate import CLARAQualityGate
-        from backend.app.core.smart_router import SmartRouter
-        from backend.app.services.brand_voice_service import BrandVoiceService
-        from backend.app.services.token_budget_service import TokenBudgetService
-        from backend.app.services.response_template_service import (
+        from app.core.clara_quality_gate import CLARAQualityGate
+        from app.core.smart_router import SmartRouter
+        from app.services.brand_voice_service import BrandVoiceService
+        from app.services.token_budget_service import TokenBudgetService
+        from app.services.response_template_service import (
             ResponseTemplateService,
         )
 
@@ -501,7 +501,7 @@ class ResponseGenerator:
                 rag_context=rag_context_string,
             )
 
-            from backend.app.core.smart_router import (
+            from app.core.smart_router import (
                 AtomicStepType,
                 ModelTier,
             )
@@ -671,7 +671,7 @@ class ResponseGenerator:
         formatters_applied: List[str] = []
 
         try:
-            from backend.app.core.response_formatters import (
+            from app.core.response_formatters import (
                 FormattingContext,
                 create_default_registry,
             )
@@ -1272,7 +1272,7 @@ class ResponseGenerator:
             # Apply basic formatting even to templates
             formatters_applied: List[str] = []
             try:
-                from backend.app.core.response_formatters import (
+                from app.core.response_formatters import (
                     FormattingContext,
                     create_default_registry,
                 )

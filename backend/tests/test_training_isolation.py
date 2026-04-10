@@ -32,8 +32,8 @@ VALID_VARIANT_TYPES = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.services.training_data_isolation import (  # noqa: F811,F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.services.training_data_isolation import (  # noqa: F811,F401
             DatasetIsolationResult,
             TrainingDataIsolationService,
             TrainingDataRecord,
@@ -242,7 +242,7 @@ def mock_redis():
 def _patch_get_redis(mock_redis_obj):
     """Return a patcher for ``backend.app.core.redis.get_redis``."""
     return patch(
-        "backend.app.core.redis.get_redis",
+        "app.core.redis.get_redis",
         new_callable=AsyncMock,
         return_value=mock_redis_obj,
     )
@@ -1417,7 +1417,7 @@ class TestRedisFailures:
             side_effect=ConnectionError("Redis down"),
         )
         with patch(
-            "backend.app.core.redis.get_redis",
+            "app.core.redis.get_redis",
             new_callable=AsyncMock,
             return_value=broken_redis,
         ):
@@ -1458,7 +1458,7 @@ class TestRedisFailures:
         )
         good_redis.pipeline = MagicMock(return_value=mock_pipeline)
         with patch(
-            "backend.app.core.redis.get_redis",
+            "app.core.redis.get_redis",
             new_callable=AsyncMock,
             return_value=good_redis,
         ):
@@ -1477,7 +1477,7 @@ class TestRedisFailures:
             side_effect=ConnectionError("Redis down"),
         )
         with patch(
-            "backend.app.core.redis.get_redis",
+            "app.core.redis.get_redis",
             new_callable=AsyncMock,
             return_value=broken_redis,
         ):
@@ -1492,7 +1492,7 @@ class TestRedisFailures:
             side_effect=ConnectionError("Redis down"),
         )
         with patch(
-            "backend.app.core.redis.get_redis",
+            "app.core.redis.get_redis",
             new_callable=AsyncMock,
             return_value=broken_redis,
         ):
@@ -1507,7 +1507,7 @@ class TestRedisFailures:
             side_effect=ConnectionError("Redis down"),
         )
         with patch(
-            "backend.app.core.redis.get_redis",
+            "app.core.redis.get_redis",
             new_callable=AsyncMock,
             return_value=broken_redis,
         ):
@@ -1610,7 +1610,7 @@ class TestValidationHelpers:
         list_mock.smembers = AsyncMock(return_value=set())
         list_mock.hgetall = AsyncMock(return_value={})
         with patch(
-            "backend.app.core.redis.get_redis",
+            "app.core.redis.get_redis",
             new_callable=AsyncMock,
             return_value=list_mock,
         ):

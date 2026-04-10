@@ -24,9 +24,9 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
 
-from backend.app.exceptions import ValidationError
-from backend.app.logger import get_logger
-from backend.app.services.user_details_service import check_ai_activation_prerequisites
+from app.exceptions import ValidationError
+from app.logger import get_logger
+from app.services.user_details_service import check_ai_activation_prerequisites
 from database.models.onboarding import OnboardingSession, KnowledgeDocument
 from database.models.user_details import UserDetails
 

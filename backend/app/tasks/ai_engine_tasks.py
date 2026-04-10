@@ -17,8 +17,8 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.tasks.ai_engine")
 
@@ -32,7 +32,7 @@ logger = logging.getLogger("parwa.tasks.ai_engine")
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.ai_engine_tasks.rebalance_workload",
+    name="app.tasks.ai_engine_tasks.rebalance_workload",
     max_retries=2,
     soft_time_limit=30,
     time_limit=60,
@@ -47,7 +47,7 @@ def rebalance_workload(self, company_id: Optional[str] = None) -> dict:
     """
     try:
         from database.base import SessionLocal
-        from backend.app.services.variant_orchestration_service import (
+        from app.services.variant_orchestration_service import (
             rebalance_workload as _rebalance,
         )
 
@@ -135,7 +135,7 @@ def rebalance_workload(self, company_id: Optional[str] = None) -> dict:
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.ai_engine_tasks.reset_daily_budgets",
+    name="app.tasks.ai_engine_tasks.reset_daily_budgets",
     max_retries=3,
     soft_time_limit=120,
     time_limit=300,
@@ -203,7 +203,7 @@ def reset_daily_budgets(self) -> dict:
     base=ParwaBaseTask,
     bind=True,
     queue="ai_light",
-    name="backend.app.tasks.ai_engine_tasks.warmup_tenant_models",
+    name="app.tasks.ai_engine_tasks.warmup_tenant_models",
     max_retries=2,
     soft_time_limit=30,
     time_limit=60,
@@ -222,7 +222,7 @@ def warmup_tenant_models(
         variant_type: Variant type to warm models for.
     """
     try:
-        from backend.app.core.cold_start_service import (
+        from app.core.cold_start_service import (
             get_cold_start_service,
         )
 
@@ -274,7 +274,7 @@ def warmup_tenant_models(
     base=ParwaBaseTask,
     bind=True,
     queue="default",
-    name="backend.app.tasks.ai_engine_tasks.cleanup_stale_injection_logs",
+    name="app.tasks.ai_engine_tasks.cleanup_stale_injection_logs",
     max_retries=2,
     soft_time_limit=120,
     time_limit=300,

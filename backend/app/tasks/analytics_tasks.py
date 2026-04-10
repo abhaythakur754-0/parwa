@@ -9,8 +9,8 @@ Celery tasks for analytics operations:
 
 import logging
 
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.tasks.analytics")
 
@@ -19,7 +19,7 @@ logger = logging.getLogger("parwa.tasks.analytics")
     base=ParwaBaseTask,
     bind=True,
     queue="analytics",
-    name="backend.app.tasks.analytics.aggregate_metrics",
+    name="app.tasks.analytics.aggregate_metrics",
     max_retries=3,
     soft_time_limit=60,
     time_limit=120,
@@ -65,7 +65,7 @@ def aggregate_metrics(self, company_id: str,
     base=ParwaBaseTask,
     bind=True,
     queue="analytics",
-    name="backend.app.tasks.analytics.calculate_roi",
+    name="app.tasks.analytics.calculate_roi",
     max_retries=2,
     soft_time_limit=120,
     time_limit=300,
@@ -105,7 +105,7 @@ def calculate_roi(self, company_id: str,
     base=ParwaBaseTask,
     bind=True,
     queue="analytics",
-    name="backend.app.tasks.analytics.drift_detection",
+    name="app.tasks.analytics.drift_detection",
     max_retries=2,
     soft_time_limit=180,
     time_limit=600,

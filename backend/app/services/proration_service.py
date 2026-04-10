@@ -28,7 +28,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from backend.app.schemas.billing import (
+from app.schemas.billing import (
     ProrationResult,
     ProrationAudit as ProrationAuditSchema,
     VariantType,

@@ -35,7 +35,7 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
 os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
 
-from backend.app.core.react_tools.base import (
+from app.core.react_tools.base import (
     ActionSchema,
     BaseReactTool,
     ToolCall,
@@ -43,11 +43,11 @@ from backend.app.core.react_tools.base import (
     ToolSchema,
     ValidationResult,
 )
-from backend.app.core.react_tools.billing_tool import BillingTool
-from backend.app.core.react_tools.crm_tool import CRMTool
-from backend.app.core.react_tools.order_tool import OrderTool
-from backend.app.core.react_tools.ticket_tool import TicketTool
-from backend.app.core.react_tools import ReActToolRegistry
+from app.core.react_tools.billing_tool import BillingTool
+from app.core.react_tools.crm_tool import CRMTool
+from app.core.react_tools.order_tool import OrderTool
+from app.core.react_tools.ticket_tool import TicketTool
+from app.core.react_tools import ReActToolRegistry
 
 
 # ══════════════════════════════════════════════════════════════════

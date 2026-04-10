@@ -52,17 +52,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import (
+from app.api.deps import (
     get_company_id,
     get_current_user,
     require_roles,
 )
-from backend.app.exceptions import (
+from app.exceptions import (
     InternalError,
     NotFoundError,
     ValidationError,
 )
-from backend.app.logger import get_logger
+from app.logger import get_logger
 from database.base import get_db
 from database.models.core import User
 
@@ -334,7 +334,7 @@ async def generate_response(
     quality gate to produce a high-quality, brand-consistent response.
     """
     try:
-        from backend.app.core.response_generator import (
+        from app.core.response_generator import (
             ResponseGenerator,
             ResponseGenerationRequest,
         )
@@ -383,7 +383,7 @@ async def generate_batch_responses(
     Returns an array of results (including partial failures).
     """
     try:
-        from backend.app.core.response_generator import (
+        from app.core.response_generator import (
             ResponseGenerator,
             ResponseGenerationRequest,
         )
@@ -465,7 +465,7 @@ async def get_token_budget(
     warning level (normal / warning / critical / exhausted).
     """
     try:
-        from backend.app.services.token_budget_service import TokenBudgetService
+        from app.services.token_budget_service import TokenBudgetService
 
         service = TokenBudgetService()
         status = await service.get_budget_status(conversation_id)
@@ -500,7 +500,7 @@ async def initialize_budget(
     counters. Idempotent — safe to call multiple times.
     """
     try:
-        from backend.app.services.token_budget_service import TokenBudgetService
+        from app.services.token_budget_service import TokenBudgetService
 
         service = TokenBudgetService()
         budget = await service.initialize_budget(
@@ -537,7 +537,7 @@ async def check_overflow(
     overflow amount, and whether truncation is needed.
     """
     try:
-        from backend.app.services.token_budget_service import TokenBudgetService
+        from app.services.token_budget_service import TokenBudgetService
 
         service = TokenBudgetService()
         result = await service.check_overflow(
@@ -574,7 +574,7 @@ async def create_template(
     Supports {{variable}} placeholders in subject and body.
     """
     try:
-        from backend.app.services.response_template_service import ResponseTemplateService
+        from app.services.response_template_service import ResponseTemplateService
 
         service = ResponseTemplateService()
         template = await service.create_template(
@@ -613,7 +613,7 @@ async def list_templates(
     Supports optional filters for category and language.
     """
     try:
-        from backend.app.services.response_template_service import ResponseTemplateService
+        from app.services.response_template_service import ResponseTemplateService
 
         service = ResponseTemplateService()
         templates = await service.list_templates(
@@ -650,7 +650,7 @@ async def get_template(
 ) -> Dict[str, Any]:
     """Get a single response template by ID."""
     try:
-        from backend.app.services.response_template_service import ResponseTemplateService
+        from app.services.response_template_service import ResponseTemplateService
 
         service = ResponseTemplateService()
         template = await service.get_template(template_id, company_id)
@@ -687,7 +687,7 @@ async def update_template(
     current values.
     """
     try:
-        from backend.app.services.response_template_service import ResponseTemplateService
+        from app.services.response_template_service import ResponseTemplateService
 
         service = ResponseTemplateService()
         updates = request.model_dump(exclude_unset=True)
@@ -724,7 +724,7 @@ async def delete_template(
 ) -> Dict[str, Any]:
     """Delete a response template."""
     try:
-        from backend.app.services.response_template_service import ResponseTemplateService
+        from app.services.response_template_service import ResponseTemplateService
 
         service = ResponseTemplateService()
         deleted = await service.delete_template(template_id, company_id)
@@ -761,7 +761,7 @@ async def render_template(
     (GAP-010 FIX).
     """
     try:
-        from backend.app.services.response_template_service import ResponseTemplateService
+        from app.services.response_template_service import ResponseTemplateService
 
         service = ResponseTemplateService()
         rendered = await service.render_template(
@@ -807,7 +807,7 @@ async def get_brand_voice(
     Returns defaults if no config has been set yet.
     """
     try:
-        from backend.app.services.brand_voice_service import BrandVoiceService
+        from app.services.brand_voice_service import BrandVoiceService
 
         service = BrandVoiceService()
         config = await service.get_config(company_id)
@@ -843,7 +843,7 @@ async def upsert_brand_voice(
     for any fields not explicitly set.
     """
     try:
-        from backend.app.services.brand_voice_service import BrandVoiceService
+        from app.services.brand_voice_service import BrandVoiceService
 
         service = BrandVoiceService()
         config_data = request.model_dump(exclude_unset=True)
@@ -880,7 +880,7 @@ async def delete_brand_voice(
     After deletion, the system falls back to industry defaults.
     """
     try:
-        from backend.app.services.brand_voice_service import BrandVoiceService
+        from app.services.brand_voice_service import BrandVoiceService
 
         service = BrandVoiceService()
         deleted = await service.delete_config(company_id)
@@ -913,7 +913,7 @@ async def check_prohibited_words(
     variants like 'd4mn', 'h3ll', 'f*ck', etc.
     """
     try:
-        from backend.app.services.brand_voice_service import BrandVoiceService
+        from app.services.brand_voice_service import BrandVoiceService
 
         service = BrandVoiceService()
         result = await service.check_prohibited_words(
@@ -952,7 +952,7 @@ async def validate_brand_voice(
     violations, warnings, and suggested fixes.
     """
     try:
-        from backend.app.services.brand_voice_service import BrandVoiceService
+        from app.services.brand_voice_service import BrandVoiceService
 
         service = BrandVoiceService()
         config = await service.get_config(company_id)
@@ -1000,7 +1000,7 @@ async def ai_assign_ticket(
     and current workload to recommend the best agent.
     """
     try:
-        from backend.app.core.ai_assignment_engine import (
+        from app.core.ai_assignment_engine import (
             AIAssignmentEngine,
             TicketAssignmentRequest,
         )
@@ -1053,7 +1053,7 @@ async def get_agent_workload(
     availability status. Used to populate the assignment dashboard.
     """
     try:
-        from backend.app.services.assignment_service import AssignmentService
+        from app.services.assignment_service import AssignmentService
 
         service = AssignmentService(None, company_id)
         workload = service.get_agent_workload()
@@ -1088,7 +1088,7 @@ async def get_migration_status(
     counts, and migration metrics.
     """
     try:
-        from backend.app.services.rule_migration_service import RuleMigrationService
+        from app.services.rule_migration_service import RuleMigrationService
 
         service = RuleMigrationService(db=None, company_id=company_id)
         status = service.get_migration_status()
@@ -1133,7 +1133,7 @@ async def toggle_migration(
       - active: AI rules fully active
     """
     try:
-        from backend.app.services.rule_migration_service import RuleMigrationService
+        from app.services.rule_migration_service import RuleMigrationService
 
         valid_features = {"classification", "assignment"}
         if request.feature not in valid_features:
@@ -1187,7 +1187,7 @@ router = APIRouter()
 
 Include this in your FastAPI app:
 
-    from backend.app.api.response import router as response_api
+    from app.api.response import router as response_api
     app.include_router(response_api)
 """
 

@@ -41,8 +41,8 @@ UrgencyScorer = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.sentiment_engine import (  # noqa: F811,F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.sentiment_engine import (  # noqa: F811,F401
             ConversationTrendAnalyzer,
             EmotionClassifier,
             EmotionType,
@@ -574,8 +574,8 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_full_analysis_neutral(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("Hello, how are you?", company_id="c1")
         assert isinstance(result, SentimentResult)
         assert result.emotion == "neutral"
@@ -584,8 +584,8 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_full_analysis_frustrated(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze(
                     "I am very angry and frustrated with this terrible service!",
                     company_id="c1",
@@ -595,8 +595,8 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_empty_query_returns_default(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("", company_id="c1")
         assert result.frustration_score == 0.0
         assert result.emotion == EmotionType.NEUTRAL
@@ -604,8 +604,8 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_none_query_returns_default(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze(None, company_id="c1")
         assert result.frustration_score == 0.0
 
@@ -623,31 +623,31 @@ class TestSentimentAnalyzer:
             "processing_time_ms": 5.0,
             "conversation_trend": "stable",
         }
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("test query", company_id="c1")
         assert result.cached is True
         assert result.frustration_score == 42.0
 
     @pytest.mark.asyncio
     async def test_cache_miss(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("I have an issue", company_id="c1")
         assert result.cached is False
 
     @pytest.mark.asyncio
     async def test_cache_fail_open(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("hello", company_id="c1")
         assert result.cached is False
         assert isinstance(result, SentimentResult)
 
     @pytest.mark.asyncio
     async def test_cache_write_fail_open(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("write fail")):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("write fail")):
                 result = await self.analyzer.analyze("hello", company_id="c1")
         assert isinstance(result, SentimentResult)
 
@@ -681,8 +681,8 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_with_conversation_history(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze(
                     "This is frustrating",
                     company_id="c1",
@@ -692,16 +692,16 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_variant_type_preserved(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
                 await self.analyzer.analyze("test", company_id="c1", variant_type="mini_parwa")
                 # Verify cache_set was called
                 mock_set.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_whitespace_query_returns_default(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.analyzer.analyze("   ", company_id="c1")
         assert result.frustration_score == 0.0
 
@@ -800,8 +800,8 @@ class TestSentimentEdgeCases:
 
     def test_sentiment_score_inverse_frustration(self):
         # High frustration → low sentiment score
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 import asyncio
                 analyzer = SentimentAnalyzer()
                 result = asyncio.get_event_loop().run_until_complete(

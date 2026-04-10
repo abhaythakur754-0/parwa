@@ -20,7 +20,7 @@ async def celery_health_check() -> dict:
     """
     start = time.monotonic()
     try:
-        from backend.app.tasks.celery_app import app
+        from app.tasks.celery_app import app
 
         # Check broker connectivity
         conn = app.connection_or_acquire()
@@ -53,7 +53,7 @@ async def get_active_workers() -> dict:
         Dict with 'worker_count' and 'queue_lengths'.
     """
     try:
-        from backend.app.tasks.celery_app import app
+        from app.tasks.celery_app import app
 
         inspect = app.control.inspect(timeout=3)
         active_workers = inspect.active()

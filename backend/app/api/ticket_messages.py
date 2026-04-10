@@ -22,10 +22,10 @@ from fastapi import status as http_status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_db, get_current_user, get_company_id
-from backend.app.services.message_service import MessageService
-from backend.app.exceptions import NotFoundError, ValidationError, AuthorizationError
-from backend.app.core.event_emitter import emit_event
+from app.api.deps import get_db, get_current_user, get_company_id
+from app.services.message_service import MessageService
+from app.exceptions import NotFoundError, ValidationError, AuthorizationError
+from app.core.event_emitter import emit_event
 
 
 router = APIRouter(prefix="/tickets", tags=["tickets", "messages"])

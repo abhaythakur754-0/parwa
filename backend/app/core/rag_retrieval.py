@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 from shared.knowledge_base.vector_search import (
     EMBEDDING_DIMENSION,
     MockVectorStore,
@@ -349,7 +349,7 @@ class RAGRetriever:
 
         # Try using the real embedding service
         try:
-            from backend.app.services.embedding_service import EmbeddingService
+            from app.services.embedding_service import EmbeddingService
 
             svc = EmbeddingService(company_id="rag_query")
             return svc.generate_embedding(text)
@@ -553,7 +553,7 @@ class RAGRetriever:
     ) -> Optional[RAGResult]:
         """Check cache for a previous result."""
         try:
-            from backend.app.core.redis import cache_get
+            from app.core.redis import cache_get
 
             cached = await cache_get(company_id, cache_key)
             if cached and isinstance(cached, dict):
@@ -586,7 +586,7 @@ class RAGRetriever:
     ) -> None:
         """Store a result in cache."""
         try:
-            from backend.app.core.redis import cache_set
+            from app.core.redis import cache_set
 
             await cache_set(
                 company_id,

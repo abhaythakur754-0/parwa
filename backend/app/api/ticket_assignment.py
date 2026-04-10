@@ -19,9 +19,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.services.assignment_service import AssignmentService, AssigneeType
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.api.deps import get_current_user, get_db
+from app.services.assignment_service import AssignmentService, AssigneeType
+from app.exceptions import NotFoundError, ValidationError
 
 
 router = APIRouter(prefix="/tickets", tags=["ticket-assignment"])

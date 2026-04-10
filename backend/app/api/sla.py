@@ -17,8 +17,8 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.schemas.sla import (
+from app.api.deps import get_current_user, get_db
+from app.schemas.sla import (
     SLAPolicyCreate,
     SLAPolicyUpdate,
     SLAPolicyResponse,
@@ -28,7 +28,7 @@ from backend.app.schemas.sla import (
     Priority,
     PlanTier,
 )
-from backend.app.services.sla_service import (
+from app.services.sla_service import (
     SLAService,
     SLAError,
     SLAPolicyNotFoundError,

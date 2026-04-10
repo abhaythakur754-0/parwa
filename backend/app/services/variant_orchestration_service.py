@@ -31,7 +31,7 @@ from database.models.variant_engine import (
     VariantInstance,
     VariantWorkloadDistribution,
 )
-from backend.app.exceptions import ParwaBaseError
+from app.exceptions import ParwaBaseError
 
 logger = logging.getLogger("parwa.orchestration")
 

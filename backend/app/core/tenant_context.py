@@ -8,7 +8,7 @@ Provides tenant context propagation across:
 Uses threading.local() for sync (Celery workers) and contextvars for async (FastAPI).
 
 Usage:
-    from backend.app.core.tenant_context import (
+    from app.core.tenant_context import (
         set_tenant_context, get_tenant_context, clear_tenant_context,
     )
 
@@ -26,7 +26,7 @@ from contextvars import ContextVar
 from contextlib import contextmanager
 from typing import Generator, Optional
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("tenant_context")
 

@@ -25,19 +25,19 @@ import httpx
 from httpx import HTTPError, TimeoutException
 from sqlalchemy.orm import Session
 
-from backend.app.config import get_settings
-from backend.app.core.auth import (
+from app.config import get_settings
+from app.core.auth import (
     create_access_token,
     generate_refresh_token,
     get_access_token_expiry_seconds,
     hash_refresh_token,
 )
-from backend.app.exceptions import (
+from app.exceptions import (
     AuthenticationError,
     ValidationError,
 )
-from backend.app.logger import get_logger
-from backend.app.schemas.auth import (
+from app.logger import get_logger
+from app.schemas.auth import (
     AuthResponse,
     TokenResponse,
     UserResponse,
@@ -138,7 +138,7 @@ def register_user(
 
     # L19: Send verification email after registration
     try:
-        from backend.app.services.verification_service import (
+        from app.services.verification_service import (
             send_verification_on_register,
         )
         send_verification_on_register(db, user)

@@ -1407,7 +1407,7 @@ class SmartRouter:
         import aiohttp
 
         # Lazy import of config for API key
-        from backend.app.config import get_settings
+        from app.config import get_settings
         settings = get_settings()
         api_key = settings.GOOGLE_AI_API_KEY
 
@@ -1503,7 +1503,7 @@ class SmartRouter:
         """Call OpenAI-compatible API -- Cerebras or Groq (async)."""
         import aiohttp
 
-        from backend.app.config import get_settings
+        from app.config import get_settings
         settings = get_settings()
 
         # Select API key based on provider

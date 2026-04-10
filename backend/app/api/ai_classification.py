@@ -43,7 +43,7 @@ _mapper = None
 def _get_engine():
     global _engine
     if _engine is None:
-        from backend.app.core.classification_engine import ClassificationEngine
+        from app.core.classification_engine import ClassificationEngine
         _engine = ClassificationEngine()
     return _engine
 
@@ -51,7 +51,7 @@ def _get_engine():
 def _get_mapper():
     global _mapper
     if _mapper is None:
-        from backend.app.services.intent_technique_mapper import IntentTechniqueMapper
+        from app.services.intent_technique_mapper import IntentTechniqueMapper
         _mapper = IntentTechniqueMapper()
     return _mapper
 
@@ -86,7 +86,7 @@ async def classify_text(req: ClassifyRequest) -> Dict[str, Any]:
 @router.get("/intents")
 async def list_intents() -> Dict[str, Any]:
     """List all supported intent types."""
-    from backend.app.core.classification_engine import IntentType
+    from app.core.classification_engine import IntentType
     intents = [t.value for t in IntentType]
     return {"intents": intents, "count": len(intents)}
 
@@ -174,7 +174,7 @@ async def list_prompt_templates(
     variant_type: Optional[str] = Query(default=None),
 ) -> Dict[str, Any]:
     """List prompt templates (SG-25), optionally filtered."""
-    from backend.app.services.intent_prompt_templates import PromptTemplateRegistry
+    from app.services.intent_prompt_templates import PromptTemplateRegistry
 
     registry = PromptTemplateRegistry()
 

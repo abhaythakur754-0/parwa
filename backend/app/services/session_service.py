@@ -12,11 +12,11 @@ from datetime import timezone
 
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import (
+from app.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from backend.app.logger import get_logger
+from app.logger import get_logger
 from database.models.core import RefreshToken
 
 logger = get_logger("session_service")

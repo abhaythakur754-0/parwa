@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backend.app.core.gsd_engine import (
+from app.core.gsd_engine import (
     DEFAULT_RESOLUTION_ESTIMATE,
     DIAGNOSTIC_QUESTIONS,
     ESCALATION_ELIGIBLE_STATES,
@@ -36,8 +36,8 @@ from backend.app.core.gsd_engine import (
     should_escalate,
     transition_state,
 )
-from backend.app.core.techniques.base import ConversationState, GSDState
-from backend.app.core.technique_router import QuerySignals
+from app.core.techniques.base import ConversationState, GSDState
+from app.core.technique_router import QuerySignals
 
 
 # ══════════════════════════════════════════════════════════════════

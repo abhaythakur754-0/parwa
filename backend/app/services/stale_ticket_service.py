@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 from database.models.tickets import Ticket, TicketStatus, TicketPriority
 
 
@@ -111,7 +111,7 @@ class StaleTicketService:
             )
         
         # Import state machine
-        from backend.app.services.ticket_state_machine import TicketStateMachine
+        from app.services.ticket_state_machine import TicketStateMachine
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
@@ -144,7 +144,7 @@ class StaleTicketService:
             raise ValidationError("Ticket is not marked as stale")
         
         # Import notification service
-        from backend.app.services.notification_service import NotificationService
+        from app.services.notification_service import NotificationService
         
         notification_service = NotificationService(self.db, self.company_id)
         
@@ -194,7 +194,7 @@ class StaleTicketService:
             raise ValidationError("Double timeout not yet reached")
         
         # Import state machine
-        from backend.app.services.ticket_state_machine import TicketStateMachine
+        from app.services.ticket_state_machine import TicketStateMachine
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
@@ -291,7 +291,7 @@ class StaleTicketService:
             raise ValidationError("Only stale tickets can be revived")
         
         # Import state machine
-        from backend.app.services.ticket_state_machine import TicketStateMachine
+        from app.services.ticket_state_machine import TicketStateMachine
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         

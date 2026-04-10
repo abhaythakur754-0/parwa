@@ -14,10 +14,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db, get_tenant_context
-from backend.app.services.notification_service import NotificationService
-from backend.app.services.notification_template_service import NotificationTemplateService
-from backend.app.services.notification_preference_service import NotificationPreferenceService
+from app.api.deps import get_current_user, get_db, get_tenant_context
+from app.services.notification_service import NotificationService
+from app.services.notification_template_service import NotificationTemplateService
+from app.services.notification_preference_service import NotificationPreferenceService
 from database.models.core import User
 
 

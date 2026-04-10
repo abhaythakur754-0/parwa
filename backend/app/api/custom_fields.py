@@ -10,9 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.exceptions import NotFoundError, ValidationError
-from backend.app.services.custom_field_service import CustomFieldService
+from app.api.deps import get_current_user, get_db
+from app.exceptions import NotFoundError, ValidationError
+from app.services.custom_field_service import CustomFieldService
 from database.models.core import User
 
 

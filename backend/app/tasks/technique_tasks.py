@@ -13,8 +13,8 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
-from backend.app.tasks.base import ParwaBaseTask  # noqa: F401
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask  # noqa: F401
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.tasks.technique")
 

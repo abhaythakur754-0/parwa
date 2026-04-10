@@ -25,13 +25,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.app.core.rag_retrieval import (
+from app.core.rag_retrieval import (
     RAGChunk,
     RAGResult,
     RAGRetriever,
     VARIANT_CONFIG,
 )
-from backend.app.core.sentiment_engine import (
+from app.core.sentiment_engine import (
     FrustrationDetector,
     SentimentAnalyzer,
     SentimentResult,
@@ -39,16 +39,16 @@ from backend.app.core.sentiment_engine import (
     UrgencyLevel,
     UrgencyScorer,
 )
-from backend.app.core.response_formatters import (
+from app.core.response_formatters import (
     BoldFormatter,
     EscalationFormatter,
     FormattingContext,
     SignatureFormatter,
 )
-from backend.app.services.sentiment_technique_mapper import (
+from app.services.sentiment_technique_mapper import (
     SentimentTechniqueMapper,
 )
-from backend.app.core.technique_router import TechniqueID
+from app.core.technique_router import TechniqueID
 from shared.knowledge_base.vector_search import MockVectorStore
 from shared.knowledge_base.reindexing import ReindexingManager
 
@@ -180,8 +180,8 @@ class TestGap2_SentimentCacheHistory:
             "Working now, thanks!",
             "Great, all fixed!",
         ]
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result_worse = await self.analyzer.analyze(
                     "How do I check my order status?",
                     company_id="c1",
@@ -223,7 +223,7 @@ class TestGap2_SentimentCacheHistory:
             "Great service",
             "Wonderful!",
         ]
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock,
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
                    return_value=cached_data):
             result = await self.analyzer.analyze(
                 "How do I check my order status?",
@@ -255,8 +255,8 @@ class TestGap2_SentimentCacheHistory:
             "Hello", "How are you?", "Thanks",
             "That works", "Great.",
         ]
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 r1 = await self.analyzer.analyze(
                     "help", company_id="c1", conversation_history=worsening,
                 )
@@ -909,7 +909,7 @@ class TestGap10_LanguagePipelineCache:
     def setup_method(self):
         self.pipeline = None
         # Import here to avoid import errors if language_pipeline has heavy deps
-        from backend.app.core.language_pipeline import LanguagePipeline
+        from app.core.language_pipeline import LanguagePipeline
         self.pipeline = LanguagePipeline()
 
     @pytest.mark.asyncio
@@ -928,9 +928,9 @@ class TestGap10_LanguagePipelineCache:
     @pytest.mark.asyncio
     async def test_cache_does_not_crash(self):
         """Cache operations should not crash the pipeline."""
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock,
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
                    side_effect=Exception("Redis down")):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock,
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock,
                        side_effect=Exception("Redis down")):
                 result = await self.pipeline.process(
                     "Hola, necesito ayuda",
@@ -942,7 +942,7 @@ class TestGap10_LanguagePipelineCache:
     @pytest.mark.asyncio
     async def test_same_query_different_tenant_lang_no_crash(self):
         """Same query with different tenant_language should not crash."""
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock,
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock,
                    return_value=None):
             r1 = await self.pipeline.process(
                 "hola gracias",

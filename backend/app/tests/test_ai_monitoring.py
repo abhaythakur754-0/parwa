@@ -25,7 +25,7 @@ os.environ["ENVIRONMENT"] = "test"
 
 import pytest
 
-from backend.app.core.ai_monitoring_service import (
+from app.core.ai_monitoring_service import (
     AIMonitoringService,
     AlertCondition,
     AlertLevel,
@@ -748,14 +748,14 @@ class TestBlockedResponseMetrics:
 
 class TestDataPruning:
     def test_prune_respects_max(self, monitor):
-        from backend.app.core.ai_monitoring_service import _MAX_DATA_POINTS
+        from app.core.ai_monitoring_service import _MAX_DATA_POINTS
         for i in range(_MAX_DATA_POINTS + 20):
             monitor.record_query(COMPANY_ID, "parwa", f"Q{i}", f"R{i}")
         count = monitor.get_record_count(COMPANY_ID)
         assert count <= _MAX_DATA_POINTS
 
     def test_newest_records_kept_after_prune(self, monitor):
-        from backend.app.core.ai_monitoring_service import _MAX_DATA_POINTS
+        from app.core.ai_monitoring_service import _MAX_DATA_POINTS
         for i in range(_MAX_DATA_POINTS + 10):
             monitor.record_query(
                 COMPANY_ID, "parwa", "Q", f"R-{i}",
@@ -1018,7 +1018,7 @@ class TestPruningBoundary:
     """Gap 11: Exact boundary at _MAX_DATA_POINTS."""
 
     def test_exactly_at_max_no_prune(self, monitor):
-        from backend.app.core.ai_monitoring_service import _MAX_DATA_POINTS
+        from app.core.ai_monitoring_service import _MAX_DATA_POINTS
         for i in range(_MAX_DATA_POINTS):
             monitor.record_query(
                 "prune_bnd", "parwa", f"Q{i}", f"R{i}",
@@ -1026,7 +1026,7 @@ class TestPruningBoundary:
         assert monitor.get_record_count("prune_bnd") == _MAX_DATA_POINTS
 
     def test_at_max_plus_one_prunes(self, monitor):
-        from backend.app.core.ai_monitoring_service import _MAX_DATA_POINTS
+        from app.core.ai_monitoring_service import _MAX_DATA_POINTS
         for i in range(_MAX_DATA_POINTS + 1):
             monitor.record_query(
                 "prune_bnd2", "parwa", f"Q{i}", f"R{i}",

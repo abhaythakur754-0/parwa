@@ -18,7 +18,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from backend.app.core.cold_start_service import (
+from app.core.cold_start_service import (
     ColdStartService,
     WarmupStatus,
     VARIANT_TIER_MAP,
@@ -40,7 +40,7 @@ def service() -> ColdStartService:
 def mock_warmup():
     """Mock _warmup_single_model to return success immediately."""
     def _mock_warmup(self, company_id, combo, timeout_ms=None):
-        from backend.app.core.cold_start_service import ModelWarmupState, WarmupStatus
+        from app.core.cold_start_service import ModelWarmupState, WarmupStatus
         return ModelWarmupState(
             provider=combo.provider,
             model_id=combo.model_id,
@@ -64,7 +64,7 @@ COMPANY_ID = "test-company-789"
 class TestWarmupTenant:
     @patch.object(ColdStartService, "_warmup_single_model")
     def test_creates_state_for_mini_parwa(self, mock_method, service: ColdStartService):
-        from backend.app.core.cold_start_service import ModelWarmupState, WarmupStatus
+        from app.core.cold_start_service import ModelWarmupState, WarmupStatus
         mock_method.return_value = ModelWarmupState(
             provider="cerebras", model_id="llama-3.1-8b", tier="light",
             status=WarmupStatus.warm, warmup_success=True,
@@ -77,7 +77,7 @@ class TestWarmupTenant:
 
     @patch.object(ColdStartService, "_warmup_single_model")
     def test_creates_state_for_parwa(self, mock_method, service: ColdStartService):
-        from backend.app.core.cold_start_service import ModelWarmupState, WarmupStatus
+        from app.core.cold_start_service import ModelWarmupState, WarmupStatus
         mock_method.return_value = ModelWarmupState(
             provider="google", model_id="gemini-2.0-flash-lite", tier="medium",
             status=WarmupStatus.warm, warmup_success=True,
@@ -89,7 +89,7 @@ class TestWarmupTenant:
 
     @patch.object(ColdStartService, "_warmup_single_model")
     def test_unknown_variant_defaults_to_mini_parwa(self, mock_method, service: ColdStartService):
-        from backend.app.core.cold_start_service import ModelWarmupState, WarmupStatus
+        from app.core.cold_start_service import ModelWarmupState, WarmupStatus
         mock_method.return_value = ModelWarmupState(
             provider="cerebras", model_id="llama-3.1-8b", tier="light",
             status=WarmupStatus.warm, warmup_success=True,
@@ -179,7 +179,7 @@ class TestHeavyTimeout:
 
     @patch.object(ColdStartService, "_warmup_single_model")
     def test_heavy_warmup_uses_capped_timeout(self, mock_method, service: ColdStartService):
-        from backend.app.core.cold_start_service import ModelWarmupState, WarmupStatus, PREWARM_COMBO
+        from app.core.cold_start_service import ModelWarmupState, WarmupStatus, PREWARM_COMBO
         mock_method.return_value = ModelWarmupState(
             provider="groq", model_id="gpt-oss-120b", tier="heavy",
             status=WarmupStatus.warm, warmup_success=True,
@@ -204,7 +204,7 @@ class TestTenantStateCleanup:
         svc = ColdStartService(max_tenant_states=5)
         # Trigger the trim by calling warmup_tenant which checks after insert
         with patch.object(ColdStartService, "_warmup_single_model") as mock:
-            from backend.app.core.cold_start_service import ModelWarmupState, WarmupStatus
+            from app.core.cold_start_service import ModelWarmupState, WarmupStatus
             mock.return_value = ModelWarmupState(
                 provider="cerebras", model_id="llama-3.1-8b", tier="light",
                 status=WarmupStatus.warm, warmup_success=True,
@@ -225,7 +225,7 @@ class TestTenantStateCleanup:
 class TestPrewarmAllProviders:
     @patch.object(ColdStartService, "_warmup_single_model")
     def test_returns_results_for_all_light(self, mock_method, service: ColdStartService):
-        from backend.app.core.cold_start_service import ModelWarmupState, WarmupStatus
+        from app.core.cold_start_service import ModelWarmupState, WarmupStatus
         mock_method.return_value = ModelWarmupState(
             provider="cerebras", model_id="llama-3.1-8b", tier="light",
             status=WarmupStatus.warm, warmup_success=True,

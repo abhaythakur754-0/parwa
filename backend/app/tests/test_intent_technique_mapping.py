@@ -7,8 +7,8 @@ T1 fallback, blocked techniques.
 
 import pytest
 
-from backend.app.core.technique_router import TechniqueID, TechniqueTier
-from backend.app.services.intent_technique_mapper import (
+from app.core.technique_router import TechniqueID, TechniqueTier
+from app.services.intent_technique_mapper import (
     INTENT_TECHNIQUE_MAP,
     IntentTechniqueMapper,
     MappingResult,

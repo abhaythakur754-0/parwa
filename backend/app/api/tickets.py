@@ -23,15 +23,15 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.exceptions import NotFoundError, AuthorizationError, ValidationError
-from backend.app.services.ticket_service import TicketService
-from backend.app.services.priority_service import PriorityService
-from backend.app.services.category_service import CategoryService
-from backend.app.services.tag_service import TagService
-from backend.app.services.attachment_service import AttachmentService
-from backend.app.services.pii_scan_service import PIIScanService
-from backend.app.schemas.ticket import (
+from app.api.deps import get_current_user, get_db
+from app.exceptions import NotFoundError, AuthorizationError, ValidationError
+from app.services.ticket_service import TicketService
+from app.services.priority_service import PriorityService
+from app.services.category_service import CategoryService
+from app.services.tag_service import TagService
+from app.services.attachment_service import AttachmentService
+from app.services.pii_scan_service import PIIScanService
+from app.schemas.ticket import (
     TicketCreate,
     TicketUpdate,
     TicketResponse,

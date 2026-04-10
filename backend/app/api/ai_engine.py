@@ -25,12 +25,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import (
+from app.api.deps import (
     require_roles,
     get_company_id,
     get_current_user,
 )
-from backend.app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 from database.base import get_db
 from database.models.core import User
 
@@ -180,7 +180,7 @@ def list_capabilities(
     Filter by variant_type, instance_id, feature_category, or
     enabled_only. Returns paginated-style list with total count.
     """
-    from backend.app.services.variant_capability_service import (
+    from app.services.variant_capability_service import (
         list_capabilities as svc_list_capabilities,
     )
 
@@ -209,7 +209,7 @@ def get_capability(
     user: User = Depends(require_roles("owner", "admin")),
 ) -> dict:
     """Get single capability detail by feature_id."""
-    from backend.app.services.variant_capability_service import (
+    from app.services.variant_capability_service import (
         get_capability as svc_get_capability,
     )
 
@@ -243,7 +243,7 @@ def update_capability(
     Body must include 'variant_type' and 'config' keys.
     Optionally include 'instance_id' for instance-level override.
     """
-    from backend.app.services.variant_capability_service import (
+    from app.services.variant_capability_service import (
         update_capability_config,
     )
 
@@ -281,7 +281,7 @@ def batch_update_capabilities(
     Body must include 'updates' key: a list of dicts with
     feature_id, variant_type, is_enabled, and optional instance_id.
     """
-    from backend.app.services.variant_capability_service import (
+    from app.services.variant_capability_service import (
         batch_update_capabilities,
     )
 
@@ -321,7 +321,7 @@ def list_instances(
 
     Filter by variant_type or status.
     """
-    from backend.app.services.variant_instance_service import (
+    from app.services.variant_instance_service import (
         list_instances as svc_list_instances,
     )
 
@@ -351,7 +351,7 @@ def create_instance(
     Optionally include 'channel_assignment' (list of strings)
     and 'capacity_config' (dict).
     """
-    from backend.app.services.variant_instance_service import (
+    from app.services.variant_instance_service import (
         register_instance,
     )
 
@@ -384,7 +384,7 @@ def get_instance(
     user: User = Depends(require_roles("owner", "admin")),
 ) -> dict:
     """Get single instance detail by ID."""
-    from backend.app.services.variant_instance_service import (
+    from app.services.variant_instance_service import (
         get_instance as svc_get_instance,
     )
 
@@ -416,7 +416,7 @@ def update_instance(
     Supports updating 'channel_assignment' (list) and/or
     'capacity_config' (dict).
     """
-    from backend.app.services.variant_instance_service import (
+    from app.services.variant_instance_service import (
         update_channel_assignment,
         update_capacity_config,
     )
@@ -466,7 +466,7 @@ def deactivate_instance(
     user: User = Depends(require_roles("owner", "admin")),
 ) -> dict:
     """Deactivate an instance (set status to 'inactive')."""
-    from backend.app.services.variant_instance_service import (
+    from app.services.variant_instance_service import (
         deactivate_instance,
     )
 
@@ -493,7 +493,7 @@ def get_highest_active_variant(
     Returns the variant type with the highest tier that has
     at least one active instance. Priority: parwa_high > parwa > mini_parwa.
     """
-    from backend.app.services.variant_instance_service import (
+    from app.services.variant_instance_service import (
         get_highest_active_variant,
     )
 
@@ -525,7 +525,7 @@ def route_ticket(
     Body must include 'ticket_id'. Optionally include 'channel',
     'strategy' (default: 'least_loaded'), and 'variant_type'.
     """
-    from backend.app.services.variant_orchestration_service import (
+    from app.services.variant_orchestration_service import (
         route_ticket as svc_route_ticket,
     )
 
@@ -555,7 +555,7 @@ def get_workload_status(
     user: User = Depends(get_current_user),
 ) -> dict:
     """Get workload distribution status across all instances."""
-    from backend.app.services.variant_orchestration_service import (
+    from app.services.variant_orchestration_service import (
         get_all_instance_loads,
         get_orchestration_summary,
     )
@@ -583,7 +583,7 @@ def rebalance_workload(
     Checks for overloaded instances and migrates tickets to
     underloaded instances.
     """
-    from backend.app.services.variant_orchestration_service import (
+    from app.services.variant_orchestration_service import (
         rebalance_workload as svc_rebalance,
     )
 
@@ -611,7 +611,7 @@ def check_entitlement(
     Returns EntitlementResult with is_entitled, reason, and
     optional upgrade_suggestion.
     """
-    from backend.app.services.entitlement_middleware import (
+    from app.services.entitlement_middleware import (
         check_entitlement as svc_check_entitlement,
     )
 
@@ -647,7 +647,7 @@ def batch_check_entitlements(
     Body must include 'feature_ids' (list of strings) and
     'variant_type'. Optionally include 'instance_id'.
     """
-    from backend.app.services.entitlement_middleware import (
+    from app.services.entitlement_middleware import (
         batch_check_entitlements as svc_batch_check,
     )
 
@@ -690,7 +690,7 @@ def get_entitlement_summary(
     Returns counts of enabled/disabled features, lists of
     feature IDs, and breakdown by category.
     """
-    from backend.app.services.entitlement_middleware import (
+    from app.services.entitlement_middleware import (
         get_entitlement_summary as svc_get_summary,
     )
 
@@ -717,7 +717,7 @@ def get_upgrade_nudge(
     Includes current plan, required plan, pricing, and
     feature details.
     """
-    from backend.app.services.entitlement_middleware import (
+    from app.services.entitlement_middleware import (
         get_upgrade_nudge as svc_get_upgrade_nudge,
     )
 
@@ -743,7 +743,7 @@ def create_instance_override(
     Body must include 'feature_id', 'variant_type', 'instance_id',
     and 'is_enabled'. Optionally include 'config_json'.
     """
-    from backend.app.services.entitlement_middleware import (
+    from app.services.entitlement_middleware import (
         create_instance_override as svc_create_override,
     )
 
@@ -793,7 +793,7 @@ def remove_instance_override(
     Body must include 'feature_id', 'variant_type', and 'instance_id'.
     After removal, the feature falls back to variant-type default.
     """
-    from backend.app.services.entitlement_middleware import (
+    from app.services.entitlement_middleware import (
         remove_instance_override as svc_remove_override,
     )
 
@@ -856,7 +856,7 @@ def get_budget_status(
     Returns usage stats including used/max tokens, remaining,
     usage percentage, alert level, and status.
     """
-    from backend.app.services.cost_protection_service import (
+    from app.services.cost_protection_service import (
         CostProtectionService,
     )
 
@@ -882,7 +882,7 @@ def reset_budget(
     Body should include 'budget_type' ('daily' or 'monthly').
     Resets used_tokens to 0, status to 'active', and clears alert_sent.
     """
-    from backend.app.services.cost_protection_service import (
+    from app.services.cost_protection_service import (
         CostProtectionService,
     )
 
@@ -920,7 +920,7 @@ def get_router_status(
     Returns health overview for all tracked provider+model
     combinations including availability, daily usage, and errors.
     """
-    from backend.app.core.smart_router import SmartRouter
+    from app.core.smart_router import SmartRouter
 
     router = SmartRouter()
     status = router.get_provider_status()
@@ -949,7 +949,7 @@ def get_router_providers(
 
     Returns structured list grouped by provider and tier.
     """
-    from backend.app.core.smart_router import (
+    from app.core.smart_router import (
         MODEL_REGISTRY,
         VARIANT_MODEL_ACCESS,
         ModelTier,
@@ -1016,7 +1016,7 @@ def trigger_warmup(
     Body must include 'variant_type'. Warms up all model
     combos relevant to that variant tier.
     """
-    from backend.app.core.cold_start_service import get_cold_start_service
+    from app.core.cold_start_service import get_cold_start_service
 
     variant_type = body.get("variant_type")
     if not variant_type:
@@ -1042,7 +1042,7 @@ def get_warmup_status(
     Returns the current warmup state including which models
     have been warmed and their status.
     """
-    from backend.app.core.cold_start_service import get_cold_start_service
+    from app.core.cold_start_service import get_cold_start_service
 
     service = get_cold_start_service()
     state = service.get_tenant_status(company_id)
@@ -1064,7 +1064,7 @@ def get_failover_status(
     Returns circuit breaker states, failure counts, and
     availability info.
     """
-    from backend.app.core.model_failover import FailoverManager
+    from app.core.model_failover import FailoverManager
 
     manager = FailoverManager()
     states = manager.get_all_circuit_states()
@@ -1107,7 +1107,7 @@ def get_failover_history(
     Returns aggregate failover stats by provider including
     failure reasons and circuit states.
     """
-    from backend.app.core.model_failover import FailoverManager
+    from app.core.model_failover import FailoverManager
 
     manager = FailoverManager()
     stats = manager.get_failover_stats(

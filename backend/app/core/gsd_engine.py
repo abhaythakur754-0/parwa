@@ -34,10 +34,10 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 if TYPE_CHECKING:
-    from backend.app.core.techniques.base import ConversationState as _ConversationState  # noqa: F401
+    from app.core.techniques.base import ConversationState as _ConversationState  # noqa: F401
     ConversationState = _ConversationState
 
 logger = get_logger("gsd_engine")
@@ -493,7 +493,7 @@ class GSDEngine:
         Raises:
             InvalidTransitionError: If the transition is not legal.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         # Normalize target_state to string for comparison
         target_str = target_state.value if isinstance(target_state, GSDState) else str(target_state)
@@ -577,7 +577,7 @@ class GSDEngine:
         Returns:
             The recommended GSDState for the next transition.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         current = state.gsd_state.value if isinstance(state.gsd_state, GSDState) else str(state.gsd_state)
         variant = self.get_variant(state.company_id)
@@ -636,7 +636,7 @@ class GSDEngine:
         Returns:
             True if in a terminal state, False otherwise.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         terminal_states = {GSDState.CLOSED, GSDState.HUMAN_HANDOFF}
         return state.gsd_state in terminal_states
@@ -657,7 +657,7 @@ class GSDEngine:
         Returns:
             True if the transition is legal, False otherwise.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         # Normalize to strings
         current_str = current.value if isinstance(current, GSDState) else str(current)
@@ -693,7 +693,7 @@ class GSDEngine:
         Returns:
             True if the transition is legal for the given variant.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         current_str = current.value if isinstance(current, GSDState) else str(current)
         target_str = target.value if isinstance(target, GSDState) else str(target)
@@ -721,7 +721,7 @@ class GSDEngine:
         Returns:
             Sorted list of valid target GSDState values.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         current_str = current.value if isinstance(current, GSDState) else str(current)
         resolved_variant = variant or GSDVariant.PARWA.value
@@ -757,7 +757,7 @@ class GSDEngine:
         Returns:
             Dictionary with transition reasoning details.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         current_str = state.gsd_state.value if isinstance(state.gsd_state, GSDState) else str(state.gsd_state)
         variant = self.get_variant(state.company_id)
@@ -872,7 +872,7 @@ class GSDEngine:
         Raises:
             EscalationCooldownError: If escalation is in cooldown period.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         config = self.get_config(state.company_id)
 
@@ -941,7 +941,7 @@ class GSDEngine:
         Returns:
             Reset ConversationState with gsd_state = NEW.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         # Record the reset in history before clearing
         record = TransitionRecord(
@@ -985,7 +985,7 @@ class GSDEngine:
         Returns:
             Dictionary with conversation summary data.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         signals = self._extract_signal_data(state)
         history = self._get_history_records(state)
@@ -1033,7 +1033,7 @@ class GSDEngine:
         Returns:
             Estimated minutes to resolution (integer).
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         signals = self._extract_signal_data(state)
         intent = signals.get("intent_type", "general")
@@ -1095,7 +1095,7 @@ class GSDEngine:
         Returns:
             List of suggested diagnostic question strings.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         # Only relevant in DIAGNOSIS state
         current_str = state.gsd_state.value if isinstance(state.gsd_state, GSDState) else str(state.gsd_state)
@@ -1161,7 +1161,7 @@ class GSDEngine:
         Returns:
             True if auto-close is eligible, False otherwise.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         config = self.get_config(state.company_id)
         current_str = state.gsd_state.value if isinstance(state.gsd_state, GSDState) else str(state.gsd_state)
@@ -1217,7 +1217,7 @@ class GSDEngine:
         Returns:
             GSDState for the recommended next transition.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         config = self.get_config(state.company_id)
         signals = self._extract_signal_data(state)
@@ -1259,7 +1259,7 @@ class GSDEngine:
         Returns:
             GSDState for the recommended next transition.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         signals = self._extract_signal_data(state)
         intent = signals.get("intent_type", "general")
@@ -1287,7 +1287,7 @@ class GSDEngine:
         Returns:
             GSDState for the recommended next transition.
         """
-        from backend.app.core.techniques.base import GSDState
+        from app.core.techniques.base import GSDState
 
         query_lower = (state.query or "").lower().strip()
 

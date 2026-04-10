@@ -18,7 +18,7 @@ from typing import Any, Dict
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("classification_api")
 
@@ -56,7 +56,7 @@ def _get_engine():
     global _engine  # noqa: PLW0603
     if _engine is None:
         try:
-            from backend.app.core.classification_engine import (
+            from app.core.classification_engine import (
                 ClassificationEngine,
             )
             _engine = ClassificationEngine()
@@ -76,7 +76,7 @@ def _get_engine():
 async def classify_text(req: ClassifyRequest) -> Dict[str, Any]:
     """Classify ticket text into primary + secondary intents.
 
-    Uses ClassificationEngine from backend.app.core.classification_engine.
+    Uses ClassificationEngine from app.core.classification_engine.
     Returns IntentResult as JSON with primary_intent, primary_confidence,
     secondary_intents, all_scores, classification_method, and
     processing_time_ms.

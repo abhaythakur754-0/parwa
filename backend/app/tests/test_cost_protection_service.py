@@ -22,7 +22,7 @@ import pytest
 
 # Mock the database import before importing the service
 with patch.dict("sys.modules", {"database.models.variant_engine": MagicMock()}):
-    from backend.app.services.cost_protection_service import (
+    from app.services.cost_protection_service import (
         CostProtectionService,
         BudgetCheckResult,
         BudgetStatus,
@@ -32,7 +32,7 @@ with patch.dict("sys.modules", {"database.models.variant_engine": MagicMock()}):
         _validate_tokens_non_negative,
         _validate_company_id,
     )
-    from backend.app.exceptions import ParwaBaseError
+    from app.exceptions import ParwaBaseError
 
 
 # ── Fixtures ─────────────────────────────────────────────────────
@@ -272,7 +272,7 @@ class TestTimezoneAwareDatetime:
 
     def test_token_usage_record_uses_tz_aware(self):
         with patch.dict("sys.modules", {"database.models.variant_engine": MagicMock()}):
-            from backend.app.services.cost_protection_service import TokenUsageRecord
+            from app.services.cost_protection_service import TokenUsageRecord
             record = TokenUsageRecord(company_id='test')
             assert record.timestamp is not None
             assert 'T' in record.timestamp  # ISO-8601 format with time component

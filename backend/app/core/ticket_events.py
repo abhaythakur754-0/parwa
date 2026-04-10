@@ -26,16 +26,16 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from backend.app.core.events import (
+from app.core.events import (
     EventCategory,
     EventRegistry,
     EventType,
     TicketEventPayload,
     get_event_registry,
 )
-from backend.app.core.event_emitter import emit_event, emit_ticket_event
-from backend.app.core.socketio import emit_to_tenant, get_tenant_room
-from backend.app.logger import get_logger
+from app.core.event_emitter import emit_event, emit_ticket_event
+from app.core.socketio import emit_to_tenant, get_tenant_room
+from app.logger import get_logger
 
 logger = get_logger("ticket_events")
 

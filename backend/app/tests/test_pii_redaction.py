@@ -14,21 +14,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 @pytest.fixture
 def detector():
     """Return a PIIDetector instance (no Redis needed)."""
-    from backend.app.core.pii_redaction_engine import PIIDetector
+    from app.core.pii_redaction_engine import PIIDetector
     return PIIDetector()
 
 
 @pytest.fixture
 def redactor():
     """Return a PIIRedactor instance."""
-    from backend.app.core.pii_redaction_engine import PIIRedactor
+    from app.core.pii_redaction_engine import PIIRedactor
     return PIIRedactor()
 
 
 @pytest.fixture
 def deredactor():
     """Return a PIIDeredactor instance."""
-    from backend.app.core.pii_redaction_engine import PIIDeredactor
+    from app.core.pii_redaction_engine import PIIDeredactor
     return PIIDeredactor()
 
 
@@ -188,7 +188,7 @@ class TestPIIDetectorOverlap:
 
     def test_dedup_keeps_higher_confidence(self, detector):
         """When overlapping, the first match (sorted by start, -len) is kept."""
-        from backend.app.core.pii_redaction_engine import PII_SSN, PII_PHONE
+        from app.core.pii_redaction_engine import PII_SSN, PII_PHONE
         matches = detector.detect("SSN: 123-45-6789", {PII_SSN, PII_PHONE})
         if len(matches) == 1:
             # Should be the SSN match (higher priority due to -len sort)
@@ -199,38 +199,38 @@ class TestPIIDetectorAllTypes:
     """Tests for detecting all 15 PII types."""
 
     def test_detect_ip_v4(self, detector):
-        from backend.app.core.pii_redaction_engine import PII_IP_ADDRESS
+        from app.core.pii_redaction_engine import PII_IP_ADDRESS
         matches = detector._detect_ip_address("Server: 192.168.1.100")
         assert len(matches) >= 1
         assert matches[0].pii_type == PII_IP_ADDRESS
 
     def test_detect_date_of_birth(self, detector):
-        from backend.app.core.pii_redaction_engine import PII_DATE_OF_BIRTH
+        from app.core.pii_redaction_engine import PII_DATE_OF_BIRTH
         matches = detector._detect_date_of_birth("DOB: 03/15/1985")
         assert len(matches) >= 1
         assert matches[0].pii_type == PII_DATE_OF_BIRTH
 
     def test_detect_api_key_openai(self, detector):
-        from backend.app.core.pii_redaction_engine import PII_API_KEY
+        from app.core.pii_redaction_engine import PII_API_KEY
         matches = detector._detect_api_key("Key: sk-proj-abc123def456ghi789jkl012mno345")
         assert len(matches) >= 1
         assert matches[0].pattern_matched == "api_key_openai"
 
     def test_detect_api_key_google(self, detector):
-        from backend.app.core.pii_redaction_engine import PII_API_KEY
+        from app.core.pii_redaction_engine import PII_API_KEY
         # AIza + 35 chars = 39 total (matching regex AIza[A-Za-z0-9_\-]{35})
         matches = detector._detect_api_key("AIzaSyA1234567890abcdefghijklmnopqrstuv")
         assert len(matches) >= 1
         assert "google" in matches[0].pattern_matched
 
     def test_detect_aadhaar(self, detector):
-        from backend.app.core.pii_redaction_engine import PII_AADHAAR
+        from app.core.pii_redaction_engine import PII_AADHAAR
         matches = detector._detect_aadhaar("Aadhaar: 2345 6789 0123")
         assert len(matches) == 1
         assert matches[0].pii_type == PII_AADHAAR
 
     def test_detect_pan(self, detector):
-        from backend.app.core.pii_redaction_engine import PII_PAN
+        from app.core.pii_redaction_engine import PII_PAN
         # ABCCA1234F — 4th char 'A' is in valid_fourth set
         matches = detector._detect_pan("PAN: ABCCA1234F")
         assert len(matches) == 1
@@ -238,13 +238,13 @@ class TestPIIDetectorAllTypes:
         assert matches[0].confidence >= 0.90  # Valid 4th char
 
     def test_detect_iban(self, detector):
-        from backend.app.core.pii_redaction_engine import PII_IBAN
+        from app.core.pii_redaction_engine import PII_IBAN
         matches = detector._detect_iban("DE89370400440532013000")
         assert len(matches) >= 1
         assert matches[0].pii_type == PII_IBAN
 
     def test_detect_mrn(self, detector):
-        from backend.app.core.pii_redaction_engine import PII_MEDICAL_RECORD_NUMBER
+        from app.core.pii_redaction_engine import PII_MEDICAL_RECORD_NUMBER
         matches = detector._detect_medical_record_number("MRN-12345A")
         assert len(matches) == 1
         assert matches[0].pii_type == PII_MEDICAL_RECORD_NUMBER
@@ -257,25 +257,25 @@ class TestTokenGeneration:
     """Tests for deterministic token generation."""
 
     def test_same_inputs_same_token(self):
-        from backend.app.core.pii_redaction_engine import _generate_token
+        from app.core.pii_redaction_engine import _generate_token
         t1 = _generate_token("SSN", "123-45-6789", "company1")
         t2 = _generate_token("SSN", "123-45-6789", "company1")
         assert t1 == t2
 
     def test_different_company_different_token(self):
-        from backend.app.core.pii_redaction_engine import _generate_token
+        from app.core.pii_redaction_engine import _generate_token
         t1 = _generate_token("SSN", "123-45-6789", "company1")
         t2 = _generate_token("SSN", "123-45-6789", "company2")
         assert t1 != t2
 
     def test_different_value_different_token(self):
-        from backend.app.core.pii_redaction_engine import _generate_token
+        from app.core.pii_redaction_engine import _generate_token
         t1 = _generate_token("SSN", "123-45-6789", "company1")
         t2 = _generate_token("SSN", "987-65-4321", "company1")
         assert t1 != t2
 
     def test_token_format(self):
-        from backend.app.core.pii_redaction_engine import _generate_token
+        from app.core.pii_redaction_engine import _generate_token
         token = _generate_token("SSN", "123-45-6789", "company1")
         assert token.startswith("{{SSN_")
         assert token.endswith("}}")
@@ -335,7 +335,7 @@ class TestPIIRedactor:
 
     @pytest.mark.asyncio
     async def test_redact_subset_types(self, redactor):
-        from backend.app.core.pii_redaction_engine import PII_EMAIL, PII_SSN
+        from app.core.pii_redaction_engine import PII_EMAIL, PII_SSN
         result = await redactor.redact(
             "Email john@foo.com and SSN 123-45-6789",
             "company1",
@@ -348,9 +348,9 @@ class TestPIIRedactor:
     @pytest.mark.asyncio
     async def test_redis_failure_doesnt_crash(self, redactor):
         """BC-008: Redis failure should not crash redaction."""
-        with patch("backend.app.core.pii_redaction_engine.get_redis",
+        with patch("app.core.pii_redaction_engine.get_redis",
                    new_callable=AsyncMock, side_effect=Exception("Redis down")):
-            with patch("backend.app.core.pii_redaction_engine.make_key",
+            with patch("app.core.pii_redaction_engine.make_key",
                        new_callable=AsyncMock, side_effect=Exception("Redis down")):
                 result = await redactor.redact("SSN: 123-45-6789", "company1")
                 assert result.pii_found is True  # Still works, just no Redis store
@@ -374,7 +374,7 @@ class TestPIIDeredactor:
     @pytest.mark.asyncio
     async def test_deredact_restores_pii(self, deredactor):
         # Simulate successful Redis lookup
-        with patch("backend.app.core.pii_redaction_engine.get_redis",
+        with patch("app.core.pii_redaction_engine.get_redis",
                    new_callable=AsyncMock) as mock_redis:
             mock_redis.return_value.get = AsyncMock(
                 return_value='{"{{SSN_abc12345}}": "123-45-6789"}'
@@ -386,7 +386,7 @@ class TestPIIDeredactor:
 
     @pytest.mark.asyncio
     async def test_deredact_map_not_found(self, deredactor):
-        with patch("backend.app.core.pii_redaction_engine.get_redis",
+        with patch("app.core.pii_redaction_engine.get_redis",
                    new_callable=AsyncMock) as mock_redis:
             mock_redis.return_value.get = AsyncMock(return_value=None)
             result = await deredactor.deredact(
@@ -398,7 +398,7 @@ class TestPIIDeredactor:
     @pytest.mark.asyncio
     async def test_deredact_redis_failure(self, deredactor):
         """BC-008: Redis failure should not crash deredaction."""
-        with patch("backend.app.core.pii_redaction_engine.get_redis",
+        with patch("app.core.pii_redaction_engine.get_redis",
                    new_callable=AsyncMock, side_effect=Exception("Redis down")):
             result = await deredactor.deredact(
                 "SSN: {{SSN_abc12345}}", "company1", "some-id",
@@ -411,21 +411,21 @@ class TestPIIDeredactor:
 
 class TestFactoryFunctions:
     def test_get_pii_detector_returns_instance(self):
-        from backend.app.core.pii_redaction_engine import (
+        from app.core.pii_redaction_engine import (
             get_pii_detector, PIIDetector,
         )
         detector = get_pii_detector()
         assert isinstance(detector, PIIDetector)
 
     def test_get_pii_redactor_returns_instance(self):
-        from backend.app.core.pii_redaction_engine import (
+        from app.core.pii_redaction_engine import (
             get_pii_redactor, PIIRedactor,
         )
         redactor = get_pii_redactor()
         assert isinstance(redactor, PIIRedactor)
 
     def test_get_pii_deredactor_returns_instance(self):
-        from backend.app.core.pii_redaction_engine import (
+        from app.core.pii_redaction_engine import (
             get_pii_deredactor, PIIDeredactor,
         )
         deredactor = get_pii_deredactor()
@@ -439,16 +439,16 @@ class TestPIIRedactionCache:
 
     @pytest.mark.asyncio
     async def test_store_and_retrieve(self):
-        from backend.app.core.pii_redaction_engine import PIIRedactionCache
+        from app.core.pii_redaction_engine import PIIRedactionCache
         cache = PIIRedactionCache()
         test_map = {"{{SSN_abc}}": "123-45-6789"}
-        with patch("backend.app.core.pii_redaction_engine.get_redis",
+        with patch("app.core.pii_redaction_engine.get_redis",
                    new_callable=AsyncMock) as mock_redis:
             mock_redis.return_value.set = AsyncMock(return_value=True)
             mock_redis.return_value.get = AsyncMock(
                 return_value='{"{{SSN_abc}}": "123-45-6789"}'
             )
-            with patch("backend.app.core.pii_redaction_engine.make_key",
+            with patch("app.core.pii_redaction_engine.make_key",
                        return_value="parwa:company1:pii:abc"):
                 stored = await cache.store_map("company1", "abc", test_map)
                 assert stored is True
@@ -457,28 +457,28 @@ class TestPIIRedactionCache:
 
     @pytest.mark.asyncio
     async def test_store_redis_failure(self):
-        from backend.app.core.pii_redaction_engine import PIIRedactionCache
+        from app.core.pii_redaction_engine import PIIRedactionCache
         cache = PIIRedactionCache()
-        with patch("backend.app.core.pii_redaction_engine.get_redis",
+        with patch("app.core.pii_redaction_engine.get_redis",
                    new_callable=AsyncMock, side_effect=Exception("Redis down")):
-            with patch("backend.app.core.pii_redaction_engine.make_key"):
+            with patch("app.core.pii_redaction_engine.make_key"):
                 stored = await cache.store_map("company1", "abc", {})
                 assert stored is False  # Graceful failure
 
     @pytest.mark.asyncio
     async def test_retrieve_redis_failure(self):
-        from backend.app.core.pii_redaction_engine import PIIRedactionCache
+        from app.core.pii_redaction_engine import PIIRedactionCache
         cache = PIIRedactionCache()
-        with patch("backend.app.core.pii_redaction_engine.get_redis",
+        with patch("app.core.pii_redaction_engine.get_redis",
                    new_callable=AsyncMock, side_effect=Exception("Redis down")):
             result = await cache.get_map("company1", "abc")
             assert result is None  # Graceful failure
 
     @pytest.mark.asyncio
     async def test_retrieve_invalid_json(self):
-        from backend.app.core.pii_redaction_engine import PIIRedactionCache
+        from app.core.pii_redaction_engine import PIIRedactionCache
         cache = PIIRedactionCache()
-        with patch("backend.app.core.pii_redaction_engine.get_redis",
+        with patch("app.core.pii_redaction_engine.get_redis",
                    new_callable=AsyncMock) as mock_redis:
             mock_redis.return_value.get = AsyncMock(return_value="not-json")
             result = await cache.get_map("company1", "abc")
@@ -486,9 +486,9 @@ class TestPIIRedactionCache:
 
     @pytest.mark.asyncio
     async def test_retrieve_non_dict(self):
-        from backend.app.core.pii_redaction_engine import PIIRedactionCache
+        from app.core.pii_redaction_engine import PIIRedactionCache
         cache = PIIRedactionCache()
-        with patch("backend.app.core.pii_redaction_engine.get_redis",
+        with patch("app.core.pii_redaction_engine.get_redis",
                    new_callable=AsyncMock) as mock_redis:
             mock_redis.return_value.get = AsyncMock(return_value="123")
             result = await cache.get_map("company1", "abc")

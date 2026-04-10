@@ -25,8 +25,8 @@ ConversationState = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.conversation_summarization import (
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.conversation_summarization import (
             ConversationSummarizationService as _ConversationSummarizationService,
             ConversationMessage as _ConversationMessage,
             ConversationSummary as _ConversationSummary,
@@ -869,7 +869,7 @@ class TestW9GAP024(_Base):
 
         try:
             # Set a very short TTL by patching
-            with patch("backend.app.core.conversation_summarization._VERSION_LOCK_TTL_SECONDS", 0):
+            with patch("app.core.conversation_summarization._VERSION_LOCK_TTL_SECONDS", 0):
                 r = self.service.summarize(CID, CONV)
             assert r.success is False
             assert "lock" in r.error.lower() or "timeout" in r.error.lower()

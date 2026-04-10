@@ -14,9 +14,9 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from backend.app.exceptions import RateLimitError
-from backend.app.logger import get_logger
-from backend.app.services.email_service import (
+from app.exceptions import RateLimitError
+from app.logger import get_logger
+from app.services.email_service import (
     send_verification_email,
 )
 from database.models.core import (

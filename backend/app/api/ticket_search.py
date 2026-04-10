@@ -18,8 +18,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.services.ticket_search_service import TicketSearchService
+from app.api.deps import get_current_user, get_db
+from app.services.ticket_search_service import TicketSearchService
 
 
 router = APIRouter(prefix="/tickets", tags=["ticket-search"])

@@ -51,7 +51,7 @@ _clara = None
 def _get_extractor():
     global _extractor
     if _extractor is None:
-        from backend.app.core.signal_extraction import SignalExtractor
+        from app.core.signal_extraction import SignalExtractor
         _extractor = SignalExtractor()
     return _extractor
 
@@ -59,7 +59,7 @@ def _get_extractor():
 def _get_clara(brand_voice_config=None):
     global _clara
     if _clara is None or brand_voice_config is not None:
-        from backend.app.core.clara_quality_gate import CLARAQualityGate, BrandVoiceConfig
+        from app.core.clara_quality_gate import CLARAQualityGate, BrandVoiceConfig
         bv = None
         if brand_voice_config:
             bv = BrandVoiceConfig(**brand_voice_config)
@@ -73,7 +73,7 @@ def _get_clara(brand_voice_config=None):
 @router.post("/extract")
 async def extract_signals(req: SignalExtractRequest) -> Dict[str, Any]:
     """Extract 10 signals from a query (SG-13)."""
-    from backend.app.core.signal_extraction import SignalExtractionRequest
+    from app.core.signal_extraction import SignalExtractionRequest
 
     extractor = _get_extractor()
     request = SignalExtractionRequest(
@@ -93,7 +93,7 @@ async def extract_signals(req: SignalExtractRequest) -> Dict[str, Any]:
 @router.post("/batch")
 async def batch_extract_signals(req: BatchSignalRequest) -> Dict[str, Any]:
     """Extract signals from multiple queries."""
-    from backend.app.core.signal_extraction import SignalExtractionRequest
+    from app.core.signal_extraction import SignalExtractionRequest
 
     extractor = _get_extractor()
     results = []
@@ -146,7 +146,7 @@ async def evaluate_clara(req: CLARAEvaluateRequest) -> Dict[str, Any]:
 @router.get("/info")
 async def signal_info() -> Dict[str, Any]:
     """Get signal extraction info and variant weights."""
-    from backend.app.core.signal_extraction import SignalExtractor
+    from app.core.signal_extraction import SignalExtractor
 
     extractor = SignalExtractor()
     return {

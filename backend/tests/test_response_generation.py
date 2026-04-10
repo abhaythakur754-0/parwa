@@ -43,7 +43,7 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test_jwt")
 os.environ.setdefault("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
 
-from backend.app.core.response_generator import (
+from app.core.response_generator import (
     RATE_LIMIT_DAILY_MAX,
     RATE_LIMIT_HOURLY_MAX,
     RateLimitCheck,
@@ -194,15 +194,15 @@ def mock_redis():
 def gen(mock_redis):
     """Create a ResponseGenerator with all dependencies mocked."""
     with (
-        patch("backend.app.core.sentiment_engine.SentimentAnalyzer") as MockSentiment,
-        patch("backend.app.core.rag_retrieval.RAGRetriever") as MockRAG,
-        patch("backend.app.core.rag_reranking.CrossEncoderReranker") as MockReranker,
-        patch("backend.app.core.rag_reranking.ContextWindowAssembler") as MockAssembler,
-        patch("backend.app.core.clara_quality_gate.CLARAQualityGate") as MockCLARA,
-        patch("backend.app.core.smart_router.SmartRouter") as MockRouter,
-        patch("backend.app.services.brand_voice_service.BrandVoiceService") as MockBrand,
-        patch("backend.app.services.token_budget_service.TokenBudgetService") as MockBudget,
-        patch("backend.app.services.response_template_service.ResponseTemplateService") as MockTemplate,
+        patch("app.core.sentiment_engine.SentimentAnalyzer") as MockSentiment,
+        patch("app.core.rag_retrieval.RAGRetriever") as MockRAG,
+        patch("app.core.rag_reranking.CrossEncoderReranker") as MockReranker,
+        patch("app.core.rag_reranking.ContextWindowAssembler") as MockAssembler,
+        patch("app.core.clara_quality_gate.CLARAQualityGate") as MockCLARA,
+        patch("app.core.smart_router.SmartRouter") as MockRouter,
+        patch("app.services.brand_voice_service.BrandVoiceService") as MockBrand,
+        patch("app.services.token_budget_service.TokenBudgetService") as MockBudget,
+        patch("app.services.response_template_service.ResponseTemplateService") as MockTemplate,
     ):
         generator = ResponseGenerator(redis_client=mock_redis)
 
@@ -268,29 +268,29 @@ class TestResponseGeneratorInit:
 
     def test_init_with_no_redis(self):
         """Generator initializes with None redis_client."""
-        with patch("backend.app.core.sentiment_engine.SentimentAnalyzer"), \
-             patch("backend.app.core.rag_retrieval.RAGRetriever"), \
-             patch("backend.app.core.rag_reranking.CrossEncoderReranker"), \
-             patch("backend.app.core.rag_reranking.ContextWindowAssembler"), \
-             patch("backend.app.core.clara_quality_gate.CLARAQualityGate"), \
-             patch("backend.app.core.smart_router.SmartRouter"), \
-             patch("backend.app.services.brand_voice_service.BrandVoiceService"), \
-             patch("backend.app.services.token_budget_service.TokenBudgetService"), \
-             patch("backend.app.services.response_template_service.ResponseTemplateService"):
+        with patch("app.core.sentiment_engine.SentimentAnalyzer"), \
+             patch("app.core.rag_retrieval.RAGRetriever"), \
+             patch("app.core.rag_reranking.CrossEncoderReranker"), \
+             patch("app.core.rag_reranking.ContextWindowAssembler"), \
+             patch("app.core.clara_quality_gate.CLARAQualityGate"), \
+             patch("app.core.smart_router.SmartRouter"), \
+             patch("app.services.brand_voice_service.BrandVoiceService"), \
+             patch("app.services.token_budget_service.TokenBudgetService"), \
+             patch("app.services.response_template_service.ResponseTemplateService"):
             g = ResponseGenerator()
             assert g.redis_client is None
 
     def test_init_with_redis(self, mock_redis):
         """Generator stores the provided redis_client."""
-        with patch("backend.app.core.sentiment_engine.SentimentAnalyzer"), \
-             patch("backend.app.core.rag_retrieval.RAGRetriever"), \
-             patch("backend.app.core.rag_reranking.CrossEncoderReranker"), \
-             patch("backend.app.core.rag_reranking.ContextWindowAssembler"), \
-             patch("backend.app.core.clara_quality_gate.CLARAQualityGate"), \
-             patch("backend.app.core.smart_router.SmartRouter"), \
-             patch("backend.app.services.brand_voice_service.BrandVoiceService"), \
-             patch("backend.app.services.token_budget_service.TokenBudgetService"), \
-             patch("backend.app.services.response_template_service.ResponseTemplateService"):
+        with patch("app.core.sentiment_engine.SentimentAnalyzer"), \
+             patch("app.core.rag_retrieval.RAGRetriever"), \
+             patch("app.core.rag_reranking.CrossEncoderReranker"), \
+             patch("app.core.rag_reranking.ContextWindowAssembler"), \
+             patch("app.core.clara_quality_gate.CLARAQualityGate"), \
+             patch("app.core.smart_router.SmartRouter"), \
+             patch("app.services.brand_voice_service.BrandVoiceService"), \
+             patch("app.services.token_budget_service.TokenBudgetService"), \
+             patch("app.services.response_template_service.ResponseTemplateService"):
             g = ResponseGenerator(redis_client=mock_redis)
             assert g.redis_client is mock_redis
 
@@ -444,8 +444,8 @@ class TestDraftInProgress:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Here is your answer."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request(ticket_id="tkt-001")
                 result = await gen.generate(req)
                 assert result.response_text != ""
@@ -480,8 +480,8 @@ class TestDraftInProgress:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Response despite Redis error."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request(ticket_id="tkt-001")
                 result = await gen.generate(req)
                 # Should not crash — BC-008
@@ -516,8 +516,8 @@ class TestDraftInProgress:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="No draft check needed."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request(ticket_id=None)
                 result = await gen.generate(req)
                 assert isinstance(result, ResponseGenerationResult)
@@ -621,7 +621,7 @@ class TestRateLimiting:
         gen.template_service.render_template = AsyncMock(
             return_value="We've received your message. An agent will respond shortly."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
+        with patch("app.core.response_formatters.create_default_registry"):
             req = _make_request(customer_id="cust-1")
             result = await gen.generate(req)
             assert result.template_used is True
@@ -664,8 +664,8 @@ class TestSentimentAnalysis:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Response"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 history = [{"role": "user", "content": "Hello"}]
                 req = _make_request(
                     query="How do I reset?",
@@ -706,8 +706,8 @@ class TestSentimentAnalysis:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Default sentiment response"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert result.sentiment_analysis.get("degraded") is True
@@ -740,8 +740,8 @@ class TestSentimentAnalysis:
             return_value=MagicMock(is_valid=True, violations=[], warnings=[])
         )
         gen.brand_voice.merge_with_brand_voice = AsyncMock(return_value="OK")
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 history = [
                     {"role": "user", "content": "First message"},
                     {"role": "assistant", "content": "Reply"},
@@ -805,8 +805,8 @@ class TestRAGRetrieval:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="RAG-based response"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert result.rag_context_used is True
@@ -842,8 +842,8 @@ class TestRAGRetrieval:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Response without RAG"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert result.rag_context_used is False
@@ -890,8 +890,8 @@ class TestRAGRetrieval:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Response with unranked RAG"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert result.rag_context_used is True
@@ -933,8 +933,8 @@ class TestRAGRetrieval:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Response with raw chunks"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert result.rag_context_used is True
@@ -968,8 +968,8 @@ class TestRAGRetrieval:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="No RAG needed."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert result.rag_context_used is False
@@ -1006,7 +1006,7 @@ class TestTokenBudget:
         gen.template_service.render_template = AsyncMock(
             return_value="Budget exhausted. Template response."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
+        with patch("app.core.response_formatters.create_default_registry"):
             req = _make_request()
             result = await gen.generate(req)
             assert result.template_used is True
@@ -1033,7 +1033,7 @@ class TestTokenBudget:
         gen.template_service.render_template = AsyncMock(
             return_value="Reserve failed template."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
+        with patch("app.core.response_formatters.create_default_registry"):
             req = _make_request()
             result = await gen.generate(req)
             assert result.template_used is True
@@ -1052,7 +1052,7 @@ class TestTokenBudget:
         gen.template_service.render_template = AsyncMock(
             return_value="Forced template response."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
+        with patch("app.core.response_formatters.create_default_registry"):
             req = _make_request(force_template_response=True)
             result = await gen.generate(req)
             assert result.template_used is True
@@ -1082,8 +1082,8 @@ class TestTokenBudget:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Despite budget error"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert isinstance(result, ResponseGenerationResult)
@@ -1126,8 +1126,8 @@ class TestCLARAQualityGate:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="CLARA approved response"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert result.clara_passed is True
@@ -1166,7 +1166,7 @@ class TestCLARAQualityGate:
         gen.template_service.render_template = AsyncMock(
             return_value="CLARA failed template."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
+        with patch("app.core.response_formatters.create_default_registry"):
             req = _make_request()
             result = await gen.generate(req)
             assert result.template_used is True
@@ -1206,8 +1206,8 @@ class TestCLARAQualityGate:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value=clara_improved
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert result.response_text == clara_improved
@@ -1244,7 +1244,7 @@ class TestCLARAQualityGate:
         gen.template_service.render_template = AsyncMock(
             return_value="CLARA error template."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
+        with patch("app.core.response_formatters.create_default_registry"):
             req = _make_request()
             result = await gen.generate(req)
             assert isinstance(result, ResponseGenerationResult)
@@ -1465,8 +1465,8 @@ class TestBrandVoice:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Despite brand failure"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert isinstance(result, ResponseGenerationResult)
@@ -1602,8 +1602,8 @@ class TestLLMGeneration:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="LLM generated response."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert "LLM generated response" in result.response_text
@@ -1637,7 +1637,7 @@ class TestLLMGeneration:
         gen.template_service.render_template = AsyncMock(
             return_value="Empty LLM template."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
+        with patch("app.core.response_formatters.create_default_registry"):
             req = _make_request()
             result = await gen.generate(req)
             assert result.template_used is True
@@ -1670,7 +1670,7 @@ class TestLLMGeneration:
         gen.template_service.render_template = AsyncMock(
             return_value="LLM error template."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
+        with patch("app.core.response_formatters.create_default_registry"):
             req = _make_request()
             result = await gen.generate(req)
             assert result.template_used is True
@@ -1708,7 +1708,7 @@ class TestTemplateFallback:
         gen.template_service.render_template = AsyncMock(
             return_value="Template rendered text."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
+        with patch("app.core.response_formatters.create_default_registry"):
             result = await gen._fallback_to_template(
                 request=_make_request(),
                 sentiment_score=0.5,
@@ -1762,7 +1762,7 @@ class TestTemplateFallback:
         gen.template_service.render_template = AsyncMock(
             return_value="Hello Alice!"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
+        with patch("app.core.response_formatters.create_default_registry"):
             result = await gen._fallback_to_template(
                 request=_make_request(
                     customer_metadata={"name": "Alice"}
@@ -1858,8 +1858,8 @@ class TestUtilityMethods:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Batch response"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 reqs = [_make_request(conversation_id=f"conv-{i}") for i in range(3)]
                 results = await gen.generate_batch(reqs)
                 assert len(results) == 3
@@ -2024,8 +2024,8 @@ class TestFullPipeline:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="To reset your password, go to Settings > Security."
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request(
                     query="How do I reset my password?",
                     variant_type="parwa",
@@ -2078,8 +2078,8 @@ class TestFullPipeline:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Response with issues"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request()
                 result = await gen.generate(req)
                 assert any("prohibited" in i for i in result.quality_issues)
@@ -2114,8 +2114,8 @@ class TestFullPipeline:
         gen.brand_voice.merge_with_brand_voice = AsyncMock(
             return_value="Mini response"
         )
-        with patch("backend.app.core.response_formatters.create_default_registry"):
-            with patch("backend.app.core.smart_router.AtomicStepType", MagicMock()):
+        with patch("app.core.response_formatters.create_default_registry"):
+            with patch("app.core.smart_router.AtomicStepType", MagicMock()):
                 req = _make_request(variant_type="mini_parwa")
                 result = await gen.generate(req)
                 assert isinstance(result, ResponseGenerationResult)

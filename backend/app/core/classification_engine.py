@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("classification_engine")
 
@@ -331,7 +331,7 @@ class ClassificationEngine:
         )
 
         # Route through Smart Router light tier
-        from backend.app.core.smart_router import SmartRouter
+        from app.core.smart_router import SmartRouter
         if not isinstance(self.smart_router, SmartRouter) and not hasattr(self.smart_router, 'async_execute_llm_call'):
             return self._keyword_classifier.classify(text)
 

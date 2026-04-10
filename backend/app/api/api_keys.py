@@ -8,16 +8,16 @@ All scoped by company_id from JWT (BC-001).
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user
-from backend.app.middleware.api_key_auth import require_scope
-from backend.app.schemas.api_key import (
+from app.api.deps import get_current_user
+from app.middleware.api_key_auth import require_scope
+from app.schemas.api_key import (
     APIKeyCreate,
     APIKeyCreatedResponse,
     APIKeyResponse,
     APIKeyRevokedResponse,
     APIKeyRotatedResponse,
 )
-from backend.app.services.api_key_service import (
+from app.services.api_key_service import (
     create_key,
     list_keys,
     revoke_key,

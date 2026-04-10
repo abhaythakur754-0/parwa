@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 from database.base import SessionLocal
 from database.models.variant_engine import TechniqueCache
-from backend.app.exceptions import ParwaBaseError
+from app.exceptions import ParwaBaseError
 
 logger = logging.getLogger("parwa.technique_cache")
 

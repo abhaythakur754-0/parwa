@@ -17,8 +17,8 @@ BC-001: All operations scoped to authenticated user's company_id.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user
-from backend.app.schemas.onboarding import (
+from app.api.deps import get_current_user
+from app.schemas.onboarding import (
     UserDetailsRequest,
     UserDetailsResponse,
     WorkEmailVerificationRequest,
@@ -27,7 +27,7 @@ from backend.app.schemas.onboarding import (
     OnboardingStateResponse,
     MessageResponse,
 )
-from backend.app.services.user_details_service import (
+from app.services.user_details_service import (
     get_user_details,
     create_or_update_user_details,
     send_work_email_verification,

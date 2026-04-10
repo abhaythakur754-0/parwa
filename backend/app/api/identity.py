@@ -11,10 +11,10 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_user, get_db
-from backend.app.exceptions import NotFoundError, ValidationError
-from backend.app.services.identity_resolution_service import IdentityResolutionService
-from backend.app.schemas.customer import (
+from app.api.deps import get_current_user, get_db
+from app.exceptions import NotFoundError, ValidationError
+from app.services.identity_resolution_service import IdentityResolutionService
+from app.schemas.customer import (
     IdentityMatchRequest,
     IdentityMatchResponse,
 )

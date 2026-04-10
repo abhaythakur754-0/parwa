@@ -16,22 +16,22 @@ import hashlib
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.app.core.sentiment_engine import (
+from app.core.sentiment_engine import (
     SentimentAnalyzer,
     FrustrationDetector,
     UrgencyScorer,
 )
-from backend.app.core.rag_retrieval import RAGRetriever
-from backend.app.core.response_formatters import (
+from app.core.rag_retrieval import RAGRetriever
+from app.core.response_formatters import (
     BoldFormatter,
     FormattingContext,
 )
-from backend.app.core.language_pipeline import LanguagePipeline
-from backend.app.services.sentiment_technique_mapper import SentimentTechniqueMapper
-from backend.app.core.clara_quality_gate import CLARAQualityGate, BrandVoiceConfig
-from backend.app.core.classification_engine import ClassificationEngine
-from backend.app.core.prompt_templates import PromptTemplateManager
-from backend.app.core.signal_extraction import SignalExtractor, SignalExtractionRequest
+from app.core.language_pipeline import LanguagePipeline
+from app.services.sentiment_technique_mapper import SentimentTechniqueMapper
+from app.core.clara_quality_gate import CLARAQualityGate, BrandVoiceConfig
+from app.core.classification_engine import ClassificationEngine
+from app.core.prompt_templates import PromptTemplateManager
+from app.core.signal_extraction import SignalExtractor, SignalExtractionRequest
 from shared.knowledge_base.vector_search import MockVectorStore
 
 
@@ -363,7 +363,7 @@ class TestG9Gap12_RAGUnknownVariant:
         """Unknown variant_type should produce a warning log."""
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("backend.app.core.rag_retrieval.logger") as mock_logger:
+        with patch("app.core.rag_retrieval.logger") as mock_logger:
             result = await retriever.retrieve(
                 query="test query",
                 company_id="co1",
@@ -378,7 +378,7 @@ class TestG9Gap12_RAGUnknownVariant:
         """Known variant_type should NOT produce unknown variant warning."""
         store = MockVectorStore()
         retriever = RAGRetriever(vector_store=store)
-        with patch("backend.app.core.rag_retrieval.logger") as mock_logger:
+        with patch("app.core.rag_retrieval.logger") as mock_logger:
             await retriever.retrieve(
                 query="test query",
                 company_id="co1",

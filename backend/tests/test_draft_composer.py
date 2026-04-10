@@ -32,8 +32,8 @@ _VARIANT_MAX_DRAFTS = None  # type: ignore[assignment,misc]
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.draft_composer import (
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.draft_composer import (
             DraftComposer,
             DraftComposerResponse,
             DraftOptions,
@@ -746,7 +746,7 @@ class TestCacheBehavior:
             "total_generation_time_ms": 80.0,
             "variant_type": "parwa",
         }
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
             result = await self.composer._check_cache("c1", "key1")
             assert result is not None
             assert result.cached is True
@@ -754,13 +754,13 @@ class TestCacheBehavior:
 
     @pytest.mark.asyncio
     async def test_cache_miss_returns_none(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             result = await self.composer._check_cache("c1", "key1")
             assert result is None
 
     @pytest.mark.asyncio
     async def test_cache_fail_open_on_read_error(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
             result = await self.composer._check_cache("c1", "key1")
             assert result is None
 
@@ -771,7 +771,7 @@ class TestCacheBehavior:
             total_generation_time_ms=100.0, variant_type="parwa",
             cached=False,
         )
-        with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Write fail")):
+        with patch("app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Write fail")):
             # Should not raise
             await self.composer._store_cache("c1", "key1", resp)
 
@@ -801,7 +801,7 @@ class TestCacheBehavior:
             "variant_type": "parwa",
         }
         req = _make_request(query="cached query")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=cached_data):
             result = await self.composer.compose(req)
             assert result.cached is True
 
@@ -809,9 +809,9 @@ class TestCacheBehavior:
     async def test_non_cached_has_cached_false(self):
         """Non-cached response through full pipeline has cached=False."""
         req = _make_request(query="fresh query")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     mock_sig_result = MagicMock()
                     mock_sig_result.to_dict.return_value = {
                         "intent": "general", "sentiment": 0.5,
@@ -819,14 +819,14 @@ class TestCacheBehavior:
                         "customer_tier": "free", "query_breadth": 0.5,
                     }
                     MockExtractor.return_value.extract = AsyncMock(return_value=mock_sig_result)
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "general"
                         mock_class_result.primary_confidence = 0.7
                         mock_class_result.secondary_intents = []
                         mock_class_result.classification_method = "keyword"
                         MockEngine.return_value.classify = AsyncMock(return_value=mock_class_result)
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
                             result = await self.composer.compose(req)
                             assert result.cached is False
 
@@ -841,7 +841,7 @@ class TestCacheBehavior:
             cached=False,
         )
         mock_set = AsyncMock()
-        with patch("backend.app.core.redis.cache_set", mock_set):
+        with patch("app.core.redis.cache_set", mock_set):
             await self.composer._store_cache("c1", "key1", resp)
             mock_set.assert_called_once()
             call_args = mock_set.call_args
@@ -871,7 +871,7 @@ class TestComposeIntegration:
         req = DraftRequest(
             query="", company_id="c1", variant_type="parwa", agent_id="a1",
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             result = await self.composer.compose(req)
             assert len(result.drafts) == 0
             assert result.best_draft_index == -1
@@ -881,16 +881,16 @@ class TestComposeIntegration:
         req = DraftRequest(
             query="   ", company_id="c1", variant_type="parwa", agent_id="a1",
         )
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             result = await self.composer.compose(req)
             assert len(result.drafts) == 0
 
     @pytest.mark.asyncio
     async def test_valid_query_generates_drafts(self):
         req = _make_request(query="How do I reset my password?")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     mock_sig_result = MagicMock()
                     mock_sig_result.to_dict.return_value = {
                         "intent": "account", "sentiment": 0.5,
@@ -898,23 +898,23 @@ class TestComposeIntegration:
                         "customer_tier": "free", "query_breadth": 0.5,
                     }
                     MockExtractor.return_value.extract = AsyncMock(return_value=mock_sig_result)
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "account"
                         mock_class_result.primary_confidence = 0.8
                         mock_class_result.secondary_intents = []
                         mock_class_result.classification_method = "keyword"
                         MockEngine.return_value.classify = AsyncMock(return_value=mock_class_result)
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
                             result = await self.composer.compose(req)
                             assert len(result.drafts) > 0
 
     @pytest.mark.asyncio
     async def test_mini_parwa_generates_1_draft(self):
         req = _make_request(query="What is this?", variant_type="mini_parwa")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     mock_sig_result = MagicMock()
                     mock_sig_result.to_dict.return_value = {
                         "intent": "general", "sentiment": 0.5,
@@ -922,23 +922,23 @@ class TestComposeIntegration:
                         "customer_tier": "free", "query_breadth": 0.5,
                     }
                     MockExtractor.return_value.extract = AsyncMock(return_value=mock_sig_result)
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "general"
                         mock_class_result.primary_confidence = 0.5
                         mock_class_result.secondary_intents = []
                         mock_class_result.classification_method = "keyword"
                         MockEngine.return_value.classify = AsyncMock(return_value=mock_class_result)
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
                             result = await self.composer.compose(req)
                             assert len(result.drafts) <= 1
 
     @pytest.mark.asyncio
     async def test_parwa_generates_up_to_3_drafts(self):
         req = _make_request(query="I need help with billing", variant_type="parwa")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     mock_sig_result = MagicMock()
                     mock_sig_result.to_dict.return_value = {
                         "intent": "billing", "sentiment": 0.4,
@@ -946,23 +946,23 @@ class TestComposeIntegration:
                         "customer_tier": "free", "query_breadth": 0.5,
                     }
                     MockExtractor.return_value.extract = AsyncMock(return_value=mock_sig_result)
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "billing"
                         mock_class_result.primary_confidence = 0.8
                         mock_class_result.secondary_intents = []
                         mock_class_result.classification_method = "keyword"
                         MockEngine.return_value.classify = AsyncMock(return_value=mock_class_result)
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
                             result = await self.composer.compose(req)
                             assert len(result.drafts) <= 3
 
     @pytest.mark.asyncio
     async def test_parwa_high_generates_up_to_5_drafts(self):
         req = _make_request(query="I have a complex issue", variant_type="parwa_high")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     mock_sig_result = MagicMock()
                     mock_sig_result.to_dict.return_value = {
                         "intent": "general", "sentiment": 0.5,
@@ -970,14 +970,14 @@ class TestComposeIntegration:
                         "customer_tier": "pro", "query_breadth": 0.5,
                     }
                     MockExtractor.return_value.extract = AsyncMock(return_value=mock_sig_result)
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "general"
                         mock_class_result.primary_confidence = 0.6
                         mock_class_result.secondary_intents = []
                         mock_class_result.classification_method = "keyword"
                         MockEngine.return_value.classify = AsyncMock(return_value=mock_class_result)
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
                             result = await self.composer.compose(req)
                             assert len(result.drafts) <= 5
 
@@ -994,10 +994,10 @@ class TestComposeIntegration:
                 cached=False,
             )
 
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             with patch.object(self.composer, "_compose_pipeline", side_effect=slow_pipeline):
                 # Use very short timeout to simulate timeout
-                with patch("backend.app.core.draft_composer._TOTAL_COMPOSE_TIMEOUT_SECONDS", 0.001):
+                with patch("app.core.draft_composer._TOTAL_COMPOSE_TIMEOUT_SECONDS", 0.001):
                     result = await self.composer.compose(req)
                     assert len(result.drafts) == 0
                     assert result.best_draft_index == -1
@@ -1006,9 +1006,9 @@ class TestComposeIntegration:
     async def test_clara_validation_applied(self):
         """CLARA gate should be called for each draft."""
         req = _make_request(query="Test query")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     mock_sig_result = MagicMock()
                     mock_sig_result.to_dict.return_value = {
                         "intent": "general", "sentiment": 0.5,
@@ -1016,14 +1016,14 @@ class TestComposeIntegration:
                         "customer_tier": "free", "query_breadth": 0.5,
                     }
                     MockExtractor.return_value.extract = AsyncMock(return_value=mock_sig_result)
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "general"
                         mock_class_result.primary_confidence = 0.7
                         mock_class_result.secondary_intents = []
                         mock_class_result.classification_method = "keyword"
                         MockEngine.return_value.classify = AsyncMock(return_value=mock_class_result)
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
                             result = await self.composer.compose(req)
                             self.composer.clara_gate.evaluate.assert_called()
 
@@ -1031,9 +1031,9 @@ class TestComposeIntegration:
     async def test_drafts_sorted_by_quality(self):
         """Response drafts should be sorted by quality_score descending."""
         req = _make_request(query="multi draft query")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     mock_sig_result = MagicMock()
                     mock_sig_result.to_dict.return_value = {
                         "intent": "general", "sentiment": 0.5,
@@ -1041,14 +1041,14 @@ class TestComposeIntegration:
                         "customer_tier": "free", "query_breadth": 0.5,
                     }
                     MockExtractor.return_value.extract = AsyncMock(return_value=mock_sig_result)
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "general"
                         mock_class_result.primary_confidence = 0.7
                         mock_class_result.secondary_intents = []
                         mock_class_result.classification_method = "keyword"
                         MockEngine.return_value.classify = AsyncMock(return_value=mock_class_result)
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
                             result = await self.composer.compose(req)
                             if len(result.drafts) > 1:
                                 for i in range(len(result.drafts) - 1):
@@ -1058,9 +1058,9 @@ class TestComposeIntegration:
     async def test_best_draft_is_first(self):
         """best_draft_index should always be 0 after sorting."""
         req = _make_request(query="best draft test")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     mock_sig_result = MagicMock()
                     mock_sig_result.to_dict.return_value = {
                         "intent": "general", "sentiment": 0.5,
@@ -1068,14 +1068,14 @@ class TestComposeIntegration:
                         "customer_tier": "free", "query_breadth": 0.5,
                     }
                     MockExtractor.return_value.extract = AsyncMock(return_value=mock_sig_result)
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "general"
                         mock_class_result.primary_confidence = 0.7
                         mock_class_result.secondary_intents = []
                         mock_class_result.classification_method = "keyword"
                         MockEngine.return_value.classify = AsyncMock(return_value=mock_class_result)
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
                             result = await self.composer.compose(req)
                             if len(result.drafts) > 0:
                                 assert result.best_draft_index == 0
@@ -1084,10 +1084,10 @@ class TestComposeIntegration:
     async def test_draft_history_stored_for_ticket(self):
         """When ticket_id is present, draft history should be stored."""
         req = _make_request(query="history test", ticket_id="ticket_123")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
             mock_cache_set = AsyncMock()
-            with patch("backend.app.core.redis.cache_set", mock_cache_set):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+            with patch("app.core.redis.cache_set", mock_cache_set):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     mock_sig_result = MagicMock()
                     mock_sig_result.to_dict.return_value = {
                         "intent": "general", "sentiment": 0.5,
@@ -1095,14 +1095,14 @@ class TestComposeIntegration:
                         "customer_tier": "free", "query_breadth": 0.5,
                     }
                     MockExtractor.return_value.extract = AsyncMock(return_value=mock_sig_result)
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "general"
                         mock_class_result.primary_confidence = 0.7
                         mock_class_result.secondary_intents = []
                         mock_class_result.classification_method = "keyword"
                         MockEngine.return_value.classify = AsyncMock(return_value=mock_class_result)
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
                             await self.composer.compose(req)
                             # cache_set should be called at least twice (cache + history)
                             assert mock_cache_set.call_count >= 2
@@ -1111,9 +1111,9 @@ class TestComposeIntegration:
     async def test_socketio_emission_on_success(self):
         """Socket.io emit_to_tenant should be called on successful compose."""
         req = _make_request(query="socket test")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     mock_sig_result = MagicMock()
                     mock_sig_result.to_dict.return_value = {
                         "intent": "general", "sentiment": 0.5,
@@ -1121,14 +1121,14 @@ class TestComposeIntegration:
                         "customer_tier": "free", "query_breadth": 0.5,
                     }
                     MockExtractor.return_value.extract = AsyncMock(return_value=mock_sig_result)
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "general"
                         mock_class_result.primary_confidence = 0.7
                         mock_class_result.secondary_intents = []
                         mock_class_result.classification_method = "keyword"
                         MockEngine.return_value.classify = AsyncMock(return_value=mock_class_result)
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock) as mock_emit:
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock) as mock_emit:
                             await self.composer.compose(req)
                             mock_emit.assert_called_once()
 
@@ -1136,13 +1136,13 @@ class TestComposeIntegration:
     async def test_signal_extraction_failure_safe_defaults(self):
         """When signal extraction fails, pipeline should use safe defaults."""
         req = _make_request(query="fallback test")
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
-                with patch("backend.app.core.signal_extraction.SignalExtractor") as MockExtractor:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
+                with patch("app.core.signal_extraction.SignalExtractor") as MockExtractor:
                     MockExtractor.return_value.extract = AsyncMock(
                         side_effect=Exception("Signal extraction failed")
                     )
-                    with patch("backend.app.core.classification_engine.ClassificationEngine") as MockEngine:
+                    with patch("app.core.classification_engine.ClassificationEngine") as MockEngine:
                         mock_class_result = MagicMock()
                         mock_class_result.primary_intent = "general"
                         mock_class_result.primary_confidence = 0.3
@@ -1151,7 +1151,7 @@ class TestComposeIntegration:
                         MockEngine.return_value.classify = AsyncMock(
                             side_effect=Exception("Classification failed")
                         )
-                        with patch("backend.app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
+                        with patch("app.core.socketio.emit_to_tenant", new_callable=AsyncMock):
                             # Should NOT raise — BC-008 graceful degradation
                             result = await self.composer.compose(req)
                             assert isinstance(result, DraftComposerResponse)
@@ -1181,7 +1181,7 @@ class TestRegenerateDraft:
     @pytest.mark.asyncio
     async def test_feedback_stored_in_redis(self):
         mock_cache_set = AsyncMock()
-        with patch("backend.app.core.redis.cache_set", mock_cache_set):
+        with patch("app.core.redis.cache_set", mock_cache_set):
             await self.composer._regenerate_draft(
                 draft_id="draft_abc",
                 feedback="Too formal",
@@ -1246,7 +1246,7 @@ class TestRegenerateDraft:
         """Feedback for one company should not leak to another."""
         calls = []
         mock_cache_set = AsyncMock(side_effect=lambda *args, **kwargs: calls.append(args))
-        with patch("backend.app.core.redis.cache_set", mock_cache_set):
+        with patch("app.core.redis.cache_set", mock_cache_set):
             await self.composer._regenerate_draft("d1", "feedback A", "company_A")
             await self.composer._regenerate_draft("d2", "feedback B", "company_B")
             assert calls[0][0] == "company_A"
@@ -1333,7 +1333,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_get_draft_history_empty_on_failure(self):
         composer = _make_composer()
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis error")):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis error")):
             result = await composer.get_draft_history("t1", "c1")
             assert result == []
 

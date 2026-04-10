@@ -23,8 +23,8 @@ Language = LanguageDetector = LanguagePipeline = PipelineResult = PipelineStepRe
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("backend.app.logger.get_logger", return_value=MagicMock()):
-        from backend.app.core.language_pipeline import (  # noqa: F811,F401
+    with patch("app.logger.get_logger", return_value=MagicMock()):
+        from app.core.language_pipeline import (  # noqa: F811,F401
             Language,
             LanguageDetector,
             LanguagePipeline,
@@ -281,8 +281,8 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_english_pipeline_skips_translation(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello, how are you?", company_id="c1")
         assert result.detected_language == Language.ENGLISH
         assert result.translation_performed is False
@@ -290,16 +290,16 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_spanish_pipeline_translates(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola, necesito ayuda", company_id="c1")
         assert result.detected_language == Language.SPANISH
         assert result.translation_performed is True
 
     @pytest.mark.asyncio
     async def test_pipeline_8_steps(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test query", company_id="c1")
         step_names = [s.step_name for s in result.pipeline_steps]
         assert len(step_names) == 8
@@ -311,8 +311,8 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_step_tracking(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test query", company_id="c1")
         for step in result.pipeline_steps:
             assert isinstance(step, PipelineStepResult)
@@ -322,8 +322,8 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_empty_query(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("", company_id="c1")
         assert result.detected_language == Language.UNKNOWN
         assert result.fallback_used is True
@@ -331,23 +331,23 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_none_query(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process(None, company_id="c1")
         assert result.fallback_used is True
         assert result.original_text == ""
 
     @pytest.mark.asyncio
     async def test_whitespace_query(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("   ", company_id="c1")
         assert result.fallback_used is True
 
     @pytest.mark.asyncio
     async def test_pipeline_result_fields(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test", company_id="c1")
         assert hasattr(result, "original_text")
         assert hasattr(result, "detected_language")
@@ -364,38 +364,38 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_processing_time_populated(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test query here", company_id="c1")
         assert result.processing_time_ms >= 0
 
     @pytest.mark.asyncio
     async def test_cache_called(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock) as mock_set:
                 await self.pipeline.process("test", company_id="c1")
                 mock_set.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_cache_fail_open(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Redis down")):
                 result = await self.pipeline.process("Hola", company_id="c1")
         assert isinstance(result, PipelineResult)
         assert result.detected_language == Language.SPANISH
 
     @pytest.mark.asyncio
     async def test_french_pipeline(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Bonjour, merci beaucoup", company_id="c1")
         assert result.detected_language == Language.FRENCH
         assert result.translation_performed is True
 
     @pytest.mark.asyncio
     async def test_quality_check_performed_for_translation(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola, necesito ayuda", company_id="c1")
         quality_step = next(
             (s for s in result.pipeline_steps if s.step_name == "quality_check"), None
@@ -405,8 +405,8 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_translate_back_step_for_non_english(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola", company_id="c1")
         back_step = next(
             (s for s in result.pipeline_steps if s.step_name == "translate_back"), None
@@ -416,8 +416,8 @@ class TestLanguagePipeline:
 
     @pytest.mark.asyncio
     async def test_translate_back_skipped_for_english(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello", company_id="c1")
         back_step = next(
             (s for s in result.pipeline_steps if s.step_name == "translate_back"), None
@@ -503,8 +503,8 @@ class TestConfidence:
 
     @pytest.mark.asyncio
     async def test_high_confidence_success(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola, gracias por favor, necesito ayuda con mi problema", company_id="c1")
         conf_step = next(s for s in result.pipeline_steps if s.step_name == "confidence")
         assert conf_step.status == StepStatus.SUCCESS
@@ -512,8 +512,8 @@ class TestConfidence:
 
     @pytest.mark.asyncio
     async def test_low_confidence_skipped(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("hi", company_id="c1")
         conf_step = next(s for s in result.pipeline_steps if s.step_name == "confidence")
         # Low confidence → SKIPPED
@@ -522,8 +522,8 @@ class TestConfidence:
 
     @pytest.mark.asyncio
     async def test_confidence_threshold_0_5(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test", company_id="c1")
         conf_step = next(s for s in result.pipeline_steps if s.step_name == "confidence")
         assert conf_step.metadata["threshold"] == 0.5
@@ -531,8 +531,8 @@ class TestConfidence:
     @pytest.mark.asyncio
     async def test_english_low_confidence(self):
         """English gets default 0.4 confidence for generic text."""
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("the quick brown fox jumps", company_id="c1")
         # English detected with low confidence
         assert result.detected_language == Language.ENGLISH
@@ -544,8 +544,8 @@ class TestConfidence:
 
     @pytest.mark.asyncio
     async def test_chinese_high_confidence(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("你好世界这是一个测试", company_id="c1")
         conf_step = next(s for s in result.pipeline_steps if s.step_name == "confidence")
         # Chinese script-based detection should be confident
@@ -553,16 +553,16 @@ class TestConfidence:
 
     @pytest.mark.asyncio
     async def test_japanese_high_confidence(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("こんにちは、ありがとうございます", company_id="c1")
         conf_step = next(s for s in result.pipeline_steps if s.step_name == "confidence")
         assert conf_step.metadata["is_confident"] is True
 
     @pytest.mark.asyncio
     async def test_korean_high_confidence(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("안녕하세요 감사합니다 도와주세요", company_id="c1")
         assert result.detection_confidence > 0.5
 
@@ -577,8 +577,8 @@ class TestTenantLanguage:
 
     @pytest.mark.asyncio
     async def test_tenant_language_english(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola", company_id="c1", tenant_language="en")
         tenant_step = next(s for s in result.pipeline_steps if s.step_name == "tenant_language")
         assert tenant_step.metadata["tenant_language"] == "en"
@@ -586,16 +586,16 @@ class TestTenantLanguage:
 
     @pytest.mark.asyncio
     async def test_tenant_language_none(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola", company_id="c1")
         tenant_step = next(s for s in result.pipeline_steps if s.step_name == "tenant_language")
         assert tenant_step.metadata["tenant_language"] is None
 
     @pytest.mark.asyncio
     async def test_tenant_language_matches_detected(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola", company_id="c1", tenant_language="es")
         tenant_step = next(s for s in result.pipeline_steps if s.step_name == "tenant_language")
         assert tenant_step.metadata["effective_language"] == "es"
@@ -615,8 +615,8 @@ class TestTenantLanguage:
 
     @pytest.mark.asyncio
     async def test_result_has_tenant_language(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test", company_id="c1", tenant_language="de")
         assert result.tenant_language == "de"
 
@@ -631,8 +631,8 @@ class TestQualityCheck:
 
     @pytest.mark.asyncio
     async def test_quality_check_passed(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola, necesito ayuda", company_id="c1")
         quality_step = next(s for s in result.pipeline_steps if s.step_name == "quality_check")
         assert quality_step.status == StepStatus.SUCCESS
@@ -640,16 +640,16 @@ class TestQualityCheck:
 
     @pytest.mark.asyncio
     async def test_quality_check_skipped_for_english(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello", company_id="c1")
         quality_step = next(s for s in result.pipeline_steps if s.step_name == "quality_check")
         assert quality_step.status == StepStatus.SKIPPED
 
     @pytest.mark.asyncio
     async def test_quality_issues_populated(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola, necesito ayuda", company_id="c1")
         quality_step = next(s for s in result.pipeline_steps if s.step_name == "quality_check")
         assert "quality_score" in quality_step.metadata
@@ -657,8 +657,8 @@ class TestQualityCheck:
 
     @pytest.mark.asyncio
     async def test_quality_score_range(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola", company_id="c1")
         assert 0.0 <= result.quality_score <= 1.0
 
@@ -667,8 +667,8 @@ class TestQualityCheck:
         """BC-008: Quality check failure is handled gracefully."""
         pipeline = LanguagePipeline()
         with patch.object(pipeline._quality_checker, "check", side_effect=RuntimeError("quality check failed")):
-            with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-                with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+                with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                     result = await pipeline.process("Hola", company_id="c1")
         quality_step = next(s for s in result.pipeline_steps if s.step_name == "quality_check")
         assert quality_step.status == StepStatus.FAILED
@@ -687,8 +687,8 @@ class TestFallback:
     async def test_fallback_on_detection_failure(self):
         pipeline = LanguagePipeline()
         with patch.object(pipeline._detector, "detect", side_effect=RuntimeError("detection failed")):
-            with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-                with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+                with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                     result = await pipeline.process("Hola", company_id="c1")
         assert result.fallback_used is True
         assert result.fallback_warning is not None
@@ -697,23 +697,23 @@ class TestFallback:
     async def test_fallback_returns_original_text(self):
         pipeline = LanguagePipeline()
         with patch.object(pipeline._detector, "detect", side_effect=RuntimeError("failed")):
-            with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-                with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+                with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                     result = await pipeline.process("Hola", company_id="c1")
         assert result.translated_text == "Hola"
         assert result.translation_performed is False
 
     @pytest.mark.asyncio
     async def test_no_fallback_on_success(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello", company_id="c1")
         assert result.fallback_used is False
 
     @pytest.mark.asyncio
     async def test_fallback_step_status(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello", company_id="c1")
         fallback_step = next(s for s in result.pipeline_steps if s.step_name == "fallback")
         assert fallback_step.status == StepStatus.SUCCESS
@@ -722,8 +722,8 @@ class TestFallback:
     async def test_fallback_on_translation_failure(self):
         pipeline = LanguagePipeline()
         with patch.object(pipeline._translator, "translate", return_value=("", False)):
-            with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-                with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+                with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                     result = await pipeline.process("Hola", company_id="c1")
         assert result.fallback_used is True
 
@@ -738,15 +738,15 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_never_crashes_on_empty(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("", company_id="c1")
         assert isinstance(result, PipelineResult)
 
     @pytest.mark.asyncio
     async def test_never_crashes_on_none(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process(None, company_id="c1")
         assert isinstance(result, PipelineResult)
 
@@ -754,8 +754,8 @@ class TestErrorHandling:
     async def test_detection_error_caught(self):
         pipeline = LanguagePipeline()
         with patch.object(pipeline._detector, "detect", side_effect=Exception("boom")):
-            with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-                with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+                with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                     result = await pipeline.process("test", company_id="c1")
         detection_step = result.pipeline_steps[0]
         assert detection_step.status == StepStatus.FAILED
@@ -764,16 +764,16 @@ class TestErrorHandling:
     async def test_translation_error_caught(self):
         pipeline = LanguagePipeline()
         with patch.object(pipeline._translator, "translate", side_effect=Exception("translate boom")):
-            with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-                with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+            with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+                with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                     result = await pipeline.process("Hola", company_id="c1")
         translate_step = next(s for s in result.pipeline_steps if s.step_name == "translate")
         assert translate_step.status == StepStatus.FAILED
 
     @pytest.mark.asyncio
     async def test_cache_error_does_not_crash(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, side_effect=Exception("Redis down")):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock, side_effect=Exception("Redis down")):
                 result = await self.pipeline.process("test", company_id="c1")
         assert isinstance(result, PipelineResult)
 
@@ -789,37 +789,37 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_very_long_text(self):
         long_text = "Hola, necesito ayuda con mi problema " * 200
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process(long_text, company_id="c1")
         assert isinstance(result, PipelineResult)
         assert result.original_text == long_text
 
     @pytest.mark.asyncio
     async def test_special_characters(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("@#$%^&*()", company_id="c1")
         assert isinstance(result, PipelineResult)
 
     @pytest.mark.asyncio
     async def test_emoji_text(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello 😊🎉", company_id="c1")
         assert isinstance(result, PipelineResult)
 
     @pytest.mark.asyncio
     async def test_numbers_only(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("12345 67890", company_id="c1")
         assert isinstance(result, PipelineResult)
 
     @pytest.mark.asyncio
     async def test_mixed_scripts(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello 你好 Bonjour", company_id="c1")
         assert isinstance(result, PipelineResult)
         # Should detect one of the script-based languages or Latin
@@ -830,15 +830,15 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_newlines_and_tabs(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello\n\n\tWorld\t\t", company_id="c1")
         assert result.detected_language == Language.ENGLISH
 
     @pytest.mark.asyncio
     async def test_result_to_dict(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test", company_id="c1")
         d = result.to_dict()
         assert isinstance(d, dict)
@@ -1044,47 +1044,47 @@ class TestPipelineIntegrationAdditional:
 
     @pytest.mark.asyncio
     async def test_german_pipeline_translates(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hallo, danke für die Hilfe", company_id="c1")
         assert result.detected_language == Language.GERMAN
         assert result.translation_performed is True
 
     @pytest.mark.asyncio
     async def test_portuguese_pipeline_translates(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Olá, obrigado pela ajuda", company_id="c1")
         assert result.detected_language == Language.PORTUGUESE
         assert result.translation_performed is True
 
     @pytest.mark.asyncio
     async def test_ai_process_step_always_runs(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test", company_id="c1")
         ai_step = next(s for s in result.pipeline_steps if s.step_name == "ai_process")
         assert ai_step.status == StepStatus.SUCCESS
 
     @pytest.mark.asyncio
     async def test_quality_skipped_for_english(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hello world", company_id="c1")
         quality_step = next(s for s in result.pipeline_steps if s.step_name == "quality_check")
         assert quality_step.status == StepStatus.SKIPPED
 
     @pytest.mark.asyncio
     async def test_all_steps_have_metadata(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("test query", company_id="c1")
         for step in result.pipeline_steps:
             assert isinstance(step.metadata, dict)
 
     @pytest.mark.asyncio
     async def test_original_text_preserved(self):
-        with patch("backend.app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
-            with patch("backend.app.core.redis.cache_set", new_callable=AsyncMock):
+        with patch("app.core.redis.cache_get", new_callable=AsyncMock, return_value=None):
+            with patch("app.core.redis.cache_set", new_callable=AsyncMock):
                 result = await self.pipeline.process("Hola mundo", company_id="c1")
         assert result.original_text == "Hola mundo"

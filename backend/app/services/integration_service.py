@@ -26,8 +26,8 @@ from secrets import token_urlsafe
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from backend.app.exceptions import ValidationError
-from backend.app.logger import get_logger
+from app.exceptions import ValidationError
+from app.logger import get_logger
 from database.models.core import Company
 
 logger = get_logger("integration_service")

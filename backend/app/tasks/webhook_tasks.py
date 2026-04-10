@@ -15,8 +15,8 @@ Tasks:
 
 import logging
 
-from backend.app.tasks.base import ParwaBaseTask, with_company_id
-from backend.app.tasks.celery_app import app
+from app.tasks.base import ParwaBaseTask, with_company_id
+from app.tasks.celery_app import app
 
 logger = logging.getLogger("parwa.webhook_tasks")
 
@@ -25,7 +25,7 @@ logger = logging.getLogger("parwa.webhook_tasks")
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.webhook_tasks.process_webhook_event",
+    name="app.tasks.webhook_tasks.process_webhook_event",
 )
 @with_company_id
 def process_webhook_event(
@@ -41,7 +41,7 @@ def process_webhook_event(
         event_db_id: Webhook event database record ID.
     """
     try:
-        from backend.app.services.webhook_service import (
+        from app.services.webhook_service import (
             get_webhook_event,
             mark_webhook_processed,
         )
@@ -49,7 +49,7 @@ def process_webhook_event(
         event = get_webhook_event(event_db_id)
 
         # Dispatch to provider-specific handler via registry
-        from backend.app.webhooks import dispatch_event
+        from app.webhooks import dispatch_event
 
         provider = event.get("provider", "")
         result = dispatch_event(provider, event)
@@ -74,7 +74,7 @@ def process_webhook_event(
             company_id=company_id,
         )
         try:
-            from backend.app.services.webhook_service import (
+            from app.services.webhook_service import (
                 mark_webhook_processed,
             )
             mark_webhook_processed(
@@ -89,7 +89,7 @@ def process_webhook_event(
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.webhook_tasks.process_paddle_webhook",
+    name="app.tasks.webhook_tasks.process_paddle_webhook",
 )
 @with_company_id
 def process_paddle_webhook(
@@ -102,13 +102,13 @@ def process_paddle_webhook(
         event_db_id: Webhook event database record ID.
     """
     try:
-        from backend.app.services.webhook_service import (
+        from app.services.webhook_service import (
             get_webhook_event,
             mark_webhook_processed,
         )
 
         event = get_webhook_event(event_db_id)
-        from backend.app.webhooks import dispatch_event
+        from app.webhooks import dispatch_event
         dispatch_event("paddle", event)
         mark_webhook_processed(
             event_db_id, status="processed",
@@ -121,7 +121,7 @@ def process_paddle_webhook(
             company_id=company_id,
         )
         try:
-            from backend.app.services.webhook_service import (
+            from app.services.webhook_service import (
                 mark_webhook_processed,
             )
             mark_webhook_processed(
@@ -136,7 +136,7 @@ def process_paddle_webhook(
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.webhook_tasks.process_twilio_webhook",
+    name="app.tasks.webhook_tasks.process_twilio_webhook",
 )
 @with_company_id
 def process_twilio_webhook(
@@ -149,13 +149,13 @@ def process_twilio_webhook(
         event_db_id: Webhook event database record ID.
     """
     try:
-        from backend.app.services.webhook_service import (
+        from app.services.webhook_service import (
             get_webhook_event,
             mark_webhook_processed,
         )
 
         event = get_webhook_event(event_db_id)
-        from backend.app.webhooks import dispatch_event
+        from app.webhooks import dispatch_event
         dispatch_event("twilio", event)
         mark_webhook_processed(
             event_db_id, status="processed",
@@ -168,7 +168,7 @@ def process_twilio_webhook(
             company_id=company_id,
         )
         try:
-            from backend.app.services.webhook_service import (
+            from app.services.webhook_service import (
                 mark_webhook_processed,
             )
             mark_webhook_processed(
@@ -183,7 +183,7 @@ def process_twilio_webhook(
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.webhook_tasks.process_brevo_webhook",
+    name="app.tasks.webhook_tasks.process_brevo_webhook",
 )
 @with_company_id
 def process_brevo_webhook(
@@ -196,13 +196,13 @@ def process_brevo_webhook(
         event_db_id: Webhook event database record ID.
     """
     try:
-        from backend.app.services.webhook_service import (
+        from app.services.webhook_service import (
             get_webhook_event,
             mark_webhook_processed,
         )
 
         event = get_webhook_event(event_db_id)
-        from backend.app.webhooks import dispatch_event
+        from app.webhooks import dispatch_event
         dispatch_event("brevo", event)
         mark_webhook_processed(
             event_db_id, status="processed",
@@ -215,7 +215,7 @@ def process_brevo_webhook(
             company_id=company_id,
         )
         try:
-            from backend.app.services.webhook_service import (
+            from app.services.webhook_service import (
                 mark_webhook_processed,
             )
             mark_webhook_processed(
@@ -230,7 +230,7 @@ def process_brevo_webhook(
     base=ParwaBaseTask,
     bind=True,
     queue="webhook",
-    name="backend.app.tasks.webhook_tasks.process_shopify_webhook",
+    name="app.tasks.webhook_tasks.process_shopify_webhook",
 )
 @with_company_id
 def process_shopify_webhook(
@@ -243,13 +243,13 @@ def process_shopify_webhook(
         event_db_id: Webhook event database record ID.
     """
     try:
-        from backend.app.services.webhook_service import (
+        from app.services.webhook_service import (
             get_webhook_event,
             mark_webhook_processed,
         )
 
         event = get_webhook_event(event_db_id)
-        from backend.app.webhooks import dispatch_event
+        from app.webhooks import dispatch_event
         dispatch_event("shopify", event)
         mark_webhook_processed(
             event_db_id, status="processed",
@@ -262,7 +262,7 @@ def process_shopify_webhook(
             company_id=company_id,
         )
         try:
-            from backend.app.services.webhook_service import (
+            from app.services.webhook_service import (
                 mark_webhook_processed,
             )
             mark_webhook_processed(
@@ -276,7 +276,7 @@ def process_shopify_webhook(
 # ── Provider handlers now use registry (Day 23) ──────────
 # Import handlers to register them with the registry.
 # Actual processing is in backend.app.webhooks.{provider}_handler
-import backend.app.webhooks.paddle_handler  # noqa: E402, F401
-import backend.app.webhooks.brevo_handler  # noqa: E402, F401
-import backend.app.webhooks.twilio_handler  # noqa: E402, F401
-import backend.app.webhooks.shopify_handler  # noqa: E402, F401
+import app.webhooks.paddle_handler  # noqa: E402, F401
+import app.webhooks.brevo_handler  # noqa: E402, F401
+import app.webhooks.twilio_handler  # noqa: E402, F401
+import app.webhooks.shopify_handler  # noqa: E402, F401

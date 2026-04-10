@@ -32,7 +32,7 @@ from database.models.tickets import (
     SLATimer,
     TicketAssignment,
 )
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("ticket_analytics")
 
