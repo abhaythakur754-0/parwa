@@ -32,9 +32,13 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from backend.app.logger import get_logger
+
+if TYPE_CHECKING:
+    from backend.app.core.techniques.base import ConversationState as _ConversationState  # noqa: F401
+    ConversationState = _ConversationState
 
 logger = get_logger("gsd_engine")
 

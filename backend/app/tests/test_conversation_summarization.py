@@ -9,32 +9,43 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
+# Module-level stubs — populated by the autouse fixture below.
+# These satisfy pyflakes F821 checks; the real imports happen
+# inside the fixture after the logger is mocked.
+ConversationSummarizationService = None  # type: ignore[assignment,misc]
+ConversationMessage = None  # type: ignore[assignment,misc]
+ConversationSummary = None  # type: ignore[assignment,misc]
+ConversationContext = None  # type: ignore[assignment,misc]
+SummarizationRequest = None  # type: ignore[assignment,misc]
+SummarizationResult = None  # type: ignore[assignment,misc]
+SummarizationMode = None  # type: ignore[assignment,misc]
+SummaryStatus = None  # type: ignore[assignment,misc]
+ConversationState = None  # type: ignore[assignment,misc]
+
 
 @pytest.fixture(autouse=True)
 def _mock_logger():
     with patch("backend.app.logger.get_logger", return_value=MagicMock()):
         from backend.app.core.conversation_summarization import (
-            ConversationSummarizationService,
-            ConversationMessage,
-            ConversationSummary,
-            ConversationContext,
-            SummarizationRequest,
-            SummarizationResult,
-            SummarizationMode,
-            SummaryStatus,
-            ConversationState,
+            ConversationSummarizationService as _ConversationSummarizationService,
+            ConversationMessage as _ConversationMessage,
+            ConversationSummary as _ConversationSummary,
+            ConversationContext as _ConversationContext,
+            SummarizationRequest as _SummarizationRequest,
+            SummarizationResult as _SummarizationResult,
+            SummarizationMode as _SummarizationMode,
+            SummaryStatus as _SummaryStatus,
+            ConversationState as _ConversationState,
         )
-        globals().update({
-            "ConversationSummarizationService": ConversationSummarizationService,
-            "ConversationMessage": ConversationMessage,
-            "ConversationSummary": ConversationSummary,
-            "ConversationContext": ConversationContext,
-            "SummarizationRequest": SummarizationRequest,
-            "SummarizationResult": SummarizationResult,
-            "SummarizationMode": SummarizationMode,
-            "SummaryStatus": SummaryStatus,
-            "ConversationState": ConversationState,
-        })
+        globals()["ConversationSummarizationService"] = _ConversationSummarizationService
+        globals()["ConversationMessage"] = _ConversationMessage
+        globals()["ConversationSummary"] = _ConversationSummary
+        globals()["ConversationContext"] = _ConversationContext
+        globals()["SummarizationRequest"] = _SummarizationRequest
+        globals()["SummarizationResult"] = _SummarizationResult
+        globals()["SummarizationMode"] = _SummarizationMode
+        globals()["SummaryStatus"] = _SummaryStatus
+        globals()["ConversationState"] = _ConversationState
 
 
 # ── Constants used across tests ────────────────────────────────────────────

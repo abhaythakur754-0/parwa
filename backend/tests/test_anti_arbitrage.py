@@ -9,6 +9,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Module-level stubs — populated by the autouse fixture below.
+# These satisfy pyflakes F821 checks; the real imports happen
+# inside the fixture after the logger is mocked.
+AntiArbitrageService = None  # type: ignore[assignment,misc]
+AntiArbitrageError = None  # type: ignore[assignment,misc]
+AntiArbitrageConfig = None  # type: ignore[assignment,misc]
+ArbitrageAlertLevel = None  # type: ignore[assignment,misc]
+InstanceAction = None  # type: ignore[assignment,misc]
+VariantInstance = None  # type: ignore[assignment,misc]
+CapacityCheck = None  # type: ignore[assignment,misc]
+ArbitrageAlert = None  # type: ignore[assignment,misc]
+
 
 @pytest.fixture(autouse=True)
 def _mock_logger_and_lock():
@@ -20,25 +32,23 @@ def _mock_logger_and_lock():
         _svc_mod.threading.Lock = _svc_mod.threading.RLock
         try:
             from backend.app.services.anti_arbitrage_service import (
-                AntiArbitrageService,
-                AntiArbitrageError,
-                AntiArbitrageConfig,
-                ArbitrageAlertLevel,
-                InstanceAction,
-                VariantInstance,
-                CapacityCheck,
-                ArbitrageAlert,
+                AntiArbitrageService as _AntiArbitrageService,
+                AntiArbitrageError as _AntiArbitrageError,
+                AntiArbitrageConfig as _AntiArbitrageConfig,
+                ArbitrageAlertLevel as _ArbitrageAlertLevel,
+                InstanceAction as _InstanceAction,
+                VariantInstance as _VariantInstance,
+                CapacityCheck as _CapacityCheck,
+                ArbitrageAlert as _ArbitrageAlert,
             )
-            globals().update({
-                "AntiArbitrageService": AntiArbitrageService,
-                "AntiArbitrageError": AntiArbitrageError,
-                "AntiArbitrageConfig": AntiArbitrageConfig,
-                "ArbitrageAlertLevel": ArbitrageAlertLevel,
-                "InstanceAction": InstanceAction,
-                "VariantInstance": VariantInstance,
-                "CapacityCheck": CapacityCheck,
-                "ArbitrageAlert": ArbitrageAlert,
-            })
+            globals()["AntiArbitrageService"] = _AntiArbitrageService
+            globals()["AntiArbitrageError"] = _AntiArbitrageError
+            globals()["AntiArbitrageConfig"] = _AntiArbitrageConfig
+            globals()["ArbitrageAlertLevel"] = _ArbitrageAlertLevel
+            globals()["InstanceAction"] = _InstanceAction
+            globals()["VariantInstance"] = _VariantInstance
+            globals()["CapacityCheck"] = _CapacityCheck
+            globals()["ArbitrageAlert"] = _ArbitrageAlert
             yield
         finally:
             _svc_mod.threading.Lock = _orig_lock

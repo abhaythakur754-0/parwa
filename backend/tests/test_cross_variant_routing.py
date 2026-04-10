@@ -8,6 +8,26 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Module-level stubs — populated by the autouse fixture below.
+# These satisfy pyflakes F821 checks; the real imports happen
+# inside the fixture after the logger is mocked.
+CrossVariantRouter = None  # type: ignore[assignment,misc]
+CrossVariantRoutingError = None  # type: ignore[assignment,misc]
+ChannelType = None  # type: ignore[assignment,misc]
+RoutingDecisionType = None  # type: ignore[assignment,misc]
+EscalationReason = None  # type: ignore[assignment,misc]
+ChannelMapping = None  # type: ignore[assignment,misc]
+EscalationPath = None  # type: ignore[assignment,misc]
+RoutingResult = None  # type: ignore[assignment,misc]
+CapacitySnapshot = None  # type: ignore[assignment,misc]
+QueuedTicket = None  # type: ignore[assignment,misc]
+CAPACITY_THRESHOLD_PCT = None  # type: ignore[assignment,misc]
+ESCALATION_FALLBACK_SECONDS = None  # type: ignore[assignment,misc]
+AI_OVERLOAD_FLAG = None  # type: ignore[assignment,misc]
+ESCALATION_CHAIN = None  # type: ignore[assignment,misc]
+VALID_VARIANTS = None  # type: ignore[assignment,misc]
+DEFAULT_CHANNEL_MAPPINGS = None  # type: ignore[assignment,misc]
+
 
 @pytest.fixture(autouse=True)
 def _mock_logger():

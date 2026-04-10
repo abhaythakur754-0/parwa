@@ -16,6 +16,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Module-level stubs — populated by the autouse fixture below.
+# These satisfy pyflakes F821 checks; the real imports happen
+# inside the fixture after the logger is mocked.
+DataFreshnessService = None  # type: ignore[assignment,misc]
+FreshnessCheckResult = None  # type: ignore[assignment,misc]
+FreshnessStatus = None  # type: ignore[assignment,misc]
+StalenessConfig = None  # type: ignore[assignment,misc]
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # Fixtures — import source modules with mocked logger
