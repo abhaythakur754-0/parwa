@@ -45,7 +45,6 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
   const navLinks = [
     { name: 'Home', href: '/' },
     { name: 'Models', href: '/models' },
-    { name: 'Pricing', href: '/pricing' },
     { name: 'Jarvis Chatbot', href: '#', onClick: onOpenJarvis },
   ];
 

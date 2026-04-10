@@ -101,8 +101,8 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
               <Calendar className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Book a Demo</h2>
-              <p className="text-xs text-emerald-300/50">See PARWA in action — free, no commitment</p>
+              <h2 className="text-lg font-bold text-white">Book an Instant Demo</h2>
+              <p className="text-xs text-emerald-300/50">See how this agent talks to your clients — just $1, no commitment</p>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all">
@@ -116,7 +116,7 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
               <CheckCircle className="w-8 h-8 text-emerald-400" />
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Request Submitted!</h3>
-            <p className="text-sm text-emerald-200/50">Our team will reach out within 24 hours to schedule your demo.</p>
+            <p className="text-sm text-emerald-200/50">Our team will reach out within 24 hours to set up your instant demo for just $1.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
@@ -229,7 +229,7 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-emerald-200/70 mb-2">
                 <MessageSquare className="w-3.5 h-3.5 text-emerald-400/60" />
-                Anything specific you'd like to see?
+                What would you like to see in the demo?
               </label>
               <textarea
                 value={form.message}
@@ -260,7 +260,7 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  Book My Free Demo
+                  Book Instant Demo — $1
                 </>
               )}
             </button>
