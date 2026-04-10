@@ -168,6 +168,34 @@ class CapacityMonitor:
             if company_id not in self._limits:
                 self._limits[company_id] = {}
             self._limits[company_id][variant] = max_concurrent
+
+            # BUG FIX: Warn if active slots already exceed new limit
+            active_count = len(
+                self._active_slots[company_id][variant]
+            )
+            if active_count > max_concurrent:
+                alert = CapacityAlert(
+                    level="critical",
+                    company_id=company_id,
+                    variant=variant,
+                    message=(
+                        f"Capacity limit reduced to {max_concurrent} "
+                        f"but {active_count} slots are already active "
+                        f"for {variant}. Active workflows exceed new limit."
+                    ),
+                    percentage=round(
+                        active_count / max_concurrent * 100, 2
+                    ),
+                )
+                self._alerts[company_id].append(alert)
+                logger.warning(
+                    "capacity_limit_exceeded_by_active",
+                    company_id=company_id,
+                    variant=variant,
+                    max_concurrent=max_concurrent,
+                    active_count=active_count,
+                )
+
             logger.info(
                 "capacity_limit_configured",
                 company_id=company_id,
@@ -201,8 +229,13 @@ class CapacityMonitor:
             True if slot acquired, False if queued.
         """
         with self._lock:
-            max_c = self._get_max(company_id, variant)
+            # BUG FIX: Idempotent — if ticket already holds a slot,
+            # return True without overwriting its metadata.
             active = self._active_slots[company_id][variant]
+            if ticket_id in active:
+                return True
+
+            max_c = self._get_max(company_id, variant)
             current_used = len(active)
 
             if current_used < max_c:
@@ -224,6 +257,17 @@ class CapacityMonitor:
                 return True
             else:
                 # Queue the request
+                # BUG FIX: Deduplicate — skip if ticket_id already queued
+                q = self._queues[company_id][variant]
+                if any(item.ticket_id == ticket_id for item in q):
+                    logger.info(
+                        "slot_already_queued",
+                        company_id=company_id,
+                        variant=variant,
+                        ticket_id=ticket_id,
+                    )
+                    return False
+
                 item = QueueItem(
                     priority=priority,
                     ticket_id=ticket_id,
@@ -231,7 +275,7 @@ class CapacityMonitor:
                     variant=variant,
                     metadata=metadata or {},
                 )
-                self._queues[company_id][variant].append(item)
+                q.append(item)
                 self._check_thresholds(
                     company_id, variant, current_used, max_c
                 )

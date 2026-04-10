@@ -642,13 +642,57 @@ class DSPyIntegration:
     ) -> DSPyConfig:
         """Set per-tenant DSPy configuration.
 
+        Validates provided values before applying. Invalid values
+        raise ValueError.
+
         Args:
             company_id: Tenant identifier.
             config_dict: Configuration values.
 
         Returns:
             The applied DSPyConfig.
+
+        Raises:
+            ValueError: If any provided value is invalid.
         """
+        # BUG FIX: Validate configuration values
+        if "max_tokens" in config_dict:
+            mt = config_dict["max_tokens"]
+            if not isinstance(mt, int) or mt <= 0:
+                raise ValueError(
+                    f"max_tokens must be a positive integer, "
+                    f"got {mt!r}"
+                )
+
+        if "temperature" in config_dict:
+            temp = config_dict["temperature"]
+            if not isinstance(temp, (int, float)):
+                raise ValueError(
+                    f"temperature must be a number, "
+                    f"got {temp!r}"
+                )
+            if not (0.0 <= float(temp) <= 2.0):
+                raise ValueError(
+                    f"temperature must be between 0.0 and 2.0, "
+                    f"got {temp}"
+                )
+
+        if "model_name" in config_dict:
+            mn = config_dict["model_name"]
+            if not isinstance(mn, str) or not mn.strip():
+                raise ValueError(
+                    f"model_name must be a non-empty string, "
+                    f"got {mn!r}"
+                )
+
+        if "num_threads" in config_dict:
+            nt = config_dict["num_threads"]
+            if not isinstance(nt, int) or nt < 1:
+                raise ValueError(
+                    f"num_threads must be an integer >= 1, "
+                    f"got {nt!r}"
+                )
+
         config = DSPyConfig(
             enabled=config_dict.get("enabled", True),
             model_name=config_dict.get("model_name", "gpt-4o-mini"),

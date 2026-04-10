@@ -449,10 +449,11 @@ class TenantConfigManager:
 
             merged = self.get_config(company_id)
 
-            # Notify callbacks (outside lock for safety)
-            self._notify_change(company_id, category, config_dict)
+        # BUG FIX: Notify callbacks outside lock for safety,
+        # matching the documented intent in the comment above.
+        self._notify_change(company_id, category, config_dict)
 
-            return merged
+        return merged
 
     def reset_to_defaults(
         self,
