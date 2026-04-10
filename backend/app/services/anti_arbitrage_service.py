@@ -2,11 +2,11 @@
 Anti-Arbitrage Service (F-159)
 
 Detects and prevents multi-instance capacity gaming across PARWA variants.
-Malicious tenants could create many cheap parwa_lite instances to get the
+Malicious tenants could create many cheap mini_parwa instances to get the
 capacity of a parwa_high instance for less money.
 
 Pricing Context:
-  parwa_lite: $999 / 2,000 tickets  (weight=1.0)
+  mini_parwa: $999 / 2,000 tickets  (weight=1.0)
   parwa:      $2,499 / 5,000 tickets (weight=2.5)
   parwa_high: $3,999 / 15,000 tickets (weight=7.5)
 
@@ -114,14 +114,14 @@ class AntiArbitrageConfig:
     max_weighted_capacity: float = 7.5
     capacity_weights: Dict[str, float] = field(
         default_factory=lambda: {
-            "parwa_lite": 1.0,
+            "mini_parwa": 1.0,
             "parwa": 2.5,
             "parwa_high": 7.5,
         },
     )
     ticket_limits: Dict[str, int] = field(
         default_factory=lambda: {
-            "parwa_lite": 2000,
+            "mini_parwa": 2000,
             "parwa": 5000,
             "parwa_high": 15000,
         },
@@ -214,7 +214,7 @@ return {new_cap, new_cnt}
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
 
-VALID_VARIANT_TYPES = {"parwa_lite", "parwa", "parwa_high"}
+VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "parwa_high"}
 
 _RAPID_CREATION_WINDOW_SECONDS = 600  # 10 minutes
 
@@ -255,7 +255,7 @@ class AntiArbitrageService:
     Anti-Arbitrage Service (F-159).
 
     Detects and prevents tenants from gaming capacity by spawning
-    many cheap parwa_lite instances instead of purchasing a single
+    many cheap mini_parwa instances instead of purchasing a single
     parwa_high instance.
 
     All public methods accept ``company_id`` as their first argument
@@ -957,14 +957,14 @@ class AntiArbitrageService:
                     variant_counts.get(inst.variant_type, 0) + 1
                 )
             for vtype, count in variant_counts.items():
-                if count >= 5 and vtype == "parwa_lite":
+                if count >= 5 and vtype == "mini_parwa":
                     alerts.append(ArbitrageAlert(
                         alert_id=str(uuid.uuid4()),
                         company_id=company_id,
                         level=ArbitrageAlertLevel.HIGH,
                         alert_type="single_variant_hoarding",
                         description=(
-                            f"{count} parwa_lite instances detected — "
+                            f"{count} mini_parwa instances detected — "
                             f"potential capacity gaming"
                         ),
                         details={

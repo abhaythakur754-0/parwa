@@ -127,13 +127,13 @@ class TestConfig:
 
     def test_default_capacity_weights(self):
         cfg = AntiArbitrageConfig()
-        assert cfg.capacity_weights["parwa_lite"] == 1.0
+        assert cfg.capacity_weights["mini_parwa"] == 1.0
         assert cfg.capacity_weights["parwa"] == 2.5
         assert cfg.capacity_weights["parwa_high"] == 7.5
 
     def test_default_ticket_limits(self):
         cfg = AntiArbitrageConfig()
-        assert cfg.ticket_limits["parwa_lite"] == 2000
+        assert cfg.ticket_limits["mini_parwa"] == 2000
         assert cfg.ticket_limits["parwa"] == 5000
         assert cfg.ticket_limits["parwa_high"] == 15000
 
@@ -152,12 +152,12 @@ class TestConfig:
         assert cfg.max_weighted_capacity == 15.0
 
     def test_custom_capacity_weights(self):
-        weights = {"parwa_lite": 0.5, "parwa": 1.0, "parwa_high": 3.0}
+        weights = {"mini_parwa": 0.5, "parwa": 1.0, "parwa_high": 3.0}
         cfg = AntiArbitrageConfig(capacity_weights=weights)
         assert cfg.capacity_weights == weights
 
     def test_custom_ticket_limits(self):
-        limits = {"parwa_lite": 1000, "parwa": 3000, "parwa_high": 10000}
+        limits = {"mini_parwa": 1000, "parwa": 3000, "parwa_high": 10000}
         cfg = AntiArbitrageConfig(ticket_limits=limits)
         assert cfg.ticket_limits == limits
 
@@ -174,15 +174,15 @@ class TestConfig:
         cfg = AntiArbitrageConfig(
             max_instances_per_variant=3,
             max_weighted_capacity=5.0,
-            capacity_weights={"parwa_lite": 1.0},
-            ticket_limits={"parwa_lite": 500},
+            capacity_weights={"mini_parwa": 1.0},
+            ticket_limits={"mini_parwa": 500},
             alert_thresholds={"rapid_instance_creation": 1,
                               "capacity_threshold_pct": 50,
                               "critical_threshold_pct": 90},
         )
         assert cfg.max_instances_per_variant == 3
         assert cfg.max_weighted_capacity == 5.0
-        assert cfg.capacity_weights == {"parwa_lite": 1.0}
+        assert cfg.capacity_weights == {"mini_parwa": 1.0}
 
     def test_default_config_has_three_weight_entries(self):
         cfg = AntiArbitrageConfig()
@@ -209,13 +209,13 @@ class TestDataclasses:
     def test_variant_instance_required_fields(self):
         vi = VariantInstance(
             instance_id="inst-1",
-            variant_type="parwa_lite",
+            variant_type="mini_parwa",
             company_id="co-1",
             ticket_limit=2000,
             capacity_weight=1.0,
         )
         assert vi.instance_id == "inst-1"
-        assert vi.variant_type == "parwa_lite"
+        assert vi.variant_type == "mini_parwa"
         assert vi.company_id == "co-1"
         assert vi.ticket_limit == 2000
         assert vi.capacity_weight == 1.0
@@ -305,7 +305,7 @@ class TestDataclasses:
         assert cc.variant_breakdown == {}
 
     def test_capacity_check_custom_variant_breakdown(self):
-        bd = {"parwa_lite": 3, "parwa": 1}
+        bd = {"mini_parwa": 3, "parwa": 1}
         cc = CapacityCheck(
             company_id="co-1",
             current_weighted_capacity=5.5,
@@ -468,12 +468,12 @@ class TestRegisterInstance:
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
             "capacity_weights": {
-                "parwa_lite": 1.0,
+                "mini_parwa": 1.0,
                 "parwa": 2.5,
                 "parwa_high": 7.5,
             },
             "ticket_limits": {
-                "parwa_lite": 2000,
+                "mini_parwa": 2000,
                 "parwa": 5000,
                 "parwa_high": 15000,
             },
@@ -486,10 +486,10 @@ class TestRegisterInstance:
         defaults.update(overrides)
         return AntiArbitrageConfig(**defaults)
 
-    def test_register_single_parwa_lite_allowed(self):
+    def test_register_single_mini_parwa_allowed(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        result = svc.register_instance("company", "inst-1", "parwa_lite")
+        result = svc.register_instance("company", "inst-1", "mini_parwa")
         assert result.action == InstanceAction.ALLOWED
 
     def test_register_single_parwa_allowed(self):
@@ -508,30 +508,30 @@ class TestRegisterInstance:
     def test_register_increases_instance_count(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
-        result = svc.register_instance("company", "inst-2", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
+        result = svc.register_instance("company", "inst-2", "mini_parwa")
         assert result.instance_count == 2
 
     def test_register_returns_capacity_check(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        result = svc.register_instance("company", "inst-1", "parwa_lite")
+        result = svc.register_instance("company", "inst-1", "mini_parwa")
         assert isinstance(result, CapacityCheck)
 
     def test_register_blocked_on_capacity_exceeded(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         for i in range(7):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")
-        result = svc.register_instance("company", "inst-7", "parwa_lite")
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")
+        result = svc.register_instance("company", "inst-7", "mini_parwa")
         assert result.action == InstanceAction.BLOCKED
 
     def test_register_blocked_reason_contains_capacity(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         for i in range(7):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")
-        result = svc.register_instance("company", "inst-7", "parwa_lite")
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")
+        result = svc.register_instance("company", "inst-7", "mini_parwa")
         assert "exceed max weighted capacity" in result.reason
 
     def test_register_flagged_when_near_limit(self):
@@ -539,16 +539,16 @@ class TestRegisterInstance:
         cfg.alert_thresholds["capacity_threshold_pct"] = 80
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        # 6 parwa_lite = 6.0 weight. Next (7th) = 7.0, which is 93.3% >= 80%
+        # 6 mini_parwa = 6.0 weight. Next (7th) = 7.0, which is 93.3% >= 80%
         for i in range(6):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")
-        result = svc.register_instance("company", "inst-6", "parwa_lite")
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")
+        result = svc.register_instance("company", "inst-6", "mini_parwa")
         assert result.action == InstanceAction.FLAGGED
 
     def test_register_multiple_variants_allowed(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        r1 = svc.register_instance("company", "inst-1", "parwa_lite")
+        r1 = svc.register_instance("company", "inst-1", "mini_parwa")
         r2 = svc.register_instance("company", "inst-2", "parwa")
         assert r1.action == InstanceAction.ALLOWED
         assert r2.action == InstanceAction.ALLOWED
@@ -556,7 +556,7 @@ class TestRegisterInstance:
     def test_register_mixed_variants_capacity_tracked(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")  # 1.0
+        svc.register_instance("company", "inst-1", "mini_parwa")  # 1.0
         svc.register_instance("company", "inst-2", "parwa")       # 3.5
         cap = svc.calculate_weighted_capacity("company")
         assert cap == pytest.approx(3.5)
@@ -564,7 +564,7 @@ class TestRegisterInstance:
     def test_register_invalid_company_id_raises(self):
         svc = AntiArbitrageService()
         with pytest.raises(AntiArbitrageError) as exc_info:
-            svc.register_instance("", "inst-1", "parwa_lite")
+            svc.register_instance("", "inst-1", "mini_parwa")
         assert exc_info.value.error_code == "INVALID_COMPANY_ID"
 
     def test_register_invalid_variant_type_raises(self):
@@ -576,22 +576,22 @@ class TestRegisterInstance:
     def test_register_empty_instance_id_raises(self):
         svc = AntiArbitrageService()
         with pytest.raises(AntiArbitrageError) as exc_info:
-            svc.register_instance("company", "", "parwa_lite")
+            svc.register_instance("company", "", "mini_parwa")
         assert exc_info.value.error_code == "INVALID_INSTANCE_ID"
 
     def test_register_whitespace_instance_id_raises(self):
         svc = AntiArbitrageService()
         with pytest.raises(AntiArbitrageError) as exc_info:
-            svc.register_instance("company", "   ", "parwa_lite")
+            svc.register_instance("company", "   ", "mini_parwa")
         assert exc_info.value.error_code == "INVALID_INSTANCE_ID"
 
     def test_register_per_variant_limit_blocked(self):
         cfg = self._make_config(max_instances_per_variant=2)
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
-        svc.register_instance("company", "inst-2", "parwa_lite")
-        result = svc.register_instance("company", "inst-3", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
+        svc.register_instance("company", "inst-2", "mini_parwa")
+        result = svc.register_instance("company", "inst-3", "mini_parwa")
         assert result.action == InstanceAction.BLOCKED
         assert "Max 2 instances reached" in result.reason
 
@@ -599,7 +599,7 @@ class TestRegisterInstance:
         cfg = self._make_config(max_instances_per_variant=1)
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        r1 = svc.register_instance("company", "inst-1", "parwa_lite")
+        r1 = svc.register_instance("company", "inst-1", "mini_parwa")
         r2 = svc.register_instance("company", "inst-2", "parwa")
         assert r1.action == InstanceAction.ALLOWED
         assert r2.action == InstanceAction.ALLOWED
@@ -607,17 +607,17 @@ class TestRegisterInstance:
     def test_register_stores_instance_in_memory(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         instances = svc._get_instances("company")
         assert len(instances) == 1
         assert instances[0].instance_id == "inst-1"
-        assert instances[0].variant_type == "parwa_lite"
+        assert instances[0].variant_type == "mini_parwa"
 
     def test_register_company_isolation(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company-a")
         svc.reset("company-b")
-        svc.register_instance("company-a", "inst-1", "parwa_lite")
+        svc.register_instance("company-a", "inst-1", "mini_parwa")
         cap_a = svc.calculate_weighted_capacity("company-a")
         cap_b = svc.calculate_weighted_capacity("company-b")
         assert cap_a == 1.0
@@ -636,8 +636,8 @@ class TestRemoveInstance:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -650,7 +650,7 @@ class TestRemoveInstance:
     def test_remove_existing_instance_returns_true(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         result = svc.remove_instance("company", "inst-1")
         assert result is True
 
@@ -663,8 +663,8 @@ class TestRemoveInstance:
     def test_remove_decreases_capacity(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
-        svc.register_instance("company", "inst-2", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
+        svc.register_instance("company", "inst-2", "mini_parwa")
         assert svc.calculate_weighted_capacity("company") == 2.0
         svc.remove_instance("company", "inst-1")
         assert svc.calculate_weighted_capacity("company") == 1.0
@@ -674,12 +674,12 @@ class TestRemoveInstance:
         svc.reset("company")
         # Register 5 mini (5.0/7.5 = 66.7% < 80% → all ALLOWED)
         for i in range(5):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")
         # 6th should be flagged (6.0/7.5 = 80%)
-        result_flagged = svc.register_instance("company", "inst-5", "parwa_lite")
+        result_flagged = svc.register_instance("company", "inst-5", "mini_parwa")
         assert result_flagged.action == InstanceAction.FLAGGED
         # 7th should be flagged too (7.0/7.5 = 93.3%)
-        result_flagged2 = svc.register_instance("company", "inst-6", "parwa_lite")
+        result_flagged2 = svc.register_instance("company", "inst-6", "mini_parwa")
         assert result_flagged2.action == InstanceAction.FLAGGED
         # Remove one
         svc.remove_instance("company", "inst-0")
@@ -689,10 +689,10 @@ class TestRemoveInstance:
         # Reset and try cleaner approach
         svc.reset("company")
         for i in range(5):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")
         svc.remove_instance("company", "inst-0")
         # Now 4 instances = 4.0/7.5 = 53.3% → allowed
-        result_allowed = svc.register_instance("company", "inst-new", "parwa_lite")
+        result_allowed = svc.register_instance("company", "inst-new", "mini_parwa")
         assert result_allowed.action == InstanceAction.ALLOWED
 
     def test_remove_invalid_company_id_raises(self):
@@ -703,9 +703,9 @@ class TestRemoveInstance:
     def test_remove_reduces_instance_count(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
-        svc.register_instance("company", "inst-2", "parwa_lite")
-        svc.register_instance("company", "inst-3", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
+        svc.register_instance("company", "inst-2", "mini_parwa")
+        svc.register_instance("company", "inst-3", "mini_parwa")
         svc.remove_instance("company", "inst-2")
         instances = svc._get_instances("company")
         assert len(instances) == 2
@@ -722,7 +722,7 @@ class TestRemoveInstance:
     def test_remove_same_instance_twice_second_returns_false(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         assert svc.remove_instance("company", "inst-1") is True
         assert svc.remove_instance("company", "inst-1") is False
 
@@ -739,8 +739,8 @@ class TestCapacityCalculation:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -755,10 +755,10 @@ class TestCapacityCalculation:
         svc.reset("company")
         assert svc.calculate_weighted_capacity("company") == 0.0
 
-    def test_parwa_lite_weight_is_one(self):
+    def test_mini_parwa_weight_is_one(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         assert svc.calculate_weighted_capacity("company") == 1.0
 
     def test_parwa_weight_is_2_5(self):
@@ -773,25 +773,25 @@ class TestCapacityCalculation:
         svc.register_instance("company", "inst-1", "parwa_high")
         assert svc.calculate_weighted_capacity("company") == 7.5
 
-    def test_multiple_parwa_lite_sum(self):
+    def test_multiple_mini_parwa_sum(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         for i in range(5):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")
         assert svc.calculate_weighted_capacity("company") == 5.0
 
     def test_mixed_variants_weighted_sum(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")  # 1.0
+        svc.register_instance("company", "inst-1", "mini_parwa")  # 1.0
         svc.register_instance("company", "inst-2", "parwa")       # 3.5
-        svc.register_instance("company", "inst-3", "parwa_lite")  # 4.5
+        svc.register_instance("company", "inst-3", "mini_parwa")  # 4.5
         assert svc.calculate_weighted_capacity("company") == pytest.approx(4.5)
 
     def test_one_of_each_variant(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")  # 1.0
+        svc.register_instance("company", "inst-1", "mini_parwa")  # 1.0
         svc.register_instance("company", "inst-2", "parwa")       # 3.5
         svc.register_instance("company", "inst-3", "parwa_high")  # 11.0
         # parwa_high alone exceeds 7.5 capacity, so inst-3 is blocked
@@ -814,10 +814,10 @@ class TestCapacityCalculation:
 
     def test_custom_weight_reflected_in_capacity(self):
         cfg = self._make_config()
-        cfg.capacity_weights["parwa_lite"] = 2.0
+        cfg.capacity_weights["mini_parwa"] = 2.0
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         assert svc.calculate_weighted_capacity("company") == 2.0
 
 
@@ -833,8 +833,8 @@ class TestW9GAP014:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -849,13 +849,13 @@ class TestW9GAP014:
         svc.reset("company")
         # First 5 are ALLOWED (< 80%), 6th and 7th are FLAGGED
         for i in range(5):
-            result = svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            result = svc.register_instance("company", f"inst-{i}", "mini_parwa")
             assert result.action == InstanceAction.ALLOWED, f"Failed at i={i}"
         # 6th: 6.0/7.5 = 80% → FLAGGED
-        r6 = svc.register_instance("company", "inst-5", "parwa_lite")
+        r6 = svc.register_instance("company", "inst-5", "mini_parwa")
         assert r6.action == InstanceAction.FLAGGED
         # 7th: 7.0/7.5 = 93.3% → FLAGGED  
-        r7 = svc.register_instance("company", "inst-6", "parwa_lite")
+        r7 = svc.register_instance("company", "inst-6", "mini_parwa")
         assert r7.action == InstanceAction.FLAGGED
         cap = svc.calculate_weighted_capacity("company")
         assert cap == pytest.approx(7.0)
@@ -864,8 +864,8 @@ class TestW9GAP014:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         for i in range(7):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")
-        result = svc.register_instance("company", "inst-7", "parwa_lite")
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")
+        result = svc.register_instance("company", "inst-7", "mini_parwa")
         assert result.action == InstanceAction.BLOCKED
         # Capacity should NOT have been incremented for the blocked one
         cap = svc.calculate_weighted_capacity("company")
@@ -879,26 +879,26 @@ class TestW9GAP014:
         cap = svc.calculate_weighted_capacity("company")
         assert cap == 7.5
         # Next one should be blocked
-        result = svc.register_instance("company", "inst-2", "parwa_lite")
+        result = svc.register_instance("company", "inst-2", "mini_parwa")
         assert result.action == InstanceAction.BLOCKED
 
     def test_check_instance_creation_allowed_returns_capacity_check(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        result = svc.check_instance_creation_allowed("company", "parwa_lite")
+        result = svc.check_instance_creation_allowed("company", "mini_parwa")
         assert isinstance(result, CapacityCheck)
 
     def test_check_allowed_before_registration(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        result = svc.check_instance_creation_allowed("company", "parwa_lite")
+        result = svc.check_instance_creation_allowed("company", "mini_parwa")
         assert result.action == InstanceAction.ALLOWED
 
     def test_check_blocked_when_full(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         svc.register_instance("company", "inst-1", "parwa_high")
-        result = svc.check_instance_creation_allowed("company", "parwa_lite")
+        result = svc.check_instance_creation_allowed("company", "mini_parwa")
         assert result.action == InstanceAction.BLOCKED
 
     def test_redis_atomic_path_returns_allowed(self):
@@ -908,7 +908,7 @@ class TestW9GAP014:
         cfg = self._make_config()
         svc = AntiArbitrageService(config=cfg, redis_client=mock_redis)
         svc.reset("company")
-        result = svc.check_instance_creation_allowed("company", "parwa_lite")
+        result = svc.check_instance_creation_allowed("company", "mini_parwa")
         assert result.action == InstanceAction.ALLOWED
 
     def test_redis_atomic_path_returns_blocked_capacity(self):
@@ -918,7 +918,7 @@ class TestW9GAP014:
         cfg = self._make_config()
         svc = AntiArbitrageService(config=cfg, redis_client=mock_redis)
         svc.reset("company")
-        result = svc.check_instance_creation_allowed("company", "parwa_lite")
+        result = svc.check_instance_creation_allowed("company", "mini_parwa")
         assert result.action == InstanceAction.BLOCKED
 
     def test_redis_atomic_path_returns_blocked_rapid(self):
@@ -928,7 +928,7 @@ class TestW9GAP014:
         cfg = self._make_config()
         svc = AntiArbitrageService(config=cfg, redis_client=mock_redis)
         svc.reset("company")
-        result = svc.check_instance_creation_allowed("company", "parwa_lite")
+        result = svc.check_instance_creation_allowed("company", "mini_parwa")
         assert result.action == InstanceAction.BLOCKED
 
     def test_redis_lua_failure_falls_back_to_memory(self):
@@ -939,7 +939,7 @@ class TestW9GAP014:
         svc = AntiArbitrageService(config=cfg, redis_client=mock_redis)
         svc.reset("company")
         # Should not raise; falls back to in-memory
-        result = svc.check_instance_creation_allowed("company", "parwa_lite")
+        result = svc.check_instance_creation_allowed("company", "mini_parwa")
         assert isinstance(result, CapacityCheck)
 
 
@@ -955,8 +955,8 @@ class TestW9GAP025:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -967,41 +967,41 @@ class TestW9GAP025:
         return AntiArbitrageConfig(**defaults)
 
     def test_eight_mini_exceeds_capacity(self):
-        """8 * parwa_lite (weight 1.0) = 8.0 > 7.5 max — 8th blocked.
+        """8 * mini_parwa (weight 1.0) = 8.0 > 7.5 max — 8th blocked.
         First 5 allowed (<80%), 6th-7th flagged (80-93%), 8th blocked (>95%)."""
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         for i in range(5):
-            result = svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            result = svc.register_instance("company", f"inst-{i}", "mini_parwa")
             assert result.action == InstanceAction.ALLOWED, f"inst-{i} should be allowed"
         # 6th and 7th are flagged (80% and 93.3%)
-        r6 = svc.register_instance("company", "inst-5", "parwa_lite")
+        r6 = svc.register_instance("company", "inst-5", "mini_parwa")
         assert r6.action == InstanceAction.FLAGGED
-        r7 = svc.register_instance("company", "inst-6", "parwa_lite")
+        r7 = svc.register_instance("company", "inst-6", "mini_parwa")
         assert r7.action == InstanceAction.FLAGGED
         # 8th should be blocked (8.0/7.5 > 95%)
-        result = svc.register_instance("company", "inst-7", "parwa_lite")
+        result = svc.register_instance("company", "inst-7", "mini_parwa")
         assert result.action == InstanceAction.BLOCKED
 
     def test_seven_mini_within_capacity(self):
-        """7 * parwa_lite (weight 1.0) = 7.0 <= 7.5 max — not blocked.
+        """7 * mini_parwa (weight 1.0) = 7.0 <= 7.5 max — not blocked.
         First 5 ALLOWED, 6th-7th FLAGGED (above 80% threshold), but not blocked."""
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         for i in range(5):
-            result = svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            result = svc.register_instance("company", f"inst-{i}", "mini_parwa")
             assert result.action == InstanceAction.ALLOWED, f"inst-{i} should be allowed"
         # 6th: 80% → FLAGGED (not blocked)
-        r6 = svc.register_instance("company", "inst-5", "parwa_lite")
+        r6 = svc.register_instance("company", "inst-5", "mini_parwa")
         assert r6.action in (InstanceAction.FLAGGED, InstanceAction.ALLOWED)
         # 7th: 93.3% → FLAGGED (not blocked)
-        r7 = svc.register_instance("company", "inst-6", "parwa_lite")
+        r7 = svc.register_instance("company", "inst-6", "mini_parwa")
         assert r7.action != InstanceAction.BLOCKED
         # Verify total capacity
         assert svc.calculate_weighted_capacity("company") == pytest.approx(7.0)
 
     def test_mixed_weighted_sum(self):
-        """2 parwa (2.5 each) + 2 parwa_lite (1.0 each) = 7.0 <= 7.5."""
+        """2 parwa (2.5 each) + 2 mini_parwa (1.0 each) = 7.0 <= 7.5."""
         cfg = self._make_config()
         cfg.alert_thresholds["capacity_threshold_pct"] = 100  # Don't flag at 93%
         cfg.alert_thresholds["critical_threshold_pct"] = 101  # Don't block at 100%
@@ -1009,19 +1009,19 @@ class TestW9GAP025:
         svc.reset("company")
         svc.register_instance("company", "inst-1", "parwa")       # 2.5
         svc.register_instance("company", "inst-2", "parwa")       # 5.0
-        svc.register_instance("company", "inst-3", "parwa_lite")  # 6.0
-        r4 = svc.register_instance("company", "inst-4", "parwa_lite")  # 7.0
+        svc.register_instance("company", "inst-3", "mini_parwa")  # 6.0
+        r4 = svc.register_instance("company", "inst-4", "mini_parwa")  # 7.0
         assert r4.action == InstanceAction.ALLOWED
         assert svc.calculate_weighted_capacity("company") == pytest.approx(7.0)
 
     def test_mixed_exceeds_weighted_capacity(self):
-        """2 parwa + 2 parwa_lite = 7.0, adding another parwa (2.5) = 9.5 > 7.5."""
+        """2 parwa + 2 mini_parwa = 7.0, adding another parwa (2.5) = 9.5 > 7.5."""
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         svc.register_instance("company", "inst-1", "parwa")
         svc.register_instance("company", "inst-2", "parwa")
-        svc.register_instance("company", "inst-3", "parwa_lite")
-        svc.register_instance("company", "inst-4", "parwa_lite")
+        svc.register_instance("company", "inst-3", "mini_parwa")
+        svc.register_instance("company", "inst-4", "mini_parwa")
         result = svc.register_instance("company", "inst-5", "parwa")
         assert result.action == InstanceAction.BLOCKED
 
@@ -1050,7 +1050,7 @@ class TestW9GAP025:
         allowed_count = 0
         blocked_count = 0
         for i in range(10):
-            result = svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            result = svc.register_instance("company", f"inst-{i}", "mini_parwa")
             if result.action == InstanceAction.ALLOWED:
                 allowed_count += 1
             elif result.action == InstanceAction.BLOCKED:
@@ -1070,14 +1070,14 @@ class TestW9GAP025:
         # It may be FLAGGED or BLOCKED since it hits 100%
         assert result.action in (InstanceAction.FLAGGED, InstanceAction.BLOCKED, InstanceAction.ALLOWED)
         if result.action != InstanceAction.BLOCKED:
-            result2 = svc.register_instance("company", "inst-2", "parwa_lite")
+            result2 = svc.register_instance("company", "inst-2", "mini_parwa")
             assert result2.action == InstanceAction.BLOCKED
 
     def test_custom_max_capacity_allows_more(self):
         svc = AntiArbitrageService(config=self._make_config(max_weighted_capacity=15.0))
         svc.reset("company")
         for i in range(10):
-            result = svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            result = svc.register_instance("company", f"inst-{i}", "mini_parwa")
             assert result.action == InstanceAction.ALLOWED
 
 
@@ -1093,8 +1093,8 @@ class TestSuspiciousPatterns:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 3,
                 "capacity_threshold_pct": 80,
@@ -1118,9 +1118,9 @@ class TestSuspiciousPatterns:
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
         # Register 3 instances (rapid threshold = 3, so 3 rapid counts)
-        svc.register_instance("company", "inst-1", "parwa_lite")
-        svc.register_instance("company", "inst-2", "parwa_lite")
-        svc.register_instance("company", "inst-3", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
+        svc.register_instance("company", "inst-2", "mini_parwa")
+        svc.register_instance("company", "inst-3", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
         rapid_alerts = [a for a in alerts if a.alert_type == "rapid_instance_creation"]
         assert len(rapid_alerts) == 1
@@ -1132,9 +1132,9 @@ class TestSuspiciousPatterns:
         cfg.alert_thresholds["capacity_threshold_pct"] = 80
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        # 6 parwa_lite = 6.0, then 7th = 7.0 which is 93.3% >= 80%
+        # 6 mini_parwa = 6.0, then 7th = 7.0 which is 93.3% >= 80%
         for i in range(7):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
         gaming_alerts = [a for a in alerts if a.alert_type == "capacity_gaming"]
         assert len(gaming_alerts) == 1
@@ -1155,7 +1155,7 @@ class TestSuspiciousPatterns:
         assert len(gaming_alerts) == 1
         assert gaming_alerts[0].level == ArbitrageAlertLevel.CRITICAL
 
-    def test_single_variant_hoarding_parwa_lite(self):
+    def test_single_variant_hoarding_mini_parwa(self):
         cfg = self._make_config()
         cfg.alert_thresholds["rapid_instance_creation"] = 100
         cfg.alert_thresholds["capacity_threshold_pct"] = 100
@@ -1163,14 +1163,14 @@ class TestSuspiciousPatterns:
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
         for i in range(5):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
         hoarding = [a for a in alerts if a.alert_type == "single_variant_hoarding"]
         assert len(hoarding) == 1
         assert hoarding[0].level == ArbitrageAlertLevel.HIGH
 
     def test_no_hoarding_for_parwa_variant(self):
-        """Hoarding only triggers for parwa_lite, not parwa or parwa_high."""
+        """Hoarding only triggers for mini_parwa, not parwa or parwa_high."""
         cfg = self._make_config()
         cfg.alert_thresholds["rapid_instance_creation"] = 100
         cfg.alert_thresholds["capacity_threshold_pct"] = 100
@@ -1198,11 +1198,11 @@ class TestSuspiciousPatterns:
         svc.reset("company")
         # 3 rapid creates triggers rapid alert
         # Register 5 mini (all allowed < 80%)
-        svc.register_instance("company", "inst-1", "parwa_lite")
-        svc.register_instance("company", "inst-2", "parwa_lite")
-        svc.register_instance("company", "inst-3", "parwa_lite")
-        svc.register_instance("company", "inst-4", "parwa_lite")
-        svc.register_instance("company", "inst-5", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
+        svc.register_instance("company", "inst-2", "mini_parwa")
+        svc.register_instance("company", "inst-3", "mini_parwa")
+        svc.register_instance("company", "inst-4", "mini_parwa")
+        svc.register_instance("company", "inst-5", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
         alert_types = {a.alert_type for a in alerts}
         assert "rapid_instance_creation" in alert_types
@@ -1212,8 +1212,8 @@ class TestSuspiciousPatterns:
         with pytest.raises(AntiArbitrageError):
             svc.detect_suspicious_patterns("")
 
-    def test_hoarding_four_parwa_lite_no_alert(self):
-        """Less than 5 parwa_lite instances — no hoarding alert."""
+    def test_hoarding_four_mini_parwa_no_alert(self):
+        """Less than 5 mini_parwa instances — no hoarding alert."""
         cfg = self._make_config()
         cfg.alert_thresholds["rapid_instance_creation"] = 100
         cfg.alert_thresholds["capacity_threshold_pct"] = 100
@@ -1221,7 +1221,7 @@ class TestSuspiciousPatterns:
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
         for i in range(4):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")
         alerts = svc.detect_suspicious_patterns("company")
         hoarding = [a for a in alerts if a.alert_type == "single_variant_hoarding"]
         assert len(hoarding) == 0
@@ -1239,8 +1239,8 @@ class TestAlerts:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1260,11 +1260,11 @@ class TestAlerts:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         # Trigger suspicious patterns to generate alerts
-        svc.register_instance("company", "inst-1", "parwa_lite")
-        svc.register_instance("company", "inst-2", "parwa_lite")
-        svc.register_instance("company", "inst-3", "parwa_lite")
-        svc.register_instance("company", "inst-4", "parwa_lite")
-        svc.register_instance("company", "inst-5", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
+        svc.register_instance("company", "inst-2", "mini_parwa")
+        svc.register_instance("company", "inst-3", "mini_parwa")
+        svc.register_instance("company", "inst-4", "mini_parwa")
+        svc.register_instance("company", "inst-5", "mini_parwa")
         svc.detect_suspicious_patterns("company")
         alerts = svc.get_alerts("company")
         assert len(alerts) > 0
@@ -1372,8 +1372,8 @@ class TestInstanceSummary:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1401,7 +1401,7 @@ class TestInstanceSummary:
     def test_summary_total_instances(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         svc.register_instance("company", "inst-2", "parwa")
         summary = svc.get_instance_summary("company")
         assert summary["total_instances"] == 2
@@ -1429,40 +1429,40 @@ class TestInstanceSummary:
     def test_summary_remaining_capacity(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")  # 1.0 used
+        svc.register_instance("company", "inst-1", "mini_parwa")  # 1.0 used
         summary = svc.get_instance_summary("company")
         assert summary["remaining_capacity"] == pytest.approx(6.5)
 
     def test_summary_variant_breakdown_structure(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         summary = svc.get_instance_summary("company")
         bd = summary["variant_breakdown"]
-        assert "parwa_lite" in bd
-        assert bd["parwa_lite"]["count"] == 1
-        assert bd["parwa_lite"]["total_weight"] == 1.0
-        assert bd["parwa_lite"]["total_tickets"] == 2000
-        assert len(bd["parwa_lite"]["instances"]) == 1
+        assert "mini_parwa" in bd
+        assert bd["mini_parwa"]["count"] == 1
+        assert bd["mini_parwa"]["total_weight"] == 1.0
+        assert bd["mini_parwa"]["total_tickets"] == 2000
+        assert len(bd["mini_parwa"]["instances"]) == 1
 
     def test_summary_variant_breakdown_multiple_variants(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         svc.register_instance("company", "inst-2", "parwa")
         summary = svc.get_instance_summary("company")
         bd = summary["variant_breakdown"]
-        assert "parwa_lite" in bd
+        assert "mini_parwa" in bd
         assert "parwa" in bd
-        assert bd["parwa_lite"]["count"] == 1
+        assert bd["mini_parwa"]["count"] == 1
         assert bd["parwa"]["count"] == 1
 
     def test_summary_instance_entries_have_id_and_created_at(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         summary = svc.get_instance_summary("company")
-        inst_entry = summary["variant_breakdown"]["parwa_lite"]["instances"][0]
+        inst_entry = summary["variant_breakdown"]["mini_parwa"]["instances"][0]
         assert "instance_id" in inst_entry
         assert "created_at" in inst_entry
         assert inst_entry["instance_id"] == "inst-1"
@@ -1485,8 +1485,8 @@ class TestBC008:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1516,7 +1516,7 @@ class TestBC008:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         with patch.object(svc, "check_instance_creation_allowed", side_effect=RuntimeError("boom")):
-            result = svc.register_instance("company", "inst-1", "parwa_lite")
+            result = svc.register_instance("company", "inst-1", "mini_parwa")
         assert isinstance(result, CapacityCheck)
         assert result.action == InstanceAction.ALLOWED
 
@@ -1568,7 +1568,7 @@ class TestBC008:
         validation errors (ParwaBaseError) should still propagate."""
         svc = AntiArbitrageService()
         with pytest.raises(AntiArbitrageError):
-            svc.register_instance("", "inst-1", "parwa_lite")
+            svc.register_instance("", "inst-1", "mini_parwa")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1583,8 +1583,8 @@ class TestEdgeCases:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1621,21 +1621,21 @@ class TestEdgeCases:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         with pytest.raises(AntiArbitrageError):
-            svc.register_instance("company", "inst-1", "PARWA_LITE")
+            svc.register_instance("company", "inst-1", "MINI_PARWA")
 
     def test_max_weighted_capacity_zero(self):
         cfg = self._make_config(max_weighted_capacity=0.0)
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        result = svc.register_instance("company", "inst-1", "parwa_lite")
+        result = svc.register_instance("company", "inst-1", "mini_parwa")
         assert result.action == InstanceAction.BLOCKED
 
     def test_max_instances_per_variant_one(self):
         cfg = self._make_config(max_instances_per_variant=1)
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        r1 = svc.register_instance("company", "inst-1", "parwa_lite")
-        r2 = svc.register_instance("company", "inst-2", "parwa_lite")
+        r1 = svc.register_instance("company", "inst-1", "mini_parwa")
+        r2 = svc.register_instance("company", "inst-2", "mini_parwa")
         assert r1.action == InstanceAction.ALLOWED
         assert r2.action == InstanceAction.BLOCKED
 
@@ -1655,7 +1655,7 @@ class TestEdgeCases:
     def test_reset_clears_all_state(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         svc._create_alert("company", ArbitrageAlertLevel.HIGH, "test", "alert")
         svc.reset("")  # Reset all
         assert svc.calculate_weighted_capacity("company") == 0.0
@@ -1665,7 +1665,7 @@ class TestEdgeCases:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company-a")
         svc.reset("company-b")
-        svc.register_instance("company-a", "inst-1", "parwa_lite")
+        svc.register_instance("company-a", "inst-1", "mini_parwa")
         svc.register_instance("company-b", "inst-2", "parwa")
         svc.reset("company-a")
         assert svc.calculate_weighted_capacity("company-a") == 0.0
@@ -1692,8 +1692,8 @@ class TestEdgeCases:
         (no uniqueness check at the service level)."""
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        r1 = svc.register_instance("company", "inst-1", "parwa_lite")
-        r2 = svc.register_instance("company", "inst-1", "parwa_lite")
+        r1 = svc.register_instance("company", "inst-1", "mini_parwa")
+        r2 = svc.register_instance("company", "inst-1", "mini_parwa")
         assert r1.action == InstanceAction.ALLOWED
         assert r2.action == InstanceAction.ALLOWED
 
@@ -1701,7 +1701,7 @@ class TestEdgeCases:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company-a")
         svc.reset("company-b")
-        r1 = svc.register_instance("company-a", "inst-1", "parwa_lite")
+        r1 = svc.register_instance("company-a", "inst-1", "mini_parwa")
         r2 = svc.register_instance("company-b", "inst-1", "parwa")
         assert r1.action == InstanceAction.ALLOWED
         assert r2.action == InstanceAction.ALLOWED
@@ -1730,7 +1730,7 @@ class TestEdgeCases:
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
         svc.register_instance("company", "inst-1", "parwa_high")  # 7.5
-        result = svc.register_instance("company", "inst-2", "parwa_lite")  # would be 8.5
+        result = svc.register_instance("company", "inst-2", "mini_parwa")  # would be 8.5
         assert result.action == InstanceAction.BLOCKED
 
     def test_check_capacity_returns_allowed_when_empty(self):
@@ -1756,7 +1756,7 @@ class TestEdgeCases:
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
         for i in range(6):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")  # 6.0 = 80%
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")  # 6.0 = 80%
         result = svc.check_capacity("company")
         assert result.action == InstanceAction.FLAGGED
 
@@ -1794,8 +1794,8 @@ class TestRapidCreationTracking:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 3,
                 "capacity_threshold_pct": 80,
@@ -1809,10 +1809,10 @@ class TestRapidCreationTracking:
         cfg = self._make_config()
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        r1 = svc.register_instance("company", "inst-1", "parwa_lite")
-        r2 = svc.register_instance("company", "inst-2", "parwa_lite")
-        r3 = svc.register_instance("company", "inst-3", "parwa_lite")
-        r4 = svc.register_instance("company", "inst-4", "parwa_lite")
+        r1 = svc.register_instance("company", "inst-1", "mini_parwa")
+        r2 = svc.register_instance("company", "inst-2", "mini_parwa")
+        r3 = svc.register_instance("company", "inst-3", "mini_parwa")
+        r4 = svc.register_instance("company", "inst-4", "mini_parwa")
         assert r1.action == InstanceAction.ALLOWED
         assert r2.action == InstanceAction.ALLOWED
         assert r3.action == InstanceAction.ALLOWED
@@ -1823,16 +1823,16 @@ class TestRapidCreationTracking:
         cfg = self._make_config()
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
-        svc.register_instance("company", "inst-2", "parwa_lite")
-        svc.register_instance("company", "inst-3", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
+        svc.register_instance("company", "inst-2", "mini_parwa")
+        svc.register_instance("company", "inst-3", "mini_parwa")
         # 4th should be blocked
-        r4 = svc.register_instance("company", "inst-4", "parwa_lite")
+        r4 = svc.register_instance("company", "inst-4", "mini_parwa")
         assert r4.action == InstanceAction.BLOCKED
         # Expire the rapid window by resetting timestamps
         svc._rapid_creation_counts["company"] = []
         # Now 4th should be allowed
-        r5 = svc.register_instance("company", "inst-5", "parwa_lite")
+        r5 = svc.register_instance("company", "inst-5", "mini_parwa")
         assert r5.action == InstanceAction.ALLOWED
 
     def test_rapid_count_zero_initially(self):
@@ -1853,12 +1853,12 @@ class TestRapidCreationTracking:
         svc = AntiArbitrageService(config=cfg)
         svc.reset("a")
         svc.reset("b")
-        svc.register_instance("a", "i1", "parwa_lite")
-        svc.register_instance("a", "i2", "parwa_lite")
-        svc.register_instance("a", "i3", "parwa_lite")
+        svc.register_instance("a", "i1", "mini_parwa")
+        svc.register_instance("a", "i2", "mini_parwa")
+        svc.register_instance("a", "i3", "mini_parwa")
         # a should be blocked on 4th, but b should still be fine
-        r_a = svc.register_instance("a", "i4", "parwa_lite")
-        r_b = svc.register_instance("b", "i1", "parwa_lite")
+        r_a = svc.register_instance("a", "i4", "mini_parwa")
+        r_b = svc.register_instance("b", "i1", "mini_parwa")
         assert r_a.action == InstanceAction.BLOCKED
         assert r_b.action == InstanceAction.ALLOWED
 
@@ -1870,8 +1870,8 @@ class TestRedisFallbacks:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1889,7 +1889,7 @@ class TestRedisFallbacks:
         cfg.alert_thresholds["rapid_instance_creation"] = 100  # No rapid block
         svc = AntiArbitrageService(config=cfg, redis_client=mock_redis)
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         # register_instance may fail if check_instance_creation_allowed uses Redis
         # and the Lua script also fails. Test calculate directly after manual add.
         # Let's test calculate_weighted_capacity directly — it should fall back
@@ -1935,7 +1935,7 @@ class TestRedisFallbacks:
         cfg = self._make_config()
         svc = AntiArbitrageService(config=cfg, redis_client=mock_redis)
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
         result = svc.remove_instance("company", "inst-1")
         # Should still return True (removed from memory)
         assert result is True
@@ -1948,8 +1948,8 @@ class TestCheckCapacityDetail:
         defaults = {
             "max_instances_per_variant": 10,
             "max_weighted_capacity": 7.5,
-            "capacity_weights": {"parwa_lite": 1.0, "parwa": 2.5, "parwa_high": 7.5},
-            "ticket_limits": {"parwa_lite": 2000, "parwa": 5000, "parwa_high": 15000},
+            "capacity_weights": {"mini_parwa": 1.0, "parwa": 2.5, "parwa_high": 7.5},
+            "ticket_limits": {"mini_parwa": 2000, "parwa": 5000, "parwa_high": 15000},
             "alert_thresholds": {
                 "rapid_instance_creation": 100,
                 "capacity_threshold_pct": 80,
@@ -1969,11 +1969,11 @@ class TestCheckCapacityDetail:
     def test_check_capacity_variant_breakdown(self):
         svc = AntiArbitrageService(config=self._make_config())
         svc.reset("company")
-        svc.register_instance("company", "inst-1", "parwa_lite")
-        svc.register_instance("company", "inst-2", "parwa_lite")
+        svc.register_instance("company", "inst-1", "mini_parwa")
+        svc.register_instance("company", "inst-2", "mini_parwa")
         svc.register_instance("company", "inst-3", "parwa")
         result = svc.check_capacity("company")
-        assert result.variant_breakdown == {"parwa_lite": 2, "parwa": 1}
+        assert result.variant_breakdown == {"mini_parwa": 2, "parwa": 1}
 
     def test_check_capacity_max_instances_from_config(self):
         svc = AntiArbitrageService(config=self._make_config(max_instances_per_variant=5))
@@ -2002,7 +2002,7 @@ class TestCheckCapacityDetail:
         svc = AntiArbitrageService(config=cfg)
         svc.reset("company")
         for i in range(6):
-            svc.register_instance("company", f"inst-{i}", "parwa_lite")  # 6.0 = 80%
+            svc.register_instance("company", f"inst-{i}", "mini_parwa")  # 6.0 = 80%
         result = svc.check_capacity("company")
         assert "alert threshold" in result.reason
 

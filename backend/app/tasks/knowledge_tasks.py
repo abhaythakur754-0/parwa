@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from app.exceptions import ValidationError
 from database.base import get_db_context
 from database.models.onboarding import KnowledgeDocument, DocumentChunk
+from app.services.embedding_service import generate_embedding_sync, EmbeddingService
 
 logger = logging.getLogger("parwa.knowledge_tasks")
 
@@ -105,19 +106,24 @@ def process_knowledge_document(
             # TODO: In production, fetch content from storage
             # content = storage.download(company_id, doc.file_path)
 
-            # For now, simulate processing
-            chunks = _extract_chunks("", doc.filename)
+            # Extract text chunks from document content
+            chunks = _extract_chunks(doc.content or "", doc.filename)
 
-            # Store chunks with embeddings
+            # Generate embeddings in batch for tenant-isolated processing
+            embedding_svc = EmbeddingService(company_id=company_id)
+            chunk_texts = [c for c in chunks[:MAX_CHUNKS_PER_DOCUMENT]]
+            embeddings = embedding_svc.generate_embeddings_batch(chunk_texts)
+
+            # Store chunks with embeddings (GAP 2: tenant isolation)
             chunk_count = 0
-            for i, chunk_text in enumerate(chunks[:MAX_CHUNKS_PER_DOCUMENT]):
-                # GAP 2: Pass company_id to chunk creation
+            for i, chunk_text in enumerate(chunk_texts):
+                embedding_vector = embeddings[i] if i < len(embeddings) else None
                 chunk = DocumentChunk(
                     document_id=document_id,
                     company_id=company_id,  # CRITICAL: Tenant isolation for embeddings
                     content=chunk_text,
                     chunk_index=i,
-                    embedding=None,  # TODO: Generate actual embedding
+                    embedding=embedding_vector,
                 )
                 db.add(chunk)
                 chunk_count += 1
@@ -281,18 +287,27 @@ def _extract_chunks(content: str, filename: str) -> list:
 
 def _generate_embedding(text: str) -> Optional[list]:
     """
-    Generate vector embedding for text.
+    Generate vector embedding for text using the EmbeddingService.
 
-    TODO: Integrate with OpenAI or other embedding provider.
+    Delegates to generate_embedding_sync for standalone usage.
 
     Args:
         text: Text to embed.
 
     Returns:
-        Embedding vector or None if unavailable.
+        Embedding vector or None if unavailable (BC-008 graceful degradation).
     """
-    # Placeholder - in production, call OpenAI API
-    return None
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        api_key = settings.GOOGLE_AI_API_KEY
+        if not api_key:
+            logger.warning("_generate_embedding: GOOGLE_AI_API_KEY not set")
+            return None
+        return generate_embedding_sync(text, api_key)
+    except Exception as exc:
+        logger.error("_generate_embedding: failed: %s", str(exc))
+        return None
 
 
 # ── GAP 2: Tenant Context Propagation Helper ──────────────────────────────
