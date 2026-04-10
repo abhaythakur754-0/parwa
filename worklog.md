@@ -1105,3 +1105,51 @@ Stage Summary:
 - W9-GAP-030: Structured logging on every blocked/downgraded access
 - Files created: 1 (technique_tier_access.py)
 - Files modified: 1 (worklog.md)
+
+---
+Task ID: w10d12-core-modules
+Agent: PARWA Tech Lead
+Task: Week 10 Day 12 — F-200 LangGraph Workflow, F-086 Context Compression, F-201 Context Health Meter
+
+Work Log:
+- Created backend/app/core/langgraph_workflow.py (F-200: LangGraph Workflow Engine)
+  - WorkflowConfig, WorkflowStep, WorkflowStepResult, WorkflowResult dataclasses
+  - LangGraphWorkflow class with build_graph(), execute(), get_step(), get_pipeline_topology()
+  - 3 variant pipelines: mini_parwa (3 steps), parwa (6 steps), parwa_high (9 steps)
+  - Simulated step execution (preprocessing, core, postprocessing) for testing without langgraph
+  - try/except ImportError for langgraph (BC-008 graceful degradation)
+  - Pipeline-level timeout with per-step timeout tracking
+  - WORKFLOW_STEP_DEFINITIONS (9 steps) and VARIANT_PIPELINE_CONFIG (3 variants) exported
+- Created backend/app/core/context_compression.py (F-086: Context Compression Engine)
+  - CompressionStrategy enum (extractive, abstractive, hybrid, sliding_window, priority_based)
+  - CompressionLevel enum (none, light, aggressive) with per-variant defaults
+  - CompressionInput, CompressionOutput, CompressionConfig dataclasses
+  - ContextCompressor class with compress(), 5 strategy implementations
+  - Cumulative stats tracking per company_id
+  - _VARIANT_COMPRESSION_LEVELS, _COMPRESSION_TTL_SECONDS, priority weights exported
+- Created backend/app/core/context_health.py (F-201: Context Health Meter)
+  - HealthStatus enum (healthy, degrading, critical, exhausted)
+  - HealthAlertType enum (5 alert types)
+  - HealthMetrics, HealthAlert, HealthReport, HealthConfig dataclasses
+  - ContextHealthMeter class with check_health(), get_history(), get_latest_report(), reset()
+  - 6-metric weighted scoring with configurable weights per variant
+  - Alert cooldown to prevent duplicate alerts within 60s window
+  - Per-conversation history bounded to _MAX_HISTORY_LENGTH (100)
+  - _HEALTH_WEIGHTS, _DEFAULT_HEALTH_THRESHOLDS, _VARIANT_HEALTH_CONFIGS exported
+
+Building Code Compliance:
+- BC-001: All public async/sync methods take company_id as first parameter
+- BC-008: Every public method wrapped in try/except with graceful degradation
+- BC-012: All timestamps use datetime.now(timezone.utc), no .utcnow()
+- from __future__ import annotations at top of every file
+- NO langgraph import that would fail — uses try/except ImportError
+- Structured logging via backend.app.logger.get_logger()
+- All exceptions inherit from Exception (internal engine errors, not API errors)
+- No external API calls — all logic is local computation
+
+Stage Summary:
+- 3 new source modules created in backend/app/core/
+- Total lines: 2,313 (langgraph_workflow: 855, context_compression: 748, context_health: 710)
+- All BC rules satisfied (BC-001, BC-008, BC-012)
+- Files created: 3 (langgraph_workflow.py, context_compression.py, context_health.py)
+- Files modified: 1 (worklog.md)
