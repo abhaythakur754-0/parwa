@@ -570,9 +570,13 @@ export default function ModelsPage() {
                           </div>
                         )}
 
-                        {/* Scenario */}
-                        <div className="mb-4 px-3 py-2.5 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <p className="text-xs italic leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>&ldquo;{variant.scenario}&rdquo;</p>
+                        {/* Scenario — Real Story */}
+                        <div className="mb-4 relative overflow-hidden rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ background: `linear-gradient(180deg, ${accent}, rgba(${accentRgb},0.3))` }} />
+                          <div className="pl-4 pr-3 py-3">
+                            <p className="text-[11px] uppercase tracking-widest font-bold mb-1.5" style={{ color: accent }}>Real Scenario</p>
+                            <p className="text-xs italic leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>&ldquo;{variant.scenario}&rdquo;</p>
+                          </div>
                         </div>
 
                         {/* ── Common Features ── */}
@@ -690,59 +694,82 @@ export default function ModelsPage() {
                         </div>
 
                         {/* ── Action Buttons: Instant Demo | Live Chat ── */}
-                        <div className="flex flex-col gap-2 mb-3">
+                        <div className="flex flex-col gap-2.5 mb-3">
                           <button
                             onClick={() => handleDemoClick(variant.name)}
-                            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5"
+                            className="group/demo relative flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden"
                             style={{
-                              background: 'rgba(255,255,255,0.06)',
-                              border: '1px solid rgba(255,255,255,0.15)',
-                              color: 'rgba(255,255,255,0.7)',
+                              background: `linear-gradient(135deg, rgba(${accentRgb},0.25) 0%, rgba(${accentRgb},0.08) 100%)`,
+                              border: `1px solid rgba(${accentRgb},0.4)`,
+                              color: accent,
+                              boxShadow: `0 4px 15px rgba(${accentRgb},0.1)`,
                             }}
                             title="Book an instant demo to see how this agent talks to your clients"
                           >
-                            <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span className="leading-tight">Book Instant Demo — See how this agent talks to your clients for just $1</span>
+                            <div className="absolute inset-0 opacity-0 group-hover/demo:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(135deg, rgba(${accentRgb},0.35) 0%, rgba(${accentRgb},0.15) 100%)` }} />
+                            <div className="relative flex items-center justify-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `rgba(${accentRgb},0.2)` }}>
+                                <Calendar className="w-4 h-4" />
+                              </div>
+                              <div className="text-left">
+                                <span className="block text-xs font-bold leading-tight">Book Instant Demo</span>
+                                <span className="block text-[10px] font-medium mt-0.5" style={{ color: `rgba(${accentRgb},0.7)` }}>See how this agent talks to your clients — just $1</span>
+                              </div>
+                            </div>
                           </button>
                           <button
                             onClick={() => { /* Open chat — chat widget is always visible */ }}
-                            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5"
+                            className="group/chat relative flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-xs font-bold transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden"
                             style={{
-                              background: 'rgba(255,255,255,0.06)',
-                              border: '1px solid rgba(255,255,255,0.15)',
-                              color: 'rgba(255,255,255,0.7)',
+                              background: `linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)`,
+                              border: `1px solid rgba(255,255,255,0.15)`,
+                              color: 'rgba(255,255,255,0.85)',
                             }}
                             title="Try live chat to see how it responds to your queries"
                           >
-                            <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span className="leading-tight">Try Live Chat — See how it reacts to your queries</span>
+                            <div className="absolute inset-0 opacity-0 group-hover/chat:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%)` }} />
+                            <div className="relative flex items-center justify-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                                <MessageSquare className="w-4 h-4" style={{ color: accent }} />
+                              </div>
+                              <div className="text-left">
+                                <span className="block text-xs font-bold leading-tight">Try Live Chat</span>
+                                <span className="block text-[10px] font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>See how it reacts to you & your clients</span>
+                              </div>
+                            </div>
                           </button>
                         </div>
 
                         {/* ── Main CTA ── */}
                         {isAuthenticated ? (
                           <div
-                            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline"
+                            className="relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline overflow-hidden"
                             style={{
-                              backgroundColor: isActive ? accent : 'rgba(255,255,255,0.08)',
+                              background: isActive
+                                ? `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.8) 100%)`
+                                : 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)',
                               color: isActive ? primary : 'rgba(255,255,255,0.5)',
                               border: isActive ? 'none' : '1px solid rgba(255,255,255,0.1)',
                               boxShadow: isActive ? `0 8px 24px rgba(${accentRgb},0.3)` : 'none',
                             }}
                           >
-                            {isActive ? (
-                              <>
-                                <Check className="w-4 h-4" />
-                                {qty} {qty === 1 ? 'Agent' : 'Agents'} Hired
-                              </>
-                            ) : (
-                              'Select to Hire'
-                            )}
+                            {isActive && <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 100%)' }} />}
+                            <div className="relative flex items-center gap-2">
+                              {isActive ? (
+                                <>
+                                  <Check className="w-4 h-4" />
+                                  {qty} {qty === 1 ? 'Agent' : 'Agents'} Hired
+                                </>
+                              ) : (
+                                'Select to Hire'
+                              )}
+                            </div>
                           </div>
                         ) : (
-                          <Link href="/signup" className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline hover:-translate-y-0.5"
-                            style={{ backgroundColor: accent, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}>
-                            Get Started <ArrowRight className="w-4 h-4" />
+                          <Link href="/signup" className="group relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline hover:-translate-y-0.5 overflow-hidden"
+                            style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}>
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
+                            <div className="relative flex items-center gap-2">Get Started <ArrowRight className="w-4 h-4" /></div>
                           </Link>
                         )}
                       </div>
@@ -833,24 +860,30 @@ export default function ModelsPage() {
                       <div className="flex gap-3">
                         <button
                           onClick={() => setDemoModalOpen(true)}
-                          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 hover:-translate-y-0.5"
-                          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)' }}
+                          className="group/btn flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden relative"
+                          style={{ background: `linear-gradient(135deg, rgba(${accentRgb},0.2) 0%, rgba(${accentRgb},0.08) 100%)`, border: `1px solid rgba(${accentRgb},0.4)`, color: accent }}
                         >
-                          <Calendar className="w-4 h-4" />
-                          Book Instant Demo — Just $1
+                          <div className="absolute inset-0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(135deg, rgba(${accentRgb},0.3) 0%, rgba(${accentRgb},0.15) 100%)` }} />
+                          <div className="relative flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            Book Instant Demo — Just $1
+                          </div>
                         </button>
                         <div
-                          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold"
-                          style={{ backgroundColor: accent, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}
+                          className="group/cfm flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 overflow-hidden relative"
+                          style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}
                         >
-                          <Check className="w-4 h-4" />
-                          Confirm ${totalMonthly.toLocaleString()}/mo
-                        </div>
+                          <div className="absolute inset-0 opacity-0 group-hover/cfm:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
+                          <div className="relative flex items-center gap-2">
+                            <Check className="w-4 h-4" />
+                            Confirm ${totalMonthly.toLocaleString()}/mo
+                          </div>
                       </div>
                     ) : (
-                      <Link href="/signup" className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline hover:-translate-y-0.5"
-                        style={{ backgroundColor: accent, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}>
-                        Sign Up & Hire Now <ArrowRight className="w-4 h-4" />
+                      <Link href="/signup" className="group relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline hover:-translate-y-0.5 overflow-hidden"
+                        style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}>
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
+                        <div className="relative flex items-center gap-2">Sign Up & Hire Now <ArrowRight className="w-4 h-4" /></div>
                       </Link>
                     )}
                   </div>
@@ -909,15 +942,21 @@ export default function ModelsPage() {
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <button
                       onClick={() => setDemoModalOpen(true)}
-                      className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-bold transition-all duration-500 hover:-translate-y-0.5"
-                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.85)' }}
+                      className="group/final relative inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-bold transition-all duration-500 hover:-translate-y-0.5 hover:shadow-xl overflow-hidden"
+                      style={{ background: `linear-gradient(135deg, rgba(${accentRgb},0.2) 0%, rgba(${accentRgb},0.06) 100%)`, border: `1px solid rgba(${accentRgb},0.35)`, color: accent, boxShadow: `0 4px 15px rgba(${accentRgb},0.1)` }}
                     >
-                      <Calendar className="w-5 h-5" />
-                      Book a Free Demo
+                      <div className="absolute inset-0 opacity-0 group-hover/final:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(135deg, rgba(${accentRgb},0.3) 0%, rgba(${accentRgb},0.15) 100%)` }} />
+                      <div className="relative flex items-center gap-2">
+                        <Calendar className="w-5 h-5" />
+                        Book Instant Demo — $1
+                      </div>
                     </button>
-                    <Link href="/signup" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-bold transition-all duration-500 hover:-translate-y-0.5 no-underline"
-                      style={{ backgroundColor: accent, color: primary, boxShadow: `0 8px 30px rgba(${accentRgb},0.3)` }}>
-                      {isAuthenticated ? 'Hire Now' : 'Get Started'} <ArrowRight className="w-5 h-5" />
+                    <Link href="/signup" className="group relative inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-bold transition-all duration-500 hover:-translate-y-0.5 no-underline overflow-hidden"
+                      style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 30px rgba(${accentRgb},0.3)` }}>
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
+                      <div className="relative flex items-center gap-2">
+                        {isAuthenticated ? 'Hire Now' : 'Get Started'} <ArrowRight className="w-5 h-5" />
+                      </div>
                     </Link>
                   </div>
                 </div>
