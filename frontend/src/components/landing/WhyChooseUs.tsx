@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Shield, HelpCircle, BookOpen, BarChart3, Languages, TrendingUp } from 'lucide-react';
 
 /**
- * WhyChooseUs - Light green theme
+ * WhyChooseUs - Dark premium emerald theme
  */
 
 const features = [
@@ -53,9 +53,9 @@ const features = [
 ];
 
 const colorClasses: Record<string, { bg: string; text: string; border: string; hoverBorder: string; glow: string; check: string }> = {
-  green: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-gray-200', hoverBorder: 'border-emerald-300', glow: 'hover:shadow-emerald-600/10', check: 'text-emerald-600' },
-  amber: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-gray-200', hoverBorder: 'border-amber-300', glow: 'hover:shadow-amber-500/8', check: 'text-amber-500' },
-  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-gray-200', hoverBorder: 'border-emerald-300', glow: 'hover:shadow-emerald-500/8', check: 'text-emerald-500' },
+  green: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-white/10', hoverBorder: 'border-emerald-500/30', glow: 'hover:shadow-emerald-500/20', check: 'bg-emerald-400' },
+  amber: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-white/10', hoverBorder: 'border-amber-500/30', glow: 'hover:shadow-amber-500/15', check: 'bg-amber-400' },
+  emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-white/10', hoverBorder: 'border-emerald-500/30', glow: 'hover:shadow-emerald-500/15', check: 'bg-emerald-400' },
 };
 
 export default function WhyChooseUs() {
@@ -81,10 +81,12 @@ export default function WhyChooseUs() {
   }, [isInView]);
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden bg-gradient-to-b from-white to-[#F0FDF4]">
+    <section ref={sectionRef} className="relative overflow-hidden bg-gradient-to-b from-[#064E3B] to-[#022C22]">
+      {/* Ambient glow orbs */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-emerald-200/25 rounded-full blur-[120px]" />
-        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-emerald-200/20 rounded-full blur-[100px]" />
+        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-emerald-500/12 rounded-full blur-[140px]" />
+        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-emerald-600/10 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28rem] h-[28rem] bg-emerald-500/6 rounded-full blur-[160px]" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -93,24 +95,24 @@ export default function WhyChooseUs() {
             isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 sm:mb-5">
-            Why Businesses Choose <span className="text-gradient">PARWA</span>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-5">
+            Why Businesses Choose <span className="bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent">PARWA</span>
           </h2>
-          <p className="text-base sm:text-lg text-gray-500 max-w-2xl mx-auto px-4">
+          <p className="text-base sm:text-lg text-gray-400 max-w-2xl mx-auto px-4">
             Built for businesses that demand reliability, security, and instant results.
           </p>
           {/* Trust indicators row */}
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-300/50 text-xs sm:text-sm font-semibold text-emerald-700">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs sm:text-sm font-semibold text-emerald-300">
               💎 99.9% Uptime SLA
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-xs sm:text-sm font-semibold text-emerald-600">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-xs sm:text-sm font-semibold text-emerald-300">
               🔒 SOC 2 Certified
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-xs sm:text-sm font-semibold text-sky-600">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-xs sm:text-sm font-semibold text-sky-300">
               🛡️ GDPR Compliant
             </span>
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-xs sm:text-sm font-semibold text-amber-600">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs sm:text-sm font-semibold text-amber-300">
               🔐 Bank-Grade Encryption
             </span>
           </div>
@@ -125,10 +127,10 @@ export default function WhyChooseUs() {
             return (
               <div
                 key={index}
-                className={`rounded-xl border p-6 sm:p-7 transition-all duration-500 cursor-pointer group bg-white ${
+                className={`rounded-xl border p-6 sm:p-7 transition-all duration-500 cursor-pointer group bg-white/[0.05] backdrop-blur-sm ${
                   isHovered
                     ? `${colors.hoverBorder} shadow-xl ${colors.glow} -translate-y-2`
-                    : `${colors.border} hover:border-gray-300 hover:-translate-y-1.5 hover:shadow-lg hover:shadow-gray-900/5`
+                    : `${colors.border} hover:border-white/20 hover:-translate-y-1.5 hover:shadow-lg hover:shadow-black/20`
                 } ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
                 style={{ transitionDelay: isVisible ? '0ms' : `${index * 80}ms` }}
                 onMouseEnter={() => setHoveredIndex(index)}
@@ -140,19 +142,19 @@ export default function WhyChooseUs() {
                 <div className={`w-12 h-12 sm:w-13 sm:h-13 rounded-xl ${colors.bg} flex items-center justify-center mb-5 transition-all duration-300 ${isHovered ? 'scale-110' : ''}`}>
                   <span className={colors.text}>{feature.icon}</span>
                 </div>
-                <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">{feature.title}</h3>
-                <p className="text-sm text-gray-500 mb-5 leading-relaxed">{feature.description}</p>
+                <h3 className="text-base sm:text-lg font-bold text-white mb-2">{feature.title}</h3>
+                <p className="text-sm text-gray-400 mb-5 leading-relaxed">{feature.description}</p>
                 <div className={`overflow-hidden transition-all duration-500 ${isHovered ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <ul className="space-y-2 pt-4 border-t border-gray-100">
+                  <ul className="space-y-2 pt-4 border-t border-white/10">
                     {feature.details.map((detail, i) => (
-                      <li key={i} className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+                      <li key={i} className="flex items-center gap-2 text-xs sm:text-sm text-gray-300">
                         <div className={`w-1 h-1 rounded-full ${colors.check} flex-shrink-0`} />
                         {detail}
                       </li>
                     ))}
                   </ul>
                 </div>
-                <div className="sm:hidden text-center mt-4 text-xs text-gray-400">
+                <div className="sm:hidden text-center mt-4 text-xs text-gray-500">
                   {isHovered ? 'Tap to collapse' : 'Tap to learn more'}
                 </div>
               </div>

@@ -108,10 +108,10 @@ export function IndustrySelector({
     <div className="w-full">
       {/* Section Header */}
       <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
           Select Your Industry
         </h2>
-        <p className="text-sm sm:text-base text-gray-500">
+        <p className="text-sm sm:text-base text-emerald-200/50">
           Choose your industry to see relevant AI support variants
         </p>
       </div>
@@ -135,7 +135,7 @@ export function IndustrySelector({
                 ${
                   isSelected
                     ? `${industry.borderSelected} ${industry.bgSelected} shadow-lg ${industry.shadowClass}`
-                    : 'border-gray-200 bg-white hover:border-gray-300'
+                    : 'border-white/10 bg-white/5 hover:border-emerald-500/30'
                 }
                 ${
                   !isSelected
@@ -168,10 +168,10 @@ export function IndustrySelector({
               </div>
 
               {/* Content */}
-              <h3 className="font-semibold text-gray-900 text-sm sm:text-base mb-1">
+              <h3 className="font-semibold text-white text-sm sm:text-base mb-1">
                 {industry.name}
               </h3>
-              <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
+              <p className="text-xs sm:text-sm text-emerald-200/50 leading-relaxed">
                 {industry.description}
               </p>
             </button>

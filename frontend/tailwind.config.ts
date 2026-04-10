@@ -1,40 +1,100 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
+import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
+
+const config: Config = {
+  darkMode: "class",
   content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       colors: {
-        // Brand Colors - PRIMARY (Parrot Green → Dark Green — PARWA)
+        /* ═══════════════════════════════════════════════════════════════
+           shadcn/ui Theme (CSS variable driven)
+           ═══════════════════════════════════════════════════════════════ */
+        background: {
+          DEFAULT: '#ECFDF5',
+          secondary: '#D1FAE5',
+          tertiary: '#A7F3D0',
+        },
+        foreground: 'hsl(var(--foreground))',
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        border: {
+          DEFAULT: 'hsl(var(--border))',
+          hover: 'rgba(16,185,129,0.25)',
+        },
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        chart: {
+          '1': 'hsl(var(--chart-1))',
+          '2': 'hsl(var(--chart-2))',
+          '3': 'hsl(var(--chart-3))',
+          '4': 'hsl(var(--chart-4))',
+          '5': 'hsl(var(--chart-5))',
+        },
+
+        /* ═══════════════════════════════════════════════════════════════
+           Parwa Brand Colors
+           ═══════════════════════════════════════════════════════════════ */
+
+        // PRIMARY — Parrot Green → Dark Green
         parrot: {
           50: '#ECFDF5',
           100: '#D1FAE5',
           200: '#A7F3D0',
           300: '#6EE7B7',
           400: '#34D399',
-          500: '#10B981',  // Main Parrot Green
+          500: '#10B981',
           600: '#059669',
           700: '#047857',
-          800: '#065F46',  // Dark Green
-          900: '#064E3B',  // Deep Dark Green
-          950: '#022C22',  // Almost black-green
+          800: '#065F46',
+          900: '#064E3B',
+          950: '#022C22',
         },
+
         gold: {
           50: '#fffbeb',
           100: '#fef3c7',
           200: '#fde68a',
           300: '#fcd34d',
           400: '#fbbf24',
-          500: '#FFD700', // Primary Gold
+          500: '#FFD700',
           600: '#d97706',
           700: '#b45309',
           800: '#92400e',
           900: '#78350f',
         },
-        // Brand Colors - DARK TEXT (Black & White — PARWA)
+
+        // DARK TEXT — Black & White
         navy: {
           50: '#f8fafc',
           100: '#f1f5f9',
@@ -44,10 +104,11 @@ module.exports = {
           500: '#64748b',
           600: '#475569',
           700: '#334155',
-          800: '#0A0A0A', // Near-black for headings
-          900: '#1A1A1A', // Deep charcoal
-          950: '#000000', // Pure black
+          800: '#0A0A0A',
+          900: '#1A1A1A',
+          950: '#000000',
         },
+
         charcoal: {
           50: '#f8fafc',
           100: '#f1f5f9',
@@ -55,11 +116,12 @@ module.exports = {
           300: '#cbd5e1',
           400: '#64748b',
           500: '#475569',
-          600: '#374151', // Primary Charcoal
+          600: '#374151',
           700: '#1f2937',
           800: '#111827',
           900: '#030712',
         },
+
         orange: {
           50: '#fff7ed',
           100: '#ffedd5',
@@ -72,21 +134,14 @@ module.exports = {
           800: '#9a3412',
           900: '#7c2d12',
         },
-        // UI Colors - PARROT GREEN THEME (PARWA)
-        background: {
-          DEFAULT: '#ECFDF5',     // Main bg with parrot green tint
-          secondary: '#D1FAE5',   // Lighter parrot green
-          tertiary: '#A7F3D0',    // Medium parrot green bg
-        },
+
+        // UI Colors — Parrot Green Theme
         surface: {
-          DEFAULT: '#ffffff',     // Cards
-          hover: '#ECFDF5',       // Card hover (parrot tint)
-          active: '#D1FAE5',      // Card active
+          DEFAULT: '#ffffff',
+          hover: '#ECFDF5',
+          active: '#D1FAE5',
         },
-        border: {
-          DEFAULT: 'rgba(16,185,129,0.12)',
-          hover: 'rgba(16,185,129,0.25)',
-        },
+
         // Status Colors
         success: {
           50: '#f0fdf4',
@@ -125,9 +180,14 @@ module.exports = {
           900: '#7f1d1d',
         },
       },
+
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
+
+      /* ═══════════════════════════════════════════════════════════════
+         Parwa Animations & Keyframes
+         ═══════════════════════════════════════════════════════════════ */
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',
         'fade-in-up': 'fadeInUp 0.6s ease-out',
@@ -185,12 +245,26 @@ module.exports = {
           '50%': { opacity: '0.7', transform: 'scale(1.05)' },
         },
       },
+
+      /* ═══════════════════════════════════════════════════════════════
+         Parwa Background Images
+         ═══════════════════════════════════════════════════════════════ */
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
         'shimmer': 'linear-gradient(90deg, transparent, rgba(16,185,129,0.08), transparent)',
       },
+
+      /* ═══════════════════════════════════════════════════════════════
+         shadcn/ui Border Radius
+         ═══════════════════════════════════════════════════════════════ */
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+      },
     },
   },
-  plugins: [],
-}
+  plugins: [tailwindcssAnimate],
+};
+export default config;

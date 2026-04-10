@@ -6,6 +6,8 @@
  * - VariantCard: Glass morphism variant card with features, demo/chat/quantity
  * - QuantitySelector: [-] N [+] quantity control with premium styling
  * - TotalSummary: Premium glass bill summary with checkout button
+ * - SmartBundleVisualizer: Interactive ticket volume + industry recommendation tool
+ * - AntiArbitrageMatrix: 2× Starter vs 1× Growth comparison table
  *
  * Type Exports:
  * - Industry: 'ecommerce' | 'saas' | 'logistics' | 'others'
@@ -22,3 +24,7 @@ export type { PricingVariant } from './VariantCard';
 export { QuantitySelector } from './QuantitySelector';
 
 export { TotalSummary } from './TotalSummary';
+
+export { SmartBundleVisualizer } from './SmartBundleVisualizer';
+
+export { AntiArbitrageMatrix } from './AntiArbitrageMatrix';

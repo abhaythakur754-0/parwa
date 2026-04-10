@@ -64,10 +64,10 @@ export function VariantCard({
         backdrop-blur-xl
         ${
           isActive
-            ? 'border-emerald-300 bg-emerald-50 shadow-lg shadow-emerald-600/15'
+            ? 'border-emerald-500/30 bg-emerald-500/8 shadow-lg shadow-emerald-600/15'
             : variant.popular
-              ? 'border-emerald-200 bg-emerald-50/50 hover:border-emerald-300'
-              : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+              ? 'border-emerald-500/15 bg-white/[0.05] hover:border-emerald-500/30'
+              : 'border-white/10 bg-white/[0.05] hover:border-white/20 hover:bg-white/[0.08]'
         }
         ${!isActive && !disabled ? 'hover:-translate-y-0.5' : ''}
       `}
@@ -84,10 +84,10 @@ export function VariantCard({
 
       {/* Header: Name + Description */}
       <div className="mb-4 mt-1">
-        <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1">
+        <h3 className="text-base sm:text-lg font-bold text-white mb-1">
           {variant.name}
         </h3>
-        <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
+        <p className="text-xs sm:text-sm text-emerald-200/50 leading-relaxed">
           {variant.description}
         </p>
       </div>
@@ -98,19 +98,19 @@ export function VariantCard({
           <div key={index} className="flex items-center gap-2.5">
             <div
               className={`w-4.5 h-4.5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                isActive ? 'bg-emerald-100' : 'bg-gray-100'
+                isActive ? 'bg-emerald-500/20' : 'bg-white/10'
               }`}
             >
               <Check
                 className={`w-3 h-3 ${
-                  isActive ? 'text-emerald-600' : 'text-gray-400'
+                  isActive ? 'text-emerald-400' : 'text-emerald-200/30'
                 }`}
                 strokeWidth={3}
               />
             </div>
             <span
               className={`text-xs sm:text-sm leading-snug ${
-                isActive ? 'text-gray-800' : 'text-gray-600'
+                isActive ? 'text-gray-100' : 'text-emerald-200/50'
               }`}
             >
               {feature}
@@ -120,7 +120,7 @@ export function VariantCard({
       </div>
 
       {/* Divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-4" />
+      <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-4" />
 
       {/* Tickets + Price Row */}
       <div className="flex items-end justify-between mb-5">
@@ -128,24 +128,24 @@ export function VariantCard({
         <div className="flex items-center gap-2">
           <div
             className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              isActive ? 'bg-emerald-100' : 'bg-gray-100'
+              isActive ? 'bg-emerald-500/20' : 'bg-white/10'
             }`}
           >
             <Ticket
               className={`w-4 h-4 ${
-                isActive ? 'text-emerald-600' : 'text-gray-400'
+                isActive ? 'text-emerald-400' : 'text-emerald-200/30'
               }`}
             />
           </div>
           <div>
             <span
               className={`text-lg sm:text-xl font-bold ${
-                isActive ? 'text-emerald-600' : 'text-gray-800'
+                isActive ? 'text-emerald-400' : 'text-gray-100'
               }`}
             >
               {variant.ticketsPerMonth.toLocaleString()}
             </span>
-            <span className="block text-[10px] sm:text-xs text-gray-400">
+            <span className="block text-[10px] sm:text-xs text-emerald-200/30">
               tickets/mo
             </span>
           </div>
@@ -156,20 +156,20 @@ export function VariantCard({
           <div className="flex items-baseline gap-0.5">
             <span
               className={`text-xl sm:text-2xl font-extrabold ${
-                isActive ? 'text-gray-900' : 'text-gray-800'
+                isActive ? 'text-white' : 'text-gray-100'
               }`}
             >
               ${variant.pricePerMonth}
             </span>
           </div>
-          <span className="block text-[10px] sm:text-xs text-gray-400">
+          <span className="block text-[10px] sm:text-xs text-emerald-200/30">
             per month
           </span>
         </div>
       </div>
 
       {/* Divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-4" />
+      <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-4" />
 
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
@@ -181,8 +181,8 @@ export function VariantCard({
           className={`
             w-9 h-9 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center
             transition-all duration-200 flex-shrink-0
-            border-gray-200 bg-white text-gray-500
-            hover:border-sky-300 hover:bg-sky-50 hover:text-sky-600
+            border-white/10 bg-white/5 text-emerald-200/50
+            hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-sky-400
             active:scale-90
             ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
           `}
@@ -200,8 +200,8 @@ export function VariantCard({
           className={`
             w-9 h-9 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center
             transition-all duration-200 flex-shrink-0
-            border-gray-200 bg-white text-gray-500
-            hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600
+            border-white/10 bg-white/5 text-emerald-200/50
+            hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400
             active:scale-90
             ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
           `}
