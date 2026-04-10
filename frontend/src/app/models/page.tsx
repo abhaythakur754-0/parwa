@@ -878,6 +878,7 @@ export default function ModelsPage() {
                             <Check className="w-4 h-4" />
                             Confirm ${totalMonthly.toLocaleString()}/mo
                           </div>
+                        </div>
                       </div>
                     ) : (
                       <Link href="/signup" className="group relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline hover:-translate-y-0.5 overflow-hidden"
