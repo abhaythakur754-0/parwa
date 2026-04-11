@@ -1235,6 +1235,18 @@ def build_system_prompt(
         "what you CAN help with\n"
     )
 
+    # Phase 7: Inject knowledge base content into prompt
+    try:
+        from app.services.jarvis_knowledge_service import (
+            build_context_knowledge,
+        )
+        knowledge_section = build_context_knowledge(ctx)
+        if knowledge_section:
+            prompt += f"\n\n{knowledge_section}"
+    except Exception:
+        # Knowledge service not available — continue without it
+        pass
+
     prompt += context_section
     return prompt
 
@@ -1540,8 +1552,8 @@ def _call_ai_provider(
 ) -> Tuple[str, str, Dict[str, Any], List[Dict[str, Any]]]:
     """Call AI provider for response generation.
 
-    In production, this routes to Google AI Studio, Cerebras, or Groq
-    based on availability and load balancing.
+    Routes to Cerebras, Groq, or Google AI Studio based on availability.
+    Falls back to context-aware placeholder if all providers fail.
 
     Returns:
         Tuple of (content, message_type, metadata, knowledge_used)
@@ -1551,11 +1563,148 @@ def _call_ai_provider(
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
 
-    # In production: use z-ai-web-dev-sdk or direct API calls
-    # to Google AI Studio / Cerebras / Groq
-    # For now, return a context-aware placeholder response
-    stage = context.get("detected_stage", "welcome")
+    # Track which knowledge files were used
+    knowledge: List[Dict[str, Any]] = []
+    try:
+        from app.services.jarvis_knowledge_service import search_knowledge
+        kb_results = search_knowledge(user_message, context.get("industry"))
+        if kb_results:
+            for r in kb_results[:3]:
+                knowledge.append({
+                    "file": r.get("source", "unknown"),
+                    "score": r.get("score", 0.5),
+                })
+    except Exception:
+        pass
 
+    # Try real AI providers (Cerebras → Groq → Google)
+    content = _try_ai_providers(messages)
+    if content is None:
+        # Fallback to context-aware placeholder
+        content = _get_stage_fallback(context)
+
+    # Determine message type based on stage and context
+    stage = context.get("detected_stage", "welcome")
+    message_type, metadata = _determine_message_type(stage, context)
+
+    return content, message_type, metadata, knowledge
+
+
+def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
+    """Try AI providers in order: Cerebras → Groq → Google. Returns content or None."""
+    providers = [
+        ("cerebras", "https://api.cerebras.ai/v1/chat/completions"),
+        ("groq", "https://api.groq.com/openai/v1/chat/completions"),
+        ("google", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"),
+    ]
+
+    for provider_name, endpoint in providers:
+        try:
+            content = _call_single_provider(provider_name, endpoint, messages)
+            if content:
+                return content
+        except Exception:
+            continue
+    return None
+
+
+def _call_single_provider(
+    provider_name: str,
+    endpoint: str,
+    messages: List[Dict[str, str]],
+) -> Optional[str]:
+    """Call a single AI provider and return the response content."""
+    from app.config import get_settings
+
+    settings = get_settings()
+
+    if provider_name == "cerebras":
+        api_key = settings.CEREBRAS_API_KEY
+    elif provider_name == "groq":
+        api_key = settings.GROQ_API_KEY
+    elif provider_name == "google":
+        api_key = settings.GOOGLE_AI_API_KEY
+    else:
+        return None
+
+    if not api_key:
+        return None
+
+    if provider_name == "google":
+        return _call_google_api(endpoint, api_key, messages)
+
+    # OpenAI-compatible: Cerebras and Groq
+    payload = {
+        "model": "llama-3.1-8b" if provider_name == "cerebras" else "llama-3.1-8b",
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 1024,
+    }
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    import urllib.request
+    req = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    req.add_header("Content-Type", "application/json")
+
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        choices = data.get("choices", [])
+        if choices:
+            return choices[0].get("message", {}).get("content", "")
+    return None
+
+
+def _call_google_api(
+    endpoint: str,
+    api_key: str,
+    messages: List[Dict[str, str]],
+) -> Optional[str]:
+    """Call Google AI Studio API (non-OpenAI format)."""
+    import urllib.request
+
+    # Convert messages to Google's format
+    system_text = ""
+    contents = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system_text = msg["content"]
+        else:
+            contents.append({"role": "user" if msg["role"] == "user" else "model", "parts": [{"text": msg["content"]}]})
+
+    payload: Dict[str, Any] = {"contents": contents}
+    if system_text:
+        payload["systemInstruction"] = {"parts": [{"text": system_text}]}
+
+    url = f"{endpoint}?key={api_key}"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        candidates = data.get("candidates", [])
+        if candidates:
+            parts = candidates[0].get("content", {}).get("parts", [])
+            if parts:
+                return parts[0].get("text", "")
+    return None
+
+
+def _get_stage_fallback(context: Dict[str, Any]) -> str:
+    """Context-aware fallback when all AI providers fail."""
+    stage = context.get("detected_stage", "welcome")
     response_map = {
         "welcome": (
             "That's great! Let me help you explore what PARWA can do "
@@ -1592,17 +1741,20 @@ def _call_ai_provider(
             "who will help you get started with your PARWA account!"
         ),
     }
-
-    content = response_map.get(
+    return response_map.get(
         stage,
         "I'd be happy to help with that! Could you tell me more "
         "about what you're looking for?",
     )
 
-    # Determine message type based on stage
+
+def _determine_message_type(
+    stage: str,
+    context: Dict[str, Any],
+) -> Tuple[str, Dict[str, Any]]:
+    """Determine message_type and metadata based on stage and context."""
     message_type = "text"
-    metadata = {"stage": stage}
-    knowledge = []
+    metadata: Dict[str, Any] = {"stage": stage}
 
     if stage == "pricing" and context.get("selected_variants"):
         message_type = "bill_summary"
@@ -1615,15 +1767,4 @@ def _call_ai_provider(
     elif stage == "handoff":
         message_type = "handoff_card"
 
-    # Simulate knowledge usage
-    if context.get("industry"):
-        knowledge.append({
-            "file": "02_industry_variants.json",
-            "score": 0.95,
-        })
-    knowledge.append({
-        "file": "07_objection_handling.json",
-        "score": 0.80,
-    })
-
-    return content, message_type, metadata, knowledge
+    return message_type, metadata
