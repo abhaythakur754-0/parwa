@@ -525,3 +525,66 @@ class TestProrationSingleton:
         service2 = get_proration_service()
 
         assert service1 is service2
+
+
+# ── Gap Fix Tests ──────────────────────────────────────────────────────────
+
+class TestGapFixesProration:
+    """Gap-fix tests for proration service private helpers.
+
+    Each test is self-contained with its own ProrationService instance
+    and tests synchronous helper methods directly (no DB, no async).
+    """
+
+    def test_validate_variant_invalid_name(self):
+        """_validate_variant('enterprise') should raise ProrationError."""
+        svc = ProrationService()
+        with pytest.raises(ProrationError):
+            svc._validate_variant("enterprise")
+
+    def test_validate_variant_empty_string(self):
+        """_validate_variant('') should raise ProrationError."""
+        svc = ProrationService()
+        with pytest.raises(ProrationError):
+            svc._validate_variant("")
+
+    def test_validate_variant_whitespace(self):
+        """_validate_variant('  growth  ') should succeed and return 'growth'."""
+        svc = ProrationService()
+        result = svc._validate_variant("  growth  ")
+        assert result == "growth"
+
+    def test_is_upgrade_same_variant(self):
+        """_is_upgrade with identical variants should return False."""
+        svc = ProrationService()
+        assert svc._is_upgrade("starter", "starter") is False
+
+    def test_is_upgrade_downgrade(self):
+        """_is_upgrade for a downgrade (growth -> starter) should return False."""
+        svc = ProrationService()
+        assert svc._is_upgrade("growth", "starter") is False
+
+    def test_round_precision(self):
+        """_round should correctly round to 2 decimal places with ROUND_HALF_UP."""
+        svc = ProrationService()
+        result = svc._round(Decimal("1.005"))
+        assert result == Decimal("1.01")
+
+    def test_validate_billing_period_equal_dates(self):
+        """_validate_billing_period with equal start and end should raise InvalidProrationPeriodError."""
+        svc = ProrationService()
+        with pytest.raises(InvalidProrationPeriodError):
+            svc._validate_billing_period(date(2024, 1, 1), date(2024, 1, 1))
+
+    def test_validate_billing_period_too_long(self):
+        """_validate_billing_period with period > 60 days should raise InvalidProrationPeriodError."""
+        svc = ProrationService()
+        # 61-day period
+        with pytest.raises(InvalidProrationPeriodError):
+            svc._validate_billing_period(date(2024, 1, 1), date(2024, 3, 2))
+
+    def test_validate_billing_period_exactly_60_days(self):
+        """_validate_billing_period with exactly 60 days should be accepted (boundary)."""
+        svc = ProrationService()
+        # 60-day period — must not raise
+        svc._validate_billing_period(date(2024, 1, 1), date(2024, 3, 1))

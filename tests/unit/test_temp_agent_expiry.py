@@ -833,3 +833,165 @@ class TestEdgeCases:
     def test_register_permanent_invalid_company(self, svc):
         with pytest.raises(ValueError, match="company_id"):
             svc.register_permanent_agent("perm-1", "")
+
+
+# ── Gap Analysis Fixes ─────────────────────────────────────────────
+
+
+class TestGapFixesTempAgent:
+
+    def test_reassign_tickets_nonexistent_target(self):
+        """C-3: reassign_tickets with nonexistent target doesn't crash."""
+        svc = TempAgentExpiryService()
+        svc.register_temp_agent("temp-1", "co-1", "Temp Agent", duration_hours=1)
+        svc._agents["temp-1"].assigned_tickets = {"t1", "t2"}
+        result = svc.reassign_tickets("temp-1", target_agent_id="ghost_agent")
+        assert result.tickets_reassigned == 2
+
+    def test_reassign_tickets_already_expired_agent(self):
+        """H-5: Second reassign_tickets call after expire returns 0."""
+        svc = TempAgentExpiryService()
+        svc.register_temp_agent("temp-1", "co-1", "Temp", duration_hours=1)
+        svc._agents["temp-1"].assigned_tickets = {"t1", "t2", "t3"}
+        svc.expire_agent("temp-1")
+        result = svc.reassign_tickets("temp-1")
+        assert result.tickets_reassigned == 0
+
+    def test_register_temp_agent_none_company_id(self):
+        """H-2: register_temp_agent with None company_id raises."""
+        svc = TempAgentExpiryService()
+        with pytest.raises(ValueError):
+            svc.register_temp_agent("t1", None, "name")
+
+    def test_extend_agent_none_hours(self):
+        """H-3: extend_agent with None hours raises."""
+        svc = TempAgentExpiryService()
+        svc.register_temp_agent("temp-1", "co-1", "Temp")
+        with pytest.raises(ValueError):
+            svc.extend_agent("temp-1", None)
+
+    def test_clear_with_assertions(self):
+        """H-7: clear() removes all agents and permanent agents."""
+        svc = TempAgentExpiryService()
+        svc.register_temp_agent("temp-1", "co-1", "Temp")
+        svc.register_permanent_agent("perm-1", "co-1")
+        svc.clear()
+        assert svc.get_all_temp_agents() == []
+        assert svc.get_active_temp_agents("co-1") == []
+
+    def test_get_all_temp_agents_mixed_status(self):
+        """M-3: get_all_temp_agents returns active + expired + revoked."""
+        svc = TempAgentExpiryService()
+        svc.register_temp_agent("temp-1", "co-1", "Temp", duration_hours=1)
+        svc.register_temp_agent("temp-2", "co-1", "Temp2", duration_hours=1)
+        svc.expire_agent("temp-1")
+        svc.revoke_agent("temp-2")
+        assert len(svc.get_all_temp_agents()) == 2
+
+    def test_register_temp_agent_long_company_id(self):
+        """H-1: register_temp_agent with very long company_id."""
+        svc = TempAgentExpiryService()
+        with pytest.raises(ValueError):
+            svc.register_temp_agent("t1", "x" * 129, "name")
+
+    def test_register_temp_agent_non_string_id(self):
+        """M-1: register_temp_agent with non-string agent_id."""
+        svc = TempAgentExpiryService()
+        with pytest.raises(ValueError):
+            svc.register_temp_agent(123, "co-1", "name")
+
+    def test_extend_agent_exact_max_duration(self):
+        """H-4: extend to exactly max_duration_hours."""
+        svc = TempAgentExpiryService()
+        svc.register_temp_agent("temp-1", "co-1", "Temp", duration_hours=12)
+        max_h = svc._config.max_duration_hours
+        svc.extend_agent("temp-1", max_h - 12)
+        record = svc._agents["temp-1"]
+        expected = record.created_at + timedelta(hours=max_h)
+        assert record.expires_at == expected
+
+    def test_single_permanent_agent_all_tickets(self):
+        """M-5: round-robin with 1 permanent agent sends all there."""
+        svc = TempAgentExpiryService()
+        svc.register_temp_agent("temp-1", "co-1", "Temp", duration_hours=1)
+        svc.register_permanent_agent("perm-1", "co-1")
+        svc._agents["temp-1"].assigned_tickets = {f"t{i}" for i in range(10)}
+        result = svc.reassign_tickets("temp-1")
+        assert result.tickets_reassigned == 10
+
+    def test_round_robin_counter_persists(self):
+        """M-2: counter advances across multiple expiries."""
+        svc = TempAgentExpiryService()
+        svc.register_permanent_agent("p1", "co-1")
+        svc.register_permanent_agent("p2", "co-1")
+        svc.register_permanent_agent("p3", "co-1")
+        svc.register_temp_agent("temp-1", "co-1", "T1", duration_hours=1)
+        svc.register_temp_agent("temp-2", "co-1", "T2", duration_hours=1)
+        svc._agents["temp-1"].assigned_tickets = {"a", "b", "c"}
+        svc._agents["temp-2"].assigned_tickets = {"d", "e", "f"}
+        svc.expire_agent("temp-1")
+        r1 = svc.reassign_tickets("temp-2")
+        assert r1.tickets_reassigned == 3
+
+    def test_expire_agent_reassigned_to_dict_populated(self):
+        """Verify expire_agent populates reassigned_to dict with ticket->target mappings."""
+        svc = TempAgentExpiryService()
+        svc.register_temp_agent("temp-1", "co-1", "Temp Agent", duration_hours=1)
+        svc._agents["temp-1"].assigned_tickets = {"tkt-0", "tkt-1", "tkt-2"}
+        svc.register_permanent_agent("perm-1", "co-1")
+        svc._agents["temp-1"].expires_at = (
+            datetime.now(timezone.utc) - timedelta(hours=1)
+        )
+        result = svc.expire_agent("temp-1")
+        assert result.tickets_reassigned == 3
+        assert len(result.reassigned_to) == 3
+        assert "tkt-0" in result.reassigned_to
+        assert "tkt-1" in result.reassigned_to
+        assert "tkt-2" in result.reassigned_to
+        # All tickets should be mapped to the target agent
+        for ticket_id, target_id in result.reassigned_to.items():
+            assert target_id == "perm-1"
+
+    def test_register_permanent_agent_none_company_id(self):
+        """register_permanent_agent with None company_id raises ValueError."""
+        svc = TempAgentExpiryService()
+        with pytest.raises(ValueError):
+            svc.register_permanent_agent("perm-1", None)
+
+    def test_register_permanent_agent_non_string_id(self):
+        """register_permanent_agent with non-string agent_id raises ValueError."""
+        svc = TempAgentExpiryService()
+        with pytest.raises(ValueError):
+            svc.register_permanent_agent(123, "co-1")
+
+    def test_expire_agent_reassigned_to_empty_when_no_tickets(self):
+        """expire_agent with no tickets produces empty reassigned_to dict."""
+        svc = TempAgentExpiryService()
+        svc.register_temp_agent("temp-1", "co-1", "Temp Agent", duration_hours=1)
+        svc.register_permanent_agent("perm-1", "co-1")
+        svc._agents["temp-1"].expires_at = (
+            datetime.now(timezone.utc) - timedelta(hours=1)
+        )
+        result = svc.expire_agent("temp-1")
+        assert result.reassigned_to == {}
+        assert result.tickets_reassigned == 0
+
+    def test_check_expiry_none_agent_id(self):
+        """check_expiry with None agent_id raises ValueError."""
+        svc = TempAgentExpiryService()
+        with pytest.raises(ValueError):
+            svc.check_expiry(None)
+
+    def test_extend_agent_beyond_max_by_multiple_extensions(self):
+        """Multiple extensions exceeding max_duration_hours get capped at max."""
+        svc = TempAgentExpiryService()
+        svc.register_temp_agent("temp-1", "co-1", "Temp Agent", duration_hours=1)
+        # First extension: 1 + 360 = 361 hours (within max 720)
+        svc.extend_agent("temp-1", 360)
+        # Second extension: 361 + 360 = 721 would exceed 720, so cap kicks in
+        svc.extend_agent("temp-1", 360)
+        record = svc._agents["temp-1"]
+        max_expires = record.created_at + timedelta(
+            hours=svc._config.max_duration_hours
+        )
+        assert record.expires_at <= max_expires

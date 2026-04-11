@@ -252,6 +252,16 @@ class VoiceDemoPayment:
                 status=PaymentStatus.FAILED,
                 message="Missing session_id",
             )
+        # BC-008: handle None or negative amount_paid gracefully
+        try:
+            if amount_paid is None:
+                amount_paid = Decimal("0.00")
+            else:
+                amount_paid = Decimal(str(amount_paid))
+            if amount_paid < 0:
+                amount_paid = Decimal("0.00")
+        except Exception:
+            amount_paid = Decimal("0.00")
         refund_amount = min(amount_paid, self.amount)
         return RefundResult(
             success=True,
