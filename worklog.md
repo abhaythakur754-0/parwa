@@ -91,3 +91,46 @@ Stage Summary:
 - Service layer: session management, message processing with AI, OTP verification, demo pack, Paddle payment, Twilio call, handoff, action tickets, system prompt building, stage detection
 - Frontend: complete type system + useJarvisChat hook with all flow state machines (OTP, payment, handoff, demo call)
 - Commit: f98830c pushed to main
+---
+Task ID: 3
+Agent: Main
+Task: Phase 5 — Day 3: Core Chat UI (9 frontend components)
+
+Work Log:
+- Read JARVIS_ROADMAP.md Phase 5 (Day 3 scope: full day, 9 files, ~1065 lines)
+- Studied existing frontend patterns: auth guard (inline useAuth), dark green glassmorphism theme, shadcn/ui new-york style, CSS animations (.chat-msg-reveal, .typing-dot), Loader2 inline spinner pattern
+- Verified useJarvisChat hook exports: 13 state vars + 12 action functions, auto-init on mount
+- Verified Jarvis types: 12 MessageType variants, all API request/response types
+- Confirmed dual source layout: frontend/src/ (canonical) + src/ (identical mirror)
+
+Created 9 files (1019 lines total):
+1. ChatHeader.tsx (99 lines): Bot avatar with gradient, online status dot (amber=loading, green=ready), stage badge, remaining messages badge with color thresholds
+2. ErrorBanner.tsx (54 lines): Red-tinted glass banner, AlertCircle icon, optional retry button, dismiss button
+3. TypingIndicator.tsx (29 lines): Mini Jarvis avatar + 3 bouncing dots using existing .typing-dot CSS animation
+4. ChatMessage.tsx (299 lines): Multi-type message renderer:
+   - text: Markdown-rendered via react-markdown with prose styling
+   - Card types (8): Phase 6 placeholders with icons and labels
+   - error: Red glass card with tap-to-retry
+   - system: Centered muted pill
+   - limit_reached / pack_expired: Special CTA banners
+   - User (right, blue gradient) vs Jarvis (left, glass) bubble styles
+5. ChatWindow.tsx (110 lines): ScrollArea with auto-scroll on new messages, empty state with 4 quick-start suggestion chips
+6. ChatInput.tsx (202 lines): Auto-resize textarea (max 120px), Enter to send, Shift+Enter for newline, character counter at 85%, limit reached banner, gradient send button with loading spinner
+7. JarvisChat.tsx (141 lines): Main container, composes all sub-components, loading state with pulse ring animation, connection error state with retry, full-height flex layout
+8. onboarding/page.tsx (73 lines): Auth guard (useAuth), redirect to /login?redirect=/onboarding if not auth, redirect to /dashboard if onboarded, Loader2 spinner for loading state
+9. index.ts (14 lines): Barrel exports for all 7 components
+
+TypeScript fixes:
+- ChatMessage.tsx: Changed MessageTimestamp prop type from string|undefined to string|null to match JarvisMessage.timestamp
+- onboarding/page.tsx: Fixed User type cast (unknown intermediate)
+
+Bonus fix:
+- useJarvisChat.ts: Fixed localStorage key from 'access_token' to 'parwa_access_token' (matching AuthContext)
+
+TypeScript: 0 new errors (1 pre-existing SmartBundleVisualizer error only)
+
+Stage Summary:
+- 9 new files created (1019 lines) in both frontend/src/ and src/ mirrors
+- 1 file fixed (useJarvisChat.ts token key)
+- Commit: d8409bb pushed to main
+- Phase 5 (Day 3) complete
