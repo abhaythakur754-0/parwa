@@ -189,7 +189,7 @@ Industry-specific capabilities:
 
 Uses 3 FREE AI providers (Google AI Studio, Cerebras, Groq) — customers bring their own API keys, zero markup. Smart Router auto-picks best model with failover.
 
-Features: 700+ features, 14 AI reasoning techniques in 3 tiers, PII redaction (15 types), CLARA quality gate, RAG knowledge base, hallucination detection, sentiment analysis, circuit breaker, conversation summarization, batch approvals, brand voice config.
+Features: 700+ features, PII redaction (15 types), RAG knowledge base, hallucination detection, sentiment analysis, circuit breaker, conversation summarization, batch approvals, brand voice config.
 
 Cancellation policy: Cancel anytime, no refunds once paid, access continues until end of billing month, no free trials — demo chat instead.
 $1 Demo Pack: 500 messages + 3-minute AI voice call, valid 24 hours.
