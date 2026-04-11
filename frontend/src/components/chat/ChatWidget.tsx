@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -15,13 +15,41 @@ interface ChatWidgetProps {
   variant?: string;
 }
 
+// ── Detect industry/interest from conversation ──────────────────
+
+function detectContextFromMessages(messages: Message[]): { industry: string | null; interests: string[] } {
+  const allText = messages.map(m => m.content.toLowerCase()).join(' ');
+  let detectedIndustry: string | null = null;
+  const interests: string[] = [];
+
+  // Industry detection
+  if (allText.includes('ecommerce') || allText.includes('e-commerce') || allText.includes('online store') || allText.includes('shopify') || allText.includes('retail')) {
+    detectedIndustry = 'ecommerce';
+  } else if (allText.includes('saas') || allText.includes('software') || allText.includes('app') || allText.includes('subscription')) {
+    detectedIndustry = 'saas';
+  } else if (allText.includes('logistics') || allText.includes('shipping') || allText.includes('warehouse') || allText.includes('freight')) {
+    detectedIndustry = 'logistics';
+  } else if (allText.includes('health') || allText.includes('medical') || allText.includes('hospital') || allText.includes('clinic') || allText.includes('hipaa')) {
+    detectedIndustry = 'healthcare';
+  }
+
+  // Interest detection
+  if (allText.includes('price') || allText.includes('pricing') || allText.includes('cost') || allText.includes('plan')) interests.push('pricing');
+  if (allText.includes('demo') || allText.includes('try') || allText.includes('see it')) interests.push('demo');
+  if (allText.includes('roi') || allText.includes('save') || allText.includes('saving')) interests.push('roi');
+  if (allText.includes('integrat') || allText.includes('connect') || allText.includes('shopify')) interests.push('integrations');
+  if (allText.includes('security') || allText.includes('gdpr') || allText.includes('hipaa')) interests.push('security');
+
+  return { industry: detectedIndustry, interests };
+}
+
 export function ChatWidget({ industry, variant }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Hi there! 👋 I'm PARWA's AI assistant. I can help you pick the right plan for your business. What industry are you in, or what's your biggest support challenge?",
+      content: "Hi there! I'm Jarvis, PARWA's AI assistant. I can help you find the perfect AI customer support plan. What industry are you in?",
       timestamp: new Date(),
     },
   ]);
@@ -29,6 +57,7 @@ export function ChatWidget({ industry, variant }: ChatWidgetProps) {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const msgCountRef = useRef(0);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -53,6 +82,7 @@ export function ChatWidget({ industry, variant }: ChatWidgetProps) {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
+    msgCountRef.current++;
 
     try {
       const res = await fetch('/api/chat', {
@@ -99,6 +129,39 @@ export function ChatWidget({ industry, variant }: ChatWidgetProps) {
       setIsLoading(false);
     }
   };
+
+  // ── Navigate to full Jarvis with context ─────────────────────
+
+  const handleTryFullJarvis = () => {
+    const { industry: detectedIndustry, interests } = detectContextFromMessages(messages);
+
+    // Build context from conversation
+    const context: Record<string, unknown> = {
+      source: 'free_chat',
+      entry_source: 'free_chat',
+    };
+
+    if (industry || detectedIndustry) {
+      context.industry = industry || detectedIndustry;
+    }
+    if (variant) {
+      context.selected_variants = [variant];
+    }
+    if (interests.length > 0) {
+      context.interests = interests;
+    }
+
+    // Store context for Jarvis to pick up
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('parwa_jarvis_context', JSON.stringify(context));
+    }
+
+    // Navigate to onboarding/Jarvis
+    window.location.href = '/onboarding';
+  };
+
+  // Show CTA after 3+ messages
+  const showFullJarvisCTA = msgCountRef.current >= 3;
 
   return (
     <>
@@ -205,6 +268,25 @@ export function ChatWidget({ industry, variant }: ChatWidgetProps) {
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Full Jarvis CTA */}
+          {showFullJarvisCTA && !isLoading && (
+            <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(16,185,129,0.1)' }}>
+              <button
+                onClick={handleTryFullJarvis}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.15) 100%)',
+                  border: '1px solid rgba(16,185,129,0.25)',
+                  color: 'rgba(16,185,129,0.9)',
+                }}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Try Full Jarvis Experience</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Input */}
           <div className="px-4 py-3 border-t" style={{ borderColor: 'rgba(16,185,129,0.15)' }}>
