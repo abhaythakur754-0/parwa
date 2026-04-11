@@ -25,7 +25,18 @@ import { ChatErrorBoundary } from '@/components/jarvis/ChatErrorBoundary';
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, hydrate } = useAuth();
+
+  useEffect(() => {
+    // Wait for auth to initialize
+    if (isLoading) return;
+
+    // If AuthContext says not authenticated, try hydrating from localStorage
+    // (handles case where login was done via Next.js API route)
+    if (!isAuthenticated || !user) {
+      hydrate();
+    }
+  }, [isLoading, isAuthenticated, user, hydrate]);
 
   useEffect(() => {
     // Wait for auth to initialize
@@ -39,7 +50,6 @@ export default function OnboardingPage() {
     }
 
     // Already onboarded → redirect to dashboard
-    // Check via user metadata or existing session state
     if (user.onboarding_completed) {
       router.replace('/dashboard');
       return;

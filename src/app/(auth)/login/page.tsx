@@ -20,7 +20,7 @@ function LoginPageLoading() {
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, loginWithGoogle, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated, isLoading: authLoading, hydrate } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,6 +55,8 @@ function LoginContent() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('parwa_user', JSON.stringify(user));
       }
+      // Sync AuthContext state from localStorage
+      hydrate();
       toast.success('Welcome back!');
       router.push(redirectTo);
     } catch (err) {
@@ -83,6 +85,8 @@ function LoginContent() {
       if (result.user) {
         localStorage.setItem('parwa_user', JSON.stringify(result.user));
       }
+      // Sync AuthContext state from localStorage
+      hydrate();
       toast.success(result.is_new_user ? 'Account created with Google!' : 'Welcome back!');
       router.push(redirectTo);
     } catch (err) {
