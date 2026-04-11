@@ -53,6 +53,7 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
     initiateDemoCall,
     executeHandoff,
     otpState,
+    paymentState,
     demoCallState,
     handoffState,
   } = useJarvisChat(entrySource, entryParams);
@@ -72,9 +73,10 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
     totalMessages: 20,
     isDemoPackActive,
     isHandoffComplete: handoffState.status === 'completed',
+    paymentProcessing: paymentState.status === 'processing',
     otpState,
     demoCallState,
-  }), [remainingToday, isDemoPackActive, handoffState.status, otpState, demoCallState]);
+  }), [remainingToday, isDemoPackActive, handoffState.status, paymentState.status, otpState, demoCallState]);
 
   // ── Loading State ────────────────────────────────────────────
 

@@ -48,6 +48,7 @@ interface ChatMessageProps {
     totalMessages?: number;
     isDemoPackActive?: boolean;
     isHandoffComplete?: boolean;
+    paymentProcessing?: boolean;
     otpState?: { status: string; email: string };
     demoCallState?: { status: string; phone: string | null; duration: number };
   };
@@ -301,6 +302,7 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
           <RechargeCTACard
             metadata={metadata as Record<string, unknown>}
             onRecharge={hookActions?.purchaseDemoPack}
+            isProcessing={sessionState?.paymentProcessing}
           />
         </CardWrapper>
       );
@@ -341,6 +343,7 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
         <CardWrapper message={message} isUser={false}>
           <DemoPackCTA
             onPurchase={hookActions?.purchaseDemoPack || undefined}
+            isProcessing={sessionState?.paymentProcessing}
             isAlreadyActive={sessionState?.isDemoPackActive}
           />
         </CardWrapper>

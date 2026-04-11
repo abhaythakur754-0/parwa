@@ -25,9 +25,28 @@ interface ChatWindowProps {
   onRetry?: () => void;
   /** Callback when a quick suggestion chip is clicked */
   onSuggestionClick?: (text: string) => void;
+  /** Hook actions passed through to ChatMessage cards */
+  hookActions?: {
+    sendOtp?: (email: string) => Promise<void>;
+    verifyOtp?: (code: string) => Promise<boolean>;
+    purchaseDemoPack?: () => Promise<void>;
+    createPayment?: (variants: { id: string; name?: string; quantity: number; price?: number; features?: string[] }[], industry: string) => Promise<string | null>;
+    initiateDemoCall?: (phone: string) => Promise<void>;
+    executeHandoff?: () => Promise<void>;
+  };
+  /** Session state passed through to ChatMessage cards */
+  sessionState?: {
+    remainingToday?: number;
+    totalMessages?: number;
+    isDemoPackActive?: boolean;
+    isHandoffComplete?: boolean;
+    paymentProcessing?: boolean;
+    otpState?: { status: string; email: string };
+    demoCallState?: { status: string; phone: string | null; duration: number };
+  };
 }
 
-export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick }: ChatWindowProps) {
+export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hookActions, sessionState }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
@@ -92,6 +111,8 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick }: C
                   key={msg.id || `msg-${idx}`}
                   message={msg}
                   onRetry={msg.message_type === 'error' ? onRetry : undefined}
+                  hookActions={hookActions}
+                  sessionState={sessionState}
                 />
               ))}
 
