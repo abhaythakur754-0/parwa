@@ -17,6 +17,8 @@ import io
 import secrets
 import time
 
+from datetime import timezone
+
 import pyotp
 import qrcode
 from sqlalchemy.orm import Session
