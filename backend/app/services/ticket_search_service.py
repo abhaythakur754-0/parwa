@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from difflib import SequenceMatcher
 
@@ -584,7 +584,7 @@ class TicketSearchService:
             # Create search record
             search_record = json.dumps({
                 "query": query,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
             # Add to list (LPUSH adds to front)
@@ -621,7 +621,7 @@ class TicketSearchService:
         results = []
 
         # Get recent open tickets
-        recent = datetime.utcnow() - timedelta(days=30)
+        recent = datetime.now(timezone.utc) - timedelta(days=30)
         tickets = self.db.query(Ticket).filter(
             Ticket.company_id == self.company_id,
             Ticket.status.in_([

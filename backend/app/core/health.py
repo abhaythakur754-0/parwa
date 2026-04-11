@@ -160,8 +160,8 @@ async def check_postgresql() -> SubsystemHealth:
             pool = engine.pool
             pool_used = pool.checkedout()
             pool_max = pool.size()
-        except Exception:
-            pass
+        except Exception as _pool_exc:
+            logger.debug("health_postgresql_pool_stats_failed error=%s", _pool_exc)
 
         pool_pct = (pool_used / pool_max * 100) if pool_max > 0 else 0
         status = HealthStatus.HEALTHY.value
@@ -218,8 +218,8 @@ async def check_redis() -> SubsystemHealth:
                 memory_max_mb = round(
                     maxmemory / (1024 * 1024), 2,
                 )
-        except Exception:
-            pass
+        except Exception as _mem_exc:
+            logger.debug("health_redis_memory_info_failed error=%s", _mem_exc)
 
         mem_pct = 0.0
         if memory_max_mb > 0:
@@ -348,8 +348,8 @@ async def check_celery_queues() -> SubsystemHealth:
                     if q_name in queue_depths:
                         queue_depths[q_name] += 1
                     total_depth += 1
-        except Exception:
-            pass
+        except Exception as _inspect_exc:
+            logger.debug("health_celery_inspect_failed error=%s", _inspect_exc)
 
         latency = round((time.monotonic() - start) * 1000, 2)
 

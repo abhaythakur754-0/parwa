@@ -545,7 +545,7 @@ def increment_active_tickets(
 
     # Atomic SQL UPDATE to prevent race conditions
     import sqlalchemy as sa
-    from datetime import datetime
+    from datetime import datetime, timezone
     db.execute(
         sa.text(
             "UPDATE variant_instances SET "
@@ -557,7 +557,7 @@ def increment_active_tickets(
         {
             "inst_id": instance_id,
             "comp_id": company_id,
-            "now_ts": datetime.utcnow(),
+            "now_ts": datetime.now(timezone.utc),
         },
     )
     db.commit()
@@ -608,7 +608,7 @@ def decrement_active_tickets(
         {
             "inst_id": instance_id,
             "comp_id": company_id,
-            "now_ts": datetime.utcnow(),
+            "now_ts": datetime.now(timezone.utc),
         },
     )
     db.commit()

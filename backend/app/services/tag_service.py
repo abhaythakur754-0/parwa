@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Dict, List, Optional, Set, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -131,7 +131,7 @@ class TagService:
 
         # Update ticket
         ticket.tags = json.dumps(current_tags)
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
         self.db.commit()
 
         return current_tags, added_tags
@@ -171,7 +171,7 @@ class TagService:
 
         # Update ticket
         ticket.tags = json.dumps(current_tags)
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
         self.db.commit()
 
         return current_tags, removed_tags
@@ -204,7 +204,7 @@ class TagService:
 
         # Update ticket
         ticket.tags = json.dumps(clean_tags)
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
         self.db.commit()
 
         return clean_tags

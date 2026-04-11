@@ -13,7 +13,7 @@ PS26: Unmerge preserves message history.
 
 import json
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
@@ -157,11 +157,11 @@ class TicketMergeService:
             
             # Mark merged ticket as closed
             ticket.status = TicketStatus.closed.value
-            ticket.closed_at = datetime.utcnow()
-            ticket.updated_at = datetime.utcnow()
+            ticket.closed_at = datetime.now(timezone.utc)
+            ticket.updated_at = datetime.now(timezone.utc)
         
         # Update primary ticket
-        primary_ticket.updated_at = datetime.utcnow()
+        primary_ticket.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         
@@ -189,7 +189,7 @@ class TicketMergeService:
                 metadata_json=json.dumps({
                     "original_ticket_id": merged_ticket.id,
                     "original_message_id": message.id,
-                    "merged_at": datetime.utcnow().isoformat(),
+                    "merged_at": datetime.now(timezone.utc).isoformat(),
                 }),
                 is_internal=message.is_internal,
                 is_redacted=message.is_redacted,
@@ -288,7 +288,7 @@ class TicketMergeService:
                 ticket.status = TicketStatus.reopened.value
                 ticket.closed_at = None
                 ticket.reopen_count = (ticket.reopen_count or 0) + 1
-                ticket.updated_at = datetime.utcnow()
+                ticket.updated_at = datetime.now(timezone.utc)
                 restored_tickets.append(ticket)
         
         # Mark merge as undone

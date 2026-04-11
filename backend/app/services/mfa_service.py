@@ -307,13 +307,13 @@ def verify_mfa_login(
         count = (user.failed_login_count or 0) + 1
         user.failed_login_count = count
         user.last_failed_login_at = (
-            __import__("datetime").datetime.utcnow()
+            __import__("datetime").datetime.now(timezone.utc)
         )
 
         if count >= _MFA_MAX_FAILURES:
             from datetime import timedelta
             user.locked_until = (
-                __import__("datetime").datetime.utcnow()
+                __import__("datetime").datetime.now(timezone.utc)
                 + timedelta(minutes=_MFA_LOCKOUT_MINUTES)
             )
             db.commit()
@@ -388,7 +388,7 @@ def use_backup_code(
 
     # Mark as used
     bc.is_used = True
-    bc.used_at = __import__("datetime").datetime.utcnow()
+    bc.used_at = __import__("datetime").datetime.now(timezone.utc)
     db.flush()
 
     # Count remaining

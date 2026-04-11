@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, or_
@@ -103,7 +103,7 @@ class ActivityLogService:
         Returns:
             Activity record dict
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         activity = {
             "id": str(uuid.uuid4()),

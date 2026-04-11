@@ -52,6 +52,11 @@ _mock_modules = {
     "database.base": ({"get_db": lambda: None, "engine": MagicMock(), "Session": MagicMock}, False),
     "database.models": (None, True),
     "database.models.core": (_db_core_attrs, False),
+    # SQLAlchemy mock (needed by response.py)
+    "sqlalchemy": (None, True),
+    "sqlalchemy.orm": ({"Session": MagicMock}, False),
+    "sqlalchemy.ext": (None, True),
+    "sqlalchemy.ext.asyncio": ({"AsyncSession": MagicMock, "create_async_engine": MagicMock}, False),
     # Shared utilities (used by schemas, services)
     "shared": (None, True),
     "shared.utils": (None, True),
@@ -71,6 +76,7 @@ _mock_modules = {
     "app.api.public": ({"router": MagicMock()}, False),
     # Services that may be imported
     "app.services.notification_service": ({"NotificationService": MagicMock}, False),
+    "app.api.jarvis": ({"router": MagicMock()}, False),
 }
 
 for _mod_name, (_attrs, _is_pkg) in _mock_modules.items():

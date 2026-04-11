@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -54,28 +54,28 @@ class DateRange:
     @classmethod
     def last_n_days(cls, n: int) -> "DateRange":
         """Create a date range for the last N days."""
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(days=n)
         return cls(start_date=start, end_date=end)
 
     @classmethod
     def last_n_hours(cls, n: int) -> "DateRange":
         """Create a date range for the last N hours."""
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(hours=n)
         return cls(start_date=start, end_date=end)
 
     @classmethod
     def last_n_weeks(cls, n: int) -> "DateRange":
         """Create a date range for the last N weeks."""
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(weeks=n)
         return cls(start_date=start, end_date=end)
 
     @classmethod
     def last_n_months(cls, n: int) -> "DateRange":
         """Create a date range for the last N months (approximate)."""
-        end = datetime.utcnow()
+        end = datetime.now(timezone.utc)
         start = end - timedelta(days=n * 30)
         return cls(start_date=start, end_date=end)
 

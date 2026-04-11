@@ -15,7 +15,7 @@ This service coordinates all ticket lifecycle operations.
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -257,7 +257,7 @@ class TicketLifecycleService:
         Compares against recent open tickets from same customer.
         """
         # Look for similar tickets in last 7 days
-        since = datetime.utcnow() - timedelta(days=7)
+        since = datetime.now(timezone.utc) - timedelta(days=7)
         
         recent_tickets = self.db.query(Ticket).filter(
             Ticket.company_id == self.company_id,
@@ -382,7 +382,7 @@ class TicketLifecycleService:
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
-        cutoff = datetime.utcnow() - timedelta(days=days_frozen)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days_frozen)
         
         frozen_tickets = self.db.query(Ticket).filter(
             Ticket.company_id == self.company_id,
@@ -454,7 +454,7 @@ class TicketLifecycleService:
         """
         PS08: Get tickets needing reminders grouped by reminder type.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         tickets_24h = []
         tickets_7d = []

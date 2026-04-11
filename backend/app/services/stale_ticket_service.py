@@ -8,7 +8,7 @@ Handles:
 - Priority-based timeout configuration
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, or_
@@ -122,7 +122,7 @@ class StaleTicketService:
             reason="no_response" if reason == "no_response" else "ps06",
         )
         
-        ticket.stale_at = datetime.utcnow()
+        ticket.stale_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(ticket)
@@ -211,7 +211,7 @@ class StaleTicketService:
         metadata = json.loads(ticket.metadata_json) if isinstance(ticket.metadata_json, str) else ticket.metadata_json
         metadata["auto_closed"] = True
         metadata["auto_close_reason"] = "stale_double_timeout"
-        metadata["auto_closed_at"] = datetime.utcnow().isoformat()
+        metadata["auto_closed_at"] = datetime.now(timezone.utc).isoformat()
         ticket.metadata_json = json.dumps(metadata)
         
         self.db.commit()
@@ -316,7 +316,7 @@ class StaleTicketService:
         ticket: Ticket,
     ) -> Dict[str, Any]:
         """Calculate staleness details for a ticket."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         # Determine last activity time
         last_activity = ticket.updated_at or ticket.created_at

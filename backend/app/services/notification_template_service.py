@@ -10,7 +10,7 @@ Handles:
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -163,8 +163,8 @@ class NotificationTemplateService:
             body_template=body_template,
             is_active=is_active,
             version=existing.version + 1 if existing else 1,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
         
         self.db.add(template)
@@ -273,7 +273,7 @@ class NotificationTemplateService:
         if is_active is not None:
             template.is_active = is_active
         
-        template.updated_at = datetime.utcnow()
+        template.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(template)
@@ -287,7 +287,7 @@ class NotificationTemplateService:
         if template.event_type in self.SYSTEM_TEMPLATES:
             # Soft delete - just deactivate
             template.is_active = False
-            template.updated_at = datetime.utcnow()
+            template.updated_at = datetime.now(timezone.utc)
         else:
             # Hard delete for custom templates
             self.db.delete(template)
@@ -353,7 +353,7 @@ class NotificationTemplateService:
         
         # Activate this version
         template.is_active = True
-        template.updated_at = datetime.utcnow()
+        template.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(template)
@@ -418,7 +418,7 @@ class NotificationTemplateService:
                 "priority": "high",
                 "category": "technical",
                 "channel": "email",
-                "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+                "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
             },
             "ticket_assigned": {
                 "ticket_id": "TICKET-123",
@@ -426,21 +426,21 @@ class NotificationTemplateService:
                 "assignee_name": "Jane Agent",
                 "assignee_type": "human",
                 "assigned_by": "System",
-                "assigned_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+                "assigned_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
             },
             "ticket_resolved": {
                 "ticket_id": "TICKET-123",
                 "ticket_subject": "Sample Ticket Subject",
                 "resolved_by": "Jane Agent",
                 "resolution_time": "2 hours",
-                "resolved_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+                "resolved_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
                 "resolution_notes": "Issue was fixed by restarting the service.",
             },
             "ticket_closed": {
                 "ticket_id": "TICKET-123",
                 "ticket_subject": "Sample Ticket Subject",
                 "closed_by": "John Doe",
-                "closed_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+                "closed_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
                 "resolution_summary": "Ticket resolved successfully.",
                 "csat_rating": "5",
             },
@@ -449,13 +449,13 @@ class NotificationTemplateService:
                 "ticket_subject": "Sample Ticket Subject",
                 "time_remaining": "2 hours",
                 "sla_type": "first_response",
-                "deadline": (datetime.utcnow()).strftime("%Y-%m-%d %H:%M"),
+                "deadline": (datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M"),
                 "warning_level": "75%",
             },
             "sla_breached": {
                 "ticket_id": "TICKET-123",
                 "ticket_subject": "Sample Ticket Subject",
-                "breached_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+                "breached_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
                 "breach_type": "first_response",
                 "time_elapsed": "5 hours",
                 "escalation_level": "1",
@@ -466,14 +466,14 @@ class NotificationTemplateService:
                 "escalation_reason": "Customer requested human agent",
                 "escalated_to": "Human Queue",
                 "ai_summary": "Customer had issues with login. Tried password reset but still unable to access.",
-                "escalated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+                "escalated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
             },
             "incident_created": {
                 "incident_id": "INC-001",
                 "incident_title": "API Service Degradation",
                 "status_update": "We are investigating reports of slow API response times.",
                 "affected_services": "API, Dashboard",
-                "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+                "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
                 "estimated_resolution": "1 hour",
             },
         }

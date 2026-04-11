@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from celery import shared_task
@@ -784,7 +784,7 @@ def send_sla_warning(
             timer = sla_service.get_timer(company_id, ticket_id)
             if timer and ticket.resolution_target_at:
                 minutes_remaining = (
-                    ticket.resolution_target_at - datetime.utcnow()
+                    ticket.resolution_target_at - datetime.now(timezone.utc)
                 ).total_seconds() / 60
             else:
                 minutes_remaining = None
@@ -895,7 +895,7 @@ def send_sla_breach(
             minutes_overdue = None
             if timer and ticket.resolution_target_at:
                 minutes_overdue = (
-                    datetime.utcnow() - ticket.resolution_target_at
+                    datetime.now(timezone.utc) - ticket.resolution_target_at
                 ).total_seconds() / 60
 
             # Emit SLA breach event

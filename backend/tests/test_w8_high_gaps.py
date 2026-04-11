@@ -432,7 +432,7 @@ class TestCacheTenantIsolation:
         mock_db = MagicMock()
         mock_entry = MagicMock()
         mock_entry.cached_result = json.dumps({"answer": "secret data"})
-        mock_entry.ttl_expires_at = datetime.utcnow() + timedelta(hours=1)
+        mock_entry.ttl_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
         mock_entry.hit_count = 0
         mock_db.query.return_value.filter_by.return_value.first.return_value = mock_entry
 

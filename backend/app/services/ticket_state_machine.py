@@ -16,13 +16,16 @@ PS handlers covered:
 - PS13: Variant down/queued
 """
 
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
 from app.exceptions import ValidationError
-from database.models.tickets import Ticket, TicketStatus
+from database.models.tickets import Ticket, TicketStatus, TicketStatusChange
+
+logger = logging.getLogger("parwa.services.ticket_state_machine")
 
 
 class TicketStateMachine:
@@ -226,7 +229,7 @@ class TicketStateMachine:
         
         # Execute transition
         ticket.status = to_status.value if isinstance(to_status, TicketStatus) else to_status
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
         
         # Handle status-specific side effects
         self._handle_side_effects(ticket, old_status, to_status, reason, metadata)
@@ -250,7 +253,7 @@ class TicketStateMachine:
         if to_status == TicketStatus.reopened:
             # Check if within reopen window (7 days)
             if ticket.resolved_at:
-                days_since_resolved = (datetime.utcnow() - ticket.resolved_at).days
+                days_since_resolved = (datetime.now(timezone.utc) - ticket.resolved_at).days
                 if days_since_resolved > 7:
                     return "Reopen window has expired (7 days)"
         
@@ -258,7 +261,7 @@ class TicketStateMachine:
         if from_status == TicketStatus.closed and to_status == TicketStatus.reopened:
             # Check if within reopen window
             if ticket.closed_at:
-                days_since_closed = (datetime.utcnow() - ticket.closed_at).days
+                days_since_closed = (datetime.now(timezone.utc) - ticket.closed_at).days
                 if days_since_closed > 7:
                     return "Reopen window has expired (7 days after closing)"
         
@@ -270,7 +273,7 @@ class TicketStateMachine:
         # PS07: Frozen timeout
         if from_status == TicketStatus.frozen and to_status == TicketStatus.closed:
             if ticket.frozen_at:
-                days_frozen = (datetime.utcnow() - ticket.frozen_at).days
+                days_frozen = (datetime.now(timezone.utc) - ticket.frozen_at).days
                 if days_frozen < 30:
                     return "Frozen tickets can only be closed after 30 days"
         
@@ -289,15 +292,15 @@ class TicketStateMachine:
         # Track first response
         if to_status in [TicketStatus.in_progress, TicketStatus.resolved]:
             if not ticket.first_response_at:
-                ticket.first_response_at = datetime.utcnow()
+                ticket.first_response_at = datetime.now(timezone.utc)
         
         # Track resolution
         if to_status == TicketStatus.resolved:
-            ticket.resolved_at = datetime.utcnow()
+            ticket.resolved_at = datetime.now(timezone.utc)
         
         # Track close
         if to_status == TicketStatus.closed:
-            ticket.closed_at = datetime.utcnow()
+            ticket.closed_at = datetime.now(timezone.utc)
         
         # Track reopen
         if to_status == TicketStatus.reopened:
@@ -305,14 +308,14 @@ class TicketStateMachine:
         
         # Track frozen
         if to_status == TicketStatus.frozen:
-            ticket.frozen_at = datetime.utcnow()
+            ticket.frozen_at = datetime.now(timezone.utc)
             ticket.frozen = True
         elif from_status == TicketStatus.frozen:
             ticket.frozen = False
         
         # Track stale
         if to_status == TicketStatus.stale:
-            ticket.stale_at = datetime.utcnow()
+            ticket.stale_at = datetime.now(timezone.utc)
         
         # Track awaiting client
         if to_status == TicketStatus.awaiting_client:
@@ -354,9 +357,13 @@ class TicketStateMachine:
         for hook in hooks:
             try:
                 hook(ticket, reason, actor_id, metadata)
-            except Exception:
-                # Log error but don't fail the transition
-                pass
+            except Exception as exc:
+                logger.error(
+                    "transition_hook_failed: hook=%s, error=%s",
+                    type(hook).__name__,
+                    exc,
+                    exc_info=True,
+                )
     
     def get_valid_transitions(self, ticket: Ticket) -> List[TicketStatus]:
         """Get list of valid target statuses for a ticket."""
@@ -382,12 +389,44 @@ class TicketStateMachine:
     ) -> List[Dict[str, Any]]:
         """
         Get transition history for a ticket.
-        
-        This would typically query an audit log table.
-        For now, returns empty list to be implemented with activity_log_service.
+
+        Queries the ``TicketStatusChange`` audit table for all status
+        transitions recorded against *ticket_id* within the current
+        company scope, ordered newest-first.
+
+        Args:
+            ticket_id: Ticket to query.
+            limit: Maximum number of records to return (default 50).
+
+        Returns:
+            List of dicts with ``from``, ``to``, ``by``, ``reason``, ``at``.
         """
-        # TODO: Implement with activity_log_service
-        return []
+        try:
+            changes = (
+                self.db.query(TicketStatusChange)
+                .filter(
+                    TicketStatusChange.ticket_id == ticket_id,
+                    TicketStatusChange.company_id == self.company_id,
+                )
+                .order_by(TicketStatusChange.created_at.desc())
+                .limit(limit)
+                .all()
+            )
+            return [
+                {
+                    "from": c.from_status,
+                    "to": c.to_status,
+                    "by": c.changed_by,
+                    "reason": c.reason,
+                    "at": c.created_at.isoformat() if c.created_at else None,
+                }
+                for c in changes
+            ]
+        except Exception:
+            logger.exception(
+                "get_transition_history_failed ticket_id=%s", ticket_id
+            )
+            return []
 
 
 class TransitionValidator:
@@ -402,7 +441,7 @@ class TransitionValidator:
         # Check reopen window
         closed_at = ticket.closed_at or ticket.resolved_at
         if closed_at:
-            days_since = (datetime.utcnow() - closed_at).days
+            days_since = (datetime.now(timezone.utc) - closed_at).days
             if days_since > 7:
                 return False, "Reopen window has expired (7 days)"
         

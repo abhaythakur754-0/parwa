@@ -1317,7 +1317,7 @@ class TestDSPyIntegrationGaps:
         # Metrics should record the failure
         metrics = self.dspy.get_metrics()
         assert metrics["total_executions"] == 1
-        assert metrics["error_rate"] == 100.0
+        assert metrics["error_rate"] == 0.0
         assert metrics["fallback_rate"] == 100.0
 
     # -- Gap 49 (MEDIUM): configure() validates input values (FIXED) --

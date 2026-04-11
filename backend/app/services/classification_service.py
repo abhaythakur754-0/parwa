@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, func, or_
@@ -191,7 +191,7 @@ class ClassificationService:
                 urgency=urgency,
                 confidence=confidence,
                 variant_version="rule-based-v1",
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             self.db.add(classification)
 
@@ -300,7 +300,7 @@ class ClassificationService:
             corrected_urgency=corrected_urgency,
             corrected_by=corrected_by,
             reason=reason,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         self.db.add(correction)
 

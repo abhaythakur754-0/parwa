@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc
@@ -100,13 +100,13 @@ class InternalNoteService:
             author_id=author_id,
             content=content,
             is_pinned=is_pinned,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         self.db.add(note)
 
         # Update ticket's updated_at
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(note)

@@ -10,6 +10,8 @@ Keeps backward compatibility with the old security/rate_limiter
 module (the old limiter is still available but not used here).
 """
 
+import os
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -20,6 +22,10 @@ from app.services.rate_limit_service import (
 
 # Shared service instance (per-process)
 _rate_limit_svc = get_rate_limit_service()
+
+# Number of trusted reverse-proxy layers in front of the app.
+# Only the rightmost N addresses in X-Forwarded-For are trusted.
+_TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
 
 # Paths that skip rate limiting (health, metrics)
 SKIP_PATHS = {"/health", "/ready", "/metrics"}
@@ -104,13 +110,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return response
 
     def _get_client_ip(self, request: Request) -> str:
-        """Extract client IP from request."""
-        if request.client:
-            return request.client.host
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip.strip()
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        return ""
+        """Extract client IP, honouring trusted proxy configuration.
+
+        Reads ``X-Forwarded-For`` only when ``TRUSTED_PROXY_COUNT > 0``
+        and returns the rightmost trusted address (i.e. the client-side
+        IP closest to the outermost trusted proxy).
+
+        Falls back to ``request.client.host`` when the header is absent
+        or no trusted proxies are configured.
+        """
+        forwarded = request.headers.get("X-Forwarded-For", "")
+        if forwarded and _TRUSTED_PROXY_COUNT > 0:
+            ips = [ip.strip() for ip in forwarded.split(",")]
+            if len(ips) >= _TRUSTED_PROXY_COUNT:
+                return ips[-_TRUSTED_PROXY_COUNT]
+        return request.client.host if request.client else "unknown"

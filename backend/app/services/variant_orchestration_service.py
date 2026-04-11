@@ -21,7 +21,7 @@ BC-008: Graceful degradation.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 import sqlalchemy as sa
@@ -358,7 +358,7 @@ def route_ticket(
         instance_id=instance.id,
         ticket_id=ticket_id.strip(),
         distribution_strategy=strategy,
-        assigned_at=datetime.utcnow(),
+        assigned_at=datetime.now(timezone.utc),
         status="assigned",
     )
     db.add(distribution)
@@ -376,7 +376,7 @@ def route_ticket(
         {
             "inst_id": instance.id,
             "comp_id": company_id,
-            "now_ts": datetime.utcnow(),
+            "now_ts": datetime.now(timezone.utc),
         },
     )
     db.commit()
@@ -579,7 +579,7 @@ def rebalance_workload(
                         "updated_at = :now_ts "
                         "WHERE id = :inst_id"
                     ),
-                    {"inst_id": over_inst.id, "now_ts": datetime.utcnow()},
+                    {"inst_id": over_inst.id, "now_ts": datetime.now(timezone.utc)},
                 )
                 db.execute(
                     sa.text(
@@ -589,7 +589,7 @@ def rebalance_workload(
                         "updated_at = :now_ts "
                         "WHERE id = :inst_id"
                     ),
-                    {"inst_id": under_inst.id, "now_ts": datetime.utcnow()},
+                    {"inst_id": under_inst.id, "now_ts": datetime.now(timezone.utc)},
                 )
                 migrated += 1
 
@@ -716,14 +716,14 @@ def escalate_ticket(
         instance_id=target.id,
         ticket_id=ticket_id.strip(),
         distribution_strategy="escalated",
-        assigned_at=datetime.utcnow(),
+        assigned_at=datetime.now(timezone.utc),
         status="assigned",
         rebalance_from_instance_id=current_inst.id,
     )
     db.add(new_dist)
 
     # Atomic SQL UPDATE: decrement source, increment target (GAP 1 fix)
-    now_ts = datetime.utcnow()
+    now_ts = datetime.now(timezone.utc)
     db.execute(
         sa.text(
             "UPDATE variant_instances SET "
@@ -793,7 +793,7 @@ def complete_ticket_assignment(
         return dist
 
     dist.status = "completed"
-    dist.completed_at = datetime.utcnow()
+    dist.completed_at = datetime.now(timezone.utc)
     dist.billing_charged_to_instance = dist.instance_id
 
     # Atomic SQL UPDATE: decrement active count (GAP 1 fix)
@@ -807,7 +807,7 @@ def complete_ticket_assignment(
             "updated_at = :now_ts "
             "WHERE id = :inst_id AND company_id = :comp_id"
         ),
-        {"inst_id": dist.instance_id, "comp_id": company_id, "now_ts": datetime.utcnow()},
+        {"inst_id": dist.instance_id, "comp_id": company_id, "now_ts": datetime.now(timezone.utc)},
     )
 
     db.commit()

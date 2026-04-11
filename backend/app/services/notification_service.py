@@ -10,7 +10,7 @@ Handles:
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -132,7 +132,7 @@ class NotificationService:
                     sender_id=sender_id,
                     channels=json.dumps(target_channels),
                     status="pending",
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 
                 self.db.add(notification)
@@ -148,7 +148,7 @@ class NotificationService:
                 )
                 
                 notification.status = "sent" if dispatch_results["success"] else "failed"
-                notification.sent_at = datetime.utcnow() if dispatch_results["success"] else None
+                notification.sent_at = datetime.now(timezone.utc) if dispatch_results["success"] else None
                 
                 results["notification_ids"].append(notification.id)
                 
@@ -278,7 +278,7 @@ class NotificationService:
             "incident_id": incident_id,
             "incident_title": incident_title,
             "status_update": status_update,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         
         return self.send_bulk_notification(
@@ -331,7 +331,7 @@ class NotificationService:
         if not notification:
             raise NotFoundError(f"Notification {notification_id} not found")
         
-        notification.read_at = datetime.utcnow()
+        notification.read_at = datetime.now(timezone.utc)
         notification.status = "read"
         self.db.commit()
         
@@ -344,7 +344,7 @@ class NotificationService:
             Notification.user_id == user_id,
             Notification.read_at.is_(None),
         ).update({
-            "read_at": datetime.utcnow(),
+            "read_at": datetime.now(timezone.utc),
             "status": "read",
         })
         
@@ -645,9 +645,9 @@ class NotificationService:
         
         # Calculate time range
         if period == "daily":
-            since = datetime.utcnow() - timedelta(days=1)
+            since = datetime.now(timezone.utc) - timedelta(days=1)
         else:
-            since = datetime.utcnow() - timedelta(weeks=1)
+            since = datetime.now(timezone.utc) - timedelta(weeks=1)
         
         # Get unread notifications
         notifications = self.db.query(Notification).filter(
@@ -677,7 +677,7 @@ class NotificationService:
             "total_count": len(notifications),
             "grouped_counts": {k: len(v) for k, v in grouped.items()},
             "summary": self._generate_digest_summary(grouped),
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
         
         return {

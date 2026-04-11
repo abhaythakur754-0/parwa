@@ -8,7 +8,7 @@ Pydantic models for SLA (Service Level Agreement) management.
 - SLA Statistics
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -161,7 +161,7 @@ class SLATimerResponse(BaseModel):
             return None
         if self.resolved_at is not None:
             return 0
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         remaining = (self.resolution_target - now).total_seconds()
         return max(0, int(remaining))
 
@@ -173,7 +173,7 @@ class SLATimerResponse(BaseModel):
             return False
         if self.created_at is None:
             return False
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if now >= self.resolution_target:
             return False
         

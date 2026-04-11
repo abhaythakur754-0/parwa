@@ -26,7 +26,7 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 import pytest
@@ -838,7 +838,7 @@ class TestCacheInvalidationRaceCondition:
         """get_cached_result must return None for expired entries."""
         mock_entry = MagicMock()
         mock_entry.cached_result = json.dumps({"data": "old"})
-        mock_entry.ttl_expires_at = datetime.utcnow() - timedelta(hours=1)
+        mock_entry.ttl_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
         mock_entry.hit_count = 5
 
         # Chain through MagicMock auto-attributes:

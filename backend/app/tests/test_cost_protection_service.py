@@ -262,7 +262,7 @@ class TestTimezoneAwareDatetime:
         with open('/home/z/my-project/parwa/backend/app/services/cost_protection_service.py') as f:
             source = f.read()
         assert 'utcnow' not in source, (
-            'cost_protection_service must use datetime.now(timezone.utc), NOT datetime.utcnow()'
+            'cost_protection_service must use datetime.now(timezone.utc), NOT datetime.now(timezone.utc)'
         )
 
     def test_uses_timezone_utc(self):

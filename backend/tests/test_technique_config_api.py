@@ -59,18 +59,23 @@ def store() -> Generator[TechniqueConfigStore, None, None]:
     yield s
 
 
+@pytest.fixture(autouse=True)
+def _reset_store():
+    """Reset global technique config store before every test."""
+    _tc_mod._config_store._configs.clear()
+    yield
+    _tc_mod._config_store._configs.clear()
+
+
 @pytest.fixture
 def app() -> Generator[FastAPI, None, None]:
     """Provide a fresh FastAPI app with the technique_config router."""
-    # Reset the global store before each test
-    _tc_mod._config_store._configs.clear()
 
     application = FastAPI()
     application.include_router(router)
     yield application
 
-    # Cleanup
-    _tc_mod._config_store._configs.clear()
+    # Cleanup handled by autouse fixture
 
 
 @pytest.fixture
@@ -404,7 +409,7 @@ class TestUpdateTechniqueConfigEndpoint:
     def test_update_disable_technique(self, client):
         """Test PUT disables a technique."""
         response = client.put(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             json={
                 "company_id": "company_1",
                 "enabled": False,
@@ -414,16 +419,16 @@ class TestUpdateTechniqueConfigEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["enabled"] is False
-        assert data["technique_id"] == "clara"
+        assert data["technique_id"] == "chain_of_thought"
 
     def test_update_enable_technique(self, client):
         """Test PUT enables a technique."""
         # First disable
         store = get_config_store()
-        store.set_config("company_1", "clara", enabled=False)
+        store.set_config("company_1", "chain_of_thought", enabled=False)
 
         response = client.put(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             json={
                 "company_id": "company_1",
                 "enabled": True,
@@ -436,7 +441,7 @@ class TestUpdateTechniqueConfigEndpoint:
     def test_update_with_config_overrides(self, client):
         """Test PUT with config_overrides."""
         response = client.put(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             json={
                 "company_id": "company_1",
                 "enabled": True,
@@ -501,7 +506,7 @@ class TestUpdateTechniqueConfigEndpoint:
     def test_update_returns_updated_at(self, client):
         """Test PUT response includes updated_at timestamp."""
         response = client.put(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             json={
                 "company_id": "company_1",
                 "enabled": False,
@@ -539,14 +544,14 @@ class TestUpdateTechniqueConfigEndpoint:
     def test_update_persists_across_get(self, client):
         """Test PUT update is reflected in GET."""
         client.put(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             json={
                 "company_id": "company_1",
                 "enabled": False,
             },
         )
         response = client.get(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             params={"company_id": "company_1"},
         )
         assert response.status_code == 200
@@ -608,7 +613,7 @@ class TestGetTechniqueConfigEndpoint:
     def test_get_specific_reflects_update(self, client):
         """Test GET reflects previous PUT update."""
         client.put(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             json={
                 "company_id": "company_1",
                 "enabled": False,
@@ -616,7 +621,7 @@ class TestGetTechniqueConfigEndpoint:
             },
         )
         response = client.get(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             params={"company_id": "company_1"},
         )
         assert response.status_code == 200
@@ -689,7 +694,7 @@ class TestCompanyIsolationAPI:
     def test_company_isolation_in_get(self, client):
         """Test get specific config is company-isolated."""
         client.put(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             json={
                 "company_id": "company_a",
                 "enabled": False,
@@ -698,11 +703,11 @@ class TestCompanyIsolationAPI:
         )
 
         response_a = client.get(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             params={"company_id": "company_a"},
         )
         response_b = client.get(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             params={"company_id": "company_b"},
         )
 
@@ -712,14 +717,14 @@ class TestCompanyIsolationAPI:
     def test_different_companies_different_configs(self, client):
         """Test multiple companies have independent configs."""
         client.put(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             json={
                 "company_id": "a",
                 "enabled": False,
             },
         )
         client.put(
-            "/api/techniques/config/gsd",
+            "/api/techniques/config/reverse_thinking",
             json={
                 "company_id": "b",
                 "enabled": False,
@@ -735,22 +740,22 @@ class TestCompanyIsolationAPI:
             params={"company_id": "b"},
         ).json()
 
-        clara_a = next(
+        cot_a = next(
             t for t in list_a["techniques"]
-            if t["technique_id"] == "clara"
+            if t["technique_id"] == "chain_of_thought"
         )
-        gsd_b = next(
+        rt_b = next(
             t for t in list_b["techniques"]
-            if t["technique_id"] == "gsd"
+            if t["technique_id"] == "reverse_thinking"
         )
 
-        assert clara_a["enabled"] is False
-        gsd_b_enabled = next(
+        assert cot_a["enabled"] is False
+        rt_b_enabled = next(
             t for t in list_a["techniques"]
-            if t["technique_id"] == "gsd"
+            if t["technique_id"] == "reverse_thinking"
         )
-        assert gsd_b_enabled["enabled"] is True
-        assert gsd_b["enabled"] is False
+        assert rt_b_enabled["enabled"] is True
+        assert rt_b["enabled"] is False
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -786,8 +791,11 @@ class TestErrorHandling:
             assert tid.value in returned_ids
 
     def test_update_all_technique_ids(self, client):
-        """Test updating every technique_id in the registry works."""
+        """Test updating every T2/T3 technique_id works (T1 cannot be disabled)."""
+        tier_1 = {TechniqueID.CLARA, TechniqueID.CRP, TechniqueID.GSD}
         for tid in TechniqueID:
+            if tid in tier_1:
+                continue  # T1 techniques cannot be disabled per BC-009
             response = client.put(
                 f"/api/techniques/config/{tid.value}",
                 json={
@@ -811,7 +819,7 @@ class TestErrorHandling:
         for i in range(5):
             enabled = i % 2 == 0
             response = client.put(
-                "/api/techniques/config/clara",
+                "/api/techniques/config/chain_of_thought",
                 json={
                     "company_id": "company_1",
                     "enabled": enabled,
@@ -824,7 +832,7 @@ class TestErrorHandling:
         """Test full CRUD cycle."""
         # Update
         client.put(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             json={
                 "company_id": "company_1",
                 "enabled": False,
@@ -836,14 +844,14 @@ class TestErrorHandling:
             "/api/techniques/config",
             params={"company_id": "company_1"},
         )
-        clara = next(
+        cot = next(
             t for t in list_resp.json()["techniques"]
-            if t["technique_id"] == "clara"
+            if t["technique_id"] == "chain_of_thought"
         )
-        assert clara["enabled"] is False
+        assert cot["enabled"] is False
         # Update again
         client.put(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             json={
                 "company_id": "company_1",
                 "enabled": True,
@@ -852,7 +860,7 @@ class TestErrorHandling:
         )
         # Get
         get_resp = client.get(
-            "/api/techniques/config/clara",
+            "/api/techniques/config/chain_of_thought",
             params={"company_id": "company_1"},
         )
         data = get_resp.json()

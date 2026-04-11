@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -323,7 +323,7 @@ class IdentityResolutionService:
             company_id=self.company_id,
             input_email=email,
             input_phone=phone,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         self.db.add(log_entry)
@@ -503,7 +503,7 @@ class IdentityResolutionService:
         plan_snapshot = {
             "plan_tier": plan_tier,
             "grandfathered": True,
-            "grandfathered_since": datetime.utcnow().isoformat(),
+            "grandfathered_since": datetime.now(timezone.utc).isoformat(),
         }
 
         ticket.plan_snapshot = json.dumps(plan_snapshot)

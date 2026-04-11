@@ -15,7 +15,7 @@ Default SLA policies by plan tier:
 - High: Half of Growth times
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple, Dict, Any
 from decimal import Decimal
 
@@ -198,7 +198,7 @@ class SLAService:
             if field in kwargs:
                 setattr(policy, field, kwargs[field])
         
-        policy.updated_at = datetime.utcnow()
+        policy.updated_at = datetime.now(timezone.utc)
         self.db.commit()
         
         return policy
@@ -297,7 +297,7 @@ class SLAService:
         # Update ticket with resolution target
         ticket = self.db.query(Ticket).filter(Ticket.id == ticket_id).first()
         if ticket:
-            resolution_target = datetime.utcnow() + timedelta(
+            resolution_target = datetime.now(timezone.utc) + timedelta(
                 minutes=policy.resolution_minutes
             )
             ticket.resolution_target_at = resolution_target
@@ -334,8 +334,8 @@ class SLAService:
         if timer.first_response_at:
             return timer  # Already recorded
         
-        timer.first_response_at = datetime.utcnow()
-        timer.updated_at = datetime.utcnow()
+        timer.first_response_at = datetime.now(timezone.utc)
+        timer.updated_at = datetime.now(timezone.utc)
         
         # Update ticket
         ticket = self.db.query(Ticket).filter(Ticket.id == ticket_id).first()
@@ -363,8 +363,8 @@ class SLAService:
         if not timer:
             return None
         
-        timer.resolved_at = datetime.utcnow()
-        timer.updated_at = datetime.utcnow()
+        timer.resolved_at = datetime.now(timezone.utc)
+        timer.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         
@@ -430,7 +430,7 @@ class SLAService:
         if not policy:
             return False, None
         
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         # Check first response breach
         if not timer.first_response_at:
@@ -454,8 +454,8 @@ class SLAService:
     def _mark_breached(self, timer: SLATimer, breach_type: str) -> None:
         """Mark a timer as breached."""
         timer.is_breached = True
-        timer.breached_at = datetime.utcnow()
-        timer.updated_at = datetime.utcnow()
+        timer.breached_at = datetime.now(timezone.utc)
+        timer.updated_at = datetime.now(timezone.utc)
         
         # Update ticket
         ticket = self.db.query(Ticket).filter(
@@ -491,7 +491,7 @@ class SLAService:
         if not policy:
             return False, None
         
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         # Calculate elapsed percentage based on resolution time
         total_seconds = policy.resolution_minutes * 60

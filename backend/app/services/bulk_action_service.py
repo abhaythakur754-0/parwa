@@ -14,7 +14,7 @@ Day 29 - F-051 implementation.
 
 import json
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, or_
@@ -196,7 +196,7 @@ class BulkActionService:
         
         # Check undo window
         undo_deadline = bulk_action.created_at + timedelta(hours=self.UNDO_WINDOW_HOURS)
-        if datetime.utcnow() > undo_deadline:
+        if datetime.now(timezone.utc) > undo_deadline:
             raise BulkActionUndoExpiredError(
                 f"Undo window expired ({self.UNDO_WINDOW_HOURS} hours)"
             )
@@ -227,7 +227,7 @@ class BulkActionService:
                 self._validate_status_transition(ticket.status, new_status)
                 ticket.status = new_status
                 if new_status == TicketStatus.closed.value:
-                    ticket.closed_at = datetime.utcnow()
+                    ticket.closed_at = datetime.now(timezone.utc)
                     
         elif action_type == "reassign":
             assignee_id = params.get("assignee_id")
@@ -257,9 +257,9 @@ class BulkActionService:
                 
         elif action_type == "close":
             ticket.status = TicketStatus.closed.value
-            ticket.closed_at = datetime.utcnow()
+            ticket.closed_at = datetime.now(timezone.utc)
         
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
     def _validate_status_transition(
         self,
@@ -357,7 +357,7 @@ class BulkActionService:
                     ticket.status = TicketStatus.reopened.value
                     ticket.closed_at = None
                     ticket.reopen_count = (ticket.reopen_count or 0) + 1
-                    ticket.updated_at = datetime.utcnow()
+                    ticket.updated_at = datetime.now(timezone.utc)
 
     def get_bulk_action(
         self,

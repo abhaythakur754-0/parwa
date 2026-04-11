@@ -8,7 +8,7 @@ Uses existing security/api_keys.py functions for hashing/verification.
 
 import json
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -66,7 +66,7 @@ def create_key(
 
     expires_at = None
     if expires_days is not None:
-        expires_at = datetime.utcnow() + timedelta(
+        expires_at = datetime.now(timezone.utc) + timedelta(
             days=expires_days
         )
 
@@ -177,7 +177,7 @@ def rotate_key(
     db.add(new_record)
 
     # Old key stays active for 24h grace, then auto-expires
-    grace_ends = datetime.utcnow() + timedelta(
+    grace_ends = datetime.now(timezone.utc) + timedelta(
         hours=GRACE_PERIOD_HOURS
     )
     old_record.is_active = True
@@ -204,7 +204,7 @@ def revoke_key(
     if not record:
         raise ValueError("API key not found")
     record.revoked = True
-    record.revoked_at = datetime.utcnow()
+    record.revoked_at = datetime.now(timezone.utc)
     record.is_active = False
     db.flush()
 
@@ -240,10 +240,10 @@ def validate_key(
         return None
     if not record.is_active:
         return None
-    if record.expires_at and datetime.utcnow() > record.expires_at:
+    if record.expires_at and datetime.now(timezone.utc) > record.expires_at:
         return None
     # L18: Enforce grace period — rotated keys expire after grace_ends_at
-    if record.grace_ends_at and datetime.utcnow() > record.grace_ends_at:
+    if record.grace_ends_at and datetime.now(timezone.utc) > record.grace_ends_at:
         return None
     return record
 
@@ -265,7 +265,7 @@ def update_last_used(
         )
     record = query.first()
     if record:
-        record.last_used_at = datetime.utcnow()
+        record.last_used_at = datetime.now(timezone.utc)
         db.flush()
         _create_audit(
             db, key_id, record.company_id,

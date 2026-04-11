@@ -106,19 +106,35 @@ class KnowledgeBaseSearchTool(BaseTool):
         query: str = params.get("query", "")
         max_results: int = min(params.get("max_results", 5), 20)
 
-        # TODO: Wire to RAG retrieval in Week 9 Day 7-8
-        # For now, return structured placeholder
+        db = kwargs.get("db")
+        if db is not None:
+            try:
+                from database.models.knowledge_base import KnowledgeBaseArticle
+                rows = (
+                    db.query(KnowledgeBaseArticle)
+                    .filter(
+                        KnowledgeBaseArticle.company_id == company_id,
+                        KnowledgeBaseArticle.content.ilike(f"%{query}%"),
+                    )
+                    .limit(max_results)
+                    .all()
+                )
+                results = [
+                    {"id": r.id, "title": r.title, "snippet": (r.content or "")[:200]}
+                    for r in rows
+                ]
+            except Exception:
+                results = []
+        else:
+            results = []
+
         return {
             "success": True,
             "tool": self.name,
             "data": {
                 "query": query,
-                "results": [],
-                "total": 0,
-                "message": (
-                    "Knowledge base search placeholder — "
-                    "RAG retrieval will be connected in Week 9"
-                ),
+                "results": results,
+                "total": len(results),
             },
         }
 
@@ -161,21 +177,30 @@ class CustomerLookupTool(BaseTool):
     ) -> Dict[str, Any]:
         customer_id: str = params.get("customer_id", "")
 
-        # TODO: DB integration will be connected in Week 9
+        db = kwargs.get("db")
+        customer_data = {"customer_id": customer_id, "name": None, "email": None, "tier": None, "status": None}
+        if db is not None and customer_id:
+            try:
+                from database.models.tickets import Customer
+                row = (
+                    db.query(Customer)
+                    .filter(Customer.id == customer_id, Customer.company_id == company_id)
+                    .first()
+                )
+                if row is not None:
+                    customer_data.update({
+                        "name": getattr(row, "name", None),
+                        "email": getattr(row, "email", None),
+                        "tier": getattr(row, "tier", None),
+                        "status": getattr(row, "status", None),
+                    })
+            except Exception:
+                pass
+
         return {
             "success": True,
             "tool": self.name,
-            "data": {
-                "customer_id": customer_id,
-                "name": None,
-                "email": None,
-                "tier": None,
-                "status": None,
-                "message": (
-                    "Customer lookup placeholder — "
-                    "DB integration will be connected in Week 9"
-                ),
-            },
+            "data": customer_data,
         }
 
 
@@ -223,18 +248,41 @@ class TicketHistorySearchTool(BaseTool):
         query: str = params.get("query", "")
         limit: int = min(params.get("limit", 5), 20)
 
-        # TODO: DB integration will be connected in Week 9
+        db = kwargs.get("db")
+        tickets = []
+        if db is not None and query:
+            try:
+                from database.models.tickets import Ticket
+                pattern = f"%{query}%"
+                rows = (
+                    db.query(Ticket)
+                    .filter(
+                        Ticket.company_id == company_id,
+                        Ticket.subject.ilike(pattern),
+                    )
+                    .order_by(Ticket.created_at.desc())
+                    .limit(limit)
+                    .all()
+                )
+                tickets = [
+                    {
+                        "id": r.id,
+                        "subject": r.subject,
+                        "status": r.status,
+                        "created_at": r.created_at.isoformat() if r.created_at else None,
+                    }
+                    for r in rows
+                ]
+            except Exception:
+                pass
+
         return {
             "success": True,
             "tool": self.name,
             "data": {
                 "query": query,
-                "tickets": [],
-                "total": 0,
-                "message": (
-                    "Ticket history search placeholder — "
-                    "DB integration will be connected in Week 9"
-                ),
+                "tickets": tickets,
+                "total": len(tickets),
             },
         }
 
@@ -277,20 +325,33 @@ class OrderStatusCheckTool(BaseTool):
     ) -> Dict[str, Any]:
         order_id: str = params.get("order_id", "")
 
-        # TODO: Integration will be connected in Week 9
+        db = kwargs.get("db")
+        order_data = {"order_id": order_id, "status": None, "tracking_number": None, "estimated_delivery": None}
+        if db is not None and order_id:
+            try:
+                from database.models.orders import Order
+                row = (
+                    db.query(Order)
+                    .filter(Order.id == order_id, Order.company_id == company_id)
+                    .first()
+                )
+                if row is not None:
+                    order_data.update({
+                        "status": getattr(row, "status", None),
+                        "tracking_number": getattr(row, "tracking_number", None),
+                        "estimated_delivery": (
+                            row.estimated_delivery.isoformat()
+                            if getattr(row, "estimated_delivery", None)
+                            else None
+                        ),
+                    })
+            except Exception:
+                pass
+
         return {
             "success": True,
             "tool": self.name,
-            "data": {
-                "order_id": order_id,
-                "status": None,
-                "tracking_number": None,
-                "estimated_delivery": None,
-                "message": (
-                    "Order status check placeholder — "
-                    "integration will be connected in Week 9"
-                ),
-            },
+            "data": order_data,
         }
 
 

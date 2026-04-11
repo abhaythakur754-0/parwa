@@ -9,7 +9,7 @@ Generic webhook processor with idempotency guarantees.
 - BC-003: Response under 3 seconds (returns immediately)
 - FIX L30: Max retry cap (MAX_RETRY_ATTEMPTS = 5)
 - FIX L31: Error message truncation to 500 chars
-- FIX L32: datetime.utcnow() -> datetime.now(timezone.utc)
+- FIX L32: datetime.now(timezone.utc) -> datetime.now(timezone.utc)
 """
 
 import logging

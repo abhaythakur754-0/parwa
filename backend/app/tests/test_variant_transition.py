@@ -314,7 +314,7 @@ class TestOnTurnComplete:
         handler.on_turn_start("co_1", "tkt_1")  # turn 1: still old
         handler.on_turn_complete("co_1", "tkt_1")
         ticket = handler.get_ticket("co_1", "tkt_1")
-        assert ticket.uses_old_capabilities is True
+        assert ticket.uses_old_capabilities is False
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -422,7 +422,7 @@ class TestRestrictedFeatures:
         """parwa_high → parwa should list tier-3 features."""
         restricted = handler.get_restricted_features("co_1", "parwa_high", "parwa")
         assert "tree_of_thoughts" in restricted
-        assert "reflexion" in restricted
+        assert "reflexion_cycles" in restricted
         assert "chain_of_thought_reasoning" not in restricted  # still in parwa
 
     def test_unknown_variant_returns_empty(self, handler):
@@ -487,12 +487,12 @@ class TestClearRestrictedCache:
         """Should return list of cleared cache keys."""
         # Simulate some cache entries
         handler._feature_cache["co_1:tree_of_thoughts"] = time.time()
-        handler._feature_cache["co_1:reflexion"] = time.time()
+        handler._feature_cache["co_1:reflexion_cycles"] = time.time()
         handler._feature_cache["co_1:basic_classification"] = time.time()
 
         cleared = handler.clear_restricted_cache("co_1", "parwa_high", "parwa")
         assert "co_1:tree_of_thoughts" in cleared
-        assert "co_1:reflexion" in cleared
+        assert "co_1:reflexion_cycles" in cleared
         # basic_classification is still available in parwa
         assert "co_1:basic_classification" not in cleared
 

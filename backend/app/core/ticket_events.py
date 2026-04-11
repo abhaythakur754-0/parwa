@@ -23,7 +23,7 @@ BC-005: Events validated against registry.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.core.events import (
@@ -127,7 +127,7 @@ async def emit_ticket_created(
         "extra": {
             "subject": ticket_data.get("subject"),
             "actor_id": actor_id,
-            "created_at": ticket_data.get("created_at", datetime.utcnow().isoformat()),
+            "created_at": ticket_data.get("created_at", datetime.now(timezone.utc).isoformat()),
         },
     }
 
@@ -164,7 +164,7 @@ async def emit_ticket_updated(
         "extra": {
             "actor_id": actor_id,
             "changes": changes,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -208,7 +208,7 @@ async def emit_ticket_status_changed(
             "from_status": from_status,
             "to_status": to_status,
             "reason": reason,
-            "changed_at": datetime.utcnow().isoformat(),
+            "changed_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -251,7 +251,7 @@ async def emit_ticket_assigned(
             "actor_id": actor_id,
             "previous_assignee_id": previous_assignee_id,
             "assignment_type": assignment_type,
-            "assigned_at": datetime.utcnow().isoformat(),
+            "assigned_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -294,7 +294,7 @@ async def emit_ticket_message_added(
             "message_id": message_id,
             "message_role": message_role,
             "content_preview": content_preview[:100] if content_preview else None,
-            "added_at": datetime.utcnow().isoformat(),
+            "added_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -331,7 +331,7 @@ async def emit_ticket_note_added(
         "extra": {
             "actor_id": actor_id,
             "note_id": note_id,
-            "added_at": datetime.utcnow().isoformat(),
+            "added_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -369,7 +369,7 @@ async def emit_ticket_resolved(
         "extra": {
             "actor_id": actor_id,
             "resolution_time_minutes": resolution_time_minutes,
-            "resolved_at": datetime.utcnow().isoformat(),
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -410,7 +410,7 @@ async def emit_ticket_reopened(
             "actor_id": actor_id,
             "reopen_reason": reopen_reason,
             "reopen_count": reopen_count,
-            "reopened_at": datetime.utcnow().isoformat(),
+            "reopened_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -448,7 +448,7 @@ async def emit_ticket_closed(
         "extra": {
             "actor_id": actor_id,
             "closure_reason": closure_reason,
-            "closed_at": datetime.utcnow().isoformat(),
+            "closed_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -491,7 +491,7 @@ async def emit_ticket_escalated(
             "from_level": from_level,
             "to_level": to_level,
             "escalation_reason": escalation_reason,
-            "escalated_at": datetime.utcnow().isoformat(),
+            "escalated_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -531,7 +531,7 @@ async def emit_sla_warning(
             "percentage_elapsed": round(percentage_elapsed * 100, 1),
             "minutes_remaining": round(minutes_remaining, 1),
             "sla_type": sla_type,
-            "warning_at": datetime.utcnow().isoformat(),
+            "warning_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -568,7 +568,7 @@ async def emit_sla_breach(
         "extra": {
             "breach_type": breach_type,
             "minutes_overdue": round(minutes_overdue, 1) if minutes_overdue else None,
-            "breached_at": datetime.utcnow().isoformat(),
+            "breached_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -605,7 +605,7 @@ async def emit_ticket_collision(
         "extra": {
             "current_viewers": current_viewers,
             "action": action,
-            "collision_at": datetime.utcnow().isoformat(),
+            "collision_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -645,7 +645,7 @@ async def emit_ticket_merged(
             "actor_id": actor_id,
             "merged_ticket_ids": merged_ticket_ids,
             "merge_reason": merge_reason,
-            "merged_at": datetime.utcnow().isoformat(),
+            "merged_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -685,7 +685,7 @@ async def emit_incident_created(
             "actor_id": actor_id,
             "incident_id": incident_id,
             "incident_type": incident_type,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -725,7 +725,7 @@ async def emit_incident_resolved(
             "actor_id": actor_id,
             "incident_id": incident_id,
             "resolution_summary": resolution_summary,
-            "resolved_at": datetime.utcnow().isoformat(),
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
         },
     }
 

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, func, or_
@@ -90,8 +90,8 @@ class CustomerService:
             name=name,
             external_id=external_id,
             metadata_json=json.dumps(metadata_json or {}),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         self.db.add(customer)
@@ -314,7 +314,7 @@ class CustomerService:
         if metadata_json is not None:
             customer.metadata_json = json.dumps(metadata_json)
 
-        customer.updated_at = datetime.utcnow()
+        customer.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(customer)
@@ -357,7 +357,7 @@ class CustomerService:
         customer.phone = None
         customer.name = "[DELETED]"
         customer.metadata_json = json.dumps({"deleted": True})
-        customer.updated_at = datetime.utcnow()
+        customer.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
 
@@ -408,8 +408,8 @@ class CustomerService:
             channel_type=channel_type.value,
             external_id=external_id,
             is_verified=is_verified,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         self.db.add(channel)
@@ -487,7 +487,7 @@ class CustomerService:
             raise NotFoundError(f"Channel {channel_id} not found")
 
         channel.is_verified = True
-        channel.updated_at = datetime.utcnow()
+        channel.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(channel)
@@ -578,11 +578,11 @@ class CustomerService:
         primary_metadata["merged"] = {
             "emails": list(set(merged_emails + ([primary.email] if primary.email else []))),
             "phones": list(set(merged_phones + ([primary.phone] if primary.phone else []))),
-            "merged_at": datetime.utcnow().isoformat(),
+            "merged_at": datetime.now(timezone.utc).isoformat(),
             "merged_customer_ids": merged_customer_ids,
         }
         primary.metadata_json = json.dumps(primary_metadata)
-        primary.updated_at = datetime.utcnow()
+        primary.updated_at = datetime.now(timezone.utc)
 
         # Reassign tickets to primary
         for cid in merged_customer_ids:
@@ -604,7 +604,7 @@ class CustomerService:
             customer.name = f"[MERGED INTO {primary_customer_id}]"
             customer.metadata_json = json.dumps({
                 "merged_into": primary_customer_id,
-                "merged_at": datetime.utcnow().isoformat(),
+                "merged_at": datetime.now(timezone.utc).isoformat(),
             })
 
         # Create audit record
@@ -616,7 +616,7 @@ class CustomerService:
             merged_by=user_id,
             action_type="merge_reason",
             reason=reason,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         self.db.add(audit)
 

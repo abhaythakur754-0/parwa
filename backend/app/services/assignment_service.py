@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, func, or_
@@ -159,7 +159,7 @@ class AssignmentService:
             assignee_type=assignee_type,
             assignee_id=assignee_id,
             reason=f"Auto-assigned by rule: {matched_rule.name}",
-            assigned_at=datetime.utcnow(),
+            assigned_at=datetime.now(timezone.utc),
         )
         self.db.add(assignment)
 
@@ -167,7 +167,7 @@ class AssignmentService:
         ticket.assigned_to = assignee_id
         if ticket.status == TicketStatus.open.value:
             ticket.status = TicketStatus.assigned.value
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
 
@@ -284,8 +284,8 @@ class AssignmentService:
             action=json.dumps(action),
             priority_order=priority_order,
             is_active=is_active,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         self.db.add(rule)
@@ -345,7 +345,7 @@ class AssignmentService:
         if is_active is not None:
             rule.is_active = is_active
 
-        rule.updated_at = datetime.utcnow()
+        rule.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(rule)
@@ -467,7 +467,7 @@ class AssignmentService:
             assignee_type=AssigneeType.HUMAN,
             assignee_id=assignee_id,
             reason=reason or "Manual assignment",
-            assigned_at=datetime.utcnow(),
+            assigned_at=datetime.now(timezone.utc),
         )
         self.db.add(assignment)
 
@@ -475,7 +475,7 @@ class AssignmentService:
         ticket.assigned_to = assignee_id
         if ticket.status == TicketStatus.open.value:
             ticket.status = TicketStatus.assigned.value
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
 
@@ -523,14 +523,14 @@ class AssignmentService:
             assignee_type=AssigneeType.HUMAN,
             assignee_id=None,
             reason=reason or "Unassigned",
-            assigned_at=datetime.utcnow(),
+            assigned_at=datetime.now(timezone.utc),
         )
         self.db.add(assignment)
 
         # Update ticket
         ticket.assigned_to = None
         ticket.status = TicketStatus.open.value
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
 
@@ -586,8 +586,8 @@ class AssignmentService:
                 action=json.dumps(rule_data["action"]),
                 priority_order=rule_data["priority_order"],
                 is_active=True,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
             )
             self.db.add(rule)
             rules.append(rule)

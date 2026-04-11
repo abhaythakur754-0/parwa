@@ -133,9 +133,9 @@ def create_integration(
         "name": name,
         "config": _mask_config(config),  # Don't store raw credentials
         "status": status,
-        "last_test_at": datetime.utcnow().isoformat(),
+        "last_test_at": datetime.now(timezone.utc).isoformat(),
         "last_test_result": test_result.get("message") if test_result else None,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
     logger.info(
@@ -345,7 +345,7 @@ def test_integration(
 
     # In production, update database:
     # integration.status = new_status
-    # integration.last_test_at = datetime.utcnow()
+    # integration.last_test_at = datetime.now(timezone.utc)
     # integration.last_test_result = test_result["message"]
     # db.commit()
 
@@ -361,7 +361,7 @@ def test_integration(
         "success": test_result["success"],
         "message": test_result["message"],
         "status": new_status,
-        "tested_at": datetime.utcnow().isoformat(),
+        "tested_at": datetime.now(timezone.utc).isoformat(),
     }
 
 

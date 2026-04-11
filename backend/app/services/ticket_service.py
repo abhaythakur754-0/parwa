@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, func, or_
@@ -121,8 +121,8 @@ class TicketService:
             tags=json.dumps(tags or [] + scope_tags),
             metadata_json=json.dumps(metadata_json or {}),
             duplicate_of_id=duplicate_of,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         self.db.add(ticket)
@@ -324,7 +324,7 @@ class TicketService:
 
             # Handle status-specific logic
             if status == TicketStatus.closed.value:
-                ticket.closed_at = datetime.utcnow()
+                ticket.closed_at = datetime.now(timezone.utc)
             elif status == TicketStatus.reopened.value:
                 ticket.reopen_count = (ticket.reopen_count or 0) + 1
 
@@ -334,7 +334,7 @@ class TicketService:
         if subject is not None:
             ticket.subject = subject
 
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(ticket)
@@ -371,7 +371,7 @@ class TicketService:
         else:
             # Soft delete: mark as closed and clear sensitive data
             ticket.status = TicketStatus.closed.value
-            ticket.closed_at = datetime.utcnow()
+            ticket.closed_at = datetime.now(timezone.utc)
             ticket.subject = "[DELETED]"
             ticket.metadata_json = json.dumps({"deleted": True})
 
@@ -410,7 +410,7 @@ class TicketService:
 
         # Update ticket
         ticket.assigned_to = assignee_id
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         # If assigning, update status
         if assignee_id and ticket.status == TicketStatus.open.value:
@@ -424,7 +424,7 @@ class TicketService:
             assignee_type=assignee_type,
             assignee_id=assignee_id,
             reason=reason,
-            assigned_at=datetime.utcnow(),
+            assigned_at=datetime.now(timezone.utc),
         )
         self.db.add(assignment)
 
@@ -457,7 +457,7 @@ class TicketService:
         new_tags = list(set(current_tags + tags))
 
         ticket.tags = json.dumps(new_tags)
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(ticket)
@@ -486,7 +486,7 @@ class TicketService:
         new_tags = [t for t in current_tags if t != tag]
 
         ticket.tags = json.dumps(new_tags)
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(ticket)
@@ -497,6 +497,18 @@ class TicketService:
 
     def _check_rate_limit(self, identifier: str) -> None:
         """BL05: Check rate limit for ticket creation.
+
+        .. note::
+            This currently uses an **in-memory** counter because
+            ``RateLimitService()`` is instantiated without a Redis
+            client.  In multi-worker deployments this means the limit
+            is per-process and can be bypassed.  When Redis is
+            available, inject a Redis client into the service so that
+            ``_check_redis`` is used instead of ``_check_in_memory``.
+
+        TODO(M2): Inject Redis client — e.g. use the shared
+        ``get_rate_limit_service()`` singleton which is configured
+        centrally, or pass a Redis connection via ``TicketService.__init__``.
 
         Args:
             identifier: User ID or customer ID
@@ -592,7 +604,7 @@ class TicketService:
             return None
 
         # Look for recent open tickets from same customer with similar subject
-        recent_threshold = datetime.utcnow() - timedelta(hours=24)
+        recent_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
 
         similar_tickets = self.db.query(Ticket).filter(
             Ticket.company_id == self.company_id,
@@ -737,7 +749,7 @@ class TicketService:
             to_status=to_status,
             changed_by=user_id,
             reason=reason,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         self.db.add(change)
 

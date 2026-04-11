@@ -82,7 +82,7 @@ class KnowledgeBaseManager:
 
         # Update status to processing
         doc.status = "processing"
-        doc.updated_at = datetime.utcnow()
+        doc.updated_at = datetime.now(timezone.utc)
         self.db.commit()
 
         try:
@@ -94,7 +94,7 @@ class KnowledgeBaseManager:
                 doc.status = "completed"
                 doc.chunk_count = 0
                 doc.error_message = None
-                doc.updated_at = datetime.utcnow()
+                doc.updated_at = datetime.now(timezone.utc)
                 self.db.commit()
                 logger.info(
                     "ingest_empty_document",
@@ -143,7 +143,7 @@ class KnowledgeBaseManager:
             doc.status = "completed"
             doc.chunk_count = stored_count
             doc.error_message = None
-            doc.updated_at = datetime.utcnow()
+            doc.updated_at = datetime.now(timezone.utc)
             self.db.commit()
 
             logger.info(
@@ -165,8 +165,8 @@ class KnowledgeBaseManager:
             # Mark document as failed
             doc.status = "failed"
             doc.error_message = str(exc)[:500]
-            doc.failed_at = datetime.utcnow()
-            doc.updated_at = datetime.utcnow()
+            doc.failed_at = datetime.now(timezone.utc)
+            doc.updated_at = datetime.now(timezone.utc)
             self.db.commit()
 
             logger.error(
@@ -347,7 +347,6 @@ class KnowledgeBaseManager:
 
             url = (
                 f"{_EMBEDDING_API_BASE}/{_EMBEDDING_MODEL}:embedContent"
-                f"?key={api_key}"
             )
 
             payload = {
@@ -358,9 +357,15 @@ class KnowledgeBaseManager:
                 "taskType": _EMBEDDING_TASK_TYPE,
             }
 
+            headers = {
+                "x-goog-api-key": api_key,
+                "Content-Type": "application/json",
+            }
+
             response = httpx.post(
                 url,
                 json=payload,
+                headers=headers,
                 timeout=_EMBEDDING_TIMEOUT_SEC,
             )
             response.raise_for_status()

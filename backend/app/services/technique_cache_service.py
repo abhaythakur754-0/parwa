@@ -12,7 +12,7 @@ BC-008: Graceful degradation on malformed JSON.
 import json
 import hashlib
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from database.base import SessionLocal
@@ -142,7 +142,7 @@ def get_cached_result(
         return None
 
     # Check TTL expiry
-    if entry.ttl_expires_at and entry.ttl_expires_at < datetime.utcnow():
+    if entry.ttl_expires_at and entry.ttl_expires_at < datetime.now(timezone.utc):
         return None
 
     # Safe JSON parse — BC-008: never crash on malformed data
@@ -185,7 +185,7 @@ def set_cached_result(
     # Validate and serialize result (BC-008)
     serialized = _validate_cache_result(cached_result)
 
-    ttl_expires = datetime.utcnow() + timedelta(hours=ttl_hours)
+    ttl_expires = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
 
     # Check for existing entry (unique constraint)
     try:
@@ -276,7 +276,7 @@ def cleanup_expired_entries(
         expired = db.query(TechniqueCache).filter_by(
             company_id=company_id,
         ).filter(
-            TechniqueCache.ttl_expires_at < datetime.utcnow(),
+            TechniqueCache.ttl_expires_at < datetime.now(timezone.utc),
         ).all()
 
         count = len(expired)

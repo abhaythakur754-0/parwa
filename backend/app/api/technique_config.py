@@ -254,8 +254,8 @@ def _build_response(
     technique_id: str,
     info: Any,
     config: Dict[str, Any],
-) -> TechniqueConfigResponse:
-    """Build a TechniqueConfigResponse from registry + stored config."""
+) -> Dict[str, Any]:
+    """Build a TechniqueConfigResponse dict from registry + stored config."""
     return TechniqueConfigResponse(
         technique_id=technique_id,
         technique_name=getattr(
@@ -268,7 +268,7 @@ def _build_response(
         updated_at=config.get("updated_at"),
         estimated_tokens=info.estimated_tokens,
         time_budget_ms=info.time_budget_ms,
-    )
+    ).model_dump()
 
 
 @router.get(
@@ -318,14 +318,15 @@ async def list_technique_configs(
             ]
 
         technique_responses = [
-            TechniqueConfigResponse(**c) for c in all_configs
+            TechniqueConfigResponse(**c).model_dump() for c in all_configs
         ]
 
-        return TechniqueConfigListResponse(
-            company_id=company_id,
-            techniques=technique_responses,
-            total=len(technique_responses),
-        )
+        # Return plain dict to avoid Pydantic class identity issues
+        return {
+            "company_id": company_id,
+            "techniques": technique_responses,
+            "total": len(technique_responses),
+        }
     except Exception as exc:
         logger.error(
             "list_technique_configs_error",

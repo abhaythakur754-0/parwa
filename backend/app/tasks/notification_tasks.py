@@ -9,7 +9,7 @@ Tasks for:
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from celery import shared_task
@@ -337,7 +337,7 @@ def cleanup_old_notifications_task(
     
     try:
         with TenantContext(company_id):
-            cutoff = datetime.utcnow() - timedelta(days=days_old)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days_old)
             
             # Delete read notifications older than cutoff
             deleted = db.query(Notification).filter(

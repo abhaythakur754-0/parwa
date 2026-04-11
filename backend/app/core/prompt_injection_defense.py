@@ -1467,7 +1467,7 @@ class InjectionDefenseService:
 
         db = SessionLocal()
         try:
-            since = datetime.utcnow() - timedelta(hours=hours)
+            since = datetime.now(timezone.utc) - timedelta(hours=hours)
             attempts = (
                 db.query(PromptInjectionAttempt)
                 .filter(
@@ -1528,7 +1528,7 @@ class InjectionDefenseService:
 
         db = SessionLocal()
         try:
-            since = datetime.utcnow() - timedelta(days=days)
+            since = datetime.now(timezone.utc) - timedelta(days=days)
             attempts = (
                 db.query(PromptInjectionAttempt)
                 .filter(
@@ -1822,7 +1822,7 @@ class InjectionDefenseService:
 
         db = SessionLocal()
         try:
-            cutoff = datetime.utcnow() - timedelta(days=older_than_days)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=older_than_days)
             deleted = (
                 db.query(PromptInjectionAttempt)
                 .filter(
