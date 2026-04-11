@@ -156,8 +156,12 @@ export function ChatWidget({ industry, variant }: ChatWidgetProps) {
       localStorage.setItem('parwa_jarvis_context', JSON.stringify(context));
     }
 
-    // Navigate to onboarding/Jarvis
-    window.location.href = '/onboarding';
+    // Navigate to full Jarvis chat with context
+    const params = new URLSearchParams();
+    if (context.industry) params.set('industry', String(context.industry));
+    if (Array.isArray(context.selected_variants) && context.selected_variants.length > 0) params.set('variant', String(context.selected_variants[0]));
+    if (context.entry_source) params.set('entry_source', String(context.entry_source));
+    window.location.href = `/jarvis?${params.toString()}`;
   };
 
   // Show CTA after 3+ messages

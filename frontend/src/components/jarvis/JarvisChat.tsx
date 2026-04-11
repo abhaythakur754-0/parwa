@@ -24,13 +24,17 @@ import { ChatInput } from './ChatInput';
 import { ErrorBanner } from './ErrorBanner';
 
 interface JarvisChatProps {
-  /** Entry source for analytics (e.g. 'pricing', 'demo', 'direct') */
+  /** Whether chat is open */
+  isOpen?: boolean;
+  /** Close handler */
+  onClose?: () => void;
+  /** Entry source for analytics (e.g. 'pricing', 'demo', 'models_page', 'free_chat') */
   entrySource?: string;
-  /** Additional entry parameters for context tracking */
+  /** Additional entry parameters for context tracking (industry, variant, etc.) */
   entryParams?: Record<string, unknown>;
 }
 
-export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
+export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: JarvisChatProps) {
   const {
     // State
     messages,

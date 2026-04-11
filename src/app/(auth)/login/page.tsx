@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SocialLogin } from '@/components/auth/SocialLogin';
@@ -25,7 +25,7 @@ function LoginContent() {
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectTo = searchParams.get('redirect') || '/profile';
+  const redirectTo = searchParams.get('redirect') || '/models';
 
   useEffect(() => {
     if (isAuthenticated && !authLoading) router.push(redirectTo);
@@ -121,7 +121,7 @@ function LoginContent() {
           animation: 'jarvisOrbFloat2 12s ease-in-out infinite',
         }} />
         <div className="absolute w-[200px] h-[200px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(255,165,0,0.1) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 70%)',
           top: '60%',
           left: '60%',
           animation: 'jarvisOrbFloat3 9s ease-in-out infinite',
@@ -146,6 +146,12 @@ function LoginContent() {
       </div>
 
       <div className="w-full max-w-md space-y-8 relative z-10">
+        {/* Back to Home */}
+        <Link href="/" className="inline-flex items-center gap-2 text-sm text-orange-400/60 hover:text-orange-400 transition-colors group">
+          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+          <span>Back to Home</span>
+        </Link>
+
         {/* Header */}
         <div className="text-center">
           <Link href="/" className="inline-flex items-center gap-3 mb-6">

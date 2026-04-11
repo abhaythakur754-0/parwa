@@ -11,7 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Bot, Zap, Home } from 'lucide-react';
+import { Bot, Zap, Home, ArrowLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { UserMenu } from '@/components/common/UserMenu';
 
@@ -68,16 +68,19 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
 
   return (
     <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.03] backdrop-blur-md shrink-0" role="banner">
-      {/* Left — Avatar + Title */}
+      {/* Left — Back link + Avatar + Title */}
       <div className="flex items-center gap-3">
-        {/* Home link */}
+        {/* Back to Home link */}
         <Link
           href="/"
-          className="p-1.5 rounded-lg text-orange-200/40 hover:text-orange-300 hover:bg-orange-500/10 transition-all duration-200"
-          title="Go to home"
+          className="flex items-center gap-1.5 text-orange-300/60 hover:text-orange-300 transition-all duration-200 group"
+          title="Back to Home"
         >
-          <Home className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+          <span className="text-xs font-medium hidden sm:inline">Back</span>
         </Link>
+
+        <div className="w-px h-6 bg-white/10" />
 
         {/* Bot Avatar */}
         <div className="relative">
