@@ -539,6 +539,45 @@ CURRENT STATE:
 
 What testing gaps exist? Focus on: auth guard redirect logic, session auto-init failure recovery, message ordering edge cases, auto-scroll behavior on rapid messages, keyboard accessibility, mobile responsiveness, markdown rendering security (XSS in user messages), optimistic update rollback on error, typing indicator timing, error banner dismiss/retry interaction, character counter edge cases, disabled state propagation, empty state rendering, card type fallback rendering, timestamp formatting edge cases, memory leaks from useEffect cleanup, rapid send double-submit prevention, textarea auto-resize edge cases.""",
 
+    "w6d4_jarvis": """Week 6 Day 4: Jarvis In-Chat Rich Cards (Phase 6)
+
+I'm building rich interactive card components for the Jarvis chat system. Day 4 (Phase 6) is done:
+
+12 NEW card components created:
+1. BillSummaryCard (81 lines): Shows variant rows with qty, price, total. Proceed button triggers createPayment.
+2. PaymentCard (142 lines): $1 demo pack OR variant payment. Paddle checkout button. Processing spinner. Active state. Secure badge.
+3. OtpVerificationCard (250 lines): Full OTP flow — idle(sends email) → sending → sent(6-digit input) → verifying → verified. Max 3 attempts, resend, keyboard input, auto-focus.
+4. HandoffCard (62 lines): Celebration icon. "Meet Customer Care Jarvis" button. Connected state. executeHandoff action.
+5. DemoCallCard (211 lines): Phone input → initiating → calling(live timer with progress bar, 3-min limit) → completed/failed. Timer auto-stops. Retry on failure.
+6. MessageCounter (58 lines): "16/20 remaining" with visual progress bar. Color changes: green→amber→red based on remaining.
+7. DemoPackCTA (72 lines): "500 msgs + AI call for $1" upgrade card. purchaseDemoPack action.
+8. LimitReachedCard (45 lines): Daily limit with upgrade CTA.
+9. PackExpiredCard (53 lines): Expired pack with free tier / repurchase options.
+10. ActionTicketCard (98 lines): Status indicator (pending/in_progress/completed/failed) with icon, type label, result JSON, timestamps.
+11. PostCallSummaryCard (73 lines): Duration, topics tags, summary text, satisfaction rating.
+12. RechargeCTACard (59 lines): Post-call recharge CTA with message.
+
+MODIFIED files:
+- ChatMessage.tsx: Switch/case on all 14 message_type values. Each card receives hookActions (6 async functions) + sessionState (remaining, demo pack, OTP, demo call, handoff state) via props. CardWrapper provides avatar + timestamp.
+- ChatWindow.tsx: Passes hookActions + sessionState through to ChatMessage.
+- JarvisChat.tsx: useMemo-wrapped hookActions (sendOtp, verifyOtp, purchaseDemoPack, createPayment, initiateDemoCall, executeHandoff) and sessionState from useJarvisChat hook.
+- jarvis.ts types: Added 'message_counter' + 'demo_pack_cta' to MessageType union (now 14 types).
+- index.ts: Barrel exports for all 19 components.
+
+CURRENT STATE:
+- All 12 cards render inline in chat stream
+- Cards dispatch actions through useJarvisChat hook
+- TypeScript: 0 new errors
+- No tests for any of the 12 card components
+- Cards receive hook actions but don't validate them (could be undefined if parent doesn't pass them)
+- OTP card has email validation (regex) but no phone format validation for demo call card
+- DemoCallCard timer uses setInterval but doesn't handle tab visibility changes (document.hidden)
+- PaymentCard opens Paddle URL in new tab — no fallback if popup blocked
+- BillSummaryCard onProceed passes metadata.variants directly — could be stale/missing
+- HandoffCard doesn't disable button during handoff in-progress
+
+What testing gaps exist? Focus on: card state machines (OTP 5 states, demo call 5 states), timer accuracy, action dispatch when hookActions undefined, card rendering with empty/malformed metadata, popup blocker handling, race conditions in OTP verify+resend, concurrent card interactions, accessibility of card buttons/inputs, mobile responsiveness of card layouts, memory leaks from setInterval cleanup, card fallback when metadata is null.""",
+
     "w9d10": """Week 9 Day 10: Cross-Variant Routing (SG-06/SG-11) + Anti-Arbitrage (F-159) + Conversation Summarization (F-160) + Integration Testing
 
 Building 4 systems:
