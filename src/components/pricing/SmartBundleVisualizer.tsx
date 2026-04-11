@@ -252,7 +252,7 @@ export function SmartBundleVisualizer({ selectedIndustry, onIndustrySelect }: Sm
                 <span className="text-xs text-amber-200/40">
                   ${(stackedWarning.monthlyCost - TIER_CONFIG.growth.monthlyPrice) > 0
                     ? `+$${stackedWarning.monthlyCost - TIER_CONFIG.growth.monthlyPrice} vs Growth`
-                    : `-$${TIER_CONFIG.growth.monthlyCost - stackedWarning.monthlyCost} vs Growth, but no AI decisions`}
+                    : `-$${TIER_CONFIG.growth.monthlyPrice - stackedWarning.monthlyCost} vs Growth, but no AI decisions`}
                 </span>
               </div>
             </div>

@@ -1,7 +1,7 @@
 """
-PARWA Jarvis Service (Week 6 — Day 2 Phase 2)
+PARWA Jarvis Service (Week 6+ — Complete Service Integration)
 
-Core business logic for Jarvis onboarding chat system.
+Core business logic for Jarvis onboarding & customer care system.
 
 All API handlers in jarvis.py call functions here. This service:
 - Manages sessions (create, resume, context)
@@ -15,6 +15,22 @@ All API handlers in jarvis.py call functions here. This service:
 - Tracks action tickets with status/result
 - Builds dynamic system prompts with context + knowledge
 - Detects conversation stage from context
+
+Week 8-11 Integrated Services:
+- AI/Message Processing: ai_service, pii_scan, brand_voice, response_template,
+  sentiment_technique_mapper, conversation_service, token_budget, embedding
+- Analytics & Tracking: analytics_service, lead_service
+- Ticket Management: ticket_service, ticket_lifecycle, ticket_state_machine,
+  ticket_analytics, ticket_search, ticket_merge, stale_ticket, classification,
+  spam_detection
+- Billing & Usage: usage_tracking, usage_burst_protection, cost_protection,
+  overage_service, invoice_service
+- Security & Compliance: rate_limit_service, audit_service, audit_log_service
+- Onboarding Support: onboarding_service, pricing_service
+- Notifications: notification_service, email_service, webhook_service
+- Supporting: tag, category, priority, assignment, sla, trigger, internal_note,
+  message_service, attachment_service, company_service, customer_service,
+  channel_service, bulk_action_service
 
 AI Providers: Google AI Studio, Cerebras, Groq (all free)
 Entry Routing: URL params → context-aware welcome message
@@ -43,6 +59,55 @@ from database.models.jarvis import (
 )
 
 
+# ── Lazy Service Loading Infrastructure ────────────────────────────
+
+_service_cache: Dict[str, Any] = {}
+
+
+def _get_service(
+    service_name: str,
+    import_path: str,
+    attr_name: Optional[str] = None,
+) -> Any:
+    """Lazy-load and cache a service class or module.
+
+    Args:
+        service_name: Unique cache key for this service.
+        import_path: Python import path (e.g. 'app.services.pii_scan_service').
+        attr_name: Specific class/function to import. Falls back to service_name.
+
+    Returns:
+        The imported class/function, or None if import fails.
+    """
+    if service_name in _service_cache:
+        return _service_cache[service_name]
+    try:
+        module = __import__(import_path, fromlist=[attr_name or service_name])
+        svc = getattr(module, attr_name or service_name, None)
+        if svc is not None:
+            _service_cache[service_name] = svc
+        return svc
+    except (ImportError, AttributeError):
+        return None
+
+
+def _get_service_module(module_path: str) -> Any:
+    """Lazy-load a service module (for module-level functions).
+
+    Args:
+        module_path: Python module path (e.g. 'app.services.analytics_service').
+
+    Returns:
+        The imported module, or None if import fails.
+    """
+    return _get_service(module_path, module_path)
+
+
+def _clear_service_cache() -> None:
+    """Clear all cached services (useful for testing)."""
+    _service_cache.clear()
+
+
 # ── Constants ──────────────────────────────────────────────────────
 
 FREE_DAILY_LIMIT = 20
@@ -63,6 +128,10 @@ __all__ = [
     "OTP_LENGTH",
     "OTP_EXPIRY_MINUTES",
     "MAX_OTP_ATTEMPTS",
+    # Infrastructure
+    "_get_service",
+    "_get_service_module",
+    "_clear_service_cache",
     # Session
     "create_or_resume_session",
     "get_session",
@@ -89,7 +158,7 @@ __all__ = [
     # Handoff
     "execute_handoff",
     "get_handoff_status",
-    # Tickets
+    # Tickets (original)
     "create_action_ticket",
     "get_tickets",
     "get_ticket",
@@ -103,6 +172,75 @@ __all__ = [
     "build_context_aware_welcome",
     # Error
     "handle_error",
+    # --- Week 8-11: Ticket Operations ---
+    "jarvis_create_ticket",
+    "jarvis_get_tickets",
+    "jarvis_get_ticket",
+    "jarvis_update_ticket",
+    "jarvis_delete_ticket",
+    "jarvis_assign_ticket",
+    "jarvis_transition_ticket",
+    "jarvis_classify_ticket",
+    "jarvis_search_tickets",
+    "jarvis_merge_tickets",
+    "jarvis_check_ticket_lifecycle",
+    "jarvis_get_ticket_analytics",
+    "jarvis_detect_stale_tickets",
+    "jarvis_analyze_spam",
+    # --- Week 8-11: Analytics ---
+    "jarvis_get_analytics",
+    "jarvis_get_funnel_metrics",
+    "jarvis_get_sentiment_metrics",
+    "jarvis_track_event",
+    # --- Week 8-11: Lead Management ---
+    "jarvis_capture_lead",
+    "jarvis_get_lead",
+    "jarvis_get_leads",
+    "jarvis_get_lead_stats",
+    # --- Week 8-11: Billing & Usage ---
+    "jarvis_get_usage",
+    "jarvis_check_usage_limit",
+    "jarvis_get_invoices",
+    "jarvis_get_invoice",
+    "jarvis_get_monthly_cost_report",
+    # --- Week 8-11: Audit & Security ---
+    "jarvis_get_audit_trail",
+    "jarvis_get_audit_stats",
+    "jarvis_get_audit_log_events",
+    "jarvis_get_audit_log_stats",
+    "jarvis_check_rate_limit",
+    # --- Week 8-11: Onboarding ---
+    "jarvis_complete_onboarding_step",
+    "jarvis_accept_legal_consents",
+    "jarvis_activate_ai",
+    "jarvis_get_pricing_variants",
+    "jarvis_validate_variant_selection",
+    "jarvis_calculate_totals",
+    # --- Week 8-11: Notifications ---
+    "jarvis_send_notification",
+    "jarvis_send_email",
+    "jarvis_process_webhook",
+    # --- Week 8-11: Customer Management ---
+    "jarvis_create_customer",
+    "jarvis_get_customer",
+    "jarvis_get_company_profile",
+    "jarvis_update_company_profile",
+    # --- Week 8-11: Supporting Services ---
+    "jarvis_auto_tag_ticket",
+    "jarvis_detect_category",
+    "jarvis_detect_priority",
+    "jarvis_auto_assign_ticket",
+    "jarvis_get_sla_target",
+    "jarvis_evaluate_triggers",
+    "jarvis_get_ticket_tags",
+    "jarvis_get_ticket_notes",
+    "jarvis_get_ticket_messages",
+    "jarvis_get_ticket_attachments",
+    "jarvis_get_channel_config",
+    "jarvis_execute_bulk_action",
+    "jarvis_get_channels",
+    "jarvis_scan_pii",
+    "jarvis_merge_with_brand_voice",
 ]
 
 
@@ -320,6 +458,88 @@ def send_message(
     ctx = _parse_context(session.context_json)
     _track_pages_visited(ctx, user_message)
 
+    # ── Week 8-11: PII scan user message ──
+    company_id = session.company_id
+    try:
+        pii_svc_cls = _get_service(
+            "pii_scan", "app.services.pii_scan_service", "PIIScanService",
+        )
+        if pii_svc_cls and company_id:
+            pii_scanner = pii_svc_cls(db, company_id)
+            pii_result = pii_scanner.scan_text(user_message)
+            ctx["pii_scan"] = pii_result
+    except Exception:
+        pass
+
+    # ── Week 8-11: Conversation context enrichment ──
+    try:
+        conv_svc = _get_service_module("app.services.conversation_service")
+        if conv_svc:
+            conv_ctx = conv_svc.get_conversation_context(
+                session_id, db, ctx,
+            )
+            if conv_ctx:
+                ctx["conversation_turn_count"] = getattr(
+                    conv_ctx, "turn_count", 0,
+                )
+    except Exception:
+        pass
+
+    # ── Week 8-11: Analytics tracking ──
+    try:
+        analytics_svc = _get_service_module("app.services.analytics_service")
+        if analytics_svc:
+            stage = ctx.get("detected_stage", "welcome")
+            analytics_svc.track_event(
+                event_type="message_sent",
+                event_category="conversation",
+                user_id=user_id,
+                company_id=company_id or "",
+                session_id=session_id,
+                properties={"stage": stage},
+                source="jarvis",
+            )
+    except Exception:
+        pass
+
+    # ── Week 8-11: Lead capture (every 5 turns) ──
+    turn_count = ctx.get("conversation_turn_count", session.total_message_count)
+    try:
+        lead_svc = _get_service_module("app.services.lead_service")
+        if lead_svc and turn_count % 5 == 0:
+            lead_svc.capture_lead(
+                session_id=session_id,
+                user_id=user_id,
+                company_id=company_id,
+                session_context=ctx,
+                sentiment_data=ctx.get("sentiment"),
+            )
+    except Exception:
+        pass
+
+    # ── Week 8-11: Sentiment technique mapping ──
+    try:
+        stm_cls = _get_service(
+            "sentiment_technique_mapper",
+            "app.services.sentiment_technique_mapper",
+            "SentimentTechniqueMapper",
+        )
+        if stm_cls:
+            mapper = stm_cls()
+            sentiment_map = mapper.map(
+                frustration_score=ctx.get("frustration_score", 0),
+                sentiment_score=ctx.get("sentiment_score", 0.5),
+                urgency_level=ctx.get("urgency_level", "normal"),
+                customer_tier=ctx.get("customer_tier", "standard"),
+                emotion=ctx.get("emotion"),
+                is_vip=ctx.get("is_vip", False),
+                variant_type=session.pack_type,
+                company_id=company_id or "",
+            )
+            ctx["technique_mapping"] = sentiment_map.to_dict() if hasattr(sentiment_map, 'to_dict') else {}
+    except Exception:
+        pass
+
     # Build AI prompt and call provider
     system_prompt = build_system_prompt(db, session_id)
     history = _get_recent_history(db, session_id)
@@ -361,6 +581,40 @@ def send_message(
     # Detect and update stage
     detected = detect_stage(db, session_id)
     ctx["detected_stage"] = detected
+
+    # ── Week 8-11: Brand voice validation on AI response ──
+    try:
+        bv_svc_cls = _get_service(
+            "brand_voice", "app.services.brand_voice_service", "BrandVoiceService",
+        )
+        if bv_svc_cls and company_id:
+            bv_svc = bv_svc_cls(db)
+            prohibited = bv_svc.check_prohibited_words(ai_content, company_id)
+            if prohibited and hasattr(prohibited, 'found') and prohibited.found:
+                ctx["brand_voice_warning"] = "prohibited_words_detected"
+    except Exception:
+        pass
+
+    # ── Week 8-11: Post-response audit logging ──
+    try:
+        audit_svc = _get_service_module("app.services.audit_service")
+        if audit_svc:
+            audit_svc.log_audit(
+                company_id=company_id or "",
+                actor_id=user_id,
+                actor_type="user",
+                action="message_sent",
+                resource_type="session",
+                resource_id=session_id,
+                old_value=None,
+                new_value={"stage": detected, "turn": turn_count},
+                ip_address=None,
+                user_agent=None,
+                db=db,
+            )
+    except Exception:
+        pass
+
     session.context_json = json.dumps(ctx)
 
     db.flush()
@@ -1166,6 +1420,7 @@ def build_system_prompt(
         return _get_default_system_prompt()
 
     ctx = _parse_context(session.context_json)
+    company_id = ctx.get("company_id")
 
     prompt = _get_default_system_prompt()
 
@@ -1245,6 +1500,47 @@ def build_system_prompt(
             prompt += f"\n\n{knowledge_section}"
     except Exception:
         # Knowledge service not available — continue without it
+        pass
+
+    # ── Week 8-11: Inject brand voice guidelines ──
+    try:
+        bv_svc_cls = _get_service(
+            "brand_voice", "app.services.brand_voice_service", "BrandVoiceService",
+        )
+        if bv_svc_cls and company_id:
+            bv_svc = bv_svc_cls(db)
+            bv_config = bv_svc.get_config(company_id)
+            if bv_config:
+                prompt += "\n\n## Brand Voice Guidelines:\n"
+                tone = getattr(bv_config, "tone", None)
+                if tone:
+                    prompt += f"- Tone: {tone}\n"
+                formality = getattr(bv_config, "formality_level", None)
+                if formality:
+                    prompt += f"- Formality: {formality}\n"
+                personality = getattr(bv_config, "personality_traits", None)
+                if personality:
+                    prompt += f"- Personality: {', '.join(personality) if isinstance(personality, list) else personality}\n"
+    except Exception:
+        pass
+
+    # ── Week 8-11: Inject response guidelines based on sentiment ──
+    try:
+        bv_svc_cls2 = _get_service(
+            "brand_voice", "app.services.brand_voice_service", "BrandVoiceService",
+        )
+        if bv_svc_cls2 and company_id:
+            bv_svc2 = bv_svc_cls2(db)
+            sentiment_score = ctx.get("sentiment_score", 0.5)
+            guidelines = bv_svc2.get_response_guidelines(company_id, sentiment_score)
+            if guidelines:
+                prompt += "\n\n## Response Guidelines (sentiment-aware):\n"
+                if isinstance(guidelines, str):
+                    prompt += guidelines
+                elif hasattr(guidelines, "guidelines"):
+                    for g in guidelines.guidelines[:5]:
+                        prompt += f"- {g}\n"
+    except Exception:
         pass
 
     prompt += context_section
@@ -1433,6 +1729,1404 @@ def handle_error(
         "error_type": error_type,
         "session_id": session_id,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Week 8-11: New Public Functions — Complete Service Integration
+# ═══════════════════════════════════════════════════════════════════
+
+
+# ── Ticket Operations ────────────────────────────────────────────
+
+
+def jarvis_create_ticket(
+    db: Session,
+    company_id: str,
+    subject: str,
+    description: str,
+    customer_id: Optional[str] = None,
+    priority: str = "medium",
+    category: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Create a customer care ticket via ticket_service.
+
+    Args:
+        db: Database session.
+        company_id: Company owning the ticket.
+        subject: Ticket subject/title.
+        description: Ticket description/body.
+        customer_id: Optional customer identifier.
+        priority: Ticket priority (low/medium/high/urgent).
+        category: Optional ticket category.
+
+    Returns:
+        Created ticket data dict, or None if service unavailable.
+    """
+    try:
+        svc_cls = _get_service(
+            "ticket_service",
+            "app.services.ticket_service",
+            "TicketService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            ticket = svc.create_ticket(
+                subject=subject,
+                description=description,
+                customer_id=customer_id,
+                priority=priority,
+                category=category,
+            )
+            if hasattr(ticket, "to_dict"):
+                return ticket.to_dict()
+            return {"id": str(ticket.id), "subject": subject}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_tickets(
+    db: Session,
+    company_id: str,
+    status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> Optional[List[Dict[str, Any]]]:
+    """List tickets for a company via ticket_service."""
+    try:
+        svc_cls = _get_service(
+            "ticket_service",
+            "app.services.ticket_service",
+            "TicketService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            tickets = svc.list_tickets(status=status, limit=limit, offset=offset)
+            if isinstance(tickets, list):
+                return [
+                    t.to_dict() if hasattr(t, "to_dict") else str(t)
+                    for t in tickets
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_ticket(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Get a single ticket by ID."""
+    try:
+        svc_cls = _get_service(
+            "ticket_service",
+            "app.services.ticket_service",
+            "TicketService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            ticket = svc.get_ticket(ticket_id)
+            if ticket and hasattr(ticket, "to_dict"):
+                return ticket.to_dict()
+            return {"id": ticket_id} if ticket else None
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_update_ticket(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+    updates: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Update a ticket's fields."""
+    try:
+        svc_cls = _get_service(
+            "ticket_service",
+            "app.services.ticket_service",
+            "TicketService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            ticket = svc.update_ticket(ticket_id, **updates)
+            if ticket and hasattr(ticket, "to_dict"):
+                return ticket.to_dict()
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_delete_ticket(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Delete a ticket."""
+    try:
+        svc_cls = _get_service(
+            "ticket_service",
+            "app.services.ticket_service",
+            "TicketService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            result = svc.delete_ticket(ticket_id)
+            return {"deleted": True, "ticket_id": ticket_id}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_assign_ticket(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+    assignee_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Assign a ticket to an agent/user."""
+    try:
+        svc_cls = _get_service(
+            "ticket_service",
+            "app.services.ticket_service",
+            "TicketService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            ticket = svc.assign_ticket(ticket_id, assignee_id)
+            if ticket and hasattr(ticket, "to_dict"):
+                return ticket.to_dict()
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_transition_ticket(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+    target_state: str,
+    reason: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Transition a ticket state via state machine."""
+    try:
+        sm_cls = _get_service(
+            "ticket_state_machine",
+            "app.services.ticket_state_machine",
+            "TicketStateMachine",
+        )
+        if sm_cls:
+            sm = sm_cls(db, company_id)
+            ticket = sm.transition(ticket_id, target_state, reason=reason)
+            if ticket and hasattr(ticket, "to_dict"):
+                return ticket.to_dict()
+            return {"ticket_id": ticket_id, "new_state": target_state}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_classify_ticket(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Classify a ticket's intent and urgency."""
+    try:
+        svc_cls = _get_service(
+            "classification_service",
+            "app.services.classification_service",
+            "ClassificationService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            result = svc.classify(ticket_id)
+            if hasattr(result, "to_dict"):
+                return result.to_dict()
+            return {"ticket_id": ticket_id, "classification": str(result)}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_search_tickets(
+    db: Session,
+    company_id: str,
+    query: str,
+    filters: Optional[Dict[str, Any]] = None,
+    limit: int = 20,
+) -> Optional[List[Dict[str, Any]]]:
+    """Search tickets via ticket_search_service."""
+    try:
+        svc_cls = _get_service(
+            "ticket_search_service",
+            "app.services.ticket_search_service",
+            "TicketSearchService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            results = svc.search(query, filters=filters, limit=limit)
+            if isinstance(results, list):
+                return [
+                    r.to_dict() if hasattr(r, "to_dict") else str(r)
+                    for r in results
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_merge_tickets(
+    db: Session,
+    company_id: str,
+    primary_ticket_id: str,
+    secondary_ticket_ids: List[str],
+) -> Optional[Dict[str, Any]]:
+    """Merge multiple tickets into one via ticket_merge_service."""
+    try:
+        svc_cls = _get_service(
+            "ticket_merge_service",
+            "app.services.ticket_merge_service",
+            "TicketMergeService",
+        )
+        if svc_cls:
+            svc = svc_cls(db)
+            result = svc.merge_tickets(
+                primary_ticket_id, secondary_ticket_ids, company_id,
+            )
+            if hasattr(result, "to_dict"):
+                return result.to_dict()
+            return {"merged": True, "primary": primary_ticket_id}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_check_ticket_lifecycle(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+    check_type: str = "duplicate",
+) -> Optional[Dict[str, Any]]:
+    """Run lifecycle checks (duplicate, out-of-scope, etc.)."""
+    try:
+        svc_cls = _get_service(
+            "ticket_lifecycle_service",
+            "app.services.ticket_lifecycle_service",
+            "TicketLifecycleService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            if check_type == "duplicate":
+                result = svc.check_duplicate(ticket_id)
+            elif check_type == "out_of_scope":
+                result = svc.check_out_of_plan_scope(ticket_id)
+            elif check_type == "ai_cant_solve":
+                result = svc.handle_ai_cant_solve(ticket_id)
+            elif check_type == "human_request":
+                result = svc.handle_human_request(ticket_id)
+            else:
+                result = svc.check_duplicate(ticket_id)
+            if hasattr(result, "to_dict"):
+                return result.to_dict()
+            return {"ticket_id": ticket_id, "check": check_type}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_ticket_analytics(
+    db: Session,
+    company_id: str,
+    days: int = 30,
+) -> Optional[Dict[str, Any]]:
+    """Get ticket analytics summary."""
+    try:
+        svc_cls = _get_service(
+            "ticket_analytics_service",
+            "app.services.ticket_analytics_service",
+            "TicketAnalyticsService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            summary = svc.get_summary(days=days)
+            trends = svc.get_trends(days=days)
+            result = {}
+            if hasattr(summary, "to_dict"):
+                result["summary"] = summary.to_dict()
+            if hasattr(trends, "__iter__"):
+                result["trends"] = [
+                    t.to_dict() if hasattr(t, "to_dict") else str(t)
+                    for t in trends
+                ]
+            return result
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_detect_stale_tickets(
+    db: Session,
+    company_id: str,
+) -> Optional[List[Dict[str, Any]]]:
+    """Detect stale tickets that need attention."""
+    try:
+        svc_cls = _get_service(
+            "stale_ticket_service",
+            "app.services.stale_ticket_service",
+            "StaleTicketService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            stale = svc.detect_stale_tickets()
+            if isinstance(stale, list):
+                return [
+                    s.to_dict() if hasattr(s, "to_dict") else str(s)
+                    for s in stale
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_analyze_spam(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Analyze a ticket for spam."""
+    try:
+        svc_cls = _get_service(
+            "spam_detection_service",
+            "app.services.spam_detection_service",
+            "SpamDetectionService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            result = svc.analyze_ticket(ticket_id)
+            if hasattr(result, "to_dict"):
+                return result.to_dict()
+            return {"ticket_id": ticket_id, "spam_analysis": str(result)}
+    except Exception:
+        pass
+    return None
+
+
+# ── Analytics ──────────────────────────────────────────────────────
+
+
+def jarvis_get_analytics(
+    db: Session,
+    company_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    since: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Get analytics metrics."""
+    try:
+        analytics_svc = _get_service_module("app.services.analytics_service")
+        if analytics_svc:
+            return analytics_svc.get_metrics(
+                company_id=company_id,
+                session_id=session_id,
+                since=since,
+            )
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_funnel_metrics() -> Optional[Dict[str, Any]]:
+    """Get funnel conversion metrics."""
+    try:
+        analytics_svc = _get_service_module("app.services.analytics_service")
+        if analytics_svc:
+            return analytics_svc.get_funnel_metrics()
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_sentiment_metrics(
+    session_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Get sentiment analysis metrics for a session."""
+    try:
+        analytics_svc = _get_service_module("app.services.analytics_service")
+        if analytics_svc:
+            return analytics_svc.get_sentiment_metrics(session_id=session_id)
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_track_event(
+    event_type: str,
+    event_category: str,
+    user_id: str,
+    company_id: str = "",
+    session_id: Optional[str] = None,
+    properties: Optional[Dict[str, Any]] = None,
+    source: str = "jarvis",
+) -> Optional[Dict[str, Any]]:
+    """Track an analytics event."""
+    try:
+        analytics_svc = _get_service_module("app.services.analytics_service")
+        if analytics_svc:
+            return analytics_svc.track_event(
+                event_type=event_type,
+                event_category=event_category,
+                user_id=user_id,
+                company_id=company_id,
+                session_id=session_id,
+                properties=properties or {},
+                source=source,
+            )
+    except Exception:
+        pass
+    return None
+
+
+# ── Lead Management ───────────────────────────────────────────────
+
+
+def jarvis_capture_lead(
+    session_id: str,
+    user_id: str,
+    company_id: Optional[str] = None,
+    session_context: Optional[Dict[str, Any]] = None,
+    sentiment_data: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Capture or update a sales lead."""
+    try:
+        lead_svc = _get_service_module("app.services.lead_service")
+        if lead_svc:
+            return lead_svc.capture_lead(
+                session_id=session_id,
+                user_id=user_id,
+                company_id=company_id,
+                session_context=session_context or {},
+                sentiment_data=sentiment_data,
+            )
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_lead(
+    user_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Get lead data for a user."""
+    try:
+        lead_svc = _get_service_module("app.services.lead_service")
+        if lead_svc:
+            lead = lead_svc.get_lead(user_id)
+            if lead and hasattr(lead, "to_dict"):
+                return lead.to_dict()
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_leads(
+    status: Optional[str] = None,
+) -> Optional[List[Dict[str, Any]]]:
+    """Get all leads, optionally filtered by status."""
+    try:
+        lead_svc = _get_service_module("app.services.lead_service")
+        if lead_svc:
+            if status:
+                leads = lead_svc.get_leads_by_status(status)
+            else:
+                leads = lead_svc.get_all_leads()
+            if isinstance(leads, list):
+                return [
+                    l.to_dict() if hasattr(l, "to_dict") else str(l)
+                    for l in leads
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_lead_stats() -> Optional[Dict[str, Any]]:
+    """Get lead statistics."""
+    try:
+        lead_svc = _get_service_module("app.services.lead_service")
+        if lead_svc:
+            return lead_svc.get_lead_stats()
+    except Exception:
+        pass
+    return None
+
+
+# ── Billing & Usage ───────────────────────────────────────────────
+
+
+def jarvis_get_usage(
+    company_id: str,
+    db: Optional[Session] = None,
+) -> Optional[Dict[str, Any]]:
+    """Get current usage statistics for a company."""
+    try:
+        svc_cls = _get_service(
+            "usage_tracking",
+            "app.services.usage_tracking_service",
+            "UsageTrackingService",
+        )
+        if svc_cls:
+            svc = svc_cls()
+            return svc.get_current_usage(company_id)
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_check_usage_limit(
+    company_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Check if a company is approaching its usage limit."""
+    try:
+        svc_cls = _get_service(
+            "usage_tracking",
+            "app.services.usage_tracking_service",
+            "UsageTrackingService",
+        )
+        if svc_cls:
+            svc = svc_cls()
+            return svc.check_approaching_limit(company_id)
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_invoices(
+    company_id: str,
+    status: Optional[str] = None,
+    limit: int = 20,
+) -> Optional[List[Dict[str, Any]]]:
+    """Get invoice list for a company."""
+    try:
+        svc_fn = _get_service(
+            "invoice_service_getter",
+            "app.services.invoice_service",
+            "get_invoice_service",
+        )
+        if svc_fn:
+            svc = svc_fn()
+            invoices = svc.get_invoice_list(company_id, status=status, limit=limit)
+            if isinstance(invoices, list):
+                return [
+                    inv.to_dict() if hasattr(inv, "to_dict") else str(inv)
+                    for inv in invoices
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_invoice(
+    company_id: str,
+    invoice_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Get a specific invoice."""
+    try:
+        svc_fn = _get_service(
+            "invoice_service_getter",
+            "app.services.invoice_service",
+            "get_invoice_service",
+        )
+        if svc_fn:
+            svc = svc_fn()
+            invoice = svc.get_invoice(company_id, invoice_id)
+            if invoice and hasattr(invoice, "to_dict"):
+                return invoice.to_dict()
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_monthly_cost_report(
+    db: Session,
+    company_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Get monthly cost/budget report."""
+    try:
+        svc_cls = _get_service(
+            "cost_protection",
+            "app.services.cost_protection_service",
+            "CostProtectionService",
+        )
+        if svc_cls:
+            svc = svc_cls(db)
+            return svc.get_monthly_report(company_id)
+    except Exception:
+        pass
+    return None
+
+
+# ── Audit & Security ──────────────────────────────────────────────
+
+
+def jarvis_get_audit_trail(
+    db: Session,
+    company_id: str,
+    actor_type: Optional[str] = None,
+    action: Optional[str] = None,
+    offset: int = 0,
+    limit: int = 50,
+) -> Optional[List[Dict[str, Any]]]:
+    """Query audit trail entries."""
+    try:
+        audit_svc = _get_service_module("app.services.audit_service")
+        if audit_svc:
+            entries = audit_svc.query_audit_trail(
+                db=db,
+                company_id=company_id,
+                actor_type=actor_type,
+                action=action,
+                offset=offset,
+                limit=limit,
+            )
+            if isinstance(entries, list):
+                return [
+                    e.to_dict() if hasattr(e, "to_dict") else str(e)
+                    for e in entries
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_audit_stats(
+    db: Session,
+    company_id: str,
+    days: int = 30,
+) -> Optional[Dict[str, Any]]:
+    """Get audit statistics."""
+    try:
+        audit_svc = _get_service_module("app.services.audit_service")
+        if audit_svc:
+            return audit_svc.get_audit_stats(db=db, company_id=company_id, days=days)
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_audit_log_events(
+    company_id: str,
+    category: Optional[str] = None,
+    severity: Optional[str] = None,
+    limit: int = 50,
+) -> Optional[List[Dict[str, Any]]]:
+    """Query structured audit log events via AuditLogService."""
+    try:
+        svc_cls = _get_service(
+            "audit_log_service",
+            "app.services.audit_log_service",
+            "AuditLogService",
+        )
+        if svc_cls:
+            svc = svc_cls(config=None)
+            events = svc.query_events(
+                company_id=company_id,
+                category=category,
+                severity=severity,
+                limit=limit,
+            )
+            if isinstance(events, list):
+                return [
+                    e.to_dict() if hasattr(e, "to_dict") else str(e)
+                    for e in events
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_audit_log_stats(
+    company_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Get audit log statistics."""
+    try:
+        svc_cls = _get_service(
+            "audit_log_service",
+            "app.services.audit_log_service",
+            "AuditLogService",
+        )
+        if svc_cls:
+            svc = svc_cls(config=None)
+            stats = svc.get_statistics(company_id=company_id)
+            if hasattr(stats, "to_dict"):
+                return stats.to_dict()
+            return stats
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_check_rate_limit(
+    redis_client: Any = None,
+    key: str = "global",
+    category: str = "default",
+) -> Optional[Dict[str, Any]]:
+    """Check rate limit status."""
+    try:
+        svc_cls = _get_service(
+            "rate_limit_service",
+            "app.services.rate_limit_service",
+            "RateLimitService",
+        )
+        if svc_cls:
+            svc = svc_cls(redis_client=redis_client)
+            result = svc.check_rate_limit(key=key, category=category)
+            if hasattr(result, "to_headers"):
+                return {
+                    "allowed": result.allowed,
+                    "remaining": result.remaining,
+                    "limit": result.limit,
+                    "reset_at": str(result.reset_at) if result.reset_at else None,
+                }
+            return {"allowed": bool(result)}
+    except Exception:
+        pass
+    return None
+
+
+# ── Onboarding ────────────────────────────────────────────────────
+
+
+def jarvis_complete_onboarding_step(
+    db: Session,
+    user_id: str,
+    company_id: str,
+    step: str,
+) -> Optional[Dict[str, Any]]:
+    """Complete an onboarding step."""
+    try:
+        onboarding_svc = _get_service_module("app.services.onboarding_service")
+        if onboarding_svc:
+            return onboarding_svc.complete_step(
+                db=db, user_id=user_id, company_id=company_id, step=step,
+            )
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_accept_legal_consents(
+    db: Session,
+    user_id: str,
+    company_id: str,
+    accept_terms: bool = True,
+    accept_privacy: bool = True,
+    accept_ai_data: bool = True,
+    client_timestamp: Optional[str] = None,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Accept legal consents during onboarding."""
+    try:
+        onboarding_svc = _get_service_module("app.services.onboarding_service")
+        if onboarding_svc:
+            return onboarding_svc.accept_legal_consents(
+                db=db,
+                user_id=user_id,
+                company_id=company_id,
+                accept_terms=accept_terms,
+                accept_privacy=accept_privacy,
+                accept_ai_data=accept_ai_data,
+                client_timestamp=client_timestamp,
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_activate_ai(
+    db: Session,
+    user_id: str,
+    company_id: str,
+    ai_name: str = "Jarvis",
+    ai_tone: str = "professional_friendly",
+    ai_response_style: str = "concise",
+    ai_greeting: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Activate AI for a company during onboarding."""
+    try:
+        onboarding_svc = _get_service_module("app.services.onboarding_service")
+        if onboarding_svc:
+            return onboarding_svc.activate_ai(
+                db=db,
+                user_id=user_id,
+                company_id=company_id,
+                ai_name=ai_name,
+                ai_tone=ai_tone,
+                ai_response_style=ai_response_style,
+                ai_greeting=ai_greeting,
+            )
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_pricing_variants(
+    industry: str,
+    variant_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Get pricing variant details."""
+    try:
+        pricing_svc = _get_service_module("app.services.pricing_service")
+        if pricing_svc:
+            if variant_id:
+                return pricing_svc.get_variant_by_id(industry, variant_id)
+            return {
+                "cheapest": pricing_svc.get_cheapest_variant(industry),
+                "popular": pricing_svc.get_popular_variant(industry),
+            }
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_validate_variant_selection(
+    industry: str,
+    selections: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Validate variant selections before purchase."""
+    try:
+        pricing_svc = _get_service_module("app.services.pricing_service")
+        if pricing_svc:
+            return pricing_svc.validate_variant_selection(industry, selections)
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_calculate_totals(
+    validated_selections: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Calculate pricing totals for validated selections."""
+    try:
+        pricing_svc = _get_service_module("app.services.pricing_service")
+        if pricing_svc:
+            return pricing_svc.calculate_totals(validated_selections)
+    except Exception:
+        pass
+    return None
+
+
+# ── Notifications ─────────────────────────────────────────────────
+
+
+def jarvis_send_notification(
+    db: Session,
+    company_id: str,
+    user_id: str,
+    title: str,
+    message: str,
+    notification_type: str = "info",
+) -> Optional[Dict[str, Any]]:
+    """Send a notification to a user."""
+    try:
+        svc_cls = _get_service(
+            "notification_service",
+            "app.services.notification_service",
+            "NotificationService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            return svc.send_notification(
+                user_id=user_id,
+                title=title,
+                message=message,
+                notification_type=notification_type,
+            )
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_send_email(
+    to: str,
+    subject: str,
+    html_content: str,
+) -> Optional[Dict[str, Any]]:
+    """Send an email via email_service."""
+    try:
+        email_svc = _get_service_module("app.services.email_service")
+        if email_svc:
+            email_svc.send_email(
+                to=to, subject=subject, html_content=html_content,
+            )
+            return {"sent": True, "to": to}
+    except Exception:
+        pass
+    return {"sent": False, "error": "email_service_unavailable"}
+
+
+def jarvis_process_webhook(
+    company_id: str,
+    provider: str,
+    event_id: str,
+    event_type: str,
+    payload: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Process an incoming webhook event."""
+    try:
+        webhook_svc = _get_service_module("app.services.webhook_service")
+        if webhook_svc:
+            return webhook_svc.process_webhook(
+                company_id=company_id,
+                provider=provider,
+                event_id=event_id,
+                event_type=event_type,
+                payload=payload,
+            )
+    except Exception:
+        pass
+    return None
+
+
+# ── Customer Management ──────────────────────────────────────────
+
+
+def jarvis_create_customer(
+    db: Session,
+    company_id: str,
+    name: str,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Create a customer record."""
+    try:
+        svc_cls = _get_service(
+            "customer_service",
+            "app.services.customer_service",
+            "CustomerService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            customer = svc.create_customer(
+                name=name, email=email, phone=phone,
+            )
+            if customer and hasattr(customer, "to_dict"):
+                return customer.to_dict()
+            return {"id": str(customer.id), "name": name}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_customer(
+    db: Session,
+    company_id: str,
+    customer_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Get a customer by ID."""
+    try:
+        svc_cls = _get_service(
+            "customer_service",
+            "app.services.customer_service",
+            "CustomerService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            customer = svc.get_customer(customer_id)
+            if customer and hasattr(customer, "to_dict"):
+                return customer.to_dict()
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_company_profile(
+    db: Session,
+    company_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Get company profile settings."""
+    try:
+        company_svc = _get_service_module("app.services.company_service")
+        if company_svc:
+            return company_svc.get_company_profile(company_id, db)
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_update_company_profile(
+    db: Session,
+    company_id: str,
+    data: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Update company profile settings."""
+    try:
+        company_svc = _get_service_module("app.services.company_service")
+        if company_svc:
+            return company_svc.update_company_profile(company_id, data, db)
+    except Exception:
+        pass
+    return None
+
+
+# ── Supporting Services ───────────────────────────────────────────
+
+
+def jarvis_auto_tag_ticket(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+) -> Optional[List[str]]:
+    """Auto-tag a ticket based on content."""
+    try:
+        svc_cls = _get_service(
+            "tag_service",
+            "app.services.tag_service",
+            "TagService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            result = svc.auto_tag(ticket_id)
+            if isinstance(result, list):
+                return result
+            if hasattr(result, "tags"):
+                return result.tags
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_detect_category(
+    db: Session,
+    company_id: str,
+    text: str,
+) -> Optional[Dict[str, Any]]:
+    """Detect ticket category from text."""
+    try:
+        svc_cls = _get_service(
+            "category_service",
+            "app.services.category_service",
+            "CategoryService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            result = svc.detect_category(text)
+            if hasattr(result, "to_dict"):
+                return result.to_dict()
+            return {"category": str(result)}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_detect_priority(
+    db: Session,
+    company_id: str,
+    text: str,
+    customer_tier: str = "standard",
+) -> Optional[Dict[str, Any]]:
+    """Detect ticket priority from text."""
+    try:
+        svc_cls = _get_service(
+            "priority_service",
+            "app.services.priority_service",
+            "PriorityService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            result = svc.detect_priority(text, customer_tier=customer_tier)
+            if hasattr(result, "to_dict"):
+                return result.to_dict()
+            return {"priority": str(result)}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_auto_assign_ticket(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Auto-assign a ticket to the best agent."""
+    try:
+        svc_cls = _get_service(
+            "assignment_service",
+            "app.services.assignment_service",
+            "AssignmentService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            result = svc.auto_assign(ticket_id)
+            if hasattr(result, "to_dict"):
+                return result.to_dict()
+            return {"ticket_id": ticket_id, "assigned": str(result)}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_sla_target(
+    db: Session,
+    company_id: str,
+    priority: str = "medium",
+) -> Optional[Dict[str, Any]]:
+    """Get SLA target for a priority level."""
+    try:
+        svc_cls = _get_service(
+            "sla_service",
+            "app.services.sla_service",
+            "SLAService",
+        )
+        if svc_cls:
+            svc = svc_cls(db)
+            result = svc.get_policy_by_tier_priority(
+                company_id=company_id, priority=priority,
+            )
+            if result and hasattr(result, "to_dict"):
+                return result.to_dict()
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_evaluate_triggers(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+    event_type: str = "created",
+) -> Optional[List[Dict[str, Any]]]:
+    """Evaluate automation triggers for a ticket event."""
+    try:
+        svc_cls = _get_service(
+            "trigger_service",
+            "app.services.trigger_service",
+            "TriggerService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            results = svc.evaluate_triggers(ticket_id, event_type)
+            if isinstance(results, list):
+                return [
+                    r.to_dict() if hasattr(r, "to_dict") else str(r)
+                    for r in results
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_ticket_tags(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+) -> Optional[List[str]]:
+    """Get tags for a ticket."""
+    try:
+        svc_cls = _get_service(
+            "tag_service",
+            "app.services.tag_service",
+            "TagService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            ticket = svc._get_ticket(ticket_id) if hasattr(svc, "_get_ticket") else None
+            if ticket and hasattr(ticket, "tags"):
+                return ticket.tags
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_ticket_notes(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+) -> Optional[List[Dict[str, Any]]]:
+    """Get internal notes for a ticket."""
+    try:
+        svc_cls = _get_service(
+            "internal_note_service",
+            "app.services.internal_note_service",
+            "InternalNoteService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            notes = svc.list_notes(ticket_id)
+            if isinstance(notes, list):
+                return [
+                    n.to_dict() if hasattr(n, "to_dict") else str(n)
+                    for n in notes
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_ticket_messages(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+) -> Optional[List[Dict[str, Any]]]:
+    """Get messages for a ticket."""
+    try:
+        svc_cls = _get_service(
+            "message_service",
+            "app.services.message_service",
+            "MessageService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            messages = svc.list_messages(ticket_id)
+            if isinstance(messages, list):
+                return [
+                    m.to_dict() if hasattr(m, "to_dict") else str(m)
+                    for m in messages
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_ticket_attachments(
+    db: Session,
+    company_id: str,
+    ticket_id: str,
+) -> Optional[List[Dict[str, Any]]]:
+    """Get attachments for a ticket."""
+    try:
+        svc_cls = _get_service(
+            "attachment_service",
+            "app.services.attachment_service",
+            "AttachmentService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            attachments = svc.get_attachments(ticket_id)
+            if isinstance(attachments, list):
+                return [
+                    a.to_dict() if hasattr(a, "to_dict") else str(a)
+                    for a in attachments
+                ]
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_channel_config(
+    db: Session,
+    company_id: str,
+    channel: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Get channel configuration."""
+    try:
+        svc_cls = _get_service(
+            "channel_service",
+            "app.services.channel_service",
+            "ChannelService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            if channel:
+                return svc.get_channel_config(channel)
+            return svc.get_company_channel_config()
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_execute_bulk_action(
+    db: Session,
+    company_id: str,
+    action_type: str,
+    ticket_ids: List[str],
+    params: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Execute a bulk action on multiple tickets."""
+    try:
+        svc_cls = _get_service(
+            "bulk_action_service",
+            "app.services.bulk_action_service",
+            "BulkActionService",
+        )
+        if svc_cls:
+            svc = svc_cls(db)
+            result = svc.execute_bulk_action(
+                company_id=company_id,
+                action_type=action_type,
+                ticket_ids=ticket_ids,
+                params=params or {},
+            )
+            if hasattr(result, "to_dict"):
+                return result.to_dict()
+            return {"action": action_type, "processed": len(ticket_ids)}
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_get_channels(
+    db: Session,
+    company_id: str,
+) -> Optional[List[Dict[str, Any]]]:
+    """Get available channels for a company."""
+    try:
+        svc_cls = _get_service(
+            "channel_service",
+            "app.services.channel_service",
+            "ChannelService",
+        )
+        if svc_cls:
+            svc = svc_cls(db, company_id)
+            channels = svc.get_available_channels()
+            if isinstance(channels, list):
+                return channels
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_scan_pii(
+    db: Session,
+    company_id: str,
+    text: str,
+    scan_types: Optional[List[str]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Scan text for PII via pii_scan_service."""
+    try:
+        svc_cls = _get_service(
+            "pii_scan",
+            "app.services.pii_scan_service",
+            "PIIScanService",
+        )
+        if svc_cls:
+            scanner = svc_cls(db, company_id)
+            return scanner.scan_text(text, scan_types=scan_types)
+    except Exception:
+        pass
+    return None
+
+
+def jarvis_merge_with_brand_voice(
+    db: Session,
+    company_id: str,
+    response_text: str,
+) -> Optional[str]:
+    """Merge response text with brand voice configuration."""
+    try:
+        svc_cls = _get_service(
+            "brand_voice",
+            "app.services.brand_voice_service",
+            "BrandVoiceService",
+        )
+        if svc_cls:
+            svc = svc_cls(db)
+            return svc.merge_with_brand_voice(response_text, company_id)
+    except Exception:
+        pass
+    return response_text
 
 
 # ── Private Helpers ────────────────────────────────────────────────

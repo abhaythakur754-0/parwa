@@ -55,13 +55,6 @@ const colorMap: Record<string, { bg: string; border: string; text: string; ring:
     ring: 'ring-amber-500/20',
     dot: 'bg-amber-400',
   },
-  orange: {
-    bg: 'bg-orange-500/10',
-    border: 'border-orange-500/30',
-    text: 'text-orange-400',
-    ring: 'ring-orange-500/20',
-    dot: 'bg-orange-400',
-  },
 };
 
 export default function HowItWorks() {

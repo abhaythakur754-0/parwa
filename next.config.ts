@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false,
   allowedDevOrigins: ["*.space.z.ai"],
+  turbopack: {
+    root: ".",
+  },
 };
 
 export default nextConfig;

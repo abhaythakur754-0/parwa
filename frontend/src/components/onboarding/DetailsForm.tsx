@@ -41,7 +41,7 @@ const detailsFormSchema = z.object({
   industry: z.enum([
     'saas', 'ecommerce', 'healthcare', 'finance', 'education',
     'real_estate', 'manufacturing', 'consulting', 'agency',
-    'nonprofit', 'other'
+    'nonprofit', 'logistics', 'hospitality', 'retail', 'other'
   ] as const),
   company_size: z.enum([
     '1_10', '11_50', '51_200', '201_500', '501_1000', '1000_plus'

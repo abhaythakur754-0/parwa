@@ -320,19 +320,6 @@ export default function ModelsPage() {
         context.variant = v.name;
         context.variant_id = v.id;
         context.entry_source = `models_${v.id}_free_chat`;
-        // Pass rich variant context so Jarvis knows EXACTLY what this plan offers
-        context.features = v.commonFeatures?.join(', ') || '';
-        context.unique_features = v.uniqueFeatures?.join(', ') || '';
-        context.roi = v.roi || '';
-        context.scenario = v.scenario || '';
-        context.price = v.monthlyPrice || '';
-        context.tagline = v.tagline || '';
-        context.best_for = v.bestFor || '';
-        context.integrations = v.integrations?.join(', ') || '';
-        context.core_capability = v.coreCapability || '';
-        context.core_limitation = v.coreLimitation || '';
-        context.smart_decisions = (v as any).smartDecisions || '';
-        context.key_advantage = (v as any).keyAdvantage || '';
       }
     }
     if (typeof window !== 'undefined') {

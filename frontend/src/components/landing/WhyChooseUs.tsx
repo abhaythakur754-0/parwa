@@ -55,7 +55,6 @@ const features = [
 const colorClasses: Record<string, { bg: string; text: string; border: string; hoverBorder: string; glow: string; check: string }> = {
   orange: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-white/10', hoverBorder: 'border-orange-500/30', glow: 'hover:shadow-orange-500/20', check: 'bg-orange-400' },
   amber: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-white/10', hoverBorder: 'border-amber-500/30', glow: 'hover:shadow-amber-500/15', check: 'bg-amber-400' },
-  orange: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-white/10', hoverBorder: 'border-orange-500/30', glow: 'hover:shadow-orange-500/15', check: 'bg-orange-400' },
 };
 
 export default function WhyChooseUs() {
