@@ -52,7 +52,7 @@ export default function Footer() {
   const toggleSection = (title: string) => setOpenSections(prev => prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]);
 
   return (
-    <footer className="relative bg-[#1A0F08]" role="contentinfo">
+    <footer className="relative" role="contentinfo">
       {/* Orange gradient top border line */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-400/60 to-transparent" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-18 md:py-20">

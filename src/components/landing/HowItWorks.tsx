@@ -89,7 +89,7 @@ export default function HowItWorks() {
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden bg-gradient-to-b from-[#1A1A1A] to-[#2A1A0A]"
+      className="relative overflow-hidden"
     >
       {/* Ambient glow orbs */}
       <div className="absolute inset-0 pointer-events-none">

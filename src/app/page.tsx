@@ -34,11 +34,11 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: '#1A1A1A' }}>
       {/* Navigation */}
       <NavigationBar onOpenJarvis={handleOpenJarvis} />
 
-      {/* Main Content */}
+      {/* Main Content — unified background, no section seams */}
       <main className="flex-grow">
         {/* Feature Carousel - Netflix-style full-width */}
         <FeatureCarousel />
