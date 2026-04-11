@@ -23,6 +23,8 @@ Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
 
 from typing import Optional
 
+import json
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
@@ -560,8 +562,6 @@ def _session_to_response(
     db: Session, session: object,
 ) -> JarvisSessionResponse:
     """Convert JarvisSession ORM model to response schema."""
-    import json
-
     from app.services.jarvis_service import check_message_limit
 
     limit, remaining = check_message_limit(db, session)
@@ -598,7 +598,6 @@ def _session_to_response(
 
 def _message_to_response(msg: object) -> JarvisMessageResponse:
     """Convert JarvisMessage ORM model to response schema."""
-    import json
 
     metadata = {}
     try:
@@ -623,7 +622,6 @@ def _ticket_to_response(
     ticket: object,
 ) -> JarvisActionTicketResponse:
     """Convert JarvisActionTicket ORM model to response schema."""
-    import json
 
     result = {}
     try:
