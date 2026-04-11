@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import {
   NavigationBar,
   FeatureCarousel,
@@ -26,17 +25,10 @@ import {
  */
 
 export default function HomePage() {
-  const router = useRouter();
-
-  const handleOpenJarvis = () => {
-    localStorage.setItem('parwa_jarvis_context', JSON.stringify({ source: 'nav_bar' }));
-    router.push('/onboarding');
-  };
-
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navigation */}
-      <NavigationBar onOpenJarvis={handleOpenJarvis} />
+      <NavigationBar />
 
       {/* Main Content */}
       <main className="flex-grow">
