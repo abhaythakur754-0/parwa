@@ -2,24 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
-import { LogOut } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 /**
  * NavigationBar Component
  * 
- * Dark premium glass navigation bar with orange accents.
+ * Light premium navigation bar with green accents.
  */
 
-interface NavigationBarProps {
-  onOpenJarvis?: () => void;
-}
-
-export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
+export default function NavigationBar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { isAuthenticated, user, logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -49,24 +41,16 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
   const navLinks = [
     { name: 'Home', href: '/' },
     { name: 'Models', href: '/models' },
-    { name: 'Jarvis Chatbot', href: '/onboarding', onClick: onOpenJarvis },
+    { name: 'Pricing', href: '/pricing' },
+    { name: 'Try Jarvis', href: '/jarvis' },
   ];
-
-  const handleLogout = async () => {
-    try { await logout(); } catch {
-      localStorage.removeItem('parwa_user');
-      localStorage.removeItem('parwa_access_token');
-      localStorage.removeItem('parwa_refresh_token');
-    }
-    toast.success('Logged out');
-  };
 
   return (
     <nav 
       className={`sticky top-0 z-50 transition-all duration-500 ${
         isScrolled 
-          ? 'bg-[#1A1A1A]/90 backdrop-blur-2xl shadow-lg shadow-black/20 border-b border-orange-500/20' 
-          : 'bg-[#1A1A1A]/60 backdrop-blur-xl border-b border-orange-500/10'
+          ? 'bg-white/95 backdrop-blur-2xl shadow-lg shadow-gray-900/5 border-b border-gray-200' 
+          : 'bg-white/70 backdrop-blur-xl border-b border-transparent'
       }`}
       role="navigation"
       aria-label="Main navigation"
@@ -79,13 +63,13 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
             className="flex items-center gap-2.5 sm:gap-3 group focus-visible-ring rounded-xl px-2 py-1.5 -ml-2"
             aria-label="PARWA home"
           >
-            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/30 group-hover:shadow-orange-600/50 transition-all duration-500 group-hover:scale-105">
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-orange-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-600/25 group-hover:shadow-emerald-600/40 transition-all duration-500 group-hover:scale-105">
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-400/20 to-transparent opacity-0 group-hover:opacity:100 transition-opacity duration-500" />
               <svg className="w-5 h-5 sm:w-5 sm:h-5 text-white relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
               </svg>
             </div>
-            <span className="text-lg sm:text-xl font-bold text-white group-hover:text-orange-300 transition-colors duration-500 tracking-tight">
+            <span className="text-lg sm:text-xl font-bold text-gray-900 group-hover:text-emerald-700 transition-colors duration-500 tracking-tight">
               PARWA
             </span>
           </Link>
@@ -93,66 +77,38 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
-              link.onClick ? (
-                <button
-                  key={link.name}
-                  onClick={link.onClick}
-                  className="px-3.5 lg:px-4 py-2 text-orange-200/60 hover:text-white text-sm font-medium transition-all duration-300 rounded-xl hover:bg-orange-500/10 focus-visible-ring"
-                >
-                  {link.name}
-                </button>
-              ) : (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  className="px-3.5 lg:px-4 py-2 text-orange-200/60 hover:text-white text-sm font-medium transition-all duration-300 rounded-xl hover:bg-orange-500/10 focus-visible-ring"
-                >
-                  {link.name}
-                </Link>
-              )
+              <Link
+                key={link.name}
+                href={link.href}
+                className="px-3.5 lg:px-4 py-2 text-gray-600 hover:text-gray-900 text-sm font-medium transition-all duration-300 rounded-xl hover:bg-gray-100 focus-visible-ring"
+              >
+                {link.name}
+              </Link>
             ))}
           </div>
 
-          {/* Auth Buttons - Desktop */}
-          <div className="hidden md:flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20">
+          {/* Login + Social Proof - Desktop */}
+          <div className="hidden md:flex items-center gap-4">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-300/50">
               <div className="flex -space-x-1.5">
-                <div className="w-5 h-5 rounded-full bg-orange-400/40 border-2 border-[#1A1A1A]" />
-                <div className="w-5 h-5 rounded-full bg-orange-500/40 border-2 border-[#1A1A1A]" />
-                <div className="w-5 h-5 rounded-full bg-orange-300/40 border-2 border-[#1A1A1A]" />
+                <div className="w-5 h-5 rounded-full bg-emerald-300/50 border-2 border-white" />
+                <div className="w-5 h-5 rounded-full bg-emerald-400/50 border-2 border-white" />
+                <div className="w-5 h-5 rounded-full bg-emerald-200/50 border-2 border-white" />
               </div>
+              <span className="text-xs text-gray-500 font-medium">2,400+ businesses trust us</span>
             </div>
-            {isAuthenticated && user ? (
-              <>
-                <Link
-                  href="/onboarding"
-                  onClick={onOpenJarvis}
-                  className="bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-orange-600/30 hover:shadow-orange-600/50 hover:-translate-y-0.5 focus-visible-ring"
-                >
-                  Open Jarvis
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="p-2.5 rounded-xl text-orange-200/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-300 focus-visible-ring"
-                  title="Logout"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </>
-            ) : (
-              <Link
-                href="/signup"
-                className="bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-orange-600/30 hover:shadow-orange-600/50 hover:-translate-y-0.5 focus-visible-ring badge-pulse"
-              >
-                Sign Up
-              </Link>
-            )}
+            <Link
+              href="/login"
+              className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-500 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 hover:-translate-y-0.5 focus-visible-ring badge-pulse"
+            >
+              🔥 Join 2,400+ businesses
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2.5 rounded-xl text-orange-200/60 hover:text-white hover:bg-orange-500/10 transition-all duration-300 focus-visible-ring"
+            className="md:hidden p-2.5 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-300 focus-visible-ring"
             aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={isMobileMenuOpen}
             aria-controls="mobile-menu"
@@ -175,32 +131,21 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
           }`}
           aria-hidden={!isMobileMenuOpen}
         >
-          <div className="py-5 border-t border-orange-500/15">
+          <div className="py-5 border-t border-gray-200">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2 px-4 py-2 mb-2">
                 <div className="flex -space-x-1.5">
-                  <div className="w-5 h-5 rounded-full bg-orange-400/40 border-2 border-[#1A1A1A]" />
-                  <div className="w-5 h-5 rounded-full bg-orange-500/40 border-2 border-[#1A1A1A]" />
-                  <div className="w-5 h-5 rounded-full bg-orange-300/40 border-2 border-[#1A1A1A]" />
+                  <div className="w-5 h-5 rounded-full bg-emerald-300/50 border-2 border-white" />
+                  <div className="w-5 h-5 rounded-full bg-emerald-400/50 border-2 border-white" />
+                  <div className="w-5 h-5 rounded-full bg-emerald-200/50 border-2 border-white" />
                 </div>
+                <span className="text-xs text-gray-500 font-medium">2,400+ businesses trust us</span>
               </div>
               {navLinks.map((link, index) => (
-                link.onClick ? (
-                  <button
-                    key={link.name}
-                    onClick={() => { link.onClick?.(); setIsMobileMenuOpen(false); }}
-                    className={`text-left px-4 py-3.5 text-orange-200/60 hover:text-white text-sm font-medium rounded-xl hover:bg-orange-500/10 transition-all duration-500 focus-visible-ring ${
-                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
-                    }`}
-                    style={{ transitionDelay: isMobileMenuOpen ? `${index * 60}ms` : '0ms' }}
-                  >
-                    {link.name}
-                  </button>
-                ) : (
                   <Link
                     key={link.name}
                     href={link.href}
-                    className={`px-4 py-3.5 text-orange-200/60 hover:text-white text-sm font-medium rounded-xl hover:bg-orange-500/10 transition-all duration-500 focus-visible-ring ${
+                    className={`px-4 py-3.5 text-gray-600 hover:text-gray-900 text-sm font-medium rounded-xl hover:bg-gray-100 transition-all duration-500 focus-visible-ring ${
                       isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                     }`}
                     style={{ transitionDelay: isMobileMenuOpen ? `${index * 60}ms` : '0ms' }}
@@ -208,42 +153,17 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                   >
                     {link.name}
                   </Link>
-                )
               ))}
-              {isAuthenticated && user ? (
-                <>
-                  <Link
-                    href="/onboarding"
-                    className={`mt-3 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
-                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
-                    }`}
-                    style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Open Jarvis
-                  </Link>
-                  <button
-                    onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
-                    className={`px-4 py-3.5 text-rose-400/70 hover:text-rose-400 text-sm font-medium rounded-xl hover:bg-rose-500/10 transition-all duration-500 focus-visible-ring ${
-                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
-                    }`}
-                    style={{ transitionDelay: isMobileMenuOpen ? '300ms' : '0ms' }}
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <Link
-                  href="/signup"
-                  className={`mt-3 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
-                    isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
-                  }`}
-                  style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Sign Up
-                </Link>
-              )}
+              <Link
+                href="/login"
+                className={`mt-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white px-5 py-3.5 rounded-xl text-sm font-semibold text-center transition-all duration-500 focus-visible-ring ${
+                  isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                }`}
+                style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Login
+              </Link>
             </div>
           </div>
         </div>
@@ -251,7 +171,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
 
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-orange-950/40 backdrop-blur-sm md:hidden z-[-1] transition-opacity duration-300"
+          className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm md:hidden z-[-1] transition-opacity duration-300"
           onClick={() => setIsMobileMenuOpen(false)}
           aria-hidden="true"
         />

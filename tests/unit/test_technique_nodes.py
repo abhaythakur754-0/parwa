@@ -12,19 +12,32 @@ from backend.app.core.techniques.base import (
 )
 from backend.app.core.techniques.stub_nodes import (
     CRPNode,
-    ReverseThinkingNode,
-    StepBackNode,
-    ChainOfThoughtNode,
-    ReActNode,
-    ThreadOfThoughtNode,
-    GSTNode,
-    UniverseOfThoughtsNode,
-    TreeOfThoughtsNode,
-    SelfConsistencyNode,
-    ReflexionNode,
-    LeastToMostNode,
+    ReverseThinkingNodePlaceholder,
+    StepBackNodePlaceholder,
+    ChainOfThoughtNodePlaceholder,
+    ReActNodePlaceholder,
+    ThreadOfThoughtNodePlaceholder,
+    GSTNodePlaceholder,
+    UniverseOfThoughtsNodePlaceholder,
+    TreeOfThoughtsNodePlaceholder,
+    SelfConsistencyNodePlaceholder,
+    ReflexionNodePlaceholder,
+    LeastToMostNodePlaceholder,
     TECHNIQUE_NODES,
 )
+
+# Aliases for cleaner test names
+ReverseThinkingNode = ReverseThinkingNodePlaceholder
+StepBackNode = StepBackNodePlaceholder
+ChainOfThoughtNode = ChainOfThoughtNodePlaceholder
+ReActNode = ReActNodePlaceholder
+ThreadOfThoughtNode = ThreadOfThoughtNodePlaceholder
+GSTNode = GSTNodePlaceholder
+UniverseOfThoughtsNode = UniverseOfThoughtsNodePlaceholder
+TreeOfThoughtsNode = TreeOfThoughtsNodePlaceholder
+SelfConsistencyNode = SelfConsistencyNodePlaceholder
+ReflexionNode = ReflexionNodePlaceholder
+LeastToMostNode = LeastToMostNodePlaceholder
 from backend.app.core.technique_router import (
     TechniqueID,
     TechniqueTier,
