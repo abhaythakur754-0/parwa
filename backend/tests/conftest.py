@@ -48,7 +48,13 @@ _mock_settings.GOOGLE_AI_API_KEY = None
 _fake_config.get_settings = MagicMock(return_value=_mock_settings)
 sys.modules.setdefault("app.config", _fake_config)
 
-# ── app.core.* (sentiment, escalation, technique_router) ───────────
+# ── app.core.* — ONLY mock submodules that don't exist on disk ──────
+# NOTE: Do NOT override app.core itself — it's a real package with 50+ modules.
+# Only stub modules that tests reference but don't exist yet.
+import os as _os
+
+_CORE_DIR = _os.path.join(_os.path.dirname(__file__), "..", "app", "core")
+
 for mod_path, attrs in {
     "app.core.sentiment_engine": {"SentimentAnalyzer": MagicMock()},
     "app.core.graceful_escalation": {
@@ -56,15 +62,15 @@ for mod_path, attrs in {
         "EscalationContext": MagicMock(),
         "EscalationTrigger": MagicMock(),
     },
-    "app.core.technique_router": {
-        "TechniqueID": type("TechniqueID", (), {}),
-        "TechniqueTier": type("TechniqueTier", (), {}),
-    },
 }.items():
-    mod = types.ModuleType(mod_path)
-    for k, v in attrs.items():
-        setattr(mod, k, v)
-    sys.modules.setdefault(mod_path, mod)
+    # Only mock if the real module file doesn't exist on disk
+    mod_file = mod_path.replace(".", "/") + ".py"
+    if not _os.path.exists(_os.path.join(_os.path.dirname(__file__), "..", mod_file)):
+        mod = types.ModuleType(mod_path)
+        for k, v in attrs.items():
+            setattr(mod, k, v)
+        sys.modules.setdefault(mod_path, mod)
 
-sys.modules.setdefault("app.core", types.ModuleType("app.core"))
+# Do NOT mock app.core — it's a real package.
+# Individual test files should mock specific classes via unittest.mock.patch.
 sys.modules.setdefault("app.logger", MagicMock(name="app.logger"))
