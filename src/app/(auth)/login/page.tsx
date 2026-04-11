@@ -25,7 +25,7 @@ function LoginContent() {
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectTo = searchParams.get('redirect') || '/models';
+  const redirectTo = searchParams.get('redirect') || '/profile';
 
   useEffect(() => {
     if (isAuthenticated && !authLoading) router.push(redirectTo);
@@ -121,7 +121,7 @@ function LoginContent() {
           animation: 'jarvisOrbFloat2 12s ease-in-out infinite',
         }} />
         <div className="absolute w-[200px] h-[200px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255,165,0,0.1) 0%, transparent 70%)',
           top: '60%',
           left: '60%',
           animation: 'jarvisOrbFloat3 9s ease-in-out infinite',

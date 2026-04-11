@@ -748,7 +748,7 @@ export default function ModelsPage() {
                             title="Free live chat — see how Parwa responds to real queries"
                           >
                             <div className="absolute inset-0 opacity-0 group-hover/chat:opacity-100 transition-opacity duration-300" style={{ background: 'rgba(255,255,255,0.06)' }} />
-                            <div className="absolute top-0 right-0 px-2.5 py-1 rounded-bl-xl rounded-tr-[9px]" style={{ background: 'rgba(52,211,153,0.15)' }}>
+                            <div className="absolute top-0 right-0 px-2.5 py-1 rounded-bl-xl rounded-tr-[9px]" style={{ background: 'rgba(255,165,0,0.2)' }}>
                               <span className="text-[9px] font-black uppercase tracking-wider text-orange-400">Free</span>
                             </div>
                             <div className="relative flex items-center gap-3 w-full">

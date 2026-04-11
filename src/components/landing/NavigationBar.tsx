@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { LogOut } from 'lucide-react';
+import { UserMenu } from '@/components/common/UserMenu';
 import toast from 'react-hot-toast';
 
 /**
  * NavigationBar Component
  * 
  * Dark premium glass navigation bar with orange accents.
+ * Auth-aware: shows UserMenu dropdown when logged in.
  */
 
 interface NavigationBarProps {
@@ -131,13 +133,8 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 >
                   Open Jarvis
                 </Link>
-                <button
-                  onClick={handleLogout}
-                  className="p-2.5 rounded-xl text-orange-200/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-300 focus-visible-ring"
-                  title="Logout"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
+                {/* User Menu with greeting */}
+                <UserMenu />
               </>
             ) : (
               <Link
@@ -222,12 +219,22 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                   >
                     Open Jarvis
                   </Link>
+                  <Link
+                    href="/profile"
+                    className={`px-4 py-3.5 text-orange-200/60 hover:text-white text-sm font-medium rounded-xl hover:bg-orange-500/10 transition-all duration-500 focus-visible-ring ${
+                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                    }`}
+                    style={{ transitionDelay: isMobileMenuOpen ? '300ms' : '0ms' }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    My Profile
+                  </Link>
                   <button
                     onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
                     className={`px-4 py-3.5 text-rose-400/70 hover:text-rose-400 text-sm font-medium rounded-xl hover:bg-rose-500/10 transition-all duration-500 focus-visible-ring ${
                       isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                     }`}
-                    style={{ transitionDelay: isMobileMenuOpen ? '300ms' : '0ms' }}
+                    style={{ transitionDelay: isMobileMenuOpen ? '360ms' : '0ms' }}
                   >
                     Logout
                   </button>
