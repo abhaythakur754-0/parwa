@@ -5,18 +5,25 @@
  * AI routing: Google AI → Cerebras → Groq → keyword fallback.
  *
  * Endpoints:
- *   POST /api/jarvis/session          — Create session
- *   GET  /api/jarvis/session          — Get session
- *   GET  /api/jarvis/history           — Get message history
- *   POST /api/jarvis/message           — Send message & get AI reply
- *   PATCH /api/jarvis/context          — Update session context
- *   POST /api/jarvis/verify/send-otp   — Send OTP
- *   POST /api/jarvis/verify/verify-otp — Verify OTP
- *   POST /api/jarvis/demo-pack/purchase — Purchase demo pack
- *   GET  /api/jarvis/demo-pack/status   — Get demo pack status
- *   POST /api/jarvis/payment/create     — Create payment
- *   POST /api/jarvis/demo-call/initiate — Initiate demo call
- *   POST /api/jarvis/handoff            — Execute handoff
+ *   POST /api/jarvis/session             — Create session (with context-aware welcome)
+ *   GET  /api/jarvis/session             — Get session
+ *   GET  /api/jarvis/history              — Get message history
+ *   POST /api/jarvis/message              — Send message & get AI reply (stage-aware)
+ *   PATCH /api/jarvis/context             — Update session context
+ *   POST /api/jarvis/verify/send-otp      — Send OTP (creates ticket)
+ *   POST /api/jarvis/verify/verify-otp    — Verify OTP (updates ticket)
+ *   POST /api/jarvis/demo-pack/purchase   — Purchase demo pack (with bill summary)
+ *   GET  /api/jarvis/demo-pack/status     — Get demo pack status
+ *   POST /api/jarvis/payment/create       — Create payment (itemized checkout)
+ *   POST /api/jarvis/payment/webhook      — Simulated Paddle webhook
+ *   GET  /api/jarvis/payment/status       — Get payment status
+ *   POST /api/jarvis/demo-call/initiate   — Initiate demo call (creates ticket)
+ *   POST /api/jarvis/handoff              — Execute handoff (creates ticket)
+ *   POST /api/jarvis/context/entry        — Update entry context with re-welcome
+ *   POST /api/jarvis/tickets              — Create action ticket
+ *   GET  /api/jarvis/tickets              — List session tickets
+ *   GET  /api/jarvis/tickets/:id          — Get specific ticket
+ *   PATCH /api/jarvis/tickets/:id/status  — Update ticket status
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -329,7 +336,11 @@ RULES:
 - Never break character or say "I'm an AI language model"
 - When in doubt, ask a clarifying question
 - Celebrate progress naturally
-- If someone asks something outside PARWA scope, politely redirect`;
+- If someone asks something outside PARWA scope, politely redirect
+
+STAGE-AWARE BEHAVIOR:
+Current conversation stage: ${session.detected_stage || session.context?.detected_stage || 'welcome'}
+${getStageInstructions(session.detected_stage || session.context?.detected_stage || 'welcome')}`;
 }
 
 // ── In-Memory Stores ──────────────────────────────────────────────
@@ -340,23 +351,161 @@ function generateId(): string {
   return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function generateTicketId(): string {
+  return `tkt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+// ── Stage-Aware Prompt Instructions ──────────────────────────────
+
+function getStageInstructions(stage: string): string {
+  const instructions: Record<string, string> = {
+    welcome: 'Focus on building rapport. Ask about their industry and business size to warm up the conversation.',
+    discovery: 'Focus on understanding their needs. Ask qualifying questions about daily ticket volume, channels, and current pain points.',
+    onboarding_questions: 'The user is exploring their business fit. Ask targeted questions about team size, support channels, current tools, and budget.',
+    variant_selection: 'The user is evaluating specific variants. Compare options clearly, highlight the best fit, address trade-offs.',
+    objection_handling: 'The user has concerns. Address them empathetically. Use specific data and ROI numbers. Offer social proof.',
+    pricing: 'Be consultative. Offer specific plan comparisons. Mention ROI and savings. Help them find the best value plan.',
+    demo: 'Be interactive and enthusiastic. Offer to roleplay as a customer support agent. Show real capabilities.',
+    verification: 'Guide the user through email verification step by step. Be reassuring and patient.',
+    payment: 'Be clear about pricing and next steps. Offer to create a checkout. Reassure about security and cancellation policy.',
+    bill_review: 'Walk through the bill details clearly. Explain each line item. Address any billing questions.',
+    handoff: 'Celebrate their progress! Explain what happens next. Set expectations for the onboarding team.',
+  };
+  return instructions[stage] || instructions.discovery || '';
+}
+
+// ── Context-Aware Welcome Messages ────────────────────────────────
+
+function getContextAwareWelcome(entrySource: string, ctx: any): string {
+  const source = entrySource || 'direct';
+  const referrer = ctx.entry_params?.referrer || ctx.entry_params?.ref || '';
+
+  const welcomes: Record<string, string> = {
+    direct: `Hey! I'm **Jarvis**, your PARWA AI assistant. Welcome aboard!\n\nI help businesses find the perfect AI customer support plan. Here's what I can help with:\n\n- **Plan recommendation** — Mini PARWA, PARWA, or PARWA High?\n- **ROI calculation** — See how much you'll save\n- **Industry specifics** — E-commerce, SaaS, Logistics, Healthcare\n- **Demo** — I AM the demo — ask me anything your customers would!\n\nWhat brings you here today? Tell me about your business and I'll find the best fit!`,
+    pricing: `I see you've been exploring our pricing — great to have you here! I'm **Jarvis**, PARWA's AI assistant.\n\nLet me help you find the perfect plan:\n\n- **Mini PARWA** — $999/mo (1 agent, best for SMBs)\n- **PARWA** — $2,499/mo (3 agents, 70-80% autonomous)\n- **PARWA High** — $3,999/mo (5 agents, full power)\n\nAll plans save you **85-92% vs hiring agents**. Want me to recommend the best plan for your business? Just tell me about your industry and ticket volume!`,
+    demo: `Welcome! You're here for a demo — and I **AM** the demo! I'm **Jarvis**, PARWA's AI assistant.\n\nThe best way to see PARWA in action? **Talk to me.** I'm exactly what your customers would experience. Try asking:\n\n- \"Where's my order?\" (e-commerce)\n- \"How do I reset my API key?\" (SaaS)\n- \"Track my shipment\" (logistics)\n\nOr grab a **$1 Demo Pack** for 500 messages + a 3-minute AI voice call!`,
+    features: `Exploring PARWA's capabilities? I'm **Jarvis**, and I can walk you through everything!\n\nPARWA handles your **entire** customer support stack:\n- 6 channels: Email, Chat, Phone, SMS, Voice, Social Media\- 700+ features across 4 industries\- 14 AI reasoning techniques (Tier 1-3)\- Integrations with Shopify, Zendesk, Slack, Salesforce & more\n\nWhat area interests you most? AI capabilities, integrations, or specific industry workflows?`,
+    roi: `Interested in the numbers? I'm **Jarvis**, and I love talking ROI!\n\nHere's the bottom line:\n- **PARWA Mini** ($999/mo) vs 4 agents ($14K/mo) = **$156K/year saved**\n- **PARWA** ($2,499/mo) vs 4 juniors ($18K/mo) = **$186K/year saved**\n- **PARWA High** ($3,999/mo) vs 5 seniors ($28K/mo) = **$288K/year saved**\n\nThat's **85-92% cost reduction** with 24/7 coverage. Want me to calculate the exact ROI for your situation?`,
+    industry_ecommerce: `Welcome! I see you're in the **E-commerce** space — one of PARWA's strongest verticals! I'm **Jarvis**.\n\nPARWA automates the 5 most common e-commerce support tickets:\n- 📦 Order Management ($99/unit)\n- 🔄 Returns & Refunds ($49/unit)\n- ❓ Product FAQ ($79/unit)\n- 🚚 Shipping Inquiries ($59/unit)\n- 💳 Payment Issues ($69/unit)\n\nWe integrate with **Shopify, WooCommerce, Magento, and BigCommerce**. How many support tickets does your store handle daily?`,
+    industry_saas: `Welcome! **SaaS** support is where PARWA really shines! I'm **Jarvis**.\n\nHere's what we automate for SaaS companies:\n- 🔧 Technical Support ($99/unit)\n- 💰 Billing Support ($69/unit)\n- 💡 Feature Requests ($59/unit)\n- 🔌 API Support ($79/unit)\n- 🔐 Account Issues ($49/unit)\n\nWith **churn prediction** and **Smart Router**, PARWA Growth ($2,499/mo) is the sweet spot for most SaaS teams. What's your current monthly ticket volume?`,
+    industry_logistics: `Welcome! **Logistics** is a perfect fit for PARWA. I'm **Jarvis**.\n\nWe handle the full logistics support stack:\n- 📍 Shipment Tracking ($79/unit)\n- 🚨 Delivery Issues ($69/unit)\n- 📦 Warehouse Queries ($59/unit)\n- 🚛 Fleet Management ($99/unit)\n- 📋 Customs & Compliance ($89/unit)\n\nWith **voice support** and **real-time GPS integration**, PARWA High ($3,499/mo) is ideal. Want to see how shipment tracking works?`,
+    industry_healthcare: `Welcome! **Healthcare** support with PARWA is **HIPAA-compliant** by design. I'm **Jarvis**.\n\nHere's what we cover:\n- 📅 Appointment Scheduling ($79/unit)\n- 🏥 Insurance Verification ($89/unit)\n- 📋 Medical Records ($69/unit)\n- 💊 Prescription Management ($59/unit)\n- 💰 Billing Support ($49/unit)\n\nWe integrate with **Epic EHR and FHIR** standards. Full audit trail and encryption included. What patient volume are you handling?`,
+    referral: referrer
+      ? `Great to have you! **${String(referrer)}** sent you to the right place — I'm **Jarvis**, PARWA's AI assistant.\n\nSince you were referred, let me fast-track you:\n- **Free personalized plan recommendation**\n- **Custom ROI calculation** for your business\n- **Live demo** — I AM the demo!\n\nWhat does your current customer support setup look like? I'll find the perfect PARWA plan for you.`
+      : `Great to have you! A friend sent you to the right place — I'm **Jarvis**, PARWA's AI assistant.\n\nLet me show you what PARWA can do for your business. Tell me about your industry and current support challenges!`,
+  };
+
+  return welcomes[source] || welcomes.direct;
+}
+
+// ── Action Ticket Helpers ────────────────────────────────────────
+
+function createActionTicket(session: any, type: string, metadata: Record<string, unknown> = {}): any {
+  if (!session.context.action_tickets) {
+    session.context.action_tickets = [];
+  }
+  const ticket = {
+    id: generateTicketId(),
+    type,
+    status: 'pending',
+    metadata,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  session.context.action_tickets.push(ticket);
+  return ticket;
+}
+
+function updateActionTicket(session: any, ticketId: string, updates: Partial<{ status: string; metadata: Record<string, unknown> }>): any | null {
+  const tickets = session.context?.action_tickets;
+  if (!Array.isArray(tickets)) return null;
+  const ticket = tickets.find((t: any) => t.id === ticketId);
+  if (!ticket) return null;
+  Object.assign(ticket, updates, { updated_at: new Date().toISOString() });
+  return ticket;
+}
+
+// ── Bill Summary Calculator ──────────────────────────────────────
+
+const VARIANT_PRICES: Record<string, number> = {
+  'order_management': 99, 'returns_refunds': 49, 'product_faq': 79, 'shipping_inquiries': 59, 'payment_issues': 69,
+  'technical_support': 99, 'billing_support_saas': 69, 'feature_requests': 59, 'api_support': 79, 'account_issues': 49,
+  'shipment_tracking': 79, 'delivery_issues': 69, 'warehouse_queries': 59, 'fleet_management': 99, 'customs': 89,
+  'appointment_scheduling': 79, 'insurance_verification': 89, 'medical_records': 69, 'prescription_management': 59, 'billing_support_healthcare': 49,
+};
+
+const PLAN_PRICES: Record<string, number> = {
+  'mini_parwa': 999, 'parwa': 2499, 'parwa_high': 3999,
+};
+
+function calculateBillSummary(session: any) {
+  const ctx = session.context;
+  const items: Array<{ name: string; price: number; type: string }> = [];
+
+  // Add plan cost
+  const plan = ctx.entry_params?.plan || ctx.selected_plan;
+  if (plan && PLAN_PRICES[String(plan)]) {
+    items.push({ name: `PARWA ${String(plan).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Plan`, price: PLAN_PRICES[String(plan)], type: 'plan' });
+  }
+
+  // Add variant costs
+  const variants = ctx.selected_variants || [];
+  for (const v of variants) {
+    const vKey = String(typeof v === 'string' ? v : v.key || v.name || '').toLowerCase().replace(/\s+/g, '_');
+    if (VARIANT_PRICES[vKey]) {
+      items.push({ name: vKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), price: VARIANT_PRICES[vKey], type: 'variant' });
+    }
+  }
+
+  const subtotal = items.reduce((sum, i) => sum + i.price, 0);
+  const tax = Math.round(subtotal * 0.08 * 100) / 100;
+  const total = subtotal + tax;
+
+  return { items, subtotal, tax, total, currency: 'USD', billing_cycle: 'monthly' };
+}
+
 function createDefaultSession(entrySource?: string, entryParams?: Record<string, unknown>) {
+  const params = entryParams || {};
+
+  // Phase 9a: Enhanced Entry Context — extract from URL params
+  const industry = params.industry ? String(params.industry) : null;
+  const referralSource = params.utm_source ? String(params.utm_source) : '';
+  const utmMedium = params.utm_medium ? String(params.utm_medium) : '';
+  const preselectedVariant = params.variant ? String(params.variant) : null;
+  const preselectedPlan = params.plan ? String(params.plan) : null;
+  const referrer = params.referrer || params.ref ? String(params.referrer || params.ref) : '';
+
+  // Build entry_source from params if provided
+  let effectiveSource = entrySource || 'direct';
+  if (params.entry_source) effectiveSource = String(params.entry_source);
+  if (industry) effectiveSource = `industry_${industry}`;
+
+  // Build selected_variants from preselected variant
+  const selectedVariants: string[] = [];
+  if (preselectedVariant) selectedVariants.push(preselectedVariant);
+
   return {
     id: generateId(),
     type: 'onboarding',
     context: {
       pages_visited: [],
-      industry: null,
-      selected_variants: [],
+      industry: industry,
+      selected_variants: selectedVariants,
+      selected_plan: preselectedPlan,
       roi_result: null,
       demo_topics: [],
       concerns_raised: [],
       business_email: null,
       email_verified: false,
-      referral_source: '',
-      entry_source: entrySource || 'direct',
-      entry_params: entryParams || {},
+      referral_source: referralSource,
+      utm_medium: utmMedium,
+      referrer: referrer,
+      entry_source: effectiveSource,
+      entry_params: params,
       detected_stage: 'welcome',
+      action_tickets: [],
+      payment_data: null,
+      bill_summary: null,
     },
     messages: [],
     message_count_today: 0,
@@ -369,6 +518,7 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
     detected_stage: 'welcome',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    stage_history: ['welcome'],
   };
 }
 
@@ -578,16 +728,52 @@ function getKeywordResponse(message: string, session: any): string {
 function detectStage(message: string, session: any): string {
   const lower = message.toLowerCase();
   const ctx = session.context;
+  const prevStage = session.detected_stage || ctx.detected_stage || 'welcome';
 
-  if (session.message_count_today <= 1) return 'welcome';
-  if (lower.includes('price') || lower.includes('cost') || lower.includes('plan') || lower.includes('package')) return 'pricing';
-  if (lower.includes('demo') || lower.includes('try') || lower.includes('see')) return 'demo';
-  if (lower.includes('pay') || lower.includes('buy') || lower.includes('checkout')) return 'payment';
-  if (lower.includes('verify') || lower.includes('otp') || lower.includes('confirm')) return 'verification';
-  if (lower.includes('handoff') || lower.includes('transfer') || lower.includes('human')) return 'handoff';
-  if (lower.includes('bill') || lower.includes('invoice') || lower.includes('receipt')) return 'bill_review';
-  if (!ctx.industry && (lower.includes('ecommerce') || lower.includes('saas') || lower.includes('logistics') || lower.includes('healthcare') || lower.includes('e-commerce') || lower.includes('retail'))) return 'discovery';
-  return ctx.detected_stage || 'discovery';
+  // Track stage history for transition detection
+  if (!session.stage_history) session.stage_history = [];
+
+  // Phase 8a: Enhanced stage detection with history and nuanced stages
+
+  // Welcome — only in first messages
+  if (session.message_count_today <= 1 && prevStage === 'welcome') return 'welcome';
+
+  // Verification — OTP/confirm (highest priority for active flows)
+  if (lower.includes('verify') || lower.includes('otp') || lower.includes('confirm email')) return 'verification';
+
+  // Payment — active checkout intent
+  if (lower.includes('pay') || lower.includes('checkout') || lower.includes('subscribe now') || lower.includes('complete purchase')) return 'payment';
+
+  // Bill review — checking invoice/bill details
+  if (lower.includes('bill') || lower.includes('invoice') || lower.includes('receipt') || lower.includes('charge')) return 'bill_review';
+
+  // Handoff — requesting human transfer
+  if (lower.includes('handoff') || lower.includes('transfer') || lower.includes('speak to human') || lower.includes('real person')) return 'handoff';
+
+  // Objection handling — user raising concerns
+  const objectionPatterns = /(?:too (?:expensive|costly|pricey|much)|not sure|concern|worried|hesitat|risk|what if|scam|trust|reliable|safe)/i;
+  if (objectionPatterns.test(lower)) return 'objection_handling';
+
+  // Variant selection — discussing specific features/variants
+  const variantPatterns = /(?:variant|which (?:plan|one)|compare|difference between|mini parwa|parwa high|starter vs|growth vs)/i;
+  if (variantPatterns.test(lower) && (ctx.selected_variants?.length > 0 || lower.includes('variant') || lower.includes('compare'))) return 'variant_selection';
+
+  // Onboarding questions — asking about business specifics
+  const onboardingPatterns = /(?:how many|team size|employees|tickets? (?:per day|daily|monthly)|channels?|current (?:setup|tool|system)|what (?:crm|helpdesk|platform))/i;
+  if (onboardingPatterns.test(lower) && !ctx.industry) return 'onboarding_questions';
+
+  // Pricing — discussing plans/costs
+  if (lower.includes('price') || lower.includes('pricing') || lower.includes('cost') || lower.includes('plan') || lower.includes('package') || lower.includes('how much')) return 'pricing';
+
+  // Demo — wanting to try/see
+  if (lower.includes('demo') || lower.includes('try') || lower.includes('see it') || lower.includes('show me') || lower.includes('experience')) return 'demo';
+
+  // Discovery — learning about industry
+  if (!ctx.industry && (lower.includes('ecommerce') || lower.includes('e-commerce') || lower.includes('saas') || lower.includes('logistics') || lower.includes('healthcare') || lower.includes('retail') || lower.includes('industry'))) return 'discovery';
+
+  // Default: maintain previous stage unless it was welcome (which we should advance from)
+  if (prevStage === 'welcome') return 'discovery';
+  return prevStage;
 }
 
 // ── Route Handler ─────────────────────────────────────────────────
@@ -602,13 +788,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = await request.json();
       const session = createDefaultSession(body.entry_source, body.entry_params);
 
+      // Phase 8b: Context-aware welcome based on entry_source
+      const welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+
       const welcomeMsg = {
         id: `jarvis_welcome_${Date.now()}`,
         session_id: session.id,
         role: 'jarvis',
-        content: `Hey! I'm **Jarvis**, your PARWA AI assistant. Welcome aboard!\n\nI help businesses find the perfect AI customer support plan. Here's what I can help with:\n\n- **Plan recommendation** — Mini PARWA, PARWA, or PARWA High?\n- **ROI calculation** — See how much you'll save\n- **Industry specifics** — E-commerce, SaaS, Logistics, Healthcare\n- **Demo** — I AM the demo — ask me anything your customers would!\n\nWhat brings you here today? Tell me about your business and I'll find the best fit!`,
+        content: welcomeContent,
         message_type: 'text',
-        metadata: {},
+        metadata: { entry_source: session.context.entry_source },
         timestamp: new Date().toISOString(),
       };
       session.messages.push(welcomeMsg);
@@ -644,7 +833,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.message_count_today++;
       session.total_message_count++;
       session.remaining_today = Math.max(0, 20 - session.message_count_today);
-      session.detected_stage = detectStage(content, session);
+      const newStage = detectStage(content, session);
+      session.detected_stage = newStage;
+      session.context.detected_stage = newStage;
+
+      // Track stage transitions in history
+      if (session.stage_history && session.stage_history[session.stage_history.length - 1] !== newStage) {
+        session.stage_history.push(newStage);
+      }
 
       const aiContent = await getAIResponse(content, session);
 
@@ -711,7 +907,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           ...session.context,
           otp: { code: otp, email: body.email, attempts: 0, attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), status: 'sent' },
         };
+        // Phase 10e: Create action ticket for OTP
+        const ticket = createActionTicket(session, 'otp_verification', { email: body.email, otp_status: 'sent' });
         sessions.set(sessionId, session);
+        return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), ticket_id: ticket.id });
       }
       return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
     }
@@ -730,6 +929,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({ message: 'Invalid OTP code. Please try again.', status: 'failed', attempts_remaining: Math.max(0, (Number(otpData?.attempts_remaining || 3)) - 1) });
       }
       session.context = { ...session.context, otp: { ...otpData, status: 'verified', verified_at: new Date().toISOString() }, email_verified: true, business_email: body.email || otpData.email };
+      // Phase 10e: Update OTP ticket to completed
+      const otpTickets = (session.context.action_tickets || []).filter((t: any) => t.type === 'otp_verification' && t.status !== 'completed');
+      if (otpTickets.length > 0) {
+        updateActionTicket(session, otpTickets[otpTickets.length - 1].id, { status: 'completed' });
+      }
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
       return NextResponse.json({ message: 'Email verified successfully!', status: 'verified', attempts_remaining: Number(otpData?.attempts_remaining) });
@@ -745,9 +949,39 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const session = sessions.get(sessionId);
       session.pack_type = 'demo';
       session.remaining_today = 500;
+
+      // Phase 10d: Calculate bill summary for demo pack
+      const billSummary = calculateBillSummary(session);
+      billSummary.items.push({ name: 'Demo Pack (500 messages + 3-min AI voice call)', price: 1, type: 'demo_pack' });
+      billSummary.subtotal += 1;
+      billSummary.tax = Math.round(billSummary.subtotal * 0.08 * 100) / 100;
+      billSummary.total = billSummary.subtotal + billSummary.tax;
+      session.context.bill_summary = billSummary;
+
+      // Phase 10e: Create action ticket for demo pack purchase
+      const ticket = createActionTicket(session, 'payment_demo_pack', { amount: billSummary.total, items: billSummary.items });
+
+      // Add payment_card message to chat
+      const paymentCardMsg = {
+        id: `payment_card_${Date.now()}`,
+        session_id: sessionId,
+        role: 'jarvis',
+        content: `Demo pack activated! You now have 500 messages + a 3-minute AI voice call.`,
+        message_type: 'payment_confirmation',
+        metadata: {
+          pack_type: 'demo',
+          amount: billSummary.total,
+          currency: 'USD',
+          items: billSummary.items,
+          ticket_id: ticket.id,
+        },
+        timestamp: new Date().toISOString(),
+      };
+      session.messages.push(paymentCardMsg);
+
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
-      return NextResponse.json({ message: 'Demo pack activated! You now have 500 messages.', pack_type: 'demo', pack_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), remaining_today: 500, demo_call_remaining: true });
+      return NextResponse.json({ message: 'Demo pack activated! You now have 500 messages.', pack_type: 'demo', pack_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), remaining_today: 500, demo_call_remaining: true, bill_summary: billSummary, ticket_id: ticket.id });
     }
 
     // ── POST /payment/create ───────────────────────────────────
@@ -757,9 +991,68 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId || !sessions.has(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
+      const session = sessions.get(sessionId);
       const body = await request.json();
-      const totalAmount = (body.variants || []).reduce((sum, v) => sum + Number(v.price_per_month || v.price || 999), 0);
-      return NextResponse.json({ checkout_url: `https://pay.paddle.com/checkout/demo-${Date.now()}`, transaction_id: `txn_${Date.now()}`, status: 'pending', amount: `$${totalAmount.toLocaleString()}/mo`, currency: 'USD' });
+
+      // Phase 10a: Enhanced itemized checkout
+      const items: Array<{ name: string; quantity: number; unit_price: number; total: number }> = [];
+      const variants = body.variants || [];
+      for (const v of variants) {
+        const price = Number(v.price_per_month || v.price || 999);
+        const name = v.name || v.variant || 'PARWA Plan';
+        items.push({ name, quantity: 1, unit_price: price, total: price });
+      }
+      const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+      const tax = Math.round(subtotal * 0.08 * 100) / 100;
+      const total = subtotal + tax;
+
+      const transactionId = `txn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const checkoutItems = Buffer.from(JSON.stringify({ items, subtotal, tax, total })).toString('base64url');
+      const checkoutUrl = `https://pay.paddle.com/checkout/${transactionId}?items=${checkoutItems}&currency=USD`;
+
+      // Store payment state in session context
+      session.context.payment_data = {
+        transaction_id: transactionId,
+        checkout_url: checkoutUrl,
+        items,
+        subtotal,
+        tax,
+        total,
+        currency: 'USD',
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      };
+      session.payment_status = 'pending';
+      session.detected_stage = 'payment';
+      session.context.detected_stage = 'payment';
+
+      // Phase 10e: Create action ticket for payment
+      const ticket = createActionTicket(session, 'payment_variant', { transaction_id: transactionId, amount: total, items });
+
+      // Add payment_card message
+      const paymentCardMsg = {
+        id: `payment_card_${Date.now()}`,
+        session_id: sessionId,
+        role: 'jarvis',
+        content: `Payment initiated! Total: $${total.toFixed(2)}/mo. Redirecting to checkout...`,
+        message_type: 'payment_card',
+        metadata: {
+          transaction_id: transactionId,
+          checkout_url: checkoutUrl,
+          amount: total,
+          currency: 'USD',
+          items,
+          subtotal,
+          tax,
+          ticket_id: ticket.id,
+        },
+        timestamp: new Date().toISOString(),
+      };
+      session.messages.push(paymentCardMsg);
+
+      session.updated_at = new Date().toISOString();
+      sessions.set(sessionId, session);
+      return NextResponse.json({ checkout_url: checkoutUrl, transaction_id: transactionId, status: 'pending', amount: `$${total.toFixed(2)}/mo`, currency: 'USD', items, subtotal, tax, total, ticket_id: ticket.id });
     }
 
     // ── POST /demo-call/initiate ───────────────────────────────
@@ -770,7 +1063,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({ error: { code: 'bad_request', message: 'session_id required', details: null } }, { status: 400 });
       }
       const body = await request.json();
-      return NextResponse.json({ call_id: `call_${Date.now()}`, status: 'initiated', phone: body.phone, duration_limit: 300, message: `Demo call initiated to ${body.phone}. You'll receive a call within 30 seconds.` });
+      // Phase 10e: Create action ticket for demo call
+      let ticketId: string | undefined;
+      if (sessionId && sessions.has(sessionId)) {
+        const session = sessions.get(sessionId);
+        const ticket = createActionTicket(session, 'demo_call', { phone: body.phone, duration_limit: 300 });
+        ticketId = ticket.id;
+        sessions.set(sessionId, session);
+      }
+      return NextResponse.json({ call_id: `call_${Date.now()}`, status: 'initiated', phone: body.phone, duration_limit: 300, message: `Demo call initiated to ${body.phone}. You'll receive a call within 30 seconds.`, ticket_id: ticketId });
     }
 
     // ── POST /handoff ──────────────────────────────────────────
@@ -783,9 +1084,151 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const session = sessions.get(sessionId);
       session.handoff_completed = true;
       session.detected_stage = 'handoff';
+      session.context.detected_stage = 'handoff';
+
+      // Phase 10e: Create action ticket for handoff
+      const ticket = createActionTicket(session, 'handoff', {
+        session_duration: session.total_message_count,
+        final_stage: session.detected_stage,
+        email_verified: session.context.email_verified,
+        payment_status: session.payment_status,
+      });
+
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
-      return NextResponse.json({ handoff_completed: true, new_session_id: null, handoff_at: new Date().toISOString() });
+      return NextResponse.json({ handoff_completed: true, new_session_id: null, handoff_at: new Date().toISOString(), ticket_id: ticket.id });
+    }
+
+    // ── POST /context/entry — Update Entry Context ────────────
+    if (endpoint === 'context/entry') {
+      const body = await request.json();
+      const { session_id, entry_source, entry_params } = body;
+
+      if (!session_id || !sessions.has(session_id)) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
+      }
+
+      const session = sessions.get(session_id);
+
+      // Build enhanced context from entry params (Phase 9a)
+      const params = entry_params || {};
+      if (params.industry) session.context.industry = String(params.industry);
+      if (params.utm_source) session.context.referral_source = String(params.utm_source);
+      if (params.utm_medium) session.context.utm_medium = String(params.utm_medium);
+      if (params.variant) {
+        const variants = session.context.selected_variants || [];
+        if (!variants.includes(String(params.variant))) variants.push(String(params.variant));
+        session.context.selected_variants = variants;
+      }
+      if (params.plan) session.context.selected_plan = String(params.plan);
+      if (params.referrer || params.ref) session.context.referrer = String(params.referrer || params.ref);
+
+      if (entry_source) {
+        session.context.entry_source = entry_source;
+      }
+      if (entry_params) {
+        session.context.entry_params = { ...session.context.entry_params, ...params };
+      }
+
+      // Phase 8b: Generate context-aware welcome message
+      const welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+
+      const welcomeMsg = {
+        id: `jarvis_entry_${Date.now()}`,
+        session_id: session.id,
+        role: 'jarvis',
+        content: welcomeContent,
+        message_type: 'text',
+        metadata: { entry_source: session.context.entry_source, is_reentry: true },
+        timestamp: new Date().toISOString(),
+      };
+      session.messages.push(welcomeMsg);
+      session.updated_at = new Date().toISOString();
+      sessions.set(session.id, session);
+      return NextResponse.json({ session, new_welcome: welcomeMsg });
+    }
+
+    // ── POST /payment/webhook — Simulated Paddle Webhook ─────────
+    if (endpoint === 'payment/webhook') {
+      const body = await request.json();
+      const { session_id, event_type, transaction_id } = body;
+
+      if (!session_id || !sessions.has(session_id)) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
+      }
+
+      const session = sessions.get(session_id);
+
+      if (event_type === 'payment.completed') {
+        session.payment_status = 'completed';
+        if (session.context.payment_data) {
+          session.context.payment_data.status = 'completed';
+          session.context.payment_data.completed_at = new Date().toISOString();
+        }
+
+        // Update payment ticket
+        const paymentTickets = (session.context.action_tickets || []).filter((t: any) =>
+          (t.type === 'payment_variant' || t.type === 'payment_demo_pack') && t.status !== 'completed'
+        );
+        if (paymentTickets.length > 0) {
+          updateActionTicket(session, paymentTickets[paymentTickets.length - 1].id, { status: 'completed' });
+        }
+
+        // Add payment confirmation message
+        const amount = session.context.payment_data?.total || 0;
+        const confirmationMsg = {
+          id: `payment_success_${Date.now()}`,
+          session_id: session.id,
+          role: 'jarvis',
+          content: `Payment of $${amount.toFixed(2)} completed successfully! Welcome to PARWA. Setting up your account...`,
+          message_type: 'payment_confirmation',
+          metadata: {
+            transaction_id: transaction_id || session.context.payment_data?.transaction_id,
+            amount,
+            currency: 'USD',
+            status: 'completed',
+          },
+          timestamp: new Date().toISOString(),
+        };
+        session.messages.push(confirmationMsg);
+      } else if (event_type === 'payment.failed') {
+        session.payment_status = 'failed';
+        if (session.context.payment_data) {
+          session.context.payment_data.status = 'failed';
+          session.context.payment_data.failed_at = new Date().toISOString();
+        }
+
+        // Update payment ticket
+        const paymentTickets = (session.context.action_tickets || []).filter((t: any) =>
+          (t.type === 'payment_variant' || t.type === 'payment_demo_pack') && t.status !== 'completed'
+        );
+        if (paymentTickets.length > 0) {
+          updateActionTicket(session, paymentTickets[paymentTickets.length - 1].id, { status: 'failed' });
+        }
+      }
+
+      session.updated_at = new Date().toISOString();
+      sessions.set(session.id, session);
+      return NextResponse.json({ received: true, event_type, payment_status: session.payment_status });
+    }
+
+    // ── POST /tickets — Create Action Ticket ─────────────────────
+    if (endpoint === 'tickets') {
+      const body = await request.json();
+      const { session_id, type, metadata } = body;
+
+      if (!session_id || !sessions.has(session_id)) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
+      }
+      if (!type) {
+        return NextResponse.json({ error: { code: 'bad_request', message: 'Ticket type is required', details: null } }, { status: 400 });
+      }
+
+      const session = sessions.get(session_id);
+      const ticket = createActionTicket(session, type, metadata || {});
+      session.updated_at = new Date().toISOString();
+      sessions.set(session.id, session);
+      return NextResponse.json(ticket, { status: 201 });
     }
 
     return NextResponse.json({ error: { code: 'not_found', message: `Unknown POST endpoint: /${endpoint}`, details: null } }, { status: 404 });
@@ -837,6 +1280,63 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ pack_type: session.pack_type, remaining_today: session.remaining_today, total_allowed: session.pack_type === 'demo' ? 50 : 20, pack_expiry: session.pack_type === 'demo' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null, demo_call_remaining: !session.context.demo_call_used });
     }
 
+    // ── GET /payment/status — Payment Status Check ───────────────
+    if (endpoint === 'payment/status') {
+      const sessionId = url.searchParams.get('session_id');
+      if (!sessionId || !sessions.has(sessionId)) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
+      }
+      const session = sessions.get(sessionId)!;
+      const paymentData = session.context.payment_data;
+      return NextResponse.json({
+        payment_status: session.payment_status,
+        transaction_id: paymentData?.transaction_id || null,
+        checkout_url: paymentData?.checkout_url || null,
+        amount: paymentData?.total || 0,
+        currency: paymentData?.currency || 'USD',
+        items: paymentData?.items || [],
+        subtotal: paymentData?.subtotal || 0,
+        tax: paymentData?.tax || 0,
+        created_at: paymentData?.created_at || null,
+        completed_at: paymentData?.completed_at || null,
+        bill_summary: session.context.bill_summary || null,
+      });
+    }
+
+    // ── GET /tickets — List Session Tickets ──────────────────────
+    if (endpoint === 'tickets') {
+      const sessionId = url.searchParams.get('session_id');
+      if (!sessionId || !sessions.has(sessionId)) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
+      }
+      const session = sessions.get(sessionId)!;
+      const tickets = session.context.action_tickets || [];
+      const typeFilter = url.searchParams.get('type');
+      const statusFilter = url.searchParams.get('status');
+      const filtered = tickets.filter((t: any) => {
+        if (typeFilter && t.type !== typeFilter) return false;
+        if (statusFilter && t.status !== statusFilter) return false;
+        return true;
+      });
+      return NextResponse.json({ tickets: filtered, total: filtered.length });
+    }
+
+    // ── GET /tickets/:id — Get Specific Ticket ───────────────────
+    if (endpoint.startsWith('tickets/') && endpoint.split('/').length === 2) {
+      const ticketId = endpoint.split('/')[1];
+      const sessionId = url.searchParams.get('session_id');
+      if (!sessionId || !sessions.has(sessionId)) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
+      }
+      const session = sessions.get(sessionId)!;
+      const tickets = session.context.action_tickets || [];
+      const ticket = tickets.find((t: any) => t.id === ticketId);
+      if (!ticket) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'Ticket not found', details: null } }, { status: 404 });
+      }
+      return NextResponse.json(ticket);
+    }
+
     return NextResponse.json({ error: { code: 'not_found', message: `Unknown GET endpoint: /${endpoint}`, details: null } }, { status: 404 });
   } catch (error: unknown) {
     console.error('Jarvis API GET error:', error);
@@ -863,6 +1363,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
       return NextResponse.json(session);
+    }
+
+    // ── PATCH /tickets/:id/status — Update Ticket Status ────────
+    if (endpoint.startsWith('tickets/') && endpoint.endsWith('/status') && endpoint.split('/').length === 3) {
+      const parts = endpoint.split('/');
+      const ticketId = parts[1];
+      const sessionId = url.searchParams.get('session_id');
+      if (!sessionId || !sessions.has(sessionId)) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
+      }
+      const body = await request.json();
+      const session = sessions.get(sessionId)!;
+      const updated = updateActionTicket(session, ticketId, { status: body.status, metadata: body.metadata });
+      if (!updated) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'Ticket not found', details: null } }, { status: 404 });
+      }
+      session.updated_at = new Date().toISOString();
+      sessions.set(sessionId, session);
+      return NextResponse.json(updated);
     }
 
     return NextResponse.json({ error: { code: 'not_found', message: `Unknown PATCH endpoint: /${endpoint}`, details: null } }, { status: 404 });
