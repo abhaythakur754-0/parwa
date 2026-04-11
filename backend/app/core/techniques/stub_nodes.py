@@ -4,6 +4,11 @@ Stub technique node implementations.
 These are interface stubs with should_activate logic intact.
 Full execute() implementations will be built during their
 respective Week (8-12) when dependent features are ready.
+
+Real implementations (replacing stubs):
+  - CRPNode → app.core.techniques.crp (Day 16)
+  - ReverseThinkingNode → app.core.techniques.reverse_thinking (Day 17)
+  - StepBackNode → app.core.techniques.step_back (Day 17)
 """
 
 from typing import TYPE_CHECKING
@@ -21,7 +26,11 @@ if TYPE_CHECKING:
 
 
 class CRPNode(BaseTechniqueNode):
-    """F-140: Concise Response Protocol — Tier 1 always-active."""
+    """F-140: Concise Response Protocol — Tier 1 always-active.
+    
+    Note: CRP processing logic is in app.core.techniques.crp (CRPProcessor).
+    This node wraps the CRPProcessor for pipeline integration.
+    """
 
     @property
     def technique_id(self) -> TechniqueID:
@@ -31,60 +40,59 @@ class CRPNode(BaseTechniqueNode):
         return True  # Always active
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement filler elimination, compression, redundancy removal
-        # Week 11-12 (Phase 1) implementation
-        state.technique_results["crp"] = {
-            "status": "stub",
-            "message": "CRP stub — full implementation in Week 11-12",
-        }
+        from app.core.techniques.crp import CRPProcessor, CRPResult
+        try:
+            processor = CRPProcessor()
+            result: CRPResult = await processor.process(
+                state.query or "",
+                complexity=state.signals.query_complexity,
+            )
+            state.technique_results["crp"] = {
+                "status": "success",
+                "result": result.to_dict(),
+                "tokens_used": result.processed_tokens,
+            }
+            state.token_usage += result.processed_tokens
+            if result.processed_text and not state.final_response:
+                state.response_parts.append(result.processed_text)
+        except Exception as exc:
+            state.technique_results["crp"] = {
+                "status": "error",
+                "error": str(exc),
+            }
         return state
 
 
-class ReverseThinkingNode(BaseTechniqueNode):
-    """F-141: Reverse Thinking Engine — Tier 2 conditional."""
+class ReverseThinkingNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real ReverseThinkingNode is in app.core.techniques.reverse_thinking"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.REVERSE_THINKING
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return (
-            state.signals.confidence_score < 0.7
-            or state.signals.previous_response_status in ("rejected", "corrected")
-        )
+        from app.core.techniques.reverse_thinking import ReverseThinkingNode
+        return await ReverseThinkingNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement inversion generation, error analysis, validation
-        # Week 11-12 (Phase 1) implementation
-        state.technique_results["reverse_thinking"] = {
-            "status": "stub",
-            "message": "Reverse Thinking stub — full implementation in Week 11-12",
-        }
-        return state
+        from app.core.techniques.reverse_thinking import ReverseThinkingNode
+        return await ReverseThinkingNode().execute(state)
 
 
-class StepBackNode(BaseTechniqueNode):
-    """F-142: Step-Back Prompting — Tier 2 conditional."""
+class StepBackNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real StepBackNode is in app.core.techniques.step_back"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.STEP_BACK
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return (
-            state.signals.confidence_score < 0.7
-            or state.signals.reasoning_loop_detected
-            or state.gsd_state == GSDState.DIAGNOSIS
-        )
+        from app.core.techniques.step_back import StepBackNode
+        return await StepBackNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement step-back question generation, broader analysis
-        # Week 11-12 (Phase 1) implementation
-        state.technique_results["step_back"] = {
-            "status": "stub",
-            "message": "Step-Back stub — full implementation in Week 11-12",
-        }
-        return state
+        from app.core.techniques.step_back import StepBackNode
+        return await StepBackNode().execute(state)
 
 
 class ChainOfThoughtNode(BaseTechniqueNode):
@@ -278,11 +286,13 @@ class LeastToMostNode(BaseTechniqueNode):
 
 
 # ── Populate the node registry ────────────────────────────────────
+# Real implementations (Day 16-17) are imported directly.
+# Stubs remain for techniques not yet implemented.
 
 TECHNIQUE_NODES.update({
     TechniqueID.CRP: CRPNode(),
-    TechniqueID.REVERSE_THINKING: ReverseThinkingNode(),
-    TechniqueID.STEP_BACK: StepBackNode(),
+    TechniqueID.REVERSE_THINKING: ReverseThinkingNodePlaceholder(),
+    TechniqueID.STEP_BACK: StepBackNodePlaceholder(),
     TechniqueID.CHAIN_OF_THOUGHT: ChainOfThoughtNode(),
     TechniqueID.REACT: ReActNode(),
     TechniqueID.THREAD_OF_THOUGHT: ThreadOfThoughtNode(),
