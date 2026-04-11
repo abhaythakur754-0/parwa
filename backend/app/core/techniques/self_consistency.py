@@ -1086,20 +1086,20 @@ class SelfConsistencyProcessor:
         if any(kw in reasoning_lower for kw in ("policy", "section", "clause", "terms")):
             return (
                 f"Interpreted policy terms differently, arriving at "
-                f"{dissenting.key_value} vs. majority {majority_value}"
+                f"{dissenter.key_value} vs. majority {majority_value}"
             )
 
         # Check for provisional/estimate language
         if any(kw in answer_lower for kw in ("provisional", "estimate", "approximate")):
             return (
-                f"Provided a provisional estimate of {dissenting.key_value} "
+                f"Provided a provisional estimate of {dissenter.key_value} "
                 f"rather than the firm majority value of {majority_value}"
             )
 
         # Default divergence reason
         return (
             f"Used a different calculation assumption, arriving at "
-            f"{dissenting.key_value} vs. majority {majority_value}"
+            f"{dissenter.key_value} vs. majority {majority_value}"
         )
 
     @staticmethod
