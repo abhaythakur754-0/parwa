@@ -65,3 +65,29 @@ Stage Summary:
 - Files modified: database/models/jarvis.py, database/alembic/versions/012_jarvis_system.py, scripts/gap_finder.py
 - Files created: tests/unit/test_jarvis_models.py
 - Phase 1 (Day 1) acceptance criteria now fully met
+---
+Task ID: 2
+Agent: Main
+Task: Phase 2-4 — Day 2: Schemas, Service Layer, API Router, Frontend Types & Hook
+
+Work Log:
+- Read JARVIS_ROADMAP.md Phases 2-4 (Day 2 scope: 3-4 hours, 8 files)
+- Studied existing patterns: main.py router registration, deps.py auth, exceptions.py, pricing.py router, onboarding.py schemas
+- Phase 2: Created backend/app/schemas/jarvis.py (~320 lines, 17 Pydantic schemas)
+- Phase 2: Created backend/app/services/jarvis_service.py (~650 lines, 25 service functions)
+- Phase 3: Created backend/app/api/jarvis.py (~460 lines, 22 endpoints on /api/jarvis/*)
+- Phase 3: Updated backend/app/main.py (import + register jarvis_router)
+- Phase 3: Updated backend/app/api/__init__.py (import jarvis + register)
+- Phase 4: Created frontend/src/types/jarvis.ts (~280 lines, all types mirroring backend schemas)
+- Phase 4: Created frontend/src/hooks/useJarvisChat.ts (~580 lines, 12 state vars + 12 action functions)
+- All Python files compile (py_compile verified)
+- TypeScript compiles with zero new errors (pre-existing SmartBundleVisualizer error only)
+- Rebased over remote changes and pushed successfully
+
+Stage Summary:
+- Files created: backend/app/schemas/jarvis.py, backend/app/services/jarvis_service.py, backend/app/api/jarvis.py, frontend/src/types/jarvis.ts, frontend/src/hooks/useJarvisChat.ts
+- Files updated: backend/app/main.py, backend/app/api/__init__.py
+- 22 API endpoints: session (2), history (1), message (1), context (2), demo-pack (2), verify (2), payment (3), demo-call (3), handoff (2), tickets (4)
+- Service layer: session management, message processing with AI, OTP verification, demo pack, Paddle payment, Twilio call, handoff, action tickets, system prompt building, stage detection
+- Frontend: complete type system + useJarvisChat hook with all flow state machines (OTP, payment, handoff, demo call)
+- Commit: f98830c pushed to main
