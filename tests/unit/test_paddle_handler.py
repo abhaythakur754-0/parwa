@@ -5,13 +5,19 @@ from backend.app.webhooks.paddle_handler import (
     handle_paddle_event,
     handle_subscription_created,
     handle_subscription_updated,
-    handle_subscription_cancelled,
-    handle_payment_succeeded,
-    handle_payment_failed,
+    handle_subscription_canceled,  # American spelling
+    handle_transaction_paid,  # Replaces handle_payment_succeeded
+    handle_transaction_payment_failed,  # Replaces handle_payment_failed
     _extract_subscription_data,
-    _extract_payment_data,
+    _extract_transaction_data,  # Renamed from _extract_payment_data
     REQUIRED_FIELDS,
 )
+
+# Aliases for backward compatibility in tests
+handle_subscription_cancelled = handle_subscription_canceled
+handle_payment_succeeded = handle_transaction_paid
+handle_payment_failed = handle_transaction_payment_failed
+_extract_payment_data = _extract_transaction_data
 
 SAMPLE_SUB_EVENT = {
     "event_type": "subscription.created",

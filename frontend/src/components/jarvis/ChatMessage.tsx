@@ -12,9 +12,6 @@
 
 import { User, Bot, AlertTriangle, Clock, Zap } from 'lucide-react';
 import type { JarvisMessage, MessageType, MessageRole } from '@/types/jarvis';
-import Markdown from 'react-markdown';
-import type { Components } from 'react-markdown';
-import rehypeSanitize from 'rehype-sanitize';
 
 // Phase 6 card imports
 import { BillSummaryCard } from './BillSummaryCard';
@@ -144,23 +141,46 @@ function ErrorMessage({
   );
 }
 
-// ── Markdown Components (XSS-safe) ────────────────────────────────
+// ── Inline Content Renderer (bullet-point aware, XSS-safe) ──────────
 
-const markdownComponents: Components = {
-  a: ({ href, children, ...props }) => {
-    if (
-      typeof href === 'string' &&
-      (/^(javascript|data|vbscript):/i.test(href))
-    ) {
-      return <span {...props}>{children}</span>;
+function renderInlineContent(content: string) {
+  const lines = content.split('\n');
+  return lines.map((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed) return <div key={index} className="h-2" />;
+
+    // Bullet point lines (•, -, *, or emoji prefix)
+    const firstChar = trimmed.charCodeAt(0);
+    const isEmoji = firstChar >= 0x1F300 && firstChar <= 0x1F9FF;
+    const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || isEmoji;
+    const isOpener = index === 0 && !isBullet && trimmed.length < 80;
+
+    if (isBullet) {
+      return (
+        <div key={index} className="flex items-start gap-2 py-0.5">
+          <span className="text-orange-400 shrink-0 mt-0.5 text-xs">&#9656;</span>
+          <span className="text-white/90 leading-relaxed text-sm">
+            {trimmed.replace(/^[\u2022\-*•]\s*/, '')}
+          </span>
+        </div>
+      );
     }
+
+    if (isOpener) {
+      return (
+        <p key={index} className="text-white font-medium text-sm leading-relaxed">
+          {trimmed}
+        </p>
+      );
+    }
+
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-        {children}
-      </a>
+      <p key={index} className="text-white/80 text-sm leading-relaxed">
+        {trimmed}
+      </p>
     );
-  },
-};
+  });
+}
 
 // ── Card Wrapper (avatar + timestamp) ─────────────────────────────
 
@@ -370,8 +390,8 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
               {isUser ? (
                 <p className="whitespace-pre-wrap break-words">{message.content}</p>
               ) : (
-                <div className="prose prose-invert prose-sm max-w-none prose-p:text-white/90 prose-p:leading-relaxed prose-headings:text-white prose-strong:text-white prose-code:text-orange-300 prose-a:text-orange-400 prose-li:text-white/80">
-                  <Markdown rehypePlugins={[rehypeSanitize]} components={markdownComponents}>{message.content}</Markdown>
+                <div className="space-y-0.5">
+                  {renderInlineContent(message.content)}
                 </div>
               )}
             </div>

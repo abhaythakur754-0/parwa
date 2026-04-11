@@ -39,9 +39,12 @@ Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
 """
 
 import json
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy.orm import Session
 
@@ -540,21 +543,116 @@ def send_message(
     except Exception:
         pass
 
-    # Build AI prompt and call provider
-    system_prompt = build_system_prompt(db, session_id)
+    # ── P2: Full AI Pipeline (signal extraction → classification →
+    #    sentiment → routing → RAG → response → CLARA → guardrails →
+    #    confidence → brand voice) ──
     history = _get_recent_history(db, session_id)
+    ai_content = None
+    ai_message_type = "text"
+    metadata = {}
+    knowledge = []
 
     try:
-        ai_content, ai_message_type, metadata, knowledge = (
-            _call_ai_provider(system_prompt, history, user_message, ctx)
+        import asyncio
+        import concurrent.futures
+        from app.core.ai_pipeline import process_ai_message
+
+        conversation_history = [
+            {"role": msg.role, "content": msg.content}
+            for msg in history[-MAX_CONTEXT_HISTORY_MESSAGES:]
+        ]
+
+        pipeline_args = dict(
+            query=user_message,
+            company_id=company_id or "",
+            conversation_id=session_id,
+            variant_type=session.pack_type or "parwa",
+            customer_id=user_id,
+            conversation_history=conversation_history,
+            language="en",
         )
+
+        # Handle async call from sync context (BC-012: resilient execution)
+        try:
+            pipeline_result = asyncio.run(process_ai_message(**pipeline_args))
+        except RuntimeError:
+            # Already inside an event loop — run in a separate thread
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    asyncio.run, process_ai_message(**pipeline_args),
+                )
+                pipeline_result = future.result(timeout=60)
+
+        ai_content = pipeline_result.response
+        ai_message_type = "ai_generated"
+        metadata = pipeline_result.to_dict()
+        knowledge = [
+            {"file": c.get("source", ""), "score": c.get("score", 1.0)}
+            for c in pipeline_result.citations
+        ]
+
+        # Store pipeline results in context for downstream use
+        ctx["ai_pipeline"] = {
+            "intent": pipeline_result.intent_type,
+            "confidence": pipeline_result.confidence_score,
+            "auto_action": pipeline_result.auto_action,
+            "frustration": pipeline_result.frustration_score,
+            "sentiment": pipeline_result.sentiment_score,
+            "urgency": pipeline_result.urgency_level,
+            "technique": pipeline_result.technique_used,
+            "model": pipeline_result.model_used,
+            "rag_used": pipeline_result.rag_context_used,
+            "clara_passed": pipeline_result.clara_passed,
+            "guardrails_passed": not pipeline_result.guardrails_blocked,
+            "pipeline_ms": pipeline_result.pipeline_time_ms,
+            "stages_completed": pipeline_result.stages_completed,
+            "stages_failed": pipeline_result.stages_failed,
+        }
+
+        # Set message type based on pipeline outcome
+        if pipeline_result.is_edge_case:
+            ai_message_type = "edge_case"
+        elif pipeline_result.injection_blocked:
+            ai_message_type = "injection_blocked"
+        elif pipeline_result.guardrails_blocked:
+            ai_message_type = "guardrails_blocked"
+        elif not pipeline_result.auto_action:
+            ai_message_type = "needs_review"
+
+        logger.info(
+            "AI Pipeline result: intent=%s confidence=%.1f auto=%s "
+            "technique=%s model=%s rag=%s clara=%s guardrails=%s "
+            "pipeline_ms=%.0f",
+            pipeline_result.intent_type,
+            pipeline_result.confidence_score,
+            pipeline_result.auto_action,
+            pipeline_result.technique_used,
+            pipeline_result.model_used,
+            pipeline_result.rag_context_used,
+            pipeline_result.clara_passed,
+            not pipeline_result.guardrails_blocked,
+            pipeline_result.pipeline_time_ms,
+        )
+
     except Exception as exc:
-        # Graceful error — return error message card
-        ai_content, ai_message_type = (
-            _get_friendly_error_message(), "error"
-        )
-        metadata = {"error_type": type(exc).__name__}
-        knowledge = []
+        logger.error("AI Pipeline failed, falling back to legacy: %s", exc)
+        # Fallback to legacy AI provider
+        system_prompt = build_system_prompt(db, session_id)
+        try:
+            ai_content, ai_message_type, metadata, knowledge = (
+                _call_ai_provider(system_prompt, history, user_message, ctx)
+            )
+        except Exception as inner_exc:
+            ai_content, ai_message_type = (
+                _get_friendly_error_message(), "error"
+            )
+            metadata = {"error_type": type(inner_exc).__name__}
+            knowledge = []
+
+    # Ensure we have a response
+    if not ai_content:
+        ai_content = _get_friendly_error_message()
+        ai_message_type = "error"
 
     # Save AI response
     ai_msg = JarvisMessage(
@@ -582,19 +680,6 @@ def send_message(
     detected = detect_stage(db, session_id)
     ctx["detected_stage"] = detected
 
-    # ── Week 8-11: Brand voice validation on AI response ──
-    try:
-        bv_svc_cls = _get_service(
-            "brand_voice", "app.services.brand_voice_service", "BrandVoiceService",
-        )
-        if bv_svc_cls and company_id:
-            bv_svc = bv_svc_cls(db)
-            prohibited = bv_svc.check_prohibited_words(ai_content, company_id)
-            if prohibited and hasattr(prohibited, 'found') and prohibited.found:
-                ctx["brand_voice_warning"] = "prohibited_words_detected"
-    except Exception:
-        pass
-
     # ── Week 8-11: Post-response audit logging ──
     try:
         audit_svc = _get_service_module("app.services.audit_service")
@@ -607,7 +692,11 @@ def send_message(
                 resource_type="session",
                 resource_id=session_id,
                 old_value=None,
-                new_value={"stage": detected, "turn": turn_count},
+                new_value={
+                    "stage": detected,
+                    "turn": turn_count,
+                    "ai_pipeline": ctx.get("ai_pipeline"),
+                },
                 ip_address=None,
                 user_agent=None,
                 db=db,
