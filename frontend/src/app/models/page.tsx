@@ -308,6 +308,30 @@ export default function ModelsPage() {
   const accentRgb = activeIndustry?.accentRgb || defaultAccentRgb;
   const currentVariants = selectedIndustry ? variantData[selectedIndustry] : null;
 
+  const handleFreeChat = (variantId?: string) => {
+    const context: Record<string, unknown> = {
+      source: 'free_chat',
+      entry_source: 'models_page',
+    };
+    if (activeIndustry) context.industry = activeIndustry.label;
+    if (variantId) {
+      const v = currentVariants?.find(cv => cv.id === variantId);
+      if (v) {
+        context.variant = v.name;
+        context.variant_id = v.id;
+        context.entry_source = `models_${v.id}_free_chat`;
+      }
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('parwa_jarvis_context', JSON.stringify(context));
+    }
+    const params = new URLSearchParams();
+    if (activeIndustry) params.set('industry', activeIndustry.label);
+    if (variantId) params.set('variant', variantId);
+    params.set('entry_source', 'models_page');
+    window.location.href = `/jarvis?${params.toString()}`;
+  };
+
   // Computed totals
   const totalMonthly = currentVariants?.reduce((sum, v) => {
     const price = isAnnual ? v.annualPrice : v.monthlyPrice;
@@ -738,7 +762,7 @@ export default function ModelsPage() {
 
                           {/* Chat Demo Button — FREE */}
                           <button
-                            onClick={() => { /* Open chat — chat widget is always visible */ }}
+                            onClick={() => handleFreeChat(variant.id)}
                             className="group/chat w-full relative flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 overflow-hidden"
                             style={{
                               background: 'rgba(255,255,255,0.04)',
