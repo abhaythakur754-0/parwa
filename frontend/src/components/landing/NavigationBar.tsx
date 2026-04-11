@@ -42,6 +42,7 @@ export default function NavigationBar() {
     { name: 'Home', href: '/' },
     { name: 'Models', href: '/models' },
     { name: 'Pricing', href: '/pricing' },
+    { name: 'ROI Calculator', href: '/roi-calculator' },
     { name: 'Try Jarvis', href: '/jarvis' },
   ];
 
