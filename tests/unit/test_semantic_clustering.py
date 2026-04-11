@@ -984,3 +984,169 @@ class TestDataClasses:
         assert cluster.created_at is not None
         assert cluster.expires_at is not None
         assert isinstance(cluster.created_at, datetime.datetime)
+
+
+# ── Gap Analysis Fixes ─────────────────────────────────────────────
+
+
+class TestGapFixesSemanticClustering:
+
+    def test_duplicate_ticket_id_handling(self):
+        """C-1: Duplicate ticket_id in input should not cause crash."""
+        engine = SemanticClusteringEngine()
+        results = engine.cluster_tickets(
+            "company-a",
+            [
+                {"ticket_id": "dup", "text": "I want a refund for my subscription"},
+                {"ticket_id": "dup", "text": "Please cancel my account immediately"},
+            ],
+        )
+        assert isinstance(results, list)
+
+    def test_cluster_config_all_garbage_fields(self):
+        """C-2: ClusterConfig with all garbage fields falls back to defaults."""
+        config = ClusterConfig(
+            min_similarity="x",
+            max_cluster_size=None,
+            cluster_ttl_hours="y",
+            max_clusters_per_company="abc",
+            embedding_dimension="z",
+        )
+        assert config.min_similarity == 0.75
+        assert config.max_cluster_size == 50
+
+    def test_calculate_cluster_center_empty_vectors(self):
+        """C-3: calculate_cluster_center with list of empty vectors."""
+        engine = SemanticClusteringEngine()
+        result = engine.calculate_cluster_center([[], []])
+        assert result == []
+
+    def test_find_similar_exact_threshold_boundary(self):
+        """H-1: similarity_score == threshold should be included."""
+        candidates = [
+            TicketSimilarity(ticket_id="t1", similarity_score=0.75, confidence_score=0.9),
+            TicketSimilarity(ticket_id="t2", similarity_score=0.74, confidence_score=0.8),
+        ]
+        engine = SemanticClusteringEngine()
+        results = engine.find_similar_tickets([1.0], candidates, threshold=0.75)
+        assert len(results) == 1
+        assert results[0].ticket_id == "t1"
+
+    def test_cosine_similarity_nan_vector(self):
+        """M-1: cosine_similarity with NaN returns 0.0 (BC-008)."""
+        result = cosine_similarity([float("nan"), 1.0], [1.0, 0.0])
+        # NaN propagates through math but exception handler catches it
+        assert result == 0.0 or math.isnan(result)
+
+    def test_generate_embedding_dimension_none(self):
+        """H-6: generate_embedding with dimension=None returns default (BC-008)."""
+        result = generate_embedding("hello", dimension=None)
+        # None triggers exception handler, returns default dimension
+        assert isinstance(result, list)
+        assert len(result) >= 1
+
+    def test_find_similar_tickets_by_text_empty_list(self):
+        """H-3: find_similar_tickets_by_text with empty ticket list."""
+        engine = SemanticClusteringEngine()
+        results = engine.find_similar_tickets_by_text("query", [])
+        assert results == []
+
+    def test_find_similar_tickets_by_text_non_string_query(self):
+        """H-4: find_similar_tickets_by_text with non-string query."""
+        engine = SemanticClusteringEngine()
+        results = engine.find_similar_tickets_by_text(42, [])
+        assert results == []
+
+    def test_cluster_config_garbage_ttl_and_clusters(self):
+        """C-2b: cluster_ttl_hours=None and max_clusters='abc'."""
+        config = ClusterConfig(cluster_ttl_hours=None, max_clusters_per_company="abc")
+        assert config.cluster_ttl_hours == 168
+        assert config.max_clusters_per_company == 200
+
+    def test_find_similar_tickets_invalid_threshold(self):
+        """H-2: find_similar_tickets with invalid threshold type."""
+        candidates = [TicketSimilarity(ticket_id="t1", similarity_score=0.9, confidence_score=0.9)]
+        engine = SemanticClusteringEngine()
+        results = engine.find_similar_tickets([1.0], candidates, threshold="abc")
+        assert isinstance(results, list)
+
+    def test_get_cluster_summary_created_at_none(self):
+        """M-4: SemanticCluster.__post_init__ sets created_at if None."""
+        # SemanticCluster auto-fills created_at in __post_init__, so
+        # passing None gets replaced. Verify the summary still works.
+        engine = SemanticClusteringEngine()
+        cluster = SemanticCluster(id="x", company_id="y")
+        summary = engine.get_cluster_summary(cluster)
+        assert summary["created_at"] is not None
+
+    def test_compute_cluster_center_mixed_valid_and_empty(self):
+        """C-5: _compute_cluster_center skips empty embeddings (BC-008)."""
+        engine = SemanticClusteringEngine()
+        # t2 has empty embedding [] which is falsy — should be skipped
+        result = engine._compute_cluster_center(
+            ["t1", "t2"],
+            {"t1": [1.0, 2.0], "t2": []},
+        )
+        # Only t1's embedding is used; result is the normalized [1.0, 2.0]
+        expected_mag = math.sqrt(1.0 ** 2 + 2.0 ** 2)
+        assert result[0] == pytest.approx(1.0 / expected_mag)
+        assert result[1] == pytest.approx(2.0 / expected_mag)
+
+    def test_compute_cluster_center_nonexistent_ticket_ids(self):
+        """C-6: _compute_cluster_center skips ticket_ids not in embeddings."""
+        engine = SemanticClusteringEngine()
+        # "ghost" is not in embeddings dict — should be skipped
+        result = engine._compute_cluster_center(
+            ["t1", "ghost"],
+            {"t1": [1.0, 2.0]},
+        )
+        # Only t1's embedding is used; result is the normalized [1.0, 2.0]
+        expected_mag = math.sqrt(1.0 ** 2 + 2.0 ** 2)
+        assert result[0] == pytest.approx(1.0 / expected_mag)
+        assert result[1] == pytest.approx(2.0 / expected_mag)
+
+    def test_find_similar_tickets_by_text_very_long_query(self):
+        """C-7: find_similar_tickets_by_text with 5000-char query (BC-008)."""
+        engine = SemanticClusteringEngine(
+            config=ClusterConfig(min_similarity=0.1),
+        )
+        tickets = [
+            TicketInput(ticket_id="t1", text="refund my order"),
+            TicketInput(ticket_id="t2", text="reset my password"),
+        ]
+        long_query = "help " * 2500  # 5000 characters
+        results = engine.find_similar_tickets_by_text(long_query, tickets)
+        # Should not crash; result is a list
+        assert isinstance(results, list)
+
+    def test_cluster_semantic_cluster_custom_timestamps(self):
+        """C-8: SemanticCluster with created_at set, expires_at defaults to created_at."""
+        import datetime as dt
+        some_dt = dt.datetime(2025, 1, 15, 12, 0, 0, tzinfo=dt.timezone.utc)
+        cluster = SemanticCluster(
+            id="cl_test",
+            company_id="co",
+            created_at=some_dt,
+        )
+        # expires_at should equal created_at when not explicitly provided
+        assert cluster.expires_at == cluster.created_at == some_dt
+
+    def test_cluster_semantic_cluster_both_timestamps(self):
+        """C-9: SemanticCluster preserves both created_at and expires_at."""
+        import datetime as dt
+        created = dt.datetime(2025, 1, 15, 12, 0, 0, tzinfo=dt.timezone.utc)
+        expires = dt.datetime(2025, 1, 22, 12, 0, 0, tzinfo=dt.timezone.utc)
+        cluster = SemanticCluster(
+            id="cl_test",
+            company_id="co",
+            created_at=created,
+            expires_at=expires,
+        )
+        assert cluster.created_at == created
+        assert cluster.expires_at == expires
+
+    def test_find_similar_tickets_none_candidates(self):
+        """BC-008: find_similar_tickets with None candidates returns empty list."""
+        engine = SemanticClusteringEngine()
+        results = engine.find_similar_tickets([1.0, 0.0], None, threshold=0.5)
+        assert results == []

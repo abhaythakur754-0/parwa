@@ -696,3 +696,147 @@ class TestSessionIdGeneration:
     def test_id_is_hex(self):
         sid = _generate_session_id("test@example.com")
         assert all(c in "0123456789abcdef" for c in sid)
+
+
+# ── Gap Analysis Fixes ─────────────────────────────────────────────
+
+
+class TestGapFixesVoiceDemo:
+
+    def test_refund_none_amount_paid(self):
+        """C-1: refund_if_needed with None amount_paid doesn't crash."""
+        payment = VoiceDemoPayment()
+        result = payment.refund_if_needed("sess-123", None)
+        assert result is not None
+        assert result.refund_amount == Decimal("0.00")
+
+    def test_refund_negative_amount_paid(self):
+        """C-2: refund_if_needed with negative amount_paid returns 0 refund."""
+        payment = VoiceDemoPayment()
+        result = payment.refund_if_needed("sess-123", Decimal("-1.00"))
+        assert result.refund_amount >= Decimal("0.00")
+
+    def test_refund_string_amount_paid(self):
+        """C-1b: refund_if_needed with string amount_paid doesn't crash."""
+        payment = VoiceDemoPayment()
+        result = payment.refund_if_needed("sess-123", "not_a_number")
+        assert result is not None
+
+    def test_double_end_demo_session(self):
+        """H-2: end_demo_session twice raises on second call."""
+        eng = VoiceDemoEngine()
+        session = eng.init_demo_session("test@example.com", "+1234567890")
+        token = eng._payment._make_token(session.session_id, eng._payment.amount)
+        eng.activate_session(session.session_id, token)
+        eng.end_demo_session(session.session_id)
+        with pytest.raises(ValueError):
+            eng.end_demo_session(session.session_id)
+
+    def test_get_summary_for_ended_session(self):
+        """H-3: get_demo_summary for ENDED session works."""
+        eng = VoiceDemoEngine()
+        session = eng.init_demo_session("test@example.com", "+1234567890")
+        token = eng._payment._make_token(session.session_id, eng._payment.amount)
+        eng.activate_session(session.session_id, token)
+        eng.end_demo_session(session.session_id)
+        summary = eng.get_demo_summary(session.session_id)
+        assert summary.status == SessionStatus.ENDED
+
+    def test_get_summary_for_created_session(self):
+        """H-3b: get_demo_summary for CREATED session."""
+        eng = VoiceDemoEngine()
+        session = eng.init_demo_session("test@example.com", "+1234567890")
+        summary = eng.get_demo_summary(session.session_id)
+        assert summary.status == SessionStatus.CREATED
+
+    def test_process_voice_input_empty_transcription(self):
+        """M-5: pipeline handles empty transcription from STT."""
+        result = VoiceDemoEngine()._transcribe_audio(None)
+        assert result.success is False
+
+    def test_active_count_after_failed_activation(self):
+        """M-6: active_session_count unchanged after failed activation."""
+        eng = VoiceDemoEngine()
+        session = eng.init_demo_session("test@example.com", "+1234567890")
+        try:
+            eng.activate_session(session.session_id, "bad_token")
+        except ValueError:
+            pass
+        assert eng.active_session_count == 0
+
+    def test_active_count_after_duration_expiry(self):
+        """M-7: active_session_count decrements after timeout expiry."""
+        cfg = VoiceDemoConfig(session_timeout_seconds=1)
+        eng = VoiceDemoEngine(config=cfg)
+        session = eng.init_demo_session("test@example.com", "+1234567890")
+        token = eng._payment._make_token(session.session_id, eng._payment.amount)
+        eng.activate_session(session.session_id, token)
+        assert eng.active_session_count == 1
+        time.sleep(1.1)
+        # Trigger timeout check by fetching the session
+        eng.get_session(session.session_id)
+        assert eng.active_session_count == 0
+
+    def test_config_allowed_countries_none(self):
+        """M-1: VoiceDemoConfig with allowed_countries=None."""
+        config = VoiceDemoConfig(allowed_countries=None)
+        assert config.allowed_countries is None
+
+    def test_process_voice_input_dict_audio(self):
+        """BC-008: process_voice_input with dict audio does not crash."""
+        eng = VoiceDemoEngine()
+        session = eng.init_demo_session("test@example.com", "+1234567890")
+        token = eng._payment._make_token(session.session_id, eng._payment.amount)
+        eng.activate_session(session.session_id, token)
+        result = eng.process_voice_input(session.session_id, {"audio": "data"})
+        assert isinstance(result, VoiceDemoResult)
+
+    def test_process_voice_input_list_audio(self):
+        """BC-008: process_voice_input with list audio does not crash."""
+        eng = VoiceDemoEngine()
+        session = eng.init_demo_session("test@example.com", "+1234567890")
+        token = eng._payment._make_token(session.session_id, eng._payment.amount)
+        eng.activate_session(session.session_id, token)
+        result = eng.process_voice_input(session.session_id, [1, 2, 3])
+        assert isinstance(result, VoiceDemoResult)
+
+    def test_process_through_ai_very_long_text(self):
+        """BC-008: very long text is truncated to ~80 chars in response."""
+        eng = VoiceDemoEngine()
+        result = eng._process_through_ai("x" * 500, "")
+        assert result.success is True
+        # The implementation uses text[:80], so the response should not contain 500 chars
+        assert len(result.text) < 500
+        assert "xxx" in result.text
+
+    def test_refund_object_amount_paid(self):
+        """BC-008: refund_if_needed with object() amount_paid does not crash."""
+        payment = VoiceDemoPayment()
+        result = payment.refund_if_needed("sess-obj", object())
+        assert isinstance(result, RefundResult)
+
+    def test_activate_session_with_concurrent_limit_then_free_slot(self):
+        """After ending a session, the concurrent slot is freed for reuse."""
+        cfg = VoiceDemoConfig(max_concurrent_sessions=1)
+        eng = VoiceDemoEngine(config=cfg)
+        s1 = eng.init_demo_session("user1@example.com", "+12345678901")
+        token1 = eng._payment._make_token(s1.session_id, eng._payment.amount)
+        eng.activate_session(s1.session_id, token1)
+        assert eng.active_session_count == 1
+        eng.end_demo_session(s1.session_id)
+        assert eng.active_session_count == 0
+        s2 = eng.init_demo_session("user2@example.com", "+12345678902")
+        token2 = eng._payment._make_token(s2.session_id, eng._payment.amount)
+        activated = eng.activate_session(s2.session_id, token2)
+        assert activated.status == SessionStatus.ACTIVE
+        assert eng.active_session_count == 1
+
+    def test_verify_payment_hash_comparison(self):
+        """verify_payment correctly accepts valid tokens and rejects invalid ones."""
+        payment = VoiceDemoPayment()
+        intent = payment.create_payment_intent("test@example.com", "+1234567890")
+        valid_token = payment._make_token(intent.session_id, payment.amount)
+        # Valid token should succeed
+        assert payment.verify_payment(intent.session_id, valid_token) is True
+        # Invalid token should fail
+        assert payment.verify_payment(intent.session_id, "wrong_token") is False

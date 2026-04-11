@@ -265,7 +265,11 @@ def generate_embedding(
             "embedding_generation_failed",
             error="unexpected_error",
         )
-        return [0.0] * max(1, int(dimension))
+        try:
+            safe_dim = max(1, int(dimension))
+        except (TypeError, ValueError):
+            safe_dim = EMBEDDING_DIMENSION
+        return [0.0] * safe_dim
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -290,6 +294,15 @@ def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
     try:
         if not vec_a or not vec_b:
             return 0.0
+
+        # BC-008: reject vectors containing NaN or Inf
+        import math as _math
+        for val in vec_a:
+            if _math.isnan(val) or _math.isinf(val):
+                return 0.0
+        for val in vec_b:
+            if _math.isnan(val) or _math.isinf(val):
+                return 0.0
 
         # Pad shorter vector with zeros if dimensions differ
         max_len = max(len(vec_a), len(vec_b))

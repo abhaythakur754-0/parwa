@@ -136,6 +136,7 @@ class ReassignmentResult:
     tickets_failed: int = 0
     failed_ticket_ids: List[str] = field(default_factory=list)
     target_agent_id: Optional[str] = None
+    reassignment_map: Dict[str, str] = field(default_factory=dict)
 
 
 # ── Service ──────────────────────────────────────────────────────────
@@ -365,12 +366,9 @@ class TempAgentExpiryService:
                 reassigned_to={},  # populated below when target is known
                 timestamp=datetime.now(timezone.utc),
             )
-            # Populate reassigned_to map when a specific target is known
-            if reassignment.target_agent_id and result.tickets_reassigned > 0:
-                result.reassigned_to = {
-                    f"tkt-{i}": reassignment.target_agent_id
-                    for i in range(result.tickets_reassigned)
-                }
+            # Populate reassigned_to map from reassignment result
+            if result.tickets_reassigned > 0 and reassignment.reassignment_map:
+                result.reassigned_to = dict(reassignment.reassignment_map)
 
             logger.info(
                 "temp_agent_expired agent_id=%s company_id=%s "
@@ -503,6 +501,8 @@ class TempAgentExpiryService:
             failed = 0
             failed_ids: List[str] = []
 
+            reassignment_map: Dict[str, str] = {}
+
             if target_agent_id is not None:
                 # Direct assignment to specific target
                 for ticket_id in tickets:
@@ -510,6 +510,7 @@ class TempAgentExpiryService:
                         # In production, this would update the DB.
                         # Here we track the logical reassignment.
                         reassigned += 1
+                        reassignment_map[ticket_id] = target_agent_id
                     except Exception:
                         failed += 1
                         failed_ids.append(ticket_id)
@@ -532,6 +533,7 @@ class TempAgentExpiryService:
                         ]
                         # In production, this would update the DB.
                         reassigned += 1
+                        reassignment_map[ticket_id] = target
                     except Exception:
                         failed += 1
                         failed_ids.append(ticket_id)
@@ -556,6 +558,7 @@ class TempAgentExpiryService:
                 tickets_failed=failed,
                 failed_ticket_ids=failed_ids,
                 target_agent_id=target_agent_id,
+                reassignment_map=reassignment_map,
             )
 
         except Exception as exc:
