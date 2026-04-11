@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Ticket,
   ArrowRight,
@@ -8,6 +9,7 @@ import {
   CalendarCheck,
   ShoppingCart,
   X,
+  MessageSquare,
 } from 'lucide-react';
 import type { PricingVariant } from './VariantCard';
 
@@ -30,6 +32,7 @@ interface SelectedVariant {
 
 interface TotalSummaryProps {
   selectedVariants: SelectedVariant[];
+  selectedIndustry?: string | null;
   onContinue: () => void;
   isSubmitting?: boolean;
   disabled?: boolean;
@@ -38,11 +41,13 @@ interface TotalSummaryProps {
 
 export function TotalSummary({
   selectedVariants,
+  selectedIndustry,
   onContinue,
   isSubmitting = false,
   disabled = false,
   onRemoveVariant,
 }: TotalSummaryProps) {
+  const router = useRouter();
   const totalTickets = selectedVariants.reduce(
     (sum, item) => sum + item.variant.ticketsPerMonth * item.quantity,
     0
@@ -223,6 +228,36 @@ export function TotalSummary({
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
+          </button>
+
+          {/* Phase 9: Proceed with Jarvis → Onboarding */}
+          <button
+            type="button"
+            onClick={() => {
+              // Store context for Jarvis to pick up on /onboarding
+              const jarvisContext = {
+                industry: selectedIndustry || null,
+                selected_variants: selectedVariants.map((sv) => ({
+                  id: sv.variant.id,
+                  name: sv.variant.name,
+                  quantity: sv.quantity,
+                  price_per_month: sv.variant.pricePerMonth,
+                  tickets_per_month: sv.variant.ticketsPerMonth,
+                })),
+                total_price: totalMonthly,
+                source: 'pricing_page',
+              };
+              localStorage.setItem('parwa_jarvis_context', JSON.stringify(jarvisContext));
+              router.push('/onboarding');
+            }}
+            disabled={disabled || !hasSelection}
+            className={
+              'w-full flex items-center justify-center gap-2 mt-3 px-5 py-3 rounded-lg text-sm font-semibold border-2 border-emerald-400/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50 hover:text-emerald-200 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed'
+            }
+          >
+            <MessageSquare className="w-4 h-4" />
+            Proceed with Jarvis
+            <ArrowRight className="w-4 h-4" />
           </button>
         </>
       )}

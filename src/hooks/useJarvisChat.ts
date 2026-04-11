@@ -191,6 +191,61 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       } else if (ctx?.email_verified) {
         setOtpState((prev) => ({ ...prev, status: 'verified' }));
       }
+
+      // ── Phase 9: Cross-Page Context Bridge ──────────────────────
+      // Read pricing/ROI context from localStorage (set by pricing page)
+      if (typeof window !== 'undefined') {
+        try {
+          const storedContext = localStorage.getItem('parwa_jarvis_context');
+          if (storedContext) {
+            const bridgedContext = JSON.parse(storedContext) as Record<string, unknown>;
+            // Transfer pricing selection into session context via API
+            const contextPatch: Partial<JarvisContext> = {};
+            if (bridgedContext.industry) {
+              contextPatch.industry = bridgedContext.industry as string;
+            }
+            if (bridgedContext.selected_variants) {
+              contextPatch.selected_variants = bridgedContext.selected_variants as VariantSelection[];
+            }
+            if (bridgedContext.total_price) {
+              contextPatch.total_price = bridgedContext.total_price as number;
+            }
+            if (bridgedContext.source) {
+              contextPatch.referral_source = bridgedContext.source as string;
+            }
+            if (bridgedContext.roi_result) {
+              contextPatch.roi_result = bridgedContext.roi_result as JarvisContext['roi_result'];
+            }
+            // Push context to backend
+            const hasPatch = Object.keys(contextPatch).length > 0;
+            if (hasPatch) {
+              await apiFetch<JarvisSession>(
+                `/context?session_id=${sessionData.id}`,
+                { method: 'PATCH', body: JSON.stringify(contextPatch) },
+              );
+              // Update local session state
+              setSession((prev) => {
+                if (!prev) return prev;
+                return { ...prev, context: { ...prev.context, ...contextPatch } };
+              });
+            }
+            // One-time transfer — clear after reading
+            localStorage.removeItem('parwa_jarvis_context');
+          }
+
+          // Track pages visited for context awareness
+          const visitedRaw = localStorage.getItem('parwa_pages_visited');
+          const visited: string[] = visitedRaw ? JSON.parse(visitedRaw) : [];
+          if (visited.length > 0) {
+            await apiFetch<JarvisSession>(
+              `/context?session_id=${sessionData.id}`,
+              { method: 'PATCH', body: JSON.stringify({ pages_visited: visited } as Partial<JarvisContext>) },
+            ).catch(() => { /* non-critical */ });
+          }
+        } catch {
+          // Non-critical — localStorage bridge failure
+        }
+      }
     } catch (err) {
       initFailedRef.current = true;
       setError(err instanceof Error ? err.message : 'Failed to initialize session');

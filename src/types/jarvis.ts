@@ -75,6 +75,8 @@ export interface VariantSelection {
   name?: string;
   quantity: number;
   price?: number;
+  price_per_month?: number;
+  tickets_per_month?: number;
   features?: string[];
 }
 
@@ -101,6 +103,7 @@ export interface JarvisContext {
   entry_source: EntrySource;
   entry_params: Record<string, unknown>;
   detected_stage: ConversationStage;
+  total_price?: number;
   otp?: OtpContextData;
   bill_shown?: boolean;
 }
@@ -203,6 +206,7 @@ export interface JarvisContextUpdateRequest {
   referral_source?: string;
   pages_visited?: string[];
   detected_stage?: ConversationStage;
+  total_price?: number;
 }
 
 export interface JarvisEntryContextRequest {
