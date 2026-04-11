@@ -1,14 +1,19 @@
 """
-Stub technique node implementations.
+Technique node registry and placeholder delegates.
 
-These are interface stubs with should_activate logic intact.
-Full execute() implementations will be built during their
-respective Week (8-12) when dependent features are ready.
-
-Real implementations (replacing stubs):
+Real implementations are in their own modules:
   - CRPNode → app.core.techniques.crp (Day 16)
   - ReverseThinkingNode → app.core.techniques.reverse_thinking (Day 17)
   - StepBackNode → app.core.techniques.step_back (Day 17)
+  - ChainOfThoughtNode → app.core.techniques.chain_of_thought (Day 18)
+  - ReActNode → app.core.techniques.react (Day 18)
+  - ThreadOfThoughtNode → app.core.techniques.thread_of_thought (Day 18)
+  - GSTNode → app.core.techniques.gst (Day 18)
+  - UniverseOfThoughtsNode → app.core.techniques.universe_of_thoughts (Day 19)
+  - TreeOfThoughtsNode → app.core.techniques.tree_of_thoughts (Day 19)
+  - SelfConsistencyNode → app.core.techniques.self_consistency (Day 19)
+  - ReflexionNode → app.core.techniques.reflexion (Day 19)
+  - LeastToMostNode → app.core.techniques.least_to_most (Day 19)
 """
 
 from typing import TYPE_CHECKING
@@ -159,119 +164,89 @@ class GSTNodePlaceholder(BaseTechniqueNode):
         return await GSTNode().execute(state)
 
 
-class UniverseOfThoughtsNode(BaseTechniqueNode):
-    """F-144: UoT (Universe of Thoughts) — Tier 3 premium."""
+class UniverseOfThoughtsNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real UniverseOfThoughtsNode is in app.core.techniques.universe_of_thoughts"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.UNIVERSE_OF_THOUGHTS
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return (
-            state.signals.customer_tier == "vip"
-            or state.signals.sentiment_score < 0.3
-            or state.signals.monetary_value > 100
-        )
+        from app.core.techniques.universe_of_thoughts import UniverseOfThoughtsNode
+        return await UniverseOfThoughtsNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement solution space generation, evaluation matrix
-        # Week 13-14 (Phase 2) implementation
-        state.technique_results["universe_of_thoughts"] = {
-            "status": "stub",
-            "message": "UoT stub — full implementation in Week 13-14",
-        }
-        return state
+        from app.core.techniques.universe_of_thoughts import UniverseOfThoughtsNode
+        return await UniverseOfThoughtsNode().execute(state)
 
 
-class TreeOfThoughtsNode(BaseTechniqueNode):
-    """F-145: ToT (Tree of Thoughts) — Tier 3 premium."""
+class TreeOfThoughtsNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real TreeOfThoughtsNode is in app.core.techniques.tree_of_thoughts"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.TREE_OF_THOUGHTS
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return state.signals.resolution_path_count >= 3
+        from app.core.techniques.tree_of_thoughts import TreeOfThoughtsNode
+        return await TreeOfThoughtsNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement tree generation, branch evaluation, pruning
-        # Week 18-19 (Phase 3) implementation
-        state.technique_results["tree_of_thoughts"] = {
-            "status": "stub",
-            "message": "ToT stub — full implementation in Week 18-19",
-        }
-        return state
+        from app.core.techniques.tree_of_thoughts import TreeOfThoughtsNode
+        return await TreeOfThoughtsNode().execute(state)
 
 
-class SelfConsistencyNode(BaseTechniqueNode):
-    """F-146: Self-Consistency — Tier 3 premium."""
+class SelfConsistencyNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real SelfConsistencyNode is in app.core.techniques.self_consistency"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.SELF_CONSISTENCY
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return (
-            state.signals.monetary_value > 100
-            or state.signals.intent_type == "billing"
-        )
+        from app.core.techniques.self_consistency import SelfConsistencyNode
+        return await SelfConsistencyNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement multi-answer generation, consistency check
-        # Week 13-14 (Phase 2) implementation
-        state.technique_results["self_consistency"] = {
-            "status": "stub",
-            "message": "Self-Consistency stub — full implementation in Week 13-14",
-        }
-        return state
+        from app.core.techniques.self_consistency import SelfConsistencyNode
+        return await SelfConsistencyNode().execute(state)
 
 
-class ReflexionNode(BaseTechniqueNode):
-    """F-147: Reflexion — Tier 3 premium."""
+class ReflexionNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real ReflexionNode is in app.core.techniques.reflexion"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.REFLEXION
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return (
-            state.signals.previous_response_status in ("rejected", "corrected")
-            or state.signals.customer_tier == "vip"
-        )
+        from app.core.techniques.reflexion import ReflexionNode
+        return await ReflexionNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement self-reflection, strategy adjustment
-        # Week 13-14 (Phase 2) implementation
-        state.technique_results["reflexion"] = {
-            "status": "stub",
-            "message": "Reflexion stub — full implementation in Week 13-14",
-        }
-        return state
+        from app.core.techniques.reflexion import ReflexionNode
+        return await ReflexionNode().execute(state)
 
 
-class LeastToMostNode(BaseTechniqueNode):
-    """F-148: Least-to-Most Decomposition — Tier 3 premium."""
+class LeastToMostNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real LeastToMostNode is in app.core.techniques.least_to_most"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.LEAST_TO_MOST
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return state.signals.query_complexity > 0.7
+        from app.core.techniques.least_to_most import LeastToMostNode
+        return await LeastToMostNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement decomposition, dependency ordering, sequential solving
-        # Week 18-19 (Phase 3) implementation
-        state.technique_results["least_to_most"] = {
-            "status": "stub",
-            "message": "Least-to-Most stub — full implementation in Week 18-19",
-        }
-        return state
+        from app.core.techniques.least_to_most import LeastToMostNode
+        return await LeastToMostNode().execute(state)
 
 
 # ── Populate the node registry ────────────────────────────────────
-# Real implementations (Day 16-17) are imported directly.
-# Stubs remain for techniques not yet implemented.
+# All implementations are real (no stubs remaining).
+# Day 19: UoT, ToT, Self-Consistency, Reflexion, Least-to-Most.
 
 TECHNIQUE_NODES.update({
     TechniqueID.CRP: CRPNode(),
@@ -281,9 +256,9 @@ TECHNIQUE_NODES.update({
     TechniqueID.REACT: ReActNodePlaceholder(),
     TechniqueID.THREAD_OF_THOUGHT: ThreadOfThoughtNodePlaceholder(),
     TechniqueID.GST: GSTNodePlaceholder(),
-    TechniqueID.UNIVERSE_OF_THOUGHTS: UniverseOfThoughtsNode(),
-    TechniqueID.TREE_OF_THOUGHTS: TreeOfThoughtsNode(),
-    TechniqueID.SELF_CONSISTENCY: SelfConsistencyNode(),
-    TechniqueID.REFLEXION: ReflexionNode(),
-    TechniqueID.LEAST_TO_MOST: LeastToMostNode(),
+    TechniqueID.UNIVERSE_OF_THOUGHTS: UniverseOfThoughtsNodePlaceholder(),
+    TechniqueID.TREE_OF_THOUGHTS: TreeOfThoughtsNodePlaceholder(),
+    TechniqueID.SELF_CONSISTENCY: SelfConsistencyNodePlaceholder(),
+    TechniqueID.REFLEXION: ReflexionNodePlaceholder(),
+    TechniqueID.LEAST_TO_MOST: LeastToMostNodePlaceholder(),
 })
