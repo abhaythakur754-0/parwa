@@ -1966,8 +1966,8 @@ class LoadAwareDistributor:
             with self._lock:
                 # Collect instance IDs to clean up
                 instance_keys = [
-                    key for (cid, _), _ in self._instances.items()
-                    if cid == company_id
+                    k for k, _ in self._instances.items()
+                    if k[0] == company_id
                 ]
 
                 # Remove instances
