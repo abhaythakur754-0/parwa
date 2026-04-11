@@ -502,6 +502,22 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
 
 // ── AI Response Handler ──────────────────────────────────────────
 
+// Knowledge-based AI Engine (when external providers are unavailable)
+let _aiEngine: any = null;
+async function getAIEngine() {
+  if (!_aiEngine) {
+    try {
+      const { JarvisAIEngine } = await import('@/lib/jarvis-ai-engine');
+      _aiEngine = JarvisAIEngine.getInstance();
+      await _aiEngine.ensureLoaded();
+      console.log('[Jarvis] AI Engine loaded successfully');
+    } catch (err) {
+      console.error('[Jarvis] Failed to load AI Engine:', (err as Error).message);
+    }
+  }
+  return _aiEngine;
+}
+
 async function getAIResponse(userMessage: string, session: any): Promise<string> {
   // 1. Build system prompt with full PARWA knowledge
   const systemPrompt = buildSystemPrompt(session);
@@ -521,11 +537,30 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
   }
   messages.push({ role: 'user', content: userMessage });
 
-  // 3. Call AI with smart routing (z-ai SDK → Google → Cerebras → Groq → keyword fallback)
-  const aiReply = await callAI(messages);
-  if (aiReply) return aiReply;
+  // 2. Try external AI providers first (z-ai SDK → Google → Cerebras → Groq)
+  try {
+    const aiReply = await callAI(messages);
+    if (aiReply) return aiReply;
+  } catch (err) {
+    console.warn('[Jarvis] External AI providers failed:', (err as Error).message?.slice(0, 100));
+  }
 
-  // 4. Keyword fallback (always works)
+  // 3. Knowledge-based AI Engine (intelligent fallback)
+  try {
+    const engine = await getAIEngine();
+    if (engine) {
+      const engineReply = await engine.generateResponse(userMessage, session);
+      if (engineReply) {
+        console.log('[Jarvis] Responded via Knowledge AI Engine');
+        return engineReply;
+      }
+    }
+  } catch (err) {
+    console.error('[Jarvis] AI Engine error:', (err as Error).message?.slice(0, 100));
+  }
+
+  // 4. Last resort: simple keyword fallback
+  console.warn('[Jarvis] Using basic keyword fallback');
   return getKeywordResponse(userMessage, session);
 }
 

@@ -18,7 +18,7 @@ const slides: SlideData[] = [
     title: 'Control Everything with Just a Chat',
     subtitle: 'No dashboards. No menus. No training.',
     description: 'Just type what you need. Jarvis understands and does it instantly. Like texting a super-smart employee who never sleeps.',
-    accentGlow: 'rgba(16, 185, 129, 0.15)',
+    accentGlow: 'rgba(255, 127, 17, 0.15)',
     slideNumber: '01/05',
   },
   {
@@ -34,7 +34,7 @@ const slides: SlideData[] = [
     title: 'It Gets Smarter Every Day',
     subtitle: 'Upload your docs. Watch it learn.',
     description: 'Your manuals, FAQs, policies — feed them once. Jarvis reads, understands, and starts answering like your best agent.',
-    accentGlow: 'rgba(52, 211, 153, 0.12)',
+    accentGlow: 'rgba(255, 159, 68, 0.12)',
     slideNumber: '03/05',
   },
   {
@@ -50,7 +50,7 @@ const slides: SlideData[] = [
     title: 'Meet Jarvis — Your AI Employee',
     subtitle: 'Like Iron Man\'s Jarvis, but for your business.',
     description: 'Your personal AI officer who never complains, never takes a day off, and always delivers. Available 24/7/365.',
-    accentGlow: 'rgba(16, 185, 129, 0.18)',
+    accentGlow: 'rgba(255, 127, 17, 0.18)',
     slideNumber: '05/05',
   },
 ];
@@ -63,47 +63,47 @@ const slides: SlideData[] = [
 function SlideBackground1() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/50 via-emerald-900/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-950/50 via-orange-900/30 to-transparent" />
 
       {/* Large chat bubble — user message (right side) */}
-      <div className="absolute top-[12%] right-[8%] w-48 sm:w-64 h-20 sm:h-24 rounded-2xl rounded-br-sm bg-emerald-500/10 border border-emerald-400/20 backdrop-blur-sm flex items-center px-5 sm:px-6"
+      <div className="absolute top-[12%] right-[8%] w-48 sm:w-64 h-20 sm:h-24 rounded-2xl rounded-br-sm bg-orange-500/10 border border-orange-400/20 backdrop-blur-sm flex items-center px-5 sm:px-6"
         style={{ animation: 'slide1BubbleFlyInLeft 6s ease-in-out infinite' }}>
-        <span className="text-emerald-200 text-xs sm:text-sm font-medium">Handle these 15 refund requests ✨</span>
-        <div className="ml-2 w-2 h-2 rounded-full bg-emerald-400/60" style={{ animation: 'slide1TypingCursor 1s infinite' }} />
+        <span className="text-orange-200 text-xs sm:text-sm font-medium">Handle these 15 refund requests ✨</span>
+        <div className="ml-2 w-2 h-2 rounded-full bg-orange-400/60" style={{ animation: 'slide1TypingCursor 1s infinite' }} />
       </div>
 
       {/* Reply bubble — Jarvis (left-ish, on right half) */}
-      <div className="absolute top-[30%] right-[5%] w-56 sm:w-72 h-16 sm:h-20 rounded-2xl rounded-bl-sm bg-emerald-500/10 border border-emerald-400/15 backdrop-blur-sm shadow-lg shadow-emerald-500/10 flex items-center px-5 sm:px-6"
+      <div className="absolute top-[30%] right-[5%] w-56 sm:w-72 h-16 sm:h-20 rounded-2xl rounded-bl-sm bg-orange-500/10 border border-orange-400/15 backdrop-blur-sm shadow-lg shadow-orange-500/10 flex items-center px-5 sm:px-6"
         style={{ animation: 'slide1BubbleFlyInRight 8s ease-in-out infinite 2s' }}>
-        <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center mr-3 flex-shrink-0">
-          <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center mr-3 flex-shrink-0">
+          <svg className="w-3.5 h-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
           </svg>
         </div>
-        <span className="text-emerald-200/70 text-xs sm:text-sm">✅ Done! $4,280 refunded. 3.5hrs saved.</span>
+        <span className="text-orange-200/70 text-xs sm:text-sm">✅ Done! $4,280 refunded. 3.5hrs saved.</span>
       </div>
 
       {/* Decorative floating bubbles */}
-      <div className="absolute w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-400/15 top-[55%] right-[25%]"
+      <div className="absolute w-20 h-20 rounded-full bg-orange-500/10 border border-orange-400/15 top-[55%] right-[25%]"
         style={{ animation: 'slide1BubbleFloat 7s ease-in-out infinite' }} />
-      <div className="absolute w-14 h-14 rounded-full bg-emerald-400/10 border border-emerald-400/10 top-[65%] right-[50%]"
+      <div className="absolute w-14 h-14 rounded-full bg-orange-400/10 border border-orange-400/10 top-[65%] right-[50%]"
         style={{ animation: 'slide1BubbleFloatAlt 9s ease-in-out infinite 1s' }} />
-      <div className="absolute w-24 h-24 rounded-full bg-emerald-500/8 border border-emerald-400/10 top-[45%] right-[65%]"
+      <div className="absolute w-24 h-24 rounded-full bg-orange-500/8 border border-orange-400/10 top-[45%] right-[65%]"
         style={{ animation: 'slide1BubbleFloatAlt 11s ease-in-out infinite 3s' }} />
-      <div className="absolute w-10 h-10 rounded-full bg-emerald-400/15 border border-emerald-400/10 top-[75%] right-[15%]"
+      <div className="absolute w-10 h-10 rounded-full bg-orange-400/15 border border-orange-400/10 top-[75%] right-[15%]"
         style={{ animation: 'slide1BubbleFloat 8s ease-in-out infinite 2s' }} />
 
       {/* Green glow pulse */}
-      <div className="absolute top-1/2 right-1/3 -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-emerald-500/12 blur-[80px]"
+      <div className="absolute top-1/2 right-1/3 -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-orange-500/12 blur-[80px]"
         style={{ animation: 'slide1GlowPulse 4s ease-in-out infinite' }} />
 
       {/* Message send indicator */}
-      <div className="absolute bottom-[18%] right-[12%] flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-400/20 backdrop-blur-sm"
+      <div className="absolute bottom-[18%] right-[12%] flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-400/20 backdrop-blur-sm"
         style={{ animation: 'slide1MessagePulse 3s ease-in-out infinite' }}>
-        <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
         </svg>
-        <span className="text-emerald-200/60 text-xs font-medium">Sent instantly</span>
+        <span className="text-orange-200/60 text-xs font-medium">Sent instantly</span>
       </div>
     </div>
   );
@@ -113,20 +113,20 @@ function SlideBackground1() {
 function SlideBackground2() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/50 via-emerald-900/30 to-amber-950/20" />
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-950/50 via-orange-900/30 to-amber-950/20" />
 
       {/* Large morphing shapes */}
-      <div className="absolute w-40 h-40 sm:w-52 sm:h-52 bg-emerald-800/20 border border-emerald-600/15 top-[15%] right-[12%]"
+      <div className="absolute w-40 h-40 sm:w-52 sm:h-52 bg-orange-800/20 border border-orange-600/15 top-[15%] right-[12%]"
         style={{ animation: 'slide2MorphShape 10s ease-in-out infinite' }} />
       <div className="absolute w-32 h-32 sm:w-44 sm:h-44 bg-amber-800/15 border border-amber-600/10 top-[45%] right-[40%]"
         style={{ animation: 'slide2MorphAlt 8s ease-in-out infinite 2s' }} />
-      <div className="absolute w-24 h-24 sm:w-36 sm:h-36 bg-emerald-800/20 border border-emerald-600/15 top-[60%] right-[20%]"
+      <div className="absolute w-24 h-24 sm:w-36 sm:h-36 bg-orange-800/20 border border-orange-600/15 top-[60%] right-[20%]"
         style={{ animation: 'slide2IconMorph 12s ease-in-out infinite 1s' }} />
 
       {/* Gear → Checkmark icon morph */}
-      <div className="absolute top-[28%] right-[55%] w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/5 border border-emerald-500/20 backdrop-blur-sm shadow-lg flex items-center justify-center"
+      <div className="absolute top-[28%] right-[55%] w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/5 border border-orange-500/20 backdrop-blur-sm shadow-lg flex items-center justify-center"
         style={{ animation: 'slide2IconMorph 8s ease-in-out infinite' }}>
-        <svg className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        <svg className="w-8 h-8 sm:w-10 sm:h-10 text-orange-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"
           style={{ animation: 'slide2GearSpin 6s linear infinite' }}>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
             d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -135,26 +135,26 @@ function SlideBackground2() {
       </div>
 
       {/* Checkmark pop icons */}
-      <div className="absolute top-[55%] right-[60%] w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-emerald-500/15 flex items-center justify-center"
+      <div className="absolute top-[55%] right-[60%] w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-orange-500/15 flex items-center justify-center"
         style={{ animation: 'slide2CheckmarkPop 5s ease-in-out infinite 1s' }}>
-        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
         </svg>
       </div>
-      <div className="absolute top-[40%] right-[30%] w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-500/15 flex items-center justify-center"
+      <div className="absolute top-[40%] right-[30%] w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-orange-500/15 flex items-center justify-center"
         style={{ animation: 'slide2CheckmarkPop 5s ease-in-out infinite 2.5s' }}>
-        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
         </svg>
       </div>
 
       {/* Confetti particles */}
       {[
-        { left: '15%', delay: '0s', color: '#34D399' },
-        { left: '30%', delay: '1.5s', color: '#10B981' },
+        { left: '15%', delay: '0s', color: '#FF7F11' },
+        { left: '30%', delay: '1.5s', color: '#FF9F44' },
         { left: '50%', delay: '3s', color: '#FBBF24' },
-        { left: '70%', delay: '0.8s', color: '#6EE7B7' },
-        { left: '85%', delay: '2.2s', color: '#059669' },
+        { left: '70%', delay: '0.8s', color: '#FF7F11' },
+        { left: '85%', delay: '2.2s', color: '#FF9F44' },
       ].map((confetti, i) => (
         <div key={i} className="absolute w-2 h-2 rounded-sm top-0"
           style={{
@@ -176,69 +176,69 @@ function SlideBackground2() {
 function SlideBackground3() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/50 via-emerald-900/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-950/50 via-orange-900/30 to-transparent" />
 
       {/* Neural network nodes */}
       {[
-        { top: '10%', right: '15%', size: 'w-3.5 h-3.5', delay: '0s', color: 'bg-emerald-400' },
-        { top: '18%', right: '35%', size: 'w-2.5 h-2.5', delay: '0.5s', color: 'bg-emerald-400' },
-        { top: '12%', right: '55%', size: 'w-3 h-3', delay: '1s', color: 'bg-emerald-300' },
-        { top: '30%', right: '22%', size: 'w-2 h-2', delay: '1.5s', color: 'bg-emerald-500' },
-        { top: '35%', right: '48%', size: 'w-3 h-3', delay: '0.3s', color: 'bg-emerald-400' },
-        { top: '25%', right: '68%', size: 'w-2.5 h-2.5', delay: '2s', color: 'bg-emerald-300' },
-        { top: '50%', right: '18%', size: 'w-3 h-3', delay: '0.8s', color: 'bg-emerald-500' },
-        { top: '55%', right: '42%', size: 'w-2 h-2', delay: '1.2s', color: 'bg-emerald-400' },
-        { top: '48%', right: '62%', size: 'w-2.5 h-2.5', delay: '0.6s', color: 'bg-emerald-300' },
-        { top: '70%', right: '28%', size: 'w-2 h-2', delay: '1.8s', color: 'bg-emerald-500' },
-        { top: '72%', right: '52%', size: 'w-3 h-3', delay: '0.4s', color: 'bg-emerald-400' },
-        { top: '65%', right: '75%', size: 'w-2 h-2', delay: '2.2s', color: 'bg-emerald-300' },
-        { top: '85%', right: '20%', size: 'w-2.5 h-2.5', delay: '1s', color: 'bg-emerald-400' },
-        { top: '82%', right: '45%', size: 'w-2 h-2', delay: '0.7s', color: 'bg-emerald-400' },
-        { top: '88%', right: '68%', size: 'w-3 h-3', delay: '1.5s', color: 'bg-emerald-500' },
+        { top: '10%', right: '15%', size: 'w-3.5 h-3.5', delay: '0s', color: 'bg-orange-400' },
+        { top: '18%', right: '35%', size: 'w-2.5 h-2.5', delay: '0.5s', color: 'bg-orange-400' },
+        { top: '12%', right: '55%', size: 'w-3 h-3', delay: '1s', color: 'bg-orange-300' },
+        { top: '30%', right: '22%', size: 'w-2 h-2', delay: '1.5s', color: 'bg-orange-500' },
+        { top: '35%', right: '48%', size: 'w-3 h-3', delay: '0.3s', color: 'bg-orange-400' },
+        { top: '25%', right: '68%', size: 'w-2.5 h-2.5', delay: '2s', color: 'bg-orange-300' },
+        { top: '50%', right: '18%', size: 'w-3 h-3', delay: '0.8s', color: 'bg-orange-500' },
+        { top: '55%', right: '42%', size: 'w-2 h-2', delay: '1.2s', color: 'bg-orange-400' },
+        { top: '48%', right: '62%', size: 'w-2.5 h-2.5', delay: '0.6s', color: 'bg-orange-300' },
+        { top: '70%', right: '28%', size: 'w-2 h-2', delay: '1.8s', color: 'bg-orange-500' },
+        { top: '72%', right: '52%', size: 'w-3 h-3', delay: '0.4s', color: 'bg-orange-400' },
+        { top: '65%', right: '75%', size: 'w-2 h-2', delay: '2.2s', color: 'bg-orange-300' },
+        { top: '85%', right: '20%', size: 'w-2.5 h-2.5', delay: '1s', color: 'bg-orange-400' },
+        { top: '82%', right: '45%', size: 'w-2 h-2', delay: '0.7s', color: 'bg-orange-400' },
+        { top: '88%', right: '68%', size: 'w-3 h-3', delay: '1.5s', color: 'bg-orange-500' },
       ].map((node, i) => (
         <div key={i} className={`absolute rounded-full ${node.size} ${node.color}/70`}
-          style={{ top: node.top, right: node.right, animation: `slide3NeuralPulse ${3 + i * 0.3}s ease-in-out infinite ${node.delay}`, boxShadow: `0 0 8px ${node.color === 'bg-emerald-400' ? 'rgba(52,211,153,0.5)' : node.color === 'bg-emerald-500' ? 'rgba(16,185,129,0.5)' : 'rgba(110,231,183,0.4)'}` }} />
+          style={{ top: node.top, right: node.right, animation: `slide3NeuralPulse ${3 + i * 0.3}s ease-in-out infinite ${node.delay}`, boxShadow: `0 0 8px ${node.color === 'bg-orange-400' ? 'rgba(255,159,68,0.5)' : node.color === 'bg-orange-500' ? 'rgba(255,127,17,0.5)' : 'rgba(255,212,168,0.4)'}` }} />
       ))}
 
       {/* Central brain glow */}
-      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 rounded-full bg-emerald-400/15 blur-xl"
+      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 rounded-full bg-orange-400/15 blur-xl"
         style={{ animation: 'slide3BrainPulse 4s ease-in-out infinite' }} />
-      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-32 h-32 sm:w-44 sm:h-44 rounded-full bg-emerald-400/12 blur-lg"
+      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-32 h-32 sm:w-44 sm:h-44 rounded-full bg-orange-400/12 blur-lg"
         style={{ animation: 'slide3BrainPulse 3s ease-in-out infinite 0.5s' }} />
 
       {/* Concentric rings */}
-      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-56 h-56 sm:w-72 sm:h-72 rounded-full border border-emerald-400/20"
+      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-56 h-56 sm:w-72 sm:h-72 rounded-full border border-orange-400/20"
         style={{ animation: 'slide3BrainRing 5s ease-in-out infinite' }} />
-      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 rounded-full border border-emerald-400/15"
+      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 rounded-full border border-orange-400/15"
         style={{ animation: 'slide3BrainRing 5s ease-in-out infinite 1.5s' }} />
 
       {/* Progress bars */}
       <div className="absolute bottom-[15%] right-[15%] w-48 sm:w-56 space-y-3">
-        <div className="h-2 rounded-full bg-emerald-900/30 overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-300 rounded-full"
+        <div className="h-2 rounded-full bg-orange-900/30 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-orange-400 to-orange-300 rounded-full"
             style={{ animation: 'slide3ProgressFill 4s ease-in-out infinite' }} />
         </div>
-        <div className="h-2 rounded-full bg-emerald-900/30 overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-300 rounded-full"
+        <div className="h-2 rounded-full bg-orange-900/30 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-orange-400 to-orange-300 rounded-full"
             style={{ animation: 'slide3ProgressFill 5s ease-in-out infinite 1s' }} />
         </div>
-        <div className="h-2 rounded-full bg-emerald-900/30 overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full"
+        <div className="h-2 rounded-full bg-orange-900/30 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full"
             style={{ animation: 'slide3ProgressFill 6s ease-in-out infinite 2s' }} />
         </div>
       </div>
 
       {/* Neural connection SVG */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 600" preserveAspectRatio="none" opacity="0.25">
-        <line x1="200" y1="100" x2="350" y2="200" stroke="#10B981" strokeWidth="1" strokeDasharray="4 4"
+        <line x1="200" y1="100" x2="350" y2="200" stroke="#FF7F11" strokeWidth="1" strokeDasharray="4 4"
           style={{ animation: 'slide3ConnectionFlow 3s linear infinite' }} />
-        <line x1="350" y1="200" x2="500" y2="150" stroke="#34D399" strokeWidth="1" strokeDasharray="4 4"
+        <line x1="350" y1="200" x2="500" y2="150" stroke="#FF9F44" strokeWidth="1" strokeDasharray="4 4"
           style={{ animation: 'slide3ConnectionFlow 3s linear infinite 0.5s' }} />
-        <line x1="350" y1="200" x2="400" y2="350" stroke="#10B981" strokeWidth="1" strokeDasharray="4 4"
+        <line x1="350" y1="200" x2="400" y2="350" stroke="#FF7F11" strokeWidth="1" strokeDasharray="4 4"
           style={{ animation: 'slide3ConnectionFlow 3s linear infinite 1s' }} />
-        <line x1="500" y1="150" x2="600" y2="300" stroke="#34D399" strokeWidth="1" strokeDasharray="4 4"
+        <line x1="500" y1="150" x2="600" y2="300" stroke="#FF9F44" strokeWidth="1" strokeDasharray="4 4"
           style={{ animation: 'slide3ConnectionFlow 3s linear infinite 1.5s' }} />
-        <line x1="400" y1="350" x2="600" y2="300" stroke="#10B981" strokeWidth="1" strokeDasharray="4 4"
+        <line x1="400" y1="350" x2="600" y2="300" stroke="#FF7F11" strokeWidth="1" strokeDasharray="4 4"
           style={{ animation: 'slide3ConnectionFlow 3s linear infinite 2s' }} />
       </svg>
     </div>
@@ -249,14 +249,14 @@ function SlideBackground3() {
 function SlideBackground4() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/50 via-emerald-900/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-950/50 via-orange-900/30 to-transparent" />
 
       {/* Large animated clock */}
       <div className="absolute top-1/2 right-[30%] -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64">
         <svg viewBox="0 0 100 100" className="w-full h-full">
           {/* Clock face */}
-          <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(52,211,153,0.25)" strokeWidth="2" />
-          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(52,211,153,0.12)" strokeWidth="1" />
+          <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,159,68,0.25)" strokeWidth="2" />
+          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,159,68,0.12)" strokeWidth="1" />
           {/* Hour markers */}
           {Array.from({ length: 12 }).map((_, i) => {
             const angle = (i * 30 - 90) * (Math.PI / 180);
@@ -264,16 +264,16 @@ function SlideBackground4() {
             const y1 = 50 + 38 * Math.sin(angle);
             const x2 = 50 + 42 * Math.cos(angle);
             const y2 = 50 + 42 * Math.sin(angle);
-            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(52,211,153,0.4)" strokeWidth="1.5" />;
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,159,68,0.4)" strokeWidth="1.5" />;
           })}
           {/* Hour hand */}
-          <line x1="50" y1="50" x2="50" y2="25" stroke="rgba(52,211,153,0.7)" strokeWidth="3" strokeLinecap="round"
+          <line x1="50" y1="50" x2="50" y2="25" stroke="rgba(255,159,68,0.7)" strokeWidth="3" strokeLinecap="round"
             style={{ transformOrigin: '50px 50px', animation: 'slide4ClockHand 4s linear infinite' }} />
           {/* Minute hand */}
-          <line x1="50" y1="50" x2="50" y2="18" stroke="rgba(52,211,153,0.5)" strokeWidth="2" strokeLinecap="round"
+          <line x1="50" y1="50" x2="50" y2="18" stroke="rgba(255,159,68,0.5)" strokeWidth="2" strokeLinecap="round"
             style={{ transformOrigin: '50px 50px', animation: 'slide4ClockHand 12s linear infinite' }} />
           {/* Center dot */}
-          <circle cx="50" cy="50" r="2.5" fill="rgba(52,211,153,0.7)" />
+          <circle cx="50" cy="50" r="2.5" fill="rgba(255,159,68,0.7)" />
         </svg>
       </div>
 
@@ -285,18 +285,18 @@ function SlideBackground4() {
       </div>
 
       {/* Calendar flip animation */}
-      <div className="absolute top-[15%] right-[55%] w-16 h-20 sm:w-20 sm:h-24 bg-emerald-950/40 backdrop-blur-sm rounded-xl border border-emerald-500/20 shadow-lg flex flex-col items-center justify-center"
+      <div className="absolute top-[15%] right-[55%] w-16 h-20 sm:w-20 sm:h-24 bg-orange-950/40 backdrop-blur-sm rounded-xl border border-orange-500/20 shadow-lg flex flex-col items-center justify-center"
         style={{ animation: 'slide4CalendarFlip 4s ease-in-out infinite' }}>
-        <div className="w-full h-5 bg-emerald-500/20 rounded-t-xl flex items-center justify-center">
-          <span className="text-emerald-300/60 text-[8px] sm:text-[10px] font-bold">HRS</span>
+        <div className="w-full h-5 bg-orange-500/20 rounded-t-xl flex items-center justify-center">
+          <span className="text-orange-300/60 text-[8px] sm:text-[10px] font-bold">HRS</span>
         </div>
-        <span className="text-emerald-200 text-lg sm:text-2xl font-bold">40+</span>
+        <span className="text-orange-200 text-lg sm:text-2xl font-bold">40+</span>
       </div>
 
       {/* Counter animation */}
       <div className="absolute bottom-[20%] right-[55%] flex items-baseline gap-1">
-        <span className="text-3xl sm:text-4xl font-bold text-emerald-300/40" style={{ animation: 'slide4Counter 3s ease-in-out infinite' }}>40</span>
-        <span className="text-sm text-emerald-400/30 font-medium" style={{ animation: 'slide4Counter 3s ease-in-out infinite 0.5s' }}>hrs/week</span>
+        <span className="text-3xl sm:text-4xl font-bold text-orange-300/40" style={{ animation: 'slide4Counter 3s ease-in-out infinite' }}>40</span>
+        <span className="text-sm text-orange-400/30 font-medium" style={{ animation: 'slide4Counter 3s ease-in-out infinite 0.5s' }}>hrs/week</span>
       </div>
 
       {/* Hourglass-inspired sand particles */}
@@ -307,14 +307,14 @@ function SlideBackground4() {
         { top: '34%', right: '65%', delay: '1.5s' },
         { top: '29%', right: '61%', delay: '2s' },
       ].map((particle, i) => (
-        <div key={i} className="absolute w-1.5 h-1.5 rounded-full bg-emerald-400/60"
+        <div key={i} className="absolute w-1.5 h-1.5 rounded-full bg-orange-400/60"
           style={{ top: particle.top, right: particle.right, animation: `slide4SandParticle 2s ease-in infinite ${particle.delay}` }} />
       ))}
 
       {/* Tick dots */}
       <div className="absolute w-2 h-2 rounded-full bg-yellow-400/50 top-[80%] right-[20%]"
         style={{ animation: 'slide4TickPulse 4s ease-in-out infinite' }} />
-      <div className="absolute w-2 h-2 rounded-full bg-emerald-400/50 top-[10%] right-[80%]"
+      <div className="absolute w-2 h-2 rounded-full bg-orange-400/50 top-[10%] right-[80%]"
         style={{ animation: 'slide4TickPulse 3s ease-in-out infinite 1s' }} />
     </div>
   );
@@ -324,53 +324,53 @@ function SlideBackground4() {
 function SlideBackground5() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/50 via-emerald-900/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-950/50 via-orange-900/30 to-transparent" />
 
       {/* Jarvis core glow */}
-      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-28 h-28 sm:w-36 sm:h-36 rounded-full bg-emerald-500/20 blur-xl"
+      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-28 h-28 sm:w-36 sm:h-36 rounded-full bg-orange-500/20 blur-xl"
         style={{ animation: 'slide5CoreGlow 3s ease-in-out infinite' }} />
 
       {/* Concentric expanding rings (Iron Man Jarvis style) */}
-      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-40 h-40 sm:w-52 sm:h-52 rounded-full border-2 border-emerald-400/30"
+      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-40 h-40 sm:w-52 sm:h-52 rounded-full border-2 border-orange-400/30"
         style={{ animation: 'slide5RingExpand 4s ease-in-out infinite' }} />
-      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-56 h-56 sm:w-72 sm:h-72 rounded-full border border-emerald-400/20"
+      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-56 h-56 sm:w-72 sm:h-72 rounded-full border border-orange-400/20"
         style={{ animation: 'slide5RingExpand 4s ease-in-out infinite 0.8s' }} />
-      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 rounded-full border border-emerald-400/15"
+      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 rounded-full border border-orange-400/15"
         style={{ animation: 'slide5RingExpandAlt 5s ease-in-out infinite 1.5s' }} />
-      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-80 h-80 sm:w-[28rem] sm:h-[28rem] rounded-full border border-emerald-400/10"
+      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-80 h-80 sm:w-[28rem] sm:h-[28rem] rounded-full border border-orange-400/10"
         style={{ animation: 'slide5RingExpandAlt 5s ease-in-out infinite 2.5s' }} />
 
       {/* AI face outline — futuristic */}
-      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-emerald-500/10 border-2 border-emerald-400/25"
+      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-orange-500/10 border-2 border-orange-400/25"
         style={{ animation: 'slide5FacePulse 3s ease-in-out infinite' }}>
         {/* Eyes */}
-        <div className="absolute top-1/3 left-1/4 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-400/70"
+        <div className="absolute top-1/3 left-1/4 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-orange-400/70"
           style={{ animation: 'slide5DotPulse 2s ease-in-out infinite' }} />
-        <div className="absolute top-1/3 right-1/4 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-400/70"
+        <div className="absolute top-1/3 right-1/4 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-orange-400/70"
           style={{ animation: 'slide5DotPulse 2s ease-in-out infinite 0.3s' }} />
         {/* Mouth arc */}
-        <div className="absolute top-[60%] left-1/3 w-1/3 h-1.5 rounded-full bg-emerald-400/40" />
+        <div className="absolute top-[60%] left-1/3 w-1/3 h-1.5 rounded-full bg-orange-400/40" />
       </div>
 
       {/* Circuit board SVG pattern */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 600" preserveAspectRatio="none" opacity="0.2">
         {/* Horizontal lines */}
-        <line x1="300" y1="150" x2="550" y2="150" stroke="#34D399" strokeWidth="0.8" strokeDasharray="6 4"
+        <line x1="300" y1="150" x2="550" y2="150" stroke="#FF9F44" strokeWidth="0.8" strokeDasharray="6 4"
           style={{ animation: 'slide5CircuitFlow 4s linear infinite' }} />
-        <line x1="350" y1="250" x2="600" y2="250" stroke="#6EE7B7" strokeWidth="0.8" strokeDasharray="6 4"
+        <line x1="350" y1="250" x2="600" y2="250" stroke="#FFD4A8" strokeWidth="0.8" strokeDasharray="6 4"
           style={{ animation: 'slide5CircuitFlow 4s linear infinite 1s' }} />
-        <line x1="280" y1="350" x2="520" y2="350" stroke="#34D399" strokeWidth="0.8" strokeDasharray="6 4"
+        <line x1="280" y1="350" x2="520" y2="350" stroke="#FF9F44" strokeWidth="0.8" strokeDasharray="6 4"
           style={{ animation: 'slide5CircuitFlow 4s linear infinite 2s' }} />
-        <line x1="320" y1="450" x2="580" y2="450" stroke="#6EE7B7" strokeWidth="0.8" strokeDasharray="6 4"
+        <line x1="320" y1="450" x2="580" y2="450" stroke="#FFD4A8" strokeWidth="0.8" strokeDasharray="6 4"
           style={{ animation: 'slide5CircuitFlow 4s linear infinite 3s' }} />
         {/* Vertical connections */}
-        <line x1="400" y1="150" x2="400" y2="250" stroke="#34D399" strokeWidth="0.5" />
-        <line x1="500" y1="250" x2="500" y2="350" stroke="#6EE7B7" strokeWidth="0.5" />
-        <line x1="450" y1="350" x2="450" y2="450" stroke="#34D399" strokeWidth="0.5" />
+        <line x1="400" y1="150" x2="400" y2="250" stroke="#FF9F44" strokeWidth="0.5" />
+        <line x1="500" y1="250" x2="500" y2="350" stroke="#FFD4A8" strokeWidth="0.5" />
+        <line x1="450" y1="350" x2="450" y2="450" stroke="#FF9F44" strokeWidth="0.5" />
         {/* Junction dots */}
-        <circle cx="400" cy="150" r="2" fill="#34D399" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite' }} />
-        <circle cx="500" cy="250" r="2" fill="#6EE7B7" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite 0.5s' }} />
-        <circle cx="450" cy="350" r="2" fill="#34D399" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite 1s' }} />
+        <circle cx="400" cy="150" r="2" fill="#FF9F44" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite' }} />
+        <circle cx="500" cy="250" r="2" fill="#FFD4A8" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite 0.5s' }} />
+        <circle cx="450" cy="350" r="2" fill="#FF9F44" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite 1s' }} />
       </svg>
 
       {/* Energy particles floating up */}
@@ -384,12 +384,12 @@ function SlideBackground5() {
         { right: '50%', delay: '1.2s', duration: '3.8s' },
         { right: '60%', delay: '3s', duration: '2.6s' },
       ].map((particle, i) => (
-        <div key={i} className="absolute w-1.5 h-1.5 rounded-full bg-emerald-400/70"
+        <div key={i} className="absolute w-1.5 h-1.5 rounded-full bg-orange-400/70"
           style={{ bottom: '20%', right: particle.right, animation: `slide5EnergyParticle ${particle.duration} ease-out infinite ${particle.delay}` }} />
       ))}
 
       {/* Deep green ambient glow */}
-      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-emerald-500/8 blur-[100px]" />
+      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-orange-500/8 blur-[100px]" />
     </div>
   );
 }
@@ -453,7 +453,7 @@ export default function FeatureCarousel() {
           className="relative h-[60vh] sm:h-[65vh] md:h-[70vh] overflow-hidden"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
-          style={{ background: 'linear-gradient(135deg, #022C22 0%, #064E3B 100%)' }}
+          style={{ background: 'linear-gradient(135deg, #1A1A1A 0%, #2A1A0A 100%)' }}
         >
           {slides.map((slide, index) => {
             const BackgroundComponent = slideBackgrounds[index];
@@ -469,7 +469,7 @@ export default function FeatureCarousel() {
                 <BackgroundComponent />
                 {/* Dark overlay for text readability */}
                 <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1A]/50 via-transparent to-[#1A1A1A]/20" />
 
                 {/* Accent Glow */}
                 <div
@@ -482,7 +482,7 @@ export default function FeatureCarousel() {
                   <span className="text-xs sm:text-sm font-mono text-gray-500 tracking-widest mb-4 sm:mb-6">
                     {slide.slideNumber}
                   </span>
-                  <p className="text-sm sm:text-base md:text-lg text-emerald-300 font-medium mb-3 sm:mb-4 tracking-wide">
+                  <p className="text-sm sm:text-base md:text-lg text-orange-300 font-medium mb-3 sm:mb-4 tracking-wide">
                     {slide.subtitle}
                   </p>
                   <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-4 sm:mb-6 text-balance">
@@ -492,7 +492,7 @@ export default function FeatureCarousel() {
                     {slide.description}
                   </p>
                   {/* Micro-commitment CTA nudge */}
-                  <div className="mt-6 sm:mt-8 flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors duration-300 cursor-pointer group">
+                  <div className="mt-6 sm:mt-8 flex items-center gap-2 text-orange-400 hover:text-orange-300 transition-colors duration-300 cursor-pointer group">
                     <span className="text-sm sm:text-base font-medium">See How It Works</span>
                     <svg className="w-4 h-4 cta-arrow-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
@@ -504,11 +504,11 @@ export default function FeatureCarousel() {
           })}
 
           {/* Bottom Controls */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 bg-black/40 backdrop-blur-md pt-16 pb-5 sm:pb-6 md:pb-8 px-4 sm:px-6">
+          <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#1A1A1A]/90 via-[#1A1A1A]/50 to-transparent backdrop-blur-sm pt-12 pb-5 sm:pb-6 md:pb-8 px-4 sm:px-6">
             <div className="flex items-center justify-between max-w-7xl mx-auto">
               <button
                 onClick={prevSlide}
-                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-emerald-500/30 hover:border-emerald-400/50 text-emerald-300 hover:text-emerald-200 flex items-center justify-center transition-all duration-300 focus-visible-ring"
+                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-orange-500/30 hover:border-orange-400/50 text-orange-300 hover:text-orange-200 flex items-center justify-center transition-all duration-300 focus-visible-ring"
                 aria-label="Previous slide"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -522,7 +522,7 @@ export default function FeatureCarousel() {
                       onClick={() => goToSlide(index)}
                       className={`rounded-full transition-all duration-500 focus-visible-ring ${
                         index === currentSlide
-                          ? 'w-8 h-2.5 bg-emerald-400'
+                          ? 'w-8 h-2.5 bg-orange-400'
                           : 'w-2.5 h-2.5 bg-gray-600 hover:bg-gray-500'
                       }`}
                       aria-label={`Go to slide ${index + 1}`}
@@ -534,7 +534,7 @@ export default function FeatureCarousel() {
                 <div className="w-48 sm:w-56 h-0.5 bg-gray-700 rounded-full overflow-hidden">
                   <div
                     key={progressKey}
-                    className={`h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full ${
+                    className={`h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full ${
                       isPaused ? '' : 'progress-animate'
                     }`}
                     style={isPaused ? { width: '0%' } : undefined}
@@ -544,7 +544,7 @@ export default function FeatureCarousel() {
 
               <button
                 onClick={nextSlide}
-                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-emerald-500/30 hover:border-emerald-400/50 text-emerald-300 hover:text-emerald-200 flex items-center justify-center transition-all duration-300 focus-visible-ring"
+                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-orange-500/30 hover:border-orange-400/50 text-orange-300 hover:text-orange-200 flex items-center justify-center transition-all duration-300 focus-visible-ring"
                 aria-label="Next slide"
               >
                 <ChevronRight className="w-5 h-5" />

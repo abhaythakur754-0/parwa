@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Shield, HelpCircle, BookOpen, BarChart3, Languages, TrendingUp } from 'lucide-react';
 
 /**
- * WhyChooseUs - Dark premium emerald theme
+ * WhyChooseUs - Dark premium orange theme
  */
 
 const features = [
@@ -27,7 +27,7 @@ const features = [
     title: 'Learns Your Business',
     description: 'Upload your docs and Jarvis becomes an expert in hours, not months.',
     details: ['Knowledge base ingestion', 'Context-aware responses', 'Continuous learning', 'Multi-format document support'],
-    color: 'emerald' as const,
+    color: 'orange' as const,
   },
   {
     icon: <BarChart3 className="w-6 h-6 sm:w-7 sm:h-7" />,
@@ -53,9 +53,9 @@ const features = [
 ];
 
 const colorClasses: Record<string, { bg: string; text: string; border: string; hoverBorder: string; glow: string; check: string }> = {
-  green: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-white/10', hoverBorder: 'border-emerald-500/30', glow: 'hover:shadow-emerald-500/20', check: 'bg-emerald-400' },
+  green: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-white/10', hoverBorder: 'border-orange-500/30', glow: 'hover:shadow-orange-500/20', check: 'bg-orange-400' },
   amber: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-white/10', hoverBorder: 'border-amber-500/30', glow: 'hover:shadow-amber-500/15', check: 'bg-amber-400' },
-  emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-white/10', hoverBorder: 'border-emerald-500/30', glow: 'hover:shadow-emerald-500/15', check: 'bg-emerald-400' },
+  orange: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-white/10', hoverBorder: 'border-orange-500/30', glow: 'hover:shadow-orange-500/15', check: 'bg-orange-400' },
 };
 
 export default function WhyChooseUs() {
@@ -81,12 +81,12 @@ export default function WhyChooseUs() {
   }, [isInView]);
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden bg-gradient-to-b from-[#064E3B] to-[#022C22]">
+    <section ref={sectionRef} className="relative overflow-hidden bg-gradient-to-b from-[#2A1A0A] to-[#1A1A1A]">
       {/* Ambient glow orbs */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-emerald-500/12 rounded-full blur-[140px]" />
-        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-emerald-600/10 rounded-full blur-[120px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28rem] h-[28rem] bg-emerald-500/6 rounded-full blur-[160px]" />
+        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-orange-500/12 rounded-full blur-[140px]" />
+        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-orange-600/10 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28rem] h-[28rem] bg-orange-500/6 rounded-full blur-[160px]" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -96,17 +96,17 @@ export default function WhyChooseUs() {
           }`}
         >
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-5">
-            Why Businesses Choose <span className="bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent">PARWA</span>
+            Why Businesses Choose <span className="bg-gradient-to-r from-orange-400 to-orange-300 bg-clip-text text-transparent">PARWA</span>
           </h2>
           <p className="text-base sm:text-lg text-gray-400 max-w-2xl mx-auto px-4">
             Built for businesses that demand reliability, security, and instant results.
           </p>
           {/* Trust indicators row */}
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs sm:text-sm font-semibold text-emerald-300">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-xs sm:text-sm font-semibold text-orange-300">
               💎 99.9% Uptime SLA
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-xs sm:text-sm font-semibold text-emerald-300">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/25 text-xs sm:text-sm font-semibold text-orange-300">
               🔒 SOC 2 Certified
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-xs sm:text-sm font-semibold text-sky-300">

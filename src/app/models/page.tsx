@@ -10,7 +10,7 @@ import { BookDemoModal } from '@/components/demo/BookDemoModal';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Star, Check, Phone, Mail, MessageSquare, Instagram, Facebook,
-  Hash, Video, ShoppingCart, Cloud, Truck, Heart,
+  Hash, Video, ShoppingCart, Cloud, Truck, Briefcase,
   ArrowRight, Zap, Shield, TrendingUp, Sparkles,
   CalendarClock, CreditCard, Info, XCircle, X,
   Bot, ShieldCheck, Minus, Plus, Calendar, Eye,
@@ -19,7 +19,7 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Industry = 'ecommerce' | 'saas' | 'logistics' | 'healthcare';
+type Industry = 'ecommerce' | 'saas' | 'logistics' | 'others';
 type VariantId = 'starter' | 'growth' | 'high';
 
 interface IndustryConfig {
@@ -68,9 +68,9 @@ const industries: IndustryConfig[] = [
     id: 'ecommerce',
     label: 'E-commerce',
     description: 'Online retail & D2C brands',
-    primary: '#0A3D2E',
-    accent: '#D4AF37',
-    accentRgb: '212,175,55',
+    primary: '#1A1A1A',
+    accent: '#FF7F11',
+    accentRgb: '255,127,17',
     icon: <ShoppingCart className="w-7 h-7" />,
     heroText: 'Automate order tracking, returns, cart recovery & fraud detection with AI built for online retail.',
   },
@@ -78,9 +78,9 @@ const industries: IndustryConfig[] = [
     id: 'saas',
     label: 'SaaS',
     description: 'Software & tech companies',
-    primary: '#0A1A2E',
-    accent: '#C0C0C0',
-    accentRgb: '192,192,192',
+    primary: '#1A1A1A',
+    accent: '#FF7F11',
+    accentRgb: '255,127,17',
     icon: <Cloud className="w-7 h-7" />,
     heroText: 'Handle technical support, API troubleshooting, churn prediction & in-app guidance for software teams.',
   },
@@ -95,14 +95,14 @@ const industries: IndustryConfig[] = [
     heroText: 'Track shipments, coordinate drivers, manage proof of delivery & handle freight damage claims automatically.',
   },
   {
-    id: 'healthcare',
-    label: 'Healthcare',
-    description: 'Clinics, hospitals & telehealth',
-    primary: '#1B5E40',
-    accent: '#4ADE80',
-    accentRgb: '74,222,128',
-    icon: <Heart className="w-7 h-7" />,
-    heroText: 'Manage appointments, insurance verification & prescription status — with full HIPAA compliance.',
+    id: 'others',
+    label: 'Others',
+    description: 'All other industries',
+    primary: '#1A1A1A',
+    accent: '#FF7F11',
+    accentRgb: '255,127,17',
+    icon: <Briefcase className="w-7 h-7" />,
+    heroText: "PARWA adapts to any industry. Tell us your needs and we'll tailor the perfect AI support solution.",
   },
 ];
 
@@ -161,10 +161,10 @@ const uniqueFeaturesByIndustry: Record<Industry, Record<VariantId, string[]>> = 
     growth: ['GPS Tracking Integration — real-time carrier API tracking', 'Driver Coordination Protocol — scheduling & route changes via TMS', 'Recommends routing changes; flags delivery exceptions', 'Detects delivery patterns, suggests route optimizations'],
     high: ['Proof of Delivery Management — retrieves POD on demand', 'Hazmat Protocol — auto-detects & routes to human specialist', 'Freight Damage Claims — guided photo documentation', 'Approves routing changes up to $50', 'Carrier performance analysis & management'],
   },
-  healthcare: {
-    starter: ['Appointment scheduling (book / reschedule / cancel)', 'Insurance coverage type verification', 'Prescription availability checking'],
-    growth: ['HIPAA Safety Check — auto-detects clinical keywords & escalates', 'Insurance portal integration for coverage verification', 'Scheduling platform integration for real-time availability', 'BAA compliance verification before deployment'],
-    high: ['Full HIPAA/HITECH compliance with state regulations', 'Clinical escalation for PHI keywords (diagnosis, medication, lab results)', 'Mental health crisis detection → immediate human escalation', 'Epic EHR integration via FHIR API', 'No PHI in AI training data — full data isolation'],
+  others: {
+    starter: ['General inquiry handling & FAQ automation', 'Billing & payment status checking', 'Basic issue triage & escalation'],
+    growth: ['Multi-department routing — intelligent ticket assignment', 'Custom workflow automation based on business rules', 'Recommends resolutions based on historical data', 'Adaptive learning from corrections & feedback'],
+    high: ['Full custom workflow engine with approval flows', 'Advanced pattern recognition for proactive support', 'Approves actions up to $50 based on configurable policies', 'Cross-department coordination & reporting', 'Tailored AI behavior based on your specific industry'],
   },
 };
 
@@ -186,18 +186,18 @@ const variantData: Record<Industry, VariantData[]> = {
     { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "Customer's delivery is delayed. PARWA checks the tracking system, determines the issue, reroutes the package, and recommends a shipping credit.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'GPS Tracking', 'Google Maps'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.logistics.growth, keyAdvantage: 'GPS tracking, driver coordination, route optimization', smartDecisions: 'Recommends routing changes; flags delivery exceptions', roi: 'Replaces ~$18k/month in junior coordinator salaries', bestFor: 'Logistics SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
     { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated delivery issues. PARWA High reviews their shipping history, detects a carrier performance pattern, offers a $50 credit, and alerts your operations team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'GPS Tracking', 'Operations'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.logistics.high, keyAdvantage: 'POD management, hazmat protocol, freight damage claims', roi: 'Replaces ~$28k/month in senior coordinator salaries', bestFor: 'Logistics SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
   ],
-  healthcare: [
-    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A patient calls at 2 AM asking 'Can I reschedule my appointment?' PARWA Starter checks the scheduling platform and reschedules instantly.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }], integrations: ['Epic EHR (FHIR)', 'Scheduling platforms', 'Insurance portals'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.healthcare.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'Healthcare SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make clinical decisions — only collects data. No PHI access.' },
-    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "A patient asks about their insurance coverage. PARWA Growth verifies the coverage type, checks the insurance portal, and provides the information while flagging any clinical keywords for human review.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Epic EHR (FHIR)', 'Scheduling platforms', 'Insurance portals', 'Billing portals'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.healthcare.growth, keyAdvantage: 'HIPAA Safety Check, BAA compliance, insurance portal integration', smartDecisions: 'Detects clinical keywords → immediate escalation; verifies coverage', roi: 'Replaces ~$18k/month in junior staff salaries', bestFor: 'Healthcare SMBs with 200–500 daily tickets', coreCapability: 'HIPAA-compliant AI. 3 concurrent calls. No clinical decisions.' },
-    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'A patient mentions chest pain and medication dosage in the same message. PARWA High immediately detects the clinical keywords, pauses the conversation, and routes to a licensed clinician within seconds.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['Epic EHR (FHIR)', 'Scheduling', 'Insurance', 'Billing', 'Telehealth'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.healthcare.high, keyAdvantage: 'Full HIPAA/HITECH, clinical keyword detection, mental health escalation', roi: 'Replaces ~$28k/month in senior staff salaries', bestFor: 'Healthcare SMBs with 500+ daily tickets', coreCapability: 'HIPAA-compliant senior AI. 5 calls + video. Zero PHI in training.' },
+  others: [
+    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking about their order status. PARWA Starter answers instantly, checks your systems, and provides the information right away.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.others.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "A customer has a complex billing question. PARWA Growth checks their account, identifies the issue, recommends a resolution, and escalates only if needed.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base', 'Billing'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.others.growth, keyAdvantage: 'Intelligent routing, adaptive learning, custom workflows', smartDecisions: 'Recommends resolutions based on historical data; flags exceptions', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
+    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'A VIP customer has a complex multi-department issue. PARWA High coordinates across teams, approves a $50 credit, and provides a complete resolution — all automatically.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base', 'Billing', 'Analytics'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.others.high, keyAdvantage: 'Custom workflows, cross-department coordination, proactive support', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
   ],
 };
 
 // ─── Static Data ─────────────────────────────────────────────────────────────
 
-const defaultPrimary = '#022C22';
-const defaultAccent = '#10B981';
-const defaultAccentRgb = '16,185,129';
+const defaultPrimary = '#1A1A1A';
+const defaultAccent = '#FF7F11';
+const defaultAccentRgb = '255,127,17';
 
 const cancellationPoints = [
   { icon: CalendarClock, text: 'Cancel anytime — no long-term contracts' },
@@ -963,7 +963,7 @@ export default function ModelsPage() {
                     Ready to automate your {activeIndustry!.label.toLowerCase()} support?
                   </h2>
                   <p className="text-sm sm:text-base mb-8 max-w-lg mx-auto leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    Join businesses using PARWA to handle tickets faster, learn continuously, and scale effortlessly.
+                    Sign up and join thousands of businesses using PARWA to handle tickets faster, learn continuously, and scale effortlessly.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <button

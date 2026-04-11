@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 
 /**
- * Footer - Dark premium footer with emerald accents
+ * Footer - Dark premium footer with orange accents
  */
 
 interface FooterSection {
@@ -38,7 +38,7 @@ function FooterSectionMobile({ section, isOpen, onToggle }: { section: FooterSec
         <ul className="pb-4 space-y-2.5">
           {section.links.map((link) => (
             <li key={link.name}>
-              <Link href={link.href} className="text-gray-400 hover:text-emerald-300 text-sm transition-colors duration-300 focus-visible-ring rounded">{link.name}</Link>
+              <Link href={link.href} className="text-gray-400 hover:text-orange-300 text-sm transition-colors duration-300 focus-visible-ring rounded">{link.name}</Link>
             </li>
           ))}
         </ul>
@@ -52,19 +52,19 @@ export default function Footer() {
   const toggleSection = (title: string) => setOpenSections(prev => prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]);
 
   return (
-    <footer className="relative bg-[#011a13]" role="contentinfo">
+    <footer className="relative bg-[#1A0F08]" role="contentinfo">
       {/* Emerald gradient top border line */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-400/60 to-transparent" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-18 md:py-20">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-10 sm:gap-14">
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5 mb-5 group focus-visible-ring rounded-xl px-1 py-0.5">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
                 <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
                 </svg>
               </div>
-              <span className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors duration-300">PARWA</span>
+              <span className="text-lg font-bold text-white group-hover:text-orange-300 transition-colors duration-300">PARWA</span>
             </Link>
             <p className="text-gray-400 text-sm leading-relaxed mb-1">AI-powered support that feels like magic.</p>
             <p className="text-gray-500 text-xs leading-relaxed">Trusted by 2,400+ businesses worldwide.</p>
@@ -80,7 +80,7 @@ export default function Footer() {
               <ul className="space-y-2.5">
                 {section.links.map((link) => (
                   <li key={link.name}>
-                    <Link href={link.href} className="text-gray-400 hover:text-emerald-300 text-sm transition-colors duration-300 focus-visible-ring rounded">{link.name}</Link>
+                    <Link href={link.href} className="text-gray-400 hover:text-orange-300 text-sm transition-colors duration-300 focus-visible-ring rounded">{link.name}</Link>
                   </li>
                 ))}
               </ul>
@@ -92,7 +92,7 @@ export default function Footer() {
           <div className="flex items-center gap-2">
             {socialLinks.map((social) => (
               <a key={social.name} href={social.href} target="_blank" rel="noopener noreferrer"
-                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-emerald-500/10 text-gray-400 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/10 flex items-center justify-center transition-all duration-500 focus-visible-ring"
+                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-orange-500/10 text-gray-400 hover:text-orange-300 border border-white/10 hover:border-orange-500/20 hover:shadow-lg hover:shadow-orange-500/10 flex items-center justify-center transition-all duration-500 focus-visible-ring"
                 aria-label={social.name}>
                 {social.icon}
               </a>

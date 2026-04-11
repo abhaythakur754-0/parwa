@@ -108,7 +108,7 @@ export default function JarvisDemo() {
       ref={sectionRef}
       className="relative overflow-hidden"
       style={{
-        background: 'linear-gradient(165deg, #022C22 0%, #064E3B 25%, #065F46 50%, #047857 75%, #022C22 100%)',
+        background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 25%, #2D1F0E 50%, #3D2A10 75%, #1A1A1A 100%)',
         minHeight: '720px',
       }}
     >
@@ -119,7 +119,7 @@ export default function JarvisDemo() {
         <div
           className="absolute w-[500px] h-[500px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(16,185,129,0.25) 0%, rgba(16,185,129,0.05) 50%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(255,127,17,0.25) 0%, rgba(255,127,17,0.05) 50%, transparent 70%)',
             top: '10%',
             left: '15%',
             transform: `translate(${mousePos.x * 15}px, ${mousePos.y * 10}px)`,
@@ -130,7 +130,7 @@ export default function JarvisDemo() {
         <div
           className="absolute w-[400px] h-[400px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(52,211,153,0.2) 0%, rgba(52,211,153,0.03) 50%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(255,159,68,0.2) 0%, rgba(255,159,68,0.03) 50%, transparent 70%)',
             bottom: '5%',
             right: '10%',
             transform: `translate(${mousePos.x * -20}px, ${mousePos.y * -12}px)`,
@@ -156,28 +156,28 @@ export default function JarvisDemo() {
         <div className="relative" style={{ width: '700px', height: '700px' }}>
           {/* Ring 1 */}
           <div
-            className="absolute inset-0 rounded-full border border-emerald-500/20"
+            className="absolute inset-0 rounded-full border border-orange-500/20"
             style={{
               animation: 'jarvisRingExpand 4s ease-in-out infinite',
-              boxShadow: '0 0 40px rgba(16,185,129,0.08), inset 0 0 40px rgba(16,185,129,0.03)',
+              boxShadow: '0 0 40px rgba(255,127,17,0.08), inset 0 0 40px rgba(255,127,17,0.03)',
             }}
           />
           {/* Ring 2 */}
           <div
-            className="absolute rounded-full border border-emerald-400/15"
+            className="absolute rounded-full border border-orange-400/15"
             style={{
               inset: '60px',
               animation: 'jarvisRingExpand 4s ease-in-out infinite 1s',
-              boxShadow: '0 0 30px rgba(52,211,153,0.06)',
+              boxShadow: '0 0 30px rgba(255,159,68,0.06)',
             }}
           />
           {/* Ring 3 */}
           <div
-            className="absolute rounded-full border border-emerald-300/10"
+            className="absolute rounded-full border border-orange-300/10"
             style={{
               inset: '120px',
               animation: 'jarvisRingExpand 4s ease-in-out infinite 2s',
-              boxShadow: '0 0 20px rgba(110,231,183,0.05)',
+              boxShadow: '0 0 20px rgba(255,212,168,0.05)',
             }}
           />
           {/* Core glow */}
@@ -185,7 +185,7 @@ export default function JarvisDemo() {
             className="absolute rounded-full"
             style={{
               inset: '200px',
-              background: 'radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.03) 60%, transparent 100%)',
+              background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.03) 60%, transparent 100%)',
               animation: 'jarvisCorePulse 3s ease-in-out infinite',
             }}
           />
@@ -203,7 +203,7 @@ export default function JarvisDemo() {
           return (
             <div
               key={i}
-              className="absolute w-1 h-1 rounded-full bg-emerald-400"
+              className="absolute w-1 h-1 rounded-full bg-orange-400"
               style={{
                 left: x,
                 top: y,
@@ -219,8 +219,8 @@ export default function JarvisDemo() {
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: 0.08 }}>
         <defs>
           <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#10B981" />
-            <stop offset="100%" stopColor="#34D399" />
+            <stop offset="0%" stopColor="#FF7F11" />
+            <stop offset="100%" stopColor="#FF9F44" />
           </linearGradient>
         </defs>
         {[0, 1, 2, 3, 4].map((i) => (
@@ -245,7 +245,7 @@ export default function JarvisDemo() {
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={`particle-${i}`}
-            className="absolute w-2 h-2 rounded-full bg-emerald-400/60"
+            className="absolute w-2 h-2 rounded-full bg-orange-400/60"
             style={{
               left: `${10 + i * 12}%`,
               animation: `jarvisParticleRise ${6 + i * 0.8}s linear infinite ${i * 0.7}s`,
@@ -264,18 +264,18 @@ export default function JarvisDemo() {
           }`}
         >
           {/* Floating label */}
-          <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full border border-orange-500/30 bg-orange-500/10 backdrop-blur-sm">
             <div className="relative w-2 h-2">
-              <div className="absolute inset-0 rounded-full bg-emerald-400 pulse-live" />
-              <div className="absolute inset-0 rounded-full bg-emerald-400" />
+              <div className="absolute inset-0 rounded-full bg-orange-400 pulse-live" />
+              <div className="absolute inset-0 rounded-full bg-orange-400" />
             </div>
-            <span className="text-xs sm:text-sm font-bold text-emerald-300 tracking-widest uppercase">Live Demo</span>
+            <span className="text-xs sm:text-sm font-bold text-orange-300 tracking-widest uppercase">Live Demo</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4 leading-tight">
-            See <span className="bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-200 bg-clip-text text-transparent">Jarvis</span> in Action
+            See <span className="bg-gradient-to-r from-orange-300 via-orange-400 to-orange-200 bg-clip-text text-transparent">Jarvis</span> in Action
           </h2>
-          <p className="text-sm sm:text-base text-emerald-200/60 max-w-lg mx-auto leading-relaxed">
+          <p className="text-sm sm:text-base text-orange-200/60 max-w-lg mx-auto leading-relaxed">
             A real workflow. No edits. No tricks. Give Jarvis work and watch it deliver — in real time.
           </p>
         </div>
@@ -286,33 +286,33 @@ export default function JarvisDemo() {
             isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}
           style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 50%, rgba(16,185,129,0.05) 100%)',
-            border: '1px solid rgba(16,185,129,0.2)',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 50%, rgba(255,127,17,0.05) 100%)',
+            border: '1px solid rgba(255,127,17,0.2)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.3), 0 0 80px rgba(16,185,129,0.08), inset 0 1px 0 rgba(255,255,255,0.08)',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.3), 0 0 80px rgba(255,127,17,0.08), inset 0 1px 0 rgba(255,255,255,0.08)',
           }}
         >
           {/* Chat Header */}
           <div
             className="px-5 sm:px-6 py-4 flex items-center gap-3"
             style={{
-              background: 'linear-gradient(135deg, rgba(16,185,129,0.25) 0%, rgba(5,150,105,0.2) 100%)',
-              borderBottom: '1px solid rgba(16,185,129,0.15)',
+              background: 'linear-gradient(135deg, rgba(255,127,17,0.25) 0%, rgba(224,109,0,0.2) 100%)',
+              borderBottom: '1px solid rgba(255,127,17,0.15)',
             }}
           >
-            <div className="relative w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div className="relative w-10 h-10 rounded-full bg-orange-500/20 border border-orange-400/30 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-orange-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
               </svg>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-emerald-900 animate-pulse" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-orange-400 rounded-full border-2 border-orange-900 animate-pulse" />
             </div>
             <div className="min-w-0">
               <h5 className="font-bold text-white text-sm sm:text-base">Jarvis — AI Customer Care Officer</h5>
-              <p className="text-xs text-emerald-300/60">Always online • Resolving tickets automatically</p>
+              <p className="text-xs text-orange-300/60">Always online • Resolving tickets automatically</p>
             </div>
-            <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-              <span className="text-xs text-emerald-300 font-medium">Online</span>
+            <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
+              <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+              <span className="text-xs text-orange-300 font-medium">Online</span>
             </div>
           </div>
 
@@ -324,8 +324,8 @@ export default function JarvisDemo() {
                 className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} chat-msg-reveal`}
               >
                 {message.sender === 'jarvis' && (
-                  <div className="w-7 h-7 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0 mr-2.5 mt-1">
-                    <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <div className="w-7 h-7 rounded-full bg-orange-500/15 border border-orange-500/20 flex items-center justify-center flex-shrink-0 mr-2.5 mt-1">
+                    <svg className="w-3.5 h-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
                     </svg>
                   </div>
@@ -336,16 +336,16 @@ export default function JarvisDemo() {
                     <div
                       className="rounded-2xl rounded-bl-md p-4 sm:p-5"
                       style={{
-                        background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.05) 100%)',
-                        border: '1px solid rgba(16,185,129,0.25)',
-                        boxShadow: '0 0 30px rgba(16,185,129,0.06)',
+                        background: 'linear-gradient(135deg, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.05) 100%)',
+                        border: '1px solid rgba(255,127,17,0.25)',
+                        boxShadow: '0 0 30px rgba(255,127,17,0.06)',
                       }}
                     >
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-xs font-semibold text-emerald-400 tracking-wide uppercase">Results</span>
+                        <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+                        <span className="text-xs font-semibold text-orange-400 tracking-wide uppercase">Results</span>
                       </div>
-                      <p className="text-sm sm:text-base text-emerald-50 leading-relaxed">
+                      <p className="text-sm sm:text-base text-orange-50 leading-relaxed">
                         {message.text}
                       </p>
                     </div>
@@ -355,11 +355,11 @@ export default function JarvisDemo() {
                     className={`max-w-[80%] sm:max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
                       message.sender === 'user'
                         ? 'text-white rounded-br-md'
-                        : 'text-emerald-100/80 rounded-bl-md'
+                        : 'text-orange-100/80 rounded-bl-md'
                     }`}
                     style={message.sender === 'user' ? {
-                      background: 'linear-gradient(135deg, #059669 0%, #10B981 100%)',
-                      boxShadow: '0 4px 16px rgba(16,185,129,0.25)',
+                      background: 'linear-gradient(135deg, #E06D00 0%, #FF7F11 100%)',
+                      boxShadow: '0 4px 16px rgba(255,127,17,0.25)',
                     } : {
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid rgba(255,255,255,0.08)',
@@ -371,7 +371,7 @@ export default function JarvisDemo() {
                 
                 {message.sender === 'user' && !message.isResult && (
                   <div className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 ml-2.5 mt-1">
-                    <svg className="w-3.5 h-3.5 text-emerald-300/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="w-3.5 h-3.5 text-orange-300/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
                     </svg>
                   </div>
@@ -382,16 +382,16 @@ export default function JarvisDemo() {
             {/* Typing Indicator */}
             {isTyping && (
               <div className="flex justify-start chat-msg-reveal">
-                <div className="w-7 h-7 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0 mr-2.5 mt-1">
-                  <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <div className="w-7 h-7 rounded-full bg-orange-500/15 border border-orange-500/20 flex items-center justify-center flex-shrink-0 mr-2.5 mt-1">
+                  <svg className="w-3.5 h-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
                   </svg>
                 </div>
                 <div className="px-4 py-3.5 rounded-2xl rounded-bl-md" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <span className="flex gap-1.5">
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full typing-dot" />
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full typing-dot" />
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full typing-dot" />
+                    <span className="w-2 h-2 bg-orange-400 rounded-full typing-dot" />
+                    <span className="w-2 h-2 bg-orange-400 rounded-full typing-dot" />
+                    <span className="w-2 h-2 bg-orange-400 rounded-full typing-dot" />
                   </span>
                 </div>
               </div>
@@ -401,14 +401,14 @@ export default function JarvisDemo() {
           </div>
 
           {/* Chat Footer */}
-          <div className="px-5 sm:px-6 py-3.5 flex items-center gap-2" style={{ background: 'rgba(2,44,34,0.6)', borderTop: '1px solid rgba(16,185,129,0.1)' }}>
-            <div className="flex-1 text-xs text-emerald-500/40">
+          <div className="px-5 sm:px-6 py-3.5 flex items-center gap-2" style={{ background: 'rgba(2,44,34,0.6)', borderTop: '1px solid rgba(255,127,17,0.1)' }}>
+            <div className="flex-1 text-xs text-orange-500/40">
               Automated demo — loops every {((chatScript.length * (TYPING_DELAY + MESSAGE_DELAY)) / 1000 + PAUSE_BEFORE_LOOP / 1000).toFixed(0)}s
             </div>
             <div className="flex gap-1">
-              <div className="w-2 h-2 rounded-full bg-emerald-500/30" />
-              <div className="w-2 h-2 rounded-full bg-emerald-500/20" />
-              <div className="w-2 h-2 rounded-full bg-emerald-500/10" />
+              <div className="w-2 h-2 rounded-full bg-orange-500/30" />
+              <div className="w-2 h-2 rounded-full bg-orange-500/20" />
+              <div className="w-2 h-2 rounded-full bg-orange-500/10" />
             </div>
           </div>
         </div>
