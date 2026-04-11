@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 /**
  * NavigationBar Component
  * 
- * Dark premium glass navigation bar with emerald accents.
+ * Dark premium glass navigation bar with orange accents.
  */
 
 interface NavigationBarProps {
@@ -65,8 +65,8 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
     <nav 
       className={`sticky top-0 z-50 transition-all duration-500 ${
         isScrolled 
-          ? 'bg-[#022C22]/90 backdrop-blur-2xl shadow-lg shadow-black/20 border-b border-emerald-500/20' 
-          : 'bg-[#022C22]/60 backdrop-blur-xl border-b border-emerald-500/10'
+          ? 'bg-[#1A1A1A]/90 backdrop-blur-2xl shadow-lg shadow-black/20 border-b border-orange-500/20' 
+          : 'bg-[#1A1A1A]/60 backdrop-blur-xl border-b border-orange-500/10'
       }`}
       role="navigation"
       aria-label="Main navigation"
@@ -79,13 +79,13 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
             className="flex items-center gap-2.5 sm:gap-3 group focus-visible-ring rounded-xl px-2 py-1.5 -ml-2"
             aria-label="PARWA home"
           >
-            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-600/30 group-hover:shadow-emerald-600/50 transition-all duration-500 group-hover:scale-105">
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/30 group-hover:shadow-orange-600/50 transition-all duration-500 group-hover:scale-105">
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-orange-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <svg className="w-5 h-5 sm:w-5 sm:h-5 text-white relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
               </svg>
             </div>
-            <span className="text-lg sm:text-xl font-bold text-white group-hover:text-emerald-300 transition-colors duration-500 tracking-tight">
+            <span className="text-lg sm:text-xl font-bold text-white group-hover:text-orange-300 transition-colors duration-500 tracking-tight">
               PARWA
             </span>
           </Link>
@@ -97,7 +97,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <button
                   key={link.name}
                   onClick={link.onClick}
-                  className="px-3.5 lg:px-4 py-2 text-emerald-200/60 hover:text-white text-sm font-medium transition-all duration-300 rounded-xl hover:bg-emerald-500/10 focus-visible-ring"
+                  className="px-3.5 lg:px-4 py-2 text-orange-200/60 hover:text-white text-sm font-medium transition-all duration-300 rounded-xl hover:bg-orange-500/10 focus-visible-ring"
                 >
                   {link.name}
                 </button>
@@ -105,7 +105,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <Link
                   key={link.name}
                   href={link.href}
-                  className="px-3.5 lg:px-4 py-2 text-emerald-200/60 hover:text-white text-sm font-medium transition-all duration-300 rounded-xl hover:bg-emerald-500/10 focus-visible-ring"
+                  className="px-3.5 lg:px-4 py-2 text-orange-200/60 hover:text-white text-sm font-medium transition-all duration-300 rounded-xl hover:bg-orange-500/10 focus-visible-ring"
                 >
                   {link.name}
                 </Link>
@@ -115,11 +115,11 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
 
           {/* Auth Buttons - Desktop */}
           <div className="hidden md:flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20">
               <div className="flex -space-x-1.5">
-                <div className="w-5 h-5 rounded-full bg-emerald-400/40 border-2 border-[#022C22]" />
-                <div className="w-5 h-5 rounded-full bg-emerald-500/40 border-2 border-[#022C22]" />
-                <div className="w-5 h-5 rounded-full bg-emerald-300/40 border-2 border-[#022C22]" />
+                <div className="w-5 h-5 rounded-full bg-orange-400/40 border-2 border-[#1A1A1A]" />
+                <div className="w-5 h-5 rounded-full bg-orange-500/40 border-2 border-[#1A1A1A]" />
+                <div className="w-5 h-5 rounded-full bg-orange-300/40 border-2 border-[#1A1A1A]" />
               </div>
             </div>
             {isAuthenticated && user ? (
@@ -127,13 +127,13 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <Link
                   href="/onboarding"
                   onClick={onOpenJarvis}
-                  className="bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:-translate-y-0.5 focus-visible-ring"
+                  className="bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-orange-600/30 hover:shadow-orange-600/50 hover:-translate-y-0.5 focus-visible-ring"
                 >
                   Open Jarvis
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="p-2.5 rounded-xl text-emerald-200/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-300 focus-visible-ring"
+                  className="p-2.5 rounded-xl text-orange-200/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-300 focus-visible-ring"
                   title="Logout"
                 >
                   <LogOut className="w-4 h-4" />
@@ -142,7 +142,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
             ) : (
               <Link
                 href="/signup"
-                className="bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:-translate-y-0.5 focus-visible-ring badge-pulse"
+                className="bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-orange-600/30 hover:shadow-orange-600/50 hover:-translate-y-0.5 focus-visible-ring badge-pulse"
               >
                 Sign Up
               </Link>
@@ -152,7 +152,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2.5 rounded-xl text-emerald-200/60 hover:text-white hover:bg-emerald-500/10 transition-all duration-300 focus-visible-ring"
+            className="md:hidden p-2.5 rounded-xl text-orange-200/60 hover:text-white hover:bg-orange-500/10 transition-all duration-300 focus-visible-ring"
             aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={isMobileMenuOpen}
             aria-controls="mobile-menu"
@@ -175,13 +175,13 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
           }`}
           aria-hidden={!isMobileMenuOpen}
         >
-          <div className="py-5 border-t border-emerald-500/15">
+          <div className="py-5 border-t border-orange-500/15">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2 px-4 py-2 mb-2">
                 <div className="flex -space-x-1.5">
-                  <div className="w-5 h-5 rounded-full bg-emerald-400/40 border-2 border-[#022C22]" />
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/40 border-2 border-[#022C22]" />
-                  <div className="w-5 h-5 rounded-full bg-emerald-300/40 border-2 border-[#022C22]" />
+                  <div className="w-5 h-5 rounded-full bg-orange-400/40 border-2 border-[#1A1A1A]" />
+                  <div className="w-5 h-5 rounded-full bg-orange-500/40 border-2 border-[#1A1A1A]" />
+                  <div className="w-5 h-5 rounded-full bg-orange-300/40 border-2 border-[#1A1A1A]" />
                 </div>
               </div>
               {navLinks.map((link, index) => (
@@ -189,7 +189,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                   <button
                     key={link.name}
                     onClick={() => { link.onClick?.(); setIsMobileMenuOpen(false); }}
-                    className={`text-left px-4 py-3.5 text-emerald-200/60 hover:text-white text-sm font-medium rounded-xl hover:bg-emerald-500/10 transition-all duration-500 focus-visible-ring ${
+                    className={`text-left px-4 py-3.5 text-orange-200/60 hover:text-white text-sm font-medium rounded-xl hover:bg-orange-500/10 transition-all duration-500 focus-visible-ring ${
                       isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                     }`}
                     style={{ transitionDelay: isMobileMenuOpen ? `${index * 60}ms` : '0ms' }}
@@ -200,7 +200,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                   <Link
                     key={link.name}
                     href={link.href}
-                    className={`px-4 py-3.5 text-emerald-200/60 hover:text-white text-sm font-medium rounded-xl hover:bg-emerald-500/10 transition-all duration-500 focus-visible-ring ${
+                    className={`px-4 py-3.5 text-orange-200/60 hover:text-white text-sm font-medium rounded-xl hover:bg-orange-500/10 transition-all duration-500 focus-visible-ring ${
                       isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                     }`}
                     style={{ transitionDelay: isMobileMenuOpen ? `${index * 60}ms` : '0ms' }}
@@ -214,7 +214,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <>
                   <Link
                     href="/onboarding"
-                    className={`mt-3 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
+                    className={`mt-3 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
                       isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                     }`}
                     style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
@@ -235,7 +235,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
               ) : (
                 <Link
                   href="/signup"
-                  className={`mt-3 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
+                  className={`mt-3 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
                     isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                   }`}
                   style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
@@ -251,7 +251,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
 
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-emerald-950/40 backdrop-blur-sm md:hidden z-[-1] transition-opacity duration-300"
+          className="fixed inset-0 bg-orange-950/40 backdrop-blur-sm md:hidden z-[-1] transition-opacity duration-300"
           onClick={() => setIsMobileMenuOpen(false)}
           aria-hidden="true"
         />

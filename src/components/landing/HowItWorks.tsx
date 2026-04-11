@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { MessageSquare, MessageCircle, Sparkles, PartyPopper, BarChart3 } from 'lucide-react';
 
 /**
- * HowItWorks - Dark premium emerald theme
+ * HowItWorks - Dark premium orange theme
  */
 
 const steps = [
@@ -24,7 +24,7 @@ const steps = [
     icon: <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'Jarvis Does the Work',
     description: 'Processes using your business rules automatically',
-    color: 'emerald',
+    color: 'orange',
   },
   {
     icon: <PartyPopper className="w-6 h-6 sm:w-7 sm:h-7" />,
@@ -42,11 +42,11 @@ const steps = [
 
 const colorMap: Record<string, { bg: string; border: string; text: string; ring: string; dot: string }> = {
   green: {
-    bg: 'bg-emerald-500/10',
-    border: 'border-emerald-500/30',
-    text: 'text-emerald-400',
-    ring: 'ring-emerald-500/20',
-    dot: 'bg-emerald-400',
+    bg: 'bg-orange-500/10',
+    border: 'border-orange-500/30',
+    text: 'text-orange-400',
+    ring: 'ring-orange-500/20',
+    dot: 'bg-orange-400',
   },
   amber: {
     bg: 'bg-amber-500/10',
@@ -55,12 +55,12 @@ const colorMap: Record<string, { bg: string; border: string; text: string; ring:
     ring: 'ring-amber-500/20',
     dot: 'bg-amber-400',
   },
-  emerald: {
-    bg: 'bg-emerald-500/10',
-    border: 'border-emerald-500/30',
-    text: 'text-emerald-400',
-    ring: 'ring-emerald-500/20',
-    dot: 'bg-emerald-400',
+  orange: {
+    bg: 'bg-orange-500/10',
+    border: 'border-orange-500/30',
+    text: 'text-orange-400',
+    ring: 'ring-orange-500/20',
+    dot: 'bg-orange-400',
   },
 };
 
@@ -89,13 +89,13 @@ export default function HowItWorks() {
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden bg-gradient-to-b from-[#022C22] to-[#064E3B]"
+      className="relative overflow-hidden bg-gradient-to-b from-[#1A1A1A] to-[#2A1A0A]"
     >
       {/* Ambient glow orbs */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 right-0 w-80 h-80 bg-emerald-500/15 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 left-0 w-64 h-64 bg-emerald-600/10 rounded-full blur-[100px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/8 rounded-full blur-[140px]" />
+        <div className="absolute top-1/4 right-0 w-80 h-80 bg-orange-500/15 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 left-0 w-64 h-64 bg-orange-600/10 rounded-full blur-[100px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-500/8 rounded-full blur-[140px]" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -106,15 +106,15 @@ export default function HowItWorks() {
           }`}
         >
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-5">
-            How <span className="bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent">PARWA</span> Works
+            How <span className="bg-gradient-to-r from-orange-400 to-orange-300 bg-clip-text text-transparent">PARWA</span> Works
           </h2>
           <p className="text-base sm:text-lg text-gray-400 max-w-2xl mx-auto px-4">
             Your support runs on autopilot — instant, automatic, zero effort.
           </p>
           {/* Setup time badge */}
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 mx-auto">
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/30 mx-auto">
             <span className="text-base">⚡</span>
-            <span className="text-sm font-semibold text-emerald-300">Average setup time: 5 minutes</span>
+            <span className="text-sm font-semibold text-orange-300">Average setup time: 5 minutes</span>
           </div>
         </div>
 
@@ -191,7 +191,7 @@ export default function HowItWorks() {
                 key={index}
                 className={`rounded-xl border p-4 sm:p-5 transition-all duration-500 cursor-pointer backdrop-blur-sm ${
                   isActive
-                    ? `${colors.border} ${colors.bg} shadow-lg shadow-emerald-500/10`
+                    ? `${colors.border} ${colors.bg} shadow-lg shadow-orange-500/10`
                     : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
                 } ${isInView ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'}`}
                 style={{ transitionDelay: `${index * 100}ms` }}
