@@ -42,9 +42,16 @@ class PIIScanService:
             r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
         ],
 
-        # Phone numbers (various formats)
+        # Phone numbers (various formats - US and International)
         "phone": [
+            # US formats: 555-123-4567, (555) 123-4567, +1 555 123 4567, 1-800-555-1234
             r"\b\+?1?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
+            # International phone with country code (no word boundary for +)
+            # Matches +CC followed by groups of digits with spaces/dashes
+            r"\+[\d\s-]{9,18}",
+            # General international: +44 20 7946 0958, +91 98765 43210
+            r"\+\d{1,3}[\s\d-]{7,15}",
+            # Simple 7-digit local
             r"\b\d{3}[-.\s]?\d{4}\b",
         ],
 

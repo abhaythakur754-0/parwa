@@ -7,7 +7,3 @@
 
 export { DashboardLayout } from './DashboardLayout';
 export { WelcomeCard } from './WelcomeCard';
-export { ActiveAgentsCard } from './ActiveAgentsCard';
-export { RecentTicketsCard } from './RecentTicketsCard';
-export { KnowledgeBaseCard } from './KnowledgeBaseCard';
-export { IntegrationsCard } from './IntegrationsCard';

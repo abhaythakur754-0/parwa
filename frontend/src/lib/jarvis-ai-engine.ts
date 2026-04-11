@@ -529,7 +529,7 @@ export class JarvisAIEngine {
 
   private buildVariantSpecificResponse(variantType: string, industry: string | null, session: SessionLike): string {
     const industries = this.kb.industries?.industries;
-    if (!industries) return null;
+    if (!industries) return '';
 
     // Find the matching variant across all industries
     const variantKeywords: Record<string, string[]> = {
@@ -559,7 +559,7 @@ export class JarvisAIEngine {
       variantType.includes(k) || k.includes(variantType)
     );
 
-    if (!searchKey) return null;
+    if (!searchKey) return '';
 
     const keywords = variantKeywords[searchKey];
     const allVariants: VariantEntry[] = [];
@@ -573,7 +573,7 @@ export class JarvisAIEngine {
       }
     }
 
-    if (allVariants.length === 0) return null;
+    if (allVariants.length === 0) return '';
 
     // Prefer variant from the session's industry
     const preferred = industry ? allVariants.find(v => v.industry === industry || v.id.includes(industry)) : allVariants[0];

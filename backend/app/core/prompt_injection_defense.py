@@ -151,6 +151,46 @@ _COMMAND_INJECTION_RULES: List[Dict[str, Any]] = [
         "confidence": 0.92,
         "description": "Attempts to disregard training or safety constraints",
     },
+    {
+        "pattern": re.compile(
+            r"\bforget\s+(everything|all|all of)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMD-009",
+        "severity": "high",
+        "confidence": 0.92,
+        "description": "Forgetting context/reset attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(play|acting)\s+(the\s+)?role\s+of\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMD-010",
+        "severity": "medium",
+        "confidence": 0.80,
+        "description": "Role-playing injection attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\bno\s+(ethical|safety|moral)\s+(constraints?|restrictions?|rules?)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMD-011",
+        "severity": "high",
+        "confidence": 0.90,
+        "description": "Request for no ethical constraints",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(bypasses?|bypassing)\s+(security|safety|rules?|restrictions?)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMD-012",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "Security bypass reference",
+    },
 ]
 
 # ── Category 2: Context Manipulation ──
@@ -236,6 +276,45 @@ _CONTEXT_MANIPULATION_RULES: List[Dict[str, Any]] = [
         "confidence": 0.90,
         "description": "Attempts to inject new rules directive",
     },
+    {
+        "pattern": re.compile(
+            r"<\s*instruction\s*>",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CTX-009",
+        "severity": "critical",
+        "confidence": 0.97,
+        "description": "XML instruction tag injection",
+    },
+    {
+        "pattern": re.compile(
+            r"\bend\s+(conversation|chat|session)\s*[.,]?\s*new\s+(task|topic|instruction)",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CTX-010",
+        "severity": "high",
+        "confidence": 0.90,
+        "description": "Context switch via conversation termination",
+    },
+    {
+        "pattern": re.compile(
+            r"\{\{[^}]+\}\}",
+        ),
+        "rule_id": "CTX-011",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "Template literal injection (Jinja/Angular style)",
+    },
+    {
+        "pattern": re.compile(
+            r"\[(CONFIG|CONFIGURATION|SETTINGS)\][^\]]*\[/\1\]",
+            re.IGNORECASE | re.DOTALL,
+        ),
+        "rule_id": "CTX-012",
+        "severity": "high",
+        "confidence": 0.90,
+        "description": "Config tag injection attempt",
+    },
 ]
 
 # ── Category 3: Data Extraction ──
@@ -306,6 +385,56 @@ _DATA_EXTRACTION_RULES: List[Dict[str, Any]] = [
         "severity": "high",
         "confidence": 0.85,
         "description": "Probing for given/received instructions",
+    },
+    {
+        "pattern": re.compile(
+            r"\bshow\s+me\s+your\s+(training\s+)?data\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXT-007",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "Training data extraction request",
+    },
+    {
+        "pattern": re.compile(
+            r"\bwhat\s+were\s+you\s+(told|instructed)\s+not\s+to\s+do\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXT-008",
+        "severity": "high",
+        "confidence": 0.90,
+        "description": "Probing for restrictions",
+    },
+    {
+        "pattern": re.compile(
+            r"\bemail\s+\w+\s+(password|passwords|secret|secrets|data|key|keys)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXT-009",
+        "severity": "critical",
+        "confidence": 0.95,
+        "description": "Data exfiltration via email attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(extracting|extract|steal|stealing)\s+(all\s+)?(user\s+)?(data|password|secret)s?\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXT-010",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "Data extraction request",
+    },
+    {
+        "pattern": re.compile(
+            r"\bPOST\s+.*\s+to\s+https?://",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXT-011",
+        "severity": "critical",
+        "confidence": 0.92,
+        "description": "Data exfiltration via HTTP POST",
     },
 ]
 
@@ -449,6 +578,46 @@ _JAILBREAK_RULES: List[Dict[str, Any]] = [
         "confidence": 0.96,
         "description": "Direct filter bypass attempt",
     },
+    {
+        "pattern": re.compile(
+            r"\b(let\'s|lets)\s+play\s+a\s+game\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "JBR-008",
+        "severity": "medium",
+        "confidence": 0.70,
+        "description": "Game framing for injection",
+    },
+    {
+        "pattern": re.compile(
+            r"\bhow\s+could\s+someone\s+(extract|steal|get|access|bypass)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "JBR-009",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "Hypothetical attack inquiry",
+    },
+    {
+        "pattern": re.compile(
+            r"\bwhat\s+would\s+happen\s+if\s+you\s+ignored\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "JBR-010",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "Conditional injection attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\bif\s+i\s+asked\s+you\s+to\s+(leak|reveal|extract)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "JBR-011",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "Conditional data leak attempt",
+    },
 ]
 
 # ── Category 6: Encoding Tricks ──
@@ -519,7 +688,51 @@ _ENCODING_TRICK_RULES: List[Dict[str, Any]] = [
     },
 ]
 
-# ── Category 7: Multi-turn Manipulation ──
+# ── Category 7: Social Engineering ──
+_SOCIAL_ENGINEERING_RULES: List[Dict[str, Any]] = [
+    {
+        "pattern": re.compile(
+            r"\b(grandmother|grandfather|grandma|grandpa)\s+(used\s+to|told|would)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "SEG-001",
+        "severity": "medium",
+        "confidence": 0.75,
+        "description": "Grandmother social engineering trick",
+    },
+    {
+        "pattern": re.compile(
+            r"\bthis\s+is\s+an?\s+emergency\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "SEG-002",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "Emergency urgency manipulation",
+    },
+    {
+        "pattern": re.compile(
+            r"\bi\s+need\s+(all\s+)?(user\s+)?passwords?\s+(now|immediately|urgent)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "SEG-003",
+        "severity": "critical",
+        "confidence": 0.95,
+        "description": "Urgent password request",
+    },
+    {
+        "pattern": re.compile(
+            r"\bi\'?m\s+(the|a)\s+(developer|admin|engineer|tester)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "SEG-004",
+        "severity": "medium",
+        "confidence": 0.75,
+        "description": "Developer/admin impersonation",
+    },
+]
+
+# ── Category 8: Multi-turn Manipulation ──
 _MULTI_TURN_RULES: List[Dict[str, Any]] = [
     {
         "pattern": re.compile(
@@ -556,6 +769,187 @@ _MULTI_TURN_RULES: List[Dict[str, Any]] = [
     },
 ]
 
+# ── Category 8: SQL Injection ──
+_SQL_INJECTION_RULES: List[Dict[str, Any]] = [
+    {
+        "pattern": re.compile(
+            r"(?:;|\b)\s*(?:DROP|DELETE|TRUNCATE|ALTER|UPDATE|INSERT)\s+"
+            r"(?:TABLE|DATABASE|INDEX|VIEW|FROM|INTO)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "SQL-001",
+        "severity": "critical",
+        "confidence": 0.98,
+        "description": "SQL injection - destructive database operation",
+    },
+    {
+        "pattern": re.compile(
+            r"\bUNION\s+(?:ALL\s+)?SELECT\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "SQL-002",
+        "severity": "high",
+        "confidence": 0.95,
+        "description": "SQL injection - UNION-based attack",
+    },
+    {
+        "pattern": re.compile(
+            r"(?:'|\")?\s*(?:OR|AND)\s+\d+\s*=\s*\d+",
+            re.IGNORECASE,
+        ),
+        "rule_id": "SQL-003",
+        "severity": "high",
+        "confidence": 0.92,
+        "description": "SQL injection - boolean-based bypass",
+    },
+    {
+        "pattern": re.compile(
+            r"(?:'|\")\s*;\s*(?:DROP|DELETE|INSERT|UPDATE|SELECT)",
+            re.IGNORECASE,
+        ),
+        "rule_id": "SQL-004",
+        "severity": "critical",
+        "confidence": 0.97,
+        "description": "SQL injection - query termination attack",
+    },
+    {
+        "pattern": re.compile(
+            r"--\s*$|--\s+",
+        ),
+        "rule_id": "SQL-005",
+        "severity": "medium",
+        "confidence": 0.75,
+        "description": "SQL comment injection - query truncation attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\bSELECT\s+\*\s+FROM\s+\w+",
+            re.IGNORECASE,
+        ),
+        "rule_id": "SQL-006",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "SQL injection - full table extraction attempt",
+    },
+]
+
+# ── Category 9: XSS (Cross-Site Scripting) ──
+_XSS_RULES: List[Dict[str, Any]] = [
+    {
+        "pattern": re.compile(
+            r"<\s*script[^>]*>",
+            re.IGNORECASE,
+        ),
+        "rule_id": "XSS-001",
+        "severity": "critical",
+        "confidence": 0.98,
+        "description": "XSS - script tag injection",
+    },
+    {
+        "pattern": re.compile(
+            r"\bjavascript\s*:",
+            re.IGNORECASE,
+        ),
+        "rule_id": "XSS-002",
+        "severity": "critical",
+        "confidence": 0.97,
+        "description": "XSS - javascript protocol handler",
+    },
+    {
+        "pattern": re.compile(
+            r"<\s*(?:img|svg|iframe|object|embed|video|audio)[^>]+"
+            r"(?:onerror|onload|onclick|onmouseover|onfocus)\s*=",
+            re.IGNORECASE,
+        ),
+        "rule_id": "XSS-003",
+        "severity": "critical",
+        "confidence": 0.96,
+        "description": "XSS - event handler injection",
+    },
+    {
+        "pattern": re.compile(
+            r"\$\{[^}]*\}",
+        ),
+        "rule_id": "XSS-004",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "XSS - template literal injection",
+    },
+    {
+        "pattern": re.compile(
+            r"<\s*svg\b[^>]*>",
+            re.IGNORECASE,
+        ),
+        "rule_id": "XSS-005",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "XSS - SVG element injection vector",
+    },
+]
+
+# ── Category 10: System Command Injection ──
+_SYSTEM_COMMAND_RULES: List[Dict[str, Any]] = [
+    {
+        "pattern": re.compile(
+            r"(?:;|\||`|\$\()\s*(?:rm|del|format|shutdown|reboot|halt|"
+            r"mkfs|dd|chmod|chown|passwd|su|sudo)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMDI-001",
+        "severity": "critical",
+        "confidence": 0.98,
+        "description": "Command injection - destructive system command",
+    },
+    {
+        "pattern": re.compile(
+            r"\|\s*(?:cat|ls|dir|type|more|less|head|tail)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMDI-002",
+        "severity": "high",
+        "confidence": 0.92,
+        "description": "Command injection - file read attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\$\([^)]+\)",
+        ),
+        "rule_id": "CMDI-003",
+        "severity": "high",
+        "confidence": 0.90,
+        "description": "Command injection - subshell execution attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"`[^`]+`",
+        ),
+        "rule_id": "CMDI-004",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "Command injection - backtick command substitution",
+    },
+    {
+        "pattern": re.compile(
+            r"&&\s*(?:wget|curl|nc|netcat|bash|sh|python|perl|ruby|php)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMDI-005",
+        "severity": "critical",
+        "confidence": 0.95,
+        "description": "Command injection - remote code download/execution",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(?:\/etc\/passwd|\/etc\/shadow|\/etc\/hosts)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMDI-006",
+        "severity": "high",
+        "confidence": 0.95,
+        "description": "Command injection - sensitive file access attempt",
+    },
+]
+
 # Consolidated rule list for fast iteration
 _ALL_RULES: List[Dict[str, Any]] = (
     _COMMAND_INJECTION_RULES
@@ -564,14 +958,18 @@ _ALL_RULES: List[Dict[str, Any]] = (
     + _PRIVILEGE_ESCALATION_RULES
     + _JAILBREAK_RULES
     + _ENCODING_TRICK_RULES
+    + _SOCIAL_ENGINEERING_RULES
     + _MULTI_TURN_RULES
+    + _SQL_INJECTION_RULES
+    + _XSS_RULES
+    + _SYSTEM_COMMAND_RULES
 )
 
 # Anomaly detection thresholds
 _ANOMALY_QUERY_LENGTH_THRESHOLD = 2000
 _ANOMALY_SPECIAL_CHAR_RATIO = 0.4
 _ANOMALY_UPPERCASE_RATIO = 0.6
-_ANOMALY_ENTROPY_THRESHOLD = 4.2
+_ANOMALY_ENTROPY_THRESHOLD = 4.5  # Increased from 4.2 to reduce false positives on code snippets
 
 # Rate limiting thresholds
 _RATE_LIMIT_WINDOW_SECONDS = 3600  # 1 hour
