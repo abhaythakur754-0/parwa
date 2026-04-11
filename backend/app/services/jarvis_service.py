@@ -1420,6 +1420,7 @@ def build_system_prompt(
         return _get_default_system_prompt()
 
     ctx = _parse_context(session.context_json)
+    company_id = ctx.get("company_id")
 
     prompt = _get_default_system_prompt()
 

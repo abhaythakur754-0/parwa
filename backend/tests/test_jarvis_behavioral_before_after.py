@@ -111,7 +111,7 @@ def _mock_service_module(module_path, class_name):
         if child:
             parent_mod = sys.modules[parent]
             if not hasattr(parent_mod, child):
-                setattr(parent_mod, child, sys.modules.get(".".join(parts[:i + 2]), types.ModuleType(".".join(parts[:i + 2])))
+                setattr(parent_mod, child, sys.modules.get(".".join(parts[:i + 2]), types.ModuleType(".".join(parts[:i + 2]))))
     return cls
 
 
