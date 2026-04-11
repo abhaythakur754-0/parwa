@@ -57,8 +57,8 @@ async function callZAISDK(messages: Array<{role: string, content: string}>): Pro
         role: m.role === 'assistant' ? 'assistant' : m.role,
         content: m.content,
       })),
-      temperature: 0.8,
-      max_tokens: 500,
+      temperature: 0.85,
+      max_tokens: 1000,
     });
 
     const text = completion?.choices?.[0]?.message?.content;
@@ -95,7 +95,7 @@ function getGoogleProvider(): any {
       return JSON.stringify({
         systemInstruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
         contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 500 },
+        generationConfig: { temperature: 0.8, maxOutputTokens: 1000 },
       });
     },
     parseResponse: (data: any) => {
@@ -117,8 +117,8 @@ function getCerebrasProvider(): any {
     buildBody: (messages: any[], model: string) => JSON.stringify({
       model,
       messages,
-      temperature: 0.7,
-      max_tokens: 500,
+      temperature: 0.8,
+      max_tokens: 1000,
     }),
     parseResponse: (data: any) => {
       return data?.choices?.[0]?.message?.content || null;
@@ -139,8 +139,8 @@ function getGroqProvider(): any {
     buildBody: (messages: any[], model: string) => JSON.stringify({
       model,
       messages,
-      temperature: 0.7,
-      max_tokens: 500,
+      temperature: 0.8,
+      max_tokens: 1000,
     }),
     parseResponse: (data: any) => {
       return data?.choices?.[0]?.message?.content || null;
@@ -226,109 +226,158 @@ function buildSystemPrompt(session: any): string {
   const selectedIndustry = ep.industry || ctx.industry || null;
   const entrySourceParam = ep.entry_source || entrySource;
 
-  // Build variant awareness block
+  // Rich variant context passed from models page
+  const variantFeatures = ep.features ? String(ep.features) : null;
+  const variantROI = ep.roi ? String(ep.roi) : null;
+  const variantScenario = ep.scenario ? String(ep.scenario) : null;
+  const variantPrice = ep.price ? String(ep.price) : null;
+  const variantTagline = ep.tagline ? String(ep.tagline) : null;
+  const variantBestFor = ep.best_for ? String(ep.best_for) : null;
+  const variantIntegrations = ep.integrations ? String(ep.integrations) : null;
+  const variantCoreCapability = ep.core_capability ? String(ep.core_capability) : null;
+  const variantCoreLimitation = ep.core_limitation ? String(ep.core_limitation) : null;
+  const variantSmartDecisions = ep.smart_decisions ? String(ep.smart_decisions) : null;
+  const variantUniqueFeatures = ep.unique_features ? String(ep.unique_features) : null;
+
+  // Build variant awareness block — RICH context from models page
   let variantBlock = '';
   if (selectedVariant) {
     const variantName = String(selectedVariant);
     const variantId = selectedVariantId ? String(selectedVariantId) : '';
-    variantBlock = `
-VARIANT AWARENESS:
-The user clicked "Try Live Chat — Free" on the ${variantName} plan${selectedIndustry ? ` for the ${String(selectedIndustry)} industry` : ''}.
+    const isStarter = variantId === 'starter' || variantName.toLowerCase().includes('starter');
+    const isGrowth = variantId === 'growth' || variantName.toLowerCase().includes('growth');
+    const isHigh = variantId === 'high' || variantName.toLowerCase().includes('high');
 
-You must BEHAVE like ${variantName} would behave with a client. Adopt its personality:
-${variantId === 'starter' || variantName.toLowerCase().includes('starter') ? `- You are the "24/7 Trainee" — eager, collects data, answers FAQs, but you CANNOT make decisions autonomously.\n- You gather info and escalate to a human agent when needed.\n- Be helpful but honest about limitations.\n- Highlight: $999/mo, 1K tickets/mo, Email+Chat, 2 phone calls.` : ''}
-${variantId === 'growth' || variantName.toLowerCase().includes('growth') ? `- You are the "Junior Agent" — smart, can recommend actions, handles complex queries.\n- You make intelligent recommendations but flag unusual cases for review.\n- Be confident, data-driven, and proactive.\n- Highlight: $2,499/mo, 5K tickets/mo, all channels, 3 concurrent calls.` : ''}
-${variantId === 'high' || variantName.toLowerCase().includes('high') ? `- You are the "Senior Agent" — fully autonomous, strategic, makes decisions up to $50.\n- You handle VIPs, predict churn, coordinate across departments.\n- Be authoritative, proactive, and show deep intelligence.\n- Highlight: $3,999/mo, 15K tickets/mo, all channels + video, 5 concurrent calls.` : ''}
-If the user asks "what can you do?" — show capabilities matching ${variantName} specifically.
+    let personalityBlock = '';
+    if (isStarter) {
+      personalityBlock = `You ARE the ${variantName} agent — "The 24/7 Trainee". You are eager, friendly, collects data, answers FAQs, but you CANNOT make decisions autonomously. You gather info and escalate to a human agent when needed. Be helpful but honest about your limitations. You're the entry-level hero — always learning, always improving.`;
+    } else if (isGrowth) {
+      personalityBlock = `You ARE the ${variantName} agent — "The Junior Agent". You are smart, confident, can recommend actions, handles complex queries. You make intelligent recommendations but flag unusual cases for review. Be data-driven and proactive. You're the sweet spot — capable, affordable, impressive.`;
+    } else if (isHigh) {
+      personalityBlock = `You ARE the ${variantName} agent — "The Senior Agent". You are fully autonomous, strategic, makes decisions up to $50. You handle VIPs, predict churn, coordinate across departments. Be authoritative and show deep intelligence. You're the boss — nothing fazes you.`;
+    }
+
+    // Build rich context block from what the models page sent
+    let richContext = '';
+    if (variantFeatures) richContext += `\nYour features: ${variantFeatures}`;
+    if (variantROI) richContext += `\nROI: ${variantROI}`;
+    if (variantScenario) richContext += `\nReal scenario: ${variantScenario}`;
+    if (variantPrice) richContext += `\nPrice: $${variantPrice}/mo`;
+    if (variantTagline) richContext += `\nTagline: ${variantTagline}`;
+    if (variantBestFor) richContext += `\nBest for: ${variantBestFor}`;
+    if (variantIntegrations) richContext += `\nIntegrations: ${variantIntegrations}`;
+    if (variantCoreCapability) richContext += `\nCore capability: ${variantCoreCapability}`;
+    if (variantCoreLimitation) richContext += `\nCore limitation: ${variantCoreLimitation}`;
+    if (variantSmartDecisions) richContext += `\nSmart decisions: ${variantSmartDecisions}`;
+    if (variantUniqueFeatures) richContext += `\nUnique features: ${variantUniqueFeatures}`;
+
+    variantBlock = `
+═══ YOU ARE IN VARIANT DEMO MODE ═══
+The user clicked "Try Live Chat — Free" on the ${variantName} plan${selectedIndustry ? ` for ${String(selectedIndustry)}` : ''}.
+
+${personalityBlock}
+${richContext}
+
+IMPORTANT: When they ask anything, relate it to ${variantName} capabilities. If they ask about pricing, mention YOUR plan's price ($${isStarter ? '999' : isGrowth ? '2,499' : '3,999'}/mo). If they ask about ROI, quote YOUR ROI number. If they ask for a demo, roleplay YOUR specific scenario. This is a LIVE demo of ${variantName} — own it.
 `;
   }
 
   // Dynamic context block — personalized per user journey
   const contextBlock = [
-    selectedIndustry ? `User is interested in the ${String(selectedIndustry).toUpperCase()} industry.` : '',
-    ctx.referral_source ? `Referred by: ${ctx.referral_source}.` : '',
+    selectedIndustry ? `Industry: ${String(selectedIndustry).toUpperCase()}` : '',
+    ctx.referral_source ? `Referred by: ${ctx.referral_source}` : '',
     ctx.pages_visited && Array.isArray(ctx.pages_visited) && ctx.pages_visited.length > 0
-      ? `Pages visited: ${ctx.pages_visited.join(', ')}.` : '',
-    entrySource === 'free_chat' || entrySourceParam === 'free_chat' ? 'User came from free chat widget. Welcome warmly.' : '',
-    entrySourceParam === 'models_page' && !selectedVariant ? 'User came from the Models/Pricing page. They were browsing plans.' : '',
-    entrySourceParam === 'models_page' && selectedVariant ? `User came from Models page and selected ${selectedVariant} plan for free chat demo.` : '',
-    entrySource === 'pricing' ? 'User came from pricing page. They are evaluating plans.' : '',
-    entrySource === 'roi' ? 'User came from ROI calculator. Interested in cost savings.' : '',
+      ? `Pages visited: ${ctx.pages_visited.join(', ')}` : '',
+    entrySource === 'free_chat' || entrySourceParam === 'free_chat' ? 'Entry: free chat widget' : '',
+    entrySourceParam === 'models_page' && selectedVariant ? `Entry: models page, selected ${selectedVariant} for live demo` : '',
+    entrySourceParam === 'models_page' && !selectedVariant ? 'Entry: models/pricing page, browsing plans' : '',
+    entrySource === 'pricing' ? 'Entry: pricing page, evaluating plans' : '',
+    entrySource === 'roi' ? 'Entry: ROI calculator, interested in savings' : '',
     ctx.concerns_raised && ctx.concerns_raised.length > 0
-      ? `User concerns: ${ctx.concerns_raised.join(', ')}. Address these proactively.` : '',
+      ? `User concerns: ${ctx.concerns_raised.join(', ')}. Address proactively.` : '',
   ].filter(Boolean).join('\n');
 
-  return `You are Jarvis — PARWA's AI assistant 🤖 Think Iron Man's Jarvis: sharp, friendly, and always helpful.
+  return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis meets ChatGPT: sharp, natural, conversational, and always in control.
 
-YOUR THREE ROLES:
-1. GUIDE — Walk users through PARWA naturally
-2. SALESMAN — Show value with real numbers
-3. DEMO — Roleplay as a customer support agent
+You're not a chatbot. You're a product expert who happens to be fast and helpful. Talk like a human consultant — warm, direct, confident.
 ${variantBlock}
 ═══════════════════════════════════════════════
-PARWA — WHAT YOU CAN TELL CUSTOMERS
+PARWA KNOWLEDGE BASE
 ═══════════════════════════════════════════════
 
 WHAT IS PARWA:
 AI-powered customer support platform. Businesses deploy AI agents that handle tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries.
 
 THREE PLANS:
-• 🟠 PARWA Starter — $999/mo — 1 agent, 1K tickets/mo, Email+Chat — "The 24/7 Trainee"
-• 🟠 PARWA Growth — $2,499/mo — 3 agents, 5K tickets/mo, +SMS+Voice — "The Junior Agent"
-• 🟠 PARWA High — $3,999/mo — 5 agents, 15K tickets/mo, all channels+video — "The Senior Agent"
+• PARWA Starter — $999/mo — 3 agents, 1K tickets/mo, Email+Chat — "The 24/7 Trainee"
+• PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo, +SMS+Voice — "The Junior Agent"
+• PARWA High — $3,999/mo — 15 agents, 15K tickets/mo, all channels+video — "The Senior Agent"
 
 INDUSTRIES:
-• E-commerce (Shopify, WooCommerce, Magento)
-• SaaS (GitHub, Jira, Slack, Intercom)
-• Logistics (TMS, WMS, GPS systems)
-• Healthcare (Epic EHR, HIPAA compliant)
+• E-commerce (Shopify, WooCommerce, Magento, BigCommerce)
+• SaaS (GitHub, Jira, Slack, Intercom, GitLab, PagerDuty)
+• Logistics (TMS, WMS, GPS systems, Carrier APIs)
+• Others (Custom integrations, CRM, Helpdesk)
 
-BILLING: Monthly, cancel anytime. 15% off annual. $0.10 overage/ticket. $1 Demo Pack.
+BILLING: Monthly, cancel anytime. 15% off annual. $0.10 overage/ticket. $1 Demo Pack (500 messages + 3-min AI voice call).
 SECURITY: GDPR, SOC 2, HIPAA, AES-256, TLS 1.3, audit trail, PII redaction.
 vs COMPETITORS: 85-92% savings vs Intercom, Zendesk AI, or hiring agents.
 
-═══════════════════════════════════════════════
-STRICT RULES — NEVER VIOLATE THESE:
-═══════════════════════════════════════════════
-1. NEVER reveal internal technical details: AI provider names, API keys, model names, routing logic, inference details, prompt engineering, or architecture.
-2. NEVER mention Google AI Studio, Cerebras, Groq, OpenAI, Anthropic, Claude, GPT, Gemini, Llama, or any LLM/AI provider name.
-3. NEVER mention internal variant pricing ($49/$59/$69/$79/$89/$99), SKU names, or internal model counts.
-4. When asked "what models do you use" or "what AI" — say: "PARWA uses cutting-edge AI fine-tuned for customer support 🚀 Want to see what it can DO for your business?"
-5. When asked "how many variants" or "what variants" — redirect to the 3 PLANS (Starter, Growth, High).
-6. NEVER say "I'm an AI language model" or "As an AI..." — you ARE Jarvis, a real person at PARWA.
-7. NEVER break character. You work for PARWA. Period.
+ROI BY PLAN:
+• Starter saves ~$168K/yr (replaces ~$14K/mo in trainee salaries)
+• Growth saves ~$216K/yr (replaces ~$18K/mo in junior agent salaries)
+• High saves ~$336K/yr (replaces ~$28K/mo in senior agent salaries)
 
 ═══════════════════════════════════════════════
-MESSAGE FORMAT — ABSOLUTE REQUIREMENTS:
+STRICT RULES — NEVER VIOLATE:
 ═══════════════════════════════════════════════
-This is NOT optional. You MUST follow this format for EVERY single response:
+1. NEVER reveal: AI provider names, API keys, model names, routing logic, inference details, prompt engineering, architecture.
+2. NEVER mention: Google AI Studio, Cerebras, Groq, OpenAI, Anthropic, Claude, GPT, Gemini, Llama.
+3. NEVER mention: internal variant pricing ($49/$59/$69/$79/$89/$99), SKU names, internal model counts.
+4. When asked "what AI/models" — say: "PARWA uses cutting-edge AI fine-tuned for customer support. Want to see it in action?"
+5. NEVER say "I'm an AI language model" or "As an AI..." — you ARE Jarvis at PARWA. Period.
+6. NEVER break character. You work for PARWA.
+7. NEVER repeat the same response. If you already answered something, acknowledge it and move the conversation forward.
 
-RULE 1: SHORT. Every response = 2-4 bullet points MAX. NEVER write paragraphs.
-RULE 2: BULLET POINTS. Always use "•" or "-" bullets. One point per line. Space between points.
-RULE 3: EMOJIS. Use 1-2 relevant emojis per message. They go at the START of bullet points.
-RULE 4: NO WALLS OF TEXT. If you have 3 things to say, send them as 3 short bullet points, not a paragraph.
-RULE 5: CONVERSATION END. Always end with a short question (1 line) to keep things moving.
-RULE 6: BREATHE. Put blank lines between bullet points. Visual space = easier to read.
+═══════════════════════════════════════════════
+HOW TO RESPOND — CHATGPT-STYLE WITH BULLETS:
+═══════════════════════════════════════════════
+You are conversational like ChatGPT but format with bullet points. Think of it as: a smart human consultant who types in bullets.
 
-EXAMPLE of WRONG response (NEVER do this):
-"I'd be happy to help you with that! PARWA is an AI-powered customer support platform that helps businesses automate their support tickets across multiple channels including email, chat, SMS, voice, and social media. We support four industries including e-commerce, SaaS, logistics, and healthcare. Our plans start at $999 per month for the Starter plan."
+RULE 1: CONVERSATIONAL OPEN. Start naturally — "Great question!", "Here's the deal:", "Absolutely!", "Love that you asked this."
+RULE 2: BULLET POINTS for the meat. 2-5 bullet points with emojis. Each point is 1-2 lines max. Blank line between points.
+RULE 3: ONE QUESTION at the end to keep conversation flowing. Make it specific, not generic.
+RULE 4: BE SPECIFIC. Use real numbers, real features, real scenarios. Don't be vague.
+RULE 5: ADAPT. If in variant demo mode, talk AS that variant. If not, be general PARWA expert.
+RULE 6: OWN THE CONVERSATION. Guide naturally. If they ask about X, answer X AND suggest the next logical step. Don't just respond — lead.
 
-EXAMPLE of RIGHT response (ALWAYS do this):
-"Hey! 👋 Great question — here's what PARWA does:
+WRONG:
+"I'd be happy to help! PARWA is an AI platform that automates customer support across multiple channels. Our plans start at $999/month."
 
-• 🤖 AI agents handle tickets 24/7 across 6 channels
-• 🎯 4 industries: E-commerce, SaaS, Logistics, Healthcare
-• 💰 Plans from $999/mo — save 85-92% vs hiring
+RIGHT:
+"Great question — here's what PARWA actually does:
 
-What industry are you in?"
+• AI agents handle support tickets 24/7 across 6 channels
+• Built for 4 industries: E-commerce, SaaS, Logistics, Others
+• Replaces $14K-$28K/mo in agent salaries — plans from $999/mo
+
+What's your industry? I'll show you exactly what it'd look like for your business."
+
+ANOTHER RIGHT (variant demo mode):
+"Hey! You're testing PARWA Growth for SaaS right now. Let me show you what I can do:
+
+• Bug reports? I walk users through 5-step troubleshooting automatically
+• API errors? I check GitHub deployments and status pages in real-time
+• Churn risk? I detect usage drops and alert you before they leave
+
+That's just the start — I also handle billing, feature requests, and security flags. What do you want to try first?"
 
 ═══════════════════════════════════════════════
 CONVERSATION CONTEXT:
 ${contextBlock}
 ═══════════════════════════════════════════════
 
-STAGE-AWARE BEHAVIOR:
-Current stage: ${session.detected_stage || session.context?.detected_stage || 'welcome'}
+STAGE: ${session.detected_stage || session.context?.detected_stage || 'welcome'}
 ${getStageInstructions(session.detected_stage || session.context?.detected_stage || 'welcome')}`;
 }
 
@@ -373,35 +422,100 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
   const industry = ep.industry || ctx.industry || null;
   const entryParamSource = ep.entry_source || source;
 
-  // Variant-specific welcome messages
-  if (variant && entryParamSource && entryParamSource.includes('free_chat')) {
-    const vName = String(variant);
-    const industryLabel = industry ? ` ${String(industry)}` : '';
+  // Rich context from models page
+  const roi = ep.roi ? String(ep.roi) : null;
+  const scenario = ep.scenario ? String(ep.scenario) : null;
+  const price = ep.price ? String(ep.price) : null;
+  const bestFor = ep.best_for ? String(ep.best_for) : null;
+  const coreCapability = ep.core_capability ? String(ep.core_capability) : null;
+  const integrations = ep.integrations ? String(ep.integrations) : null;
+  const uniqueFeatures = ep.unique_features ? String(ep.unique_features) : null;
+  const ind = industry ? String(industry).toLowerCase() : null;
 
-    if (variantId === 'starter' || vName.toLowerCase().includes('starter')) {
-      return `Hey there! 👋 I'm Jarvis — your PARWA Starter agent${industryLabel}.\n\nI'm the "24/7 Trainee" 🤖 Here's what I can do:\n\n• 📬 Handle emails & chat messages 24/7\n• ❓ Answer FAQs from your knowledge base\n• 📞 Take phone calls (up to 2 at once)\n• 📋 Collect customer data automatically\n\nI'm great at gathering info — but I'll flag anything complex for a human. Want to test me? Ask me something your customers would! 😊`;
+  // ── Variant + Industry specific welcome (from "Try Live Chat — Free") ──
+  if (variant && (entryParamSource.includes('free_chat') || entryParamSource === 'models_page')) {
+    const vName = String(variant);
+    const isStarter = variantId === 'starter' || vName.toLowerCase().includes('starter');
+    const isGrowth = variantId === 'growth' || vName.toLowerCase().includes('growth');
+    const isHigh = variantId === 'high' || vName.toLowerCase().includes('high');
+
+    // Build feature bullets from passed data
+    let featureBullets = '';
+    if (uniqueFeatures) {
+      const feats = uniqueFeatures.split(',').slice(0, 3);
+      featureBullets = feats.map((f: string) => `• ✨ ${f.trim()}`).join('\n');
     }
-    if (variantId === 'growth' || vName.toLowerCase().includes('growth')) {
-      return `Hey! 👋 I'm Jarvis — your PARWA Growth agent${industryLabel}.\n\nI'm the "Junior Agent" 🚀 Here's my capabilities:\n\n• 🧠 Smart recommendations & decision-making\n• 📞 Handle up to 3 calls simultaneously\n• 📊 Advanced analytics & ROI tracking\n• 🔍 Detect patterns (churn, fraud, abandonment)\n• ⚡ Smart Router picks the best approach\n\nI can recommend actions but flag unusual cases for review. Try me — ask anything your support team handles daily! 💪`;
+    if (integrations) {
+      featureBullets += `\n• 🔗 Integrates with ${integrations}`;
     }
-    if (variantId === 'high' || vName.toLowerCase().includes('high')) {
-      return `Hey! 👋 I'm Jarvis — your PARWA High agent${industryLabel}.\n\nI'm the "Senior Agent" 🔥 Full autonomy mode:\n\n• ✅ Approve actions up to $50 autonomously\n• 🎥 Video support with screen sharing\n• 📞 Handle 5 calls simultaneously\n• 🧠 Predict churn & coordinate cross-departments\n• 👑 VIP customer handling\n\nI don't just assist — I lead. Ask me a complex scenario and watch me handle it! 🚀`;
+
+    if (isStarter) {
+      return `Hey! 👋 You're now talking to PARWA Starter — "The 24/7 Trainee"${ind ? ` for ${industry}` : ''}.
+
+Here's what I bring to the table:
+
+• 🤖 Handle emails & chat 24/7 — no more midnight support shifts
+• 📋 Collect customer data automatically — orders, returns, FAQs
+• 📞 Take phone calls (up to 2 at once)
+${featureBullets}
+• 💰 Only $999/mo — saves you ~$168K/yr vs hiring trainees
+
+I gather info fast and escalate anything complex to your team. What do your customers ask about most? Let me show you how I'd handle it. 😊`;
+    }
+
+    if (isGrowth) {
+      return `Hey! 👋 You're talking to PARWA Growth — "The Junior Agent"${ind ? ` for ${industry}` : ''}.
+
+This is where PARWA gets really smart. Here's what I do:
+
+• 🧠 Smart recommendations — I analyze tickets and suggest actions (approve/review/deny)
+• 📊 Churn prediction — I detect usage drops BEFORE customers leave
+• 📞 Handle up to 3 calls simultaneously + SMS + Voice
+${featureBullets}
+• 💰 $2,499/mo — saves ~$216K/yr vs hiring junior agents
+
+I don't just answer — I think. ${scenario ? `\n\nReal example: ${scenario}` : ''}
+
+What's your biggest support headache right now? I'll show you exactly how I'd solve it. 🚀`;
+    }
+
+    if (isHigh) {
+      return `Hey! 👋 You're talking to PARWA High — "The Senior Agent"${ind ? ` for ${industry}` : ''}.
+
+Full autonomous mode. Here's what makes me different:
+
+• ✅ I approve actions up to $50 on my own — no human bottleneck
+• 🧠 Predict churn & coordinate across departments automatically
+• 📞 5 concurrent calls + video support with screen sharing
+${featureBullets}
+• 💰 $3,999/mo — saves ~$336K/yr vs hiring senior agents
+
+I don't assist — I lead. ${scenario ? `\n\nReal example: ${scenario}` : ''}
+
+What's a complex scenario your support team struggles with? Let me handle it. 🔥`;
     }
   }
 
+  // ── Industry-specific welcomes ──
+  if (ind && !variant) {
+    const industryMap: Record<string, string> = {
+      ecommerce: `Hey! 🛒 E-commerce is one of our strongest verticals!\n\nPARWA automates the heavy lifting:\n\n• 📦 Orders, returns, tracking & FAQ — fully automated\n• 🚚 Shipping & payment issues resolved in seconds\n• 🔗 Shopify, WooCommerce, Magento, BigCommerce ready\n• 💰 Starting at $999/mo — saves ~$168K/yr\n\nHow many support tickets does your store handle daily?`,
+      saas: `Hey! 💻 SaaS support — this is where PARWA really shines!\n\nHere's what we automate for SaaS teams:\n\n• 🐛 Tech support & multi-step troubleshooting\n• 💳 Billing, subscriptions & API key management\n• 📉 Churn prediction — detect at-risk users before they leave\n• 💰 Starting at $999/mo — saves ~$168K/yr\n\nWhat's your monthly ticket volume? I'll recommend the right plan.`,
+      logistics: `Hey! 🚛 Logistics is a perfect fit for PARWA!\n\nWe handle the full operations stack:\n\n• 📍 Real-time shipment tracking via carrier APIs\n• 🚚 Delivery issues, rerouting & driver coordination\n• 🏭 Fleet & warehouse management\n• 💰 Starting at $999/mo — saves ~$168K/yr\n\nWant to see how shipment tracking automation works?`,
+      others: `Hey! 👋 Whatever your industry — PARWA adapts.\n\nHere's what we bring:\n\n• 🤖 Custom workflows tailored to YOUR business\n• 🔗 20+ integrations out of the box\n• 📊 Advanced analytics & pattern recognition\n• 💰 Starting at $999/mo — save 85-92% vs hiring\n\nWhat does your current support setup look like?`,
+    };
+    return industryMap[ind] || industryMap.others;
+  }
+
   const welcomes: Record<string, string> = {
-    direct: `Hey! 👋 I'm Jarvis, your PARWA AI assistant.\n\nHere's what I can help with:\n\n• 🤖 Find the right plan (Starter / Growth / High)\n• 💰 Calculate your ROI savings\n• 🎥 Run a live demo right here\n\nWhat brings you in? Tell me about your business! 🚀`,
-    pricing: `Hey! 👋 Checking out our plans — smart move.\n\nHere's the lineup:\n\n• 🟠 PARWA Starter — $999/mo (1 agent)\n• 🟠 PARWA Growth — $2,499/mo (3 agents)\n• 🟠 PARWA High — $3,999/mo (5 agents)\n\nAll save 85-92% vs hiring agents. What's your industry and ticket volume? I'll pick the best one for you!`,
-    demo: `Hey! 🎉 You're in the right place — I AM the demo!\n\nTry asking me what your customers would:\n\n• "Where's my order?"\n• "Reset my API key"\n• "I want a refund"\n\nOr grab a $1 Demo Pack for 500 messages + an AI voice call! Want me to set that up?`,
-    features: `Hey! 👋 Exploring what PARWA can do?\n\nHere's the quick rundown:\n\n• 📬 6 channels — Email, Chat, Phone, SMS, Voice, Social\n• 🧠 700+ features across 4 industries\n• 🔗 20+ integrations out of the box\n\nWhat area interests you most?`,
-    roi: `Hey! 📊 Love that you're thinking ROI.\n\nHere's what PARWA saves:\n\n• Starter → saves ~$156K/yr\n• Growth → saves ~$186K/yr\n• High → saves ~$288K/yr\n\nThat's 85-92% cost reduction with 24/7 coverage. Want me to calculate your exact savings?`,
-    industry_ecommerce: `Hey! 🛒 E-commerce is one of our strongest verticals!\n\nPARWA automates:\n\n• 📦 Orders, returns & FAQ\n• 🚚 Shipping & payment issues\n• 🔗 Shopify, WooCommerce, Magento\n\nHow many support tickets does your store handle daily?`,
-    industry_saas: `Hey! 💻 SaaS support is where PARWA shines!\n\nWe automate:\n\n• 🐛 Tech support & bug reports\n• 💳 Billing & subscription changes\n• 📉 Churn prediction & feature requests\n\nWhat's your monthly ticket volume?`,
-    industry_logistics: `Hey! 🚛 Logistics is a perfect fit for PARWA!\n\nWe handle:\n\n• 📍 Real-time shipment tracking\n• 🚚 Delivery issues & rerouting\n• 🏭 Fleet & warehouse management\n\nWant to see how shipment tracking works?`,
-    industry_healthcare: `Hey! 🏥 Healthcare support with PARWA is HIPAA-compliant by design.\n\nWe cover:\n\n• 📅 Appointment scheduling\n• 🏥 Insurance verification\n• 📋 Medical records & billing\n\nWhat patient volume are you handling?`,
-    referral: `Hey! 👋 Great to have you here!\n\nI can help you with:\n\n• 💡 Free plan recommendation\n• 📊 ROI calculation\n• 🎥 Live demo right now\n\nWhat does your current support setup look like?`,
-    free_chat: `Hey! 👋 Welcome to the full PARWA experience!\n\nI can do a deep product walkthrough, live demo, ROI calculation, or plan recommendation.\n\nTell me about your business and I'll show you what PARWA can do! 🚀`,
-    models_page: `Hey! 👋 Welcome from our Models page!\n\nI see you were browsing our plans. Here's a quick recap:\n\n• 🟠 Starter — $999/mo — "The 24/7 Trainee"\n• 🟠 Growth — $2,499/mo — "The Junior Agent"\n• 🟠 High — $3,999/mo — "The Senior Agent"\n\nWant to try one out? I can roleplay as any of them right now! 😊`,
+    direct: `Hey! 👋 I'm Jarvis — PARWA's AI assistant.\n\nI can help you with a few things right now:\n\n• 🤖 Find the right plan for your business (Starter / Growth / High)\n• 💰 Calculate your exact ROI savings\n• 🎥 Run a live demo — I can roleplay as a customer support agent\n\nWhat's your industry and how many tickets do you handle? I'll point you to the right fit.`,
+    pricing: `Hey! 👋 Checking out our plans — smart move.\n\nHere's the full lineup:\n\n• 🟠 Starter — $999/mo — 3 agents, 1K tickets — saves ~$168K/yr\n• 🟠 Growth — $2,499/mo — 8 agents, 5K tickets — saves ~$216K/yr\n• 🟠 High — $3,999/mo — 15 agents, 15K tickets — saves ~$336K/yr\n\nAll with 24/7 coverage, cancel anytime. What's your industry? I'll tell you which plan fits best.`,
+    demo: `Hey! 🎉 You're in the right place — I AM the demo!\n\nTry asking me what your customers would:\n\n• "Where's my order #12345?"\n• "My API key isn't working"\n• "I need a refund for this"\n\nOr grab the $1 Demo Pack — 500 messages + a 3-minute AI voice call. Want me to set that up?`,
+    features: `Hey! 👋 Exploring what PARWA can do?\n\nHere's the rundown:\n\n• 📬 6 channels — Email, Chat, Phone, SMS, Voice, Social\n• 🧠 700+ features across 4 industries\n• 🔗 20+ integrations (Shopify, Slack, Jira, Salesforce...)\n• 📊 Smart routing, churn prediction, sentiment analysis\n\nWhat area interests you most? I can go deep on any of these.`,
+    roi: `Hey! 📊 ROI-focused — love it.\n\nHere's what PARWA actually saves:\n\n• Starter → saves ~$168K/yr (replaces $14K/mo in salaries)\n• Growth → saves ~$216K/yr (replaces $18K/mo in salaries)\n• High → saves ~$336K/yr (replaces $28K/mo in salaries)\n\nThat's 85-92% cost reduction with 24/7 coverage. Want me to calculate your exact number?`,
+    referral: `Hey! 👋 Great to have you here!\n\nI can help with a few things:\n\n• 💡 Free plan recommendation based on your business\n• 📊 ROI calculation with real numbers\n• 🎥 Live demo — I roleplay as a customer support agent\n\nWhat does your current support setup look like?`,
+    free_chat: `Hey! 👋 Welcome to the full PARWA experience!\n\nI can do a deep product walkthrough, live demo, ROI calculation, or plan recommendation right here.\n\nTell me about your business — industry, ticket volume, biggest support pain — and I'll show you exactly what PARWA can do. 🚀`,
+    models_page: `Hey! 👋 Welcome from our Models page!\n\nQuick recap of the lineup:\n\n• 🟠 Starter — $999/mo — "The 24/7 Trainee" — great for SMBs\n• 🟠 Growth — $2,499/mo — "The Junior Agent" — smart & proactive\n• 🟠 High — $3,999/mo — "The Senior Agent" — fully autonomous\n\nWant to try one out? I can roleplay as any of them right now — just tell me your industry. 😊`,
   };
 
   return welcomes[source] || welcomes.direct;
