@@ -360,6 +360,7 @@ async def update_technique_config(
     Validates:
     - technique_id exists in TECHNIQUE_REGISTRY
     - company_id is not empty
+    - BC-009: Tier 1 techniques cannot be disabled
     """
     try:
         # Validate technique_id exists
@@ -375,6 +376,21 @@ async def update_technique_config(
                         f"in TECHNIQUE_REGISTRY. "
                         f"Valid: "
                         f"{[t.value for t in TechniqueID]}"
+                    ),
+                },
+            )
+
+        # BC-009: Tier 1 techniques cannot be disabled
+        info = TECHNIQUE_REGISTRY[TechniqueID(technique_id)]
+        if info.tier == TechniqueTier.TIER_1 and not body.enabled:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "Tier 1 techniques cannot be disabled",
+                    "detail": (
+                        f"Technique '{technique_id}' is Tier 1 (always-active) "
+                        f"and cannot be disabled. Tier 1 techniques are: "
+                        f"{[t.value for t in TechniqueID if TECHNIQUE_REGISTRY[t].tier == TechniqueTier.TIER_1]}"
                     ),
                 },
             )
