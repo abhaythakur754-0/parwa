@@ -62,7 +62,7 @@ function ResetPasswordContent() {
       <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}>
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, transparent 70%)', top: '20%', left: '15%', animation: 'orbFloat 10s ease-in-out infinite' }} />
-          <div className="absolute w-[250px] h-[250px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 70%)', bottom: '20%', right: '15%', animation: 'orbFloat 12s ease-in-out infinite' }} />
+          <div className="absolute w-[250px] h-[250px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,165,0,0.1) 0%, transparent 70%)', bottom: '20%', right: '15%', animation: 'orbFloat 12s ease-in-out infinite' }} />
         </div>
         <div className="w-full max-w-md relative z-10">
           <div className="rounded-2xl p-6 sm:p-8 text-center space-y-4" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(255,127,17,0.2)', backdropFilter: 'blur(20px)', boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)' }}>

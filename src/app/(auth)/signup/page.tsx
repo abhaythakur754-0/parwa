@@ -169,7 +169,7 @@ export default function SignupPage() {
           animation: 'jarvisOrbFloat2 12s ease-in-out infinite',
         }} />
         <div className="absolute w-[250px] h-[250px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255,165,0,0.1) 0%, transparent 70%)',
           top: '50%',
           left: '40%',
           animation: 'jarvisOrbFloat3 9s ease-in-out infinite',

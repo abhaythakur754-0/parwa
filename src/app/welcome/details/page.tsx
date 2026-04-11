@@ -52,7 +52,7 @@ export default function WelcomeDetailsPage() {
       {/* Background effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,127,17,0.12) 0%, transparent 70%)', top: '10%', left: '20%', animation: 'orbFloat 10s ease-in-out infinite' }} />
-        <div className="absolute w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.08) 0%, transparent 70%)', bottom: '15%', right: '15%', animation: 'orbFloat 12s ease-in-out infinite' }} />
+        <div className="absolute w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,165,0,0.08) 0%, transparent 70%)', bottom: '15%', right: '15%', animation: 'orbFloat 12s ease-in-out infinite' }} />
       </div>
 
       <div className="max-w-xl mx-auto relative z-10">
