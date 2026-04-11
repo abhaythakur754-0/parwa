@@ -137,6 +137,10 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
   // Refs
   const sessionRef = useRef<string | null>(null);
   const initCalledRef = useRef(false);
+  const initFailedRef = useRef(false);
+  const isSendingRef = useRef(false);
+  const msgCounterRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   // ── Computed Values ─────────────────────────────────────────────
 
@@ -147,8 +151,9 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
   // ── Init Session ────────────────────────────────────────────────
 
   const initSession = useCallback(async () => {
-    if (initCalledRef.current) return;
+    if (initCalledRef.current && !initFailedRef.current) return;
     initCalledRef.current = true;
+    initFailedRef.current = false;
 
     setIsLoading(true);
     setError(null);
@@ -187,15 +192,19 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
         setOtpState((prev) => ({ ...prev, status: 'verified' }));
       }
     } catch (err) {
+      initFailedRef.current = true;
       setError(err instanceof Error ? err.message : 'Failed to initialize session');
     } finally {
       setIsLoading(false);
     }
   }, [entrySource, entryParams]);
 
-  // Auto-init on mount
+  // Auto-init on mount, abort on unmount
   useEffect(() => {
     initSession();
+    return () => {
+      abortRef.current?.abort();
+    };
   }, [initSession]);
 
   // ── Send Message ────────────────────────────────────────────────
@@ -204,15 +213,24 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     async (content: string) => {
       if (isLimitReached) return;
       if (!content.trim()) return;
+      if (!sessionRef.current) {
+        setError('Session not ready. Please wait or reload.');
+        return;
+      }
+      if (isSendingRef.current) return;
+      isSendingRef.current = true;
 
       setError(null);
       setIsTyping(true);
 
       const sessionId = sessionRef.current;
+      const abortController = new AbortController();
+      abortRef.current = abortController;
+      const { signal } = abortController;
 
       // Optimistically add user message
       const optimisticUserMsg: JarvisMessage = {
-        id: `temp_${Date.now()}`,
+        id: `temp_${Date.now()}_${++msgCounterRef.current}`,
         session_id: sessionId || '',
         role: 'user',
         content: content.trim(),
@@ -231,6 +249,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
         const aiMessage = await apiFetch<JarvisMessage>('/message', {
           method: 'POST',
           body: JSON.stringify(body),
+          signal,
         });
 
         // Update session ref if new session was created
@@ -260,6 +279,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
           }
         }
       } catch (err) {
+        if ((err as Error)?.name === 'AbortError') return;
         setError(err instanceof Error ? err.message : 'Failed to send message');
 
         // Mark optimistic message as error
@@ -272,6 +292,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
         );
       } finally {
         setIsTyping(false);
+        isSendingRef.current = false;
       }
     },
     [isLimitReached],
@@ -369,6 +390,10 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
 
   const verifyOtp = useCallback(
     async (code: string): Promise<boolean> => {
+      if (!code || code.trim().length < 4) {
+        setError('Please enter a valid OTP code (at least 4 digits).');
+        return false;
+      }
       const sessionId = sessionRef.current;
       if (!sessionId) return false;
 

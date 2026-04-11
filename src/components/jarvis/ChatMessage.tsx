@@ -14,6 +14,8 @@
 import { User, Bot, AlertTriangle, CreditCard, Clock, Zap } from 'lucide-react';
 import type { JarvisMessage, MessageType, MessageRole } from '@/types/jarvis';
 import Markdown from 'react-markdown';
+import type { Components } from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 
 interface ChatMessageProps {
   message: JarvisMessage;
@@ -48,7 +50,6 @@ function MessageTimestamp({
   isUser: boolean;
 }) {
   if (!timestamp) return null;
-  const ts = timestamp;
 
   const time = new Date(timestamp).toLocaleTimeString([], {
     hour: '2-digit',
@@ -176,6 +177,7 @@ function ErrorMessage({
           {onRetry && (
             <button
               onClick={onRetry}
+              aria-label="Retry last message"
               className="mt-2 text-xs text-red-300/70 hover:text-red-200 underline underline-offset-2 transition-colors"
             >
               Tap to retry
@@ -186,6 +188,26 @@ function ErrorMessage({
     </div>
   );
 }
+
+// ── Main Component ──────────────────────────────────────────────
+
+// ── Markdown Components (XSS-safe) ────────────────────────────────
+
+const markdownComponents: Components = {
+  a: ({ href, children, ...props }) => {
+    if (
+      typeof href === 'string' &&
+      (/^(javascript|data|vbscript):/i.test(href))
+    ) {
+      return <span {...props}>{children}</span>;
+    }
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+        {children}
+      </a>
+    );
+  },
+};
 
 // ── Main Component ──────────────────────────────────────────────
 
@@ -286,7 +308,7 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
             <p className="whitespace-pre-wrap break-words">{message.content}</p>
           ) : (
             <div className="prose prose-invert prose-sm max-w-none prose-p:text-white/90 prose-p:leading-relaxed prose-headings:text-white prose-strong:text-white prose-code:text-emerald-300 prose-a:text-emerald-400 prose-li:text-white/80">
-              <Markdown>{message.content}</Markdown>
+              <Markdown rehypePlugins={[rehypeSanitize]} components={markdownComponents}>{message.content}</Markdown>
             </div>
           )}
         </div>

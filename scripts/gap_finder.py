@@ -490,6 +490,55 @@ CURRENT STATE:
 
 What testing gaps exist? Focus on: service layer business logic, API endpoint auth/error handling, webhook idempotency, OTP replay attacks, session hijacking, race conditions in daily counter reset, concurrent session creation, demo pack expiry edge cases, handoff data leakage, frontend hook error recovery, optimistic update rollback, message ordering.""",
 
+    "w6d3_jarvis": """Week 6 Day 3: Jarvis Core Chat UI Components
+
+I'm building the Jarvis Onboarding Chat system for PARWA SaaS. Day 3 (Phase 5: Core Chat UI) is done:
+
+9 React/TypeScript components created:
+
+1. onboarding/page.tsx (73 lines): Full-page route at /onboarding. Auth guard: if loading->spinner, if not auth->redirect to /login?redirect=/onboarding, if onboarding_completed->redirect to /dashboard, else->JarvisChat. Uses useAuth hook.
+
+2. JarvisChat.tsx (141 lines): Main container. Calls useJarvisChat(entrySource, entryParams). Three states: loading (Loader2 + pulse ring), connection error (WifiOff + try again), normal (ChatHeader + ErrorBanner + ChatWindow + ChatInput). Full-height flex layout on #022C22 dark background.
+
+3. ChatWindow.tsx (110 lines): ScrollArea wrapper with auto-scroll to bottom via useRef+useEffect on messages.length/isTyping changes. Empty state with 4 suggestion chips ("What is PARWA?", "Show me pricing", "How does it work for e-commerce?", "Help me get started"). Renders ChatMessage for each msg, TypingIndicator when isTyping.
+
+4. ChatMessage.tsx (299 lines): Multi-type renderer:
+   - User messages: right-aligned blue gradient bubble, plain text
+   - Jarvis text messages: left-aligned glass bubble, react-markdown with prose styling
+   - System messages: centered muted pill with Zap icon
+   - Error messages: left-aligned red glass card with tap-to-retry
+   - Card types (bill_summary, payment_card, otp_card, handoff_card, demo_call_card, action_ticket, call_summary, recharge_cta): glass card placeholder with icon + label + "Coming in Phase 6"
+   - limit_reached: amber-bordered card with "Daily Limit Reached"
+   - pack_expired: red-bordered card with "Demo Pack Expired"
+   - MessageTimestamp: formatted time below each message
+
+5. ChatInput.tsx (202 lines): Auto-resize textarea (max 120px height), Enter to send / Shift+Enter for newline. Character counter appears at 85% (2000 max). Send button: gradient emerald when active, gray when disabled. Typing spinner replaces send icon. Limit reached banner disables input. Footer shows "Enter to send" hint + remaining messages count.
+
+6. ChatHeader.tsx (99 lines): Bot avatar with gradient + online indicator dot (amber=loading, green=ready). Title "Jarvis — Your AI Assistant". Stage badge from session.detected_stage. Remaining messages badge with color thresholds (red<=5, amber=demo, green=normal).
+
+7. TypingIndicator.tsx (29 lines): Mini Jarvis avatar + 3 bouncing dots using existing .typing-dot CSS animation from globals.css.
+
+8. ErrorBanner.tsx (54 lines): Red-tinted glass banner. AlertCircle icon + error text + optional RefreshCw retry button + X dismiss button. Hidden when error is null/empty. animate-fade-in.
+
+9. index.ts (14 lines): Barrel exports for all 7 visual components.
+
+DEPENDENCIES:
+- useJarvisChat hook: 13 state vars (messages, session, isLoading, isTyping, remainingToday, isLimitReached, isDemoPackActive, otpState, paymentState, handoffState, demoCallState, error) + 12 actions (initSession, sendMessage, retryLastMessage, updateContext, sendOtp, verifyOtp, purchaseDemoPack, getDemoPackStatus, createPayment, initiateDemoCall, executeHandoff, clearError). Auto-inits session on mount.
+- useAuth hook: user object with onboarding_completed field. isAuthenticated, isLoading booleans.
+- Types: JarvisMessage (id, session_id, role, content, message_type, metadata, timestamp, knowledge_used), JarvisSession (id, type, context, message_count_today, total_message_count, remaining_today, pack_type, pack_expiry, demo_call_used, is_active, payment_status, handoff_completed, detected_stage, created_at, updated_at)
+- CSS: .chat-msg-reveal animation, .typing-dot bouncing animation, .glass class, dark theme #022C22 background
+
+CURRENT STATE:
+- All 9 files created. TypeScript compiles with zero new errors.
+- No tests for any of the 9 components
+- Card type rendering is placeholder ("Coming in Phase 6")
+- No keyboard accessibility testing done
+- No mobile responsiveness testing done
+- No error boundary (React ErrorBoundary) wrapping the chat
+- useJarvisChat hook token key was fixed (access_token -> parwa_access_token)
+
+What testing gaps exist? Focus on: auth guard redirect logic, session auto-init failure recovery, message ordering edge cases, auto-scroll behavior on rapid messages, keyboard accessibility, mobile responsiveness, markdown rendering security (XSS in user messages), optimistic update rollback on error, typing indicator timing, error banner dismiss/retry interaction, character counter edge cases, disabled state propagation, empty state rendering, card type fallback rendering, timestamp formatting edge cases, memory leaks from useEffect cleanup, rapid send double-submit prevention, textarea auto-resize edge cases.""",
+
     "w9d10": """Week 9 Day 10: Cross-Variant Routing (SG-06/SG-11) + Anti-Arbitrage (F-159) + Conversation Summarization (F-160) + Integration Testing
 
 Building 4 systems:

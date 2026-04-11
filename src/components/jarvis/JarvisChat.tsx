@@ -51,7 +51,7 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
 
   if (isLoading && messages.length === 0) {
     return (
-      <div className="h-screen flex flex-col bg-[#022C22]">
+      <div className="h-dvh [height:100dvh] flex flex-col bg-[#022C22]">
         <ChatHeader session={null} isLoading={true} />
 
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
@@ -80,7 +80,7 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
 
   if (error && messages.length === 0 && !session) {
     return (
-      <div className="h-screen flex flex-col bg-[#022C22]">
+      <div className="h-dvh [height:100dvh] flex flex-col bg-[#022C22]">
         <ChatHeader session={null} isLoading={false} />
 
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
@@ -109,7 +109,7 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
   // ── Main Chat Layout ─────────────────────────────────────────
 
   return (
-    <div className="h-screen flex flex-col bg-[#022C22]">
+    <div className="h-dvh [height:100dvh] flex flex-col bg-[#022C22]">
       {/* Header */}
       <ChatHeader session={session} isLoading={false} />
 
@@ -125,6 +125,7 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
         messages={messages}
         isTyping={isTyping}
         onRetry={retryLastMessage}
+        onSuggestionClick={sendMessage}
       />
 
       {/* Input area (pinned to bottom) */}

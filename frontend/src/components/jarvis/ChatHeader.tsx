@@ -39,7 +39,7 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
     : null;
 
   return (
-    <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.03] backdrop-blur-md shrink-0">
+    <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.03] backdrop-blur-md shrink-0" role="banner">
       {/* Left — Avatar + Title */}
       <div className="flex items-center gap-3">
         {/* Bot Avatar */}
@@ -90,7 +90,7 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
                   : 'border-emerald-500/30 text-emerald-300 bg-emerald-500/5'
             }`}
           >
-            {session.remaining_today} msg left
+            {session.remaining_today ?? '...'} msg left
           </Badge>
         )}
       </div>

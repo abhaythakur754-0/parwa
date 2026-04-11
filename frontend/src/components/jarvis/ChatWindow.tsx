@@ -23,15 +23,32 @@ interface ChatWindowProps {
   isTyping: boolean;
   /** Callback to retry a failed message */
   onRetry?: () => void;
+  /** Callback when a quick suggestion chip is clicked */
+  onSuggestionClick?: (text: string) => void;
 }
 
-export function ChatWindow({ messages, isTyping, onRetry }: ChatWindowProps) {
+export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
 
-  // Auto-scroll to bottom when new messages arrive or typing starts/stops
+  // Track scroll position — user is near bottom if within 80px
   useEffect(() => {
-    if (bottomRef.current) {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 80;
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Auto-scroll to bottom only when user is near bottom
+  useEffect(() => {
+    if (isNearBottomRef.current && bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages.length, isTyping]);
@@ -39,7 +56,7 @@ export function ChatWindow({ messages, isTyping, onRetry }: ChatWindowProps) {
   const isEmpty = messages.length === 0 && !isTyping;
 
   return (
-    <div className="flex-1 overflow-hidden relative" ref={containerRef}>
+    <div className="flex-1 overflow-hidden relative" ref={containerRef} role="log" aria-label="Chat messages">
       <ScrollArea className="h-full scrollbar-premium">
         <div className="flex flex-col min-h-full py-4">
           {/* Empty state */}
@@ -61,7 +78,7 @@ export function ChatWindow({ messages, isTyping, onRetry }: ChatWindowProps) {
               {/* Quick-start suggestions */}
               <div className="flex flex-wrap justify-center gap-2 mt-6">
                 {SUGGESTIONS.map((s) => (
-                  <QuickSuggestion key={s} text={s} />
+                  <QuickSuggestion key={s} text={s} onClick={onSuggestionClick} />
                 ))}
               </div>
             </div>
@@ -93,11 +110,15 @@ export function ChatWindow({ messages, isTyping, onRetry }: ChatWindowProps) {
 
 // ── Quick Suggestion Chip ───────────────────────────────────────
 
-function QuickSuggestion({ text }: { text: string }) {
+function QuickSuggestion({ text, onClick }: { text: string; onClick?: (text: string) => void }) {
   return (
-    <span className="text-[11px] text-emerald-400/50 bg-emerald-500/5 border border-emerald-500/10 rounded-full px-3 py-1 cursor-default select-none">
+    <button
+      type="button"
+      onClick={() => onClick?.(text)}
+      className="text-[11px] text-emerald-400/50 bg-emerald-500/5 border border-emerald-500/10 rounded-full px-3 py-1 cursor-pointer select-none hover:bg-emerald-500/10 hover:text-emerald-400/70 hover:border-emerald-500/20 transition-all duration-150"
+    >
       {text}
-    </span>
+    </button>
   );
 }
 

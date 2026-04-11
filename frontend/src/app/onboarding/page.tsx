@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { JarvisChat } from '@/components/jarvis/JarvisChat';
+import { ChatErrorBoundary } from '@/components/jarvis/ChatErrorBoundary';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function OnboardingPage() {
 
     // Already onboarded → redirect to dashboard
     // Check via user metadata or existing session state
-    if ((user as unknown as Record<string, unknown>).onboarding_completed) {
+    if (user.onboarding_completed) {
       router.replace('/dashboard');
       return;
     }
@@ -69,5 +70,9 @@ export default function OnboardingPage() {
 
   // ── Render Chat ──────────────────────────────────────────────
 
-  return <JarvisChat />;
+  return (
+    <ChatErrorBoundary>
+      <JarvisChat />
+    </ChatErrorBoundary>
+  );
 }
