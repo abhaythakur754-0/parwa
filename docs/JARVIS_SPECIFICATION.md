@@ -1,7 +1,9 @@
 # PARWA Jarvis — Complete Specification
 
-> **Document Version:** 1.0
+> **Document Version:** 3.0
 > **Created:** Week 6 Day 8 (April 2026)
+> **Updated:** Week 6 Day 10 — Added: Knowledge Base section, action_tickets DB table, complete API endpoints, all card components, updated hook API
+> **Previous:** v2.0 — non-linear entry paths, action ticket system, post-call summary, Jarvis-as-product-demo concept
 > **Status:** Final — Approved by Founder
 > **Supersedes:** Sections 4-6 of ONBOARDING_SPEC.md v2.0
 
@@ -20,13 +22,18 @@
 9. [Onboarding Jarvis → Customer Care Jarvis Handoff](#9-onboarding-jarvis--customer-care-jarvis-handoff)
 10. [Jarvis Persona & System Prompt](#10-jarvis-persona--system-prompt)
 11. [UI / UX Specification](#11-ui--ux-specification)
-12. [Database Architecture](#12-database-architecture)
-13. [Backend API Endpoints](#13-backend-api-endpoints)
-14. [Frontend Component Architecture](#14-frontend-component-architecture)
-15. [Conversation Stages — State Machine](#15-conversation-stages--state-machine)
-16. [Demo Call Flow (3-Min AI Voice)](#16-demo-call-flow-3-min-ai-voice)
-17. [Files to Create](#17-files-to-create)
-18. [Build Order (Priority)](#18-build-order-priority)
+12. [Knowledge Base — Jarvis's Brain](#12-knowledge-base--jarviss-brain)
+13. [Database Architecture](#13-database-architecture)
+14. [Backend API Endpoints](#14-backend-api-endpoints)
+15. [Frontend Component Architecture](#15-frontend-component-architecture)
+16. [Conversation Stages — State Machine](#16-conversation-stages--state-machine)
+17. [Demo Call Flow (3-Min AI Voice)](#17-demo-call-flow-3-min-ai-voice)
+18. [Jarvis IS the Product Demo](#18-jarvis-is-the-product-demo)
+19. [Non-Linear Entry & Context-Aware Routing](#19-non-linear-entry--context-aware-routing)
+20. [Action Ticket System](#20-action-ticket-system)
+21. [Post-Call Summary & Result Display](#21-post-call-summary--result-display)
+22. [Files to Create](#22-files-to-create)
+23. [Build Order (Priority)](#23-build-order-priority)
 
 ---
 
@@ -733,9 +740,92 @@ Jarvis can send special card-type messages for interactive elements:
 
 ---
 
-## 12. Database Architecture
+## 12. Knowledge Base — Jarvis's Brain
 
-### 12.1 `jarvis_sessions` Table
+### 12.1 Why a Knowledge Base?
+
+Jarvis needs deep product knowledge to sound like a real salesperson — not a generic chatbot. The knowledge base is a set of JSON files loaded at startup that give Jarvis accurate, detailed answers about every aspect of PARWA. Without it, Jarvis would give vague, unconvincing responses that fail to convert visitors into customers.
+
+### 12.2 Knowledge File Structure
+
+```
+backend/app/data/jarvis_knowledge/
+├── 01_pricing_tiers.json       # All 3 tiers: Starter, Growth, High
+├── 02_industry_variants.json    # 4 industries × 5 variants each
+├── 03_variant_details.json      # Deep workflow + edge cases per variant
+├── 04_integrations.json         # Shopify, Zendesk, Slack, etc.
+├── 05_capabilities.json         # What Jarvis can/can't do
+├── 06_demo_scenarios.json       # Sample conversations for demo mode
+├── 07_objection_handling.json   # Responses to common objections
+├── 08_faq.json                  # 50+ frequently asked questions
+├── 09_competitor_comparisons.json # PARWA vs Intercom, Zendesk, etc.
+└── 10_edge_cases.json           # Edge case handling protocols
+```
+
+### 12.3 How Knowledge Flows Into Responses
+
+When a user sends a message, the system dynamically constructs the AI prompt by layering knowledge:
+
+```
+User sends message
+    ↓
+1. Save user message to DB
+2. Check message limits
+3. Detect conversation stage
+4. Build system prompt:
+   a. Base Jarvis persona (always included)
+   b. Session context (user's journey, pages visited, ROI, variants)
+   c. Relevant knowledge from KB (based on query + industry)
+   d. Recent conversation history (last 10 messages)
+   e. Stage-specific behavior instructions
+   f. Information boundary rules
+5. Call AI provider (z-ai-web-dev-sdk)
+6. Parse AI response
+7. Determine if response includes card (bill_summary, action_ticket, etc.)
+8. Create action ticket for any user action triggered
+9. Save Jarvis message to DB
+10. Track which knowledge files were used (for analytics)
+11. Return response to frontend
+```
+
+### 12.4 Knowledge Service
+
+A dedicated `jarvis_knowledge_service.py` handles loading and searching knowledge at runtime:
+
+| Function | Purpose |
+|----------|---------|
+| `load_all_knowledge()` | Load all 10 JSON files into memory at app startup |
+| `search_knowledge(query, industry?)` | Find relevant knowledge chunks for a user query |
+| `get_pricing_info()` | Current pricing data (all 3 tiers) |
+| `get_industry_variants(industry)` | All 5 variants for a specific industry |
+| `get_variant_details(variant_id)` | Deep workflow, edge cases, integrations for one variant |
+| `get_demo_scenario(industry?, difficulty?)` | Appropriate demo conversation script |
+| `get_objection_response(objection)` | Pre-written response to a specific objection |
+| `get_faq_answer(question)` | Closest matching FAQ from 50+ entries |
+| `get_competitor_comparison(competitor)` | Key differentiators vs a specific competitor |
+| `get_edge_case_handler(scenario)` | How Jarvis should handle edge cases |
+| `build_context_knowledge(context)` | Relevant knowledge from session context |
+
+### 12.5 Knowledge Content Summary
+
+| File | Key Content | Size (est.) |
+|------|------------|-------------|
+| `01_pricing_tiers` | 3 tiers (Starter $999, Growth $2,499, High $3,999), features, limitations, billing info | ~80 lines |
+| `02_industry_variants` | 4 industries (E-commerce, SaaS, Logistics, Others), 5 variants each with name, description, price, sample query/response | ~300 lines |
+| `03_variant_details` | Workflow steps, edge cases handled, integration requirements, auto-learning behavior per variant | ~250 lines |
+| `04_integrations` | Shopify, Zendesk, Slack, Freshdesk, Intercom — setup difficulty, what connects, capabilities | ~100 lines |
+| `05_capabilities` | Core capabilities (24/7, KB learning, escalation, multi-language) + explicit limitations | ~80 lines |
+| `06_demo_scenarios` | 10+ scenarios across industries with expected behavior, talking points, difficulty level | ~200 lines |
+| `07_objection_handling` | 7+ objections (too expensive, AI can't handle complex, data security, setup time, wrong answers, thinking about it) with scripted responses + follow-up strategies | ~150 lines |
+| `08_faq` | 50+ FAQs covering product, pricing, setup, security, integrations, cancellation, languages | ~300 lines |
+| `09_competitor_comparisons` | PARWA vs Intercom, Zendesk AI, Freshdesk AI, custom chatbots — advantages + key differentiators | ~120 lines |
+| `10_edge_cases` | KB gaps, angry customers, off-topic, multi-language, complex multi-question, competitor questions | ~120 lines |
+
+---
+
+## 13. Database Architecture
+
+### 13.1 `jarvis_sessions` Table
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -760,16 +850,36 @@ Jarvis can send special card-type messages for interactive elements:
 | `session_id` | UUID (FK → jarvis_sessions) | Which session this belongs to |
 | `role` | ENUM | `"user"`, `"jarvis"`, `"system"` |
 | `content` | TEXT | Message content |
-| `message_type` | ENUM | `"text"`, `"bill_summary"`, `"payment_card"`, `"otp_card"`, `"handoff_card"` |
+| `message_type` | ENUM | `"text"`, `"bill_summary"`, `"payment_card"`, `"otp_card"`, `"handoff_card"`, `"demo_call_card"`, `"action_ticket"`, `"call_summary"`, `"recharge_cta"`, `"limit_reached"`, `"pack_expired"`, `"error"` |
 | `metadata_json` | JSONB | Extra data (e.g., variant details for bill summary) |
 | `timestamp` | TIMESTAMP | When message was sent |
 
-### 12.3 Indexes
+### 12.3 `jarvis_action_tickets` Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID (PK) | Unique ticket identifier |
+| `session_id` | UUID (FK → jarvis_sessions) | Which session this ticket belongs to |
+| `message_id` | UUID (FK → jarvis_messages, nullable) | The in-chat message representing this ticket |
+| `ticket_type` | VARCHAR(30) | `otp_verification`, `otp_verified`, `payment_demo_pack`, `payment_variant`, `payment_variant_completed`, `demo_call`, `demo_call_completed`, `roi_import`, `handoff` |
+| `status` | VARCHAR(15) | `pending`, `in_progress`, `completed`, `failed` |
+| `result_json` | JSONB | Outcome data (call duration, summary, payment ID, etc.) |
+| `metadata_json` | JSONB | Extra data (phone, email, amounts, etc.) |
+| `created_at` | TIMESTAMP | When ticket was created |
+| `updated_at` | TIMESTAMP | When ticket was last updated |
+| `completed_at` | TIMESTAMP | When ticket reached terminal status |
+
+**Why a separate table?** Action tickets need independent querying ("show all tickets", "get failed tickets"). The `message_id` FK links each ticket to its visual representation in chat.
+
+### 12.4 Indexes
 
 ```sql
 CREATE INDEX idx_jarvis_sessions_user ON jarvis_sessions(user_id);
 CREATE INDEX idx_jarvis_sessions_active ON jarvis_sessions(user_id, is_active);
 CREATE INDEX idx_jarvis_messages_session ON jarvis_messages(session_id, timestamp);
+CREATE INDEX idx_jarvis_messages_type ON jarvis_messages(session_id, message_type);
+CREATE INDEX idx_jarvis_action_tickets_session ON jarvis_action_tickets(session_id);
+CREATE INDEX idx_jarvis_action_tickets_status ON jarvis_action_tickets(session_id, status);
 ```
 
 ---
@@ -822,14 +932,37 @@ CREATE INDEX idx_jarvis_messages_session ON jarvis_messages(session_id, timestam
 | `POST` | `/api/jarvis/handoff` | Execute onboarding → customer care transition |
 | `GET` | `/api/jarvis/handoff/status` | Check if handoff has been completed |
 
-### 13.7 Context Tracking
+### 13.7 Action Tickets
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/jarvis/tickets` | Create action ticket (auto-created by system on actions) |
+| `GET` | `/api/jarvis/tickets` | List all tickets for current session |
+| `GET` | `/api/jarvis/tickets/:id` | Get single ticket with full result data |
+| `PATCH` | `/api/jarvis/tickets/:id/status` | Update ticket status |
+
+### 13.8 Demo Call
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/jarvis/demo-call/initiate` | Initiate 3-min AI voice call |
+| `POST` | `/api/jarvis/demo-call/otp` | Verify phone number OTP |
+| `GET` | `/api/jarvis/demo-call/summary` | Get post-call summary with topics + ROI mapping |
+
+### 13.9 Entry Context
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/jarvis/context/entry` | Set entry source + params from URL (pricing, ROI, demo_booking) |
+
+### 13.10 Context Tracking
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/jarvis/context` | Update context (e.g., variant selection from pricing page) |
 | `PATCH` | `/api/jarvis/context` | Partial update of context fields |
 
-### 13.8 Request/Response Schemas
+### 13.11 Request/Response Schemas
 
 #### POST `/api/jarvis/session`
 
@@ -908,6 +1041,12 @@ frontend/src/
 │       ├── PaymentCard.tsx        # In-chat card: $1 demo pack or variant payment
 │       ├── OtpVerificationCard.tsx # In-chat card: business email + OTP
 │       ├── HandoffCard.tsx        # In-chat card: transition to customer care Jarvis
+│       ├── DemoCallCard.tsx       # In-chat card: phone + OTP + call + timer
+│       ├── ActionTicketCard.tsx   # In-chat card: ticket with status + result
+│       ├── PostCallSummaryCard.tsx # In-chat card: call summary + ROI mapping
+│       ├── RechargeCTACard.tsx    # In-chat card: post-call recharge/subscribe CTA
+│       ├── LimitReachedCard.tsx   # In-chat card: daily limit reached
+│       ├── PackExpiredCard.tsx    # In-chat card: demo pack expired
 │       ├── MessageCounter.tsx     # "X/20 messages remaining today"
 │       ├── DemoPackCTA.tsx        # Upgrade prompt when messages running low
 │       └── index.ts               # Exports
@@ -946,12 +1085,24 @@ interface UseJarvisChatReturn {
   // Payment
   createPaymentSession: (variants: Variant[]) => Promise<string>;
 
+  // Demo Call
+  initiateDemoCall: (phone: string) => Promise<void>;
+  getCallSummary: () => Promise<CallSummary | null>;
+
+  // Action Tickets
+  tickets: ActionTicket[];
+  getTickets: () => Promise<void>;
+  getTicketDetails: (ticketId: string) => Promise<ActionTicket>;
+
   // Handoff
   executeHandoff: () => Promise<void>;
 
   // Limits
   isLimitReached: boolean;
   isDemoPackActive: boolean;
+
+  // Entry Context
+  setEntryContext: (entrySource: string, params: Record<string, any>) => Promise<void>;
 }
 ```
 
@@ -1005,7 +1156,7 @@ Jarvis detects the current stage from context and adjusts behavior accordingly.
 
 ### 16.1 Trigger
 
-Available only after purchasing the $1 Demo Pack. Jarvis offers it naturally:
+Available only after purchasing the $1 Demo Pack. Jarvis offers it naturally. The demo call can also be triggered when a user books a demo from the landing page or any other entry point — they are routed to Jarvis, which then handles the entire call flow.
 
 ```
 Jarvis: "Since you have the Demo Pack, you can also try a 3-minute
@@ -1013,17 +1164,24 @@ Jarvis: "Since you have the Demo Pack, you can also try a 3-minute
          support conversations over the phone. Want to try it?"
 ```
 
-### 16.2 Flow
+### 16.2 Flow (Inside Jarvis Chat)
 
-| Step | Action | Detail |
-|------|--------|--------|
-| 1 | User agrees | Jarvis asks for phone number |
-| 2 | Phone validation | Format check, international support |
-| 3 | Twilio OTP | Send 4-digit code via SMS, 5-min expiry |
-| 4 | User enters OTP | Max 3 attempts |
-| 5 | Call initiated | Twilio Voice API, AI voice agent |
-| 6 | 3-minute timer | Automated call with pre-scripted + AI-driven content |
-| 7 | Call ends | Post-call summary in chat, CTA to subscribe |
+The ENTIRE demo call flow happens inside the `/onboarding` Jarvis chat. There are no separate pages.
+
+| Step | Action | In-Chat UI | Detail |
+|------|--------|-----------|--------|
+| 1 | User agrees | Text message from Jarvis | Jarvis asks for phone number |
+| 2 | User provides number | User types number | Phone validation, international support |
+| 3 | Jarvis requests OTP | OTP card appears in chat | Twilio sends 4-digit code via SMS, 5-min expiry |
+| 4 | User enters OTP | User types OTP in card | Max 3 attempts |
+| 5 | OTP verified | Success message in chat | Green checkmark, verified badge |
+| 6 | Paddle payment | Payment card appears in chat | $1 for 3-min call, processed via Paddle |
+| 7 | Payment successful | Confirmation message in chat | Jarvis confirms and initiates call |
+| 8 | Call initiated | Calling card with timer | "We'll call you in minutes" — Twilio Voice API |
+| 9 | Call in progress | Live timer card | 3-minute countdown, call status updates |
+| 10 | Call ends | **Post-call summary card** | Full summary of what happened (see Section 20) |
+| 11 | ROI info | ROI context card (if calculated) | If user did ROI, show how Jarvis maps to it |
+| 12 | Recharge option | CTA card | Offer another Demo Pack or subscribe |
 
 ### 16.3 Call Script
 
@@ -1050,19 +1208,284 @@ Jarvis: "Since you have the Demo Pack, you can also try a 3-minute
 
 ---
 
-## 17. Files to Create
+## 17. Jarvis IS the Product Demo
 
-### 17.1 Backend
+### 17.1 The Core Concept
+
+The Onboarding Jarvis IS the demo of the actual Jarvis. When users interact with the Onboarding Jarvis during the pre-purchase phase, they are literally experiencing the product they would get if they hired it. There is no separate "demo mode" — the onboarding experience IS the product demonstration.
+
+**What this means:**
+- Every feature Jarvis demonstrates (answering questions, handling tickets, providing summaries) is exactly what the post-purchase Customer Care Jarvis does
+- The intelligence, responsiveness, and capability users see during onboarding is the SAME intelligence they get after purchase
+- The onboarding chat is not a simulation or a script — it is the actual AI product working in real-time
+- The demo call is not a pre-recorded script — it is the actual AI voice capability
+
+### 17.2 Why This Matters
+
+| Traditional SaaS | PARWA Approach |
+|-----------------|----------------|
+| Separate demo environment | Onboarding IS the product |
+| Demo is scripted/limited | Real AI interactions in real-time |
+| Users see a "lite" version | Users see the FULL product |
+| Demo ends when trial starts | No boundary — seamless experience |
+| Trust built on marketing copy | Trust built on direct experience |
+
+### 17.3 Implications for Jarvis Behavior
+
+Since the Onboarding Jarvis IS the product demo, every interaction must:
+- Show real intelligence and understanding (not canned responses)
+- Handle edge cases gracefully (not ignore them)
+- Demonstrate ticket handling (treat actions as tickets — see Section 19)
+- Provide real summaries (post-call summary is actual AI analysis — see Section 20)
+- Work exactly as fast and accurately as the post-purchase Jarvis
+
+---
+
+## 18. Non-Linear Entry & Context-Aware Routing
+
+### 18.1 The Key Insight: NOT a Linear Funnel
+
+Users do NOT follow a fixed linear path (welcome -> demo -> pricing -> payment). Instead, users enter Jarvis from DIFFERENT entry points, and Jarvis adapts its behavior based on WHERE the user came from and WHAT context they bring.
+
+### 18.2 Entry Paths
+
+| Entry Path | User Comes From | Context Jarvis Gets | Jarvis's Adaptive Behavior |
+|------------|----------------|---------------------|--------------------------|
+| **Direct Chat** | Clicks "Jarvis" in nav or landing page CTA | None specific — fresh session | Full welcome, guide through discovery |
+| **Demo Booking** | User booked a demo call from landing/pricing | `entry_source: "demo_booking"`, selected variants | Immediately proceed to call flow: number -> OTP -> payment -> call |
+| **ROI Calculator** | User completed ROI calculation | `entry_source: "roi"`, full ROI result data | Chat with ROI context — "Based on your ROI, here's how Jarvis saves you..." |
+| **Pricing Page** | User selected variants on Models page | `entry_source: "pricing"`, selected variants + quantities | Skip discovery, show bill summary, proceed to verification |
+| **Demo Pack Purchase** | User already bought the $1 pack | `entry_source: "demo_pack"`, pack active | Welcome back, remind of pack benefits, offer voice call |
+
+### 18.3 Context-Aware Routing Flow
+
+```
+USER ENTERS /onboarding
+        |
+        v
+  CHECK: entry_source in context_json
+        |
+        +------------------+------------------+------------------+------------------+
+        |                  |                  |                  |                  |
+   "demo_booking"    "roi"           "pricing"       "demo_pack"     null (direct)
+        |                  |                  |                  |                  |
+        v                  v                  v                  v                  v
+  Start call flow   Chat with ROI     Show bill         Welcome back      Full welcome
+  (Sec 16)          context          summary card      + offer call     + discovery
+        |                  |                  |                  |                  |
+        |                  |                  |                  |                  |
+        +------------------+------------------+------------------+------------------+
+                                      |
+                                      v
+                          ALL PATHS CONVERGE:
+                          Continue conversation naturally
+                          until user decides to buy
+                                      |
+                                      v
+                          SYSTEMATIC FLOW begins:
+                          Variant selection -> Bill -> OTP ->
+                          Payment -> Handoff
+```
+
+### 18.4 URL Parameters for Entry Context
+
+When users navigate to `/onboarding` from other pages, context is passed via URL parameters and stored in `context_json`:
+
+| Parameter | Example | Source Page | What It Sets |
+|-----------|---------|-------------|-------------|
+| `?entry=demo_booking` | `/onboarding?entry=demo_booking` | Landing page demo CTA | Triggers call flow immediately |
+| `?entry=roi` | `/onboarding?entry=roi` | ROI calculator page | Loads ROI context into conversation |
+| `?variants=returns:3,faq:2` | `/onboarding?entry=pricing&variants=...` | Models/pricing page | Pre-loads variant selections |
+| `?pack=active` | `/onboarding?pack=active` | After demo pack purchase | Shows pack benefits in welcome |
+
+### 18.5 Important: Only Systematic After Buy Decision
+
+The non-linear, adaptive behavior applies UNTIL the user decides to purchase. Once the user clicks "buy" or "proceed to payment", the flow becomes systematic and fixed:
+
+1. Variant selection (if not already done)
+2. Bill summary review
+3. Business email OTP verification
+4. Paddle payment
+5. Handoff to Customer Care Jarvis
+
+This systematic portion CANNOT be skipped or reordered — it is required for payment processing and account setup.
+
+---
+
+## 19. Action Ticket System
+
+### 19.1 Core Concept
+
+Every significant action the user performs through Jarvis is treated as a **ticket** — just like the real tickets the post-purchase Jarvis would handle. This reinforces the "Jarvis IS the product demo" concept by showing the user that the same ticket-handling system they see during onboarding is exactly what they get after purchase.
+
+### 19.2 What Qualifies as an Action Ticket
+
+| Action | Ticket Type | Description |
+|--------|------------|-------------|
+| Business email OTP sent | `otp_verification` | OTP sent to user's email |
+| OTP verified successfully | `otp_verified` | Email verified |
+| Demo Pack purchased | `payment_demo_pack` | $1 payment completed |
+| Variant payment initiated | `payment_variant` | Paddle checkout created |
+| Variant payment completed | `payment_variant_completed` | Subscription active |
+| Demo call initiated | `demo_call` | Call started |
+| Demo call completed | `demo_call_completed` | Call finished with summary |
+| ROI calculation imported | `roi_import` | ROI data brought into context |
+| Handoff executed | `handoff` | Onboarding -> Customer Care transition |
+
+### 19.3 How Tickets Appear in Chat
+
+Each ticket appears as a card in the chat stream with a status indicator:
+
+```
++--------------------------------------------------+
+|  [TICKET] OTP Verification          [Completed]  |
+|                                                   |
+|  Email: john@company.com                         |
+|  OTP sent at: 2:34 PM                            |
+|  Verified at: 2:35 PM                            |
+|  Duration: 42 seconds                             |
+|  Status: Verified successfully                    |
++--------------------------------------------------+
+```
+
+```
++--------------------------------------------------+
+|  [TICKET] Demo Call                 [Completed]  |
+|                                                   |
+|  Phone: +91 98765 43210                          |
+|  Call started: 2:40 PM                            |
+|  Call ended: 2:43 PM                              |
+|  Duration: 2 minutes 58 seconds                   |
+|  Status: Completed successfully                  |
+|  Summary: Discussed refund handling, order     |
+|  tracking, and escalation workflow               |
++--------------------------------------------------+
+```
+
+### 19.4 Ticket Status Lifecycle
+
+```
+PENDING -> IN_PROGRESS -> COMPLETED
+                    -> FAILED
+```
+
+| Status | When | UI Indicator |
+|--------|------|-------------|
+| `pending` | Action initiated but not started | Gray circle with clock icon |
+| `in_progress` | Action is actively happening | Amber circle with spinning icon |
+| `completed` | Action finished successfully | Green circle with checkmark |
+| `failed` | Action failed | Red circle with X icon |
+
+### 19.5 Ticket Data in Context
+
+Tickets are stored in `context_json.tickets` array:
+
+```json
+{
+  "tickets": [
+    {
+      "id": "ticket_uuid",
+      "type": "demo_call",
+      "status": "completed",
+      "created_at": "2026-04-11T14:40:00Z",
+      "completed_at": "2026-04-11T14:43:00Z",
+      "metadata": {
+        "phone": "+91 98765 43210",
+        "duration_seconds": 178,
+        "summary": "Discussed refund handling, order tracking, escalation"
+      }
+    }
+  ]
+}
+```
+
+---
+
+## 20. Post-Call Summary & Result Display
+
+### 20.1 Core Concept
+
+After every demo call ends, Jarvis provides a **detailed summary of what happened during the call** directly in the chat. This serves two purposes:
+
+1. **Demo of the actual Jarvis**: Shows the user that the real Jarvis provides post-interaction summaries — exactly what their customer care Jarvis would do
+2. **Reinforcement**: Reminds the user of everything they experienced during the call, reinforcing the value proposition
+
+### 20.2 What the Summary Includes
+
+```
++--------------------------------------------------+
+|  CALL SUMMARY                                    |
+|                                                   |
+|  Duration: 2 minutes 58 seconds                   |
+|  Topics Discussed:                                |
+|  - Refund request handling                        |
+|  - Order status tracking                          |
+|  - Escalation workflow                            |
+|  - Knowledge base lookup                          |
+|                                                   |
+|  Key Moments:                                     |
+|  [0:15] Analyzed refund eligibility automatically |
+|  [0:42] Generated return label                    |
+|  [1:05] Looked up order status in real-time       |
+|  [1:30] Demonstrated escalation detection          |
+|  [2:00] Showed KB-powered FAQ response            |
+|                                                   |
+|  Your Impressions:                                |
+|  - 5 queries handled in under 3 minutes          |
+|  - Average response time: 8 seconds               |
+|  - 0 human interventions needed                  |
+|                                                   |
+|  [View Full Transcript]  [Share Results]         |
++--------------------------------------------------+
+```
+
+### 20.3 If ROI Context Exists
+
+If the user previously calculated their ROI, the summary card also shows how Jarvis maps to their specific savings:
+
+```
++--------------------------------------------------+
+|  YOUR ROI WITH JARVIS                              |
+|                                                   |
+|  Based on your ROI calculation:                   |
+|  Current monthly support cost: $50,000           |
+|  PARWA cost (Growth plan): $2,499/month           |
+|  Estimated savings: $47,501/month                 |
+|                                                   |
+|  In the call, you saw Jarvis handle 5 queries     |
+|  that would normally take your team 45 minutes.    |
+|  At scale, that's 40+ hours saved per week.       |
+|                                                   |
+|  [Get Started]  [Recharge Demo Pack]             |
++--------------------------------------------------+
+```
+
+### 20.4 Recharge Option
+
+After the call summary, if the demo pack is expired or nearly expired, Jarvis offers:
+
+```
+Jarvis: "I hope you enjoyed the call! Your Demo Pack
+         has [X messages / X minutes] remaining. Would you like to:
+         1. Continue chatting with me
+         2. Recharge with another Demo Pack ($1)
+         3. Subscribe to a full plan for unlimited access"
+```
+
+---
+
+## 21. Files to Create
+
+### 21.1 Backend
 
 | # | File | Description |
-|---|------|-------------|
 | 1 | `database/alembic/versions/013_jarvis_system.py` | Migration for `jarvis_sessions` + `jarvis_messages` |
 | 2 | `database/models/jarvis.py` | SQLAlchemy models |
 | 3 | `backend/app/services/jarvis_service.py` | Core Jarvis AI service |
 | 4 | `backend/app/schemas/jarvis.py` | Pydantic request/response schemas |
 | 5 | `backend/app/api/jarvis.py` | All Jarvis API endpoints |
 
-### 17.2 Frontend
+### 21.2 Frontend
 
 | # | File | Description |
 |---|------|-------------|
@@ -1082,20 +1505,20 @@ Jarvis: "Since you have the Demo Pack, you can also try a 3-minute
 | 19 | `src/hooks/useJarvisChat.ts` | Chat state management hook |
 | 20 | `src/types/jarvis.ts` | TypeScript types |
 
-### 17.3 Tests
+### 21.3 Tests
 
 | # | File | Description |
 |---|------|-------------|
 | 21 | `tests/unit/test_jarvis_service.py` | Backend service tests |
 | 22 | `tests/unit/test_jarvis_api.py` | API endpoint tests |
 
-### 17.4 Mirror (src/ directory)
+### 21.4 Mirror (src/ directory)
 
 All frontend files must be mirrored to `frontend/src/` to keep the two directories in sync.
 
 ---
 
-## 18. Build Order (Priority)
+## 22. Build Order (Priority)
 
 ### Phase 1: Foundation (Day 1)
 
@@ -1160,6 +1583,7 @@ All frontend files must be mirrored to `frontend/src/` to keep the two directori
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | Week 6 Day 8 | Complete Jarvis specification — approved by founder |
+| 2.0 | Week 6 Day 9 | Added: Knowledge Base section (Sec 12), action_tickets DB table, all API endpoints (tickets, demo call, entry context), all frontend card components (6 new), updated hook API with demo call + tickets + entry context, complete message_type enum |
 
 ---
 

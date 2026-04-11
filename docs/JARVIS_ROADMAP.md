@@ -1,9 +1,9 @@
 # PARWA Jarvis Build Roadmap — Complete
 
-> **Document Version:** 2.0
+> **Document Version:** 4.0
 > **Created:** Week 6 Day 8 (April 2026)
-> **Updated:** Week 6 Day 8 — Added Knowledge Base + Error Handling + Session Persistence + Streaming
-> **Based On:** JARVIS_SPECIFICATION.md v1.0
+> **Updated:** Week 6 Day 10 — Added: action_tickets table to migration, Knowledge Service functions, aligned with Spec v3.0
+> **Based On:** JARVIS_SPECIFICATION.md v3.0
 > **Scope:** Complete Jarvis onboarding system — EVERYTHING from code zero to production-ready
 
 ---
@@ -14,11 +14,15 @@
 
 The `/onboarding` page is THE single page where the entire pre-purchase experience happens:
 - Demo chat (conversing with Jarvis)
-- Demo call booking ($1 AI voice call)
+- Demo call booking ($1 AI voice call) — full flow inside chat
+- Post-call summary (Jarvis tells what happened in the call)
+- Action ticket system (every action = ticket with result)
+- ROI context-aware entry (adapts to where user came from)
 - Business email OTP verification
 - Variant payment (Paddle checkout)
 - Bill summary display
 - Handoff to Customer Care Jarvis
+- **Jarvis IS the product demo** — users see the actual product
 
 After onboarding completes, the UI changes completely — dashboard takes over.
 
@@ -33,7 +37,11 @@ After onboarding completes, the UI changes completely — dashboard takes over.
 │  ┌──────────────────────────────────────────────────────────────┐ │
 │  │                       JARVIS CHAT                             │ │
 │  │                                                               │ │
-│  │  Welcome → Demo → Pricing → Bill → OTP → Payment → Handoff  │ │
+│  │  [NON-LINEAR]: Users enter from demo/ROI/pricing/chat       │ │
+│  │  Jarvis adapts based on entry_source in context_json         │ │
+│  │                                                               │ │
+│  │  Demo → ROI Chat → Pricing → Bill → OTP → Payment → Handoff  │ │
+│  │  [All flows inside chat — every action = ticket]           │ │
 │  │                                                               │ │
 │  │  [All flows inside chat — rich cards for interactive actions] │ │
 │  └──────────────────────────────────────────────────────────────┘ │
@@ -53,6 +61,20 @@ After onboarding completes, the UI changes completely — dashboard takes over.
 ---
 
 ## Complete Build Phases (14 Phases, 8 Days)
+
+### NEW in v4.0 (from Spec v3.0)
+
+| Addition | Where | What |
+|----------|-------|------|
+| `jarvis_action_tickets` table | Phase 1 | New DB table for ticket CRUD + independent querying |
+| Knowledge Base section | Phase 7 | 10 JSON files + knowledge service (now fully specified in Spec Sec 12) |
+| Action Ticket System | Phase 2, 4, 6 | Every action treated as ticket with status + result |
+| Post-Call Summary | Phase 6 | Card showing what happened in demo call |
+| Non-Linear Entry Routing | Phase 9 | URL params + context-aware welcome |
+| ActionTicketCard.tsx | Phase 6 | New card component for tickets |
+| PostCallSummaryCard.tsx | Phase 6 | New card for call summary |
+| ticket management endpoints | Phase 3 | New API endpoints for ticket CRUD |
+| entry context endpoint | Phase 3 | New API endpoint for URL param routing |
 
 ---
 
@@ -117,6 +139,30 @@ CREATE INDEX idx_jarvis_sessions_user_active ON jarvis_sessions(user_id, is_acti
 CREATE INDEX idx_jarvis_messages_session_ts ON jarvis_messages(session_id, timestamp);
 CREATE INDEX idx_jarvis_sessions_company ON jarvis_sessions(company_id);
 CREATE INDEX idx_jarvis_knowledge_used_msg ON jarvis_knowledge_used(message_id);
+
+-- jarvis_action_tickets (tracks every user action as a ticket)
+CREATE TABLE jarvis_action_tickets (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id      UUID NOT NULL REFERENCES jarvis_sessions(id) ON DELETE CASCADE,
+    message_id      UUID REFERENCES jarvis_messages(id) ON DELETE SET NULL,
+    ticket_type     VARCHAR(30) NOT NULL
+                    CHECK (ticket_type IN (
+                        'otp_verification', 'otp_verified',
+                        'payment_demo_pack', 'payment_variant', 'payment_variant_completed',
+                        'demo_call', 'demo_call_completed',
+                        'roi_import', 'handoff'
+                    )),
+    status          VARCHAR(15) NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'in_progress', 'completed', 'failed')),
+    result_json     JSONB DEFAULT '{}',
+    metadata_json   JSONB DEFAULT '{}',
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    completed_at    TIMESTAMP
+);
+
+CREATE INDEX idx_jarvis_action_tickets_session ON jarvis_action_tickets(session_id);
+CREATE INDEX idx_jarvis_action_tickets_status ON jarvis_action_tickets(session_id, status);
 ```
 
 #### Files to Create
@@ -124,12 +170,12 @@ CREATE INDEX idx_jarvis_knowledge_used_msg ON jarvis_knowledge_used(message_id);
 | # | File | Lines (est.) | What |
 |---|------|-------------|------|
 | 1 | `database/alembic/versions/012_jarvis_system.py` | ~140 | Migration with all 3 tables + indexes |
-| 2 | `database/models/jarvis.py` | ~120 | `JarvisSession` + `JarvisMessage` + `JarvisKnowledgeUsed` models |
+| 2 | `database/models/jarvis.py` | ~150 | `JarvisSession` + `JarvisMessage` + `JarvisKnowledgeUsed` + `JarvisActionTicket` models |
 
 #### Acceptance Criteria
 - [ ] Migration runs without errors
-- [ ] All 3 models importable and exported from `database/models/__init__.py`
-- [ ] Cascade delete works (deleting session deletes messages + knowledge_used)
+- [ ] All 4 models importable and exported from `database/models/__init__.py` (JarvisSession, JarvisMessage, JarvisKnowledgeUsed, JarvisActionTicket)
+- [ ] Cascade delete works (deleting session deletes messages + knowledge_used + action_tickets)
 
 ---
 
@@ -155,6 +201,9 @@ CREATE INDEX idx_jarvis_knowledge_used_msg ON jarvis_knowledge_used(message_id);
 | `JarvisHandoffRequest` | Handoff execution |
 | `JarvisHistoryResponse` | Paginated chat history |
 | `JarvisError` | Error response format |
+| `JarvisActionTicket` | Action ticket creation + status |
+| `JarvisActionTicketResponse` | Ticket with result + metadata |
+| `JarvisPostCallSummary` | Call summary data + ROI mapping |
 
 #### Service: `backend/app/services/jarvis_service.py`
 
@@ -178,6 +227,12 @@ CREATE INDEX idx_jarvis_knowledge_used_msg ON jarvis_knowledge_used(message_id);
 | `build_system_prompt(db, session_id)` | Dynamic prompt with context + knowledge |
 | `detect_stage(db, session_id)` | Determine conversation stage from context |
 | `handle_error(db, session_id, error)` | Graceful error handling + user-friendly message |
+| `create_action_ticket(db, session_id, type, metadata)` | Create ticket for any user action |
+| `update_ticket_status(db, ticket_id, status)` | Update ticket status (pending/in_progress/completed/failed) |
+| `complete_ticket(db, ticket_id, result_data)` | Mark ticket completed with result data |
+| `get_call_summary(db, session_id, call_id)` | Get post-call summary with topics discussed |
+| `get_entry_context(entry_source, params)` | Parse URL params into context_json |
+| `build_context_aware_welcome(db, session_id)` | Generate welcome based on entry source |
 
 #### Files to Create
 
@@ -221,12 +276,18 @@ CREATE INDEX idx_jarvis_knowledge_used_msg ON jarvis_knowledge_used(message_id);
 | `POST` | `/api/jarvis/demo-call/otp` | `get_current_user` | `verify_call_otp` | Verify phone OTP |
 | `POST` | `/api/jarvis/handoff` | `get_current_user` | `execute_handoff` | Transition to customer care |
 | `GET` | `/api/jarvis/handoff/status` | `get_current_user` | `handoff_status` | Check if handoff done |
+| `POST` | `/api/jarvis/tickets` | `get_current_user` | `create_ticket` | Create action ticket |
+| `GET` | `/api/jarvis/tickets` | `get_current_user` | `get_tickets` | List all tickets for session |
+| `GET` | `/api/jarvis/tickets/:id` | `get_current_user` | `get_ticket` | Get single ticket with result |
+| `PATCH` | `/api/jarvis/tickets/:id/status` | `get_current_user` | `update_ticket_status` | Update ticket status |
+| `GET` | `/api/jarvis/demo-call/summary` | `get_current_user` | `call_summary` | Get post-call summary |
+| `POST` | `/api/jarvis/context/entry` | `get_current_user` | `set_entry_context` | Set entry source from URL params |
 
 #### Files to Create / Update
 
 | # | File | Action |
 |---|------|--------|
-| 5 | `backend/app/api/jarvis.py` | **Create** — full router with all 16 endpoints |
+| 5 | `backend/app/api/jarvis.py` | **Create** — full router with all 21 endpoints |
 | 6 | `backend/app/main.py` | **Update** — register jarvis_router |
 | 7 | `backend/app/api/__init__.py` | **Update** — import jarvis router |
 
@@ -414,7 +475,7 @@ return <JarvisChat />;
 
 ### Phase 6: In-Chat Rich Cards (Day 4 — Full Day)
 
-**Goal:** Interactive card components rendered inline in chat stream.
+**Goal:** Interactive card components rendered inline in chat stream. Includes the NEW action ticket card and post-call summary card.
 
 #### Cards
 
@@ -429,6 +490,9 @@ return <JarvisChat />;
 | 25 | `DemoPackCTA.tsx` | (conditional) | "Upgrade — 500 msgs + AI call for $1" |
 | 26 | `LimitReachedCard.tsx` | `limit_reached` | "Daily limit reached. Come back tomorrow or upgrade." |
 | 27 | `PackExpiredCard.tsx` | `pack_expired` | "Demo pack expired. Options: free tier / repurchase." |
+| 28 | `ActionTicketCard.tsx` | `action_ticket` | Ticket with status indicator (pending/in_progress/completed/failed) + metadata |
+| 29 | `PostCallSummaryCard.tsx` | `call_summary` | Call summary: topics, key moments, impressions + ROI mapping |
+| 30 | `RechargeCTACard.tsx` | `recharge_cta` | Post-call option to recharge Demo Pack or subscribe |
 
 #### How Cards Render Inside Chat
 
@@ -443,6 +507,9 @@ function ChatMessage({ message }) {
     case 'otp_card':     return <OtpVerificationCard ... />;
     case 'handoff_card': return <HandoffCard ... />;
     case 'demo_call_card': return <DemoCallCard ... />;
+    case 'action_ticket': return <ActionTicketCard ... />;
+    case 'call_summary': return <PostCallSummaryCard ... />;
+    case 'recharge_cta': return <RechargeCTACard ... />;
     case 'limit_reached': return <LimitReachedCard />;
     case 'pack_expired': return <PackExpiredCard />;
     case 'error':        return <ErrorBanner message={message.content} />;
@@ -1443,7 +1510,9 @@ Phase 4 (Types) ───┘                          │
 |---------|------|---------|
 | 1.0 | Week 6 Day 8 | Initial 7-day plan (42 files, 14 phases) |
 | 2.0 | Week 6 Day 8 | **Complete** — added Knowledge Base (Phase 7), Session Persistence (Phase 12), Error Handling, expanded to 76 files / 14 phases / 8 days |
+| 3.0 | Week 6 Day 9 | Added: Action Ticket System, Post-Call Summary, Non-Linear Entry Routing, Jarvis-as-Product-Demo |
+| 4.0 | Week 6 Day 10 | Added: `jarvis_action_tickets` DB table, knowledge service functions, aligned with Spec v3.0, fixed phase count |
 
 ---
 
-*This is the complete execution plan for JARVIS_SPECIFICATION.md v1.0. Nothing is left out. Follow phases in order.*
+*This is the complete execution plan for JARVIS_SPECIFICATION.md v3.0. Nothing is left out. Follow phases in order.*
