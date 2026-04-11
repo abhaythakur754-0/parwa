@@ -511,7 +511,7 @@ class TestVariantIsolationSecurityAudit:
         tenant_b = {"tenant_id": "tenant_b", "user_id": "user_2"}
         
         # Attempt cross-tenant access
-        with patch('backend.app.core.tenant_context.get_tenant_id') as mock_tenant:
+        with patch('backend.app.core.tenant_context.get_tenant_context') as mock_tenant:
             mock_tenant.return_value = "tenant_a"
             
             # Should only return tenant_a data
@@ -557,7 +557,7 @@ class TestVariantIsolationSecurityAudit:
         key_data = api_key_service.create_key(tenant_id="tenant_a", name="test_key")
         
         # Using key for tenant_b should fail
-        with patch('backend.app.core.tenant_context.get_tenant_id') as mock:
+        with patch('backend.app.core.tenant_context.get_tenant_context') as mock:
             mock.return_value = "tenant_b"
             # Access should be denied
 
@@ -736,15 +736,16 @@ class TestAPIKeySecurity:
 # =============================================================================
 
 class MockPIIService:
-    """Mock PII redaction service for testing."""
-
+    """Mock PII service for testing."""
+    
     def redact(self, text: str) -> str:
-        """Redact common PII patterns from text."""
+        """Simple redaction for testing."""
         import re
-        redacted = re.sub(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', '[EMAIL_REDACTED]', text)
-        redacted = re.sub(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b', '[PHONE_REDACTED]', redacted)
-        redacted = re.sub(r'\b\d{3}-\d{2}-\d{4}\b', '[SSN_REDACTED]', redacted)
-        return redacted
+        # Simple email redaction
+        text = re.sub(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', '[EMAIL]', text)
+        # Simple phone redaction
+        text = re.sub(r'\d{3}[-.\s]?\d{3}[-.\s]?\d{4}', '[PHONE]', text)
+        return text
 
 
 class TestGDPRComplianceCheck:
@@ -805,10 +806,12 @@ class TestFinancialAIAccuracyAudit:
     def test_proration_calculation_accuracy(self):
         """Test proration calculations are accurate within ±$0.01."""
         # Proration should be accurate to the cent
+        # Formula: (monthly_price / days_in_month) * days_used
+        # Using 30-day standard billing month
         test_cases = [
-            (100.00, 15, 5.00),  # $100/month, 15 days = $5.00
-            (99.99, 30, 99.99),  # Full month
-            (49.99, 1, 1.67),    # One day
+            (100.00, 15, 50.00),  # $100/month, 15 days = $50.00 (100/30*15)
+            (99.99, 30, 99.99),   # Full month = full price
+            (49.99, 1, 1.67),     # One day = $49.99/30 = $1.67
         ]
         
         for monthly_price, days_used, expected in test_cases:
