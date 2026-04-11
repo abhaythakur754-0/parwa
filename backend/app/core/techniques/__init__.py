@@ -27,12 +27,40 @@ from app.core.techniques.react import ReActNode  # noqa: F401
 from app.core.techniques.thread_of_thought import ThreadOfThoughtNode  # noqa: F401
 from app.core.techniques.gst import GSTNode  # noqa: F401
 
-# Stub nodes — full implementations in their respective weeks
+# Real technique node implementations (Day 19)
+from app.core.techniques.universe_of_thoughts import (  # noqa: F401
+    UniverseOfThoughtsNode,
+    UoTProcessor,
+)
+from app.core.techniques.self_consistency import (  # noqa: F401
+    SelfConsistencyNode,
+    SelfConsistencyProcessor,
+)
+from app.core.techniques.reflexion import (  # noqa: F401
+    ReflexionNode,
+    ReflexionProcessor,
+)
+from app.core.techniques.tree_of_thoughts import (  # noqa: F401
+    TreeOfThoughtsNode,
+    ToTProcessor,
+)
+from app.core.techniques.least_to_most import (  # noqa: F401
+    LeastToMostNode,
+    LeastToMostProcessor,
+)
+
+# Stub nodes — placeholder delegates and CRPNode
 from app.core.techniques.stub_nodes import (  # noqa: F401
     CRPNode,
-    UniverseOfThoughtsNode,
-    TreeOfThoughtsNode,
-    SelfConsistencyNode,
-    ReflexionNode,
-    LeastToMostNode,
+    ReverseThinkingNodePlaceholder,
+    StepBackNodePlaceholder,
+    ChainOfThoughtNodePlaceholder,
+    ReActNodePlaceholder,
+    ThreadOfThoughtNodePlaceholder,
+    GSTNodePlaceholder,
+    UniverseOfThoughtsNodePlaceholder,
+    TreeOfThoughtsNodePlaceholder,
+    SelfConsistencyNodePlaceholder,
+    ReflexionNodePlaceholder,
+    LeastToMostNodePlaceholder,
 )
