@@ -30,19 +30,9 @@ const GROQ_KEY = process.env.GROQ_API_KEY;
 const PRIMARY_PROVIDER = process.env.LLM_PRIMARY_PROVIDER || 'google';
 const FALLBACK_PROVIDER = process.env.LLM_FALLBACK_PROVIDER || 'groq';
 
-interface ProviderConfig {
-  name: string;
-  apiKey: string | undefined;
-  model: string;
-  apiUrl: string;
-  buildHeaders: (key: string) => Record<string, string>;
-  buildBody: (messages: ChatMessage[], model: string, maxTokens: number) => string;
-  parseResponse: (data: unknown) => string | null;
-}
-
 // ── Provider Definitions ──────────────────────────────────────
 
-function getGoogleProvider(): ProviderConfig {
+function getGoogleProvider(): any {
   return {
     name: 'google',
     apiKey: GOOGLE_AI_KEY,
@@ -64,13 +54,13 @@ function getGoogleProvider(): ProviderConfig {
       });
     },
     parseResponse: (data) => {
-      const d = data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+      const d = data;
       return d?.candidates?.[0]?.content?.parts?.[0]?.text || null;
     },
   };
 }
 
-function getCerebrasProvider(): ProviderConfig {
+function getCerebrasProvider(): any {
   return {
     name: 'cerebras',
     apiKey: CEREBRAS_KEY,
@@ -87,13 +77,13 @@ function getCerebrasProvider(): ProviderConfig {
       max_tokens: 500,
     }),
     parseResponse: (data) => {
-      const d = data as { choices?: Array<{ message?: { content?: string }> } };
+      const d = data;
       return d?.choices?.[0]?.message?.content || null;
     },
   };
 }
 
-function getGroqProvider(): ProviderConfig {
+function getGroqProvider(): any {
   return {
     name: 'groq',
     apiKey: GROQ_KEY,
@@ -110,13 +100,13 @@ function getGroqProvider(): ProviderConfig {
       max_tokens: 500,
     }),
     parseResponse: (data) => {
-      const d = data as { choices?: Array<{ message?: { content?: string }> } };
+      const d = data;
       return d?.choices?.[0]?.message?.content || null;
     },
   };
 }
 
-function getProvider(name: string): ProviderConfig | null {
+function getProvider(name: string): any | null {
   switch (name) {
     case 'google': return GOOGLE_AI_KEY ? getGoogleProvider() : null;
     case 'cerebras': return CEREBRAS_KEY ? getCerebrasProvider() : null;
@@ -127,12 +117,7 @@ function getProvider(name: string): ProviderConfig | null {
 
 // ── AI Call with Smart Routing ──────────────────────────────────
 
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-async function callAI(messages: ChatMessage[]): Promise<string> {
+async function callAI(messages: Array<{role: string, content: string}>): Promise<string> {
   // Try primary provider first
   const primary = getProvider(PRIMARY_PROVIDER);
   if (primary) {
@@ -140,7 +125,7 @@ async function callAI(messages: ChatMessage[]): Promise<string> {
       const result = await callProvider(primary, messages);
       if (result) return result;
     } catch (error) {
-      console.warn(`[Jarvis] Primary provider "${primary.name}" failed:`, (error as Error)?.message?.slice(0, 100));
+      console.warn(`[Jarvis] Primary provider "${primary.name}" failed:`, (error instanceof Error ? error.message : String(error))?.slice(0, 100));
     }
   }
 
@@ -152,7 +137,7 @@ async function callAI(messages: ChatMessage[]): Promise<string> {
         const result = await callProvider(fallback, messages);
         if (result) return result;
       } catch (error) {
-        console.warn(`[Jarvis] Fallback provider "${fallback.name}" failed:`, (error as Error)?.message?.slice(0, 100));
+        console.warn(`[Jarvis] Fallback provider "${fallback.name}" failed:`, (error instanceof Error ? error.message : String(error))?.slice(0, 100));
       }
     }
   }
@@ -167,7 +152,7 @@ async function callAI(messages: ChatMessage[]): Promise<string> {
         const result = await callProvider(provider, messages);
         if (result) return result;
       } catch (error) {
-        console.warn(`[Jarvis] Provider "${name}" failed:`, (error as Error)?.message?.slice(0, 100));
+        console.warn(`[Jarvis] Provider "${name}" failed:`, (error instanceof Error ? error.message : String(error))?.slice(0, 100));
       }
     }
   }
@@ -177,7 +162,7 @@ async function callAI(messages: ChatMessage[]): Promise<string> {
   return null;
 }
 
-async function callProvider(provider: ProviderConfig, messages: ChatMessage[]): Promise<string | null> {
+async function callProvider(provider: any, messages: Array<{role: string, content: string}>): Promise<string | null> {
   if (!provider.apiKey) return null;
 
   const response = await fetch(provider.apiUrl, {
@@ -204,7 +189,7 @@ async function callProvider(provider: ProviderConfig, messages: ChatMessage[]): 
 
 // ── PARWA System Prompt — Complete Knowledge Base ──────────────────
 
-function buildSystemPrompt(session: InMemorySession): string {
+function buildSystemPrompt(session: any): string {
   const ctx = session.context;
 
   return `You are Jarvis, PARWA's AI assistant. You represent what clients get when they hire our AI customer support agents. You are helpful, professional, and slightly futuristic — think Iron Man's Jarvis.
@@ -364,10 +349,10 @@ INFORMATION BOUNDARY — CRITICAL RULES
 7. If asked about internals, redirect: "I can tell you about what PARWA can do for YOUR business."
 8. Focus on BENEFITS and OUTCOMES, not implementation details.
 ═══════════════════════════════════════════════════════════
-${ctx.industry ? `\nCONVERSATION CONTEXT:\n- User is interested in the ${(ctx.industry as string).toUpperCase()} industry.` : ''}
-${ctx.selected_variants && Array.isArray(ctx.selected_variants) && (ctx.selected_variants as unknown[]).length > 0 ? `- User has selected variants: ${JSON.stringify(ctx.selected_variants)}.` : ''}
-${ctx.referral_source ? `- Referral source: ${ctx.referral_source as string}.` : ''}
-${ctx.pages_visited && Array.isArray(ctx.pages_visited) && (ctx.pages_visited as unknown[]).length > 0 ? `- Pages visited: ${(ctx.pages_visited as string[]).join(', ')}.` : ''}
+${ctx.industry ? `\nCONVERSATION CONTEXT:\n- User is interested in the ${String(ctx.industry || '').toUpperCase()} industry.` : ''}
+${ctx.selected_variants && Array.isArray(ctx.selected_variants) && ctx.selected_variants.length > 0 ? `- User has selected variants: ${JSON.stringify(ctx.selected_variants)}.` : ''}
+${ctx.referral_source ? `- Referral source: ${ctx.referral_source || ''}.` : ''}
+${ctx.pages_visited && Array.isArray(ctx.pages_visited) && ctx.pages_visited.length > 0 ? `- Pages visited: ${ctx.pages_visited.join(', ')}.` : ''}
 
 RULES:
 - Always maintain the Jarvis persona
@@ -381,30 +366,13 @@ RULES:
 
 // ── In-Memory Stores ──────────────────────────────────────────────
 
-interface InMemorySession {
-  id: string;
-  type: 'onboarding';
-  context: Record<string, unknown>;
-  messages: Record<string, unknown>[];
-  message_count_today: number;
-  total_message_count: number;
-  remaining_today: number;
-  pack_type: 'free' | 'demo';
-  is_active: boolean;
-  payment_status: 'none' | 'pending' | 'completed' | 'failed';
-  handoff_completed: boolean;
-  detected_stage: string;
-  created_at: string;
-  updated_at: string;
-}
-
-const sessions = new Map<string, InMemorySession>();
+const sessions = new Map();
 
 function generateId(): string {
   return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function createDefaultSession(entrySource?: string, entryParams?: Record<string, unknown>): InMemorySession {
+function createDefaultSession(entrySource?: string, entryParams?: Record<string, unknown>) {
   return {
     id: generateId(),
     type: 'onboarding',
@@ -438,19 +406,19 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
 
 // ── AI Response Handler ──────────────────────────────────────────
 
-async function getAIResponse(userMessage: string, session: InMemorySession): Promise<string> {
+async function getAIResponse(userMessage: string, session: any): Promise<string> {
   // 1. Build system prompt with full PARWA knowledge
   const systemPrompt = buildSystemPrompt(session);
 
   // 2. Build conversation history (last 6 messages for context)
-  const messages: ChatMessage[] = [
+  const messages = [
     { role: 'system', content: systemPrompt },
   ];
   const recentMessages = session.messages.slice(-6);
   for (const msg of recentMessages) {
     messages.push({
-      role: msg.role as string,
-      content: msg.content as string,
+      role: String(msg.role),
+      content: String(msg.content),
     });
   }
   messages.push({ role: 'user', content: userMessage });
@@ -465,10 +433,10 @@ async function getAIResponse(userMessage: string, session: InMemorySession): Pro
 
 // ── Keyword Fallback (Offline Safety Net) ────────────────────────
 
-function getKeywordResponse(message: string, session: InMemorySession): string {
+function getKeywordResponse(message: string, session: any): string {
   const lower = message.toLowerCase();
   const ctx = session.context;
-  const industry = ctx.industry as string | null;
+  const industry = ctx.industry || null;
 
   if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|sup|yo)\b/.test(lower)) {
     return `Hey there! Welcome to PARWA. I'm Jarvis, your AI assistant. I help businesses like yours find the perfect AI customer support plan.\n\nTo get started, could you tell me:\n- What industry are you in? (E-commerce, SaaS, Logistics, Healthcare, etc.)\n- Roughly how many support tickets do you get per day?`;
@@ -531,13 +499,13 @@ function getKeywordResponse(message: string, session: InMemorySession): string {
   }
 
   if (industry) {
-    return `Thanks for sharing! Based on your interest in ${(industry as string).charAt(0).toUpperCase() + (industry as string).slice(1)}, here's my recommendation:\n\nPARWA automates up to **80% of your customer support** with AI trained for ${(industry as string)} workflows.\n\nTo give you the best recommendation:\n- How many support tickets do you handle daily?\n- Do you need phone/voice support, or is chat + email enough?\n- Any specific pain points with your current setup?`;
+    return `Thanks for sharing! Based on your interest in ${String(industry || '').charAt(0).toUpperCase() + String(industry || '').slice(1)}, here's my recommendation:\n\nPARWA automates up to **80% of your customer support** with AI trained for ${String(industry || '')} workflows.\n\nTo give you the best recommendation:\n- How many support tickets do you handle daily?\n- Do you need phone/voice support, or is chat + email enough?\n- Any specific pain points with your current setup?`;
   }
 
   return `I'd love to help you find the right PARWA plan! Tell me:\n\n1. **Your industry** — E-commerce, SaaS, Logistics, Healthcare, or other?\n2. **Daily ticket volume** — How many support queries per day?\n3. **Current setup** — Any helpdesk tools in use?\n4. **Biggest pain point** — What takes most of your team's time?\n\nPARWA typically saves businesses **85-92% on support costs** — real money back in your pocket!`;
 }
 
-function detectStage(message: string, session: InMemorySession): string {
+function detectStage(message: string, session: any): string {
   const lower = message.toLowerCase();
   const ctx = session.context;
 
@@ -549,7 +517,7 @@ function detectStage(message: string, session: InMemorySession): string {
   if (lower.includes('handoff') || lower.includes('transfer') || lower.includes('human')) return 'handoff';
   if (lower.includes('bill') || lower.includes('invoice') || lower.includes('receipt')) return 'bill_review';
   if (!ctx.industry && (lower.includes('ecommerce') || lower.includes('saas') || lower.includes('logistics') || lower.includes('healthcare') || lower.includes('e-commerce') || lower.includes('retail'))) return 'discovery';
-  return ctx.detected_stage as string || 'discovery';
+  return ctx.detected_stage || 'discovery';
 }
 
 // ── Route Handler ─────────────────────────────────────────────────
@@ -624,8 +592,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       // Add message counter after first AI response
       if (session.message_count_today >= 2 && session.messages.length >= 4) {
-        const lastNonText = [...session.messages].reverse().find((m: Record<string, unknown>) => m.message_type !== 'text');
-        if (!lastNonText || (lastNonText.timestamp as string) !== aiMsg.timestamp) {
+        const lastNonText = [...session.messages].reverse().find((m) => m.message_type !== 'text');
+        if (!lastNonText || String(lastNonText.timestamp) !== aiMsg.timestamp) {
           const counterMsg = {
             id: `counter_${Date.now()}`,
             session_id: session.id,
@@ -651,7 +619,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
-      const session = sessions.get(sessionId)!;
+      const session = sessions.get(sessionId);
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
@@ -668,7 +636,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = await request.json();
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       if (sessions.has(sessionId)) {
-        const session = sessions.get(sessionId)!;
+        const session = sessions.get(sessionId);
         session.context = {
           ...session.context,
           otp: { code: otp, email: body.email, attempts: 0, attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), status: 'sent' },
@@ -686,15 +654,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
-      const session = sessions.get(sessionId)!;
-      const otpData = session.context.otp as Record<string, unknown> | undefined;
+      const session = sessions.get(sessionId);
+      const otpData = session.context.otp;
       if (!otpData || otpData.code !== body.code) {
-        return NextResponse.json({ message: 'Invalid OTP code. Please try again.', status: 'failed', attempts_remaining: Math.max(0, ((otpData?.attempts_remaining as number) || 3) - 1) });
+        return NextResponse.json({ message: 'Invalid OTP code. Please try again.', status: 'failed', attempts_remaining: Math.max(0, (Number(otpData?.attempts_remaining || 3)) - 1) });
       }
       session.context = { ...session.context, otp: { ...otpData, status: 'verified', verified_at: new Date().toISOString() }, email_verified: true, business_email: body.email || otpData.email };
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
-      return NextResponse.json({ message: 'Email verified successfully!', status: 'verified', attempts_remaining: (otpData.attempts_remaining as number) });
+      return NextResponse.json({ message: 'Email verified successfully!', status: 'verified', attempts_remaining: Number(otpData?.attempts_remaining) });
     }
 
     // ── POST /demo-pack/purchase ────────────────────────────────
@@ -704,7 +672,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId || !sessions.has(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId)!;
+      const session = sessions.get(sessionId);
       session.pack_type = 'demo';
       session.remaining_today = 500;
       session.updated_at = new Date().toISOString();
@@ -720,7 +688,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
-      const totalAmount = (body.variants || []).reduce((sum: number, v: Record<string, unknown>) => sum + ((v.price_per_month || v.price || 999) as number), 0);
+      const totalAmount = (body.variants || []).reduce((sum, v) => sum + Number(v.price_per_month || v.price || 999), 0);
       return NextResponse.json({ checkout_url: `https://pay.paddle.com/checkout/demo-${Date.now()}`, transaction_id: `txn_${Date.now()}`, status: 'pending', amount: `$${totalAmount.toLocaleString()}/mo`, currency: 'USD' });
     }
 
@@ -742,7 +710,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId || !sessions.has(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId)!;
+      const session = sessions.get(sessionId);
       session.handoff_completed = true;
       session.detected_stage = 'handoff';
       session.updated_at = new Date().toISOString();

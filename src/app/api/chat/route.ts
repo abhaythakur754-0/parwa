@@ -89,7 +89,7 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
     const result = await callGoogleAI(messages);
     if (result && result.trim().length > 10) return result.trim();
   } catch (e) {
-    console.warn('[Chat API] Google AI failed:', (e as Error)?.message?.slice(0, 100));
+    console.warn('[Chat API] Google AI failed:', (e instanceof Error ? e.message : String(e))?.slice(0, 100));
   }
 
   // Try Groq
@@ -97,7 +97,7 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
     const result = await callGroq(messages);
     if (result && result.trim().length > 10) return result.trim();
   } catch (e) {
-    console.warn('[Chat API] Groq failed:', (e as Error)?.message?.slice(0, 100));
+    console.warn('[Chat API] Groq failed:', (e instanceof Error ? e.message : String(e))?.slice(0, 100));
   }
 
   // Try Cerebras
@@ -105,7 +105,7 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
     const result = await callCerebras(messages);
     if (result && result.trim().length > 10) return result.trim();
   } catch (e) {
-    console.warn('[Chat API] Cerebras failed:', (e as Error)?.message?.slice(0, 100));
+    console.warn('[Chat API] Cerebras failed:', (e instanceof Error ? e.message : String(e))?.slice(0, 100));
   }
 
   return null;
