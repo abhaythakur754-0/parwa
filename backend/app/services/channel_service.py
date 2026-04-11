@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, func, or_
@@ -200,8 +200,8 @@ class ChannelService:
                 char_limit=char_limit,
                 allowed_file_types=json.dumps(allowed_file_types or DEFAULT_ALLOWED_FILE_TYPES),
                 max_file_size=max_file_size,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
             )
             self.db.add(config)
         else:
@@ -217,7 +217,7 @@ class ChannelService:
                 config.allowed_file_types = json.dumps(allowed_file_types)
             if max_file_size is not None:
                 config.max_file_size = max_file_size
-            config.updated_at = datetime.utcnow()
+            config.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(config)
@@ -248,7 +248,7 @@ class ChannelService:
             "channel_type": channel_type,
             "success": True,
             "message": "Channel connectivity verified",
-            "tested_at": datetime.utcnow().isoformat(),
+            "tested_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Channel-specific validation
@@ -401,15 +401,15 @@ class ChannelService:
         # Update ticket status to queued
         old_status = ticket.status
         ticket.status = TicketStatus.queued.value
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         # Store variant failure metadata
         metadata = json.loads(ticket.metadata_json or "{}")
         metadata["variant_failure"] = {
-            "queued_at": datetime.utcnow().isoformat(),
+            "queued_at": datetime.now(timezone.utc).isoformat(),
             "channel_type": channel_type,
             "retry_count": 0,
-            "next_retry_at": (datetime.utcnow() + timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat(),
+            "next_retry_at": (datetime.now(timezone.utc) + timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat(),
         }
         ticket.metadata_json = json.dumps(metadata)
 
@@ -431,7 +431,7 @@ class ChannelService:
         Returns:
             List of tickets requiring action
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         retry_threshold = now - timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)
         fallback_threshold = now - timedelta(minutes=self.HUMAN_FALLBACK_THRESHOLD_MINUTES)
 
@@ -510,11 +510,11 @@ class ChannelService:
         else:
             # Increment retry count
             failure_info["retry_count"] = failure_info.get("retry_count", 0) + 1
-            failure_info["next_retry_at"] = (datetime.utcnow() + timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat()
+            failure_info["next_retry_at"] = (datetime.now(timezone.utc) + timedelta(minutes=self.VARIANT_RETRY_DELAY_MINUTES)).isoformat()
             metadata["variant_failure"] = failure_info
 
         ticket.metadata_json = json.dumps(metadata)
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(ticket)
@@ -556,7 +556,7 @@ class ChannelService:
         # Update metadata
         metadata = json.loads(ticket.metadata_json or "{}")
         metadata["human_escalation"] = {
-            "escalated_at": datetime.utcnow().isoformat(),
+            "escalated_at": datetime.now(timezone.utc).isoformat(),
             "reason": reason,
             "from_status": old_status,
         }
@@ -565,7 +565,7 @@ class ChannelService:
             del metadata["variant_failure"]
 
         ticket.metadata_json = json.dumps(metadata)
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(ticket)

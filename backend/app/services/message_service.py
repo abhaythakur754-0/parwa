@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, func, or_
@@ -114,17 +114,17 @@ class MessageService:
             metadata_json=json.dumps(metadata_json or {}),
             ai_confidence=ai_confidence,
             variant_version=variant_version,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         self.db.add(message)
 
         # Update ticket's updated_at timestamp
-        ticket.updated_at = datetime.utcnow()
+        ticket.updated_at = datetime.now(timezone.utc)
 
         # If first response, update ticket's first_response_at
         if not ticket.first_response_at and role in ["agent", "ai"]:
-            ticket.first_response_at = datetime.utcnow()
+            ticket.first_response_at = datetime.now(timezone.utc)
 
         # Handle attachments
         if attachments:
@@ -138,7 +138,7 @@ class MessageService:
                     file_size=att.get("file_size"),
                     mime_type=att.get("mime_type"),
                     uploaded_by=user_id,
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 self.db.add(attachment)
 
@@ -261,7 +261,7 @@ class MessageService:
             edit_deadline = message.created_at + timedelta(
                 minutes=self.EDIT_WINDOW_MINUTES
             )
-            if datetime.utcnow() > edit_deadline:
+            if datetime.now(timezone.utc) > edit_deadline:
                 raise ValidationError(
                     f"Message can only be edited within {self.EDIT_WINDOW_MINUTES} minutes"
                 )
@@ -321,7 +321,7 @@ class MessageService:
             message.content = "[DELETED]"
             metadata = json.loads(message.metadata_json or "{}")
             metadata["deleted"] = True
-            metadata["deleted_at"] = datetime.utcnow().isoformat()
+            metadata["deleted_at"] = datetime.now(timezone.utc).isoformat()
             metadata["deleted_by"] = user_id
             message.metadata_json = json.dumps(metadata)
 
@@ -361,7 +361,7 @@ class MessageService:
 
         metadata = json.loads(message.metadata_json or "{}")
         metadata["redacted"] = True
-        metadata["redacted_at"] = datetime.utcnow().isoformat()
+        metadata["redacted_at"] = datetime.now(timezone.utc).isoformat()
         metadata["redacted_by"] = user_id
         metadata["redaction_reason"] = reason
         message.metadata_json = json.dumps(metadata)

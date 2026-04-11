@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, or_
@@ -132,8 +132,8 @@ class TriggerService:
             priority_order=priority_order,
             execution_count=0,
             created_by=created_by,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         self.db.add(trigger)
@@ -318,7 +318,7 @@ class TriggerService:
         if priority_order is not None:
             trigger.priority_order = priority_order
 
-        trigger.updated_at = datetime.utcnow()
+        trigger.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(trigger)
@@ -337,7 +337,7 @@ class TriggerService:
         trigger = self.get_trigger(trigger_id)
 
         trigger.is_active = False
-        trigger.updated_at = datetime.utcnow()
+        trigger.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
 
@@ -355,7 +355,7 @@ class TriggerService:
         """
         trigger = self.get_trigger(trigger_id)
         trigger.is_active = is_active
-        trigger.updated_at = datetime.utcnow()
+        trigger.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(trigger)
@@ -398,7 +398,7 @@ class TriggerService:
             if self._evaluate_conditions(ticket, conditions.get("conditions", [])):
                 # Mark as executed
                 trigger.execution_count = (trigger.execution_count or 0) + 1
-                trigger.last_executed_at = datetime.utcnow()
+                trigger.last_executed_at = datetime.now(timezone.utc)
 
                 action = json.loads(trigger.action or "{}")
                 executed_actions.append({

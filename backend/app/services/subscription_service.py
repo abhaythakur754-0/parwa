@@ -445,8 +445,35 @@ class SubscriptionService:
                 }
 
             # Schedule downgrade at period end
-            # Store pending variant change (would typically use a separate table)
-            # For now, we mark cancel_at_period_end and will handle in billing
+            # Store pending variant change on the subscription record (H2 fix)
+
+            # Persist the pending downgrade on the subscription model.
+            # pending_downgrade_variant: the tier to switch to at period end.
+            # TODO(GAP-H2): Add a `pending_downgrade_variant` column to the
+            # Subscription DB model (String, nullable) if it doesn't exist yet.
+            # For now we use cancel_at_period_end as a signal flag and store
+            # the target variant as a JSON-serialisable attribute.
+            subscription.cancel_at_period_end = True
+            now_ts = datetime.now(timezone.utc)
+            if hasattr(subscription, "pending_downgrade_variant"):
+                subscription.pending_downgrade_variant = new_variant
+            if hasattr(subscription, "pending_downgrade_at"):
+                subscription.pending_downgrade_at = now_ts
+            else:
+                # Store in metadata_json if column doesn't exist yet
+                import json as _json
+                meta = {}
+                if subscription.metadata_json:
+                    try:
+                        meta = _json.loads(subscription.metadata_json)
+                    except (TypeError, ValueError):
+                        pass
+                meta["pending_downgrade_variant"] = new_variant
+                meta["pending_downgrade_at"] = now_ts.isoformat()
+                subscription.metadata_json = _json.dumps(meta)
+
+            db.commit()
+            db.refresh(subscription)
 
             logger.info(
                 "subscription_downgrade_scheduled "

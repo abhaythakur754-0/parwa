@@ -13,7 +13,7 @@ BC-001: All endpoints are tenant-scoped.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -114,7 +114,7 @@ def parse_date_range(
     if start_date and end_date:
         return DateRange(start_date=start_date, end_date=end_date)
     elif start_date:
-        return DateRange(start_date=start_date, end_date=datetime.utcnow())
+        return DateRange(start_date=start_date, end_date=datetime.now(timezone.utc))
     elif end_date:
         return DateRange(
             start_date=end_date - __import__('datetime').timedelta(days=default_days),

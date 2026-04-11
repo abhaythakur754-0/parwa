@@ -10,7 +10,7 @@ Handles:
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -119,12 +119,12 @@ class IncidentService:
                 {
                     "status": Incident.STATUS_ACTIVE,
                     "message": "Incident created",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             ],
             "created_by": created_by,
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
             "resolved_at": None,
         }
         
@@ -168,20 +168,20 @@ class IncidentService:
         
         # Update status
         incident["status"] = new_status
-        incident["updated_at"] = datetime.utcnow().isoformat()
+        incident["updated_at"] = datetime.now(timezone.utc).isoformat()
         
         # Add status update
         status_update = {
             "status": new_status,
             "message": message or f"Status changed from {old_status} to {new_status}",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "updated_by": updated_by,
         }
         incident["status_updates"].append(status_update)
         
         # Handle resolution
         if new_status == Incident.STATUS_RESOLVED:
-            incident["resolved_at"] = datetime.utcnow().isoformat()
+            incident["resolved_at"] = datetime.now(timezone.utc).isoformat()
         
         # Store updated incident
         self._store_incident(incident)
@@ -234,7 +234,7 @@ class IncidentService:
         
         if ticket_id not in incident["linked_ticket_ids"]:
             incident["linked_ticket_ids"].append(ticket_id)
-            incident["updated_at"] = datetime.utcnow().isoformat()
+            incident["updated_at"] = datetime.now(timezone.utc).isoformat()
             
             self._store_incident(incident)
             
@@ -262,7 +262,7 @@ class IncidentService:
         
         if ticket_id in incident["linked_ticket_ids"]:
             incident["linked_ticket_ids"].remove(ticket_id)
-            incident["updated_at"] = datetime.utcnow().isoformat()
+            incident["updated_at"] = datetime.now(timezone.utc).isoformat()
             
             self._store_incident(incident)
             
@@ -292,7 +292,7 @@ class IncidentService:
             if customer_id not in incident["affected_customer_ids"]:
                 incident["affected_customer_ids"].append(customer_id)
         
-        incident["updated_at"] = datetime.utcnow().isoformat()
+        incident["updated_at"] = datetime.now(timezone.utc).isoformat()
         
         self._store_incident(incident)
         

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -125,7 +125,7 @@ class BaseTechniqueNode(ABC):
             "status": ExecutionResultStatus.SUCCESS.value,
             "result": result,
             "tokens_used": tokens_used or self.technique_info.estimated_tokens,
-            "executed_at": datetime.utcnow().isoformat(),
+            "executed_at": datetime.now(timezone.utc).isoformat(),
         }
         state.token_usage += tokens_used or self.technique_info.estimated_tokens
 
@@ -138,7 +138,7 @@ class BaseTechniqueNode(ABC):
         state.technique_results[self.technique_id.value] = {
             "status": ExecutionResultStatus.SKIPPED_BUDGET.value,
             "reason": reason,
-            "executed_at": datetime.utcnow().isoformat(),
+            "executed_at": datetime.now(timezone.utc).isoformat(),
         }
 
 

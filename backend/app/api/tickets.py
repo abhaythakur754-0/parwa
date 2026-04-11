@@ -15,7 +15,7 @@ BC-001: All endpoints are tenant-isolated.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -724,7 +724,7 @@ def _ticket_to_response(ticket: Any) -> TicketResponse:
         except (json.JSONDecodeError, TypeError):
             plan_snapshot = {}
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     return TicketResponse(
         id=ticket.id,

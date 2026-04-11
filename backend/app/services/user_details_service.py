@@ -232,7 +232,7 @@ def create_or_update_user_details(
         details.industry = industry
         details.company_size = company_size
         details.website = website
-        details.updated_at = datetime.utcnow()
+        details.updated_at = datetime.now(timezone.utc)
 
         # Only update work_email if provided and different
         if work_email and work_email != details.work_email:
@@ -359,7 +359,7 @@ def send_work_email_verification(
     # Generate verification token
     token = secrets.token_urlsafe(32)
     details.work_email_verification_token = token
-    details.work_email_verification_sent_at = datetime.utcnow()
+    details.work_email_verification_sent_at = datetime.now(timezone.utc)
 
     db.commit()
 
@@ -605,4 +605,4 @@ def _mark_details_completed(
         db.add(session)
     else:
         session.details_completed = True
-        session.updated_at = datetime.utcnow()
+        session.updated_at = datetime.now(timezone.utc)

@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, func, or_
@@ -114,8 +114,8 @@ class TemplateService:
             is_active=True,
             version=1,
             created_by=created_by,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         self.db.add(template)
@@ -263,7 +263,7 @@ class TemplateService:
         if language is not None:
             template.language = language
 
-        template.updated_at = datetime.utcnow()
+        template.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(template)
@@ -286,7 +286,7 @@ class TemplateService:
 
         # Soft delete
         template.is_active = False
-        template.updated_at = datetime.utcnow()
+        template.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
 

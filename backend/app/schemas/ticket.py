@@ -17,7 +17,7 @@ Day 24 (Week 4 Day 1): Full ticket system schema support.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -378,7 +378,7 @@ class TicketResponse(BaseModel):
         self.is_closed = self.status in TicketStatus.CLOSED_STATUSES
 
         # Compute time deltas
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if self.created_at:
             self.time_since_created = self._format_timedelta(now - self.created_at)

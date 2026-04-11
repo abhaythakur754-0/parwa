@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
 
 from sqlalchemy.orm import Session
@@ -99,8 +99,8 @@ class CollisionService:
         user_session_key = f"{redis_key}:user:{user_id}"
         session_data = {
             "session_id": session_id,
-            "started_at": datetime.utcnow().isoformat(),
-            "last_activity_at": datetime.utcnow().isoformat(),
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "last_activity_at": datetime.now(timezone.utc).isoformat(),
         }
         self.redis.setex(
             user_session_key,
@@ -256,7 +256,7 @@ class CollisionService:
 
         if existing:
             # Update existing record
-            existing.last_activity_at = datetime.utcnow()
+            existing.last_activity_at = datetime.now(timezone.utc)
             self.db.commit()
             return existing
 
@@ -266,10 +266,10 @@ class CollisionService:
             company_id=self.company_id,
             ticket_id=ticket_id,
             user_id=user_id,
-            started_at=datetime.utcnow(),
-            last_activity_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
+            last_activity_at=datetime.now(timezone.utc),
             is_active=True,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         self.db.add(collision)
@@ -390,7 +390,7 @@ class CollisionService:
         if session_data:
             try:
                 data = json.loads(session_data)
-                data["last_activity_at"] = datetime.utcnow().isoformat()
+                data["last_activity_at"] = datetime.now(timezone.utc).isoformat()
                 self.redis.setex(user_session_key, self.VIEWER_TTL, json.dumps(data))
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -402,7 +402,7 @@ class CollisionService:
             TicketCollision.user_id == user_id,
             TicketCollision.is_active == True,
         ).update({
-            "last_activity_at": datetime.utcnow(),
+            "last_activity_at": datetime.now(timezone.utc),
         })
         self.db.commit()
 
@@ -427,7 +427,7 @@ class CollisionService:
         """
         # Mark all active sessions as inactive
         # Redis handles the actual viewer tracking, DB is for history
-        cutoff = datetime.utcnow() - timedelta(seconds=self.VIEWER_TTL * 2)
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=self.VIEWER_TTL * 2)
 
         result = self.db.query(TicketCollision).filter(
             TicketCollision.company_id == self.company_id,

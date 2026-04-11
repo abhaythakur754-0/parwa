@@ -226,12 +226,12 @@ def authenticate_user(
         user.failed_login_count = (
             user.failed_login_count or 0
         ) + 1
-        user.last_failed_login_at = datetime.utcnow()
+        user.last_failed_login_at = datetime.now(timezone.utc)
         db.flush()
 
         if user.failed_login_count >= _MAX_FAILED_ATTEMPTS:
             # Lock account for 15 minutes
-            lock_until = datetime.utcnow() + timedelta(
+            lock_until = datetime.now(timezone.utc) + timedelta(
                 minutes=_LOCKOUT_DURATION_MINUTES
             )
             user.locked_until = lock_until

@@ -10,6 +10,7 @@ Token creation, verification, and refresh rotation.
 """
 
 import hashlib
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -21,6 +22,13 @@ from app.exceptions import AuthenticationError
 
 # JWT algorithm — HS256 is industry standard for symmetric keys
 JWT_ALGORITHM = "HS256"
+
+# H3 fix: pepper for refresh-token hashing — prevents rainbow-table
+# attacks even if the DB is leaked.  MUST be overridden in production
+# via the REFRESH_TOKEN_PEPPER env-var.
+_REFRESH_TOKEN_PEPPER = os.getenv(
+    "REFRESH_TOKEN_PEPPER", "parwa-refresh-pepper-change-in-prod"
+)
 
 
 def create_access_token(
@@ -116,16 +124,17 @@ def hash_refresh_token(token: str) -> str:
     """Hash a refresh token for safe DB storage.
 
     BC-011: Tokens are never stored in plaintext.
-    Uses SHA-256 (consistent with API key hashing).
+    Uses SHA-256 with a pepper (H3 fix) to prevent rainbow-table
+    attacks even if the token hash database is leaked.
 
     Args:
         token: Raw refresh token string.
 
     Returns:
-        SHA-256 hex digest.
+        SHA-256 hex digest (peppered).
     """
     return hashlib.sha256(
-        token.encode("utf-8")
+        f"{_REFRESH_TOKEN_PEPPER}:{token}".encode("utf-8")
     ).hexdigest()
 
 

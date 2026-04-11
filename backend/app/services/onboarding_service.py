@@ -186,7 +186,7 @@ def complete_step(
 
     session.completed_steps = json.dumps(completed)
     session.current_step = step + 1 if step < 5 else 5
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
 
     # Mark flags based on step
     if step == 1:
@@ -195,7 +195,7 @@ def complete_step(
         session.legal_accepted = True
     elif step == 5:
         session.status = "completed"
-        session.completed_at = datetime.utcnow()
+        session.completed_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(session)
@@ -343,7 +343,7 @@ def accept_legal_consents(
     session.terms_accepted_at = server_time
     session.privacy_accepted_at = server_time
     session.ai_data_accepted_at = server_time
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
 
     # Create consent record for audit trail
     from database.models.onboarding import ConsentRecord
@@ -607,8 +607,8 @@ def activate_ai(
     session.ai_response_style = ai_response_style if ai_response_style in ["concise", "detailed"] else "concise"
     session.ai_greeting = ai_greeting[:500] if ai_greeting else None
     session.status = "completed"
-    session.completed_at = datetime.utcnow()
-    session.updated_at = datetime.utcnow()
+    session.completed_at = datetime.now(timezone.utc)
+    session.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(session)
@@ -691,7 +691,7 @@ def complete_first_victory(
         )
 
     session.first_victory_completed = True
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
     db.commit()
 
     logger.info(

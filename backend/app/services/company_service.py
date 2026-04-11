@@ -10,7 +10,7 @@ BC-012: Structured error responses.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
 from sqlalchemy.orm import Session
@@ -93,7 +93,7 @@ def update_company_profile(
         if value is not None and hasattr(company, field):
             setattr(company, field, value)
 
-    company.updated_at = datetime.utcnow()
+    company.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(company)
 
@@ -220,7 +220,7 @@ def update_company_settings(
         else:
             setattr(settings, field, value)
 
-    settings.updated_at = datetime.utcnow()
+    settings.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(settings)
 
@@ -262,7 +262,7 @@ def change_password(
         )
 
     user.password_hash = hash_password(new_password)
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(timezone.utc)
     db.commit()
 
     logger.info(
@@ -425,7 +425,7 @@ def update_team_member(
 
         target.is_active = new_active
 
-    target.updated_at = datetime.utcnow()
+    target.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(target)
 
@@ -507,7 +507,7 @@ def remove_team_member(
             )
 
     target.is_active = False
-    target.updated_at = datetime.utcnow()
+    target.updated_at = datetime.now(timezone.utc)
     db.commit()
 
     logger.info(

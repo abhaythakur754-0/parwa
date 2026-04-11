@@ -65,7 +65,7 @@ def executor():
 def lite_executor():
     return TechniqueExecutor(
         model_tier="light",
-        variant_type="parwa_lite",
+        variant_type="mini_parwa",
         company_id="comp_2",
     )
 

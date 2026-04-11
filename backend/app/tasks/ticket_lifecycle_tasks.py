@@ -9,7 +9,7 @@ Celery tasks for:
 - Incident notifications (PS10)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from celery import shared_task
@@ -376,7 +376,7 @@ def run_lifecycle_checks_task(
     """
     results = {
         "company_id": company_id,
-        "ran_at": datetime.utcnow().isoformat(),
+        "ran_at": datetime.now(timezone.utc).isoformat(),
         "checks": {},
     }
     
@@ -402,7 +402,7 @@ def company_daily_maintenance_task(
     """
     results = {
         "company_id": company_id,
-        "ran_at": datetime.utcnow().isoformat(),
+        "ran_at": datetime.now(timezone.utc).isoformat(),
         "tasks": {},
     }
     

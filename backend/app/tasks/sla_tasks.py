@@ -13,7 +13,7 @@ These tasks implement:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Optional
 
 from celery import shared_task
@@ -83,7 +83,7 @@ def run_sla_check(self, company_id: str) -> Dict[str, Any]:
             ]:
                 continue
             
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             
             # Check first response SLA
             if not timer.first_response_at:
@@ -458,7 +458,7 @@ def daily_sla_report(self, company_id: str) -> Dict[str, Any]:
         service = SLAService(db)
         
         # Get stats for yesterday
-        end_date = datetime.utcnow().replace(
+        end_date = datetime.now(timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         start_date = end_date - timedelta(days=1)

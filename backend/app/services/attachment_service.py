@@ -17,7 +17,7 @@ except ImportError:
     magic = None  # type: ignore
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, BinaryIO
 
 from sqlalchemy.orm import Session
@@ -224,7 +224,7 @@ class AttachmentService:
             file_size=metadata["size"],
             mime_type=metadata["mime_type"],
             uploaded_by=uploaded_by,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         self.db.add(attachment)

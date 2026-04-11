@@ -11,7 +11,7 @@ Handles:
 
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -143,7 +143,7 @@ class SpamDetectionService:
             "is_spam": spam_level != "none",
             "should_auto_flag": spam_level == "auto_flag",
             "indicators": indicators,
-            "analyzed_at": datetime.utcnow().isoformat(),
+            "analyzed_at": datetime.now(timezone.utc).isoformat(),
         }
     
     def mark_as_spam(
@@ -172,7 +172,7 @@ class SpamDetectionService:
         ticket.is_spam = True
         ticket.spam_score = 100
         ticket.spam_reason = reason
-        ticket.spam_marked_at = datetime.utcnow()
+        ticket.spam_marked_at = datetime.now(timezone.utc)
         ticket.spam_marked_by = marked_by
         
         # Close the ticket if not already closed
@@ -219,7 +219,7 @@ class SpamDetectionService:
         
         # Update ticket
         ticket.is_spam = False
-        ticket.spam_unmarked_at = datetime.utcnow()
+        ticket.spam_unmarked_at = datetime.now(timezone.utc)
         ticket.spam_unmarked_by = unmarked_by
         ticket.spam_unmark_reason = reason
         
@@ -259,7 +259,7 @@ class SpamDetectionService:
         Returns:
             Tuple of (is_allowed, rate_limit_info)
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         hour_ago = now - timedelta(hours=1)
         day_ago = now - timedelta(days=1)
         
@@ -372,7 +372,7 @@ class SpamDetectionService:
         Returns:
             Detected patterns and statistics
         """
-        since = datetime.utcnow() - timedelta(hours=time_window_hours)
+        since = datetime.now(timezone.utc) - timedelta(hours=time_window_hours)
         
         # Get recent tickets
         recent_tickets = self.db.query(Ticket).filter(
@@ -425,7 +425,7 @@ class SpamDetectionService:
             "time_window_hours": time_window_hours,
             "total_tickets_analyzed": len(recent_tickets),
             "patterns": patterns,
-            "analyzed_at": datetime.utcnow().isoformat(),
+            "analyzed_at": datetime.now(timezone.utc).isoformat(),
         }
     
     def _check_spam_patterns(

@@ -9,7 +9,7 @@ Handles:
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -221,7 +221,7 @@ class NotificationPreferenceService:
                 enabled=enabled if enabled is not None else defaults["enabled"],
                 channels=json.dumps(channels or defaults["channels"]),
                 priority_threshold=priority_threshold or defaults["priority_threshold"],
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             self.db.add(preference)
         else:
@@ -232,7 +232,7 @@ class NotificationPreferenceService:
             if priority_threshold is not None:
                 preference.priority_threshold = priority_threshold
         
-        preference.updated_at = datetime.utcnow()
+        preference.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(preference)

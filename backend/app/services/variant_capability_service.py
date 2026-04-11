@@ -12,7 +12,7 @@ BC-013: Single source of truth (FEATURE_REGISTRY).
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database.base import SessionLocal
 from database.models.variant_engine import VariantAICapability
@@ -721,7 +721,7 @@ def update_capability_config(
         )
 
     cap.config_json = json.dumps(config_json)
-    cap.updated_at = datetime.utcnow()  # GAP 4 fix
+    cap.updated_at = datetime.now(timezone.utc)  # GAP 4 fix
     db.commit()
     db.refresh(cap)
     return cap
@@ -842,7 +842,7 @@ def batch_update_capabilities(
                 continue
 
             cap.is_enabled = en
-            cap.updated_at = datetime.utcnow()  # GAP 4 fix
+            cap.updated_at = datetime.now(timezone.utc)  # GAP 4 fix
             result["updated"] += 1
         except Exception:
             # Individual item failure should not break

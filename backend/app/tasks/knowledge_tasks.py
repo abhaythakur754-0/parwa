@@ -99,7 +99,7 @@ def process_knowledge_document(
 
             # Update status to processing
             doc.status = "processing"
-            doc.updated_at = datetime.utcnow()
+            doc.updated_at = datetime.now(timezone.utc)
             db.commit()
 
             # Process document content
@@ -131,7 +131,7 @@ def process_knowledge_document(
             # Update document status
             doc.status = "completed"
             doc.chunk_count = chunk_count
-            doc.updated_at = datetime.utcnow()
+            doc.updated_at = datetime.now(timezone.utc)
             db.commit()
 
             logger.info(
@@ -176,8 +176,8 @@ def process_knowledge_document(
                 if doc:
                     doc.status = "failed"
                     doc.error_message = str(e)[:500]
-                    doc.failed_at = datetime.utcnow()
-                    doc.updated_at = datetime.utcnow()
+                    doc.failed_at = datetime.now(timezone.utc)
+                    doc.updated_at = datetime.now(timezone.utc)
                     db.commit()
             except Exception as inner_e:
                 logger.error(

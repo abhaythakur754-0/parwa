@@ -22,8 +22,10 @@ Usage:
     value = await redis.get(make_key("session", company_id, session_id))
 """
 
+import asyncio
 import json
 import re
+import threading
 import time
 from typing import Any, List, Optional
 
@@ -36,6 +38,18 @@ logger = get_logger("redis")
 
 # Module-level redis client singleton
 _redis_client: Optional[aioredis.Redis] = None
+
+# H1 fix: Thread-safety for sync contexts.
+# _redis_init_lock protects the async path (get_redis).
+# _redis_thread_lock is available for any future sync get_redis_sync() function
+# or background thread that accesses _redis_client.  Currently there is no
+# sync accessor, so this lock is a defensive placeholder.
+_redis_thread_lock = threading.Lock()
+_redis_init_lock = asyncio.Lock()
+
+# NOTE: No sync get_redis() or get_redis_sync() exists in this module.
+# If one is added in the future, it MUST acquire _redis_thread_lock
+# before reading/writing _redis_client to prevent cross-thread races.
 
 # Key namespace prefix — BC-001: all keys scoped by tenant
 NAMESPACE_PREFIX = "parwa"
@@ -264,22 +278,24 @@ async def get_redis() -> aioredis.Redis:
     """
     global _redis_client  # noqa: PLW0603
     if _redis_client is None:
-        settings = get_settings()
-        _redis_client = aioredis.from_url(
-            settings.REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True,
-            max_connections=20,
-            socket_timeout=5,
-            socket_connect_timeout=5,
-            retry_on_timeout=True,
-            health_check_interval=30,
-        )
-        logger.info(
-            "redis_connected",
-            url=settings.REDIS_URL.split("@")[-1]
-            if "@" in settings.REDIS_URL else "localhost",
-        )
+        async with _redis_init_lock:
+            if _redis_client is None:  # double-check pattern
+                settings = get_settings()
+                _redis_client = aioredis.from_url(
+                    settings.REDIS_URL,
+                    encoding="utf-8",
+                    decode_responses=True,
+                    max_connections=20,
+                    socket_timeout=5,
+                    socket_connect_timeout=5,
+                    retry_on_timeout=True,
+                    health_check_interval=30,
+                )
+                logger.info(
+                    "redis_connected",
+                    url=settings.REDIS_URL.split("@")[-1]
+                    if "@" in settings.REDIS_URL else "localhost",
+                )
     return _redis_client
 
 

@@ -644,6 +644,16 @@ class PaddleService:
         """
         Check if a webhook event has already been processed (idempotency).
 
+        Uses the caller-supplied *processed_ids* set for fast in-memory
+        lookup.  The set is ephemeral — it does not survive process
+        restarts.
+
+        TODO(M4): Persist processed event IDs in a durable store (Redis
+        SET or a database table with a short TTL) so that idempotency
+        is maintained across restarts and across multiple workers.
+        Suggested key: ``parwa:paddle:processed:{event_id}`` with a
+        48-hour TTL.
+
         Args:
             event_id: Paddle event notification ID
             processed_ids: Set of already-processed event IDs (in-memory or cached)
@@ -663,11 +673,23 @@ class PaddleService:
         """
         Mark a webhook event as processed.
 
+        Adds *event_id* to the in-memory set and logs the event for
+        audit/debugging purposes.
+
+        TODO(M4): Also persist to Redis or DB so the record survives
+        restarts.  Example:
+            ``redis.setex(f"parwa:paddle:processed:{event_id}", 172800, "1")``
+
         Args:
             event_id: Paddle event notification ID
             processed_ids: Set to add the event ID to
         """
         processed_ids.add(event_id)
+        logger.debug(
+            "paddle_event_marked_processed event_id=%s set_size=%d",
+            event_id,
+            len(processed_ids),
+        )
 
 
 # ── Factory ─────────────────────────────────────────────────────────────────

@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, or_
@@ -139,8 +139,8 @@ class CustomFieldService:
             is_required=is_required,
             is_active=True,
             sort_order=sort_order,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         self.db.add(field)
@@ -312,7 +312,7 @@ class CustomFieldService:
         if sort_order is not None:
             field.sort_order = sort_order
 
-        field.updated_at = datetime.utcnow()
+        field.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(field)
@@ -331,7 +331,7 @@ class CustomFieldService:
         field = self.get_field(field_id)
 
         field.is_active = False
-        field.updated_at = datetime.utcnow()
+        field.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
 

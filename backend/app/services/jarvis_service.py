@@ -136,7 +136,7 @@ def create_or_resume_session(
     if active_session:
         # Reset daily counter if new day
         _maybe_reset_daily_counter(db, active_session)
-        active_session.updated_at = datetime.utcnow()
+        active_session.updated_at = datetime.now(timezone.utc)
         db.flush()
 
         # Update entry context if provided
@@ -233,7 +233,7 @@ def update_context(
             ctx[key] = value
 
     session.context_json = json.dumps(ctx)
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
     db.flush()
     return session
 
@@ -313,8 +313,8 @@ def send_message(
     # Update counters
     session.message_count_today += 1
     session.total_message_count += 1
-    session.last_message_date = datetime.utcnow()
-    session.updated_at = datetime.utcnow()
+    session.last_message_date = datetime.now(timezone.utc)
+    session.updated_at = datetime.now(timezone.utc)
 
     # Track pages visited (heuristic from message content)
     ctx = _parse_context(session.context_json)
@@ -405,7 +405,7 @@ def check_message_limit(
 
     if session.pack_type == "demo":
         # Check pack expiry
-        if session.pack_expiry and datetime.utcnow() > session.pack_expiry:
+        if session.pack_expiry and datetime.now(timezone.utc) > session.pack_expiry:
             session.pack_type = "free"
             session.pack_expiry = None
             session.message_count_today = 0
@@ -424,7 +424,7 @@ def _maybe_reset_daily_counter(
     db: Session, session: JarvisSession,
 ) -> None:
     """Reset daily counter if date has changed."""
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     last_date = None
     if session.last_message_date:
         if isinstance(session.last_message_date, datetime):
@@ -434,7 +434,7 @@ def _maybe_reset_daily_counter(
 
     if last_date is None or last_date < today:
         session.message_count_today = 0
-        session.last_message_date = datetime.utcnow()
+        session.last_message_date = datetime.now(timezone.utc)
         db.flush()
 
 
@@ -484,7 +484,7 @@ def send_business_otp(
         otp_code = otp_code.zfill(OTP_LENGTH)
 
     expires_at = (
-        datetime.utcnow() + timedelta(minutes=OTP_EXPIRY_MINUTES)
+        datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES)
     ).isoformat()
 
     # Store in context
@@ -498,7 +498,7 @@ def send_business_otp(
     ctx["otp"] = otp_data
     ctx["business_email"] = email
     session.context_json = json.dumps(ctx)
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
     db.flush()
 
     # Create action ticket
@@ -539,7 +539,7 @@ def verify_business_otp(
     # Check expiry
     if otp_data.get("expires_at"):
         expires = datetime.fromisoformat(otp_data["expires_at"])
-        if datetime.utcnow() > expires:
+        if datetime.now(timezone.utc) > expires:
             return {
                 "message": "OTP has expired. Please request a new one.",
                 "status": "expired",
@@ -560,12 +560,12 @@ def verify_business_otp(
 
     if code.upper().strip() == stored_code:
         otp_data["status"] = "verified"
-        otp_data["verified_at"] = datetime.utcnow().isoformat()
+        otp_data["verified_at"] = datetime.now(timezone.utc).isoformat()
         otp_data["attempts_remaining"] = MAX_OTP_ATTEMPTS - attempts
         ctx["otp"] = otp_data
         ctx["email_verified"] = True
         session.context_json = json.dumps(ctx)
-        session.updated_at = datetime.utcnow()
+        session.updated_at = datetime.now(timezone.utc)
         db.flush()
 
         # Update ticket status
@@ -614,12 +614,12 @@ def purchase_demo_pack(
     """
     session = get_session(db, session_id, user_id)
 
-    expiry = datetime.utcnow() + timedelta(hours=DEMO_PACK_HOURS)
+    expiry = datetime.now(timezone.utc) + timedelta(hours=DEMO_PACK_HOURS)
 
     session.pack_type = "demo"
     session.pack_expiry = expiry
     session.message_count_today = 0  # Reset counter
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
 
     # Create action ticket
     _create_ticket(db, session_id, "payment_demo_pack", {
@@ -688,7 +688,7 @@ def create_payment_session(
     })
 
     session.payment_status = "pending"
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
     db.flush()
 
     # In production: paddle_client.create_checkout(...)
@@ -766,7 +766,7 @@ def handle_payment_webhook(
             {"paddle_event": event_type, "data": event_data, "success": False},
         )
 
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
     db.flush()
 
     return {
@@ -822,7 +822,7 @@ def initiate_demo_call(
         raise ValidationError(
             message="Demo call already used in this session",
         )
-    if session.pack_expiry and datetime.utcnow() > session.pack_expiry:
+    if session.pack_expiry and datetime.now(timezone.utc) > session.pack_expiry:
         raise ValidationError(
             message="Demo Pack has expired",
         )
@@ -834,7 +834,7 @@ def initiate_demo_call(
     })
 
     session.demo_call_used = True
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
     db.flush()
 
     # In production: twilio_client.calls.create(...)
@@ -939,7 +939,7 @@ def execute_handoff(
         "business_email": ctx.get("business_email"),
         "email_verified": ctx.get("email_verified", False),
         "onboarding_session_id": session_id,
-        "onboarding_completed_at": datetime.utcnow().isoformat(),
+        "onboarding_completed_at": datetime.now(timezone.utc).isoformat(),
     }
 
     # Create customer care session (FRESH — no chat history)
@@ -959,7 +959,7 @@ def execute_handoff(
     # Mark onboarding session
     session.handoff_completed = True
     session.is_active = False
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
 
     # Create action tickets
     _complete_latest_ticket(db, session_id, "handoff", {
@@ -976,7 +976,7 @@ def execute_handoff(
         "message": "Welcome to Customer Care Jarvis! I'm here to help.",
         "handoff_completed": True,
         "new_session_id": care_session.id,
-        "handoff_at": datetime.utcnow().isoformat(),
+        "handoff_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -1092,10 +1092,10 @@ def update_ticket_status(
     """Update ticket status."""
     ticket = get_ticket(db, ticket_id, user_id)
     ticket.status = status
-    ticket.updated_at = datetime.utcnow()
+    ticket.updated_at = datetime.now(timezone.utc)
 
     if status == "completed":
-        ticket.completed_at = datetime.utcnow()
+        ticket.completed_at = datetime.now(timezone.utc)
 
     db.flush()
     return ticket
@@ -1111,8 +1111,8 @@ def complete_ticket(
     ticket = get_ticket(db, ticket_id, user_id)
     ticket.status = "completed"
     ticket.result_json = json.dumps(result_data)
-    ticket.completed_at = datetime.utcnow()
-    ticket.updated_at = datetime.utcnow()
+    ticket.completed_at = datetime.now(timezone.utc)
+    ticket.updated_at = datetime.now(timezone.utc)
     db.flush()
     return ticket
 
@@ -1137,8 +1137,8 @@ def _complete_latest_ticket(
     if ticket:
         ticket.status = "completed"
         ticket.result_json = json.dumps(result_data)
-        ticket.completed_at = datetime.utcnow()
-        ticket.updated_at = datetime.utcnow()
+        ticket.completed_at = datetime.now(timezone.utc)
+        ticket.updated_at = datetime.now(timezone.utc)
         db.flush()
     return ticket
 
