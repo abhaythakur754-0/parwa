@@ -7,13 +7,13 @@ Uses FastAPI dependency_overrides for proper mocking.
 
 import json
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.app.api.tickets import router
-from backend.app.api.deps import get_current_user, get_db
+from app.api.tickets import router
+from app.api.deps import get_current_user, get_db
 
 
 # ── FIXTURES ───────────────────────────────────────────────────────────────
@@ -79,6 +79,7 @@ def sample_ticket_data():
 
 def create_mock_ticket():
     """Create a mock ticket object with all required attributes."""
+    now = datetime.now(timezone.utc)
     mock_ticket = MagicMock()
     mock_ticket.id = "ticket-123"
     mock_ticket.company_id = "company-123"
@@ -90,8 +91,8 @@ def create_mock_ticket():
     mock_ticket.category = None
     mock_ticket.tags = "[]"
     mock_ticket.metadata_json = "{}"
-    mock_ticket.created_at = datetime.utcnow()
-    mock_ticket.updated_at = datetime.utcnow()
+    mock_ticket.created_at = now
+    mock_ticket.updated_at = now
     mock_ticket.agent_id = None
     mock_ticket.assigned_to = None
     mock_ticket.classification_intent = None
@@ -123,7 +124,7 @@ class TestCreateTicketAPI:
         """Test successful ticket creation via API."""
         mock_ticket = create_mock_ticket()
 
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.create_ticket.return_value = mock_ticket
             MockService.return_value = mock_service
@@ -148,7 +149,7 @@ class TestListTicketsAPI:
 
     def test_list_tickets_success(self, client, mock_db):
         """Test successful ticket listing via API."""
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.list_tickets.return_value = ([], 0)
             MockService.return_value = mock_service
@@ -162,7 +163,7 @@ class TestListTicketsAPI:
 
     def test_list_tickets_with_filters(self, client, mock_db):
         """Test ticket listing with filters."""
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.list_tickets.return_value = ([], 0)
             MockService.return_value = mock_service
@@ -189,7 +190,7 @@ class TestGetTicketAPI:
         """Test successful ticket retrieval via API."""
         mock_ticket = create_mock_ticket()
 
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.get_ticket.return_value = mock_ticket
             MockService.return_value = mock_service
@@ -200,8 +201,8 @@ class TestGetTicketAPI:
 
     def test_get_ticket_not_found(self, client, mock_db):
         """Test get ticket returns 404 when not found."""
-        with patch("backend.app.api.tickets.TicketService") as MockService:
-            from backend.app.exceptions import NotFoundError
+        with patch("app.api.tickets.TicketService") as MockService:
+            from app.exceptions import NotFoundError
             mock_service = MagicMock()
             mock_service.get_ticket.side_effect = NotFoundError("Not found")
             MockService.return_value = mock_service
@@ -222,7 +223,7 @@ class TestUpdateTicketAPI:
         mock_ticket.subject = "Updated"
         mock_ticket.priority = "high"
 
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.update_ticket.return_value = mock_ticket
             MockService.return_value = mock_service
@@ -242,7 +243,7 @@ class TestDeleteTicketAPI:
 
     def test_delete_ticket_success(self, client, mock_db):
         """Test successful ticket deletion via API."""
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.delete_ticket.return_value = True
             MockService.return_value = mock_service
@@ -262,7 +263,7 @@ class TestStatusUpdateAPI:
         mock_ticket = create_mock_ticket()
         mock_ticket.status = "assigned"
 
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.get_ticket.return_value = mock_ticket
             mock_service.update_ticket.return_value = mock_ticket
@@ -290,7 +291,7 @@ class TestAssignAPI:
         new_ticket = create_mock_ticket()
         new_ticket.assigned_to = "agent-789"
 
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             # First get_ticket for previous_assignee, second for response
             mock_service.get_ticket.return_value = old_ticket
@@ -319,7 +320,7 @@ class TestTagsAPI:
         mock_ticket = create_mock_ticket()
         mock_ticket.tags = json.dumps(["urgent", "api"])
 
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.add_tags.return_value = mock_ticket
             MockService.return_value = mock_service
@@ -336,7 +337,7 @@ class TestTagsAPI:
         mock_ticket = create_mock_ticket()
         mock_ticket.tags = json.dumps(["api"])
 
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.remove_tag.return_value = mock_ticket
             MockService.return_value = mock_service
@@ -353,7 +354,7 @@ class TestBulkOperationsAPI:
 
     def test_bulk_status_update(self, client, mock_db):
         """Test bulk status update via API."""
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.bulk_update_status.return_value = (2, [])
             MockService.return_value = mock_service
@@ -374,7 +375,7 @@ class TestBulkOperationsAPI:
 
     def test_bulk_assign(self, client, mock_db):
         """Test bulk assignment via API."""
-        with patch("backend.app.api.tickets.TicketService") as MockService:
+        with patch("app.api.tickets.TicketService") as MockService:
             mock_service = MagicMock()
             mock_service.bulk_assign.return_value = (2, [])
             MockService.return_value = mock_service
@@ -398,7 +399,7 @@ class TestPriorityDetectionAPI:
 
     def test_detect_priority(self, client, mock_db):
         """Test priority detection via API."""
-        with patch("backend.app.api.tickets.PriorityService") as MockService:
+        with patch("app.api.tickets.PriorityService") as MockService:
             mock_service = MagicMock()
             mock_service.detect_priority.return_value = ("critical", 0.85)
             MockService.return_value = mock_service
@@ -420,7 +421,7 @@ class TestCategoryDetectionAPI:
 
     def test_detect_category(self, client, mock_db):
         """Test category detection via API."""
-        with patch("backend.app.api.tickets.CategoryService") as MockService:
+        with patch("app.api.tickets.CategoryService") as MockService:
             mock_service = MagicMock()
             mock_service.detect_category_advanced.return_value = (
                 "tech_support",
@@ -450,7 +451,7 @@ class TestPIIScanAPI:
 
     def test_scan_pii(self, client, mock_db):
         """Test PII scan via API."""
-        with patch("backend.app.api.tickets.PIIScanService") as MockService:
+        with patch("app.api.tickets.PIIScanService") as MockService:
             mock_service = MagicMock()
             mock_service.scan_and_redact.return_value = {
                 "original_text": "Card: 4532015112830366",

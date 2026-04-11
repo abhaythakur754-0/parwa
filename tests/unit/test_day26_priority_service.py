@@ -11,7 +11,7 @@ Tests for MF01: Priority auto-assignment with:
 import pytest
 from unittest.mock import MagicMock
 
-from backend.app.services.priority_service import PriorityService
+from app.services.priority_service import PriorityService
 from database.models.tickets import Ticket, TicketPriority
 
 
