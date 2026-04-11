@@ -52,7 +52,7 @@ _loaded = False
 
 def load_all_knowledge() -> None:
     """Load all knowledge JSON files into memory. Called at app startup."""
-    global _knowledge_cache, _loaded
+    global _loaded
 
     if _loaded:
         logger.debug("Knowledge base already loaded, skipping.")
