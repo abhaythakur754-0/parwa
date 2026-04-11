@@ -36,16 +36,19 @@ def _validate_email(email: str) -> str:
 # ── Industry Options ────────────────────────────────────────────────
 
 INDUSTRY_OPTIONS = [
-    "e_commerce",
     "saas",
+    "ecommerce",
     "healthcare",
     "finance",
     "education",
     "real_estate",
-    "hospitality",
-    "retail",
     "manufacturing",
     "consulting",
+    "agency",
+    "nonprofit",
+    "logistics",
+    "hospitality",
+    "retail",
     "other",
 ]
 

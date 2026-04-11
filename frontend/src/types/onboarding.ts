@@ -10,6 +10,7 @@
 export type Industry = 
   | 'saas'
   | 'ecommerce'
+  | 'logistics'
   | 'healthcare'
   | 'finance'
   | 'education'
@@ -18,6 +19,8 @@ export type Industry =
   | 'consulting'
   | 'agency'
   | 'nonprofit'
+  | 'hospitality'
+  | 'retail'
   | 'other';
 
 export type CompanySize =
