@@ -577,8 +577,8 @@ class RAGRetriever:
                     variant_tier_used=cached.get("variant_tier_used", "parwa"),
                     cached=True,
                 )
-        except Exception:
-            pass  # Fail open
+        except Exception as exc:
+            logger.warning("rag_cache_read_failed", error=str(exc), cache_key=cache_key)
         return None
 
     async def _store_cache(
@@ -594,5 +594,5 @@ class RAGRetriever:
                 result.to_dict(),
                 ttl_seconds=CACHE_TTL_SECONDS,
             )
-        except Exception:
-            pass  # Fail open
+        except Exception as exc:
+            logger.debug("rag_cache_write_failed", error=str(exc), cache_key=cache_key)

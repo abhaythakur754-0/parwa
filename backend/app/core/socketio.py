@@ -359,7 +359,7 @@ def register_business_handlers() -> None:
                 from app.core.events import get_event_registry
                 registry = get_event_registry()
             except Exception:
-                pass
+                logger.debug("event_registry_import_failed")
 
             valid_types = []
             for et in event_types:
