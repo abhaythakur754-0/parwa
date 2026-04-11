@@ -594,7 +594,7 @@ def decrement_active_tickets(
     # Atomic SQL UPDATE using CASE to prevent
     # going below 0 (DB CheckConstraint backup)
     import sqlalchemy as sa
-    from datetime import datetime
+    from datetime import datetime, timezone
     db.execute(
         sa.text(
             "UPDATE variant_instances SET "

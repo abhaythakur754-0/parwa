@@ -406,10 +406,6 @@ export default function FeatureCarousel() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [progressKey, setProgressKey] = useState(0);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => { setIsMounted(true); }, []);
-
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
     setProgressKey((prev) => prev + 1);
@@ -426,10 +422,10 @@ export default function FeatureCarousel() {
   }, []);
 
   useEffect(() => {
-    if (!isMounted || isPaused) return;
+    if (isPaused) return;
     const interval = setInterval(nextSlide, 6000);
     return () => clearInterval(interval);
-  }, [isMounted, isPaused, nextSlide]);
+  }, [isPaused, nextSlide]);
 
   useEffect(() => {
     const handleVisibility = () => setIsPaused(document.hidden);
