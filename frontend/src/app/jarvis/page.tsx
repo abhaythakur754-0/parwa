@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { JarvisChat } from '@/components/jarvis/JarvisChat';
 
@@ -11,7 +11,8 @@ import { JarvisChat } from '@/components/jarvis/JarvisChat';
  * Reads URL params (industry, variant, entry_source) and passes them
  * so Jarvis knows exactly what the user was looking at.
  */
-export default function JarvisPage() {
+
+function JarvisPageInner() {
   const [isOpen, setIsOpen] = useState(true);
   const searchParams = useSearchParams();
 
@@ -58,5 +59,13 @@ export default function JarvisPage() {
       entrySource={entrySource}
       entryParams={entryParams}
     />
+  );
+}
+
+export default function JarvisPage() {
+  return (
+    <Suspense>
+      <JarvisPageInner />
+    </Suspense>
   );
 }
