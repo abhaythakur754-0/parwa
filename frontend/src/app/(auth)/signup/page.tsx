@@ -15,7 +15,8 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
+  const [isChecking, setIsChecking] = useState(false);
+  const [alreadyLoggedIn, setAlreadyLoggedIn] = useState(false);
   const { hydrate } = useAuth();
 
   // Check if already logged in via localStorage
@@ -25,7 +26,7 @@ export default function SignupPage() {
       if (storedUser) {
         const user = JSON.parse(storedUser);
         if (user && user.email) {
-          router.push('/models');
+          setAlreadyLoggedIn(true);
           return;
         }
       }
@@ -33,7 +34,7 @@ export default function SignupPage() {
       // ignore parse errors
     }
     setIsChecking(false);
-  }, [router]);
+  }, []);
 
   const handleSignup = async (data: SignupFormData) => {
     setError(null);
@@ -121,10 +122,29 @@ export default function SignupPage() {
     }
   };
 
-  if (isChecking) {
+  if (alreadyLoggedIn) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
-        <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+      <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}>
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute w-[350px] h-[350px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.02) 60%, transparent 80%)', top: '20%', right: '10%', animation: 'jarvisOrbFloat1 10s ease-in-out infinite' }} />
+        </div>
+        <div className="w-full max-w-md space-y-6 relative z-10 text-center">
+          <Link href="/" className="inline-flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/30">
+              <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" /></svg>
+            </div>
+            <span className="text-2xl font-bold text-white">PARWA</span>
+          </Link>
+          <div className="w-16 h-16 mx-auto rounded-full bg-orange-500/15 border border-orange-500/25 flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">You're already signed in! 👋</h1>
+          <p className="text-sm text-orange-200/50 mb-6">Looks like you already have an account. No need to sign up again.</p>
+          <div className="flex flex-col gap-3 max-w-xs mx-auto">
+            <Link href="/models" className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 shadow-lg shadow-orange-600/25">Go to Dashboard →</Link>
+            <Link href="/login" className="text-sm text-orange-400 hover:text-orange-300 transition-colors">Or sign in with a different account</Link>
+          </div>
+        </div>
       </div>
     );
   }
