@@ -10,7 +10,7 @@ Tests for MF02: Category routing with:
 import pytest
 from unittest.mock import MagicMock
 
-from backend.app.services.category_service import CategoryService
+from app.services.category_service import CategoryService
 from database.models.tickets import TicketCategory
 
 

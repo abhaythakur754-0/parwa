@@ -11,9 +11,15 @@ import pytest
 from unittest.mock import MagicMock, patch
 import hashlib
 
-from backend.app.services.attachment_service import AttachmentService
-from backend.app.exceptions import ValidationError
+from app.services.attachment_service import AttachmentService, magic
+from app.exceptions import ValidationError
 from database.models.tickets import TicketAttachment
+
+# Skip magic-dependent tests if magic is not installed
+requires_magic = pytest.mark.skipif(
+    magic is None,
+    reason="python-magic not installed"
+)
 
 
 # ── FIXTURES ───────────────────────────────────────────────────────────────
@@ -47,6 +53,7 @@ def attachment_service_growth(mock_db, mock_company_id):
 class TestValidateFile:
     """Tests for file validation."""
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_validate_pdf_file(self, mock_magic, attachment_service):
         """Test valid PDF file."""
@@ -59,6 +66,7 @@ class TestValidateFile:
         assert error is None
         assert metadata["extension"] == "pdf"
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_validate_docx_file(self, mock_magic, attachment_service):
         """Test valid DOCX file."""
@@ -70,6 +78,7 @@ class TestValidateFile:
         assert is_valid is True
         assert metadata["extension"] == "docx"
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_validate_png_file(self, mock_magic, attachment_service):
         """Test valid PNG file."""
@@ -81,6 +90,7 @@ class TestValidateFile:
         assert is_valid is True
         assert metadata["extension"] == "png"
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_validate_jpg_file(self, mock_magic, attachment_service):
         """Test valid JPG file."""
@@ -92,6 +102,7 @@ class TestValidateFile:
         assert is_valid is True
         assert metadata["extension"] == "jpg"
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_validate_csv_file(self, mock_magic, attachment_service):
         """Test valid CSV file."""
@@ -103,6 +114,7 @@ class TestValidateFile:
         assert is_valid is True
         assert metadata["extension"] == "csv"
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_validate_txt_file(self, mock_magic, attachment_service):
         """Test valid TXT file."""
@@ -175,6 +187,7 @@ class TestDangerousExtensions:
 class TestFileSizeLimits:
     """Tests for file size limits."""
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_file_size_within_limit(self, mock_magic, attachment_service):
         """Test file within size limit."""
@@ -196,6 +209,7 @@ class TestFileSizeLimits:
         assert is_valid is False
         assert "size" in error.lower()
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_file_size_growth_plan_limit(self, mock_magic, attachment_service_growth):
         """Test growth plan has higher limit."""
@@ -274,6 +288,7 @@ class TestGetSizeLimit:
 class TestChecksum:
     """Tests for file checksum generation."""
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_checksum_generated(self, mock_magic, attachment_service):
         """Test checksum is generated."""
@@ -286,6 +301,7 @@ class TestChecksum:
         expected = hashlib.sha256(content).hexdigest()
         assert metadata["checksum"] == expected
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_checksum_unique(self, mock_magic, attachment_service):
         """Test different files have different checksums."""
@@ -310,6 +326,7 @@ class TestUploadAttachment:
             # This would need storage_service mock for full test
             pass
 
+    @requires_magic
     @patch('magic.from_buffer')
     def test_upload_max_attachments_exceeded(self, mock_magic, attachment_service, mock_db):
         """Test max attachments per ticket limit."""
@@ -363,7 +380,7 @@ class TestDeleteAttachment:
 
     def test_delete_attachment_not_found(self, attachment_service, mock_db):
         """Test deleting non-existent attachment."""
-        from backend.app.exceptions import NotFoundError
+        from app.exceptions import NotFoundError
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
         with pytest.raises(NotFoundError):

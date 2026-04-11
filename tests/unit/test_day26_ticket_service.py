@@ -16,8 +16,8 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch, PropertyMock
 
-from backend.app.services.ticket_service import TicketService
-from backend.app.exceptions import NotFoundError, AuthorizationError, ValidationError
+from app.services.ticket_service import TicketService
+from app.exceptions import NotFoundError, AuthorizationError, ValidationError
 from database.models.tickets import (
     Ticket,
     Customer,

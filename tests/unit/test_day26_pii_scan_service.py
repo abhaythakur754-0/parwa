@@ -12,7 +12,7 @@ Tests for BL07: PII detection with:
 import pytest
 from unittest.mock import MagicMock
 
-from backend.app.services.pii_scan_service import PIIScanService
+from app.services.pii_scan_service import PIIScanService
 
 
 # ── FIXTURES ───────────────────────────────────────────────────────────────

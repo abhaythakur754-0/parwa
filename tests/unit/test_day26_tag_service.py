@@ -12,7 +12,7 @@ import json
 import pytest
 from unittest.mock import MagicMock, patch
 
-from backend.app.services.tag_service import TagService
+from app.services.tag_service import TagService
 from database.models.tickets import Ticket
 
 

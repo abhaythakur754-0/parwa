@@ -30,13 +30,13 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch, PropertyMock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from backend.app.services.ticket_service import TicketService
-from backend.app.services.priority_service import PriorityService
-from backend.app.services.category_service import CategoryService
-from backend.app.services.tag_service import TagService
-from backend.app.services.attachment_service import AttachmentService
-from backend.app.services.pii_scan_service import PIIScanService
-from backend.app.exceptions import NotFoundError, AuthorizationError, ValidationError
+from app.services.ticket_service import TicketService
+from app.services.priority_service import PriorityService
+from app.services.category_service import CategoryService
+from app.services.tag_service import TagService
+from app.services.attachment_service import AttachmentService
+from app.services.pii_scan_service import PIIScanService
+from app.exceptions import NotFoundError, AuthorizationError, ValidationError
 from database.models.tickets import (
     Ticket,
     Customer,
