@@ -76,9 +76,9 @@ function OTPInput({ value, onChange, disabled, error }: {
           className={`w-10 h-12 sm:w-12 sm:h-14 text-center text-lg sm:text-xl font-bold rounded-xl border transition-all duration-300 focus:outline-none focus:ring-2 ${
             error
               ? 'border-rose-500/40 focus:ring-rose-500/30 bg-rose-500/5 text-rose-300'
-              : 'border-white/10 focus:ring-emerald-500/30 focus:border-emerald-500/40 bg-white/5 text-white'
+              : 'border-white/10 focus:ring-orange-500/30 focus:border-orange-500/40 bg-white/5 text-white'
           }`}
-          style={{ caretColor: '#10B981' }}
+          style={{ caretColor: '#FF7F11' }}
         />
       ))}
     </div>
@@ -141,9 +141,9 @@ export default function ForgotPasswordPage() {
         setResendCooldown(60);
         toast.success('OTP sent to your email!', {
           style: {
-            background: '#064E3B',
-            color: '#d1fae5',
-            border: '1px solid rgba(16,185,129,0.25)',
+            background: '#2A1A0A',
+            color: '#FFF4E6',
+            border: '1px solid rgba(255,127,17,0.25)',
             borderRadius: '12px',
           },
         });
@@ -179,9 +179,9 @@ export default function ForgotPasswordPage() {
         setResendCooldown(60);
         toast.success('New OTP sent!', {
           style: {
-            background: '#064E3B',
-            color: '#d1fae5',
-            border: '1px solid rgba(16,185,129,0.25)',
+            background: '#2A1A0A',
+            color: '#FFF4E6',
+            border: '1px solid rgba(255,127,17,0.25)',
             borderRadius: '12px',
           },
         });
@@ -221,9 +221,9 @@ export default function ForgotPasswordPage() {
         setStep('reset');
         toast.success('OTP verified!', {
           style: {
-            background: '#064E3B',
-            color: '#d1fae5',
-            border: '1px solid rgba(16,185,129,0.25)',
+            background: '#2A1A0A',
+            color: '#FFF4E6',
+            border: '1px solid rgba(255,127,17,0.25)',
             borderRadius: '12px',
           },
         });
@@ -268,9 +268,9 @@ export default function ForgotPasswordPage() {
       if (data.status === 'success') {
         toast.success('Password reset successfully! Redirecting to login...', {
           style: {
-            background: '#064E3B',
-            color: '#d1fae5',
-            border: '1px solid rgba(16,185,129,0.25)',
+            background: '#2A1A0A',
+            color: '#FFF4E6',
+            border: '1px solid rgba(255,127,17,0.25)',
             borderRadius: '12px',
           },
           duration: 3000,
@@ -304,12 +304,12 @@ export default function ForgotPasswordPage() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
-      style={{ background: 'linear-gradient(165deg, #022C22 0%, #064E3B 40%, #065F46 70%, #047857 100%)' }}
+      style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}
     >
       {/* Animated background elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute w-[350px] h-[350px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.02) 60%, transparent 80%)',
+          background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.02) 60%, transparent 80%)',
           top: '20%',
           right: '15%',
           animation: 'jarvisOrbFloat1 10s ease-in-out infinite',
@@ -326,7 +326,7 @@ export default function ForgotPasswordPage() {
           return (
             <div
               key={i}
-              className="absolute w-1 h-1 rounded-full bg-emerald-400"
+              className="absolute w-1 h-1 rounded-full bg-orange-400"
               style={{
                 left: `${(col + 0.5) * 25}%`,
                 top: `${(row + 0.5) * 25}%`,
@@ -342,7 +342,7 @@ export default function ForgotPasswordPage() {
         {/* Header */}
         <div className="text-center">
           <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-600/30">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/30">
               <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
               </svg>
@@ -357,10 +357,10 @@ export default function ForgotPasswordPage() {
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500 ${
                     s < getStepNumber()
-                      ? 'bg-emerald-500 text-[#022C22]'
+                      ? 'bg-orange-500 text-[#1A1A1A]'
                       : s === getStepNumber()
-                        ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/50 shadow-lg shadow-emerald-500/20'
-                        : 'bg-white/5 text-emerald-200/30 border-2 border-white/10'
+                        ? 'bg-orange-500/20 text-orange-400 border-2 border-orange-500/50 shadow-lg shadow-orange-500/20'
+                        : 'bg-white/5 text-orange-200/30 border-2 border-white/10'
                   }`}
                 >
                   {s < getStepNumber() ? (
@@ -372,7 +372,7 @@ export default function ForgotPasswordPage() {
                 {s < 3 && (
                   <div
                     className={`w-8 h-0.5 rounded-full transition-all duration-500 ${
-                      s < getStepNumber() ? 'bg-emerald-500' : 'bg-white/10'
+                      s < getStepNumber() ? 'bg-orange-500' : 'bg-white/10'
                     }`}
                   />
                 )}
@@ -385,7 +385,7 @@ export default function ForgotPasswordPage() {
             {step === 'otp' && 'Verify OTP'}
             {step === 'reset' && 'Set new password'}
           </h1>
-          <p className="mt-2 text-sm text-emerald-200/50">
+          <p className="mt-2 text-sm text-orange-200/50">
             {step === 'email' && 'No worries! Enter your email and we\'ll send you an OTP.'}
             {step === 'otp' && `Enter the 6-digit OTP sent to ${email}`}
             {step === 'reset' && 'Choose a strong new password for your account'}
@@ -397,23 +397,23 @@ export default function ForgotPasswordPage() {
           className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"
           style={{
             background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)',
-            border: '1px solid rgba(16,185,129,0.2)',
+            border: '1px solid rgba(255,127,17,0.2)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(16,185,129,0.06)',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)',
           }}
         >
-          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(16,185,129,0.1)' }} />
+          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.1)' }} />
 
           {/* ═══ STEP 1: Email ═════════════════════════════════════════ */}
           {step === 'email' && (
             <form onSubmit={handleSendOTP} className="space-y-5">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-emerald-200/70 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-orange-200/70 mb-2">
                   Email address
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-emerald-400/50" />
+                    <Mail className="h-5 w-5 text-orange-400/50" />
                   </div>
                   <input
                     id="email"
@@ -423,7 +423,7 @@ export default function ForgotPasswordPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 transition-all duration-300"
+                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-orange-200/30 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all duration-300"
                     placeholder="you@example.com"
                     disabled={isLoading}
                   />
@@ -439,7 +439,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading || !email}
-                className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40"
+                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40"
               >
                 {isLoading ? (
                   <>
@@ -461,12 +461,12 @@ export default function ForgotPasswordPage() {
             <form onSubmit={handleVerifyOTP} className="space-y-6">
               {/* Masked email display */}
               <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10">
-                <Mail className="w-4 h-4 text-emerald-400/50" />
-                <span className="text-sm text-emerald-200/60">{email}</span>
+                <Mail className="w-4 h-4 text-orange-400/50" />
+                <span className="text-sm text-orange-200/60">{email}</span>
                 <button
                   type="button"
                   onClick={() => { setStep('email'); setOtp(''); setError(null); }}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 ml-auto transition-colors"
+                  className="text-xs text-orange-400 hover:text-orange-300 ml-auto transition-colors"
                 >
                   Change
                 </button>
@@ -474,7 +474,7 @@ export default function ForgotPasswordPage() {
 
               {/* OTP Input */}
               <div>
-                <label className="block text-sm font-medium text-emerald-200/70 mb-3 text-center">
+                <label className="block text-sm font-medium text-orange-200/70 mb-3 text-center">
                   Enter 6-digit OTP
                 </label>
                 <OTPInput
@@ -495,7 +495,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading || otp.length !== 6}
-                className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40"
+                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40"
               >
                 {isLoading ? (
                   <>
@@ -512,10 +512,10 @@ export default function ForgotPasswordPage() {
 
               {/* Resend OTP */}
               <div className="text-center">
-                <p className="text-sm text-emerald-200/30">
+                <p className="text-sm text-orange-200/30">
                   Didn&apos;t receive it?{' '}
                   {resendCooldown > 0 ? (
-                    <span className="text-emerald-400/50">
+                    <span className="text-orange-400/50">
                       Resend in {resendCooldown}s
                     </span>
                   ) : (
@@ -523,7 +523,7 @@ export default function ForgotPasswordPage() {
                       type="button"
                       onClick={handleResendOTP}
                       disabled={isLoading}
-                      className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium transition-colors disabled:opacity-50"
+                      className="inline-flex items-center gap-1 text-orange-400 hover:text-orange-300 font-medium transition-colors disabled:opacity-50"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
                       Resend OTP
@@ -539,12 +539,12 @@ export default function ForgotPasswordPage() {
             <form onSubmit={handleResetPassword} className="space-y-5">
               {/* New Password */}
               <div>
-                <label htmlFor="new-password" className="block text-sm font-medium text-emerald-200/70 mb-2">
+                <label htmlFor="new-password" className="block text-sm font-medium text-orange-200/70 mb-2">
                   New Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-emerald-400/50" />
+                    <Lock className="h-5 w-5 text-orange-400/50" />
                   </div>
                   <input
                     id="new-password"
@@ -553,14 +553,14 @@ export default function ForgotPasswordPage() {
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 transition-all duration-300"
+                    className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-orange-200/30 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all duration-300"
                     placeholder="Enter new password"
                     disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-400/50 hover:text-emerald-400 transition-colors"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-orange-400/50 hover:text-orange-400 transition-colors"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -571,22 +571,22 @@ export default function ForgotPasswordPage() {
               {/* Password Strength Indicator */}
               {newPassword && (
                 <div className="grid grid-cols-2 gap-1.5 text-xs">
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${isLongEnough ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-200/30 bg-white/[0.02]'}`}>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${isLongEnough ? 'text-orange-400 bg-orange-500/10' : 'text-orange-200/30 bg-white/[0.02]'}`}>
                     <span>{isLongEnough ? '✓' : '○'}</span> 8+ characters
                   </div>
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${hasUppercase ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-200/30 bg-white/[0.02]'}`}>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${hasUppercase ? 'text-orange-400 bg-orange-500/10' : 'text-orange-200/30 bg-white/[0.02]'}`}>
                     <span>{hasUppercase ? '✓' : '○'}</span> Uppercase
                   </div>
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${hasLowercase ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-200/30 bg-white/[0.02]'}`}>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${hasLowercase ? 'text-orange-400 bg-orange-500/10' : 'text-orange-200/30 bg-white/[0.02]'}`}>
                     <span>{hasLowercase ? '✓' : '○'}</span> Lowercase
                   </div>
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${hasDigit ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-200/30 bg-white/[0.02]'}`}>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${hasDigit ? 'text-orange-400 bg-orange-500/10' : 'text-orange-200/30 bg-white/[0.02]'}`}>
                     <span>{hasDigit ? '✓' : '○'}</span> Number
                   </div>
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${hasSpecial ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-200/30 bg-white/[0.02]'}`}>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${hasSpecial ? 'text-orange-400 bg-orange-500/10' : 'text-orange-200/30 bg-white/[0.02]'}`}>
                     <span>{hasSpecial ? '✓' : '○'}</span> Special char
                   </div>
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${passwordsMatch ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-200/30 bg-white/[0.02]'}`}>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${passwordsMatch ? 'text-orange-400 bg-orange-500/10' : 'text-orange-200/30 bg-white/[0.02]'}`}>
                     <span>{passwordsMatch ? '✓' : '○'}</span> Match
                   </div>
                 </div>
@@ -594,12 +594,12 @@ export default function ForgotPasswordPage() {
 
               {/* Confirm Password */}
               <div>
-                <label htmlFor="confirm-password" className="block text-sm font-medium text-emerald-200/70 mb-2">
+                <label htmlFor="confirm-password" className="block text-sm font-medium text-orange-200/70 mb-2">
                   Confirm Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-emerald-400/50" />
+                    <Lock className="h-5 w-5 text-orange-400/50" />
                   </div>
                   <input
                     id="confirm-password"
@@ -608,7 +608,7 @@ export default function ForgotPasswordPage() {
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 transition-all duration-300"
+                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-orange-200/30 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all duration-300"
                     placeholder="Confirm new password"
                     disabled={isLoading}
                   />
@@ -624,7 +624,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading || !isPasswordValid}
-                className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40"
+                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40"
               >
                 {isLoading ? (
                   <>
@@ -646,7 +646,7 @@ export default function ForgotPasswordPage() {
         <div className="text-center">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-sm text-emerald-200/40 hover:text-emerald-300 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-orange-200/40 hover:text-orange-300 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to login

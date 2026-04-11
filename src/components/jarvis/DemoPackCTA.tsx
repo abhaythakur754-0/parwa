@@ -38,7 +38,7 @@ export function DemoPackCTA({
           <p className="text-[10px] text-white/40">messages/day</p>
         </div>
         <div className="flex-1 text-center py-2 rounded-lg bg-white/[0.03] border border-white/5">
-          <p className="text-sm font-bold text-emerald-300">1</p>
+          <p className="text-sm font-bold text-orange-300">1</p>
           <p className="text-[10px] text-white/40">AI demo call</p>
         </div>
         <div className="flex-1 text-center py-2 rounded-lg bg-white/[0.03] border border-white/5">
@@ -48,8 +48,8 @@ export function DemoPackCTA({
       </div>
 
       {isAlreadyActive ? (
-        <div className="flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/10">
-          <span className="text-xs text-emerald-300 font-medium">Demo Pack Active</span>
+        <div className="flex items-center justify-center py-2 rounded-lg bg-orange-500/10 border border-orange-500/10">
+          <span className="text-xs text-orange-300 font-medium">Demo Pack Active</span>
         </div>
       ) : (
         <button

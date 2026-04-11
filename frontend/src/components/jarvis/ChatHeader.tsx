@@ -9,6 +9,7 @@
 
 import { Bot, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 interface ChatHeaderProps {
   /** Active Jarvis session (null before init completes) */
@@ -44,15 +45,15 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
       <div className="flex items-center gap-3">
         {/* Bot Avatar */}
         <div className="relative">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
             <Bot className="w-5 h-5 text-white" />
           </div>
           {/* Online indicator dot */}
           <div
-            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#022C22] ${
+            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#1A1A1A] ${
               isLoading
                 ? 'bg-amber-400 animate-pulse'
-                : 'bg-emerald-400 animate-pulse'
+                : 'bg-orange-400 animate-pulse'
             }`}
           />
         </div>
@@ -61,19 +62,32 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
           <h1 className="text-sm font-semibold text-white tracking-tight">
             Jarvis — Your AI Assistant
           </h1>
-          <p className="text-[11px] text-emerald-400/60 flex items-center gap-1">
+          <p className="text-[11px] text-orange-400/60 flex items-center gap-1">
             <Zap className="w-3 h-3" />
             {isLoading ? 'Connecting...' : 'Online • Ready to help'}
           </p>
         </div>
       </div>
 
-      {/* Right — Stage badge + remaining count */}
+      {/* Right — Auth links + Stage badge + remaining count */}
       <div className="flex items-center gap-2">
+        <Link
+          href="/login"
+          className="text-[11px] text-orange-400/70 hover:text-orange-400 transition-colors"
+        >
+          Log in
+        </Link>
+        <Link
+          href="/signup"
+          className="text-[11px] text-orange-400/70 hover:text-orange-400 border border-orange-400/20 rounded-full px-2.5 py-0.5 hover:border-orange-400/40 transition-all"
+        >
+          Sign up
+        </Link>
+
         {stageLabel && (
           <Badge
             variant="outline"
-            className="hidden sm:flex border-emerald-500/20 text-emerald-300/80 text-[11px] font-normal px-2 py-0.5 bg-emerald-500/5"
+            className="hidden sm:flex border-orange-500/20 text-orange-300/80 text-[11px] font-normal px-2 py-0.5 bg-orange-500/5"
           >
             {stageLabel}
           </Badge>
@@ -87,7 +101,7 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
                 ? 'border-amber-500/30 text-amber-300 bg-amber-500/5'
                 : session.remaining_today !== undefined && session.remaining_today <= 5
                   ? 'border-red-500/30 text-red-300 bg-red-500/5'
-                  : 'border-emerald-500/30 text-emerald-300 bg-emerald-500/5'
+                  : 'border-orange-500/30 text-orange-300 bg-orange-500/5'
             }`}
           >
             {session.remaining_today ?? '...'} msg left

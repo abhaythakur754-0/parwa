@@ -174,10 +174,10 @@ export function DemoCallCard({
     const isTimeUp = elapsed >= durationLimit;
 
     return (
-      <div className="glass rounded-xl p-4 border border-emerald-500/15 max-w-sm w-full">
+      <div className="glass rounded-xl p-4 border border-orange-500/15 max-w-sm w-full">
         <div className="flex items-center gap-2 mb-3">
-          <div className={`w-8 h-8 rounded-lg ${isTimeUp ? 'bg-red-500/10' : 'bg-emerald-500/10'} flex items-center justify-center`}>
-            <Phone className={`w-4 h-4 ${isTimeUp ? 'text-red-400' : 'text-emerald-400 animate-pulse'}`} />
+          <div className={`w-8 h-8 rounded-lg ${isTimeUp ? 'bg-red-500/10' : 'bg-orange-500/10'} flex items-center justify-center`}>
+            <Phone className={`w-4 h-4 ${isTimeUp ? 'text-red-400' : 'text-orange-400 animate-pulse'}`} />
           </div>
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-white">
@@ -193,7 +193,7 @@ export function DemoCallCard({
 
         <div className="w-full h-1 rounded-full bg-white/5 mb-3 overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-1000 ${isTimeUp ? 'bg-red-500' : 'bg-emerald-500'}`}
+            className={`h-full rounded-full transition-all duration-1000 ${isTimeUp ? 'bg-red-500' : 'bg-orange-500'}`}
             style={{ width: `${Math.min((elapsed / durationLimit) * 100, 100)}%` }}
           />
         </div>
@@ -211,10 +211,10 @@ export function DemoCallCard({
 
   if (stage === 'completed') {
     return (
-      <div className="glass rounded-xl p-4 border border-emerald-500/15 max-w-sm w-full">
+      <div className="glass rounded-xl p-4 border border-orange-500/15 max-w-sm w-full">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-            <PhoneOff className="w-4 h-4 text-emerald-400" />
+          <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+            <PhoneOff className="w-4 h-4 text-orange-400" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white">Call Complete</h3>
@@ -256,7 +256,7 @@ export function DemoCallCard({
 
   if (stage === 'otp_sending' || stage === 'otp_verifying') {
     return (
-      <div className="glass rounded-xl p-4 border border-emerald-500/15 max-w-sm w-full">
+      <div className="glass rounded-xl p-4 border border-orange-500/15 max-w-sm w-full">
         <div className="flex items-center gap-2 mb-3">
           <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
             <Mail className="w-4 h-4 text-blue-400" />
@@ -354,10 +354,10 @@ export function DemoCallCard({
   // ── Idle — Phone Input ──────────────────────────────────────────
 
   return (
-    <div className="glass rounded-xl p-4 border border-emerald-500/15 max-w-sm w-full">
+    <div className="glass rounded-xl p-4 border border-orange-500/15 max-w-sm w-full">
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-          <Phone className="w-4 h-4 text-emerald-400" />
+        <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+          <Phone className="w-4 h-4 text-orange-400" />
         </div>
         <div>
           <h3 className="text-sm font-semibold text-white">Try a Demo Call</h3>
@@ -378,12 +378,12 @@ export function DemoCallCard({
           value={phone}
           onChange={(e) => setPhone(formatPhone(e.target.value))}
           placeholder="Enter phone number"
-          className="flex-1 px-3 py-2.5 rounded-lg bg-white/[0.05] border border-white/10 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-emerald-500/30"
+          className="flex-1 px-3 py-2.5 rounded-lg bg-white/[0.05] border border-white/10 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-orange-500/30"
         />
         <button
           onClick={handleSendOtp}
           disabled={digits.length < 7 || callStatus === 'initiating'}
-          className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-xs font-medium hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-40 transition-all active:scale-[0.98] flex items-center gap-1.5"
+          className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-medium hover:from-orange-400 hover:to-orange-500 disabled:opacity-40 transition-all active:scale-[0.98] flex items-center gap-1.5"
         >
           {callStatus === 'initiating' ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -405,7 +405,7 @@ export function DemoCallCard({
 function DemoFeature({ text }: { text: string }) {
   return (
     <div className="flex items-center gap-2 px-1">
-      <div className="w-1 h-1 rounded-full bg-emerald-400/60 shrink-0" />
+      <div className="w-1 h-1 rounded-full bg-orange-400/60 shrink-0" />
       <span className="text-[11px] text-white/50">{text}</span>
     </div>
   );

@@ -38,7 +38,7 @@ export function HandoffCard({
     <div className="glass rounded-xl p-4 border border-purple-500/15 max-w-sm w-full">
       {/* Celebration */}
       <div className="flex items-center justify-center mb-3">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-emerald-500/20 border border-purple-500/15 flex items-center justify-center">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-orange-500/20 border border-purple-500/15 flex items-center justify-center">
           <PartyPopper className="w-7 h-7 text-purple-300" />
         </div>
       </div>
@@ -55,9 +55,9 @@ export function HandoffCard({
 
       {/* Handoff button */}
       {isHandoffComplete ? (
-        <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/15">
-          <Headphones className="w-4 h-4 text-emerald-400" />
-          <span className="text-xs font-medium text-emerald-300">
+        <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-orange-500/10 border border-orange-500/15">
+          <Headphones className="w-4 h-4 text-orange-400" />
+          <span className="text-xs font-medium text-orange-300">
             Connected to Customer Care
           </span>
         </div>

@@ -148,7 +148,7 @@ export function ChatInput({
             disabled={isTyping || isLoading || isLimitReached}
             rows={1}
             maxLength={MAX_CHARS + 50} // Allow slight overflow for display
-            className="w-full resize-none rounded-xl bg-white/[0.05] border border-white/10 text-white text-sm px-4 py-2.5 pr-14 placeholder:text-white/25 focus:outline-none focus:border-emerald-500/30 focus:ring-1 focus:ring-emerald-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full resize-none rounded-xl bg-white/[0.05] border border-white/10 text-white text-sm px-4 py-2.5 pr-14 placeholder:text-white/25 focus:outline-none focus:border-orange-500/30 focus:ring-1 focus:ring-orange-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           />
 
           {/* Character counter (visible when near limit) */}
@@ -172,7 +172,7 @@ export function ChatInput({
           className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 ${
             isDisabled || isOverLimit
               ? 'bg-white/[0.05] text-white/20 cursor-not-allowed'
-              : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98]'
+              : 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98]'
           }`}
           title={
             isLimitReached

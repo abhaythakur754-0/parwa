@@ -540,7 +540,7 @@ export default function ModelsPage() {
                           <div className="h-px my-2" style={{ backgroundColor: `rgba(${accentRgb},0.2)` }} />
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.8)' }}>You save every month</span>
-                            <span className="text-sm font-black" style={{ color: '#34D399' }}>${savingsVsHuman.toLocaleString()}</span>
+                            <span className="text-sm font-black" style={{ color: '#FF9F5A' }}>${savingsVsHuman.toLocaleString()}</span>
                           </div>
                           {qty > 1 && (
                             <div className="mt-2 pt-2 border-t" style={{ borderColor: `rgba(${accentRgb},0.15)` }}>
@@ -749,7 +749,7 @@ export default function ModelsPage() {
                           >
                             <div className="absolute inset-0 opacity-0 group-hover/chat:opacity-100 transition-opacity duration-300" style={{ background: 'rgba(255,255,255,0.06)' }} />
                             <div className="absolute top-0 right-0 px-2.5 py-1 rounded-bl-xl rounded-tr-[9px]" style={{ background: 'rgba(52,211,153,0.15)' }}>
-                              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Free</span>
+                              <span className="text-[9px] font-black uppercase tracking-wider text-orange-400">Free</span>
                             </div>
                             <div className="relative flex items-center gap-3 w-full">
                               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
@@ -846,11 +846,11 @@ export default function ModelsPage() {
                       {/* Human Cost Replaced */}
                       <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                         <div className="flex items-center gap-2 mb-1">
-                          <Users className="w-4 h-4" style={{ color: '#34D399' }} />
+                          <Users className="w-4 h-4" style={{ color: '#FF9F5A' }} />
                           <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>vs Human Cost</span>
                         </div>
                         <span className="text-sm font-bold text-red-400 line-through">${totalHumanCostReplaced.toLocaleString()}</span>
-                        <span className="block text-xs font-bold text-emerald-400">Save ${(totalHumanCostReplaced - totalMonthly).toLocaleString()}/mo</span>
+                        <span className="block text-xs font-bold text-orange-400">Save ${(totalHumanCostReplaced - totalMonthly).toLocaleString()}/mo</span>
                       </div>
                     </div>
 

@@ -61,12 +61,12 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Email Field */}
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-emerald-200/70 mb-1.5">
+        <label htmlFor="email" className="block text-sm font-medium text-orange-200/70 mb-1.5">
           Email address
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Mail className="h-5 w-5 text-emerald-400/50" />
+            <Mail className="h-5 w-5 text-orange-400/50" />
           </div>
           <input
             id="email"
@@ -76,10 +76,10 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
             required
             value={email}
             onChange={handleEmailChange}
-            className={`w-full pl-10 pr-4 py-3 bg-white/5 border rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
+            className={`w-full pl-10 pr-4 py-3 bg-white/5 border rounded-xl text-white placeholder-orange-200/30 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
               formErrors.email
                 ? 'border-rose-500/40 focus:ring-rose-500/30'
-                : 'border-white/10 focus:ring-emerald-500/30 focus:border-emerald-500/40'
+                : 'border-white/10 focus:ring-orange-500/30 focus:border-orange-500/40'
             }`}
             placeholder="you@example.com"
             disabled={isDisabled}
@@ -91,16 +91,16 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
       {/* Password Field */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label htmlFor="password" className="block text-sm font-medium text-emerald-200/70">
+          <label htmlFor="password" className="block text-sm font-medium text-orange-200/70">
             Password
           </label>
-          <Link href="/forgot-password" className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors">
+          <Link href="/forgot-password" className="text-sm text-orange-400 hover:text-orange-300 transition-colors">
             Forgot password?
           </Link>
         </div>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Lock className="h-5 w-5 text-emerald-400/50" />
+            <Lock className="h-5 w-5 text-orange-400/50" />
           </div>
           <input
             id="password"
@@ -110,10 +110,10 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
             required
             value={password}
             onChange={handlePasswordChange}
-            className={`w-full pl-10 pr-10 py-3 bg-white/5 border rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
+            className={`w-full pl-10 pr-10 py-3 bg-white/5 border rounded-xl text-white placeholder-orange-200/30 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
               formErrors.password
                 ? 'border-rose-500/40 focus:ring-rose-500/30'
-                : 'border-white/10 focus:ring-emerald-500/30 focus:border-emerald-500/40'
+                : 'border-white/10 focus:ring-orange-500/30 focus:border-orange-500/40'
             }`}
             placeholder="Enter your password"
             disabled={isDisabled}
@@ -121,7 +121,7 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-400/50 hover:text-emerald-400 transition-colors"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-orange-400/50 hover:text-orange-400 transition-colors"
             tabIndex={-1}
           >
             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -141,7 +141,7 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
       <button
         type="submit"
         disabled={isDisabled}
-        className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40"
+        className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40"
       >
         {isDisabled ? (
           <>
@@ -154,9 +154,9 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
       </button>
 
       {/* Sign Up Link */}
-      <p className="text-center text-sm text-emerald-200/40">
+      <p className="text-center text-sm text-orange-200/40">
         Don&apos;t have an account?{' '}
-        <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
+        <Link href="/signup" className="text-orange-400 hover:text-orange-300 font-medium transition-colors">
           Sign up
         </Link>
       </p>

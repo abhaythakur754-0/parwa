@@ -82,16 +82,15 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
           {isEmpty && (
             <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center animate-fade-in">
               {/* Decorative icon */}
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 border border-emerald-500/15 flex items-center justify-center mb-4">
-                <MessageSquare className="w-8 h-8 text-emerald-400/50" />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/15 flex items-center justify-center mb-4">
+                <MessageSquare className="w-8 h-8 text-orange-400/50" />
               </div>
 
               <h3 className="text-base font-medium text-white/60 mb-1">
-                Start a conversation
+                Hey there! 👋
               </h3>
               <p className="text-sm text-white/30 max-w-xs leading-relaxed">
-                Ask Jarvis anything about PARWA — features, pricing, how it works
-                for your industry, or get help with onboarding.
+                I'm Jarvis, your AI assistant from PARWA. I'll help you find the perfect AI agents for your business. What brings you here today?
               </p>
 
               {/* Quick-start suggestions */}
@@ -136,7 +135,7 @@ function QuickSuggestion({ text, onClick }: { text: string; onClick?: (text: str
     <button
       type="button"
       onClick={() => onClick?.(text)}
-      className="text-[11px] text-emerald-400/50 bg-emerald-500/5 border border-emerald-500/10 rounded-full px-3 py-1 cursor-pointer select-none hover:bg-emerald-500/10 hover:text-emerald-400/70 hover:border-emerald-500/20 transition-all duration-150"
+      className="text-[11px] text-orange-400/50 bg-orange-500/5 border border-orange-500/10 rounded-full px-3 py-1 cursor-pointer select-none hover:bg-orange-500/10 hover:text-orange-400/70 hover:border-orange-500/20 transition-all duration-150"
     >
       {text}
     </button>
@@ -145,8 +144,8 @@ function QuickSuggestion({ text, onClick }: { text: string; onClick?: (text: str
 
 /** Starter suggestions shown in the empty state */
 const SUGGESTIONS = [
-  'What is PARWA?',
-  'Show me pricing',
-  'How does it work for e-commerce?',
-  'Help me get started',
+  '💡 What is PARWA?',
+  '💰 Show me pricing',
+  '🛒 How it works for e-commerce?',
+  '🚀 Help me get started',
 ] as const;

@@ -19,7 +19,7 @@ import type { PricingVariant } from './VariantCard';
  * Premium card with:
  * - Variant breakdown with qty × price
  * - Total tickets/month
- * - Total monthly cost with teal accent
+ * - Total monthly cost with orange accent
  * - "2 months free with annual plan" badge
  * - "Continue to Checkout" button
  * - Empty state message
@@ -71,7 +71,7 @@ export function TotalSummary({
         backdrop-blur-xl transition-all duration-300
         ${
           hasSelection
-            ? 'border-emerald-500/30 bg-emerald-500/5 shadow-lg shadow-emerald-600/10'
+            ? 'border-orange-500/30 bg-orange-500/5 shadow-lg shadow-orange-600/10'
             : 'border-white/10 bg-white/[0.05]'
         }
       `}
@@ -80,12 +80,12 @@ export function TotalSummary({
       <div className="flex items-center gap-2.5 mb-5">
         <div
           className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-            hasSelection ? 'bg-emerald-500/10' : 'bg-white/10'
+            hasSelection ? 'bg-orange-500/10' : 'bg-white/10'
           }`}
         >
           <ShoppingCart
             className={`w-5 h-5 ${
-              hasSelection ? 'text-emerald-400' : 'text-emerald-200/30'
+              hasSelection ? 'text-orange-400' : 'text-orange-200/30'
             }`}
           />
         </div>
@@ -94,7 +94,7 @@ export function TotalSummary({
             Total Summary
           </h3>
           {hasSelection && (
-            <p className="text-xs text-emerald-200/50">
+            <p className="text-xs text-orange-200/50">
               {totalVariants} {totalVariants === 1 ? 'variant' : 'variants'}{' '}
               selected
             </p>
@@ -106,9 +106,9 @@ export function TotalSummary({
       {!hasSelection ? (
         <div className="text-center py-8">
           <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
-            <Ticket className="w-7 h-7 text-emerald-200/30" />
+            <Ticket className="w-7 h-7 text-orange-200/30" />
           </div>
-          <p className="text-sm text-emerald-200/30 mb-1 font-medium">
+          <p className="text-sm text-orange-200/30 mb-1 font-medium">
             Select variants to see your bill summary
           </p>
         </div>
@@ -127,7 +127,7 @@ export function TotalSummary({
                     type="button"
                     onClick={() => onRemoveVariant(variant.id)}
                     disabled={disabled}
-                    className="w-5 h-5 rounded flex items-center justify-center text-transparent group-hover:text-emerald-200/40 hover:!text-red-400 hover:!bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0"
+                    className="w-5 h-5 rounded flex items-center justify-center text-transparent group-hover:text-orange-200/40 hover:!text-red-400 hover:!bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0"
                     aria-label={`Remove ${variant.name}`}
                   >
                     <X className="w-3 h-3" />
@@ -139,7 +139,7 @@ export function TotalSummary({
                   <p className="text-sm font-semibold text-white truncate">
                     {variant.name}
                   </p>
-                  <p className="text-[11px] text-emerald-200/30">
+                  <p className="text-[11px] text-orange-200/30">
                     {(variant.ticketsPerMonth * quantity).toLocaleString()} tickets/month
                   </p>
                 </div>
@@ -156,7 +156,7 @@ export function TotalSummary({
           <div className="space-y-3 py-4 border-t border-white/10">
             {/* Total Tickets */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-emerald-200/50">
+              <div className="flex items-center gap-2 text-orange-200/50">
                 <Ticket className="w-4 h-4" />
                 <span className="text-sm">Total Tickets</span>
               </div>
@@ -167,7 +167,7 @@ export function TotalSummary({
 
             {/* Total Variants */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-emerald-200/50">
+              <div className="flex items-center gap-2 text-orange-200/50">
                 <Sparkles className="w-4 h-4" />
                 <span className="text-sm">Active Variants</span>
               </div>
@@ -179,10 +179,10 @@ export function TotalSummary({
 
           {/* Monthly Total */}
           <div className="flex items-center justify-between py-4 border-t border-white/10">
-            <span className="text-sm font-semibold text-emerald-200/70">
+            <span className="text-sm font-semibold text-orange-200/70">
               Monthly Total
             </span>
-            <span className="text-2xl sm:text-3xl font-extrabold text-emerald-400 tabular-nums">
+            <span className="text-2xl sm:text-3xl font-extrabold text-orange-400 tabular-nums">
               ${totalMonthly}
             </span>
           </div>
@@ -207,10 +207,10 @@ export function TotalSummary({
             className={`
               w-full flex items-center justify-center gap-2
               px-5 py-3 rounded-lg text-sm font-bold
-              bg-gradient-to-r from-emerald-500 to-emerald-400
-              text-[#022C22] shadow-lg shadow-emerald-500/25
-              hover:from-emerald-400 hover:to-emerald-300
-              hover:shadow-emerald-500/40 hover:-translate-y-0.5
+              bg-gradient-to-r from-orange-500 to-orange-400
+              text-[#1A1A1A] shadow-lg shadow-orange-500/25
+              hover:from-orange-400 hover:to-orange-300
+              hover:shadow-orange-500/40 hover:-translate-y-0.5
               active:translate-y-0 active:shadow-md
               transition-all duration-300
               disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0
@@ -219,7 +219,7 @@ export function TotalSummary({
           >
             {isSubmitting ? (
               <>
-                <div className="w-4 h-4 border-2 border-[#022C22]/30 border-t-[#022C22] rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-[#1A1A1A]/30 border-t-[#1A1A1A] rounded-full animate-spin" />
                 Processing...
               </>
             ) : (
@@ -252,7 +252,7 @@ export function TotalSummary({
             }}
             disabled={disabled || !hasSelection}
             className={
-              'w-full flex items-center justify-center gap-2 mt-3 px-5 py-3 rounded-lg text-sm font-semibold border-2 border-emerald-400/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50 hover:text-emerald-200 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed'
+              'w-full flex items-center justify-center gap-2 mt-3 px-5 py-3 rounded-lg text-sm font-semibold border-2 border-orange-400/30 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 hover:border-orange-400/50 hover:text-orange-200 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed'
             }
           >
             <MessageSquare className="w-4 h-4" />

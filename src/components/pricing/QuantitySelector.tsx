@@ -56,10 +56,10 @@ export function QuantitySelector({
           transition-all duration-200 backdrop-blur-sm
           ${
             isDecrementDisabled
-              ? 'border-white/10 bg-white/5 text-emerald-200/20 cursor-not-allowed'
+              ? 'border-white/10 bg-white/5 text-orange-200/20 cursor-not-allowed'
               : isActive
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-90'
-                : 'border-white/10 bg-white/5 text-emerald-200/60 hover:border-white/20 hover:bg-white/10 active:scale-90'
+                ? 'border-orange-500/30 bg-orange-500/10 text-orange-400 hover:border-orange-400 hover:bg-orange-500/20 active:scale-90'
+                : 'border-white/10 bg-white/5 text-orange-200/60 hover:border-white/20 hover:bg-white/10 active:scale-90'
           }
         `}
         aria-label="Decrease quantity"
@@ -76,10 +76,10 @@ export function QuantitySelector({
           transition-all duration-200 backdrop-blur-sm
           ${
             isActive
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-sm shadow-emerald-600/10'
+              ? 'border-orange-500/30 bg-orange-500/10 text-orange-400 shadow-sm shadow-orange-600/10'
               : disabled
-                ? 'border-white/10 bg-white/5 text-emerald-200/20'
-                : 'border-white/10 bg-white/5 text-emerald-200/60'
+                ? 'border-white/10 bg-white/5 text-orange-200/20'
+                : 'border-white/10 bg-white/5 text-orange-200/60'
           }
         `}
         aria-label={`Current quantity: ${value}`}
@@ -98,10 +98,10 @@ export function QuantitySelector({
           transition-all duration-200 backdrop-blur-sm
           ${
             isIncrementDisabled
-              ? 'border-white/10 bg-white/5 text-emerald-200/20 cursor-not-allowed'
+              ? 'border-white/10 bg-white/5 text-orange-200/20 cursor-not-allowed'
               : isActive
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-90'
-                : 'border-white/10 bg-white/5 text-emerald-200/60 hover:border-white/20 hover:bg-white/10 active:scale-90'
+                ? 'border-orange-500/30 bg-orange-500/10 text-orange-400 hover:border-orange-400 hover:bg-orange-500/20 active:scale-90'
+                : 'border-white/10 bg-white/5 text-orange-200/60 hover:border-white/20 hover:bg-white/10 active:scale-90'
           }
         `}
         aria-label="Increase quantity"

@@ -38,20 +38,20 @@ export default function WelcomeDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #022C22 0%, #064E3B 50%, #047857 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-400 mx-auto mb-4" />
-          <p className="text-emerald-200/50">Loading...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-orange-400 mx-auto mb-4" />
+          <p className="text-orange-200/50">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: 'linear-gradient(165deg, #022C22 0%, #064E3B 50%, #022C22 100%)' }}>
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #1A1A1A 100%)' }}>
       {/* Background effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)', top: '10%', left: '20%', animation: 'orbFloat 10s ease-in-out infinite' }} />
+        <div className="absolute w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,127,17,0.12) 0%, transparent 70%)', top: '10%', left: '20%', animation: 'orbFloat 10s ease-in-out infinite' }} />
         <div className="absolute w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.08) 0%, transparent 70%)', bottom: '15%', right: '15%', animation: 'orbFloat 12s ease-in-out infinite' }} />
       </div>
 
@@ -68,21 +68,21 @@ export default function WelcomeDetailsPage() {
         </div>
 
         {/* Main Card */}
-        <div className="rounded-2xl p-6 sm:p-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(16,185,129,0.2)', backdropFilter: 'blur(20px)', boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(16,185,129,0.06)' }}>
-          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(16,185,129,0.1)' }} />
+        <div className="rounded-2xl p-6 sm:p-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(255,127,17,0.2)', backdropFilter: 'blur(20px)', boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)' }}>
+          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.1)' }} />
 
           {/* Logo */}
           <div className="text-center mb-6">
             <h1 className="text-3xl font-bold text-gradient">PARWA</h1>
-            <p className="text-emerald-200/50 text-sm mt-1">AI-Powered Customer Support</p>
+            <p className="text-orange-200/50 text-sm mt-1">AI-Powered Customer Support</p>
           </div>
 
           <DetailsForm initialData={initialData} onSubmit={handleSubmit} onNext={handleNext} />
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-emerald-200/30">
-          <p>Need help?{' '}<a href="mailto:support@parwa.io" className="text-emerald-400 hover:text-emerald-300 transition-colors">Contact Support</a></p>
+        <div className="mt-8 text-center text-sm text-orange-200/30">
+          <p>Need help?{' '}<a href="mailto:support@parwa.io" className="text-orange-400 hover:text-orange-300 transition-colors">Contact Support</a></p>
         </div>
       </div>
 
@@ -95,13 +95,13 @@ function Step({ number, label, isActive, isCompleted }: { number: number; label:
   return (
     <div className="flex flex-col items-center">
       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
-        isCompleted ? 'bg-emerald-500 text-white'
-          : isActive ? 'bg-emerald-600 text-white'
-          : 'bg-white/10 text-emerald-200/40'
+        isCompleted ? 'bg-orange-500 text-white'
+          : isActive ? 'bg-orange-600 text-white'
+          : 'bg-white/10 text-orange-200/40'
       }`}>
         {isCompleted ? <CheckCircle className="w-5 h-5" /> : number}
       </div>
-      <span className={`mt-2 text-xs font-medium ${isActive ? 'text-emerald-400' : 'text-emerald-200/30'}`}>{label}</span>
+      <span className={`mt-2 text-xs font-medium ${isActive ? 'text-orange-400' : 'text-orange-200/30'}`}>{label}</span>
     </div>
   );
 }

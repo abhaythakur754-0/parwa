@@ -25,10 +25,10 @@ export function RechargeCTACard({
     'Enjoyed the demo? Get 500 more messages + another AI call for just $1.';
 
   return (
-    <div className="glass rounded-xl p-4 border border-emerald-500/15 max-w-sm w-full">
+    <div className="glass rounded-xl p-4 border border-orange-500/15 max-w-sm w-full">
       <div className="flex items-center gap-2 mb-2">
-        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-          <Zap className="w-4 h-4 text-emerald-400" />
+        <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+          <Zap className="w-4 h-4 text-orange-400" />
         </div>
         <div>
           <h3 className="text-sm font-semibold text-white">Continue Exploring</h3>
@@ -42,7 +42,7 @@ export function RechargeCTACard({
         <button
           onClick={onRecharge}
           disabled={isProcessing}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-xs font-medium hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-40 transition-all active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-medium hover:from-orange-400 hover:to-orange-500 disabled:opacity-40 transition-all active:scale-[0.98]"
         >
           {isProcessing ? (
             <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

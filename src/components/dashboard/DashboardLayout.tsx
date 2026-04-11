@@ -65,7 +65,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#022C22] flex">
+    <div className="min-h-screen bg-[#1A1A1A] flex">
       {/* Mobile overlay */}
       {isSidebarOpen && isMobile && (
         <div
@@ -77,15 +77,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 bg-[#011a16]/95 backdrop-blur-xl border-r border-emerald-500/15 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 bg-[#011a16]/95 backdrop-blur-xl border-r border-orange-500/15 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           isSidebarOpen || !isMobile
             ? 'translate-x-0'
             : '-translate-x-full'
         }`}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center gap-2.5 px-5 border-b border-emerald-500/10">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-600/20">
+        <div className="h-16 flex items-center gap-2.5 px-5 border-b border-orange-500/10">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/20">
             <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
             </svg>
@@ -113,14 +113,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 href={link.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
                   isActive
-                    ? 'bg-emerald-500/15 text-emerald-300'
+                    ? 'bg-orange-500/15 text-orange-300'
                     : 'text-white/50 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-white/30 group-hover:text-white/60'} transition-colors`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-orange-400' : 'text-white/30 group-hover:text-white/60'} transition-colors`} />
                 {link.name}
                 {isActive && (
-                  <ChevronRight className="w-3.5 h-3.5 ml-auto text-emerald-400/60" />
+                  <ChevronRight className="w-3.5 h-3.5 ml-auto text-orange-400/60" />
                 )}
               </Link>
             );
@@ -128,9 +128,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </nav>
 
         {/* User section */}
-        <div className="p-3 border-t border-emerald-500/10">
+        <div className="p-3 border-t border-orange-500/10">
           <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-xs font-bold text-white">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xs font-bold text-white">
               {user?.full_name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
@@ -155,7 +155,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar (mobile) */}
-        <header className="sticky top-0 z-30 h-14 bg-[#022C22]/90 backdrop-blur-xl border-b border-emerald-500/10 flex items-center px-4 lg:hidden">
+        <header className="sticky top-0 z-30 h-14 bg-[#1A1A1A]/90 backdrop-blur-xl border-b border-orange-500/10 flex items-center px-4 lg:hidden">
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-colors"

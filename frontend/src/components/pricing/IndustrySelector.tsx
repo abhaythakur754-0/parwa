@@ -13,10 +13,10 @@ import {
  * IndustrySelector Component
  *
  * 4 industry cards:
- * - E-commerce (ShoppingCart, teal)
+ * - E-commerce (ShoppingCart, orange)
  * - SaaS (Cloud, sky blue)
  * - Logistics (Truck, amber)
- * - Others (Layers, green)
+ * - Others (Layers, orange)
  *
  * Selected state: glowing colored border + checkmark.
  * Hover: lift effect.
@@ -44,13 +44,13 @@ const industries: IndustryOption[] = [
     name: 'E-commerce',
     description: 'Online retail, marketplaces, D2C brands',
     icon: ShoppingCart,
-    color: 'text-emerald-400',
-    iconBg: 'bg-emerald-600/15',
-    glowClass: 'hover:shadow-emerald-600/20',
-    borderSelected: 'border-emerald-600',
-    bgSelected: 'bg-emerald-600/10',
-    checkBg: 'bg-emerald-600',
-    shadowClass: 'shadow-emerald-600/25',
+    color: 'text-orange-400',
+    iconBg: 'bg-orange-600/15',
+    glowClass: 'hover:shadow-orange-600/20',
+    borderSelected: 'border-orange-600',
+    bgSelected: 'bg-orange-600/10',
+    checkBg: 'bg-orange-600',
+    shadowClass: 'shadow-orange-600/25',
   },
   {
     id: 'saas',
@@ -83,13 +83,13 @@ const industries: IndustryOption[] = [
     name: 'Others',
     description: 'Healthcare, Finance, Education, etc.',
     icon: Layers,
-    color: 'text-emerald-400',
-    iconBg: 'bg-emerald-500/15',
-    glowClass: 'hover:shadow-emerald-500/20',
-    borderSelected: 'border-emerald-400',
-    bgSelected: 'bg-emerald-400/10',
-    checkBg: 'bg-emerald-400',
-    shadowClass: 'shadow-emerald-400/25',
+    color: 'text-orange-400',
+    iconBg: 'bg-orange-500/15',
+    glowClass: 'hover:shadow-orange-500/20',
+    borderSelected: 'border-orange-400',
+    bgSelected: 'bg-orange-400/10',
+    checkBg: 'bg-orange-400',
+    shadowClass: 'shadow-orange-400/25',
   },
 ];
 
@@ -111,7 +111,7 @@ export function IndustrySelector({
         <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
           Select Your Industry
         </h2>
-        <p className="text-sm sm:text-base text-emerald-200/50">
+        <p className="text-sm sm:text-base text-orange-200/50">
           Choose your industry to see relevant AI support variants
         </p>
       </div>
@@ -135,7 +135,7 @@ export function IndustrySelector({
                 ${
                   isSelected
                     ? `${industry.borderSelected} ${industry.bgSelected} shadow-lg ${industry.shadowClass}`
-                    : 'border-white/10 bg-white/5 hover:border-emerald-500/30'
+                    : 'border-white/10 bg-white/5 hover:border-orange-500/30'
                 }
                 ${
                   !isSelected
@@ -171,7 +171,7 @@ export function IndustrySelector({
               <h3 className="font-semibold text-white text-sm sm:text-base mb-1">
                 {industry.name}
               </h3>
-              <p className="text-xs sm:text-sm text-emerald-200/50 leading-relaxed">
+              <p className="text-xs sm:text-sm text-orange-200/50 leading-relaxed">
                 {industry.description}
               </p>
             </button>

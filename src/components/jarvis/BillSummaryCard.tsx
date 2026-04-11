@@ -22,11 +22,11 @@ export function BillSummaryCard({ metadata, onProceed }: BillSummaryCardProps) {
   const currency = (metadata.currency as string) || 'USD';
 
   return (
-    <div className="glass rounded-xl p-4 border border-emerald-500/15 max-w-sm w-full">
+    <div className="glass rounded-xl p-4 border border-orange-500/15 max-w-sm w-full">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-          <Receipt className="w-4 h-4 text-emerald-400" />
+        <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+          <Receipt className="w-4 h-4 text-orange-400" />
         </div>
         <div>
           <h3 className="text-sm font-semibold text-white">Bill Summary</h3>
@@ -51,7 +51,7 @@ export function BillSummaryCard({ metadata, onProceed }: BillSummaryCardProps) {
                 </p>
               </div>
               <div className="text-right ml-3">
-                <p className="text-xs font-semibold text-emerald-300">
+                <p className="text-xs font-semibold text-orange-300">
                   {v.price != null ? `${currency} ${v.price.toLocaleString()}` : 'Custom'}
                 </p>
               </div>
@@ -62,7 +62,7 @@ export function BillSummaryCard({ metadata, onProceed }: BillSummaryCardProps) {
                 {v.features.map((f, fi) => (
                   <span
                     key={fi}
-                    className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/5 border border-emerald-500/8 text-emerald-300/40"
+                    className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/5 border border-orange-500/8 text-orange-300/40"
                   >
                     {f}
                   </span>
@@ -74,9 +74,9 @@ export function BillSummaryCard({ metadata, onProceed }: BillSummaryCardProps) {
       </div>
 
       {/* Total */}
-      <div className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15">
+      <div className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-orange-500/5 border border-orange-500/15">
         <span className="text-xs font-medium text-white/70">Total</span>
-        <span className="text-sm font-bold text-emerald-300">
+        <span className="text-sm font-bold text-orange-300">
           {currency} {total.toLocaleString()}
         </span>
       </div>
@@ -85,7 +85,7 @@ export function BillSummaryCard({ metadata, onProceed }: BillSummaryCardProps) {
       {onProceed && (
         <button
           onClick={onProceed}
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-xs font-medium hover:from-emerald-400 hover:to-emerald-500 transition-all active:scale-[0.98]"
+          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-medium hover:from-orange-400 hover:to-orange-500 transition-all active:scale-[0.98]"
         >
           Proceed to Payment
           <ArrowRight className="w-3.5 h-3.5" />

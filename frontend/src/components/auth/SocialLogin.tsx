@@ -72,12 +72,12 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
             To enable Google sign-in, add your Google OAuth Client ID to{' '}
             <code className="text-amber-300/80 bg-amber-500/10 px-1 rounded">.env.local</code>:
           </p>
-          <code className="block mt-1.5 text-xs text-emerald-300/70 bg-white/5 px-2 py-1 rounded">
+          <code className="block mt-1.5 text-xs text-orange-300/70 bg-white/5 px-2 py-1 rounded">
             NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_client_id_here
           </code>
           <p className="text-xs text-amber-200/40 mt-1.5">
             Get one from{' '}
-            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">
+            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300 underline">
               Google Cloud Console
             </a>
           </p>
@@ -97,7 +97,7 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
         <div className="relative">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-transparent text-emerald-200/40">or continue with email</span>
+            <span className="px-4 bg-transparent text-orange-200/40">or continue with email</span>
           </div>
         </div>
       )}

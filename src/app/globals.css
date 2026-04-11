@@ -121,7 +121,7 @@
   }
 
   .text-gradient-sky {
-    @apply bg-gradient-to-r from-sky-500 to-green-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-sky-500 to-orange-600 bg-clip-text text-transparent;
   }
 
   .text-balance {

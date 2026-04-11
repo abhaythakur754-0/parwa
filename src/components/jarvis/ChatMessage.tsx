@@ -66,8 +66,8 @@ function MessageAvatar({ role }: { role: MessageRole }) {
   }
 
   return (
-    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 border border-emerald-400/20 flex items-center justify-center shrink-0">
-      <Bot className="w-4 h-4 text-emerald-400" />
+    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400/20 to-orange-600/20 border border-orange-400/20 flex items-center justify-center shrink-0">
+      <Bot className="w-4 h-4 text-orange-400" />
     </div>
   );
 }
@@ -91,7 +91,7 @@ function MessageTimestamp({
   return (
     <p
       className={`text-[10px] mt-1 px-1 ${
-        isUser ? 'text-blue-300/40 text-right' : 'text-emerald-300/40'
+        isUser ? 'text-blue-300/40 text-right' : 'text-orange-300/40'
       }`}
     >
       {time}
@@ -370,7 +370,7 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
               {isUser ? (
                 <p className="whitespace-pre-wrap break-words">{message.content}</p>
               ) : (
-                <div className="prose prose-invert prose-sm max-w-none prose-p:text-white/90 prose-p:leading-relaxed prose-headings:text-white prose-strong:text-white prose-code:text-emerald-300 prose-a:text-emerald-400 prose-li:text-white/80">
+                <div className="prose prose-invert prose-sm max-w-none prose-p:text-white/90 prose-p:leading-relaxed prose-headings:text-white prose-strong:text-white prose-code:text-orange-300 prose-a:text-orange-400 prose-li:text-white/80">
                   <Markdown rehypePlugins={[rehypeSanitize]} components={markdownComponents}>{message.content}</Markdown>
                 </div>
               )}

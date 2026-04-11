@@ -123,7 +123,7 @@ export function PostCallSummaryCard({ metadata }: PostCallSummaryCardProps) {
       {impressions && (
         <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/5">
           <div className="flex items-center gap-1.5 mb-2">
-            <BarChart3 className="w-3 h-3 text-emerald-400/60" />
+            <BarChart3 className="w-3 h-3 text-orange-400/60" />
             <span className="text-[10px] font-medium text-white/40">Your Impressions</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -135,7 +135,7 @@ export function PostCallSummaryCard({ metadata }: PostCallSummaryCardProps) {
             )}
             {impressions.avg_response_time && (
               <div className="text-center">
-                <p className="text-sm font-bold text-emerald-300">{impressions.avg_response_time}</p>
+                <p className="text-sm font-bold text-orange-300">{impressions.avg_response_time}</p>
                 <p className="text-[9px] text-white/35">avg response</p>
               </div>
             )}
@@ -175,10 +175,10 @@ export function PostCallSummaryCard({ metadata }: PostCallSummaryCardProps) {
 
       {/* ROI Mapping (Gap Fix — spec §20.3) */}
       {roiMapping && (
-        <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+        <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-500/10">
           <div className="flex items-center gap-1.5 mb-2">
-            <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[10px] font-semibold text-emerald-300/70">Your ROI with Jarvis</span>
+            <TrendingDown className="w-3.5 h-3.5 text-orange-400" />
+            <span className="text-[10px] font-semibold text-orange-300/70">Your ROI with Jarvis</span>
           </div>
           <div className="space-y-1.5 mb-2">
             <div className="flex justify-between text-[10px]">
@@ -187,11 +187,11 @@ export function PostCallSummaryCard({ metadata }: PostCallSummaryCardProps) {
             </div>
             <div className="flex justify-between text-[10px]">
               <span className="text-white/40">PARWA cost</span>
-              <span className="text-emerald-300/70">{formatCurrency(roiMapping.parwa_cost, roiMapping.currency)}/mo</span>
+              <span className="text-orange-300/70">{formatCurrency(roiMapping.parwa_cost, roiMapping.currency)}/mo</span>
             </div>
             <div className="flex justify-between text-[10px] pt-1 border-t border-white/5">
               <span className="text-white/50 font-medium">Est. savings</span>
-              <span className="text-emerald-300 font-semibold">{formatCurrency(roiMapping.savings, roiMapping.currency)}/mo</span>
+              <span className="text-orange-300 font-semibold">{formatCurrency(roiMapping.savings, roiMapping.currency)}/mo</span>
             </div>
           </div>
           {roiMapping.queries_in_call > 0 && (

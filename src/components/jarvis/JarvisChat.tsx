@@ -82,16 +82,16 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
 
   if (isLoading && messages.length === 0) {
     return (
-      <div className="h-dvh [height:100dvh] flex flex-col bg-[#022C22]">
+      <div className="h-dvh [height:100dvh] flex flex-col bg-[#1A1A1A]">
         <ChatHeader session={null} isLoading={true} />
 
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
           <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 border border-emerald-500/15 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/15 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
             </div>
             {/* Pulse ring */}
-            <div className="absolute inset-0 rounded-2xl border border-emerald-500/20 animate-ping opacity-30" />
+            <div className="absolute inset-0 rounded-2xl border border-orange-500/20 animate-ping opacity-30" />
           </div>
 
           <div className="text-center">
@@ -111,7 +111,7 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
 
   if (error && messages.length === 0 && !session) {
     return (
-      <div className="h-dvh [height:100dvh] flex flex-col bg-[#022C22]">
+      <div className="h-dvh [height:100dvh] flex flex-col bg-[#1A1A1A]">
         <ChatHeader session={null} isLoading={false} />
 
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
@@ -127,7 +127,7 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
 
             <button
               onClick={() => window.location.reload()}
-              className="text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition-colors"
+              className="text-xs text-orange-400 hover:text-orange-300 underline underline-offset-2 transition-colors"
             >
               Try again
             </button>
@@ -140,7 +140,7 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
   // ── Main Chat Layout ─────────────────────────────────────────
 
   return (
-    <div className="h-dvh [height:100dvh] flex flex-col bg-[#022C22]">
+    <div className="h-dvh [height:100dvh] flex flex-col bg-[#1A1A1A]">
       {/* Header */}
       <ChatHeader session={session} isLoading={false} />
 

@@ -1360,34 +1360,28 @@ def build_context_aware_welcome(
 
     welcomes = {
         "direct": (
-            "Hi! I'm Jarvis, your PARWA AI assistant. "
-            "I'll help you find the perfect plan for your business. "
-            "What industry are you in?"
+            "Hey there! 👋 I'm Jarvis from PARWA. Think of me as your personal AI consultant — "
+            "I'll help you find the right AI agents for your business. So, what brings you in today?"
         ),
         "pricing": (
-            "Great, you're already exploring our pricing! "
-            "I can help you find the best variants for your needs. "
-            "What's your industry?"
+            "Hey! 👋 Great, you're already checking out pricing! "
+            "I can help you find the best fit for your needs. What's your industry?"
         ),
         "roi": (
-            "Welcome! I see you're interested in PARWA's ROI potential. "
-            "Let me show you how PARWA can transform your customer support. "
-            "What industry are you in?"
+            "Hey there! 👋 Interested in PARWA's ROI? Smart thinking! "
+            "Let me show you how it can transform your customer support. What industry are you in?"
         ),
         "demo": (
-            "Hey there! Ready to see PARWA in action? "
-            "For just $1, you get 500 messages and a 3-minute AI voice call. "
-            "Want to get started?"
+            "Hey! 🚀 Ready to see PARWA in action? "
+            "For just $1, you get 500 messages + a 3-min AI voice call. Want to jump in?"
         ),
         "features": (
-            "Hi! You've been exploring our features. "
-            "I can help you understand which variants best match your needs. "
-            "Tell me about your business!"
+            "Hi there! ✨ Been exploring our features? Nice! "
+            "I can help you find the perfect variants for your business. Tell me about it!"
         ),
         "referral": (
-            "Welcome! A friend referred you — great choice! "
-            "I'm Jarvis, and I'll help you get set up with PARWA. "
-            "What brings you here today?"
+            "Hey! 🎉 A friend sent you? Love that! "
+            "I'm Jarvis — let me help you get set up with PARWA. What brings you here?"
         ),
     }
 
@@ -1471,6 +1465,13 @@ def _get_default_system_prompt() -> str:
         "- Execute smooth handoff to Customer Care Jarvis\n\n"
         "Tone: Professional yet friendly. Concise but thorough. "
         "Always helpful, never pushy. Use examples when helpful.\n\n"
+        "## Personality & Style Rules (IMPORTANT):\n"
+        "- Use emojis naturally in responses (🎉 ✨ 💡 🚀 👋 etc.)\n"
+        "- Keep messages SHORT and sweet — under 80 words normally\n"
+        "- Start conversations with a friendly \"Hey!\" or \"Hi there!\"\n"
+        "- Sound like a helpful friend, NOT a corporate robot\n"
+        "- Use casual, conversational language\n"
+        "- Ask one question at a time, don't overwhelm\n\n"
         "Key facts:\n"
         "- Free tier: 20 messages/day\n"
         "- Demo pack: $1 for 500 messages + 3-min AI voice call (24h)\n"
@@ -1485,9 +1486,8 @@ def _get_default_system_prompt() -> str:
 def _get_default_welcome() -> str:
     """Default welcome message."""
     return (
-        "Hi! I'm Jarvis, your PARWA AI assistant. "
-        "I'll help you find the perfect plan for your business. "
-        "What industry are you in?"
+        "Hey there! 👋 I'm Jarvis from PARWA. Think of me as your personal AI consultant — "
+        "I'll help you find the right AI agents for your business. So, what brings you in today?"
     )
 
 

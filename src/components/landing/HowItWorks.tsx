@@ -12,7 +12,7 @@ const steps = [
     icon: <MessageSquare className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'You Have a Task',
     description: 'Customer question, refund, tracking — whatever comes in.',
-    color: 'green',
+    color: 'orange',
   },
   {
     icon: <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7" />,
@@ -30,18 +30,18 @@ const steps = [
     icon: <PartyPopper className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'Everyone\'s Happy',
     description: 'Task done, zero effort, instant resolution',
-    color: 'green',
+    color: 'orange',
   },
   {
     icon: <BarChart3 className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'See the Results',
     description: 'Real-time dashboard shows resolution rates, savings, and satisfaction',
-    color: 'green',
+    color: 'orange',
   },
 ] as const;
 
 const colorMap: Record<string, { bg: string; border: string; text: string; ring: string; dot: string }> = {
-  green: {
+  orange: {
     bg: 'bg-orange-500/10',
     border: 'border-orange-500/30',
     text: 'text-orange-400',
