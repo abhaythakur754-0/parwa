@@ -2,8 +2,7 @@
  * PARWA Jarvis API — Next.js Catch-All Route Handler
  *
  * Handles all /api/jarvis/* endpoints that the useJarvisChat hook expects.
- * Uses REAL AI providers: Google AI (Gemini), Cerebras, Groq.
- * Smart routing: primary → fallback → keyword fallback.
+ * AI routing: Google AI → Cerebras → Groq → keyword fallback.
  *
  * Endpoints:
  *   POST /api/jarvis/session          — Create session
@@ -27,10 +26,8 @@ import { NextRequest, NextResponse } from 'next/server';
 const GOOGLE_AI_KEY = process.env.GOOGLE_AI_API_KEY;
 const CEREBRAS_KEY = process.env.CEREBRAS_API_KEY;
 const GROQ_KEY = process.env.GROQ_API_KEY;
-const PRIMARY_PROVIDER = process.env.LLM_PRIMARY_PROVIDER || 'google';
-const FALLBACK_PROVIDER = process.env.LLM_FALLBACK_PROVIDER || 'groq';
 
-// ── Provider Definitions ──────────────────────────────────────
+// ── Free AI Providers ──────────────────────────────────────────
 
 function getGoogleProvider(): any {
   return {
@@ -39,8 +36,7 @@ function getGoogleProvider(): any {
     model: 'gemini-2.0-flash',
     apiUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_KEY}`,
     buildHeaders: () => ({ 'Content-Type': 'application/json' }),
-    buildBody: (messages, model) => {
-      // Gemini format: systemInstruction separate, contents array
+    buildBody: (messages: any[]) => {
       const systemMsg = messages.find(m => m.role === 'system');
       const chatMsgs = messages.filter(m => m.role !== 'system');
       const contents = chatMsgs.map(m => ({
@@ -53,9 +49,8 @@ function getGoogleProvider(): any {
         generationConfig: { temperature: 0.7, maxOutputTokens: 500 },
       });
     },
-    parseResponse: (data) => {
-      const d = data;
-      return d?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    parseResponse: (data: any) => {
+      return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
     },
   };
 }
@@ -66,19 +61,18 @@ function getCerebrasProvider(): any {
     apiKey: CEREBRAS_KEY,
     model: 'llama-4-scout-17b-16e-instruct',
     apiUrl: 'https://api.cerebras.ai/v1/chat/completions',
-    buildHeaders: (key) => ({
+    buildHeaders: (key: string) => ({
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${key}`,
     }),
-    buildBody: (messages, model) => JSON.stringify({
+    buildBody: (messages: any[], model: string) => JSON.stringify({
       model,
       messages,
       temperature: 0.7,
       max_tokens: 500,
     }),
-    parseResponse: (data) => {
-      const d = data;
-      return d?.choices?.[0]?.message?.content || null;
+    parseResponse: (data: any) => {
+      return data?.choices?.[0]?.message?.content || null;
     },
   };
 }
@@ -89,19 +83,18 @@ function getGroqProvider(): any {
     apiKey: GROQ_KEY,
     model: 'llama-3.3-70b-versatile',
     apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
-    buildHeaders: (key) => ({
+    buildHeaders: (key: string) => ({
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${key}`,
     }),
-    buildBody: (messages, model) => JSON.stringify({
+    buildBody: (messages: any[], model: string) => JSON.stringify({
       model,
       messages,
       temperature: 0.7,
       max_tokens: 500,
     }),
-    parseResponse: (data) => {
-      const d = data;
-      return d?.choices?.[0]?.message?.content || null;
+    parseResponse: (data: any) => {
+      return data?.choices?.[0]?.message?.content || null;
     },
   };
 }
@@ -115,61 +108,14 @@ function getProvider(name: string): any | null {
   }
 }
 
-// ── AI Call with Smart Routing ──────────────────────────────────
-
-async function callAI(messages: Array<{role: string, content: string}>): Promise<string> {
-  // Try primary provider first
-  const primary = getProvider(PRIMARY_PROVIDER);
-  if (primary) {
-    try {
-      const result = await callProvider(primary, messages);
-      if (result) return result;
-    } catch (error) {
-      console.warn(`[Jarvis] Primary provider "${primary.name}" failed:`, (error instanceof Error ? error.message : String(error))?.slice(0, 100));
-    }
-  }
-
-  // Try fallback provider
-  if (FALLBACK_PROVIDER !== PRIMARY_PROVIDER) {
-    const fallback = getProvider(FALLBACK_PROVIDER);
-    if (fallback) {
-      try {
-        const result = await callProvider(fallback, messages);
-        if (result) return result;
-      } catch (error) {
-        console.warn(`[Jarvis] Fallback provider "${fallback.name}" failed:`, (error instanceof Error ? error.message : String(error))?.slice(0, 100));
-      }
-    }
-  }
-
-  // Try all remaining providers
-  const allProviders = ['google', 'cerebras', 'groq'];
-  for (const name of allProviders) {
-    if (name === PRIMARY_PROVIDER || name === FALLBACK_PROVIDER) continue;
-    const provider = getProvider(name);
-    if (provider) {
-      try {
-        const result = await callProvider(provider, messages);
-        if (result) return result;
-      } catch (error) {
-        console.warn(`[Jarvis] Provider "${name}" failed:`, (error instanceof Error ? error.message : String(error))?.slice(0, 100));
-      }
-    }
-  }
-
-  // All providers failed — use keyword fallback
-  console.warn('[Jarvis] All AI providers failed, using keyword fallback');
-  return null;
-}
-
 async function callProvider(provider: any, messages: Array<{role: string, content: string}>): Promise<string | null> {
   if (!provider.apiKey) return null;
 
   const response = await fetch(provider.apiUrl, {
     method: 'POST',
     headers: provider.buildHeaders(provider.apiKey),
-    body: provider.buildBody(messages, provider.model, 500),
-    signal: AbortSignal.timeout(30000), // 30s timeout
+    body: provider.buildBody(messages, provider.model),
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
@@ -185,6 +131,28 @@ async function callProvider(provider: any, messages: Array<{role: string, conten
   }
 
   return text.trim();
+}
+
+// ── AI Call with Smart Routing ──────────────────────────────────
+
+async function callAI(messages: Array<{role: string, content: string}>): Promise<string> {
+  // Try all providers in order: Google → Cerebras → Groq
+  const providerList = ['google', 'cerebras', 'groq'];
+  for (const name of providerList) {
+    const provider = getProvider(name);
+    if (provider) {
+      try {
+        const result = await callProvider(provider, messages);
+        if (result) return result;
+      } catch (error) {
+        console.warn(`[Jarvis] Provider "${name}" failed:`, (error instanceof Error ? error.message : String(error))?.slice(0, 100));
+      }
+    }
+  }
+
+  // All providers failed — keyword fallback
+  console.warn('[Jarvis] All AI providers failed, using keyword fallback');
+  return null;
 }
 
 // ── PARWA System Prompt — Complete Knowledge Base ──────────────────
@@ -438,71 +406,173 @@ function getKeywordResponse(message: string, session: any): string {
   const ctx = session.context;
   const industry = ctx.industry || null;
 
+  // Check if this was already answered recently (avoid repeating)
+  const recentReplies = session.messages
+    .filter((m: any) => m.role === 'jarvis')
+    .slice(-3)
+    .map((m: any) => m.content.toLowerCase());
+
+  // Helper: check if a response would repeat
+  const wouldRepeat = (text: string) => {
+    const t = text.toLowerCase();
+    return recentReplies.some((r: string) => {
+      // Compare first 50 chars for similarity
+      return r.slice(0, 50) === t.slice(0, 50) || r.includes(t.slice(0, 40));
+    });
+  };
+
+  // Helper: generate varied response
+  const responses: Record<string, string[]> = {
+    greeting: [
+      `Hey there! Welcome to PARWA. I'm Jarvis, your AI assistant. I help businesses like yours find the perfect AI customer support plan.\n\nTo get started, could you tell me:\n- What industry are you in? (E-commerce, SaaS, Logistics, Healthcare, etc.)\n- Roughly how many support tickets do you get per day?`,
+      `Hello! Great to have you here. I'm Jarvis from PARWA.\n\nI can help you explore our AI customer support platform. Let me know:\n- Your industry and business type\n- Current support challenges\n- What channels you need (chat, email, phone, etc.)`,
+      `Hi! Welcome to PARWA. I'm Jarvis, ready to help you find the right AI support solution.\n\nTell me about your business — what industry are you in and what does your current customer support look like?`,
+    ],
+    ecommerce: [
+      `Great choice! E-commerce is one of our strongest areas. PARWA handles:\n\n- **Order tracking** — "Where's my order?" queries answered instantly\n- **Returns & refunds** — Full automation for exchange/refund workflows\n- **Cart recovery** — Proactive outreach when customers abandon carts\n- **Fraud detection** — Flag suspicious orders before they ship\n\nWe integrate with **Shopify, WooCommerce, Magento, and BigCommerce** out of the box.\n\nMost e-commerce businesses start with **PARWA Starter ($999/mo)**. Would you like to see pricing details?`,
+      `E-commerce support is where PARWA really shines!\n\nWe automate **order status updates, return requests, product questions, shipping inquiries, and payment issues** — the 5 most common e-commerce support tickets.\n\nWith integrations for **Shopify, WooCommerce, Magento, and BigCommerce**, setup takes under an hour.\n\nShall I walk you through how order tracking automation works?`,
+    ],
+    saas: [
+      `SaaS support is where PARWA really shines! Here's what we automate:\n\n- **Technical support** — API troubleshooting, integration help, bug reports\n- **Churn prediction** — Identify at-risk accounts before they leave\n- **In-app guidance** — Contextual help embedded in your product\n- **Account management** — Upgrade/downgrade/plan change requests\n\nWe integrate with **GitHub, Jira, Slack, and Intercom** natively.\n\nSaaS companies typically need **PARWA Growth ($2,499/mo)**. Want me to run a quick ROI calculation?`,
+      `For SaaS companies, PARWA transforms your support stack:\n\n- Handle **API questions and technical issues** without human agents\n- **Predict churn** from conversation patterns before customers leave\n- Automate **subscription changes, billing, and account management**\n- Provide **in-app contextual help** that scales with your user base\n\nInterested in seeing a demo of how PARWA handles a technical support ticket?`,
+    ],
+    logistics: [
+      `Logistics is a perfect fit for PARWA! We handle:\n\n- **Shipment tracking** — Real-time status updates via any channel\n- **Driver coordination** — Dispatch, ETA updates, route changes\n- **Proof of delivery** — Automated POD collection and sharing\n- **Hazmat protocol** — Specialized handling for regulated cargo\n\nWe integrate with **TMS, WMS, and GPS tracking systems**.\n\nLogistics companies usually need **PARWA High ($3,999/mo)** for voice support. Shall I show the cost comparison?`,
+      `PARWA is built for logistics complexity:\n\n- **Real-time shipment tracking** across carriers\n- **Automated delivery updates** via SMS, email, or chat\n- **Fleet coordination** with driver dispatch and ETA management\n- **Customs compliance** for international shipments\n\nWe connect to your TMS, WMS, and GPS systems for live data.\n\nWant to see how PARWA handles a delivery delay scenario?`,
+    ],
+    healthcare: [
+      `Healthcare support with PARWA is HIPAA-compliant and built for reliability:\n\n- **Appointment scheduling** — Self-service booking and reminders\n- **Insurance verification** — Real-time eligibility checks\n- **Clinical escalation** — Auto-route urgent cases to the right team\n- **HIPAA compliance** — Full audit trail and data encryption\n\nWe integrate with **Epic EHR and FHIR** standards.\n\nHealthcare organizations typically start with **PARWA Growth ($2,499/mo)**. Would you like to discuss a compliance review?`,
+      `PARWA meets healthcare's strictest requirements:\n\n- **HIPAA compliant** with full audit trails and encryption\n- **Appointment management** — scheduling, rescheduling, cancellations\n- **Insurance verification** — real-time eligibility and coverage checks\n- **Clinical escalation** — AI detects urgent cases and routes immediately\n\nIntegration with **Epic EHR and FHIR standards** is built-in.\n\nShall I explain how PARWA handles a patient scheduling scenario?`,
+    ],
+    pricing: [
+      `Here are PARWA's plans:\n\n**Mini PARWA — $999/month**\n- 1 AI agent | 1,000 tickets/mo | Email + Chat + FAQ | 2 concurrent calls\n- Best for: SMBs with 50-200 daily tickets\n\n**PARWA — $2,499/month**\n- 3 AI agents | 5,000 tickets/mo | +SMS + Voice + Smart Router + Analytics\n- Best for: 200-500 daily tickets | 70-80% autonomous resolution\n\n**PARWA High — $3,999/month**\n- 5 AI agents | 15,000 tickets/mo | All channels + Churn Prediction + Video + 5 voice calls\n- Best for: 500+ daily tickets | Complex cases + strategic insights\n\nAll plans use **free AI providers** (Google AI Studio, Cerebras, Groq) — zero markup. Cancel anytime. Which plan interests you most?`,
+    ],
+    roi: [
+      `Let me break down the savings:\n\n**vs Human Agents:**\n- 3 support agents: ~$14,000/month → PARWA Starter: $999/month → **$156,000/year saved (92%)**\n- 4 junior agents: ~$18,000/month → PARWA Growth: $2,499/month → **$186,000/year saved (86%)**\n- 5 senior agents: ~$28,000/month → PARWA High: $3,999/month → **$288,000/year saved (85%)**\n\n**PARWA advantages:**\n- 24/7/365 availability (never sleeps!)\n- Consistent quality (no mood swings)\n- Instant from Day 1 (zero training)\n- Scales automatically during peak times\n\nShall I calculate the exact ROI for your business?`,
+    ],
+    demo: [
+      `Absolutely! You have two ways to try PARWA:\n\n**1. This Chat IS the Demo**\n- You're experiencing PARWA's AI right now!\n- Ask me anything your customers would ask\n- I'll show you exactly how I'd handle it\n\n**2. $1 Demo Pack**\n- 500 messages + 3-minute AI voice call\n- Valid for 24 hours\n- Unlock inside this chat\n\nWhich would you prefer? I can set up a demo call right now!`,
+    ],
+    how_works: [
+      `PARWA connects to **3 free AI providers** — you bring your own API keys:\n\n- **Google AI Studio (Gemini)** — Great for general conversations\n- **Cerebras** — Lightning-fast inference for real-time chat\n- **Groq** — Ultra-low latency, ideal for voice interactions\n\n**How it works:**\n1. Sign up for free API keys from these providers\n2. Enter them in your PARWA dashboard\n3. PARWA routes each query to the best available model\n4. Zero markup — you only pay the provider's free tier\n\nPARWA's **Smart Router** automatically picks the fastest model for each conversation. If one provider is down, it seamlessly fails over to another.\n\nWant to know more about setup?`,
+    ],
+    features: [
+      `PARWA handles your entire customer support stack:\n\n**Channels:** Email, Live Chat, Phone, SMS, Voice, Social Media\n\n**Automation:**\n- FAQ handling with knowledge base\n- Smart ticket classification & routing\n- Auto-escalation for complex issues\n- Batch approvals for bulk actions\n\n**Intelligence:**\n- Sentiment analysis on every message\n- Churn prediction for at-risk customers\n- Quality coaching for human agents\n- Real-time analytics dashboard\n\n**Integrations:** Shopify, WooCommerce, Magento, GitHub, Jira, Slack, Salesforce, HubSpot, Custom APIs\n\nWhat specific area interests you most?`,
+    ],
+    buy: [
+      `Getting started with PARWA is simple!\n\n1. **Choose your plan** — Mini ($999), PARWA ($2,499), or PARWA High ($3,999)\n2. **Set up AI providers** — Connect your free Google AI Studio, Cerebras, or Groq API keys\n3. **Configure channels** — Enable Email, Chat, Phone, etc.\n4. **Go live** — PARWA starts handling tickets immediately\n\nNo contracts, cancel anytime. Would you like to proceed with a plan selection?`,
+    ],
+    thanks: [
+      `You're welcome! Quick summary:\n\n- 3 plans: Mini ($999), PARWA ($2,499), PARWA High ($3,999)\n- Free AI providers — no per-query costs\n- Works 24/7 from Day 1\n- 85-92% cost savings vs human agents\n\nWhenever you're ready, come back and chat with me. I'll remember our conversation!\n\nHave a great day!`,
+    ],
+    competitors: [
+      `Great question! PARWA enhances rather than replaces existing tools:\n\n**vs Intercom:** PARWA fully resolves tickets automatically — not just triage. Industry-specific agents, lower cost per ticket, no per-seat pricing.\n\n**vs Zendesk AI:** We integrate directly with Zendesk. Routine tickets get auto-resolved before reaching your human team. Complex ones still flow through Zendesk to agents with full context.\n\n**vs Custom chatbots:** PARWA is a full platform — approval workflows, analytics, training, monitoring, multi-channel support. Not a simple widget.\n\nThe best part? You can keep your existing tools and add PARWA on top. Want to know about integrations?`,
+    ],
+    security: [
+      `Data security is our top priority:\n\n- **GDPR compliant** with full audit trail\n- **SOC 2 Type II** certified\n- **HIPAA compliant** for healthcare\n- Every table has company_id isolation\n- All data encrypted at rest and in transit\n- Customer data never trains models for other clients\n- AI actions requiring human review for financial/sensitive ops\n- MFA enforced on all accounts\n\nYour data is completely isolated and secure. Would you like more details on any specific area?`,
+    ],
+    integrations: [
+      `PARWA integrates with your existing tools seamlessly:\n\n**E-commerce:** Shopify, WooCommerce, Magento, BigCommerce\n**Support:** Zendesk, Freshdesk, Intercom, Help Scout\n**Communication:** Slack, Email (Brevo), WhatsApp\n**CRM:** Salesforce, HubSpot\n**Healthcare:** Epic EHR, FHIR\n**Custom:** REST API, GraphQL, Webhooks\n\nSetup is easy — usually OAuth or API key, takes about 5 minutes per integration. Which integrations are you currently using?`,
+    ],
+  };
+
+  // Pick a random variant if multiple exist
+  const pick = (key: string) => {
+    const arr = responses[key];
+    if (!arr) return null;
+    // Try each variant, skip if it would repeat
+    const shuffled = [...arr].sort(() => Math.random() - 0.5);
+    for (const text of shuffled) {
+      if (!wouldRepeat(text)) return text;
+    }
+    return arr[0]; // fallback to first if all repeat
+  };
+
+  // Greeting patterns
   if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|sup|yo)\b/.test(lower)) {
-    return `Hey there! Welcome to PARWA. I'm Jarvis, your AI assistant. I help businesses like yours find the perfect AI customer support plan.\n\nTo get started, could you tell me:\n- What industry are you in? (E-commerce, SaaS, Logistics, Healthcare, etc.)\n- Roughly how many support tickets do you get per day?`;
+    return pick('greeting') || responses.greeting[0];
   }
 
+  // Industry patterns
   if (lower.includes('ecommerce') || lower.includes('e-commerce') || lower.includes('online store') || lower.includes('shop') || lower.includes('retail')) {
-    return `Great choice! E-commerce is one of our strongest areas. PARWA handles:\n\n- **Order tracking** — "Where's my order?" queries answered instantly\n- **Returns & refunds** — Full automation for exchange/refund workflows\n- **Cart recovery** — Proactive outreach when customers abandon carts\n- **Fraud detection** — Flag suspicious orders before they ship\n\nWe integrate with **Shopify, WooCommerce, Magento, and BigCommerce** out of the box.\n\nMost e-commerce businesses start with **PARWA Starter ($999/mo)**. Would you like to see pricing details?`;
+    return pick('ecommerce') || responses.ecommerce[0];
   }
 
   if (lower.includes('saas') || lower.includes('software') || lower.includes('app') || lower.includes('platform')) {
-    return `SaaS support is where PARWA really shines! Here's what we automate:\n\n- **Technical support** — API troubleshooting, integration help, bug reports\n- **Churn prediction** — Identify at-risk accounts before they leave\n- **In-app guidance** — Contextual help embedded in your product\n- **Account management** — Upgrade/downgrade/plan change requests\n\nWe integrate with **GitHub, Jira, Slack, and Intercom** natively.\n\nSaaS companies typically need **PARWA Growth ($2,499/mo)**. Want me to run a quick ROI calculation?`;
+    return pick('saas') || responses.saas[0];
   }
 
   if (lower.includes('logistics') || lower.includes('shipping') || lower.includes('warehouse') || lower.includes('delivery') || lower.includes('freight')) {
-    return `Logistics is a perfect fit for PARWA! We handle:\n\n- **Shipment tracking** — Real-time status updates via any channel\n- **Driver coordination** — Dispatch, ETA updates, route changes\n- **Proof of delivery** — Automated POD collection and sharing\n- **Hazmat protocol** — Specialized handling for regulated cargo\n\nWe integrate with **TMS, WMS, and GPS tracking systems**.\n\nLogistics companies usually need **PARWA High ($3,999/mo)** for voice support. Shall I show the cost comparison?`;
+    return pick('logistics') || responses.logistics[0];
   }
 
   if (lower.includes('health') || lower.includes('medical') || lower.includes('hospital') || lower.includes('clinic') || lower.includes('pharma')) {
-    return `Healthcare support with PARWA is HIPAA-compliant and built for reliability:\n\n- **Appointment scheduling** — Self-service booking and reminders\n- **Insurance verification** — Real-time eligibility checks\n- **Clinical escalation** — Auto-route urgent cases to the right team\n- **HIPAA compliance** — Full audit trail and data encryption\n\nWe integrate with **Epic EHR and FHIR** standards.\n\nHealthcare organizations typically start with **PARWA Growth ($2,499/mo)**. Would you like to discuss a compliance review?`;
+    return pick('healthcare') || responses.healthcare[0];
   }
 
+  // Business patterns
   if (lower.includes('price') || lower.includes('pricing') || lower.includes('cost') || lower.includes('plan') || lower.includes('how much')) {
-    return `Here are PARWA's plans:\n\n**Mini PARWA — $999/month**\n- 1 AI agent | 1,000 tickets/mo | Email + Chat + FAQ | 2 concurrent calls\n- Best for: SMBs with 50-200 daily tickets\n\n**PARWA — $2,499/month**\n- 3 AI agents | 5,000 tickets/mo | +SMS + Voice + Smart Router + Analytics\n- Best for: 200-500 daily tickets | 70-80% autonomous resolution\n\n**PARWA High — $3,999/month**\n- 5 AI agents | 15,000 tickets/mo | All channels + Churn Prediction + Video + 5 voice calls\n- Best for: 500+ daily tickets | Complex cases + strategic insights\n\nAll plans use **free AI providers** (Google AI Studio, Cerebras, Groq) — zero markup. Cancel anytime. Which plan interests you most?`;
+    return pick('pricing') || responses.pricing[0];
   }
 
   if (lower.includes('roi') || lower.includes('save') || lower.includes('saving') || lower.includes('comparison') || lower.includes('compare') || lower.includes('worth')) {
-    return `Let me break down the savings:\n\n**vs Human Agents:**\n- 3 support agents: ~$14,000/month → PARWA Starter: $999/month → **$156,000/year saved (92%)**\n- 4 junior agents: ~$18,000/month → PARWA Growth: $2,499/month → **$186,000/year saved (86%)**\n- 5 senior agents: ~$28,000/month → PARWA High: $3,999/month → **$288,000/year saved (85%)**\n\n**PARWA advantages:**\n- 24/7/365 availability (never sleeps!)\n- Consistent quality (no mood swings)\n- Instant from Day 1 (zero training)\n- Scales automatically during peak times\n\nShall I calculate the exact ROI for your business?`;
+    return pick('roi') || responses.roi[0];
   }
 
   if (lower.includes('demo') || lower.includes('try') || lower.includes('see it') || lower.includes('test') || lower.includes('experience')) {
-    return `Absolutely! You have two ways to try PARWA:\n\n**1. This Chat IS the Demo**\n- You're experiencing PARWA's AI right now!\n- Ask me anything your customers would ask\n- I'll show you exactly how I'd handle it\n\n**2. $1 Demo Pack**\n- 500 messages + 3-minute AI voice call\n- Valid for 24 hours\n- Unlock inside this chat\n\nWhich would you prefer? I can set up a demo call right now!`;
+    return pick('demo') || responses.demo[0];
   }
 
   if (lower.includes('ai') || (lower.includes('how') && lower.includes('work')) || lower.includes('gemini') || lower.includes('cerebras') || lower.includes('groq') || lower.includes('llm') || lower.includes('model')) {
-    return `PARWA connects to **3 free AI providers** — you bring your own API keys:\n\n- **Google AI Studio (Gemini)** — Great for general conversations\n- **Cerebras** — Lightning-fast inference for real-time chat\n- **Groq** — Ultra-low latency, ideal for voice interactions\n\n**How it works:**\n1. Sign up for free API keys from these providers\n2. Enter them in your PARWA dashboard\n3. PARWA routes each query to the best available model\n4. Zero markup — you only pay the provider's free tier\n\nPARWA's **Smart Router** automatically picks the fastest model for each conversation. If one provider is down, it seamlessly fails over to another.\n\nWant to know more about setup?`;
+    return pick('how_works') || responses.how_works[0];
   }
 
   if (lower.includes('support') || lower.includes('feature') || lower.includes('what can') || lower.includes('capabilities')) {
-    return `PARWA handles your entire customer support stack:\n\n**Channels:** Email, Live Chat, Phone, SMS, Voice, Social Media\n\n**Automation:**\n- FAQ handling with knowledge base\n- Smart ticket classification & routing\n- Auto-escalation for complex issues\n- Batch approvals for bulk actions\n\n**Intelligence:**\n- Sentiment analysis on every message\n- Churn prediction for at-risk customers\n- Quality coaching for human agents\n- Real-time analytics dashboard\n\n**Integrations:** Shopify, WooCommerce, Magento, GitHub, Jira, Slack, Salesforce, HubSpot, Custom APIs\n\nWhat specific area interests you most?`;
+    return pick('features') || responses.features[0];
   }
 
   if (lower.includes('pay') || lower.includes('buy') || lower.includes('checkout') || lower.includes('subscribe') || lower.includes('sign up')) {
-    return `Getting started with PARWA is simple!\n\n1. **Choose your plan** — Mini ($999), PARWA ($2,499), or PARWA High ($3,999)\n2. **Set up AI providers** — Connect your free Google AI Studio, Cerebras, or Groq API keys\n3. **Configure channels** — Enable Email, Chat, Phone, etc.\n4. **Go live** — PARWA starts handling tickets immediately\n\nNo contracts, cancel anytime. Would you like to proceed with a plan selection?`;
+    return pick('buy') || responses.buy[0];
   }
 
   if (lower.includes('thank') || lower.includes('bye') || lower.includes('goodbye') || lower.includes("that's all") || lower.includes('that is all')) {
-    return `You're welcome! Quick summary:\n\n- 3 plans: Mini ($999), PARWA ($2,499), PARWA High ($3,999)\n- Free AI providers — no per-query costs\n- Works 24/7 from Day 1\n- 85-92% cost savings vs human agents\n\nWhenever you're ready, come back and chat with me. I'll remember our conversation!\n\nHave a great day!`;
+    return pick('thanks') || responses.thanks[0];
   }
 
   if (lower.includes('competitor') || lower.includes('intercom') || lower.includes('zendesk') || lower.includes('freshdesk')) {
-    return `Great question! PARWA enhances rather than replaces existing tools:\n\n**vs Intercom:** PARWA fully resolves tickets automatically — not just triage. Industry-specific agents, lower cost per ticket, no per-seat pricing.\n\n**vs Zendesk AI:** We integrate directly with Zendesk. Routine tickets get auto-resolved before reaching your human team. Complex ones still flow through Zendesk to agents with full context.\n\n**vs Custom chatbots:** PARWA is a full platform — approval workflows, analytics, training, monitoring, multi-channel support. Not a simple widget.\n\nThe best part? You can keep your existing tools and add PARWA on top. Want to know about integrations?`;
+    return pick('competitors') || responses.competitors[0];
   }
 
   if (lower.includes('security') || lower.includes('data') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe') || lower.includes('privacy')) {
-    return `Data security is our top priority:\n\n- **GDPR compliant** with full audit trail\n- **SOC 2 Type II** certified\n- **HIPAA compliant** for healthcare\n- Every table has company_id isolation\n- All data encrypted at rest and in transit\n- Customer data never trains models for other clients\n- AI actions requiring human review for financial/sensitive ops\n- MFA enforced on all accounts\n\nYour data is completely isolated and secure. Would you like more details on any specific area?`;
+    return pick('security') || responses.security[0];
   }
 
   if (lower.includes('integrate') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack') || lower.includes('api')) {
-    return `PARWA integrates with your existing tools seamlessly:\n\n**E-commerce:** Shopify, WooCommerce, Magento, BigCommerce\n**Support:** Zendesk, Freshdesk, Intercom, Help Scout\n**Communication:** Slack, Email (Brevo), WhatsApp\n**CRM:** Salesforce, HubSpot\n**Healthcare:** Epic EHR, FHIR\n**Custom:** REST API, GraphQL, Webhooks\n\nSetup is easy — usually OAuth or API key, takes about 5 minutes per integration. Which integrations are you currently using?`;
+    return pick('integrations') || responses.integrations[0];
   }
 
+  // Context-aware fallback — use industry info if we have it
   if (industry) {
-    return `Thanks for sharing! Based on your interest in ${String(industry || '').charAt(0).toUpperCase() + String(industry || '').slice(1)}, here's my recommendation:\n\nPARWA automates up to **80% of your customer support** with AI trained for ${String(industry || '')} workflows.\n\nTo give you the best recommendation:\n- How many support tickets do you handle daily?\n- Do you need phone/voice support, or is chat + email enough?\n- Any specific pain points with your current setup?`;
+    const industryResponses = [
+      `Thanks for sharing! Based on your interest in ${String(industry || '').charAt(0).toUpperCase() + String(industry || '').slice(1)}, here's my recommendation:\n\nPARWA automates up to **80% of your customer support** with AI trained for ${String(industry || '')} workflows.\n\nTo give you the best recommendation:\n- How many support tickets do you handle daily?\n- Do you need phone/voice support, or is chat + email enough?\n- Any specific pain points with your current setup?`,
+      `Good to know you're in ${String(industry || '')}! PARWA has specialized workflows for that industry.\n\nWhat I'd love to understand:\n1. How many support queries do you get daily?\n2. Which channels matter most to your customers?\n3. What's your biggest support challenge right now?\n\nThis helps me recommend the perfect plan.`,
+    ];
+    for (const r of industryResponses) {
+      if (!wouldRepeat(r)) return r;
+    }
   }
 
-  return `I'd love to help you find the right PARWA plan! Tell me:\n\n1. **Your industry** — E-commerce, SaaS, Logistics, Healthcare, or other?\n2. **Daily ticket volume** — How many support queries per day?\n3. **Current setup** — Any helpdesk tools in use?\n4. **Biggest pain point** — What takes most of your team's time?\n\nPARWA typically saves businesses **85-92% on support costs** — real money back in your pocket!`;
+  // Smart generic fallback — varied responses
+  const genericFallbacks = [
+    `I'd love to help you find the right PARWA plan! Tell me:\n\n1. **Your industry** — E-commerce, SaaS, Logistics, Healthcare, or other?\n2. **Daily ticket volume** — How many support queries per day?\n3. **Current setup** — Any helpdesk tools in use?\n4. **Biggest pain point** — What takes most of your team's time?\n\nPARWA typically saves businesses **85-92% on support costs** — real money back in your pocket!`,
+    `Great question! To give you the most helpful answer, could you share a bit more context?\n\n- What industry are you in?\n- How big is your support team currently?\n- What's the biggest challenge you're trying to solve?\n\nThis helps me point you to the right PARWA plan and features.`,
+    `I appreciate the question! PARWA has a lot of capabilities across different industries.\n\nThe fastest way to find your perfect fit:\n1. Tell me your industry\n2. Share your daily ticket volume\n3. Mention any must-have channels (chat, email, phone, SMS)\n\nI'll give you a personalized recommendation with exact pricing.`,
+  ];
+  for (const r of genericFallbacks) {
+    if (!wouldRepeat(r)) return r;
+  }
+
+  return genericFallbacks[0];
 }
 
 function detectStage(message: string, session: any): string {
