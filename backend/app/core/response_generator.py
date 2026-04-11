@@ -1243,8 +1243,8 @@ class ResponseGenerator:
                 company_name = getattr(
                     brand_config, "brand_name", company_name,
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("brand_config_fetch_failed", error=str(exc), company_id=request.company_id)
 
             variables = {
                 "customer_name": customer_name,

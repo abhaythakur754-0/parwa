@@ -917,10 +917,10 @@ class SessionContinuityManager:
             for listener in list(self._listeners):
                 try:
                     listener(event_type, payload)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as exc:
+                    logger.debug("session_continuity_listener_failed", event_type=event_type, error=str(exc))
+        except Exception as exc:
+            logger.debug("session_continuity_emit_failed", event_type=event_type, error=str(exc))
 
 
 # ── Module-level singleton ────────────────────────────────────────────
