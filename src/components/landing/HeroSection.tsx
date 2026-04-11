@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Check } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { X, Check, MessageSquare } from 'lucide-react';
 
 /**
  * HeroSection - Dark premium theme with parrot-green animated background
@@ -33,6 +34,7 @@ export default function HeroSection() {
   const [counterValue, setCounterValue] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const sectionRef = useRef<HTMLElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -295,10 +297,25 @@ export default function HeroSection() {
             <span className="bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-200 bg-clip-text text-transparent">The choice is yours.</span>
           </p>
           <p className="mt-3 text-sm sm:text-base text-emerald-100/30 font-medium">
-            ⏳ Every day without automation costs you{' '}
-            <span className="loss-aversion-text font-bold text-base sm:text-lg">$410</span>
+            Every day without automation costs you{' '}
+            <span className="font-bold text-base sm:text-lg text-rose-300/80">$410</span>
             <span className="text-emerald-100/30"> in wasted support hours</span>
           </p>
+
+          {/* Phase 9: Get Started with Jarvis CTA */}
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('parwa_jarvis_context', JSON.stringify({ source: 'landing_page' }));
+                router.push('/onboarding');
+              }}
+              className="flex items-center gap-2.5 px-7 py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-emerald-500 to-emerald-400 text-[#022C22] shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-emerald-300 hover:shadow-emerald-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 focus-visible-ring"
+            >
+              <MessageSquare className="w-4.5 h-4.5" />
+              Get Started with Jarvis
+            </button>
+          </div>
         </div>
       </div>
 
