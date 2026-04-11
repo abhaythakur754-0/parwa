@@ -685,6 +685,14 @@ class GSDEngine:
     ) -> bool:
         """Validate transition legality with explicit variant context.
 
+        This method enforces strict state machine rules per variant:
+        - MINI_PARWA: Linear flow only (NEW → GREETING → DIAGNOSIS → RESOLUTION → CLOSED)
+        - PARWA: Full flow with escalation support
+        - PARWA_HIGH: Full flow with DIAGNOSIS loop after HUMAN_HANDOFF
+
+        CRITICAL: This validation prevents invalid transitions that could
+        break the conversation flow and customer experience.
+
         Args:
             current: Current GSDState (enum or string value).
             target: Target GSDState (enum or string value).
@@ -698,6 +706,10 @@ class GSDEngine:
         current_str = current.value if isinstance(current, GSDState) else str(current)
         target_str = target.value if isinstance(target, GSDState) else str(target)
 
+        # Normalize to lowercase for comparison
+        current_str = current_str.lower().strip()
+        target_str = target_str.lower().strip()
+
         table = self._get_transition_table(variant)
 
         # Universal escalation rule (not available in mini_parwa)
@@ -706,8 +718,23 @@ class GSDEngine:
                 return False
             return current_str in ESCALATION_ELIGIBLE_STATES
 
+        # Check if transition is explicitly allowed in the table
         allowed = table.get(current_str, set())
-        return target_str in allowed
+        
+        # GAP 5 FIX: Ensure strict validation - target must be in allowed set
+        # This prevents skipping states like DIAGNOSIS → FOLLOW_UP (skipping RESOLUTION)
+        is_allowed = target_str in allowed
+        
+        if not is_allowed:
+            logger.debug(
+                "transition_validation_failed",
+                current_state=current_str,
+                target_state=target_str,
+                variant=variant,
+                allowed_transitions=list(allowed),
+            )
+        
+        return is_allowed
 
     async def get_available_transitions(
         self, current: Any, variant: Optional[str] = None,
@@ -1610,6 +1637,9 @@ class GSDEngine:
         Pulls data from the signals field (QuerySignals) and
         technique_results to provide a unified signal snapshot.
 
+        GAP 6 FIX: Also extracts frustration_score from signals if available,
+        ensuring escalation evaluation captures frustration atomically.
+
         Args:
             state: ConversationState.
 
@@ -1637,6 +1667,8 @@ class GSDEngine:
             signals["resolution_path_count"] = getattr(
                 query_signals, "resolution_path_count", 1,
             )
+            # GAP 6 FIX: Also extract frustration_score from signals if available
+            signals["frustration_score"] = getattr(query_signals, "frustration_score", 0.0)
 
         # Extract frustration score from technique_results if available
         if state.technique_results:

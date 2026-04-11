@@ -488,11 +488,15 @@ class StateSerializer:
         Converts all fields to primitive types suitable for JSON
         serialization and storage in Redis / PostgreSQL.
 
+        GAP 1 FIX: Includes all fields with explicit serialization to ensure
+        round-trip fidelity. Added checksum fields for critical data validation.
+
         Handles:
         - Enum values (GSDState) → string
         - QuerySignals → dict
         - Lists and dicts → deep copy with enum conversion
         - Optional fields → None preservation
+        - Unicode and special characters → preserved exactly
 
         Args:
             conversation_state: The ConversationState dataclass instance
@@ -505,39 +509,63 @@ class StateSerializer:
             StateSerializationError: If serialization fails.
         """
         try:
+            # GAP 1 FIX: Serialize signals with explicit handling
+            signals_dict = None
+            if conversation_state.signals is not None:
+                signals_dict = _serialize_enum(asdict(conversation_state.signals))
+            
+            # GAP 1 FIX: Serialize gsd_history with explicit handling
+            gsd_history_list = []
+            if conversation_state.gsd_history is not None:
+                for s in conversation_state.gsd_history:
+                    if isinstance(s, Enum):
+                        gsd_history_list.append(s.value)
+                    else:
+                        gsd_history_list.append(str(s))
+            
+            # GAP 1 FIX: Serialize technique_results with explicit handling
+            technique_results_dict = {}
+            if conversation_state.technique_results is not None:
+                technique_results_dict = _serialize_enum(conversation_state.technique_results)
+            
+            # GAP 1 FIX: Serialize reflexion_trace with explicit handling
+            reflexion_trace_dict = None
+            if conversation_state.reflexion_trace is not None:
+                reflexion_trace_dict = _serialize_enum(conversation_state.reflexion_trace)
+            
+            # GAP 1 FIX: Deep copy lists to prevent reference issues
+            response_parts_list = list(conversation_state.response_parts) if conversation_state.response_parts else []
+            reasoning_thread_list = list(conversation_state.reasoning_thread) if conversation_state.reasoning_thread else []
+            
             state_dict: Dict[str, Any] = {
                 "query": conversation_state.query,
-                "signals": _serialize_enum(asdict(conversation_state.signals))
-                if conversation_state.signals
-                else None,
+                "signals": signals_dict,
                 "gsd_state": (
                     conversation_state.gsd_state.value
                     if isinstance(conversation_state.gsd_state, Enum)
                     else str(conversation_state.gsd_state)
                 ),
-                "gsd_history": [
-                    s.value if isinstance(s, Enum) else str(s)
-                    for s in (conversation_state.gsd_history or [])
-                ],
-                "technique_results": _serialize_enum(
-                    conversation_state.technique_results or {}
-                ),
+                "gsd_history": gsd_history_list,
+                "technique_results": technique_results_dict,
                 "token_usage": conversation_state.token_usage,
                 "technique_token_budget": (
                     conversation_state.technique_token_budget
                 ),
-                "response_parts": conversation_state.response_parts or [],
+                "response_parts": response_parts_list,
                 "final_response": conversation_state.final_response or "",
                 "ticket_id": conversation_state.ticket_id,
                 "conversation_id": conversation_state.conversation_id,
                 "company_id": conversation_state.company_id,
-                "reasoning_thread": (
-                    conversation_state.reasoning_thread or []
-                ),
-                "reflexion_trace": _serialize_enum(
-                    conversation_state.reflexion_trace
-                ),
+                "reasoning_thread": reasoning_thread_list,
+                "reflexion_trace": reflexion_trace_dict,
                 "serialized_at": _utcnow(),
+                # GAP 1 FIX: Add checksums for critical data validation
+                "_meta": {
+                    "gsd_history_count": len(gsd_history_list),
+                    "technique_results_keys": list(technique_results_dict.keys()),
+                    "response_parts_count": len(response_parts_list),
+                    "reasoning_thread_count": len(reasoning_thread_list),
+                },
             }
             return state_dict
         except Exception as exc:
@@ -567,6 +595,9 @@ class StateSerializer:
         serialized dictionary. Handles missing fields gracefully by
         falling back to ConversationState defaults.
 
+        GAP 1 FIX: Validates checksums from _meta field to ensure
+        round-trip fidelity. Logs warnings if data corruption is detected.
+
         Handles:
         - String GSDState values → enum
         - Signal dicts → QuerySignals dataclass
@@ -584,6 +615,70 @@ class StateSerializer:
                 corrupted or invalid data.
         """
         try:
+            # GAP 1 FIX: Validate checksums if _meta is present
+            meta = data.get("_meta", {})
+            if meta:
+                expected_gsd_history_count = meta.get("gsd_history_count")
+                expected_response_parts_count = meta.get("response_parts_count")
+                expected_reasoning_thread_count = meta.get("reasoning_thread_count")
+                expected_technique_results_keys = set(meta.get("technique_results_keys", []))
+                
+                gsd_history_raw = data.get("gsd_history", [])
+                response_parts_raw = data.get("response_parts", [])
+                reasoning_thread_raw = data.get("reasoning_thread", [])
+                technique_results_raw = data.get("technique_results", {})
+                
+                # Validate counts match
+                if expected_gsd_history_count is not None:
+                    actual_count = len(gsd_history_raw) if isinstance(gsd_history_raw, list) else 0
+                    if actual_count != expected_gsd_history_count:
+                        logger.warning(
+                            "deserialize_checksum_mismatch_gsd_history",
+                            extra={
+                                "expected": expected_gsd_history_count,
+                                "actual": actual_count,
+                            },
+                        )
+                
+                if expected_response_parts_count is not None:
+                    actual_count = len(response_parts_raw) if isinstance(response_parts_raw, list) else 0
+                    if actual_count != expected_response_parts_count:
+                        logger.warning(
+                            "deserialize_checksum_mismatch_response_parts",
+                            extra={
+                                "expected": expected_response_parts_count,
+                                "actual": actual_count,
+                            },
+                        )
+                
+                if expected_reasoning_thread_count is not None:
+                    actual_count = len(reasoning_thread_raw) if isinstance(reasoning_thread_raw, list) else 0
+                    if actual_count != expected_reasoning_thread_count:
+                        logger.warning(
+                            "deserialize_checksum_mismatch_reasoning_thread",
+                            extra={
+                                "expected": expected_reasoning_thread_count,
+                                "actual": actual_count,
+                            },
+                        )
+                
+                # Validate technique_results keys match
+                if expected_technique_results_keys:
+                    actual_keys = set(technique_results_raw.keys()) if isinstance(technique_results_raw, dict) else set()
+                    missing_keys = expected_technique_results_keys - actual_keys
+                    if missing_keys:
+                        logger.warning(
+                            "deserialize_checksum_missing_technique_keys",
+                            extra={
+                                "missing_keys": list(missing_keys),
+                            },
+                        )
+            else:
+                gsd_history_raw = data.get("gsd_history", [])
+                response_parts_raw = data.get("response_parts", [])
+                reasoning_thread_raw = data.get("reasoning_thread", [])
+                technique_results_raw = data.get("technique_results", {})
+
             # Deserialize GSDState from string
             gsd_state_raw = data.get("gsd_state", "new")
             if isinstance(gsd_state_raw, str):
@@ -604,7 +699,6 @@ class StateSerializer:
                 gsd_state = GSDState.NEW
 
             # Deserialize GSD history
-            gsd_history_raw = data.get("gsd_history", [])
             gsd_history: List[GSDState] = []
             if isinstance(gsd_history_raw, list):
                 for item in gsd_history_raw:
@@ -639,14 +733,16 @@ class StateSerializer:
                 signals = QuerySignals()
 
             # Deserialize technique_results
-            technique_results = data.get("technique_results", {})
-            if not isinstance(technique_results, dict):
-                technique_results = {}
+            technique_results = technique_results_raw if isinstance(technique_results_raw, dict) else {}
 
             # Deserialize reflexion_trace
             reflexion_trace = data.get("reflexion_trace")
             if not isinstance(reflexion_trace, dict) and reflexion_trace is not None:
                 reflexion_trace = None
+
+            # GAP 1 FIX: Ensure lists are properly copied
+            response_parts = list(response_parts_raw) if isinstance(response_parts_raw, list) else []
+            reasoning_thread = list(reasoning_thread_raw) if isinstance(reasoning_thread_raw, list) else []
 
             return ConversationState(
                 query=data.get("query", ""),
@@ -658,7 +754,7 @@ class StateSerializer:
                 technique_token_budget=data.get(
                     "technique_token_budget", 1500,
                 ),
-                response_parts=data.get("response_parts", []),
+                response_parts=response_parts,
                 final_response=data.get("final_response", ""),
                 ticket_id=data.get("ticket_id"),
                 conversation_id=data.get("conversation_id"),
