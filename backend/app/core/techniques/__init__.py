@@ -17,17 +17,19 @@ from app.core.techniques.base import (  # noqa: F401
     TECHNIQUE_NODES,
 )
 
-# Real technique node implementations (Day 17)
+# Real technique node implementations (Day 16-17)
 from app.core.techniques.reverse_thinking import ReverseThinkingNode  # noqa: F401
 from app.core.techniques.step_back import StepBackNode  # noqa: F401
+
+# Real technique node implementations (Day 18)
+from app.core.techniques.chain_of_thought import ChainOfThoughtNode  # noqa: F401
+from app.core.techniques.react import ReActNode  # noqa: F401
+from app.core.techniques.thread_of_thought import ThreadOfThoughtNode  # noqa: F401
+from app.core.techniques.gst import GSTNode  # noqa: F401
 
 # Stub nodes — full implementations in their respective weeks
 from app.core.techniques.stub_nodes import (  # noqa: F401
     CRPNode,
-    ChainOfThoughtNode,
-    ReActNode,
-    ThreadOfThoughtNode,
-    GSTNode,
     UniverseOfThoughtsNode,
     TreeOfThoughtsNode,
     SelfConsistencyNode,
