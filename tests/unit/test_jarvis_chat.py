@@ -539,7 +539,7 @@ class TestGetChatHistory:
 
     def test_get_history_pagination_has_more(self, sample_user_id, sample_company_id, mock_session):
         messages = [MagicMock(id=f"msg-{i}") for i in range(51)]
-        for m in messages:
+        for i, m in enumerate(messages):
             m.session_id = mock_session.id
             m.role = "assistant"
             m.content = f"Message {i}"
