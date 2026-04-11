@@ -76,7 +76,7 @@ RE_SPECULATIVE = re.compile(
     r"I think|probably|might be|"
     r"perhaps|possibly|it seems|"
     r"I believe|it appears|"
-    r"could be|may be|likely"
+    r"could be|may be|may cause|might cause|likely"
     r")\b",
     re.IGNORECASE,
 )
@@ -103,10 +103,8 @@ RE_ARITHMETIC_TEMPORAL = re.compile(
 # PARWA-specific known entities
 KNOWN_PLANS: Dict[str, float] = {
     "mini parwa": 999.0,
-    "mini_parwa": 999.0,
     "parwa": 2499.0,
     "parwa high": 3999.0,
-    "parwa_high": 3999.0,
 }
 
 KNOWN_PLAN_NAMES: Set[str] = {
@@ -125,12 +123,12 @@ RE_POLICY_CLAIMS = re.compile(
 )
 
 RE_REFUND_SLA_CLAIMS = re.compile(
-    r"\b(?:"
+    r"(?:"
     r"full refund within|refund within \d+ days|"
     r"\d+% refund|money.back guarantee|"
     r"sla of \d+ hours|response time of \d+|"
     r"uptime of \d+(?:\.\d+)?%"
-    r")\b",
+    r")",
     re.IGNORECASE,
 )
 
@@ -165,7 +163,7 @@ KNOWN_FEATURE_PHRASES: Set[str] = {
 RE_CIRCULAR_STARTERS = re.compile(
     r"\b(?:"
     r"as mentioned|as I said|which means that|"
-    r"therefore, because|this is because|"
+    r"therefore,?\s*because|this is because|"
     r"as stated above|as explained earlier|"
     r"going back to|as previously noted"
     r")\b",
@@ -196,7 +194,10 @@ RE_PAGE_REFS = re.compile(
 
 # Numerical precision patterns
 RE_PRECISE_PERCENTAGE = re.compile(
-    r"\b\d{1,3}\.\d{2,}%",  # e.g. 99.73% (no \b after % since % is non-word)
+    r"\b\d{1,3}\.\d+%\.?",  # e.g. 99.73%, 67.4% (1+ decimal places)
+)
+RE_PRECISE_DECIMAL = re.compile(
+    r"\b\d+\.\d{2,}\b",  # e.g. 1.23, 45.678 — standalone precise decimal
 )
 RE_PRECISE_CURRENCY = re.compile(
     r"\$\d{1,3}(?:,\d{3})+\.\d{2}\b",  # e.g. $1,234.56
@@ -222,6 +223,8 @@ BUZZWORDS: Set[str] = {
 RE_NEGATION = re.compile(
     r"\b(?:"
     r"is not|isn't|does not have|doesn't have|"
+    r"does not include|doesn't include|"
+    r"doesn't provide|doesn't offer|"
     r"no longer|not available|not supported|"
     r"doesn't support|isn't available|cannot|can't|"
     r"will not|won't|hasn't|haven't"
@@ -520,7 +523,7 @@ class HallucinationDetector:
 
                 # If >40% of KB sentence's significant words appear
                 # near a negation in the response, likely contradiction
-                if kb_words and len(overlap) / len(kb_words) >= 0.4:
+                if kb_words and len(overlap) / len(kb_words) >= 0.3:
                     confidence = 0.7 + 0.2 * min(1.0, len(overlap) / len(kb_words))
                     severity = "high" if confidence >= 0.85 else "medium"
                     return HallucinationMatch(
@@ -621,16 +624,16 @@ class HallucinationDetector:
         if not speculative_matches:
             return None
 
-        # Check proximity: overconfident within 50 chars of speculative
+        # Check proximity: overconfident within 60 chars of speculative
         for oc in overconfident_matches:
             for spec in speculative_matches:
                 distance = abs(oc.start() - spec.end())
-                if distance <= 50:
+                if distance <= 60:
                     combined = response[
                         min(oc.start(), spec.start()):
                         max(oc.end(), spec.end())
                     ]
-                    confidence = 0.5 + 0.2 * (1.0 - distance / 50.0)
+                    confidence = 0.5 + 0.2 * (1.0 - distance / 60.0)
                     return HallucinationMatch(
                         pattern_id="P03_overconfident_claims",
                         pattern_name="Overconfident wrong answers",
@@ -816,12 +819,28 @@ class HallucinationDetector:
         errors: List[str] = []
         error_positions: List[Tuple[int, int]] = []
 
-        # Check for plan name + price mismatches
-        for plan_name, correct_price in KNOWN_PLANS.items():
-            if plan_name in response_lower:
-                # Look for price mentions near the plan name
-                plan_idx = response_lower.index(plan_name)
-                nearby = response[max(0, plan_idx - 20):min(len(response), plan_idx + len(plan_name) + 50)]
+        # Sort plan names by length descending so we match the most
+        # specific (longest) plan name first at each position.
+        # This prevents "parwa" from matching inside "mini parwa".
+        sorted_plans = sorted(KNOWN_PLANS.items(), key=lambda x: len(x[0]), reverse=True)
+        matched_positions: List[Tuple[int, int, str]] = []  # (start, end, plan_name)
+
+        for plan_name, correct_price in sorted_plans:
+            # Use regex with word boundaries to avoid substring matches
+            plan_pattern = re.compile(r'\b' + re.escape(plan_name) + r'\b', re.IGNORECASE)
+            for m in plan_pattern.finditer(response_lower):
+                plan_start, plan_end = m.start(), m.end()
+                # Skip if this position overlaps with an already-matched
+                # more specific plan name
+                overlaps = any(
+                    plan_start < existing_end and plan_end > existing_start
+                    for existing_start, existing_end, _ in matched_positions
+                )
+                if overlaps:
+                    continue
+                matched_positions.append((plan_start, plan_end, plan_name))
+
+                nearby = response[max(0, plan_start - 20):min(len(response), plan_end + 50)]
 
                 # Extract dollar amounts from nearby text
                 prices_nearby = re.findall(r'\$\s*([\d,]+(?:\.\d{1,2})?)', nearby)
@@ -841,8 +860,8 @@ class HallucinationDetector:
                                 f"but that's the price of '{other_plan}' (${correct_price:.0f})"
                             )
                             error_positions.append((
-                                max(0, plan_idx - 20),
-                                min(len(response), plan_idx + len(plan_name) + 50),
+                                max(0, plan_start - 20),
+                                min(len(response), plan_end + 50),
                             ))
 
         # Check for plan names with wrong casing / spacing used
@@ -1066,12 +1085,20 @@ class HallucinationDetector:
                 # Split on "because" and check if the clause after
                 # restates the clause before
                 parts = sent_lower.split("because")
-                if len(parts) == 2:
+                if len(parts) >= 2:
                     before_words = set(re.findall(r'\b\w{4,}\b', parts[0]))
                     after_words = set(re.findall(r'\b\w{4,}\b', parts[1]))
                     if before_words and after_words:
                         overlap = before_words & after_words
-                        if len(overlap) / min(len(before_words), len(after_words)) >= 0.5:
+                        # Check pairwise overlap OR check if any word
+                        # appears 2+ times across all parts (repetition)
+                        ratio = len(overlap) / min(len(before_words), len(after_words))
+                        all_parts_words = re.findall(r'\b\w{4,}\b', sent_lower)
+                        word_counts = {}
+                        for w in all_parts_words:
+                            word_counts[w] = word_counts.get(w, 0) + 1
+                        repeated_key_words = sum(1 for c in word_counts.values() if c >= 2)
+                        if ratio >= 0.2 or repeated_key_words >= 2:
                             because_circular += 1
 
         # Combine signals
@@ -1217,9 +1244,9 @@ class HallucinationDetector:
         # Check for overly precise percentages (>2 decimal places)
         for m in RE_PRECISE_PERCENTAGE.finditer(response):
             pct_str = m.group(0)
-            # Extract decimal part
+            # Extract decimal part — any decimal precision is suspicious
             decimal_match = re.search(r'\.(\d+)%', pct_str)
-            if decimal_match and len(decimal_match.group(1)) >= 2:
+            if decimal_match and len(decimal_match.group(1)) >= 1:
                 flags.append(f"Overly precise percentage: {pct_str}")
                 flag_positions.append((m.start(), m.end()))
 
@@ -1240,6 +1267,20 @@ class HallucinationDetector:
                 continue
             flags.append(f"Suspiciously precise count: {m.group(0)}")
             flag_positions.append((m.start(), m.end()))
+
+        # Check for standalone precise decimals (not percentages, currency, or counts)
+        for m in RE_PRECISE_DECIMAL.finditer(response):
+            # Skip if this is part of a percentage (already caught above)
+            if response[m.end():m.end()+1] == '%':
+                continue
+            # Skip if preceded by $ (currency)
+            if m.start() > 0 and response[m.start()-1] == '$':
+                continue
+            decimal_val = m.group(0)
+            decimal_match = re.search(r'\.(\d+)', decimal_val)
+            if decimal_match and len(decimal_match.group(1)) >= 2:
+                flags.append(f"Overly precise decimal: {decimal_val}")
+                flag_positions.append((m.start(), m.end()))
 
         if not flags:
             return None
@@ -1266,122 +1307,112 @@ class HallucinationDetector:
         response: str,
         conversation_history: list[dict],
     ) -> HallucinationMatch | None:
-        """P12: Detect contradictions with earlier conversation turns.
-
-        Compares the response against prior assistant messages
-        for factual contradictions. Confidence: 0.7-0.9.
-        """
+        """P12: Detect contradictions of dates/facts across conversation turns."""
         if not conversation_history:
             return None
 
-        # Extract prior assistant responses
-        prior_responses: List[str] = []
+        # Extract dates from conversation history (assistant messages only)
+        history_dates: List[dict] = []
         for turn in conversation_history:
-            role = turn.get("role", "").lower()
             content = turn.get("content", "")
-            if role == "assistant" and content and content.strip():
-                prior_responses.append(content.strip())
+            role = turn.get("role", "")
+            if role != "assistant" or not content:
+                continue
+            # Extract MM/DD/YYYY dates
+            for m in RE_DATE_MDY.finditer(content):
+                history_dates.append({
+                    "raw": m.group(0),
+                    "month": int(m.group(1)),
+                    "day": int(m.group(2)),
+                    "year": int(m.group(3)),
+                    "context": content[max(0, m.start()-30):m.end()+10],
+                })
+            # Extract text month dates
+            for m in RE_DATE_TEXT.finditer(content):
+                month_name = re.match(
+                    r"(January|February|March|April|May|June|July|"
+                    r"August|September|October|November|December)",
+                    m.group(0), re.IGNORECASE,
+                )
+                if month_name:
+                    month_num = _MONTH_NAMES.get(month_name.group(1).lower(), 0)
+                    if month_num:
+                        history_dates.append({
+                            "raw": m.group(0),
+                            "month": month_num,
+                            "day": int(m.group(1)),
+                            "year": int(m.group(2)),
+                            "context": content[max(0, m.start()-30):m.end()+10],
+                        })
 
-        if not prior_responses:
+        if not history_dates:
             return None
 
-        response_lower = response.lower()
-        inconsistencies: List[str] = []
-        inconsistency_positions: List[Tuple[int, int]] = []
-
-        for prior in prior_responses:
-            prior_lower = prior.lower()
-
-            # Extract factual claims from prior response
-            # (sentences with numbers, prices, dates, or "is/are")
-            prior_claims = self._extract_claims(prior)
-            response_claims = self._extract_claims(response)
-
-            for claim in prior_claims:
-                claim_lower = claim.lower()
-                # Check for direct negation of prior claim
-                for neg_word in ["not", "isn't", "aren't", "don't", "doesn't", "won't", "can't"]:
-                    negated_claim = f"{neg_word} {claim_lower}"
-                    if negated_claim in response_lower:
-                        inconsistencies.append(
-                            f"Contradicts prior: was '{claim[:60]}', now says '{negated_claim[:60]}'"
-                        )
-                        idx = response_lower.find(negated_claim)
-                        inconsistency_positions.append((
-                            max(0, idx), min(len(response), idx + len(negated_claim)),
-                        ))
-
-            # Check for number/price/date contradictions
-            prior_numbers = re.findall(r'\$\s*[\d,]+(?:\.\d{1,2})?|\b\d+(?:,\d{3})+(?:\.\d{1,2})?\b', prior)
-            response_numbers = re.findall(r'\$\s*[\d,]+(?:\.\d{1,2})?|\b\d+(?:,\d{3})+(?:\.\d{1,2})?\b', response)
-
-            # If same entity has different numbers
-            prior_entities = re.findall(
-                r'(?:price|cost|fee|rate|total|amount)\s+(?:is|was|are|were)?\s*(?:of\s+)?'
-                r'(\$[\d,]+(?:\.\d{1,2})?)',
-                prior_lower,
+        # Extract dates from current response
+        response_dates: List[dict] = []
+        for m in RE_DATE_MDY.finditer(response):
+            response_dates.append({
+                "raw": m.group(0),
+                "month": int(m.group(1)),
+                "day": int(m.group(2)),
+                "year": int(m.group(3)),
+            })
+        for m in RE_DATE_TEXT.finditer(response):
+            month_name = re.match(
+                r"(January|February|March|April|May|June|July|"
+                r"August|September|October|November|December)",
+                m.group(0), re.IGNORECASE,
             )
-            response_entities = re.findall(
-                r'(?:price|cost|fee|rate|total|amount)\s+(?:is|was|are|were)?\s*(?:of\s+)?'
-                r'(\$[\d,]+(?:\.\d{1,2})?)',
-                response_lower,
-            )
+            if month_name:
+                month_num = _MONTH_NAMES.get(month_name.group(1).lower(), 0)
+                if month_num:
+                    response_dates.append({
+                        "raw": m.group(0),
+                        "month": month_num,
+                        "day": int(m.group(1)),
+                        "year": int(m.group(2)),
+                    })
 
-            for p_ent in prior_entities:
-                for r_ent in response_entities:
-                    if p_ent != r_ent and p_ent.split()[-1] != r_ent.split()[-1]:
-                        inconsistencies.append(
-                            f"Changed value: prior said '{p_ent}', now says '{r_ent}'"
-                        )
-                        idx = response_lower.find(r_ent)
-                        inconsistency_positions.append((
-                            max(0, idx), min(len(response), idx + len(r_ent)),
-                        ))
-
-            # Direct yes/no contradiction
-            prior_yesno = re.findall(
-                r'\b(yes|no|true|false|correct|incorrect|available|unavailable)\b',
-                prior_lower,
-            )
-            response_yesno = re.findall(
-                r'\b(yes|no|true|false|correct|incorrect|available|unavailable)\b',
-                response_lower,
-            )
-
-            contradictions = {
-                ("yes", "no"), ("no", "yes"),
-                ("true", "false"), ("false", "true"),
-                ("correct", "incorrect"), ("incorrect", "correct"),
-                ("available", "unavailable"), ("unavailable", "available"),
-            }
-            for p_word in prior_yesno:
-                for r_word in response_yesno:
-                    if (p_word, r_word) in contradictions:
-                        inconsistencies.append(
-                            f"Direct contradiction: prior '{p_word}', now '{r_word}'"
-                        )
-                        idx = response_lower.find(r_word)
-                        inconsistency_positions.append((
-                            max(0, idx), min(len(response), idx + len(r_word)),
-                        ))
-
-        if not inconsistencies:
+        if not response_dates:
             return None
 
-        confidence = 0.7 + min(0.2, len(inconsistencies) * 0.05)
-        start = inconsistency_positions[0][0] if inconsistency_positions else 0
-        end = inconsistency_positions[-1][1] if inconsistency_positions else len(response)
-        severity = "high" if confidence >= 0.85 else "medium"
+        # Compare dates: find contradictions
+        for hist_date in history_dates:
+            for resp_date in response_dates:
+                # If month or year or day differ, it's a contradiction
+                if (hist_date["month"] != resp_date["month"] or
+                    hist_date["day"] != resp_date["day"] or
+                    hist_date["year"] != resp_date["year"]):
+                    # But only if they reference similar context
+                    # (similar surrounding words indicate same entity)
+                    hist_context_words = set(
+                        re.findall(r'\b\w{4,}\b', hist_date.get("context", "").lower())
+                    )
+                    resp_nearby = response
+                    resp_context_words = set(
+                        re.findall(r'\b\w{4,}\b', resp_nearby.lower())
+                    )
+                    # Check if there's any contextual overlap
+                    overlap = hist_context_words & resp_context_words
+                    if overlap or not hist_context_words:
+                        # If there's overlap or we can't determine context,
+                        # flag as temporal inconsistency
+                        confidence = 0.75 if overlap else 0.60
+                        evidence = (
+                            f"Date contradiction: history said '{hist_date['raw']}' "
+                            f"but response says '{resp_date['raw']}'"
+                        )
+                        return HallucinationMatch(
+                            pattern_id="P12_temporal_inconsistency",
+                            pattern_name="Temporal inconsistency",
+                            confidence=round(confidence, 4),
+                            evidence=evidence,
+                            start=0,
+                            end=len(response),
+                            severity="medium" if confidence < 0.7 else "high",
+                        )
 
-        return HallucinationMatch(
-            pattern_id="P12_temporal_inconsistency",
-            pattern_name="Temporal inconsistency",
-            confidence=round(confidence, 4),
-            evidence=f"Contradicts earlier conversation: {'; '.join(inconsistencies[:3])}",
-            start=start,
-            end=end,
-            severity=severity,
-        )
+        return None
 
     # ── Helper Methods ──────────────────────────────────────────
 
