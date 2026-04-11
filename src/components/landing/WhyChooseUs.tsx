@@ -81,7 +81,7 @@ export default function WhyChooseUs() {
   }, [isInView]);
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden bg-gradient-to-b from-[#2A1A0A] to-[#1A1A1A]">
+    <section ref={sectionRef} className="relative overflow-hidden">
       {/* Ambient glow orbs */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-orange-500/12 rounded-full blur-[140px]" />

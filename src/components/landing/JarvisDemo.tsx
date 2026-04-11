@@ -108,7 +108,6 @@ export default function JarvisDemo() {
       ref={sectionRef}
       className="relative overflow-hidden"
       style={{
-        background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 25%, #2D1F0E 50%, #3D2A10 75%, #1A1A1A 100%)',
         minHeight: '720px',
       }}
     >
