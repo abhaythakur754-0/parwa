@@ -13,7 +13,7 @@ const features = [
     title: 'Bank-Grade Security',
     description: 'Your data is encrypted end-to-end. GDPR compliant. SOC 2 certified.',
     details: ['End-to-end encryption', 'GDPR compliant', 'SOC 2 Type II certified', 'Regular security audits'],
-    color: 'green' as const,
+    color: 'orange' as const,
   },
   {
     icon: <HelpCircle className="w-6 h-6 sm:w-7 sm:h-7" />,
@@ -34,26 +34,26 @@ const features = [
     title: 'Real-Time Dashboard',
     description: 'Track ROI, resolution rates, and customer satisfaction live.',
     details: ['Live metrics dashboard', 'Custom report builder', 'CSAT tracking', 'Revenue impact analytics'],
-    color: 'green' as const,
+    color: 'orange' as const,
   },
   {
     icon: <Languages className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'Multi-Language Support',
     description: 'Speak to customers in 50+ languages with native-level accuracy.',
     details: ['50+ languages supported', 'Automatic detection', 'Cultural context awareness', 'Translation quality scoring'],
-    color: 'green' as const,
+    color: 'orange' as const,
   },
   {
     icon: <TrendingUp className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'Scales With You',
     description: '10 or 10,000 tickets — Jarvis handles it all without breaking a sweat.',
     details: ['Unlimited ticket capacity', 'Auto-scaling infrastructure', 'Peak load management', 'Zero downtime SLA'],
-    color: 'green' as const,
+    color: 'orange' as const,
   },
 ];
 
 const colorClasses: Record<string, { bg: string; text: string; border: string; hoverBorder: string; glow: string; check: string }> = {
-  green: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-white/10', hoverBorder: 'border-orange-500/30', glow: 'hover:shadow-orange-500/20', check: 'bg-orange-400' },
+  orange: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-white/10', hoverBorder: 'border-orange-500/30', glow: 'hover:shadow-orange-500/20', check: 'bg-orange-400' },
   amber: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-white/10', hoverBorder: 'border-amber-500/30', glow: 'hover:shadow-amber-500/15', check: 'bg-amber-400' },
   orange: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-white/10', hoverBorder: 'border-orange-500/30', glow: 'hover:shadow-orange-500/15', check: 'bg-orange-400' },
 };

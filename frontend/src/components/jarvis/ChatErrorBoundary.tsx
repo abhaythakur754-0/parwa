@@ -39,7 +39,7 @@ export class ChatErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-full flex flex-col items-center justify-center gap-4 px-6 bg-[#022C22]">
+        <div className="h-full flex flex-col items-center justify-center gap-4 px-6 bg-[#1A1A1A]">
           <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/15 flex items-center justify-center">
             <AlertTriangle className="w-8 h-8 text-red-400/60" />
           </div>
@@ -54,7 +54,7 @@ export class ChatErrorBoundary extends React.Component<
 
             <button
               onClick={this.handleReset}
-              className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 underline underline-offset-2 transition-colors"
             >
               <RotateCcw className="w-3 h-3" />
               Try again

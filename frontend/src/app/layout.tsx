@@ -27,18 +27,18 @@ export default function RootLayout({
           toastOptions={{
             duration: 4000,
             style: {
-              background: '#064E3B',
-              color: '#d1fae5',
-              border: '1px solid rgba(16,185,129,0.25)',
+              background: '#2A1A0A',
+              color: '#FFF4E6',
+              border: '1px solid rgba(255,127,17,0.25)',
               borderRadius: '12px',
-              boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 40px rgba(16,185,129,0.06)',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 40px rgba(255,127,17,0.06)',
               backdropFilter: 'blur(20px)',
             },
             success: {
-              iconTheme: { primary: '#34D399', secondary: '#064E3B' },
+              iconTheme: { primary: '#FF9F5A', secondary: '#2A1A0A' },
             },
             error: {
-              iconTheme: { primary: '#FB7185', secondary: '#064E3B' },
+              iconTheme: { primary: '#FB7185', secondary: '#2A1A0A' },
             },
           }}
         />

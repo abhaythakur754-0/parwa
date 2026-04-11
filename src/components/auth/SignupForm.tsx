@@ -74,13 +74,13 @@ function getPasswordStrength(password: string): { strength: string; score: numbe
   if (password.length >= 16) score += 1;
   if (score <= 2) return { strength: 'Weak', score, color: 'bg-rose-500' };
   if (score <= 4) return { strength: 'Fair', score, color: 'bg-amber-500' };
-  if (score <= 5) return { strength: 'Strong', score, color: 'bg-emerald-500' };
-  return { strength: 'Very Strong', score, color: 'bg-emerald-400' };
+  if (score <= 5) return { strength: 'Strong', score, color: 'bg-orange-500' };
+  return { strength: 'Very Strong', score, color: 'bg-orange-400' };
 }
 
-const darkInputClass = "w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 transition-all duration-300 appearance-none";
-const darkInputErrorClass = "w-full pl-10 pr-4 py-3 bg-white/5 border border-rose-500/40 rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500/40 transition-all duration-300 appearance-none";
-const darkSelectClass = "w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 transition-all duration-300 appearance-none";
+const darkInputClass = "w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-orange-200/30 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all duration-300 appearance-none";
+const darkInputErrorClass = "w-full pl-10 pr-4 py-3 bg-white/5 border border-rose-500/40 rounded-xl text-white placeholder-orange-200/30 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500/40 transition-all duration-300 appearance-none";
+const darkSelectClass = "w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all duration-300 appearance-none";
 const darkSelectErrorClass = "w-full pl-10 pr-10 py-3 bg-white/5 border border-rose-500/40 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500/40 transition-all duration-300 appearance-none";
 
 export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }: SignupFormProps) {
@@ -194,10 +194,10 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Email Field */}
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-emerald-200/70 mb-1.5">Email address</label>
+        <label htmlFor="email" className="block text-sm font-medium text-orange-200/70 mb-1.5">Email address</label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Mail className="h-5 w-5 text-emerald-400/50" />
+            <Mail className="h-5 w-5 text-orange-400/50" />
           </div>
           <input id="email" name="email" type="email" autoComplete="email" required value={email}
             onChange={(e) => { setEmail(e.target.value); setEmailAvailable(null); if (formErrors.email) setFormErrors(prev => ({ ...prev, email: undefined })); }}
@@ -206,12 +206,12 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
             placeholder="you@example.com" disabled={isDisabled} maxLength={MAX_EMAIL_LENGTH} />
           {emailChecking && (
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-              <Loader2 className="h-5 w-5 text-emerald-400 animate-spin" />
+              <Loader2 className="h-5 w-5 text-orange-400 animate-spin" />
             </div>
           )}
           {emailAvailable === true && !emailChecking && (
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-              <svg className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -222,10 +222,10 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
 
       {/* Full Name */}
       <div>
-        <label htmlFor="full_name" className="block text-sm font-medium text-emerald-200/70 mb-1.5">Full name</label>
+        <label htmlFor="full_name" className="block text-sm font-medium text-orange-200/70 mb-1.5">Full name</label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <User className="h-5 w-5 text-emerald-400/50" />
+            <User className="h-5 w-5 text-orange-400/50" />
           </div>
           <input id="full_name" name="full_name" type="text" autoComplete="name" required value={fullName}
             onChange={(e) => { setFullName(e.target.value); if (formErrors.full_name) setFormErrors(prev => ({ ...prev, full_name: undefined })); }}
@@ -237,10 +237,10 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
 
       {/* Company Name */}
       <div>
-        <label htmlFor="company_name" className="block text-sm font-medium text-emerald-200/70 mb-1.5">Company name</label>
+        <label htmlFor="company_name" className="block text-sm font-medium text-orange-200/70 mb-1.5">Company name</label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Building2 className="h-5 w-5 text-emerald-400/50" />
+            <Building2 className="h-5 w-5 text-orange-400/50" />
           </div>
           <input id="company_name" name="company_name" type="text" autoComplete="organization" required value={companyName}
             onChange={(e) => { setCompanyName(e.target.value); if (formErrors.company_name) setFormErrors(prev => ({ ...prev, company_name: undefined })); }}
@@ -252,22 +252,22 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
 
       {/* Industry */}
       <div>
-        <label htmlFor="industry" className="block text-sm font-medium text-emerald-200/70 mb-1.5">Industry</label>
+        <label htmlFor="industry" className="block text-sm font-medium text-orange-200/70 mb-1.5">Industry</label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Briefcase className="h-5 w-5 text-emerald-400/50" />
+            <Briefcase className="h-5 w-5 text-orange-400/50" />
           </div>
           <select id="industry" name="industry" required value={industry}
             onChange={(e) => { setIndustry(e.target.value); if (formErrors.industry) setFormErrors(prev => ({ ...prev, industry: undefined })); }}
             className={formErrors.industry ? darkSelectErrorClass : darkSelectClass}
             disabled={isDisabled}>
-            <option value="" className="bg-[#022C22] text-white">Select your industry</option>
+            <option value="" className="bg-[#1A1A1A] text-white">Select your industry</option>
             {INDUSTRIES.map((ind) => (
-              <option key={ind.value} value={ind.value} className="bg-[#022C22] text-white">{ind.label}</option>
+              <option key={ind.value} value={ind.value} className="bg-[#1A1A1A] text-white">{ind.label}</option>
             ))}
           </select>
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-emerald-400/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-5 w-5 text-orange-400/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
@@ -277,19 +277,19 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
 
       {/* Password */}
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-emerald-200/70 mb-1.5">Password</label>
+        <label htmlFor="password" className="block text-sm font-medium text-orange-200/70 mb-1.5">Password</label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Lock className="h-5 w-5 text-emerald-400/50" />
+            <Lock className="h-5 w-5 text-orange-400/50" />
           </div>
           <input id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required value={password}
             onChange={(e) => { setPassword(e.target.value); if (formErrors.password) setFormErrors(prev => ({ ...prev, password: undefined })); }}
-            className={`w-full pl-10 pr-10 bg-white/5 border rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
-              formErrors.password ? 'border-rose-500/40 focus:ring-rose-500/30' : 'border-white/10 focus:ring-emerald-500/30 focus:border-emerald-500/40'
+            className={`w-full pl-10 pr-10 bg-white/5 border rounded-xl text-white placeholder-orange-200/30 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
+              formErrors.password ? 'border-rose-500/40 focus:ring-rose-500/30' : 'border-white/10 focus:ring-orange-500/30 focus:border-orange-500/40'
             }`}
             placeholder="Create a strong password" disabled={isDisabled} maxLength={MAX_PASSWORD_LENGTH} />
           <button type="button" onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-400/50 hover:text-emerald-400 transition-colors" tabIndex={-1}>
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-orange-400/50 hover:text-orange-400 transition-colors" tabIndex={-1}>
             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
           </button>
         </div>
@@ -299,9 +299,9 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
               <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
                 <div className={`h-full transition-all duration-300 ${passwordStrength.color}`} style={{ width: `${(passwordStrength.score / 7) * 100}%` }} />
               </div>
-              <span className="text-xs text-emerald-200/40">{passwordStrength.strength}</span>
+              <span className="text-xs text-orange-200/40">{passwordStrength.strength}</span>
             </div>
-            <p className="text-xs text-emerald-200/25">Use 8+ characters with uppercase, lowercase, numbers, and special characters</p>
+            <p className="text-xs text-orange-200/25">Use 8+ characters with uppercase, lowercase, numbers, and special characters</p>
           </div>
         )}
         {formErrors.password && <p className="mt-1 text-sm text-rose-300">{formErrors.password}</p>}
@@ -309,19 +309,19 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
 
       {/* Confirm Password */}
       <div>
-        <label htmlFor="confirm_password" className="block text-sm font-medium text-emerald-200/70 mb-1.5">Confirm password</label>
+        <label htmlFor="confirm_password" className="block text-sm font-medium text-orange-200/70 mb-1.5">Confirm password</label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Lock className="h-5 w-5 text-emerald-400/50" />
+            <Lock className="h-5 w-5 text-orange-400/50" />
           </div>
           <input id="confirm_password" name="confirm_password" type={showConfirmPassword ? 'text' : 'password'} autoComplete="new-password" required value={confirmPassword}
             onChange={(e) => { setConfirmPassword(e.target.value); if (formErrors.confirm_password) setFormErrors(prev => ({ ...prev, confirm_password: undefined })); }}
-            className={`w-full pl-10 pr-10 bg-white/5 border rounded-xl text-white placeholder-emerald-200/30 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
-              formErrors.confirm_password ? 'border-rose-500/40 focus:ring-rose-500/30' : 'border-white/10 focus:ring-emerald-500/30 focus:border-emerald-500/40'
+            className={`w-full pl-10 pr-10 bg-white/5 border rounded-xl text-white placeholder-orange-200/30 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
+              formErrors.confirm_password ? 'border-rose-500/40 focus:ring-rose-500/30' : 'border-white/10 focus:ring-orange-500/30 focus:border-orange-500/40'
             }`}
             placeholder="Confirm your password" disabled={isDisabled} maxLength={MAX_PASSWORD_LENGTH} />
           <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-400/50 hover:text-emerald-400 transition-colors" tabIndex={-1}>
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-orange-400/50 hover:text-orange-400 transition-colors" tabIndex={-1}>
             {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
           </button>
         </div>
@@ -337,16 +337,16 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
 
       {/* Submit */}
       <button type="submit" disabled={isDisabled}
-        className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40">
+        className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40">
         {isDisabled ? (
           <><Loader2 className="w-5 h-5 animate-spin" /> Creating account...</>
         ) : 'Create account'}
       </button>
 
       {/* Sign In Link */}
-      <p className="text-center text-sm text-emerald-200/40">
+      <p className="text-center text-sm text-orange-200/40">
         Already have an account?{' '}
-        <Link href="/login" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Sign in</Link>
+        <Link href="/login" className="text-orange-400 hover:text-orange-300 font-medium transition-colors">Sign in</Link>
       </p>
     </form>
   );

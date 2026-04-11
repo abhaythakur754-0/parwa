@@ -53,7 +53,7 @@ export default function Footer() {
 
   return (
     <footer className="relative bg-[#1A0F08]" role="contentinfo">
-      {/* Emerald gradient top border line */}
+      {/* Orange gradient top border line */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-400/60 to-transparent" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-18 md:py-20">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-10 sm:gap-14">

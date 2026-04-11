@@ -11,8 +11,8 @@ import { useAuth } from '@/hooks/useAuth';
 
 function LoginPageLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #022C22 0%, #064E3B 50%, #047857 100%)' }}>
-      <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+      <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
     </div>
   );
 }
@@ -104,12 +104,12 @@ function LoginContent() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
-      style={{ background: 'linear-gradient(165deg, #022C22 0%, #064E3B 40%, #065F46 70%, #047857 100%)' }}
+      style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}
     >
       {/* Animated background elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute w-[400px] h-[400px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.02) 60%, transparent 80%)',
+          background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.02) 60%, transparent 80%)',
           top: '15%',
           left: '10%',
           animation: 'jarvisOrbFloat1 10s ease-in-out infinite',
@@ -133,7 +133,7 @@ function LoginContent() {
           return (
             <div
               key={i}
-              className="absolute w-1 h-1 rounded-full bg-emerald-400"
+              className="absolute w-1 h-1 rounded-full bg-orange-400"
               style={{
                 left: `${(col + 0.5) * 25}%`,
                 top: `${(row + 0.5) * 25}%`,
@@ -149,7 +149,7 @@ function LoginContent() {
         {/* Header */}
         <div className="text-center">
           <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-600/30">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/30">
               <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
               </svg>
@@ -157,7 +157,7 @@ function LoginContent() {
             <span className="text-2xl font-bold text-white">PARWA</span>
           </Link>
           <h1 className="text-3xl font-bold text-white">Welcome back</h1>
-          <p className="mt-2 text-sm text-emerald-200/50">Sign in to your account to continue</p>
+          <p className="mt-2 text-sm text-orange-200/50">Sign in to your account to continue</p>
         </div>
 
         {/* Glass Card */}
@@ -165,12 +165,12 @@ function LoginContent() {
           className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"
           style={{
             background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)',
-            border: '1px solid rgba(16,185,129,0.2)',
+            border: '1px solid rgba(255,127,17,0.2)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(16,185,129,0.06)',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)',
           }}
         >
-          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(16,185,129,0.1)' }} />
+          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.1)' }} />
           {/* Google Login */}
           <SocialLogin onGoogleLogin={handleGoogleLogin} isLoading={isSubmitting} error={googleError} showDividerAfter={true} />
           {/* Email Login */}
@@ -179,8 +179,8 @@ function LoginContent() {
           </div>
         </div>
 
-        <div className="text-center text-sm text-emerald-200/30">
-          <p>Need help? <Link href="/contact" className="text-emerald-400 hover:text-emerald-300 transition-colors">Contact Support</Link></p>
+        <div className="text-center text-sm text-orange-200/30">
+          <p>Need help? <Link href="/contact" className="text-orange-400 hover:text-orange-300 transition-colors">Contact Support</Link></p>
         </div>
       </div>
 

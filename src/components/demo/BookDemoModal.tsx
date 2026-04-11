@@ -56,9 +56,9 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
         setIsSubmitted(true);
         toast.success('Demo request submitted!', {
           style: {
-            background: '#064E3B',
-            color: '#d1fae5',
-            border: '1px solid rgba(16,185,129,0.25)',
+            background: '#2A1A0A',
+            color: '#FFF4E6',
+            border: '1px solid rgba(255,127,17,0.25)',
             borderRadius: '12px',
           },
         });
@@ -88,21 +88,21 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
       <div
         className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl"
         style={{
-          background: 'linear-gradient(180deg, #022C22 0%, #064E3B 100%)',
-          border: '1px solid rgba(16,185,129,0.25)',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 80px rgba(16,185,129,0.08)',
+          background: 'linear-gradient(180deg, #1A1A1A 0%, #2A1A0A 100%)',
+          border: '1px solid rgba(255,127,17,0.25)',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 80px rgba(255,127,17,0.08)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'rgba(16,185,129,0.15)' }}>
+        <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'rgba(255,127,17,0.15)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FF7F11 0%, #E06A00 100%)' }}>
               <Calendar className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">Book an Instant Demo</h2>
-              <p className="text-xs text-emerald-300/50">See how this agent talks to your clients — just $1, no commitment</p>
+              <p className="text-xs text-orange-300/50">See how this agent talks to your clients — just $1, no commitment</p>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all">
@@ -112,18 +112,18 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
 
         {isSubmitted ? (
           <div className="px-6 py-16 text-center">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-emerald-400" />
+            <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-orange-400" />
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Request Submitted!</h3>
-            <p className="text-sm text-emerald-200/50">Our team will reach out within 24 hours to set up your instant demo for just $1.</p>
+            <p className="text-sm text-orange-200/50">Our team will reach out within 24 hours to set up your instant demo for just $1.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
             {/* Name */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-emerald-200/70 mb-2">
-                <Building2 className="w-3.5 h-3.5 text-emerald-400/60" />
+              <label className="flex items-center gap-2 text-sm font-medium text-orange-200/70 mb-2">
+                <Building2 className="w-3.5 h-3.5 text-orange-400/60" />
                 Full Name *
               </label>
               <input
@@ -132,15 +132,15 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
                 value={form.name}
                 onChange={(e) => handleChange('name', e.target.value)}
                 placeholder="John Doe"
-                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
               />
             </div>
 
             {/* Email */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-emerald-200/70 mb-2">
-                <Briefcase className="w-3.5 h-3.5 text-emerald-400/60" />
+              <label className="flex items-center gap-2 text-sm font-medium text-orange-200/70 mb-2">
+                <Briefcase className="w-3.5 h-3.5 text-orange-400/60" />
                 Work Email *
               </label>
               <input
@@ -149,15 +149,15 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
                 value={form.email}
                 onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="john@company.com"
-                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
               />
             </div>
 
             {/* Company */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-emerald-200/70 mb-2">
-                <Building2 className="w-3.5 h-3.5 text-emerald-400/60" />
+              <label className="flex items-center gap-2 text-sm font-medium text-orange-200/70 mb-2">
+                <Building2 className="w-3.5 h-3.5 text-orange-400/60" />
                 Company Name *
               </label>
               <input
@@ -166,26 +166,26 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
                 value={form.company}
                 onChange={(e) => handleChange('company', e.target.value)}
                 placeholder="Acme Inc."
-                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
               />
             </div>
 
             {/* Industry */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-emerald-200/70 mb-2">
-                <Briefcase className="w-3.5 h-3.5 text-emerald-400/60" />
+              <label className="flex items-center gap-2 text-sm font-medium text-orange-200/70 mb-2">
+                <Briefcase className="w-3.5 h-3.5 text-orange-400/60" />
                 Industry
               </label>
               <select
                 value={form.industry}
                 onChange={(e) => handleChange('industry', e.target.value)}
-                className="w-full px-4 py-3 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 appearance-none cursor-pointer"
+                className="w-full px-4 py-3 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 appearance-none cursor-pointer"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
               >
-                <option value="" style={{ background: '#022C22' }}>Select industry...</option>
+                <option value="" style={{ background: '#1A1A1A' }}>Select industry...</option>
                 {INDUSTRIES.map(ind => (
-                  <option key={ind} value={ind} style={{ background: '#022C22' }}>{ind}</option>
+                  <option key={ind} value={ind} style={{ background: '#1A1A1A' }}>{ind}</option>
                 ))}
               </select>
             </div>
@@ -193,8 +193,8 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
             {/* Date & Time Row */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-emerald-200/70 mb-2">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-400/60" />
+                <label className="flex items-center gap-2 text-sm font-medium text-orange-200/70 mb-2">
+                  <Calendar className="w-3.5 h-3.5 text-orange-400/60" />
                   Preferred Date
                 </label>
                 <input
@@ -202,24 +202,24 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
                   value={form.preferredDate}
                   onChange={(e) => handleChange('preferredDate', e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                   style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
                 />
               </div>
               <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-emerald-200/70 mb-2">
-                  <Clock className="w-3.5 h-3.5 text-emerald-400/60" />
+                <label className="flex items-center gap-2 text-sm font-medium text-orange-200/70 mb-2">
+                  <Clock className="w-3.5 h-3.5 text-orange-400/60" />
                   Preferred Time
                 </label>
                 <select
                   value={form.preferredTime}
                   onChange={(e) => handleChange('preferredTime', e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 appearance-none cursor-pointer"
                   style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
                 >
-                  <option value="" style={{ background: '#022C22' }}>Select time...</option>
+                  <option value="" style={{ background: '#1A1A1A' }}>Select time...</option>
                   {TIME_SLOTS.map(slot => (
-                    <option key={slot} value={slot} style={{ background: '#022C22' }}>{slot}</option>
+                    <option key={slot} value={slot} style={{ background: '#1A1A1A' }}>{slot}</option>
                   ))}
                 </select>
               </div>
@@ -227,8 +227,8 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
 
             {/* Message */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-emerald-200/70 mb-2">
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-400/60" />
+              <label className="flex items-center gap-2 text-sm font-medium text-orange-200/70 mb-2">
+                <MessageSquare className="w-3.5 h-3.5 text-orange-400/60" />
                 What would you like to see in the demo?
               </label>
               <textarea
@@ -236,7 +236,7 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
                 onChange={(e) => handleChange('message', e.target.value)}
                 rows={3}
                 placeholder="Tell us about your support challenges..."
-                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 resize-none"
+                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-orange-500/30 resize-none"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
               />
             </div>
@@ -247,9 +247,9 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
               disabled={isSubmitting || !form.name || !form.email || !form.company}
               className="w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{
-                background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                color: '#022C22',
-                boxShadow: '0 8px 30px rgba(16,185,129,0.3)',
+                background: 'linear-gradient(135deg, #FF7F11 0%, #E06A00 100%)',
+                color: '#1A1A1A',
+                boxShadow: '0 8px 30px rgba(255,127,17,0.3)',
               }}
             >
               {isSubmitting ? (

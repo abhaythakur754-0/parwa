@@ -32,9 +32,9 @@ export function BillSummary({ metadata, onConfirm, onChangePlan }: BillSummaryPr
   const variants = (metadata.variants as Array<Record<string, unknown>>) || [];
 
   return (
-    <div className="my-2 rounded-xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50/90 via-white/90 to-emerald-50/40 backdrop-blur-sm overflow-hidden shadow-md">
+    <div className="my-2 rounded-xl border border-orange-200/60 bg-gradient-to-br from-orange-50/90 via-white/90 to-orange-50/40 backdrop-blur-sm overflow-hidden shadow-md">
       {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2.5">
+      <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-4 py-2.5">
         <h4 className="text-white text-sm font-bold flex items-center gap-2">
           <span>&#x1f4cb;</span> Your PARWA Plan
         </h4>
@@ -75,7 +75,7 @@ export function BillSummary({ metadata, onConfirm, onChangePlan }: BillSummaryPr
         <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
           <div>
             <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Total Monthly</p>
-            <p className="text-2xl font-black text-emerald-600">${totalMonthly.toLocaleString()}</p>
+            <p className="text-2xl font-black text-orange-600">${totalMonthly.toLocaleString()}</p>
           </div>
           <div className="text-right">
             <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Total Tickets</p>
@@ -88,7 +88,7 @@ export function BillSummary({ metadata, onConfirm, onChangePlan }: BillSummaryPr
       <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50 flex gap-2">
         <button
           onClick={onConfirm}
-          className="flex-1 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-xs font-bold shadow-sm hover:from-emerald-500 hover:to-emerald-400 transition-all active:scale-[0.98]"
+          className="flex-1 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 text-white text-xs font-bold shadow-sm hover:from-orange-500 hover:to-orange-400 transition-all active:scale-[0.98]"
         >
           Confirm &#x2713;
         </button>

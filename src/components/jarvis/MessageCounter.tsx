@@ -25,13 +25,13 @@ export function MessageCounter({ remaining, total, isDemoPack }: MessageCounterP
     ? 'bg-red-500'
     : isLow
       ? 'bg-amber-500'
-      : 'bg-emerald-500';
+      : 'bg-orange-500';
 
   const textColor = isEmpty
     ? 'text-red-300'
     : isLow
       ? 'text-amber-300'
-      : 'text-emerald-300';
+      : 'text-orange-300';
 
   return (
     <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 max-w-xs">

@@ -60,9 +60,9 @@ export default function OnboardingPage() {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center bg-[#022C22]">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-400 mb-4" />
-        <p className="text-sm text-emerald-200/50">Loading...</p>
+      <div className="h-screen flex flex-col items-center justify-center bg-[#1A1A1A]">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-400 mb-4" />
+        <p className="text-sm text-orange-200/50">Loading...</p>
       </div>
     );
   }
@@ -71,8 +71,8 @@ export default function OnboardingPage() {
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center bg-[#022C22]">
-        <Loader2 className="w-6 h-6 animate-spin text-emerald-400/50 mb-3" />
+      <div className="h-screen flex flex-col items-center justify-center bg-[#1A1A1A]">
+        <Loader2 className="w-6 h-6 animate-spin text-orange-400/50 mb-3" />
         <p className="text-sm text-white/30">Redirecting to login...</p>
       </div>
     );

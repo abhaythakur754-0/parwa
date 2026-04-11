@@ -28,13 +28,13 @@ export function WelcomeCard({
   return (
     <div className="glass rounded-2xl p-6 relative overflow-hidden">
       {/* Background glow */}
-      <div className="absolute -top-20 -right-20 w-60 h-60 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -top-20 -right-20 w-60 h-60 bg-orange-500/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative">
         {/* Greeting */}
         <div className="flex items-start gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5 text-emerald-400" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/20 flex items-center justify-center shrink-0">
+            <Sparkles className="w-5 h-5 text-orange-400" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-white">
@@ -55,7 +55,7 @@ export function WelcomeCard({
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <StatItem
-            icon={<Users className="w-4 h-4 text-emerald-400" />}
+            icon={<Users className="w-4 h-4 text-orange-400" />}
             label="Active Agents"
             value={`${variantCount}`}
           />

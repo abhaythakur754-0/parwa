@@ -143,10 +143,10 @@ export function OtpVerificationCard({
   // Verified state
   if (stage === 'verified') {
     return (
-      <div className="glass rounded-xl p-4 border border-emerald-500/20 max-w-sm w-full">
+      <div className="glass rounded-xl p-4 border border-orange-500/20 max-w-sm w-full">
         <div className="flex items-center gap-2 mb-2">
-          <ShieldCheck className="w-5 h-5 text-emerald-400" />
-          <span className="text-sm font-medium text-emerald-200">Email Verified</span>
+          <ShieldCheck className="w-5 h-5 text-orange-400" />
+          <span className="text-sm font-medium text-orange-200">Email Verified</span>
         </div>
         <p className="text-xs text-white/50">
           Your email <span className="text-white/70">{email}</span> has been verified successfully.

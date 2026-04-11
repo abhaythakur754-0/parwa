@@ -35,8 +35,8 @@ const STATUS_CONFIG: Record<
     label: 'In Progress',
   },
   completed: {
-    icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />,
-    color: 'border-emerald-500/15',
+    icon: <CheckCircle2 className="w-4 h-4 text-orange-400" />,
+    color: 'border-orange-500/15',
     label: 'Completed',
   },
   failed: {

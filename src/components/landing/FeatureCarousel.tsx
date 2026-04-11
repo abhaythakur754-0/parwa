@@ -93,7 +93,7 @@ function SlideBackground1() {
       <div className="absolute w-10 h-10 rounded-full bg-orange-400/15 border border-orange-400/10 top-[75%] right-[15%]"
         style={{ animation: 'slide1BubbleFloat 8s ease-in-out infinite 2s' }} />
 
-      {/* Green glow pulse */}
+      {/* Orange glow pulse */}
       <div className="absolute top-1/2 right-1/3 -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-orange-500/12 blur-[80px]"
         style={{ animation: 'slide1GlowPulse 4s ease-in-out infinite' }} />
 
@@ -388,7 +388,7 @@ function SlideBackground5() {
           style={{ bottom: '20%', right: particle.right, animation: `slide5EnergyParticle ${particle.duration} ease-out infinite ${particle.delay}` }} />
       ))}
 
-      {/* Deep green ambient glow */}
+      {/* Deep orange ambient glow */}
       <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-orange-500/8 blur-[100px]" />
     </div>
   );

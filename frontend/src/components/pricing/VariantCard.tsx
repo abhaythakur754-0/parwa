@@ -64,9 +64,9 @@ export function VariantCard({
         backdrop-blur-xl
         ${
           isActive
-            ? 'border-emerald-500/30 bg-emerald-500/8 shadow-lg shadow-emerald-600/15'
+            ? 'border-orange-500/30 bg-orange-500/8 shadow-lg shadow-orange-600/15'
             : variant.popular
-              ? 'border-emerald-500/15 bg-white/[0.05] hover:border-emerald-500/30'
+              ? 'border-orange-500/15 bg-white/[0.05] hover:border-orange-500/30'
               : 'border-white/10 bg-white/[0.05] hover:border-white/20 hover:bg-white/[0.08]'
         }
         ${!isActive && !disabled ? 'hover:-translate-y-0.5' : ''}
@@ -87,7 +87,7 @@ export function VariantCard({
         <h3 className="text-base sm:text-lg font-bold text-white mb-1">
           {variant.name}
         </h3>
-        <p className="text-xs sm:text-sm text-emerald-200/50 leading-relaxed">
+        <p className="text-xs sm:text-sm text-orange-200/50 leading-relaxed">
           {variant.description}
         </p>
       </div>
@@ -98,19 +98,19 @@ export function VariantCard({
           <div key={index} className="flex items-center gap-2.5">
             <div
               className={`w-4.5 h-4.5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                isActive ? 'bg-emerald-500/20' : 'bg-white/10'
+                isActive ? 'bg-orange-500/20' : 'bg-white/10'
               }`}
             >
               <Check
                 className={`w-3 h-3 ${
-                  isActive ? 'text-emerald-400' : 'text-emerald-200/30'
+                  isActive ? 'text-orange-400' : 'text-orange-200/30'
                 }`}
                 strokeWidth={3}
               />
             </div>
             <span
               className={`text-xs sm:text-sm leading-snug ${
-                isActive ? 'text-gray-100' : 'text-emerald-200/50'
+                isActive ? 'text-gray-100' : 'text-orange-200/50'
               }`}
             >
               {feature}
@@ -128,24 +128,24 @@ export function VariantCard({
         <div className="flex items-center gap-2">
           <div
             className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              isActive ? 'bg-emerald-500/20' : 'bg-white/10'
+              isActive ? 'bg-orange-500/20' : 'bg-white/10'
             }`}
           >
             <Ticket
               className={`w-4 h-4 ${
-                isActive ? 'text-emerald-400' : 'text-emerald-200/30'
+                isActive ? 'text-orange-400' : 'text-orange-200/30'
               }`}
             />
           </div>
           <div>
             <span
               className={`text-lg sm:text-xl font-bold ${
-                isActive ? 'text-emerald-400' : 'text-gray-100'
+                isActive ? 'text-orange-400' : 'text-gray-100'
               }`}
             >
               {isActive ? ticketsTotal.toLocaleString() : variant.ticketsPerMonth.toLocaleString()}
             </span>
-            <span className="block text-[10px] sm:text-xs text-emerald-200/30">
+            <span className="block text-[10px] sm:text-xs text-orange-200/30">
               tickets/mo
             </span>
           </div>
@@ -162,7 +162,7 @@ export function VariantCard({
               ${isActive ? monthlyTotal : variant.pricePerMonth}
             </span>
           </div>
-          <span className="block text-[10px] sm:text-xs text-emerald-200/30">
+          <span className="block text-[10px] sm:text-xs text-orange-200/30">
             per month
           </span>
         </div>
@@ -181,7 +181,7 @@ export function VariantCard({
           className={`
             w-9 h-9 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center
             transition-all duration-200 flex-shrink-0
-            border-white/10 bg-white/5 text-emerald-200/50
+            border-white/10 bg-white/5 text-orange-200/50
             hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-sky-400
             active:scale-90
             ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
@@ -200,8 +200,8 @@ export function VariantCard({
           className={`
             w-9 h-9 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center
             transition-all duration-200 flex-shrink-0
-            border-white/10 bg-white/5 text-emerald-200/50
-            hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400
+            border-white/10 bg-white/5 text-orange-200/50
+            hover:border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400
             active:scale-90
             ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
           `}
@@ -226,13 +226,13 @@ export function VariantCard({
       {/* Active state total */}
       {isActive && (
         <div
-          className="mt-3 pt-3 border-t border-emerald-600/20 flex items-center justify-between"
+          className="mt-3 pt-3 border-t border-orange-600/20 flex items-center justify-between"
         >
-          <div className="flex items-center gap-1.5 text-emerald-500/80">
+          <div className="flex items-center gap-1.5 text-orange-500/80">
             <Zap className="w-3.5 h-3.5" />
             <span className="text-xs font-medium">Monthly subtotal</span>
           </div>
-          <span className="text-sm font-bold text-emerald-400">
+          <span className="text-sm font-bold text-orange-400">
             ${monthlyTotal}/mo
           </span>
         </div>

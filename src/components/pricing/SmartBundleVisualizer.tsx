@@ -35,7 +35,7 @@ function getRecommendation(ticketsPerDay: number, _industry: Industry | null): B
       annualCost: TIER_CONFIG.high.annualPrice,
       message: `1× PARWA High ($${TIER_CONFIG.high.monthlyPrice.toLocaleString()}/mo)`,
       subMessage: 'Handles complex operations with autonomous approval flows',
-      color: 'emerald',
+      color: 'orange',
       isWarning: false,
     };
   }
@@ -49,7 +49,7 @@ function getRecommendation(ticketsPerDay: number, _industry: Industry | null): B
       annualCost: TIER_CONFIG.growth.annualPrice,
       message: `1× PARWA Growth ($${TIER_CONFIG.growth.monthlyPrice.toLocaleString()}/mo)`,
       subMessage: 'Handles tickets + thinks for you',
-      color: 'emerald',
+      color: 'orange',
       isWarning: false,
     };
   }
@@ -63,7 +63,7 @@ function getRecommendation(ticketsPerDay: number, _industry: Industry | null): B
       annualCost: TIER_CONFIG.starter.annualPrice,
       message: `1× PARWA Starter ($${TIER_CONFIG.starter.monthlyPrice}/mo)`,
       subMessage: 'Perfect for FAQ deflection & basic automation',
-      color: 'emerald',
+      color: 'orange',
       isWarning: false,
     };
   }
@@ -76,7 +76,7 @@ function getRecommendation(ticketsPerDay: number, _industry: Industry | null): B
     annualCost: TIER_CONFIG.starter.annualPrice,
     message: `1× PARWA Starter ($${TIER_CONFIG.starter.monthlyPrice}/mo)`,
     subMessage: 'Perfect for FAQ deflection',
-    color: 'emerald',
+    color: 'orange',
     isWarning: false,
   };
 }
@@ -134,12 +134,12 @@ export function SmartBundleVisualizer({ selectedIndustry, onIndustrySelect }: Sm
     <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 sm:p-8">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center">
-          <SlidersHorizontal className="w-6 h-6 text-emerald-400" />
+        <div className="w-11 h-11 rounded-xl bg-orange-500/15 flex items-center justify-center">
+          <SlidersHorizontal className="w-6 h-6 text-orange-400" />
         </div>
         <div>
           <h3 className="text-xl font-bold text-white">Smart Bundle Visualizer</h3>
-          <p className="text-sm text-emerald-200/50">Find the right plan for your ticket volume</p>
+          <p className="text-sm text-orange-200/50">Find the right plan for your ticket volume</p>
         </div>
       </div>
 
@@ -154,10 +154,10 @@ export function SmartBundleVisualizer({ selectedIndustry, onIndustrySelect }: Sm
       {/* Ticket Volume Slider */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">
-          <label className="text-sm font-semibold text-emerald-200/70">Daily Ticket Volume</label>
+          <label className="text-sm font-semibold text-orange-200/70">Daily Ticket Volume</label>
           <div className="flex items-center gap-2">
             <span className="text-lg font-black text-white">{ticketVolume}</span>
-            <span className="text-xs text-emerald-200/30">tickets/day</span>
+            <span className="text-xs text-orange-200/30">tickets/day</span>
           </div>
         </div>
 
@@ -170,29 +170,29 @@ export function SmartBundleVisualizer({ selectedIndustry, onIndustrySelect }: Sm
           onChange={(e) => setTicketVolume(Number(e.target.value))}
           className="w-full h-2 rounded-full appearance-none cursor-pointer"
           style={{
-            background: `linear-gradient(to right, #10b981 0%, #10b981 ${((ticketVolume - 50) / 950) * 100}%, rgba(255,255,255,0.1) ${((ticketVolume - 50) / 950) * 100}%, rgba(255,255,255,0.1) 100%)`,
+            background: `linear-gradient(to right, #FF7F11 0%, #FF7F11 ${((ticketVolume - 50) / 950) * 100}%, rgba(255,255,255,0.1) ${((ticketVolume - 50) / 950) * 100}%, rgba(255,255,255,0.1) 100%)`,
           }}
           aria-label="Ticket volume slider"
         />
 
         <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-emerald-200/30">50/day</span>
-          <span className="text-xs font-medium text-emerald-400">{getVolumeLabel(ticketVolume)}</span>
-          <span className="text-xs text-emerald-200/30">1,000/day</span>
+          <span className="text-xs text-orange-200/30">50/day</span>
+          <span className="text-xs font-medium text-orange-400">{getVolumeLabel(ticketVolume)}</span>
+          <span className="text-xs text-orange-200/30">1,000/day</span>
         </div>
 
         {/* Stats row */}
         <div className="flex flex-wrap gap-3 mt-4">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-xs text-emerald-200/50">
-              <span className="font-semibold text-emerald-300">{ticketsPerMonth.toLocaleString()}</span> tickets/mo
+            <TrendingUp className="w-3.5 h-3.5 text-orange-400" />
+            <span className="text-xs text-orange-200/50">
+              <span className="font-semibold text-orange-300">{ticketsPerMonth.toLocaleString()}</span> tickets/mo
             </span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-xs text-emerald-200/50">
-              ~<span className="font-semibold text-emerald-300">{Math.ceil(ticketsPerMonth / 22)}</span> tickets/weekday
+            <Sparkles className="w-3.5 h-3.5 text-orange-400" />
+            <span className="text-xs text-orange-200/50">
+              ~<span className="font-semibold text-orange-300">{Math.ceil(ticketsPerMonth / 22)}</span> tickets/weekday
             </span>
           </div>
         </div>
@@ -203,31 +203,31 @@ export function SmartBundleVisualizer({ selectedIndustry, onIndustrySelect }: Sm
         className={`rounded-xl border-2 p-5 transition-all duration-500 ${
           recommendation.isWarning
             ? 'border-amber-500/30 bg-amber-500/10'
-            : 'border-emerald-500/30 bg-emerald-500/10'
+            : 'border-orange-500/30 bg-orange-500/10'
         }`}
       >
         <div className="flex items-start gap-3">
           {recommendation.isWarning ? (
             <AlertTriangle className="w-6 h-6 text-amber-400 flex-shrink-0 mt-0.5" />
           ) : (
-            <CheckCircle2 className="w-6 h-6 text-emerald-400 flex-shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-6 h-6 text-orange-400 flex-shrink-0 mt-0.5" />
           )}
           <div className="flex-1">
             <p className="text-base font-bold text-white mb-1">{recommendation.message}</p>
-            <p className="text-sm text-emerald-200/50 mb-3">{recommendation.subMessage}</p>
+            <p className="text-sm text-orange-200/50 mb-3">{recommendation.subMessage}</p>
 
             {/* Annual savings callout */}
             <div className="flex items-center gap-4">
               <div>
-                <span className="text-xs text-emerald-200/30">Monthly</span>
+                <span className="text-xs text-orange-200/30">Monthly</span>
                 <p className="text-sm font-bold text-white">${recommendation.monthlyCost.toLocaleString()}/mo</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-emerald-200/30" />
+              <ArrowRight className="w-4 h-4 text-orange-200/30" />
               <div>
-                <span className="text-xs text-emerald-200/30">Annual</span>
-                <p className="text-sm font-bold text-emerald-400">${recommendation.annualCost.toLocaleString()}/mo</p>
+                <span className="text-xs text-orange-200/30">Annual</span>
+                <p className="text-sm font-bold text-orange-400">${recommendation.annualCost.toLocaleString()}/mo</p>
               </div>
-              <span className="text-xs px-2 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-semibold">
+              <span className="text-xs px-2 py-1 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300 font-semibold">
                 Save ${savingsWithAnnual.toLocaleString()}/yr
               </span>
             </div>

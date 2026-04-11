@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 /**
- * JarvisDemo - Premium parrot-green animated background
+ * JarvisDemo - Premium orange animated background
  * Auto-playing chat: work given → Jarvis processes → Results shown
  */
 

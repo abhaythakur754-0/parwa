@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { X, Check, MessageSquare } from 'lucide-react';
 
 /**
- * HeroSection - Dark premium theme with parrot-green animated background
+ * HeroSection - Dark premium theme with orange animated background
  */
 
 const humanSupportItems = [
