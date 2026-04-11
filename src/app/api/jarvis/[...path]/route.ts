@@ -28,7 +28,49 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-// ── AI Provider Configuration ────────────────────────────────────
+// ── z-ai-web-dev-sdk — Primary AI Provider ───────────────────────
+
+let ZAI: any = null;
+
+async function getZAI() {
+  if (!ZAI) {
+    try {
+      const mod = await import('z-ai-web-dev-sdk');
+      const ZAIClass = (mod as any).default;
+      if (ZAIClass && typeof ZAIClass.create === 'function') {
+        ZAI = await ZAIClass.create();
+      }
+    } catch (err) {
+      console.warn('[Jarvis] z-ai-web-dev-sdk not available:', (err instanceof Error ? err.message : String(err))?.slice(0, 100));
+    }
+  }
+  return ZAI;
+}
+
+async function callZAISDK(messages: Array<{role: string, content: string}>): Promise<string | null> {
+  try {
+    const zai = await getZAI();
+    if (!zai || !zai.chat || !zai.chat.completions) return null;
+
+    const completion = await zai.chat.completions.create({
+      messages: messages.map(m => ({
+        role: m.role === 'assistant' ? 'assistant' : m.role,
+        content: m.content,
+      })),
+      temperature: 0.8,
+      max_tokens: 500,
+    });
+
+    const text = completion?.choices?.[0]?.message?.content;
+    if (text && text.trim().length > 10) return text.trim();
+    return null;
+  } catch (err) {
+    console.warn('[Jarvis] z-ai-web-dev-sdk failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 150));
+    return null;
+  }
+}
+
+// ── Free AI Provider Configuration (Fallback) ────────────────────
 
 const GOOGLE_AI_KEY = process.env.GOOGLE_AI_API_KEY;
 const CEREBRAS_KEY = process.env.CEREBRAS_API_KEY;
@@ -142,8 +184,16 @@ async function callProvider(provider: any, messages: Array<{role: string, conten
 
 // ── AI Call with Smart Routing ──────────────────────────────────
 
-async function callAI(messages: Array<{role: string, content: string}>): Promise<string> {
-  // Try all providers in order: Google → Cerebras → Groq
+async function callAI(messages: Array<{role: string, content: string}>): Promise<string | null> {
+  // 1. Try z-ai-web-dev-sdk FIRST (most reliable in production)
+  try {
+    const result = await callZAISDK(messages);
+    if (result) return result;
+  } catch (error) {
+    console.warn('[Jarvis] z-ai-web-dev-sdk error:', (error instanceof Error ? error.message : String(error))?.slice(0, 100));
+  }
+
+  // 2. Try free providers in order: Google → Cerebras → Groq
   const providerList = ['google', 'cerebras', 'groq'];
   for (const name of providerList) {
     const provider = getProvider(name);
@@ -330,12 +380,17 @@ ${ctx.referral_source ? `- Referral source: ${ctx.referral_source || ''}.` : ''}
 ${ctx.pages_visited && Array.isArray(ctx.pages_visited) && ctx.pages_visited.length > 0 ? `- Pages visited: ${ctx.pages_visited.join(', ')}.` : ''}
 
 RULES:
-- Always maintain the Jarvis persona
+- Always maintain the Jarvis persona — professional, helpful, slightly futuristic
+- ALWAYS listen to what the user is actually saying — address their specific question FIRST
+- Be conversational — respond naturally, don't just dump information
+- If they ask something specific, give a focused answer (not the whole product pitch)
+- If they express interest in a variant or feature, dive deeper into that topic
 - Keep responses under 150 words unless demonstrating a scenario
 - Use bullet points for feature lists
-- Never break character or say "I'm an AI language model"
+- Never break character or say "I'm an AI language model" or "As an AI..."
 - When in doubt, ask a clarifying question
 - Celebrate progress naturally
+- Match the conversation energy — if they're casual, be casual. If they're serious, be professional.
 - If someone asks something outside PARWA scope, politely redirect
 
 STAGE-AWARE BEHAVIOR:
@@ -393,6 +448,7 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
     referral: referrer
       ? `Great to have you! **${String(referrer)}** sent you to the right place — I'm **Jarvis**, PARWA's AI assistant.\n\nSince you were referred, let me fast-track you:\n- **Free personalized plan recommendation**\n- **Custom ROI calculation** for your business\n- **Live demo** — I AM the demo!\n\nWhat does your current customer support setup look like? I'll find the perfect PARWA plan for you.`
       : `Great to have you! A friend sent you to the right place — I'm **Jarvis**, PARWA's AI assistant.\n\nLet me show you what PARWA can do for your business. Tell me about your industry and current support challenges!`,
+    free_chat: `Hey! Welcome to the full Jarvis experience! I'm **Jarvis**, PARWA's AI assistant.\n\nYou were chatting with my lighter version on the homepage — now you're getting the real deal with full product knowledge and personalized recommendations.\n\nHere's what I can help with:\n- **Plan recommendation** based on your business needs\n- **ROI calculation** — see exactly how much you'll save\n- **Industry deep-dive** — E-commerce, SaaS, Logistics, Healthcare\n- **Live demo** — I AM the demo, ask me anything!\n\nWhat brings you here? Tell me about your business and I'll find the perfect PARWA plan!`,
   };
 
   return welcomes[source] || welcomes.direct;
@@ -528,11 +584,11 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
   // 1. Build system prompt with full PARWA knowledge
   const systemPrompt = buildSystemPrompt(session);
 
-  // 2. Build conversation history (last 6 messages for context)
+  // 2. Build conversation history (last 10 messages for better context)
   const messages = [
     { role: 'system', content: systemPrompt },
   ];
-  const recentMessages = session.messages.slice(-6);
+  const recentMessages = session.messages.slice(-10);
   for (const msg of recentMessages) {
     messages.push({
       role: String(msg.role),
