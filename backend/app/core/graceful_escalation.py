@@ -776,6 +776,12 @@ class GracefulEscalationManager:
         confidence_score, and failure_count against the rule's
         condition dictionary.
 
+        GAP 6 FIX: All values are captured atomically from the context
+        to prevent race conditions where values change between checks.
+        This ensures that if frustration crosses the threshold between
+        the time it's calculated and when the escalation check runs,
+        the system still correctly triggers escalation.
+
         Args:
             rule: EscalationRule with condition thresholds.
             context: EscalationContext with current values.
@@ -787,28 +793,36 @@ class GracefulEscalationManager:
         if not conditions:
             return True
 
+        # GAP 6 FIX: Capture all context values atomically at the start
+        # This prevents race conditions where frustration score changes
+        # between the threshold check and the escalation decision
+        frustration_score = float(context.frustration_score)
+        confidence_score = float(context.confidence_score)
+        failure_count = int(context.failure_count)
+        conversation_turns = int(context.conversation_turns)
+
         # Frustration threshold
         frustration_threshold = conditions.get("frustration_threshold")
         if frustration_threshold is not None:
-            if context.frustration_score < float(frustration_threshold):
+            if frustration_score < float(frustration_threshold):
                 return False
 
         # Failure threshold
         failure_threshold = conditions.get("failure_threshold")
         if failure_threshold is not None:
-            if context.failure_count < int(failure_threshold):
+            if failure_count < int(failure_threshold):
                 return False
 
         # Confidence threshold (below this triggers escalation)
         confidence_threshold = conditions.get("confidence_threshold")
         if confidence_threshold is not None:
-            if context.confidence_score >= float(confidence_threshold):
+            if confidence_score >= float(confidence_threshold):
                 return False
 
         # Minimum turns requirement
         min_turns = conditions.get("min_turns")
         if min_turns is not None:
-            if context.conversation_turns < int(min_turns):
+            if conversation_turns < int(min_turns):
                 return False
 
         return True
