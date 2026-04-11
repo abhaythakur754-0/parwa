@@ -1,5 +1,5 @@
 """
-PARWA Jarvis Knowledge Service (Week 6 — Day 5 Phase 7)
+PARWA Jarvis Knowledge Service (Week 6 — Day 5 Phase 7, Updated Phase 8)
 
 Loads and searches the Jarvis knowledge base (10 JSON files).
 Provides product knowledge to the AI system prompt builder.
@@ -15,6 +15,8 @@ Functions:
   - get_faq_answer(question): Find closest FAQ match
   - get_competitor_comparison(competitor): Get comparison points
   - get_edge_case_handler(scenario): Get edge case handling protocol
+  - get_integrations(): Get all supported integrations
+  - get_capabilities(): Get PARWA capabilities and limitations
   - build_context_knowledge(context): Build relevant knowledge from session context
 """
 
@@ -92,7 +94,7 @@ def search_knowledge(
     """
     Find relevant knowledge chunks for a query.
     Uses keyword matching (full word and partial) across all knowledge files.
-    Returns list of {source, relevance_score, content} dicts.
+    Returns list of {source, relevance_score, content} dicts sorted by relevance.
     """
     _ensure_loaded()
 
@@ -105,7 +107,8 @@ def search_knowledge(
     def word_overlap(text: str, words: list[str]) -> int:
         text_lower = text.lower()
         text_words = set(text_lower.split())
-        return len(words & text_words) + len([w for w in words if any(w in tw for tw in text_words)])
+        word_set = set(words)
+        return len(word_set & text_words) + len([w for w in words if any(w in tw for tw in text_words)])
 
     # Search FAQ for question match
     faq_data = _knowledge_cache.get("faq", {})
@@ -136,31 +139,66 @@ def search_knowledge(
                     "objection_id": obj.get("id"),
                 })
 
-    # Search edge cases
+    # Search edge cases (unsupported_queries)
     edge_data = _knowledge_cache.get("edge_cases", {})
-    if edge_data.get("edge_cases"):
-        for edge in edge_data["edge_cases"]:
-            score = word_overlap(edge.get("scenario", ""), query_words)
-            if score > 0:
-                results.append({
-                    "source": "edge_cases",
-                    "relevance_score": score / max(len(edge.get("scenario", "").split()), 1),
-                    "content": edge.get("example_response"),
-                    "type": "edge_case",
-                    "scenario_id": edge.get("id"),
-                })
+    for query_type in edge_data.get("unsupported_queries", []):
+        keywords = query_type.get("detection_keywords", [])
+        keyword_text = " ".join(keywords)
+        score = word_overlap(keyword_text, query_words)
+        if score > 0:
+            results.append({
+                "source": "edge_cases",
+                "relevance_score": score / max(len(keyword_text.split()), 1),
+                "content": query_type.get("response_template", ""),
+                "type": "edge_case",
+                "query_type": query_type.get("query_type", ""),
+            })
 
     # Search capabilities
     cap_data = _knowledge_cache.get("capabilities", {})
-    cap_text = json.dumps(cap_data.get("what_jarvis_can_do", []))
+    cap_text = json.dumps(cap_data.get("core_capabilities", {}))
     score = word_overlap(cap_text, query_words)
     if score > 0:
         results.append({
             "source": "capabilities",
             "relevance_score": score / max(len(cap_text.split()), 1) * 0.5,
-            "content": json.dumps(cap_data),
+            "content": json.dumps(cap_data.get("core_capabilities", {})),
             "type": "capabilities",
         })
+
+    # Search demo scenarios
+    demo_data = _knowledge_cache.get("demo_scenarios", {})
+    for scenario in demo_data.get("scenarios", []):
+        title_text = scenario.get("title", "")
+        desc_text = scenario.get("expected_jarvis_behavior", "")
+        score = word_overlap(f"{title_text} {desc_text}", query_words)
+        if score > 0:
+            results.append({
+                "source": "demo_scenarios",
+                "relevance_score": score / max(len(f"{title_text} {desc_text}".split()), 1),
+                "content": f"{title_text}: {desc_text}",
+                "type": "demo_scenario",
+                "industry": scenario.get("industry"),
+            })
+
+    # Search competitor comparisons
+    comp_data = _knowledge_cache.get("competitor_comparisons", {})
+    for comp in comp_data.get("competitors", []):
+        comp_name = comp.get("competitor_name", "")
+        advantage_text = comp.get("our_advantage", "")
+        score = word_overlap(f"{comp_name} {advantage_text}", query_words)
+        if score > 0:
+            results.append({
+                "source": "competitor_comparisons",
+                "relevance_score": score / max(len(f"{comp_name} {advantage_text}".split()), 1),
+                "content": advantage_text,
+                "type": "competitor",
+                "competitor_name": comp_name,
+            })
+
+    # Sort results by relevance score and return top_k
+    results.sort(key=lambda x: x["relevance_score"], reverse=True)
+    return results[:top_k]
 
 
 # ── Specific Getters ─────────────────────────────────────────────
@@ -176,8 +214,11 @@ def get_industry_variants(industry: Optional[str] = None) -> dict[str, Any]:
     _ensure_loaded()
     data = _knowledge_cache.get("industry_variants", {})
     if industry:
+        industry_normalized = industry.lower().replace("_", "").replace(" ", "")
         for ind in data.get("industries", []):
-            if ind.get("id") == industry or ind.get("name", "").lower() == industry.lower():
+            ind_id = (ind.get("id") or "").lower().replace("_", "").replace(" ", "")
+            ind_name = (ind.get("name") or "").lower().replace("_", "").replace(" ", "")
+            if ind_id == industry_normalized or ind_name == industry_normalized:
                 return ind
         # Return empty if not found
         return {"industry": industry, "error": "Industry not found", "variants": []}
@@ -281,10 +322,10 @@ def get_competitor_comparison(competitor: str) -> Optional[dict[str, Any]]:
         if comp.get("id") == competitor:
             return comp
 
-    # Fuzzy match
+    # Fuzzy match by competitor_name
     competitor_lower = competitor.lower()
     for comp in data.get("competitors", []):
-        if competitor_lower in comp.get("competitor", "").lower():
+        if competitor_lower in comp.get("competitor_name", "").lower():
             return comp
 
     return None
@@ -295,31 +336,50 @@ def get_edge_case_handler(scenario: str) -> Optional[dict[str, Any]]:
     _ensure_loaded()
     data = _knowledge_cache.get("edge_cases", {})
 
-    # Try by ID
-    for edge in data.get("edge_cases", []):
-        if edge.get("id") == scenario:
-            return edge
+    # Search in unsupported_queries by query_type
+    for query_type in data.get("unsupported_queries", []):
+        if query_type.get("query_type") == scenario or query_type.get("query_type", "").lower() == scenario.lower():
+            return query_type
 
-    # Fuzzy match
+    # Fuzzy match on detection_keywords
     scenario_lower = scenario.lower()
-    for edge in data.get("edge_cases", []):
-        if scenario_lower in edge.get("scenario", "").lower():
-            return edge
+    for query_type in data.get("unsupported_queries", []):
+        keywords = query_type.get("detection_keywords", [])
+        if any(scenario_lower in kw.lower() for kw in keywords):
+            return query_type
+
+    # Also search boundary_conditions
+    for condition in data.get("boundary_conditions", []):
+        if condition.get("condition") == scenario or condition.get("condition", "").lower() == scenario.lower():
+            return condition
 
     return None
 
 
 def get_integrations() -> list[dict[str, Any]]:
-    """Get list of all supported integrations."""
+    """Get list of all supported integrations (flattened from categories)."""
     _ensure_loaded()
     data = _knowledge_cache.get("integrations", {})
-    return data.get("integrations", [])
+    # Actual structure: integration_categories -> [{category, description, integrations: [...]}]
+    all_integrations: list[dict[str, Any]] = []
+    for cat in data.get("integration_categories", []):
+        for integration in cat.get("integrations", []):
+            integration["category"] = cat.get("category", "")
+            all_integrations.append(integration)
+    return all_integrations
 
 
 def get_capabilities() -> dict[str, Any]:
     """Get PARWA capabilities and limitations."""
     _ensure_loaded()
-    return _knowledge_cache.get("capabilities", {})
+    data = _knowledge_cache.get("capabilities", {})
+    return {
+        "core_capabilities": data.get("core_capabilities", {}),
+        "ai_engine_details": data.get("ai_engine_details", {}),
+        "what_jarvis_cannot_do": data.get("what_jarvis_cannot_do", []),
+        "security_features": data.get("security_features", []),
+        "performance_guarantees": data.get("performance_guarantees", {}),
+    }
 
 
 # ── Build Context Knowledge ──────────────────────────────────────
@@ -370,9 +430,9 @@ def build_context_knowledge(
                 f"Customer's ROI analysis: {roi.get('monthly_tickets', 0)} tickets/month, "
                 f"saves ${roi.get('monthly_cost', 0)}/month, annual savings "
                 f"${roi.get('annual_savings', 0)}. Current tiers: "
-                f"Starter ${tiers[0].get('price_monthly', '')}/mo, "
-                f"Growth ${tiers[1].get('price_monthly', '')}/mo, "
-                f"High ${tiers[2].get('price_monthly', '')}/mo."
+                f"Starter ${tiers[0].get('price', '')}/mo, "
+                f"Growth ${tiers[1].get('price', '')}/mo, "
+                f"High ${tiers[2].get('price', '')}/mo."
             )
 
     # 4. If conversation stage detected, add stage-specific knowledge
@@ -383,7 +443,19 @@ def build_context_knowledge(
         elif stage == "demo":
             demo = get_demo_scenario(context.get("industry"))
             if demo:
-                sections.append(f"Suggested demo scenario: {demo.get('title', '')} — {demo.get('expected_jarvis_behavior', '')}.")
+                sections.append(f"Suggested demo scenario: {demo.get('title', '')} - {demo.get('expected_jarvis_behavior', '')}.")
+        elif stage == "objection_handling":
+            concerns = context.get("concerns_raised", [])
+            if concerns:
+                latest_concern = concerns[-1] if concerns else None
+                if latest_concern:
+                    response = get_objection_response(latest_concern.lower())
+                    if response:
+                        sections.append(
+                            f"Customer raised concern about '{latest_concern}'. "
+                            f"Response strategy: {response.get('response_strategy', '')}. "
+                            f"Key point: {response.get('jarvis_response', '')[:200]}"
+                        )
 
     # 5. If entry source detected, add contextual info
     entry = context.get("entry_source")
@@ -394,6 +466,9 @@ def build_context_knowledge(
             sections.append("Customer arrived after requesting a demo. They want to see PARWA in action.")
         elif entry == "features":
             sections.append("Customer is exploring PARWA features. Provide detailed feature comparisons and use cases.")
+        elif entry and entry.startswith("industry_"):
+            ind_name = entry.replace("industry_", "").replace("_", " ")
+            sections.append(f"Customer arrived from an industry-specific page ({ind_name}). They already know which industry they need.")
 
     # 6. If concerns were raised, look for objection responses
     concerns = context.get("concerns_raised", [])
