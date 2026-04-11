@@ -95,7 +95,7 @@ async function apiFetch<T>(
 
   // Add auth token if available
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem('parwa_access_token');
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
