@@ -19,6 +19,9 @@ const INDUSTRY_OPTIONS: { value: Industry; label: string; icon: string }[] = [
   { value: 'consulting', label: 'Consulting', icon: '💼' },
   { value: 'agency', label: 'Agency / Marketing', icon: '📱' },
   { value: 'nonprofit', label: 'Non-profit', icon: '❤️' },
+  { value: 'logistics', label: 'Logistics', icon: '🚚' },
+  { value: 'hospitality', label: 'Hospitality', icon: '🏨' },
+  { value: 'retail', label: 'Retail', icon: '🛍️' },
   { value: 'other', label: 'Other', icon: '📋' },
 ];
 
