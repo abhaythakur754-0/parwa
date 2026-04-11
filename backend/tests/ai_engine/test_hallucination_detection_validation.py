@@ -62,40 +62,20 @@ class TestP01KBContradiction:
          "negates KB feature"),
         ("PARWA doesn't support semantic search capabilities for customers.",
          "negates semantic search"),
-        pytest.param(
-            "PARWA is not available with multi-language support for any customer.",
-            "negates multi-language",
-            marks=pytest.mark.xfail(
-                reason="source detector: word-overlap ratio 0.33 < 0.4 threshold; 'platform' missing from negation context window",
-            ),
-        ),
-        pytest.param(
-            "The platform does not include sentiment analysis features.",
-            "negates sentiment analysis",
-            marks=pytest.mark.xfail(
-                reason="source detector RE_NEGATION does not cover 'does not include'; only 'does not have'",
-            ),
-        ),
-        pytest.param(
-            "PARWA doesn't provide intent classification for any plan.",
-            "negates intent classification",
-            marks=pytest.mark.xfail(
-                reason="source detector RE_NEGATION does not cover 'doesn't provide'; only 'doesn't have' and 'doesn't support'",
-            ),
-        ),
+        ("PARWA is not available with multi-language support for any customer.",
+         "negates multi-language"),
+        ("The platform does not include sentiment analysis features.",
+         "negates sentiment analysis"),
+        ("PARWA doesn't provide intent classification for any plan.",
+         "negates intent classification"),
         ("Human handoff is not available on any PARWA subscription plan.",
          "negates human handoff"),
         ("PARWA cannot provide ticket routing features to customers.",
          "negates ticket routing"),
         ("PARWA does not have knowledge base capabilities for subscribers.",
          "negates KB alt phrasing"),
-        pytest.param(
-            "The platform is no longer supporting sentiment analysis features.",
-            "no-longer negation",
-            marks=pytest.mark.xfail(
-                reason="source detector: word-overlap ratio 0.30 < 0.4 threshold for 'no longer supporting' context",
-            ),
-        ),
+        ("The platform is no longer supporting sentiment analysis features.",
+         "no-longer negation"),
         ("PARWA doesn't have multi-language support covering multiple languages.",
          "negates multi-language alt"),
     ])
@@ -213,13 +193,8 @@ class TestP03OverconfidentClaims:
          "without a doubt + perhaps"),
         ("This is guaranteed to work, though it could be unreliable in some cases.",
          "guaranteed + could be"),
-        pytest.param(
-            "Without question this resolves the issue, but it may cause side effects.",
-            "without question + may be",
-            marks=pytest.mark.xfail(
-                reason="source detector RE_SPECULATIVE only matches 'may be' as a bigram; 'may cause' has no speculative match",
-            ),
-        ),
+        ("Without question this resolves the issue, but it may cause side effects.",
+         "without question + may be"),
         ("This is unequivocally the best approach, I believe there might be alternatives.",
          "unequivocally + I believe"),
         ("This is undoubtedly correct, though it seems like there are edge cases.",
@@ -375,20 +350,10 @@ class TestP06EntityConfusion:
 
     @pytest.mark.parametrize("response,desc", [
         ("The PARWA plan costs $2,499 per month.", "correct PARWA price"),
-        pytest.param(
-            "Mini PARWA is $999 per month.",
-            "correct Mini price",
-            marks=pytest.mark.xfail(
-                reason="source detector: KNOWN_PLANS has 'mini parwa' and 'mini_parwa' as separate entries with same price, causing false self-comparison",
-            ),
-        ),
-        pytest.param(
-            "PARWA High is $3,999 per month.",
-            "correct High price",
-            marks=pytest.mark.xfail(
-                reason="source detector: KNOWN_PLANS has 'parwa high' and 'parwa_high' as separate entries with same price, causing false self-comparison",
-            ),
-        ),
+        ("Mini PARWA is $999 per month.",
+         "correct Mini price"),
+        ("PARWA High is $3,999 per month.",
+         "correct High price"),
         ("Our pricing starts at $50 per month.", "no plan entity"),
         ("Contact sales for enterprise pricing.", "no entity"),
     ])
@@ -422,26 +387,16 @@ class TestP07PolicyFabrication:
          "terms + SLA claim"),
         ("As per our policy, we offer a response time of 2 seconds.",
          "policy + response time"),
-        pytest.param(
-            "Our terms and conditions guarantee uptime of 99.99%.",
-            "T&C + uptime claim",
-            marks=pytest.mark.xfail(
-                reason="source detector RE_REFUND_SLA_CLAIMS has trailing \\b after % which fails because % is non-word character",
-            ),
-        ),
+        ("Our terms and conditions guarantee uptime of 99.99%.",
+         "T&C + uptime claim"),
         ("Our service agreement provides a full refund within 60 days.",
          "service agreement + refund"),
         ("Per the contract, you receive a refund within 14 days.",
          "contract + refund days"),
         ("Our policy states there is a money-back guarantee within 90 days.",
          "policy + money-back + days"),
-        pytest.param(
-            "According to our terms, the uptime of 99.95% is guaranteed.",
-            "terms + uptime",
-            marks=pytest.mark.xfail(
-                reason="source detector RE_REFUND_SLA_CLAIMS has trailing \\b after % which fails because % is non-word character",
-            ),
-        ),
+        ("According to our terms, the uptime of 99.95% is guaranteed.",
+         "terms + uptime"),
     ])
     def test_policy_fabrication_detected(self, detector, response, desc):
         result = detector._detect_policy_fabrication(response)
@@ -540,22 +495,12 @@ class TestP09CircularReasoning:
          "circular optimal"),
         ("As previously noted, the solution works because it works, which means that it is effective because it is effective.",
          "circular effective"),
-        pytest.param(
-            "As stated above, this feature is popular because it is popular among users, therefore it is popular because users like it.",
-            "circular popular",
-            marks=pytest.mark.xfail(
-                reason="source detector: RE_CIRCULAR_STARTERS requires 'therefore, because' with comma; text has 'therefore' without comma. Also 3 'because' splits exceed len(parts)==2 check.",
-            ),
-        ),
+        ("As stated above, this feature is popular because it is popular among users, therefore it is popular because users like it.",
+         "circular popular"),
         ("This is because the system is fast. As mentioned, the system is fast because it has fast processing, which means that it processes quickly because it is fast.",
          "circular speed"),
-        pytest.param(
-            "As explained earlier, this method is secure because it provides security, therefore because it is secure, the method is secure.",
-            "circular secure",
-            marks=pytest.mark.xfail(
-                reason="source detector: RE_CIRCULAR_STARTERS requires 'therefore, because' with comma; text has 'therefore because' without comma. Also 3 'because' splits exceed len(parts)==2 check.",
-            ),
-        ),
+        ("As explained earlier, this method is secure because it provides security, therefore because it is secure, the method is secure.",
+         "circular secure"),
         ("Which means that it is accurate because it is accurate, as stated above, and as previously noted the accuracy comes from being accurate.",
          "circular accuracy"),
     ])
@@ -633,21 +578,11 @@ class TestP11NumericalPrecision:
         ("The system processed $2,345,678.90 in transactions.", "precise currency 2"),
         ("We have served exactly 2,847 customers.", "precise count"),
         ("The platform handles 15,239 requests daily.", "precise count 2"),
-        pytest.param(
-            "Average response time is 1.23 seconds.",
-            "precise decimal",
-            marks=pytest.mark.xfail(
-                reason="source detector only checks precise percentages, currency with comma-separators, and comma-separated counts; plain decimal '1.23' is not covered",
-            ),
-        ),
+        ("Average response time is 1.23 seconds.",
+         "precise decimal"),
         ("The error rate is 0.053% across all endpoints.", "precise small pct"),
-        pytest.param(
-            "Memory usage is at 67.4% during peak hours.",
-            "precise usage pct",
-            marks=pytest.mark.xfail(
-                reason="source detector RE_PRECISE_PERCENTAGE requires 2+ decimal places (\\d{2,}); 67.4% has only 1 decimal place",
-            ),
-        ),
+        ("Memory usage is at 67.4% during peak hours.",
+         "precise usage pct"),
     ])
     def test_precise_number_detected(self, detector, response, desc):
         result = detector._detect_numerical_precision_hallucination(response)
@@ -673,46 +608,22 @@ class TestP12TemporalInconsistency:
     """P12: Contradicting earlier parts of conversation."""
 
     @pytest.mark.parametrize("history,response,desc", [
-        pytest.param(
-            [{"role": "assistant", "content": "Your account was created on January 15, 2024."}],
-            "Your account was created on March 20, 2023.", "date contradiction",
-            marks=pytest.mark.xfail(reason="source detector P12 does not compare dates across turns; only checks negation/price/yes-no contradictions"),
-        ),
-        pytest.param(
-            [{"role": "assistant", "content": "Your subscription expires on 12/31/2025."}],
-            "Your subscription expires on 06/15/2026.", "expiry contradiction",
-            marks=pytest.mark.xfail(reason="source detector P12 does not compare dates across turns; only checks negation/price/yes-no contradictions"),
-        ),
-        pytest.param(
-            [{"role": "assistant", "content": "The incident was resolved on 03/15/2024 at 2:30 PM."}],
-            "The incident was resolved on 04/20/2024.", "resolution date",
-            marks=pytest.mark.xfail(reason="source detector P12 does not compare dates across turns; only checks negation/price/yes-no contradictions"),
-        ),
-        pytest.param(
-            [{"role": "assistant", "content": "Your last login was on 01/05/2025."}],
-            "Your last login was on 12/25/2024.", "login date",
-            marks=pytest.mark.xfail(reason="source detector P12 does not compare dates across turns; only checks negation/price/yes-no contradictions"),
-        ),
-        pytest.param(
-            [{"role": "assistant", "content": "The plan was upgraded on February 10, 2024."}],
-            "The plan was upgraded on August 3, 2024.", "upgrade date",
-            marks=pytest.mark.xfail(reason="source detector P12 does not compare dates across turns; only checks negation/price/yes-no contradictions"),
-        ),
-        pytest.param(
-            [{"role": "assistant", "content": "Your trial started on June 1, 2024."}],
-            "Your trial started on November 15, 2023.", "trial date",
-            marks=pytest.mark.xfail(reason="source detector P12 does not compare dates across turns; only checks negation/price/yes-no contradictions"),
-        ),
-        pytest.param(
-            [{"role": "assistant", "content": "The payment was processed on 09/30/2024."}],
-            "The payment was processed on 03/12/2024.", "payment date",
-            marks=pytest.mark.xfail(reason="source detector P12 does not compare dates across turns; only checks negation/price/yes-no contradictions"),
-        ),
-        pytest.param(
-            [{"role": "assistant", "content": "You joined on April 5, 2023."}],
-            "You joined on December 1, 2022.", "join date",
-            marks=pytest.mark.xfail(reason="source detector P12 does not compare dates across turns; only checks negation/price/yes-no contradictions"),
-        ),
+        ([{"role": "assistant", "content": "Your account was created on January 15, 2024."}],
+         "Your account was created on March 20, 2023.", "date contradiction"),
+        ([{"role": "assistant", "content": "Your subscription expires on 12/31/2025."}],
+         "Your subscription expires on 06/15/2026.", "expiry contradiction"),
+        ([{"role": "assistant", "content": "The incident was resolved on 03/15/2024 at 2:30 PM."}],
+         "The incident was resolved on 04/20/2024.", "resolution date"),
+        ([{"role": "assistant", "content": "Your last login was on 01/05/2025."}],
+         "Your last login was on 12/25/2024.", "login date"),
+        ([{"role": "assistant", "content": "The plan was upgraded on February 10, 2024."}],
+         "The plan was upgraded on August 3, 2024.", "upgrade date"),
+        ([{"role": "assistant", "content": "Your trial started on June 1, 2024."}],
+         "Your trial started on November 15, 2023.", "trial date"),
+        ([{"role": "assistant", "content": "The payment was processed on 09/30/2024."}],
+         "The payment was processed on 03/12/2024.", "payment date"),
+        ([{"role": "assistant", "content": "You joined on April 5, 2023."}],
+         "You joined on December 1, 2022.", "join date"),
     ])
     def test_temporal_inconsistency_detected(self, detector, history, response, desc):
         result = detector._detect_temporal_inconsistency(response, history)

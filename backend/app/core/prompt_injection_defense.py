@@ -69,7 +69,8 @@ class InjectionScanResult:
 _COMMAND_INJECTION_RULES: List[Dict[str, Any]] = [
     {
         "pattern": re.compile(
-            r"\bignore\s+(all\s+)?(previous|prior|above|earlier)\s+"
+            r"\bignore\s+(?:all\s+(?:previous|prior|above|earlier)\s+"
+            r"|(?:previous|prior|above|earlier)\s+|all\s+)"
             r"(instructions?|prompts?|directives?|rules?|messages?)\b",
             re.IGNORECASE,
         ),
@@ -127,6 +128,28 @@ _COMMAND_INJECTION_RULES: List[Dict[str, Any]] = [
         "severity": "high",
         "confidence": 0.88,
         "description": "Probing for system instructions",
+    },
+    {
+        "pattern": re.compile(
+            r"\bdeveloper\s+mode\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMD-007",
+        "severity": "high",
+        "confidence": 0.90,
+        "description": "Developer mode escalation attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\bdisregard\s+(your|the|all|any|these|those)?\s*"
+            r"(training|instructions?|rules?|guidelines?|directives?|"
+            r"restrictions?|limitations?|safety|guardrails?)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMD-008",
+        "severity": "high",
+        "confidence": 0.92,
+        "description": "Attempts to disregard training or safety constraints",
     },
 ]
 
@@ -203,6 +226,16 @@ _CONTEXT_MANIPULATION_RULES: List[Dict[str, Any]] = [
         "confidence": 0.97,
         "description": "ChatML-style message format injection",
     },
+    {
+        "pattern": re.compile(
+            r"\bnew\s+rules?\s*:",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CTX-008",
+        "severity": "high",
+        "confidence": 0.90,
+        "description": "Attempts to inject new rules directive",
+    },
 ]
 
 # ── Category 3: Data Extraction ──
@@ -260,6 +293,19 @@ _DATA_EXTRACTION_RULES: List[Dict[str, Any]] = [
         "severity": "critical",
         "confidence": 0.95,
         "description": "Memory/context dump request",
+    },
+    {
+        "pattern": re.compile(
+            r"\bwhat\s+(instructions?|rules?|guidelines?|directives?)\s+"
+            r"(?:have\s+you\s+been\s+given|were\s+you\s+given|"
+            r"are\s+you\s+following|do\s+you\s+have|"
+            r"were\s+you\s+told|have\s+you\s+received)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXT-006",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "Probing for given/received instructions",
     },
 ]
 
@@ -443,6 +489,33 @@ _ENCODING_TRICK_RULES: List[Dict[str, Any]] = [
         "severity": "low",
         "confidence": 0.60,
         "description": "Excessive repeated characters (11+ same in a row)",
+    },
+    {
+        "pattern": re.compile(
+            r"[\u202a\u202b\u202c\u202d\u202e]"
+        ),
+        "rule_id": "ENC-005",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "Bidirectional text override characters (RTL/LTR) detected",
+    },
+    {
+        "pattern": re.compile(
+            r"%[0-9a-fA-F]{2}(?:[^%]*%[0-9a-fA-F]{2}){2,}"
+        ),
+        "rule_id": "ENC-006",
+        "severity": "high",
+        "confidence": 0.80,
+        "description": "URL-encoded payload detected (3+ percent-encoded bytes in query)",
+    },
+    {
+        "pattern": re.compile(
+            r"(?:^|\s)(?:\\x[0-9a-fA-F]{2}){3,}"
+        ),
+        "rule_id": "ENC-007",
+        "severity": "high",
+        "confidence": 0.80,
+        "description": "Hex-escaped payload detected (3+ consecutive \\xNN sequences)",
     },
 ]
 
