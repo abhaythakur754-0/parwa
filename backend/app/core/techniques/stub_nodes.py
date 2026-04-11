@@ -95,84 +95,68 @@ class StepBackNodePlaceholder(BaseTechniqueNode):
         return await StepBackNode().execute(state)
 
 
-class ChainOfThoughtNode(BaseTechniqueNode):
-    """Chain of Thought — Tier 2 conditional."""
+class ChainOfThoughtNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real ChainOfThoughtNode is in app.core.techniques.chain_of_thought"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.CHAIN_OF_THOUGHT
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return state.signals.query_complexity > 0.4
+        from app.core.techniques.chain_of_thought import ChainOfThoughtNode
+        return await ChainOfThoughtNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement decomposition, step-by-step reasoning, synthesis
-        # Week 8-9 implementation
-        state.technique_results["chain_of_thought"] = {
-            "status": "stub",
-            "message": "CoT stub — full implementation in Week 8-9",
-        }
-        return state
+        from app.core.techniques.chain_of_thought import ChainOfThoughtNode
+        return await ChainOfThoughtNode().execute(state)
 
 
-class ReActNode(BaseTechniqueNode):
-    """ReAct (Reasoning + Acting) — Tier 2 conditional."""
+class ReActNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real ReActNode is in app.core.techniques.react"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.REACT
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return state.signals.external_data_required
+        from app.core.techniques.react import ReActNode
+        return await ReActNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement thought-action-observation loop
-        # Week 9 implementation
-        state.technique_results["react"] = {
-            "status": "stub",
-            "message": "ReAct stub — full implementation in Week 9",
-        }
-        return state
+        from app.core.techniques.react import ReActNode
+        return await ReActNode().execute(state)
 
 
-class ThreadOfThoughtNode(BaseTechniqueNode):
-    """ThoT (Thread of Thought) — Tier 2 conditional."""
+class ThreadOfThoughtNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real ThreadOfThoughtNode is in app.core.techniques.thread_of_thought"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.THREAD_OF_THOUGHT
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return state.signals.turn_count > 5
+        from app.core.techniques.thread_of_thought import ThreadOfThoughtNode
+        return await ThreadOfThoughtNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement thread extraction, continuity check
-        # Week 10 implementation
-        state.technique_results["thread_of_thought"] = {
-            "status": "stub",
-            "message": "ThoT stub — full implementation in Week 10",
-        }
-        return state
+        from app.core.techniques.thread_of_thought import ThreadOfThoughtNode
+        return await ThreadOfThoughtNode().execute(state)
 
 
-class GSTNode(BaseTechniqueNode):
-    """F-143: GST (Guided Sequential Thinking) — Tier 3 premium."""
+class GSTNodePlaceholder(BaseTechniqueNode):
+    """Placeholder — real GSTNode is in app.core.techniques.gst"""
 
     @property
     def technique_id(self) -> TechniqueID:
         return TechniqueID.GST
 
     async def should_activate(self, state: ConversationState) -> bool:
-        return state.signals.is_strategic_decision
+        from app.core.techniques.gst import GSTNode
+        return await GSTNode().should_activate(state)
 
     async def execute(self, state: ConversationState) -> ConversationState:
-        # TODO: Implement 5-checkpoint guided analysis
-        # Week 18-19 (Phase 3) implementation
-        state.technique_results["gst"] = {
-            "status": "stub",
-            "message": "GST stub — full implementation in Week 18-19",
-        }
-        return state
+        from app.core.techniques.gst import GSTNode
+        return await GSTNode().execute(state)
 
 
 class UniverseOfThoughtsNode(BaseTechniqueNode):
@@ -293,10 +277,10 @@ TECHNIQUE_NODES.update({
     TechniqueID.CRP: CRPNode(),
     TechniqueID.REVERSE_THINKING: ReverseThinkingNodePlaceholder(),
     TechniqueID.STEP_BACK: StepBackNodePlaceholder(),
-    TechniqueID.CHAIN_OF_THOUGHT: ChainOfThoughtNode(),
-    TechniqueID.REACT: ReActNode(),
-    TechniqueID.THREAD_OF_THOUGHT: ThreadOfThoughtNode(),
-    TechniqueID.GST: GSTNode(),
+    TechniqueID.CHAIN_OF_THOUGHT: ChainOfThoughtNodePlaceholder(),
+    TechniqueID.REACT: ReActNodePlaceholder(),
+    TechniqueID.THREAD_OF_THOUGHT: ThreadOfThoughtNodePlaceholder(),
+    TechniqueID.GST: GSTNodePlaceholder(),
     TechniqueID.UNIVERSE_OF_THOUGHTS: UniverseOfThoughtsNode(),
     TechniqueID.TREE_OF_THOUGHTS: TreeOfThoughtsNode(),
     TechniqueID.SELF_CONSISTENCY: SelfConsistencyNode(),
