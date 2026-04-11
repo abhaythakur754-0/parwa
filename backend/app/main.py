@@ -130,6 +130,19 @@ async def lifespan(app: FastAPI):
             error=str(exc),
         )
 
+    # Phase 7: Pre-load Jarvis knowledge base at startup
+    try:
+        from app.services.jarvis_knowledge_service import load_all_knowledge
+        load_all_knowledge()
+        logger = get_logger("lifespan")
+        logger.info("jarvis_knowledge_loaded")
+    except Exception as exc:
+        logger = get_logger("lifespan")
+        logger.warning(
+            "jarvis_knowledge_load_failed",
+            error=str(exc),
+        )
+
     logger = get_logger("lifespan")
     logger.info(
         "parwa_startup",
