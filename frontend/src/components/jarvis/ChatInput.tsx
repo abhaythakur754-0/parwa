@@ -39,6 +39,7 @@ export function ChatInput({
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sendingRef = useRef(false);
 
   const isDisabled = isTyping || isLoading || isLimitReached || !value.trim();
   const charCount = value.length;
@@ -62,6 +63,11 @@ export function ChatInput({
     }
   }, [value]);
 
+  // Reset sending guard when typing completes
+  useEffect(() => {
+    if (!isTyping) sendingRef.current = false;
+  }, [isTyping]);
+
   // Focus textarea when component mounts or after a message is sent
   useEffect(() => {
     if (!isTyping && !isLoading && textareaRef.current) {
@@ -72,6 +78,8 @@ export function ChatInput({
   const handleSend = useCallback(() => {
     const trimmed = value.trim();
     if (!trimmed || isDisabled || isOverLimit) return;
+    if (sendingRef.current) return;
+    sendingRef.current = true;
 
     onSend(trimmed);
     setValue('');
