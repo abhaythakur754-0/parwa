@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { JarvisChat } from '@/components/jarvis/JarvisChat';
 
@@ -12,7 +12,15 @@ import { JarvisChat } from '@/components/jarvis/JarvisChat';
  * so Jarvis knows exactly what the user was looking at.
  */
 export default function JarvisPage() {
-  const [isOpen, setIsOpen] = useState(true);
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: '#1A1A1A' }}><div className="text-white/60 text-sm animate-pulse">Loading Jarvis...</div></div>}>
+      <JarvisPageInner />
+    </Suspense>
+  );
+}
+
+function JarvisPageInner() {
+  const [isOpen] = useState(true);
   const searchParams = useSearchParams();
 
   // Read URL params once on mount

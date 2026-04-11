@@ -464,8 +464,9 @@ def main():
     # Filter visuals if --only specified
     if args.only:
         pattern = args.only.lower()
+        ALL_VISUALS = CORE_VISUALS + EXTENDED_VISUALS
         visuals_to_generate = [
-            v for v in VISUALS 
+            v for v in ALL_VISUALS 
             if pattern in v[0].lower() or pattern in v[2].lower()
         ]
         print(f"Filtered to {len(visuals_to_generate)} visuals matching '{args.only}'\n")
