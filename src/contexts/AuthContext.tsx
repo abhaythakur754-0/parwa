@@ -227,6 +227,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  // ── Hydrate from localStorage ────────────────────────────────────────
+  // Called after login/signup via Next.js API routes that write directly to localStorage.
+
+  const hydrate = useCallback(() => {
+    try {
+      const storedUser = localStorage.getItem(USER_KEY);
+      if (storedUser) {
+        const user = JSON.parse(storedUser) as User;
+        if (user && user.email) {
+          setState({
+            user,
+            isAuthenticated: true,
+            isLoading: false,
+            isInitialized: true,
+          });
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    setState(prev => ({
+      ...prev,
+      isAuthenticated: false,
+      isLoading: false,
+      isInitialized: true,
+    }));
+  }, []);
+
   // ── Context Value ────────────────────────────────────────────────────
 
   const value = useMemo<AuthContextType>(() => ({
@@ -237,6 +266,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     refreshSession,
     checkEmailAvailability,
+    hydrate,
   }), [
     state,
     login,
@@ -245,6 +275,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     refreshSession,
     checkEmailAvailability,
+    hydrate,
   ]);
 
   return (

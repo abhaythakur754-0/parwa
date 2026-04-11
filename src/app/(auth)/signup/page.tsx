@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 
 import { SignupForm, SignupFormData } from '@/components/auth/SignupForm';
 import { SocialLogin } from '@/components/auth/SocialLogin';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function SignupPage() {
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+  const { hydrate } = useAuth();
 
   // Check if already logged in via localStorage
   useEffect(() => {
@@ -87,11 +89,11 @@ export default function SignupPage() {
         throw new Error(result.message || 'Google sign-in failed. Please try again.');
       }
 
-      // Store user in localStorage
+      // Store user in localStorage and sync AuthContext
       if (result.user) {
         localStorage.setItem('parwa_user', JSON.stringify(result.user));
       }
-
+      hydrate();
       toast.success(result.is_new_user ? 'Account created with Google!' : 'Signed in with Google!');
       router.push('/models');
     } catch (err) {

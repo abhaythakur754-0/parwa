@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
+import { LogOut } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 /**
  * NavigationBar Component
@@ -16,6 +19,7 @@ interface NavigationBarProps {
 export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const { isAuthenticated, user, logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -47,6 +51,15 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
     { name: 'Models', href: '/models' },
     { name: 'Jarvis Chatbot', href: '/onboarding', onClick: onOpenJarvis },
   ];
+
+  const handleLogout = async () => {
+    try { await logout(); } catch {
+      localStorage.removeItem('parwa_user');
+      localStorage.removeItem('parwa_access_token');
+      localStorage.removeItem('parwa_refresh_token');
+    }
+    toast.success('Logged out');
+  };
 
   return (
     <nav 
@@ -100,8 +113,8 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
             ))}
           </div>
 
-          {/* Login + Social Proof - Desktop */}
-          <div className="hidden md:flex items-center gap-4">
+          {/* Auth Buttons - Desktop */}
+          <div className="hidden md:flex items-center gap-3">
             <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <div className="flex -space-x-1.5">
                 <div className="w-5 h-5 rounded-full bg-emerald-400/40 border-2 border-[#022C22]" />
@@ -109,12 +122,31 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                 <div className="w-5 h-5 rounded-full bg-emerald-300/40 border-2 border-[#022C22]" />
               </div>
             </div>
-            <Link
-              href="/signup"
-              className="bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:-translate-y-0.5 focus-visible-ring badge-pulse"
-            >
-              Sign Up
-            </Link>
+            {isAuthenticated && user ? (
+              <>
+                <Link
+                  href="/onboarding"
+                  onClick={onOpenJarvis}
+                  className="bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:-translate-y-0.5 focus-visible-ring"
+                >
+                  Open Jarvis
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="p-2.5 rounded-xl text-emerald-200/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-300 focus-visible-ring"
+                  title="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/signup"
+                className="bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:-translate-y-0.5 focus-visible-ring badge-pulse"
+              >
+                Sign Up
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -178,16 +210,40 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
                   </Link>
                 )
               ))}
-              <Link
-                href="/signup"
-                className={`mt-3 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
-                  isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
-                }`}
-                style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Sign Up
-              </Link>
+              {isAuthenticated && user ? (
+                <>
+                  <Link
+                    href="/onboarding"
+                    className={`mt-3 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
+                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                    }`}
+                    style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Open Jarvis
+                  </Link>
+                  <button
+                    onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
+                    className={`px-4 py-3.5 text-rose-400/70 hover:text-rose-400 text-sm font-medium rounded-xl hover:bg-rose-500/10 transition-all duration-500 focus-visible-ring ${
+                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                    }`}
+                    style={{ transitionDelay: isMobileMenuOpen ? '300ms' : '0ms' }}
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/signup"
+                  className={`mt-3 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#022C22] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
+                    isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                  }`}
+                  style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Sign Up
+                </Link>
+              )}
             </div>
           </div>
         </div>

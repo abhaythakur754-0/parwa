@@ -113,4 +113,6 @@ export interface AuthContextType extends AuthState {
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
   checkEmailAvailability: (email: string) => Promise<boolean>;
+  /** Re-read localStorage and update context state (for login via API routes) */
+  hydrate: () => void;
 }
