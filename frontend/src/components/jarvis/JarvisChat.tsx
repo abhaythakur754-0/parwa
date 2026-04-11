@@ -15,6 +15,7 @@
 
 'use client';
 
+import { useMemo } from 'react';
 import { Loader2, WifiOff } from 'lucide-react';
 import { useJarvisChat } from '@/hooks/useJarvisChat';
 import { ChatHeader } from './ChatHeader';
@@ -45,7 +46,35 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
     sendMessage,
     retryLastMessage,
     clearError,
+    sendOtp,
+    verifyOtp,
+    purchaseDemoPack,
+    createPayment,
+    initiateDemoCall,
+    executeHandoff,
+    otpState,
+    demoCallState,
+    handoffState,
   } = useJarvisChat(entrySource, entryParams);
+
+  // Memoize hookActions to prevent re-renders
+  const hookActions = useMemo(() => ({
+    sendOtp,
+    verifyOtp,
+    purchaseDemoPack,
+    createPayment,
+    initiateDemoCall,
+    executeHandoff,
+  }), [sendOtp, verifyOtp, purchaseDemoPack, createPayment, initiateDemoCall, executeHandoff]);
+
+  const sessionState = useMemo(() => ({
+    remainingToday,
+    totalMessages: 20,
+    isDemoPackActive,
+    isHandoffComplete: handoffState.status === 'completed',
+    otpState,
+    demoCallState,
+  }), [remainingToday, isDemoPackActive, handoffState.status, otpState, demoCallState]);
 
   // ── Loading State ────────────────────────────────────────────
 
@@ -126,6 +155,8 @@ export function JarvisChat({ entrySource, entryParams }: JarvisChatProps) {
         isTyping={isTyping}
         onRetry={retryLastMessage}
         onSuggestionClick={sendMessage}
+        hookActions={hookActions}
+        sessionState={sessionState}
       />
 
       {/* Input area (pinned to bottom) */}

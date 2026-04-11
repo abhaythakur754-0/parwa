@@ -21,7 +21,9 @@ export type MessageType =
   | 'recharge_cta'
   | 'limit_reached'
   | 'pack_expired'
-  | 'error';
+  | 'error'
+  | 'message_counter'
+  | 'demo_pack_cta';
 
 export type SessionType = 'onboarding' | 'customer_care';
 
