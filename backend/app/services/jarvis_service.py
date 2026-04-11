@@ -23,7 +23,6 @@ Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
 """
 
 import json
-import random
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -54,6 +53,57 @@ OTP_LENGTH = 6
 OTP_EXPIRY_MINUTES = 10
 MAX_OTP_ATTEMPTS = 3
 MAX_CONTEXT_HISTORY_MESSAGES = 20  # Last N messages for AI context
+
+__all__ = [
+    # Constants
+    "FREE_DAILY_LIMIT",
+    "DEMO_DAILY_LIMIT",
+    "DEMO_PACK_HOURS",
+    "DEMO_CALL_DURATION_SECONDS",
+    "OTP_LENGTH",
+    "OTP_EXPIRY_MINUTES",
+    "MAX_OTP_ATTEMPTS",
+    # Session
+    "create_or_resume_session",
+    "get_session",
+    "get_session_context",
+    "update_context",
+    "set_entry_context",
+    # Messages
+    "send_message",
+    "get_history",
+    "check_message_limit",
+    # OTP
+    "send_business_otp",
+    "verify_business_otp",
+    # Demo Pack
+    "purchase_demo_pack",
+    "get_demo_pack_status",
+    # Payment
+    "create_payment_session",
+    "handle_payment_webhook",
+    "get_payment_status",
+    # Demo Call
+    "initiate_demo_call",
+    "get_call_summary",
+    # Handoff
+    "execute_handoff",
+    "get_handoff_status",
+    # Tickets
+    "create_action_ticket",
+    "get_tickets",
+    "get_ticket",
+    "update_ticket_status",
+    "complete_ticket",
+    # AI
+    "build_system_prompt",
+    "detect_stage",
+    # Entry
+    "get_entry_context",
+    "build_context_aware_welcome",
+    # Error
+    "handle_error",
+]
 
 
 # ── Session Management ─────────────────────────────────────────────
@@ -462,8 +512,7 @@ def send_business_otp(
         "status": "sent",
         "attempts_remaining": MAX_OTP_ATTEMPTS,
         "expires_at": expires_at,
-        # Only include OTP in dev mode for testing
-        "_dev_otp_code": otp_code,
+        # OTP code stored in context only — never returned to client
     }
 
 
@@ -662,8 +711,30 @@ def handle_payment_webhook(
 ) -> Dict[str, Any]:
     """Process Paddle webhook event (success/fail).
 
-    Looks up session by transaction metadata and updates payment status.
+    Idempotent: checks event_id to prevent double-processing.
+    Paddle may fire the same webhook multiple times.
     """
+    # Idempotency: check if event was already processed
+    # Use result_json on the payment_variant ticket to track event_id
+    event_id = event_data.get("event_id", "")
+    if event_id:
+        existing_ticket = (
+            db.query(JarvisActionTicket)
+            .filter(
+                JarvisActionTicket.ticket_type == "payment_variant_completed",
+            )
+            .all()
+        )
+        for t in existing_ticket:
+            result = _parse_context(t.result_json or "{}")
+            if result.get("event_id") == event_id:
+                return {
+                    "status": "already_processed",
+                    "session_id": event_data.get("custom", {}).get("session_id"),
+                    "event_type": event_type,
+                    "event_id": event_id,
+                }
+
     # Extract session info from webhook data
     # In production: parse Paddle webhook signature
     session_id = event_data.get("custom", {}).get("session_id")
@@ -686,6 +757,7 @@ def handle_payment_webhook(
         )
         _create_ticket(db, session_id, "payment_variant_completed", {
             "paddle_event": event_type,
+            "event_id": event_id,
         })
     elif event_type in ("payment.failed", "payment.declined"):
         session.payment_status = "failed"

@@ -434,6 +434,62 @@ CURRENT STATE:
 
 What testing gaps exist? Focus on: CHECK constraint validation, JSON serialization, cascade delete, default values, index usage, enum value enforcement, context_json schema, tenant isolation, race conditions in session creation, daily counter reset logic.""",
 
+    "w6d2_jarvis": """Week 6 Day 2: Jarvis Schemas + Service Layer + API Endpoints + Frontend Hook
+
+I'm building the Jarvis Onboarding Chat system for PARWA SaaS. Day 2 (Phases 2-4) is done:
+
+SCHEMAS (backend/app/schemas/jarvis.py) — 17 Pydantic schemas:
+- JarvisSessionCreate, JarvisSessionResponse, JarvisContextUpdate, JarvisEntryContextRequest
+- JarvisMessageSend, JarvisMessageResponse, JarvisHistoryResponse
+- JarvisOtpRequest, JarvisOtpVerify, JarvisOtpResponse
+- JarvisDemoPackPurchase, JarvisDemoPackStatusResponse
+- JarvisPaymentCreate, JarvisPaymentStatusResponse, JarvisPaymentWebhookPayload
+- JarvisDemoCallRequest, JarvisDemoCallVerifyOtp, JarvisDemoCallSummaryResponse
+- JarvisHandoffRequest, JarvisHandoffStatusResponse
+- JarvisActionTicketCreate, JarvisActionTicketUpdateStatus, JarvisActionTicketResponse, JarvisActionTicketListResponse
+- JarvisErrorResponse
+- Validators: email, phone, industry, stage, entry_source, ticket_type, ticket_status, variants
+
+SERVICE (backend/app/services/jarvis_service.py) — 25 functions:
+- Session: create_or_resume_session, get_session, get_session_context, update_context, set_entry_context
+- Messages: send_message, get_history, check_message_limit, _maybe_reset_daily_counter
+- OTP: send_business_otp, verify_business_otp
+- Demo Pack: purchase_demo_pack, get_demo_pack_status
+- Payment: create_payment_session, handle_payment_webhook, get_payment_status
+- Demo Call: initiate_demo_call, get_call_summary
+- Handoff: execute_handoff, get_handoff_status
+- Tickets: create_action_ticket, get_tickets, get_ticket, update_ticket_status, complete_ticket
+- AI: build_system_prompt, detect_stage, _call_ai_provider (placeholder)
+- Entry: get_entry_context, build_context_aware_welcome
+- Error: handle_error
+- Constants: FREE_DAILY_LIMIT=20, DEMO_DAILY_LIMIT=500, OTP_LENGTH=6, MAX_OTP_ATTEMPTS=3
+
+API ROUTER (backend/app/api/jarvis.py) — 22 endpoints on /api/jarvis/*:
+- POST/GET /session, GET /history, POST /message
+- PATCH /context, POST /context/entry
+- POST /demo-pack/purchase, GET /demo-pack/status
+- POST /verify/send-otp, POST /verify/verify-otp
+- POST /payment/create, POST /payment/webhook (no auth), GET /payment/status
+- POST /demo-call/initiate, POST /demo-call/otp, GET /demo-call/summary
+- POST /handoff, GET /handoff/status
+- POST /tickets, GET /tickets, GET /tickets/{id}, PATCH /tickets/{id}/status
+
+FRONTEND HOOK (frontend/src/hooks/useJarvisChat.ts) — ~580 lines:
+- State: messages, session, isLoading, isTyping, remainingToday, isLimitReached, isDemoPackActive
+- Flow states: otpState, paymentState, handoffState, demoCallState, error
+- Actions: initSession, sendMessage, retryLastMessage, updateContext, sendOtp, verifyOtp, purchaseDemoPack, createPayment, initiateDemoCall, executeHandoff, clearError
+- API helper with auth token injection, error parsing
+
+CURRENT STATE:
+- All Python compiles. TypeScript has zero new errors.
+- NO tests for schemas, service, or API endpoints
+- _call_ai_provider is a placeholder returning context-aware responses
+- Paddle webhook has no signature verification (comment says "in production")
+- OTP stored in session context_json (not in separate table/Redis)
+- No rate limiting on POST /message (roadmap requires it)
+
+What testing gaps exist? Focus on: service layer business logic, API endpoint auth/error handling, webhook idempotency, OTP replay attacks, session hijacking, race conditions in daily counter reset, concurrent session creation, demo pack expiry edge cases, handoff data leakage, frontend hook error recovery, optimistic update rollback, message ordering.""",
+
     "w9d10": """Week 9 Day 10: Cross-Variant Routing (SG-06/SG-11) + Anti-Arbitrage (F-159) + Conversation Summarization (F-160) + Integration Testing
 
 Building 4 systems:
