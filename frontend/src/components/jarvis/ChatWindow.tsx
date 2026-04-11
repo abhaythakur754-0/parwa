@@ -40,6 +40,7 @@ interface ChatWindowProps {
     totalMessages?: number;
     isDemoPackActive?: boolean;
     isHandoffComplete?: boolean;
+    paymentProcessing?: boolean;
     otpState?: { status: string; email: string };
     demoCallState?: { status: string; phone: string | null; duration: number };
   };

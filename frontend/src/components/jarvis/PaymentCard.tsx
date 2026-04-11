@@ -131,6 +131,9 @@ export function PaymentCard({
       <p className="text-[10px] text-white/25 text-center mt-2 flex items-center justify-center gap-1">
         <ShieldCheck className="w-3 h-3" />
         Secured by Paddle · SSL encrypted
+        {isDemoPack && (
+          <span className="ml-1 text-white/20">· 24-hour validity</span>
+        )}
       </p>
     </div>
   );
