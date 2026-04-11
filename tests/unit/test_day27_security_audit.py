@@ -735,6 +735,18 @@ class TestAPIKeySecurity:
 # SECTION 6: GDPR COMPLIANCE CHECK (BC-010, BC-007)
 # =============================================================================
 
+class MockPIIService:
+    """Mock PII redaction service for testing."""
+
+    def redact(self, text: str) -> str:
+        """Redact common PII patterns from text."""
+        import re
+        redacted = re.sub(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', '[EMAIL_REDACTED]', text)
+        redacted = re.sub(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b', '[PHONE_REDACTED]', redacted)
+        redacted = re.sub(r'\b\d{3}-\d{2}-\d{4}\b', '[SSN_REDACTED]', redacted)
+        return redacted
+
+
 class TestGDPRComplianceCheck:
     """Test GDPR AI compliance requirements."""
 

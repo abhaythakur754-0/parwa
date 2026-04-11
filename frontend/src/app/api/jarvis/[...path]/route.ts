@@ -302,16 +302,14 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
     entrySourceParam === 'models_page' && !selectedVariant ? `Came from models page, was browsing plans` : '',
     entrySource === 'roi' ? `Came from ROI calculator — interested in cost savings` : '',
     ctx.concerns_raised?.length > 0 ? `Concerns raised: ${ctx.concerns_raised.join(', ')}. Address these naturally.` : '',
-  ].filter(Boolean).join('
-');
+  ].filter(Boolean).join('\n');
 
   // ── Recent conversation memory ──
   const recentMsgs = session.messages.slice(-6);
   const conversationMemory = recentMsgs.map((m: any) => {
     const role = m.role === 'jarvis' ? 'Jarvis' : m.role === 'user' ? 'User' : 'System';
     return `${role}: ${String(m.content).slice(0, 120)}`;
-  }).join('
-');
+  }).join('\n');
 
   return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
 
