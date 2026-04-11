@@ -407,6 +407,33 @@ CURRENT STATE: Source code exists for all 3 modules. But there are ZERO test fil
 
 What testing gaps exist? Focus on: state serialization round-trip fidelity, Redis/PostgreSQL failover, distributed lock contention, checkpoint name sanitization, state diff accuracy, GSD transition validation edge cases, variant-specific transition restrictions, escalation cooldown timing, auto-escalation trigger conditions, diagnosis loop detection, concurrent state modification, recovery from corrupted state data, tenant isolation in state keys, history ring buffer overflow, transition reason accuracy.""",
 
+    "w6d1_jarvis": """Week 6 Day 1: Jarvis Onboarding Database + Models
+
+I'm building the Jarvis Onboarding Chat system for PARWA SaaS. Phase 1 (Database + Models) is done:
+
+MODELS (database/models/jarvis.py):
+- JarvisSession: id, user_id (FK users), company_id (FK companies), type (onboarding/customer_care), context_json (TEXT), message_count_today, last_message_date, total_message_count, pack_type (free/demo), pack_expiry, demo_call_used, is_active, payment_status (none/pending/completed/failed), handoff_completed, created_at, updated_at
+- JarvisMessage: id, session_id (FK jarvis_sessions CASCADE), role (user/jarvis/system), content, message_type (text/bill_summary/payment_card/otp_card/handoff_card/demo_call_card/error/limit_reached/pack_expired), metadata_json, created_at
+- JarvisKnowledgeUsed: id, message_id (FK jarvis_messages CASCADE), knowledge_file, relevance_score, created_at
+- JarvisActionTicket: id, session_id (FK jarvis_sessions CASCADE), message_id (FK jarvis_messages SET NULL), ticket_type (otp_verification/otp_verified/payment_demo_pack/payment_variant/payment_variant_completed/demo_call/demo_call_completed/roi_import/handoff), status (pending/in_progress/completed/failed), result_json, metadata_json, created_at, updated_at, completed_at
+
+MIGRATION (012_jarvis_system.py):
+- All 4 tables with foreign keys, CASCADE deletes, named indexes
+- ix_jarvis_sess_user_active on (user_id, is_active)
+- ix_jarvis_msg_session_ts on (session_id, created_at)
+- ix_jarvis_ku_message on (message_id)
+- ix_jarvis_ticket_session on (session_id)
+- ix_jarvis_ticket_sess_status on (session_id, status)
+
+CURRENT STATE:
+- No CHECK constraints on enum-like columns (type, pack_type, payment_status, role, message_type, ticket_type, status)
+- JSON fields stored as TEXT not JSONB
+- Models exported from database/models/__init__.py
+- ZERO test files for jarvis models
+- Old onboarding tests exist (test_w6d1_onboarding.py) but test user_details/onboarding_session NOT jarvis
+
+What testing gaps exist? Focus on: CHECK constraint validation, JSON serialization, cascade delete, default values, index usage, enum value enforcement, context_json schema, tenant isolation, race conditions in session creation, daily counter reset logic.""",
+
     "w9d10": """Week 9 Day 10: Cross-Variant Routing (SG-06/SG-11) + Anti-Arbitrage (F-159) + Conversation Summarization (F-160) + Integration Testing
 
 Building 4 systems:
