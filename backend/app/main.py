@@ -58,6 +58,7 @@ from app.api.public import router as public_router
 from app.api.pricing import router as pricing_router
 from app.api.ai_engine import router as ai_engine_router
 from app.api.ai_agent import router as ai_agent_router
+from app.api.jarvis import router as jarvis_router
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
@@ -222,6 +223,7 @@ app.include_router(public_router)  # Public API for landing page (no auth requir
 app.include_router(pricing_router)  # Pricing API (no auth required)
 app.include_router(ai_engine_router)  # Week 8: AI Engine endpoints
 app.include_router(ai_agent_router)  # SG-21/SG-22: AI agent assignments
+app.include_router(jarvis_router)  # Week 6: Jarvis onboarding chat
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
