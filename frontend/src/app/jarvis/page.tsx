@@ -40,6 +40,20 @@ export default function JarvisPage() {
           if (ctx.industry && !industry) params.industry = ctx.industry;
           if (ctx.selected_variants) params.selected_variants = ctx.selected_variants;
           if (ctx.interests) params.interests = ctx.interests;
+          // Pass rich variant context from models page to Jarvis session
+          if (ctx.entry_source) params.entry_source = ctx.entry_source;
+          if (ctx.features) params.features = ctx.features;
+          if (ctx.unique_features) params.unique_features = ctx.unique_features;
+          if (ctx.roi) params.roi = ctx.roi;
+          if (ctx.scenario) params.scenario = ctx.scenario;
+          if (ctx.price) params.price = ctx.price;
+          if (ctx.tagline) params.tagline = ctx.tagline;
+          if (ctx.best_for) params.best_for = ctx.best_for;
+          if (ctx.integrations) params.integrations = ctx.integrations;
+          if (ctx.core_capability) params.core_capability = ctx.core_capability;
+          if (ctx.core_limitation) params.core_limitation = ctx.core_limitation;
+          if (ctx.smart_decisions) params.smart_decisions = ctx.smart_decisions;
+          if (ctx.key_advantage) params.key_advantage = ctx.key_advantage;
           localStorage.removeItem('parwa_jarvis_context');
         }
       } catch {
