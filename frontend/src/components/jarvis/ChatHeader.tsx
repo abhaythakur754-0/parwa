@@ -11,8 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Bot, Zap, Home, ArrowLeft } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Bot, Zap, ArrowLeft } from 'lucide-react';
 import { UserMenu } from '@/components/common/UserMenu';
 
 interface ChatHeaderProps {
@@ -130,18 +129,14 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
         )}
 
         {stageLabel && (
-          <Badge
-            variant="outline"
-            className="hidden sm:flex border-orange-500/20 text-orange-300/80 text-[11px] font-normal px-2 py-0.5 bg-orange-500/5"
-          >
+          <span className="hidden sm:inline-flex border border-orange-500/20 text-orange-300/80 text-[11px] font-normal px-2 py-0.5 bg-orange-500/5 rounded-full">
             {stageLabel}
-          </Badge>
+          </span>
         )}
 
         {!isLoading && session && (
-          <Badge
-            variant="outline"
-            className={`text-[11px] font-normal px-2 py-0.5 ${
+          <span
+            className={`text-[11px] font-normal px-2 py-0.5 rounded-full border ${
               session.pack_type === 'demo'
                 ? 'border-amber-500/30 text-amber-300 bg-amber-500/5'
                 : session.remaining_today !== undefined && session.remaining_today <= 5
@@ -150,7 +145,7 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
             }`}
           >
             {session.remaining_today ?? '...'} msg left
-          </Badge>
+          </span>
         )}
       </div>
     </header>
