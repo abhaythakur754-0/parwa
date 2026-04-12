@@ -1812,8 +1812,13 @@ def get_entry_context(
         ctx["detected_stage"] = "discovery"
         if params.get("industry"):
             ctx["industry"] = params["industry"]
-    elif entry_source == "demo":
+    elif entry_source == "demo" or entry_source == "models_page":
         ctx["detected_stage"] = "demo"
+        if params.get("industry"):
+            ctx["industry"] = params["industry"]
+        if params.get("variant"):
+            # Normalize single variant into selected_variants list
+            ctx["selected_variants"] = [{"id": params["variant"], "quantity": 1}]
     elif entry_source == "features":
         ctx["detected_stage"] = "discovery"
     elif entry_source == "referral":
@@ -1861,6 +1866,11 @@ def build_context_aware_welcome(
         "referral": (
             "Hey! 🎉 A friend sent you? Love that! "
             "I'm Jarvis — let me help you get set up with PARWA. What brings you here?"
+        ),
+        "models_page": (
+            "Hey! 🚀 I see you're coming from our Models page. Ready to see me in action? "
+            "Whether you want to try this live chat or book a 3-minute call demo, I'm here to show you how I work. "
+            "What can I help you with first?"
         ),
     }
 
