@@ -18,7 +18,7 @@ pytest-cov==6.0.0
 pyotp==2.9.0
 qrcode==7.4.2
 jinja2==3.1.4
-brevo-python==1.1.2
+sib-api-v3-sdk>=7.0.0
 langgraph>=0.2.0,<2.0.0
 dspy-ai>=2.5.0
 litellm>=1.40.0,<2.0.0

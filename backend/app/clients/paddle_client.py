@@ -16,6 +16,7 @@ Features:
 - Sandbox/Production mode switching
 """
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -94,6 +95,7 @@ class PaddleClient:
 
         # Rate limiting state
         self._request_times: List[float] = []
+        self._rate_limit_wait: float = 0
 
         # HTTP client (created lazily)
         self._client: Optional[httpx.AsyncClient] = None
@@ -117,7 +119,11 @@ class PaddleClient:
             self._client = None
 
     def _check_rate_limit(self) -> None:
-        """Check and enforce rate limiting."""
+        """Check and enforce rate limiting.
+
+        NOTE: This is a synchronous pre-check. Actual waiting happens
+        asynchronously in _request() to avoid blocking the event loop.
+        """
         now = time.time()
         # Remove requests outside the window
         self._request_times = [
@@ -125,10 +131,12 @@ class PaddleClient:
             if now - t < RATE_LIMIT_WINDOW
         ]
         if len(self._request_times) >= RATE_LIMIT_REQUESTS:
-            # Wait until oldest request is outside window
+            # Mark that we need to wait — actual wait in _request()
             wait_time = RATE_LIMIT_WINDOW - (now - self._request_times[0]) + 1
             logger.warning("paddle_rate_limit_wait seconds=%d", wait_time)
-            time.sleep(wait_time)
+            self._rate_limit_wait = wait_time
+        else:
+            self._rate_limit_wait = 0
         self._request_times.append(now)
 
     async def _request(
@@ -141,8 +149,14 @@ class PaddleClient:
         Make an authenticated request to Paddle API.
 
         Includes automatic retry with exponential backoff.
+        All sleeps use asyncio.sleep() to avoid blocking the event loop.
         """
         self._check_rate_limit()
+
+        # Async rate limit wait (non-blocking)
+        if self._rate_limit_wait > 0:
+            await asyncio.sleep(self._rate_limit_wait)
+            self._rate_limit_wait = 0
 
         url = urljoin(self.base_url, endpoint)
         client = await self._get_client()
@@ -170,10 +184,10 @@ class PaddleClient:
                         error_data.get("error", {}).get("message", "Validation failed")
                     )
                 if response.status_code == 429:
-                    # Rate limited - wait and retry
+                    # Rate limited - wait and retry (non-blocking)
                     retry_after = int(response.headers.get("Retry-After", RETRY_BASE_DELAY))
                     logger.warning("paddle_rate_limited retry_after=%d", retry_after)
-                    time.sleep(retry_after)
+                    await asyncio.sleep(retry_after)
                     continue
 
                 # Other errors - retry for 5xx
@@ -187,7 +201,7 @@ class PaddleClient:
             except httpx.RequestError as e:
                 last_error = PaddleError(f"Request failed: {e}")
 
-            # Exponential backoff before retry
+            # Exponential backoff before retry (non-blocking)
             if attempt < MAX_RETRIES - 1:
                 delay = min(RETRY_BASE_DELAY * (2 ** attempt), RETRY_MAX_DELAY)
                 logger.warning(
@@ -196,7 +210,7 @@ class PaddleClient:
                     delay,
                     str(last_error),
                 )
-                time.sleep(delay)
+                await asyncio.sleep(delay)
 
         raise last_error or PaddleError("Unknown error")
 
@@ -497,29 +511,76 @@ class PaddleClient:
         """
         Verify Paddle webhook signature using HMAC-SHA256.
 
-        Paddle signs the raw request body. The signature is in the
-        'paddle_signature' header.
+        Paddle Billing API uses the format: ts={timestamp};h1={hash}
+        The hash is HMAC-SHA256 of '{timestamp}:{payload}' using the
+        webhook secret as the key.
+
+        We also reject signatures older than 5 minutes to prevent
+        replay attacks.
 
         Args:
             payload: Raw request body bytes
             signature: Value from 'paddle_signature' header
 
         Returns:
-            True if signature is valid, False otherwise
+            True if signature is valid and timestamp is fresh, False otherwise
         """
         if not self.webhook_secret:
             logger.warning("paddle_webhook_no_secret")
             return False
 
-        # Paddle uses HMAC-SHA256
-        expected = hmac.new(
-            self.webhook_secret.encode(),
-            payload,
-            hashlib.sha256,
-        ).hexdigest()
+        try:
+            # Parse Paddle signature format: ts={timestamp};h1={hash}
+            parts = {}
+            for part in signature.split(";"):
+                key, _, value = part.partition("=")
+                parts[key.strip()] = value.strip()
 
-        # Use constant-time comparison to prevent timing attacks
-        return hmac.compare_digest(signature, expected)
+            ts_str = parts.get("ts")
+            h1_hash = parts.get("h1")
+
+            if not ts_str or not h1_hash:
+                logger.warning(
+                    "paddle_webhook_invalid_format sig=%s",
+                    signature[:50],
+                )
+                return False
+
+            # Verify timestamp is within 5 minutes (replay attack prevention)
+            try:
+                ts = int(ts_str)
+            except ValueError:
+                logger.warning(
+                    "paddle_webhook_invalid_timestamp ts=%s",
+                    ts_str,
+                )
+                return False
+
+            current_time = int(time.time())
+            if abs(current_time - ts) > 300:  # 5 minutes
+                logger.warning(
+                    "paddle_webhook_expired ts=%d current=%d diff=%d",
+                    ts, current_time, abs(current_time - ts),
+                )
+                return False
+
+            # Compute HMAC-SHA256 of '{timestamp}:{payload}'
+            signed_payload = f"{ts_str}:".encode() + payload
+            expected = hmac.new(
+                self.webhook_secret.encode(),
+                signed_payload,
+                hashlib.sha256,
+            ).hexdigest()
+
+            # Use constant-time comparison to prevent timing attacks
+            return hmac.compare_digest(h1_hash, expected)
+
+        except Exception as exc:
+            logger.warning(
+                "paddle_webhook_verify_error error=%s",
+                str(exc),
+            )
+            return False
 
     def parse_webhook_event(self, payload: bytes) -> Dict[str, Any]:
         """

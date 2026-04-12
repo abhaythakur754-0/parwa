@@ -2,27 +2,20 @@
 {% block body %}
 <h2 style="margin:0 0 20px;color:#d32f2f">Payment Failed</h2>
 
-<p>Hi {{ company_name }},</p>
+<p>Hi {{ user_name }},</p>
 
-<p>Your payment of <strong>${{ amount }}</strong> for PARWA <strong>{{ variant }}</strong> has failed.</p>
+<p>We were unable to process your payment of <strong>${{ amount }}</strong> for your PARWA subscription.</p>
 
-<div style="background:#fff3e0;padding:15px;border-radius:6px;margin:20px 0">
-    <p style="margin:0 0 10px"><strong>Reason:</strong> {{ failure_reason }}</p>
-    <p style="margin:0"><strong>Transaction ID:</strong> {{ transaction_id }}</p>
+<div style="background:#fff3e0;padding:20px;border-radius:6px;margin:20px 0">
+    <p style="margin:0"><strong>Reason:</strong> {{ reason }}</p>
 </div>
 
-<p style="color:#d32f2f;font-weight:600">Your service has been paused.</p>
+<p>Please update your payment method as soon as possible to avoid any interruption to your service. Your account will remain active for a short grace period while you resolve this.</p>
 
-<p>To resume your PARWA service, please update your payment method:</p>
+<p>If the issue persists, we recommend trying a different payment method or contacting your bank for more information.</p>
 
-<p style="text-align:center;margin:30px 0">
-    <a href="{{ update_payment_url }}" class="btn" style="background:#d32f2f">Update Payment Method</a>
-</p>
-
-<p>You won't be charged until your payment method is updated and the next billing cycle begins.</p>
-
-<p>If you have any questions, please contact our support team.</p>
+<p>If you have any questions or need further assistance, please contact our support team.</p>
 
 <p>Best regards,<br>
-PARWA Support Team</p>
+PARWA Billing Team</p>
 {% endblock %}
