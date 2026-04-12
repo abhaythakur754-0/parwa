@@ -12,10 +12,6 @@
 
 import { User, Bot, AlertTriangle, Clock, Zap } from 'lucide-react';
 import type { JarvisMessage, MessageType, MessageRole } from '@/types/jarvis';
-import Markdown from 'react-markdown';
-import type { Components } from 'react-markdown';
-import rehypeSanitize from 'rehype-sanitize';
-
 
 // Phase 6 card imports
 import { BillSummaryCard } from './BillSummaryCard';
@@ -148,7 +144,8 @@ function ErrorMessage({
 // ── Inline Content Renderer (bullet-point aware, XSS-safe) ──────────
 
 function isEmojiChar(ch: string): boolean {
-  const code = ch.charCodeAt(0);
+  // Must use codePointAt for emoji (surrogate pairs in JS)
+  const code = ch.codePointAt(0) || 0;
   return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
 }
 
@@ -175,7 +172,7 @@ function renderInlineContent(content: string) {
 
     // Bullet point lines (•, -, *, or emoji prefix)
     const firstChar = trimmed.charCodeAt(0);
-    const isEmoji = isEmojiChar(trimmed.charAt(0));
+    const isEmoji = isEmojiChar(trimmed);
     const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed) || isEmoji;
     const isOpener = !openerUsed && !isBullet && trimmed.length < 80;
 

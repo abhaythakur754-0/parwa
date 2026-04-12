@@ -538,10 +538,72 @@ class PgVectorStore(VectorStore):
                 autoflush=False,
             )
             logger.debug("PgVectorStore: engine created from connection string")
+            self._ensure_schema()
         except Exception as exc:
             logger.error(
                 "PgVectorStore._init_db failed: %s", exc,
             )
+
+    def _ensure_schema(self) -> None:
+        """Bootstrap the pgvector schema (extension, table, indexes).
+
+        Each DDL statement is executed in its own ``try/except`` so that
+        transient or permission errors on a single step never block the
+        remaining steps (BC-008).
+        """
+        session = self._get_session()
+        if session is None:
+            return
+
+        ddl_steps = [
+            ("CREATE EXTENSION IF NOT EXISTS vector", "pgvector extension"),
+            (
+                "CREATE TABLE IF NOT EXISTS document_chunks ("
+                "id VARCHAR(36) PRIMARY KEY, "
+                "company_id VARCHAR(36) NOT NULL, "
+                "document_id VARCHAR(36) NOT NULL, "
+                "chunk_index INTEGER NOT NULL, "
+                "content TEXT, "
+                "embedding vector(768), "
+                "metadata JSONB, "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")",
+                "document_chunks table",
+            ),
+            (
+                "CREATE INDEX IF NOT EXISTS idx_document_chunks_company "
+                "ON document_chunks (company_id)",
+                "idx_document_chunks_company index",
+            ),
+            (
+                "CREATE INDEX IF NOT EXISTS idx_document_chunks_doc "
+                "ON document_chunks (company_id, document_id)",
+                "idx_document_chunks_doc index",
+            ),
+            (
+                "CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding "
+                "ON document_chunks USING hnsw (embedding vector_cosine_ops) "
+                "WITH (m = 16, ef_construction = 64)",
+                "idx_document_chunks_embedding HNSW index",
+            ),
+        ]
+
+        for sql, label in ddl_steps:
+            try:
+                session.execute(text(sql))
+                session.commit()
+                logger.debug("PgVectorStore._ensure_schema: created %s", label)
+            except Exception as exc:
+                logger.warning(
+                    "PgVectorStore._ensure_schema: failed to create %s: %s",
+                    label, exc,
+                )
+                try:
+                    session.rollback()
+                except Exception:
+                    pass
+
+        self._close_session(session)
 
     def _get_session(self):
         """Return a new DB session, or *None* on failure."""

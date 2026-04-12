@@ -16,7 +16,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +26,50 @@ import { ChatErrorBoundary } from '@/components/jarvis/ChatErrorBoundary';
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading, hydrate } = useAuth();
+
+  // ── Context: Read URL params for entry_source, variant, industry ──
+  const [entrySource] = useState(() => {
+    if (typeof window === 'undefined') return 'onboarding';
+    const params = new URLSearchParams(window.location.search);
+    return params.get('entry_source') || 'onboarding';
+  });
+  const [entryParams] = useState<Record<string, unknown>>(() => {
+    if (typeof window === 'undefined') return {};
+    const params = new URLSearchParams(window.location.search);
+    const ctx: Record<string, unknown> = {};
+    const industry = params.get('industry');
+    const variant = params.get('variant');
+    if (industry) ctx.industry = industry;
+    if (variant) ctx.variant = variant;
+    // Read bridged context from localStorage (set by other pages)
+    try {
+      const stored = localStorage.getItem('parwa_jarvis_context');
+      if (stored) {
+        const bridged = JSON.parse(stored) as Record<string, unknown>;
+        if (bridged.variant && !variant) ctx.variant = bridged.variant;
+        if (bridged.variant_id && !params.get('variant_id')) ctx.variant_id = bridged.variant_id;
+        if (bridged.industry && !industry) ctx.industry = bridged.industry;
+        if (bridged.selected_variants) ctx.selected_variants = bridged.selected_variants;
+        if (bridged.total_price) ctx.total_price = bridged.total_price;
+        if (bridged.source) ctx.referral_source = bridged.source;
+        if (bridged.roi_result) ctx.roi_result = bridged.roi_result;
+        if (bridged.interests) ctx.interests = bridged.interests;
+        localStorage.removeItem('parwa_jarvis_context');
+      }
+    } catch { /* ignore */ }
+    // Also read pricing selection if available
+    try {
+      const stored = localStorage.getItem('parwa_pricing_selection');
+      if (stored) {
+        const pricing = JSON.parse(stored) as Record<string, unknown>;
+        if (pricing.plan && !ctx.selected_plan) ctx.selected_plan = pricing.plan;
+        if (pricing.industry && !ctx.industry) ctx.industry = pricing.industry;
+        if (pricing.variants && !ctx.selected_variants) ctx.selected_variants = pricing.variants;
+        if (pricing.totalMonthly && !ctx.total_price) ctx.total_price = pricing.totalMonthly;
+      }
+    } catch { /* ignore */ }
+    return ctx;
+  });
 
   useEffect(() => {
     // Wait for auth to initialize
@@ -82,7 +126,7 @@ export default function OnboardingPage() {
 
   return (
     <ChatErrorBoundary>
-      <JarvisChat entrySource="onboarding" />
+      <JarvisChat entrySource={entrySource} entryParams={entryParams} />
     </ChatErrorBoundary>
   );
 }

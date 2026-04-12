@@ -135,9 +135,23 @@ export default function ModelsPage() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/pricing" className={`block w-full text-center bg-gradient-to-r ${model.accentColor} text-white px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 hover:shadow-lg ${model.accentGlow} hover:-translate-y-0.5`}>
-                    View Details
-                  </Link>
+                  <button
+                    onClick={() => {
+                      // Pass variant context to Jarvis
+                      if (typeof window !== 'undefined') {
+                        window.localStorage.setItem('parwa_jarvis_context', JSON.stringify({
+                          source: 'models_page',
+                          variant: model.name,
+                          variant_id: model.id,
+                          entry_source: 'models_page',
+                        }));
+                      }
+                      window.location.href = '/jarvis?entry_source=models_page&variant=' + encodeURIComponent(model.id) + '&industry=ecommerce';
+                    }}
+                    className={`block w-full text-center bg-gradient-to-r ${model.accentColor} text-white px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 hover:shadow-lg ${model.accentGlow} hover:-translate-y-0.5`}
+                  >
+                    Try {model.name} Live
+                  </button>
                 </div>
               ))}
             </div>

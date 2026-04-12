@@ -1,300 +1,506 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import NavigationBar from '@/components/landing/NavigationBar';
+import Footer from '@/components/landing/Footer';
 import {
-  ArrowLeft, Calculator, TrendingUp, DollarSign,
-  Users, Clock, Headphones, BarChart3, Zap, ArrowRight,
-  ChevronDown, Sparkles, Target, ShieldCheck
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  Users,
+  TicketCheck,
+  TrendingUp,
+  Zap,
+  DollarSign,
+  Clock,
+  Target,
+  Sparkles,
+  ChevronRight,
+  Check,
+  CircleDot,
+  BarChart3,
+  PiggyBank,
+  Brain,
+  Headphones,
+  MessageSquare,
+  Phone,
+  Video,
+  Globe,
+  ShieldCheck,
+  ArrowDownRight,
+  ThumbsUp,
 } from 'lucide-react';
 
-// ──────────────────────────────────────────────────────────────────
-// CONSTANTS — realistic industry benchmarks
-// ──────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// CORRECT PARWA MODEL DATA — matches /models page & system prompt
+// ══════════════════════════════════════════════════════════════════════
+
+interface ParwaModel {
+  id: string;
+  name: string;
+  tagline: string;
+  tier: string;
+  price: number;
+  aiResolution: number;
+  agents: number;
+  ticketCapacity: string;
+  channels: string[];
+  description: string;
+  bestFor: string;
+  tierLabel: string;
+  tierColor: string;
+  tierBorder: string;
+  tierBg: string;
+  tierGlow: string;
+}
+
+const PARWA_MODELS: ParwaModel[] = [
+  {
+    id: 'parwa-starter',
+    name: 'PARWA Starter',
+    tagline: 'The 24/7 Trainee',
+    tier: 'Entry',
+    price: 999,
+    aiResolution: 0.60,
+    agents: 3,
+    ticketCapacity: '1K tickets/mo',
+    channels: ['Email', 'Chat'],
+    description:
+      'Your first AI teammate. Handles FAQs, ticket intake, and basic queries autonomously. Perfect for small teams getting started with AI support.',
+    bestFor: 'Small teams with FAQ-heavy support, getting started with AI',
+    tierLabel: 'Entry Level',
+    tierColor: 'text-emerald-400',
+    tierBorder: 'border-emerald-500/30',
+    tierBg: 'bg-emerald-500/5',
+    tierGlow: 'shadow-emerald-500/10',
+  },
+  {
+    id: 'parwa-growth',
+    name: 'PARWA Growth',
+    tagline: 'The Junior Agent',
+    tier: 'Growth',
+    price: 2499,
+    aiResolution: 0.78,
+    agents: 8,
+    ticketCapacity: '5K tickets/mo',
+    channels: ['Email', 'Chat', 'SMS', 'Voice'],
+    description:
+      'Your smartest junior agent. Resolves ~78% of tickets autonomously, supports multi-channel including SMS and voice calls, and always recommends the right path.',
+    bestFor: 'Growing businesses needing multi-channel, high-volume support',
+    tierLabel: 'Most Popular',
+    tierColor: 'text-orange-400',
+    tierBorder: 'border-orange-500/30',
+    tierBg: 'bg-orange-500/5',
+    tierGlow: 'shadow-orange-500/10',
+  },
+  {
+    id: 'parwa-high',
+    name: 'PARWA High',
+    tagline: 'The Senior Agent',
+    tier: 'Enterprise',
+    price: 3999,
+    aiResolution: 0.88,
+    agents: 15,
+    ticketCapacity: '15K tickets/mo',
+    channels: ['Email', 'Chat', 'SMS', 'Voice', 'Social', 'Video'],
+    description:
+      'Your most experienced senior agent. Handles complex cases, provides strategic insights, predicts churn, and manages up to 15 AI agents across all channels.',
+    bestFor: 'Enterprise teams with complex cases, strategic support operations',
+    tierLabel: 'Enterprise',
+    tierColor: 'text-purple-400',
+    tierBorder: 'border-purple-500/30',
+    tierBg: 'bg-purple-500/5',
+    tierGlow: 'shadow-purple-500/10',
+  },
+];
+
+// ══════════════════════════════════════════════════════════════════════
+// STEP DATA
+// ══════════════════════════════════════════════════════════════════════
 
 const INDUSTRIES = [
-  { id: 'ecommerce', label: 'E-Commerce', avgTicketVolume: 5000, avgCostPerTicket: 6.5, avgFcr: 0.68, avgCsat: 3.8 },
-  { id: 'saas', label: 'SaaS / Tech', avgTicketVolume: 3500, avgCostPerTicket: 8.2, avgFcr: 0.62, avgCsat: 3.6 },
-  { id: 'logistics', label: 'Logistics', avgTicketVolume: 6000, avgCostPerTicket: 5.8, avgFcr: 0.58, avgCsat: 3.5 },
-  { id: 'healthcare', label: 'Healthcare', avgTicketVolume: 4000, avgCostPerTicket: 7.5, avgFcr: 0.55, avgCsat: 3.4 },
-  { id: 'finance', label: 'Finance / Fintech', avgTicketVolume: 3000, avgCostPerTicket: 9.0, avgFcr: 0.60, avgCsat: 3.7 },
-  { id: 'others', label: 'Other', avgTicketVolume: 4000, avgCostPerTicket: 7.0, avgFcr: 0.60, avgCsat: 3.5 },
+  { id: 'ecommerce', label: 'E-Commerce' },
+  { id: 'saas', label: 'SaaS / Tech' },
+  { id: 'logistics', label: 'Logistics' },
+  { id: 'healthcare', label: 'Healthcare' },
+  { id: 'finance', label: 'Finance' },
+  { id: 'realestate', label: 'Real Estate' },
+  { id: 'education', label: 'Education' },
+  { id: 'others', label: 'Other' },
 ];
 
 const TEAM_SIZES = [
-  { label: '1-5 agents', value: 5 },
-  { label: '6-15 agents', value: 15 },
-  { label: '16-30 agents', value: 30 },
-  { label: '31-50 agents', value: 50 },
+  { label: '1–5 agents', value: 3 },
+  { label: '6–10 agents', value: 8 },
+  { label: '11–15 agents', value: 13 },
+  { label: '16–30 agents', value: 23 },
+  { label: '31–50 agents', value: 40 },
   { label: '50+ agents', value: 75 },
 ];
 
-const SALARY_BENCHMARKS: Record<string, number> = {
-  '1-5 agents': 35000,
-  '6-15 agents': 38000,
-  '16-30 agents': 40000,
-  '31-50 agents': 42000,
-  '50+ agents': 45000,
+// Industry benchmarks
+const BENCHMARKS: Record<
+  string,
+  { avgTickets: number; avgCostPerTicket: number; avgSalary: number }
+> = {
+  ecommerce: { avgTickets: 5000, avgCostPerTicket: 6.5, avgSalary: 36000 },
+  saas: { avgTickets: 3500, avgCostPerTicket: 8.2, avgSalary: 40000 },
+  logistics: { avgTickets: 6000, avgCostPerTicket: 5.8, avgSalary: 34000 },
+  healthcare: { avgTickets: 4000, avgCostPerTicket: 7.5, avgSalary: 42000 },
+  finance: { avgTickets: 3000, avgCostPerTicket: 9.0, avgSalary: 45000 },
+  realestate: { avgTickets: 2500, avgCostPerTicket: 7.0, avgSalary: 38000 },
+  education: { avgTickets: 2000, avgCostPerTicket: 6.0, avgSalary: 35000 },
+  others: { avgTickets: 3500, avgCostPerTicket: 7.0, avgSalary: 37000 },
 };
 
-// ──────────────────────────────────────────────────────────────────
-// ROI CALCULATOR TYPES
-// ──────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════════
 
-interface ROICalculatorInput {
-  industry: string;
-  monthlyTickets: string;
-  costPerTicket: string;
-  teamSize: string;
-  avgSalary: string;
-  parwaPlan: string;
-  currentFcr: string;
-  currentCsat: string;
+function fmt(n: number): string {
+  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`;
+  return `$${n.toFixed(0)}`;
 }
 
-interface ROIResult {
-  currentMonthlyCost: number;
-  currentAnnualCost: number;
+function fmtMoney(n: number): string {
+  return n.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  });
+}
+
+function fmtNum(n: number): string {
+  return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+function getChannelIcon(channel: string) {
+  switch (channel) {
+    case 'Email':
+      return <MessageSquare className="w-3 h-3" />;
+    case 'Chat':
+      return <MessageSquare className="w-3 h-3" />;
+    case 'SMS':
+      return <Phone className="w-3 h-3" />;
+    case 'Voice':
+      return <Headphones className="w-3 h-3" />;
+    case 'Social':
+      return <Globe className="w-3 h-3" />;
+    case 'Video':
+      return <Video className="w-3 h-3" />;
+    default:
+      return <Zap className="w-3 h-3" />;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SMART RECOMMENDATION ENGINE
+// ══════════════════════════════════════════════════════════════════════
+
+function getRecommendedModel(
+  tickets: number,
+  agentCount: number,
+  industry: string
+): {
+  model: ParwaModel;
+  reasons: string[];
+} {
+  const bench = BENCHMARKS[industry];
+  const industryLabel =
+    INDUSTRIES.find((i) => i.id === industry)?.label || 'your industry';
+  const reasons: string[] = [];
+
+  let recommended: ParwaModel;
+
+  if (tickets <= 1000 && agentCount <= 5) {
+    recommended = PARWA_MODELS[0]; // Starter
+    reasons.push(
+      `Your volume of ${fmtNum(tickets)} tickets/month fits within the Starter tier's 1K ticket capacity.`
+    );
+    if (agentCount <= 3) {
+      reasons.push(
+        `With ${agentCount} agent${agentCount > 1 ? 's' : ''}, the Starter's 3-agent configuration covers your entire team.`
+      );
+    }
+    reasons.push(
+      `At ${industryLabel}'s average cost of $${bench?.avgCostPerTicket || 7}/ticket, even 60% AI resolution saves you significantly.`
+    );
+  } else if (tickets <= 5000 && agentCount <= 15) {
+    recommended = PARWA_MODELS[1]; // Growth
+    if (tickets > 1000) {
+      reasons.push(
+        `Your ${fmtNum(tickets)} tickets/month exceeds the Starter tier's 1K limit — Growth's 5K capacity gives you room to scale.`
+      );
+    }
+    if (agentCount > 5) {
+      reasons.push(
+        `With ${agentCount} team members, Growth's 8-agent setup matches your team structure.`
+      );
+    }
+    reasons.push(
+      `Growth resolves ~78% of tickets autonomously and adds SMS + Voice channels — critical for ${industryLabel}.`
+    );
+  } else {
+    recommended = PARWA_MODELS[2]; // High
+    if (tickets > 5000) {
+      reasons.push(
+        `Your volume of ${fmtNum(tickets)} tickets/month requires the High plan's 15K capacity.`
+      );
+    }
+    if (agentCount > 15) {
+      reasons.push(
+        `Your ${agentCount}-person team needs High's 15-agent configuration for full coverage.`
+      );
+    }
+    reasons.push(
+      `High's 88% AI resolution and full channel support (Social + Video) are ideal for your ${industryLabel} operation.`
+    );
+    reasons.push(
+      `Enterprise features like churn prediction and strategic insights drive long-term ROI.`
+    );
+  }
+
+  return { model: recommended, reasons };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ROI CALCULATIONS
+// ══════════════════════════════════════════════════════════════════════
+
+interface ModelComparison {
+  model: ParwaModel;
+  aiTicketsPerMonth: number;
+  humanTicketsPerMonth: number;
   parwaMonthlyCost: number;
   parwaAnnualCost: number;
+  currentMonthlyCost: number;
+  currentAnnualCost: number;
   monthlySavings: number;
   annualSavings: number;
   savingsPercent: number;
-  aiResolutionPercent: number;
-  agentTimeReclaimed: number;
-  newCsat: number;
-  newFcr: number;
+  hoursSavedPerMonth: number;
   paybackMonths: number;
-  threeYearROI: number;
+  isRecommended: boolean;
 }
 
-// ──────────────────────────────────────────────────────────────────
-// HELPER — animated counter effect
-// ──────────────────────────────────────────────────────────────────
-
-function formatCurrency(num: number): string {
-  if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
-  if (num >= 1000) return `$${(num / 1000).toFixed(1)}K`;
-  return `$${num.toFixed(0)}`;
-}
-
-function formatNumber(num: number): string {
-  return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
-
-// ──────────────────────────────────────────────────────────────────
-// MAIN ROI CALCULATOR PAGE
-// ──────────────────────────────────────────────────────────────────
-
-export default function ROICalculatorPage() {
-  const [input, setInput] = useState<ROICalculatorInput>({
-    industry: 'ecommerce',
-    monthlyTickets: '5000',
-    costPerTicket: '6.5',
-    teamSize: '6-15 agents',
-    avgSalary: '38000',
-    parwaPlan: 'parwa',
-    currentFcr: '68',
-    currentCsat: '3.8',
-  });
-
-  const [showResults, setShowResults] = useState(false);
-
-  // Track page visit for context-aware Jarvis routing
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const existing = JSON.parse(localStorage.getItem('parwa_pages_visited') || '[]') as string[];
-        if (!existing.includes('roi_calculator')) {
-          existing.push('roi_calculator');
-          localStorage.setItem('parwa_pages_visited', JSON.stringify(existing));
-        }
-      } catch {
-        // ignore
-      }
-    }
-  }, []);
-
-  // ── Compute ROI ──
-  const result: ROIResult = useMemo(() => {
-    const tickets = Math.max(1, Number(input.monthlyTickets) || 0);
-    const costPerTicket = Number(input.costPerTicket) || 0;
-    const agentCount = TEAM_SIZES.find((t) => t.label === input.teamSize)?.value || 15;
-    const avgSalary = Number(input.avgSalary) || 38000;
-
-    // PARWA plan pricing
-    const parwaPlanCost: Record<string, number> = {
-      'mini-parwa': 499,
-      'parwa': 999,
-      'high-parwa': 1499,
-    };
-    const monthlyPlanCost = parwaPlanCost[input.parwaPlan] || 999;
-
-    // Current monthly support cost = tickets * cost per ticket + agent salaries
-    const currentMonthlyLabor = (avgSalary / 12) * agentCount;
-    const currentMonthlyCost = (tickets * costPerTicket) + currentMonthlyLabor;
-    const currentAnnualCost = currentMonthlyCost * 12;
-
-    // PARWA resolves 70-80% of tickets with AI
-    const aiResolutionPercent = input.parwaPlan === 'mini-parwa' ? 0.65 : input.parwaPlan === 'parwa' ? 0.78 : 0.85;
-    const ticketsHandledByAI = tickets * aiResolutionPercent;
-    const ticketsHandledByAgents = tickets - ticketsHandledByAI;
-
-    // PARWA cost = plan cost + reduced agent tickets * lower cost
-    const parwaMonthlyCost = monthlyPlanCost + (ticketsHandledByAgents * costPerTicket * 0.3);
-    const parwaAnnualCost = parwaMonthlyCost * 12;
-
-    // Savings
-    const monthlySavings = currentMonthlyCost - parwaMonthlyCost;
-    const annualSavings = monthlySavings * 12;
-    const savingsPercent = currentMonthlyCost > 0 ? (monthlySavings / currentMonthlyCost) * 100 : 0;
-
-    // Agent time reclaimed (hours per month)
-    const hoursPerTicket = 0.25; // ~15 min avg per ticket
-    const agentTimeReclaimed = ticketsHandledByAI * hoursPerTicket;
-
-    // Improved metrics
-    const currentFcr = Number(input.currentFcr) || 68;
-    const currentCsat = Number(input.currentCsat) || 3.8;
-    const newFcr = Math.min(95, currentFcr + (95 - currentFcr) * 0.6);
-    const newCsat = Math.min(5, currentCsat + (5 - currentCsat) * 0.45);
-
-    // Payback period
-    const paybackMonths = monthlySavings > 0 ? monthlyPlanCost / monthlySavings : 0;
-
-    // 3-year ROI
-    const threeYearROI = (annualSavings * 3 - parwaAnnualCost * 3) / (parwaAnnualCost * 3) * 100;
+function calculateComparisons(
+  tickets: number,
+  agentCount: number,
+  cpt: number,
+  currentMonthly: number,
+  currentAnnual: number,
+  recommendedId: string
+): ModelComparison[] {
+  return PARWA_MODELS.map((model) => {
+    const aiTickets = Math.round(tickets * model.aiResolution);
+    const humanTickets = tickets - aiTickets;
+    // PARWA cost = platform fee + remaining human ticket costs (at 25% efficiency gain)
+    const humanCost = humanTickets * cpt * 0.25;
+    const parwaMonthly = model.price + humanCost;
+    const parwaAnnual = parwaMonthly * 12;
+    const monthlySavings = Math.max(0, currentMonthly - parwaMonthly);
+    const annualSavings = Math.max(0, currentAnnual - parwaAnnual);
+    const savingsPercent =
+      currentAnnual > 0 ? (annualSavings / currentAnnual) * 100 : 0;
+    const hoursSavedPerMonth = aiTickets * 0.25; // ~15min per ticket
+    const paybackMonths =
+      monthlySavings > 0 ? parwaMonthly / monthlySavings : 999;
 
     return {
-      currentMonthlyCost,
-      currentAnnualCost,
-      parwaMonthlyCost,
-      parwaAnnualCost,
+      model,
+      aiTicketsPerMonth: aiTickets,
+      humanTicketsPerMonth: humanTickets,
+      parwaMonthlyCost: parwaMonthly,
+      parwaAnnualCost: parwaAnnual,
+      currentMonthlyCost: currentMonthly,
+      currentAnnualCost: currentAnnual,
       monthlySavings,
       annualSavings,
-      savingsPercent: Math.max(0, savingsPercent),
-      aiResolutionPercent: aiResolutionPercent * 100,
-      agentTimeReclaimed,
-      newCsat,
-      newFcr,
-      paybackMonths: Math.max(1, paybackMonths),
-      threeYearROI: Math.max(0, threeYearROI),
+      savingsPercent,
+      hoursSavedPerMonth,
+      paybackMonths: Math.min(12, Math.max(1, paybackMonths)),
+      isRecommended: model.id === recommendedId,
     };
-  }, [input]);
+  });
+}
 
-  // ── Handlers ──
-  const updateInput = (key: keyof ROICalculatorInput, value: string) => {
-    setInput((prev) => ({ ...prev, [key]: value }));
-    // Auto-fill industry defaults
-    if (key === 'industry') {
-      const ind = INDUSTRIES.find((i) => i.id === value);
-      if (ind) {
-        setInput((prev) => ({
-          ...prev,
-          monthlyTickets: String(ind.avgTicketVolume),
-          costPerTicket: String(ind.avgCostPerTicket),
-          currentFcr: String(Math.round(ind.avgFcr * 100)),
-          currentCsat: String(ind.avgCsat),
-        }));
-      }
-    }
-    if (key === 'teamSize') {
-      const salary = SALARY_BENCHMARKS[value];
-      if (salary) setInput((prev) => ({ ...prev, avgSalary: String(salary) }));
-    }
+// ══════════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ══════════════════════════════════════════════════════════════════════
+
+export default function ROICalculatorPage() {
+  const [step, setStep] = useState(1);
+  const [companyName, setCompanyName] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [monthlyTickets, setMonthlyTickets] = useState('');
+  const [teamSizeLabel, setTeamSizeLabel] = useState('');
+  const [costPerTicket, setCostPerTicket] = useState('');
+
+  // ── Derived values ──
+  const tickets = Math.max(0, Number(monthlyTickets) || 0);
+  const agentCount =
+    TEAM_SIZES.find((t) => t.label === teamSizeLabel)?.value || 0;
+  const cpt =
+    Number(costPerTicket) ||
+    BENCHMARKS[industry]?.avgCostPerTicket ||
+    7;
+  const avgSalary = BENCHMARKS[industry]?.avgSalary || 37000;
+
+  // Current costs
+  const currentLaborMonthly =
+    agentCount > 0 ? (avgSalary / 12) * agentCount : 0;
+  const currentTicketCostMonthly = tickets * cpt;
+  const currentTotalMonthly = currentLaborMonthly + currentTicketCostMonthly;
+  const currentTotalAnnual = currentTotalMonthly * 12;
+
+  // ── Recommendation ──
+  const { model: recommendedModel, reasons: recommendationReasons } =
+    useMemo(
+      () => getRecommendedModel(tickets, agentCount, industry),
+      [tickets, agentCount, industry]
+    );
+
+  // ── Comparisons ──
+  const comparisons = useMemo(
+    () =>
+      calculateComparisons(
+        tickets,
+        agentCount,
+        cpt,
+        currentTotalMonthly,
+        currentTotalAnnual,
+        recommendedModel.id
+      ),
+    [tickets, agentCount, cpt, currentTotalMonthly, currentTotalAnnual, recommendedModel.id]
+  );
+
+  const recommendedComparison = comparisons.find((c) => c.isRecommended)!;
+
+  // ── Step validation ──
+  const canGoNext =
+    step === 1
+      ? companyName.trim().length > 0 && industry.length > 0
+      : step === 2
+        ? tickets > 0 && teamSizeLabel.length > 0
+        : true;
+
+  const handleNext = () => {
+    if (canGoNext && step < 3) setStep(step + 1);
+  };
+  const handleBack = () => {
+    if (step > 1) setStep(step - 1);
   };
 
-  const handleCalculate = () => {
-    setShowResults(true);
-    // Smooth scroll to results
-    setTimeout(() => {
-      document.getElementById('roi-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-  };
+  // Max current cost for bar chart scaling
+  const maxCostForChart = Math.max(currentTotalAnnual, ...comparisons.map((c) => c.currentAnnualCost));
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#ECFDF5] to-white">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-2xl shadow-lg shadow-gray-900/5 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-600/25">
-                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
-                </svg>
-              </div>
-              <span className="text-lg font-bold text-gray-900">PARWA</span>
-            </Link>
-            <div className="hidden md:flex items-center gap-1">
-              {[
-                { name: 'Home', href: '/' },
-                { name: 'Models', href: '/models' },
-                { name: 'Pricing', href: '/pricing' },
-                { name: 'ROI Calculator', href: '/roi-calculator' },
-                { name: 'Try Jarvis', href: '/jarvis' },
-              ].map((link) => (
-                <Link key={link.name} href={link.href} className={`px-3.5 lg:px-4 py-2 text-sm font-medium transition-all duration-300 rounded-xl ${link.name === 'ROI Calculator' ? 'text-emerald-700 bg-emerald-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}>
-                  {link.name}
-                </Link>
-              ))}
-            </div>
-            <Link href="/login" className="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-emerald-600/25">
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </nav>
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: 'linear-gradient(180deg, #0D0D0D 0%, #1A1A1A 50%, #0D0D0D 100%)' }}
+    >
+      <NavigationBar />
 
-      <main className="flex-grow">
-        {/* ── Hero ── */}
-        <section className="relative pt-10 sm:pt-14 pb-6 px-4 sm:px-6 lg:px-8">
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-emerald-200/20 blur-[120px] rounded-full" />
-          </div>
-          <div className="relative max-w-4xl mx-auto text-center">
-            <Link href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-gray-600 mb-6 transition-colors text-sm">
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
-            </Link>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 mb-5">
-              <Calculator className="w-4 h-4 text-emerald-600" />
-              <span className="text-xs font-semibold text-emerald-700">Free ROI Estimator</span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 mb-4 leading-tight">
-              Calculate Your <span className="text-gradient">ROI with PARWA</span>
-            </h1>
-            <p className="text-base sm:text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
-              See exactly how much time and money PARWA AI can save your support team. Enter your numbers below and get instant results.
-            </p>
-          </div>
-        </section>
-
-        {/* ── Calculator Form ── */}
-        <section className="px-4 sm:px-6 lg:px-8 pb-8">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-              {/* Left Column — Inputs */}
-              <div className="space-y-5">
-                {/* Industry */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-                  <div className="flex items-center gap-2.5 mb-5">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-                      <BarChart3 className="w-5 h-5 text-emerald-700" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900">Industry</h3>
-                      <p className="text-xs text-gray-400">Auto-fills benchmarks below</p>
-                    </div>
+      <main className="flex-grow flex items-start justify-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="w-full max-w-4xl">
+          {/* ══════════════════════════════════════════════
+              STEP INDICATOR
+              ══════════════════════════════════════════════ */}
+          <div className="flex items-center justify-center gap-3 mb-10">
+            {[
+              { n: 1, label: 'Company Info' },
+              { n: 2, label: 'Support Setup' },
+              { n: 3, label: 'Your Results' },
+            ].map((s, i) => (
+              <React.Fragment key={s.n}>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500 ${
+                      step >= s.n
+                        ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30'
+                        : 'bg-white/5 text-gray-500 border border-white/10'
+                    }`}
+                  >
+                    {step > s.n ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      s.n
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <span
+                    className={`text-xs font-medium hidden sm:block transition-colors duration-500 ${
+                      step >= s.n ? 'text-orange-300' : 'text-gray-600'
+                    }`}
+                  >
+                    {s.label}
+                  </span>
+                </div>
+                {i < 2 && (
+                  <div
+                    className={`w-8 sm:w-20 h-px transition-all duration-500 ${
+                      step > s.n ? 'bg-orange-500/50' : 'bg-white/10'
+                    }`}
+                  />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* ══════════════════════════════════════════════
+              STEP 1: Company Info
+              ══════════════════════════════════════════════ */}
+          {step === 1 && (
+            <div className="animate-[fadeIn_0.4s_ease-out]">
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 mb-4">
+                  <Building2 className="w-3.5 h-3.5 text-orange-400" />
+                  <span className="text-xs font-semibold text-orange-300">
+                    Step 1 of 3
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-3">
+                  Tell us about{' '}
+                  <span className="text-orange-400">your business</span>
+                </h1>
+                <p className="text-sm text-gray-400 max-w-lg mx-auto">
+                  We&apos;ll analyze your profile to recommend the perfect PARWA
+                  AI model for your support operation.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 p-6 sm:p-8 space-y-6" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                {/* Company Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <Building2 className="w-4 h-4 inline mr-1.5 text-orange-400/70" />
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="e.g. Acme Corp"
+                    className="w-full px-4 py-3.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 transition-all"
+                  />
+                </div>
+
+                {/* Industry */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                    <Target className="w-4 h-4 inline mr-1.5 text-orange-400/70" />
+                    Industry
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {INDUSTRIES.map((ind) => (
                       <button
                         key={ind.id}
-                        onClick={() => updateInput('industry', ind.id)}
-                        className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 border ${
-                          input.industry === ind.id
-                            ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-sm'
-                            : 'border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-gray-50'
+                        onClick={() => setIndustry(ind.id)}
+                        className={`flex items-center justify-center gap-2 px-3 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 border ${
+                          industry === ind.id
+                            ? 'border-orange-500/50 bg-orange-500/10 text-orange-300 shadow-sm shadow-orange-500/10'
+                            : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20 hover:bg-white/[0.07]'
                         }`}
                       >
                         {ind.label}
@@ -302,341 +508,770 @@ export default function ROICalculatorPage() {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
 
-                {/* Support Volume */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-                  <div className="flex items-center gap-2.5 mb-5">
-                    <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
-                      <Users className="w-5 h-5 text-blue-700" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900">Support Volume</h3>
-                      <p className="text-xs text-gray-400">Your current ticket volume</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Monthly Tickets</label>
-                      <input
-                        type="number"
-                        value={input.monthlyTickets}
-                        onChange={(e) => updateInput('monthlyTickets', e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
-                        placeholder="e.g. 5000"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Cost per Ticket ($)</label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        value={input.costPerTicket}
-                        onChange={(e) => updateInput('costPerTicket', e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
-                        placeholder="e.g. 6.50"
-                      />
-                    </div>
-                  </div>
+          {/* ══════════════════════════════════════════════
+              STEP 2: Current Support Setup
+              ══════════════════════════════════════════════ */}
+          {step === 2 && (
+            <div className="animate-[fadeIn_0.4s_ease-out]">
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 mb-4">
+                  <Users className="w-3.5 h-3.5 text-orange-400" />
+                  <span className="text-xs font-semibold text-orange-300">
+                    Step 2 of 3
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-3">
+                  Your current{' '}
+                  <span className="text-orange-400">support setup</span>
+                </h1>
+                <p className="text-sm text-gray-400 max-w-lg mx-auto">
+                  Help us understand your support volume and team to calculate
+                  accurate savings.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 p-6 sm:p-8 space-y-6" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                {/* Monthly Tickets */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <TicketCheck className="w-4 h-4 inline mr-1.5 text-orange-400/70" />
+                    Monthly Support Tickets
+                  </label>
+                  <input
+                    type="number"
+                    value={monthlyTickets}
+                    onChange={(e) => setMonthlyTickets(e.target.value)}
+                    placeholder={
+                      BENCHMARKS[industry]
+                        ? `${BENCHMARKS[industry].avgTickets} (industry avg)`
+                        : 'e.g. 5000'
+                    }
+                    className="w-full px-4 py-3.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 transition-all"
+                  />
+                  {BENCHMARKS[industry] && (
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      Industry average:{' '}
+                      ~{fmtNum(BENCHMARKS[industry].avgTickets)} tickets/month
+                    </p>
+                  )}
                 </div>
 
-                {/* Team */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-                  <div className="flex items-center gap-2.5 mb-5">
-                    <div className="w-9 h-9 rounded-xl bg-purple-100 flex items-center justify-center">
-                      <Headphones className="w-5 h-5 text-purple-700" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900">Your Team</h3>
-                      <p className="text-xs text-gray-400">Agent headcount &amp; salary</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Team Size</label>
-                      <div className="relative">
-                        <select
-                          value={input.teamSize}
-                          onChange={(e) => updateInput('teamSize', e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm font-medium bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
-                        >
-                          {TEAM_SIZES.map((t) => (
-                            <option key={t.label} value={t.label}>{t.label}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Avg. Agent Salary (Annual $)</label>
-                      <input
-                        type="number"
-                        value={input.avgSalary}
-                        onChange={(e) => updateInput('avgSalary', e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
-                        placeholder="e.g. 38000"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Current Metrics */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-                  <div className="flex items-center gap-2.5 mb-5">
-                    <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center">
-                      <Target className="w-5 h-5 text-amber-700" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900">Current Metrics</h3>
-                      <p className="text-xs text-gray-400">Your existing KPIs</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">FCR (%)</label>
-                      <input
-                        type="number"
-                        value={input.currentFcr}
-                        onChange={(e) => updateInput('currentFcr', e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">CSAT (out of 5)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={input.currentCsat}
-                        onChange={(e) => updateInput('currentCsat', e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Plan Selection */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-                  <div className="flex items-center gap-2.5 mb-5">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-                      <Zap className="w-5 h-5 text-emerald-700" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900">PARWA Plan</h3>
-                      <p className="text-xs text-gray-400">Choose your plan tier</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'mini-parwa', name: 'Mini', price: '$499' },
-                      { id: 'parwa', name: 'Parwa', price: '$999' },
-                      { id: 'high-parwa', name: 'High', price: '$1,499' },
-                    ].map((plan) => (
+                {/* Team Size */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                    <Users className="w-4 h-4 inline mr-1.5 text-orange-400/70" />
+                    Support Team Size
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {TEAM_SIZES.map((ts) => (
                       <button
-                        key={plan.id}
-                        onClick={() => updateInput('parwaPlan', plan.id)}
-                        className={`px-3 py-3 rounded-xl text-center transition-all duration-300 border ${
-                          input.parwaPlan === plan.id
-                            ? 'border-emerald-400 bg-emerald-50 shadow-sm'
-                            : 'border-gray-200 bg-white hover:border-emerald-200 hover:bg-gray-50'
+                        key={ts.label}
+                        onClick={() => setTeamSizeLabel(ts.label)}
+                        className={`px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 border text-center ${
+                          teamSizeLabel === ts.label
+                            ? 'border-orange-500/50 bg-orange-500/10 text-orange-300'
+                            : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20 hover:bg-white/[0.07]'
                         }`}
                       >
-                        <div className={`text-xs font-bold mb-0.5 ${input.parwaPlan === plan.id ? 'text-emerald-700' : 'text-gray-700'}`}>{plan.name}</div>
-                        <div className={`text-sm font-extrabold ${input.parwaPlan === plan.id ? 'text-emerald-600' : 'text-gray-900'}`}>{plan.price}</div>
-                        <div className="text-[10px] text-gray-400 mt-0.5">/month</div>
+                        {ts.label}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Calculate Button */}
-                <button
-                  onClick={handleCalculate}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-base font-bold shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/40 transition-all duration-500 flex items-center justify-center gap-2.5"
+                {/* Cost Per Ticket */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <DollarSign className="w-4 h-4 inline mr-1.5 text-orange-400/70" />
+                    Average Cost per Ticket{' '}
+                    <span className="text-gray-600 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.50"
+                    value={costPerTicket}
+                    onChange={(e) => setCostPerTicket(e.target.value)}
+                    placeholder={
+                      BENCHMARKS[industry]
+                        ? `$${BENCHMARKS[industry].avgCostPerTicket} (industry avg)`
+                        : 'e.g. 6.50'
+                    }
+                    className="w-full px-4 py-3.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 transition-all"
+                  />
+                  {BENCHMARKS[industry] && (
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      Industry average: ~$
+                      {BENCHMARKS[industry].avgCostPerTicket}/ticket
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════
+              STEP 3: RESULTS — THE HERO
+              ══════════════════════════════════════════════════════════ */}
+          {step === 3 && (
+            <div className="animate-[fadeIn_0.4s_ease-out] space-y-6">
+              {/* ── Section Title ── */}
+              <div className="text-center mb-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-4">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-xs font-semibold text-emerald-300">
+                    Your Personalized ROI Report
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
+                  Here&apos;s what{' '}
+                  <span className="text-orange-400">{companyName}</span> saves
+                </h1>
+                <p className="text-sm text-gray-400">
+                  Based on {fmtNum(tickets)} tickets/mo and a{' '}
+                  {teamSizeLabel} team in{' '}
+                  {INDUSTRIES.find((i) => i.id === industry)?.label || 'your industry'}
+                </p>
+              </div>
+
+              {/* ════════════════════════════════════════
+                  A. RECOMMENDED MODEL — BIG HERO CARD
+                  ════════════════════════════════════════ */}
+              <div
+                className="rounded-2xl border-2 border-orange-500/40 p-6 sm:p-8 relative overflow-hidden"
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(255,127,17,0.12) 0%, rgba(26,26,26,0.9) 60%, rgba(255,127,17,0.05) 100%)',
+                }}
+              >
+                {/* Decorative glow */}
+                <div className="absolute -top-20 -right-20 w-60 h-60 bg-orange-500/10 rounded-full blur-[100px] pointer-events-none" />
+
+                <div className="relative">
+                  {/* Badge */}
+                  <div className="flex items-center gap-2 mb-5">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/20 border border-orange-500/30">
+                      <Sparkles className="w-3.5 h-3.5 text-orange-400" />
+                      <span className="text-xs font-bold text-orange-300 uppercase tracking-wider">
+                        Recommended for You
+                      </span>
+                    </div>
+                    <span
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${recommendedModel.tierBg} ${recommendedModel.tierBorder} border ${recommendedModel.tierColor}`}
+                    >
+                      {recommendedModel.tierLabel}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                    <div>
+                      <h2 className="text-2xl sm:text-3xl font-black text-white mb-1">
+                        {recommendedModel.name}
+                      </h2>
+                      <p className="text-base text-orange-300/80 font-medium">
+                        &ldquo;{recommendedModel.tagline}&rdquo;
+                      </p>
+                    </div>
+                    <div className="text-left sm:text-right flex-shrink-0">
+                      <div className="text-4xl font-black text-orange-400">
+                        ${recommendedModel.price.toLocaleString()}
+                      </div>
+                      <div className="text-sm text-gray-400">/month</div>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-400 leading-relaxed mb-5">
+                    {recommendedModel.description}
+                  </p>
+
+                  {/* Quick specs */}
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">
+                      <Brain className="w-3 h-3 text-orange-400" />
+                      {Math.round(recommendedModel.aiResolution * 100)}% AI Resolution
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">
+                      <Users className="w-3 h-3 text-orange-400" />
+                      {recommendedModel.agents} AI Agents
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">
+                      <TicketCheck className="w-3 h-3 text-orange-400" />
+                      {recommendedModel.ticketCapacity}
+                    </span>
+                    {recommendedModel.channels.map((ch) => (
+                      <span
+                        key={ch}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300"
+                      >
+                        {getChannelIcon(ch)}
+                        {ch}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* WHY reasons — SMART explanation */}
+                  <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Brain className="w-4 h-4 text-orange-400" />
+                      <span className="text-sm font-bold text-orange-200">
+                        Why this model for {companyName}?
+                      </span>
+                    </div>
+                    <ul className="space-y-2">
+                      {recommendationReasons.map((reason, i) => (
+                        <li key={i} className="flex items-start gap-2.5">
+                          <div className="w-5 h-5 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Check className="w-3 h-3 text-orange-400" />
+                          </div>
+                          <span className="text-sm text-gray-300 leading-relaxed">
+                            {reason}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* ════════════════════════════════════════
+                  B. BIG SAVINGS HERO — Headline numbers
+                  ════════════════════════════════════════ */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-center">
+                  <PiggyBank className="w-5 h-5 text-emerald-400 mx-auto mb-2" />
+                  <div className="text-2xl sm:text-3xl font-black text-emerald-400">
+                    {fmtMoney(recommendedComparison.annualSavings)}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Annual Savings
+                  </div>
+                </div>
+                <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-center">
+                  <TrendingUp className="w-5 h-5 text-orange-400 mx-auto mb-2" />
+                  <div className="text-2xl sm:text-3xl font-black text-orange-400">
+                    {recommendedComparison.savingsPercent.toFixed(0)}%
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Cost Reduction
+                  </div>
+                </div>
+                <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-center">
+                  <Clock className="w-5 h-5 text-blue-400 mx-auto mb-2" />
+                  <div className="text-2xl sm:text-3xl font-black text-blue-400">
+                    {fmtNum(recommendedComparison.hoursSavedPerMonth)}h
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Hours Saved/Month
+                  </div>
+                </div>
+                <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4 text-center">
+                  <Zap className="w-5 h-5 text-purple-400 mx-auto mb-2" />
+                  <div className="text-2xl sm:text-3xl font-black text-purple-400">
+                    {recommendedComparison.paybackMonths.toFixed(1)}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Month Payback
+                  </div>
+                </div>
+              </div>
+
+              {/* ════════════════════════════════════════
+                  C. SIDE-BY-SIDE COMPARISON TABLE
+                  ════════════════════════════════════════ */}
+              <div
+                className="rounded-2xl border border-white/10 overflow-hidden"
+                style={{ background: 'rgba(255,255,255,0.03)' }}
+              >
+                <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-orange-400" />
+                  <h3 className="text-base sm:text-lg font-bold text-white">
+                    Cost Comparison: Before vs After PARWA
+                  </h3>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/5">
+                        <th className="text-left px-5 py-3.5 text-gray-500 font-medium text-xs uppercase tracking-wider">
+                          Metric
+                        </th>
+                        <th className="text-right px-5 py-3.5 text-gray-500 font-medium text-xs uppercase tracking-wider">
+                          <span className="inline-flex items-center gap-1.5">
+                            <ArrowDownRight className="w-3 h-3 text-red-400" />
+                            Your Current Setup
+                          </span>
+                        </th>
+                        <th className="text-right px-5 py-3.5 text-orange-400 font-medium text-xs uppercase tracking-wider">
+                          <span className="inline-flex items-center gap-1.5">
+                            <ThumbsUp className="w-3 h-3" />
+                            With {recommendedModel.name}
+                          </span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Agent headcount */}
+                      <tr className="border-b border-white/5">
+                        <td className="px-5 py-3.5 text-gray-300 font-medium">
+                          Support Agents
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-gray-400">
+                          {agentCount} humans
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-gray-300 font-semibold">
+                          {recommendedModel.agents} AI +{' '}
+                          {Math.max(
+                            1,
+                            Math.round(agentCount * (1 - recommendedModel.aiResolution))
+                          )}{' '}
+                          humans
+                        </td>
+                      </tr>
+                      {/* Tickets breakdown */}
+                      <tr className="border-b border-white/5">
+                        <td className="px-5 py-3.5 text-gray-300 font-medium">
+                          Monthly Tickets
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-gray-400">
+                          {fmtNum(tickets)} manual
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-gray-300 font-semibold">
+                          {fmtNum(recommendedComparison.aiTicketsPerMonth)} AI +{' '}
+                          {fmtNum(recommendedComparison.humanTicketsPerMonth)} human
+                        </td>
+                      </tr>
+                      {/* AI Resolution */}
+                      <tr className="border-b border-white/5">
+                        <td className="px-5 py-3.5 text-gray-300 font-medium">
+                          AI Resolution Rate
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-gray-400">
+                          0%
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-orange-400 font-bold">
+                          {Math.round(recommendedModel.aiResolution * 100)}%
+                        </td>
+                      </tr>
+                      {/* Agent labor cost */}
+                      <tr className="border-b border-white/5">
+                        <td className="px-5 py-3.5 text-gray-300 font-medium">
+                          Agent Labor Cost
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-gray-400">
+                          {fmtMoney(currentLaborMonthly)}/mo
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-gray-300 font-semibold">
+                          {fmtMoney(
+                            recommendedComparison.humanTicketsPerMonth * cpt * 0.25
+                          )}
+                          /mo
+                        </td>
+                      </tr>
+                      {/* Platform cost */}
+                      <tr className="border-b border-white/5">
+                        <td className="px-5 py-3.5 text-gray-300 font-medium">
+                          Platform Cost
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-gray-400">
+                          {currentTicketCostMonthly > 0
+                            ? fmtMoney(currentTicketCostMonthly) + '/mo'
+                            : '—'}
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-gray-300 font-semibold">
+                          ${recommendedModel.price.toLocaleString()}/mo
+                        </td>
+                      </tr>
+                      {/* TOTAL MONTHLY */}
+                      <tr className="border-b border-white/5 bg-white/[0.04]">
+                        <td className="px-5 py-4 text-white font-bold">
+                          Total Monthly Cost
+                        </td>
+                        <td className="px-5 py-4 text-right text-red-300 font-bold text-base">
+                          {fmtMoney(currentTotalMonthly)}
+                        </td>
+                        <td className="px-5 py-4 text-right text-emerald-400 font-black text-base">
+                          {fmtMoney(recommendedComparison.parwaMonthlyCost)}
+                        </td>
+                      </tr>
+                      {/* TOTAL ANNUAL */}
+                      <tr className="border-b border-white/5 bg-white/[0.06]">
+                        <td className="px-5 py-4 text-white font-bold">
+                          Total Annual Cost
+                        </td>
+                        <td className="px-5 py-4 text-right text-red-300 font-bold text-base">
+                          {fmtMoney(currentTotalAnnual)}
+                        </td>
+                        <td className="px-5 py-4 text-right text-emerald-400 font-black text-base">
+                          {fmtMoney(recommendedComparison.parwaAnnualCost)}
+                        </td>
+                      </tr>
+                      {/* SAVINGS ROW */}
+                      <tr className="bg-emerald-500/5">
+                        <td className="px-5 py-4 text-emerald-300 font-bold">
+                          💰 Your Annual Savings
+                        </td>
+                        <td
+                          className="px-5 py-4 text-right text-emerald-400 font-black text-xl"
+                          colSpan={2}
+                        >
+                          {fmtMoney(recommendedComparison.annualSavings)}/year{' '}
+                          <span className="text-sm font-bold text-emerald-300/70 ml-1">
+                            ({recommendedComparison.savingsPercent.toFixed(0)}% less)
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ════════════════════════════════════════
+                  D. VISUAL BAR CHART — Cost Difference
+                  ════════════════════════════════════════ */}
+              <div
+                className="rounded-2xl border border-white/10 p-6 sm:p-8"
+                style={{ background: 'rgba(255,255,255,0.03)' }}
+              >
+                <h3 className="text-base sm:text-lg font-bold text-white mb-6 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-orange-400" />
+                  Visual Cost Breakdown (Annual)
+                </h3>
+
+                {/* Current Cost Bar */}
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-400 font-medium">
+                      Your Current Cost
+                    </span>
+                    <span className="text-sm font-bold text-red-400">
+                      {fmtMoney(currentTotalAnnual)}
+                    </span>
+                  </div>
+                  <div className="w-full h-10 rounded-xl bg-red-500/10 border border-red-500/20 overflow-hidden relative">
+                    <div
+                      className="h-full rounded-xl bg-gradient-to-r from-red-500/40 to-red-500/20 transition-all duration-1000 ease-out"
+                      style={{ width: '100%' }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-bold text-red-300">
+                        {fmtMoney(currentTotalAnnual)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PARWA Cost Bars — all 3 */}
+                <div className="space-y-3 mb-6">
+                  {comparisons.map((comp) => (
+                    <div key={comp.model.id}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-sm font-medium ${
+                              comp.isRecommended ? 'text-orange-300' : 'text-gray-400'
+                            }`}
+                          >
+                            {comp.model.name}
+                          </span>
+                          {comp.isRecommended && (
+                            <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider bg-orange-500/15 px-1.5 py-0.5 rounded">
+                              Best
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`text-xs font-semibold ${
+                              comp.annualSavings > 0 ? 'text-emerald-400' : 'text-gray-500'
+                            }`}
+                          >
+                            Save {fmtMoney(comp.annualSavings)}/yr
+                          </span>
+                          <span
+                            className={`text-sm font-bold ${
+                              comp.isRecommended ? 'text-emerald-400' : 'text-gray-300'
+                            }`}
+                          >
+                            {fmtMoney(comp.parwaAnnualCost)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-full h-8 rounded-lg bg-white/5 border border-white/10 overflow-hidden relative">
+                        <div
+                          className={`h-full rounded-lg transition-all duration-1000 ease-out ${
+                            comp.isRecommended
+                              ? 'bg-gradient-to-r from-emerald-500/50 to-emerald-500/20'
+                              : 'bg-gradient-to-r from-white/15 to-white/5'
+                          }`}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              (comp.parwaAnnualCost / maxCostForChart) * 100
+                            )}%`,
+                          }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-[11px] font-semibold text-gray-300">
+                            {comp.savingsPercent.toFixed(0)}% cheaper
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Savings callout */}
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex items-center gap-3">
+                  <PiggyBank className="w-6 h-6 text-emerald-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold text-emerald-300">
+                      By choosing {recommendedModel.name}, you save{' '}
+                      {fmtMoney(recommendedComparison.annualSavings)} every year
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      That&apos;s{' '}
+                      {fmtMoney(
+                        recommendedComparison.annualSavings / 12
+                      )}{' '}
+                      back in your pocket every month — while handling{' '}
+                      {fmtNum(recommendedComparison.aiTicketsPerMonth)} more
+                      tickets with AI.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ════════════════════════════════════════
+                  E. ALL 3 MODELS — Detailed Comparison
+                  ════════════════════════════════════════ */}
+              <div
+                className="rounded-2xl border border-white/10 p-6 sm:p-8"
+                style={{ background: 'rgba(255,255,255,0.03)' }}
+              >
+                <h3 className="text-base sm:text-lg font-bold text-white mb-2 flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-orange-400" />
+                  Compare All PARWA Models
+                </h3>
+                <p className="text-sm text-gray-400 mb-5">
+                  See how each model performs with your data. The recommended
+                  model is highlighted.
+                </p>
+
+                <div className="space-y-3">
+                  {comparisons.map((comp) => (
+                    <div
+                      key={comp.model.id}
+                      className={`rounded-xl border p-5 transition-all duration-300 ${
+                        comp.isRecommended
+                          ? 'border-orange-500/40 bg-orange-500/5 shadow-lg shadow-orange-500/5'
+                          : 'border-white/5 bg-white/[0.02] hover:border-white/10'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3">
+                          {comp.isRecommended && (
+                            <span className="px-2.5 py-1 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-bold uppercase tracking-wider border border-orange-500/20">
+                              ★ Recommended
+                            </span>
+                          )}
+                          <div>
+                            <span className="text-sm font-bold text-white">
+                              {comp.model.name}
+                            </span>
+                            <span className="text-xs text-gray-500 ml-2">
+                              &ldquo;{comp.model.tagline}&rdquo;
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-lg font-black text-orange-400">
+                            ${comp.model.price.toLocaleString()}
+                            <span className="text-xs text-gray-500 font-normal">
+                              /mo
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="rounded-lg bg-white/5 px-3 py-2">
+                          <div className="text-lg font-bold text-white">
+                            {Math.round(comp.model.aiResolution * 100)}%
+                          </div>
+                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+                            AI Resolved
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-white/5 px-3 py-2">
+                          <div className="text-lg font-bold text-white">
+                            {fmtNum(comp.aiTicketsPerMonth)}
+                          </div>
+                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+                            AI Tickets/Mo
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-white/5 px-3 py-2">
+                          <div className="text-lg font-bold text-emerald-400">
+                            {fmtMoney(comp.annualSavings)}
+                          </div>
+                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+                            Annual Savings
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-white/5 px-3 py-2">
+                          <div className="text-lg font-bold text-blue-400">
+                            {comp.savingsPercent.toFixed(0)}%
+                          </div>
+                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+                            Cost Reduction
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Channels */}
+                      <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                        {comp.model.channels.map((ch) => (
+                          <span
+                            key={ch}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 text-[10px] text-gray-400 border border-white/5"
+                          >
+                            {getChannelIcon(ch)}
+                            {ch}
+                          </span>
+                        ))}
+                        <span className="text-[10px] text-gray-600 ml-1">
+                          — {comp.model.ticketCapacity}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ════════════════════════════════════════
+                  F. CTAs
+                  ════════════════════════════════════════ */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Link
+                  href="/models"
+                  className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-orange-600 to-orange-500 text-white text-sm font-bold shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 hover:-translate-y-0.5"
                 >
-                  <Calculator className="w-5 h-5" />
-                  Calculate My ROI
-                  <ArrowRight className="w-5 h-5" />
+                  Explore All AI Models
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+                <button
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      window.localStorage.setItem(
+                        'parwa_jarvis_context',
+                        JSON.stringify({
+                          source: 'roi',
+                          industry: industry,
+                          variant: recommendedModel.id,
+                          roi_result: {
+                            monthly_tickets: tickets,
+                            team_size: agentCount,
+                            current_monthly: currentTotalMonthly,
+                            current_annual: currentTotalAnnual,
+                            parwa_monthly: recommendedComparison.parwaMonthlyCost,
+                            parwa_annual: recommendedComparison.parwaAnnualCost,
+                            savings_annual: recommendedComparison.annualSavings,
+                            savings_pct: recommendedComparison.savingsPercent,
+                            suggested_model: recommendedModel.id,
+                          },
+                        })
+                      );
+                      try {
+                        const visited = JSON.parse(
+                          localStorage.getItem('parwa_pages_visited') || '[]'
+                        ) as string[];
+                        if (!visited.includes('roi_calculator')) {
+                          visited.push('roi_calculator');
+                          localStorage.setItem(
+                            'parwa_pages_visited',
+                            JSON.stringify(visited)
+                          );
+                        }
+                      } catch {
+                        /* ignore */
+                      }
+                    }
+                    window.location.href =
+                      '/jarvis?entry_source=roi&industry=' +
+                      encodeURIComponent(industry) +
+                      '&variant=' +
+                      encodeURIComponent(recommendedModel.id);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-white/10 text-gray-300 text-sm font-bold hover:border-orange-500/30 hover:bg-white/5 transition-all duration-300"
+                >
+                  Try Jarvis Live
+                  <Sparkles className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Right Column — Results */}
-              <div id="roi-results">
-                {/* Savings Hero Card */}
-                <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-6 sm:p-8 shadow-lg shadow-emerald-100/30 mb-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <TrendingUp className="w-5 h-5 text-emerald-600" />
-                    <span className="text-sm font-semibold text-emerald-700">Estimated Annual Savings</span>
-                  </div>
-                  <div className="text-5xl sm:text-6xl font-black text-emerald-600 mb-1">
-                    {formatCurrency(result.annualSavings)}
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <span className="font-medium">{result.savingsPercent.toFixed(0)}% cost reduction</span>
-                    <span className="text-gray-300">|</span>
-                    <span>with PARWA {input.parwaPlan === 'mini-parwa' ? 'Mini' : input.parwaPlan === 'parwa' ? '' : 'High'}</span>
-                  </div>
-
-                  {/* Mini comparison bar */}
-                  <div className="mt-6 space-y-3">
-                    <div>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-medium text-gray-600">Current Annual Cost</span>
-                        <span className="font-bold text-gray-900">{formatCurrency(result.currentAnnualCost)}</span>
-                      </div>
-                      <div className="h-3 rounded-full bg-gray-200 overflow-hidden">
-                        <div className="h-full rounded-full bg-gray-400 transition-all duration-700" style={{ width: '100%' }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-medium text-gray-600">With PARWA</span>
-                        <span className="font-bold text-emerald-600">{formatCurrency(result.parwaAnnualCost)}</span>
-                      </div>
-                      <div className="h-3 rounded-full bg-gray-200 overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700" style={{ width: `${Math.max(5, 100 - result.savingsPercent)}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Key Metrics Grid */}
-                <div className="grid grid-cols-2 gap-3 mb-5">
-                  {[
-                    { icon: Zap, label: 'AI Resolution Rate', value: `${result.aiResolutionPercent.toFixed(0)}%`, color: 'emerald', desc: 'of tickets auto-resolved' },
-                    { icon: Clock, label: 'Agent Hours Saved', value: `${formatNumber(result.agentTimeReclaimed)}h`, color: 'blue', desc: 'per month reclaimed' },
-                    { icon: Target, label: 'New FCR', value: `${result.newFcr.toFixed(0)}%`, color: 'purple', desc: `from ${input.currentFcr}%` },
-                    { icon: Sparkles, label: 'New CSAT', value: `${result.newCsat.toFixed(1)}/5`, color: 'amber', desc: `from ${input.currentCsat}` },
-                  ].map((metric) => {
-                    const Icon = metric.icon;
-                    const colorMap: Record<string, string> = {
-                      emerald: 'bg-emerald-100 text-emerald-700',
-                      blue: 'bg-blue-100 text-blue-700',
-                      purple: 'bg-purple-100 text-purple-700',
-                      amber: 'bg-amber-100 text-amber-700',
-                    };
-                    return (
-                      <div key={metric.label} className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${colorMap[metric.color]}`}>
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <div className="text-2xl sm:text-3xl font-black text-gray-900 mb-0.5">{metric.value}</div>
-                        <div className="text-xs font-semibold text-gray-700">{metric.label}</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">{metric.desc}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Payback + 3-Year ROI */}
-                <div className="grid grid-cols-2 gap-3 mb-5">
-                  <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <div className="text-xs font-semibold text-gray-500 mb-1">Payback Period</div>
-                    <div className="text-3xl font-black text-gray-900">{result.paybackMonths.toFixed(1)}</div>
-                    <div className="text-xs text-gray-400">months to break even</div>
-                  </div>
-                  <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
-                    <div className="text-xs font-semibold text-emerald-600 mb-1">3-Year ROI</div>
-                    <div className="text-3xl font-black text-emerald-600">{result.threeYearROI.toFixed(0)}%</div>
-                    <div className="text-xs text-gray-400">return on investment</div>
-                  </div>
-                </div>
-
-                {/* Monthly Breakdown */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm mb-5">
-                  <div className="flex items-center gap-2.5 mb-5">
-                    <DollarSign className="w-5 h-5 text-gray-500" />
-                    <h3 className="text-base font-bold text-gray-900">Monthly Cost Breakdown</h3>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <div className="text-sm font-medium text-gray-700">Current Monthly Cost</div>
-                        <div className="text-xs text-gray-400">Agents + infrastructure</div>
-                      </div>
-                      <span className="text-lg font-bold text-gray-900">{formatCurrency(result.currentMonthlyCost)}</span>
-                    </div>
-                    <div className="border-t border-gray-100" />
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <div className="text-sm font-medium text-gray-700">PARWA Monthly Cost</div>
-                        <div className="text-xs text-gray-400">Plan + reduced agent load</div>
-                      </div>
-                      <span className="text-lg font-bold text-emerald-600">{formatCurrency(result.parwaMonthlyCost)}</span>
-                    </div>
-                    <div className="border-t border-gray-100" />
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <div className="text-sm font-bold text-emerald-700">You Save Monthly</div>
-                      </div>
-                      <span className="text-xl font-black text-emerald-600">{formatCurrency(result.monthlySavings)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CTA */}
-                <div className="rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 p-5 sm:p-6 text-center">
-                  <h3 className="text-base font-bold text-gray-900 mb-2">Ready to start saving?</h3>
-                  <p className="text-sm text-gray-500 mb-4">Get started with PARWA today and see results in weeks, not months.</p>
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <Link href="/pricing" className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-sm font-bold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300">
-                      View Pricing
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
-                    <Link href="/jarvis" className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-gray-200 bg-white text-gray-700 text-sm font-bold hover:border-emerald-300 hover:bg-emerald-50 transition-all duration-300">
-                      Try Jarvis Free
-                      <Sparkles className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Trust Section ── */}
-        <section className="px-4 sm:px-6 lg:px-8 pb-12 sm:pb-16">
-          <div className="max-w-4xl mx-auto">
-            <div className="rounded-2xl bg-gray-900 p-6 sm:p-8 text-center">
-              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-6">
-                {[
-                  { icon: ShieldCheck, text: 'SOC 2 Compliant' },
-                  { icon: Zap, text: 'Setup in 24 Hours' },
-                  { icon: Users, text: '2,400+ Businesses' },
-                  { icon: TrendingUp, text: 'Avg 60% Cost Savings' },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.text} className="flex items-center gap-2 text-gray-300">
-                      <Icon className="w-4 h-4 text-emerald-400" />
-                      <span className="text-sm font-medium">{item.text}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="text-gray-400 text-xs max-w-xl mx-auto">
-                * ROI estimates are based on industry benchmarks and averages. Actual results may vary based on your specific use case, ticket complexity, and implementation. PARWA guarantees measurable improvement within 90 days.
+              <p className="text-center text-[11px] text-gray-600 px-4">
+                * Estimates based on industry benchmarks and typical AI resolution rates. Actual results may vary depending on ticket complexity, implementation, and team utilization. PARWA pricing is current as of 2025.
               </p>
             </div>
-          </div>
-        </section>
+          )}
+
+          {/* ══════════════════════════════════════════════
+              NAVIGATION BUTTONS
+              ══════════════════════════════════════════════ */}
+          {step < 3 && (
+            <div className="flex items-center justify-between mt-8">
+              {step > 1 ? (
+                <button
+                  onClick={handleBack}
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-gray-400 text-sm font-medium hover:border-white/20 hover:text-gray-300 transition-all duration-300"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back
+                </button>
+              ) : (
+                <Link
+                  href="/"
+                  className="flex items-center gap-2 px-5 py-3 text-gray-500 text-sm font-medium hover:text-gray-400 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Home
+                </Link>
+              )}
+
+              <button
+                onClick={handleNext}
+                disabled={!canGoNext}
+                className={`flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                  canGoNext
+                    ? 'bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:-translate-y-0.5'
+                    : 'bg-white/5 text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                {step === 2 ? 'See My Results' : 'Continue'}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="mt-6">
+              <button
+                onClick={() => setStep(1)}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-gray-400 text-sm font-medium hover:border-white/20 hover:text-gray-300 transition-all duration-300 mx-auto"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Start Over
+              </button>
+            </div>
+          )}
+        </div>
       </main>
 
-      {/* Footer */}
-      <footer className="relative bg-[#1A0F08]">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-400/60 to-transparent" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
-                </svg>
-              </div>
-              <span className="text-sm font-bold text-white">PARWA</span>
-            </div>
-            <p className="text-gray-500 text-xs">&copy; 2026 PARWA. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

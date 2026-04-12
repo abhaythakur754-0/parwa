@@ -95,6 +95,7 @@ class ModelConfig:
     context_window: int
     api_endpoint_base: str
     is_openai_compatible: bool
+    max_requests_per_minute: int = 0  # 0 = no per-minute limit
     recommended_for: List[AtomicStepType] = field(default_factory=list)
 
 
@@ -185,15 +186,36 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     ),
 
     # ── MEDIUM Tier (8% of calls) ──
-    "gemini-2.0-flash-lite-google": ModelConfig(
+    # Gemini 3.1 Flash-Lite - Free tier: 500 RPD, 250K TPM, 15 RPM
+    "gemini-3.1-flash-lite-google": ModelConfig(
         provider=ModelProvider.GOOGLE,
-        model_id="gemini-2.0-flash-lite",
-        display_name="Gemini 2.0 Flash Lite (Google)",
+        model_id="gemini-3.1-flash-lite",
+        display_name="Gemini 3.1 Flash-Lite (Google)",
         tier=ModelTier.MEDIUM,
         priority=1,
         max_requests_per_day=500,
         max_tokens_per_minute=250000,
-        context_window=32768,
+        max_requests_per_minute=15,
+        context_window=1048576,  # 1M context window
+        api_endpoint_base="https://generativelanguage.googleapis.com/v1beta/models",
+        is_openai_compatible=False,
+        recommended_for=[
+            AtomicStepType.MAD_ATOM_REASONING,
+            AtomicStepType.DRAFT_RESPONSE_MODERATE,
+            AtomicStepType.DRAFT_RESPONSE_COMPLEX,
+            AtomicStepType.REFLEXION_CYCLE,
+        ],
+    ),
+    # Gemini 2.5 Flash as backup - higher limits
+    "gemini-2.5-flash-google": ModelConfig(
+        provider=ModelProvider.GOOGLE,
+        model_id="gemini-2.5-flash-preview-05-20",
+        display_name="Gemini 2.5 Flash (Google)",
+        tier=ModelTier.MEDIUM,
+        priority=2,
+        max_requests_per_day=1500,
+        max_tokens_per_minute=1000000,  # 1M TPM
+        context_window=1048576,  # 1M context window
         api_endpoint_base="https://generativelanguage.googleapis.com/v1beta/models",
         is_openai_compatible=False,
         recommended_for=[

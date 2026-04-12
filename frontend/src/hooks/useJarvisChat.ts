@@ -233,6 +233,31 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
             localStorage.removeItem('parwa_jarvis_context');
           }
 
+          // Also read parwa_pricing_selection as fallback (set by pricing page)
+          if (!storedContext) {
+            const pricingRaw = localStorage.getItem('parwa_pricing_selection');
+            if (pricingRaw) {
+              try {
+                const pricing = JSON.parse(pricingRaw) as Record<string, unknown>;
+                const contextPatch: Partial<JarvisContext> = {};
+                if (pricing.industry) contextPatch.industry = pricing.industry as string;
+                if (pricing.variants) contextPatch.selected_variants = pricing.variants as VariantSelection[];
+                if (pricing.totalMonthly) contextPatch.total_price = pricing.totalMonthly as number;
+                if (pricing.plan) contextPatch.selected_plan = pricing.plan as string;
+                const hasPatch = Object.keys(contextPatch).length > 0;
+                if (hasPatch) {
+                  await apiFetch<JarvisSession>(
+                    `/context?session_id=${sessionData.id}`,
+                    { method: 'PATCH', body: JSON.stringify(contextPatch) },
+                  );
+                  setSession((prev) => {
+                    if (!prev) return prev;
+                    return { ...prev, context: { ...prev.context, ...contextPatch } };
+                  });
+                }
+              } catch { /* ignore */ }
+            }
+          }
           // Track pages visited for context awareness
           const visitedRaw = localStorage.getItem('parwa_pages_visited');
           const visited: string[] = visitedRaw ? JSON.parse(visitedRaw) : [];
