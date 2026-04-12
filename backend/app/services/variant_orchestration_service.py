@@ -570,6 +570,7 @@ def rebalance_workload(
                 # (GAP 1 fix — non-atomic counters)
                 # Note: total_tickets_handled stays on overloaded instance
                 # since that instance originally handled the ticket (GAP 6)
+                # BC-001: All UPDATEs scoped by company_id
                 db.execute(
                     sa.text(
                         "UPDATE variant_instances SET "
@@ -577,9 +578,9 @@ def rebalance_workload(
                         "WHEN active_tickets_count > 0 "
                         "THEN active_tickets_count - 1 ELSE 0 END, "
                         "updated_at = :now_ts "
-                        "WHERE id = :inst_id"
+                        "WHERE id = :inst_id AND company_id = :comp_id"
                     ),
-                    {"inst_id": over_inst.id, "now_ts": datetime.now(timezone.utc)},
+                    {"inst_id": over_inst.id, "comp_id": company_id, "now_ts": datetime.now(timezone.utc)},
                 )
                 db.execute(
                     sa.text(
@@ -587,9 +588,9 @@ def rebalance_workload(
                         "active_tickets_count = active_tickets_count + 1, "
                         "total_tickets_handled = total_tickets_handled + 1, "
                         "updated_at = :now_ts "
-                        "WHERE id = :inst_id"
+                        "WHERE id = :inst_id AND company_id = :comp_id"
                     ),
-                    {"inst_id": under_inst.id, "now_ts": datetime.now(timezone.utc)},
+                    {"inst_id": under_inst.id, "comp_id": company_id, "now_ts": datetime.now(timezone.utc)},
                 )
                 migrated += 1
 

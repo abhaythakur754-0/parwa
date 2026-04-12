@@ -28,6 +28,49 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+// ── Backend Proxy Configuration ─────────────────────────────────
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
+
+/**
+ * Try to proxy a request to the backend FastAPI server.
+ * Returns the Response on success, or null if backend is unavailable / returned an error.
+ */
+async function proxyToBackend(request: NextRequest, pathSegments: string[]): Promise<Response | null> {
+  if (!BACKEND_URL) return null;
+
+  const backendPath = `${BACKEND_URL}/api/jarvis/${pathSegments.join('/')}`;
+  const url = new URL(request.url);
+  const searchParams = url.searchParams.toString();
+  const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
+
+  try {
+    const body = ['POST', 'PATCH', 'PUT'].includes(request.method)
+      ? await request.arrayBuffer()
+      : undefined;
+
+    const headers = new Headers(request.headers);
+    headers.delete('host');
+
+    const response = await fetch(fullUrl, {
+      method: request.method,
+      headers,
+      body,
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (response.status >= 200 && response.status < 300) {
+      return response;
+    }
+
+    // Backend returned an error — fall back to local handling
+    return null;
+  } catch (err) {
+    // Backend unreachable — fall back to local handling
+    console.warn('[Jarvis] Backend proxy failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 150));
+    return null;
+  }
+}
+
 // ── z-ai-web-dev-sdk — Primary AI Provider ───────────────────────
 
 let ZAI: any = null;
@@ -676,8 +719,8 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
 const BULLET_EMOJIS = ['🤖', '💰', '📡', '🛒', '💻', '🚛', '🏥', '🔒', '🚀', '✅', '🎯', '📊', '⚡', '💡', '🔧', '🔗', '📦', '📈', '⭐', '🎯', '🧠', '💬', '📁', '🔑', '🎉', '✨', '🔔', '💪', '🥊', '🛡️'];
 
 function isEmojiChar(ch: string): boolean {
-  const code = ch.charCodeAt(0);
-  // Cover full emoji range including modern ones (0x1F300 - 0x1FAFF) and common pictographs
+  // Must use codePointAt for emoji (surrogate pairs in JS)
+  const code = ch.codePointAt(0) || 0;
   return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
 }
 
@@ -692,7 +735,7 @@ function forceBulletFormat(text: string): string {
   // Count bullet-formatted lines (lines starting with bullet markers or emojis)
   const bulletCount = nonEmpty.filter(l => {
     const t = l.trim();
-    return /^[\u2022\-*•]\s/.test(t) || /^[0-9]+[.)]\s/.test(t) || isEmojiChar(t.charAt(0));
+    return /^[\u2022\-*•]\s/.test(t) || /^[0-9]+[.)]\s/.test(t) || isEmojiChar(t);
   }).length;
 
   // If 40%+ lines are already bullets, return as-is
@@ -722,7 +765,7 @@ function forceBulletFormat(text: string): string {
     }
 
     // Starts with emoji — keep
-    if (isEmojiChar(trimmed.charAt(0))) {
+    if (isEmojiChar(trimmed)) {
       result.push(trimmed);
       continue;
     }
@@ -1080,6 +1123,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /message — Send Message & Get AI Reply ────────────
     if (endpoint === 'message') {
+      // ── Try backend proxy first (LangGraph 13-stage pipeline + RAG + PostgreSQL) ──
+      const proxyResult = await proxyToBackend(request, path);
+      console.log(`[Jarvis] Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`);
+      if (proxyResult) return proxyResult;
+
+      // ── Local fallback: in-memory handling ──
       const body = await request.json();
       const { content, session_id } = body;
 

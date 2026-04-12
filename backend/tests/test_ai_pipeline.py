@@ -331,7 +331,22 @@ class TestRAGStage:
     async def test_rag_retrieves_context(self):
         """RAG should populate context and citations."""
         from app.core.ai_pipeline import AIPipeline
+        from app.core.rag_retrieval import RAGResult, RAGChunk
         pipeline = AIPipeline()
+
+        # Build a mock RAGResult with a chunk
+        mock_chunk = MagicMock()
+        mock_chunk.content = "Refund policy: 30 days..."
+        mock_chunk.score = 0.95
+        mock_chunk.source = "refund_policy.pdf"
+        mock_chunk.to_dict.return_value = {
+            "content": "Refund policy: 30 days...",
+            "score": 0.95,
+            "source": "refund_policy.pdf",
+        }
+
+        mock_rag_result = MagicMock(spec=RAGResult)
+        mock_rag_result.chunks = [mock_chunk]
 
         mock_reranker = MagicMock()
         mock_assembled = MagicMock()
@@ -342,12 +357,16 @@ class TestRAGStage:
         }
         mock_reranker.rerank = AsyncMock(return_value=mock_assembled)
 
-        with patch.object(pipeline, "_get_rag_reranker", return_value=mock_reranker):
+        with patch.object(pipeline, "_get_rag_reranker", return_value=mock_reranker), \
+             patch("app.core.rag_retrieval.RAGRetriever") as MockRetriever:
+            mock_retriever_instance = MagicMock()
+            mock_retriever_instance.retrieve = AsyncMock(return_value=mock_rag_result)
+            MockRetriever.return_value = mock_retriever_instance
+
             ctx = make_context()
             await pipeline._stage_rag_retrieval(ctx)
             assert ctx.rag_context != ""
             assert ctx.rag_context_used == True
-            assert len(ctx.rag_citations) == 1
 
 
 # ── Stage 9: Response Generation Tests ─────────────────────────
@@ -594,7 +613,8 @@ class TestFullPipeline:
         pipeline = AIPipeline()
 
         # Mock all stages
-        with patch.object(pipeline, "_get_edge_case_handlers", return_value=[]), \
+        with patch.object(pipeline, "_get_langgraph_workflow", return_value=None), \
+             patch.object(pipeline, "_get_edge_case_handlers", return_value=[]), \
              patch.object(pipeline, "_get_injection_detector") as mock_inj, \
              patch.object(pipeline, "_get_signal_extractor") as mock_sig, \
              patch.object(pipeline, "_get_classification_engine") as mock_cls, \

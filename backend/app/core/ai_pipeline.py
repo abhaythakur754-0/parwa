@@ -219,6 +219,7 @@ class AIPipeline:
         self._guardrails_engine = None
         self._confidence_engine = None
         self._brand_voice_svc = None
+        self._langgraph_workflow = None  # Lazy-initialized LangGraphWorkflow instance
 
     # ── Lazy Service Initialization ───────────────────────────
 
@@ -370,13 +371,60 @@ class AIPipeline:
         except ImportError:
             return None
 
+    def _get_langgraph_workflow(self, company_id: str, variant_type: str):
+        """Lazy-initialize a LangGraphWorkflow instance (BC-008).
+
+        Creates a new LangGraphWorkflow with a WorkflowConfig scoped
+        to the given company_id and variant_type. The import is
+        deferred so that a missing ``langgraph`` package never
+        prevents the pipeline from starting up.
+
+        Returns:
+            A LangGraphWorkflow instance, or ``None`` if the import
+            or instantiation fails.
+        """
+        try:
+            from app.core.langgraph_workflow import LangGraphWorkflow, WorkflowConfig
+            config = WorkflowConfig(
+                company_id=company_id,
+                variant_type=variant_type,
+            )
+            workflow = LangGraphWorkflow(config=config)
+            logger.info(
+                "LangGraphWorkflow initialized: company_id=%s, variant=%s",
+                company_id, variant_type,
+            )
+            return workflow
+        except ImportError as exc:
+            logger.debug(
+                "LangGraphWorkflow not available (import failed): %s", exc,
+            )
+            return None
+        except Exception as exc:
+            logger.warning(
+                "LangGraphWorkflow init failed (BC-008 fallback): %s", exc,
+            )
+            return None
+
     # ── Main Pipeline Entry Point ─────────────────────────────
 
     async def process(self, ctx: PipelineContext) -> PipelineResult:
         """Run the full AI processing pipeline.
 
-        Executes 13 stages sequentially. Each stage has its own
-        error handling — failures degrade gracefully (BC-012).
+        Execution flow:
+            1. Stages 1-5 (Edge Case, Injection, Signal, Classification,
+               Sentiment) — always run these first for safety & context.
+            2. Try LangGraphWorkflow for stages classify → extract_signals →
+               technique_select → generate → quality_gate.
+            3. If LangGraph succeeds with a final_response, use it and skip
+               to stages 10-13 (CLARA, Guardrails, Confidence, Brand Voice).
+            4. If LangGraph fails or returns empty, fall back to the existing
+               sequential stages 6-9 (Smart Router, Technique Router, RAG,
+               Response Generation).
+            5. Stages 10-13 always run on whatever response is produced.
+
+        BC-008: Every new code path is wrapped in try/except; the
+        pipeline never crashes.
 
         Args:
             ctx: PipelineContext with input fields populated.
@@ -389,6 +437,8 @@ class AIPipeline:
             "AI Pipeline started: company_id=%s, variant=%s, query=%s",
             ctx.company_id, ctx.variant_type, ctx.query[:80],
         )
+
+        # ── Stages 1-5: Always run first (safety & context) ──────
 
         # Stage 1: Edge Case Detection
         await self._run_stage("edge_case", ctx, self._stage_edge_case)
@@ -413,15 +463,108 @@ class AIPipeline:
             self._run_stage("sentiment", ctx, self._stage_sentiment),
         )
 
-        # Stage 6-7: Routing (model + technique)
-        self._run_stage_sync("smart_router", ctx, self._stage_smart_router)
-        self._run_stage_sync("technique_router", ctx, self._stage_technique_router)
+        # ── Stages 6-9: Try LangGraph, fallback to sequential ───
 
-        # Stage 8: RAG Retrieval
-        await self._run_stage("rag_retrieval", ctx, self._stage_rag_retrieval)
+        langgraph_used = False
 
-        # Stage 9: Response Generation
-        await self._run_stage("response_generation", ctx, self._stage_response_generation)
+        try:
+            logger.info(
+                "Attempting LangGraphWorkflow execution: company_id=%s, variant=%s",
+                ctx.company_id, ctx.variant_type,
+            )
+            lg_workflow = self._get_langgraph_workflow(
+                company_id=ctx.company_id,
+                variant_type=ctx.variant_type,
+            )
+
+            if lg_workflow is not None:
+                lg_start = time.time()
+                lg_result = await asyncio.wait_for(
+                    lg_workflow.execute(
+                        company_id=ctx.company_id,
+                        query=ctx.query,
+                        conversation_history=ctx.conversation_history,
+                        customer_metadata=ctx.customer_metadata,
+                    ),
+                    timeout=35.0,  # BC-012: overall LangGraph timeout
+                )
+                lg_elapsed = (time.time() - lg_start) * 1000
+
+                if (
+                    lg_result
+                    and lg_result.status == "success"
+                    and lg_result.final_response
+                    and lg_result.final_response.strip()
+                ):
+                    # LangGraph produced a valid response — use it
+                    ctx.response_text = lg_result.final_response
+                    ctx.raw_response = lg_result.final_response
+                    ctx.generation_time_ms = lg_result.total_duration_ms
+                    ctx.tokens_used = lg_result.total_tokens_used
+                    langgraph_used = True
+                    ctx.stages_completed.append("langgraph_workflow")
+
+                    # Surface LangGraph step results as metadata
+                    lg_step_summary = [
+                        sid for sid in lg_result.steps_completed
+                    ]
+                    logger.info(
+                        "LangGraphWorkflow succeeded: company_id=%s, "
+                        "variant=%s, status=%s, steps=%s, "
+                        "tokens=%d, duration_ms=%.1f",
+                        ctx.company_id, ctx.variant_type,
+                        lg_result.status, lg_step_summary,
+                        lg_result.total_tokens_used, lg_elapsed,
+                    )
+                else:
+                    # LangGraph returned but without a usable response
+                    logger.warning(
+                        "LangGraphWorkflow returned empty/failed result: "
+                        "company_id=%s, variant=%s, status=%s, "
+                        "final_response_len=%d — falling back to sequential pipeline",
+                        ctx.company_id, ctx.variant_type,
+                        lg_result.status if lg_result else "None",
+                        len(lg_result.final_response) if lg_result else 0,
+                    )
+            else:
+                logger.info(
+                    "LangGraphWorkflow not available for company_id=%s, "
+                    "variant=%s — using sequential pipeline",
+                    ctx.company_id, ctx.variant_type,
+                )
+
+        except asyncio.TimeoutError:
+            logger.warning(
+                "LangGraphWorkflow timed out for company_id=%s, "
+                "variant=%s — falling back to sequential pipeline",
+                ctx.company_id, ctx.variant_type,
+            )
+        except Exception as exc:
+            # BC-008: Never crash — log and fall back
+            logger.warning(
+                "LangGraphWorkflow execution failed (BC-008 fallback): "
+                "company_id=%s, variant=%s, error=%s",
+                ctx.company_id, ctx.variant_type, exc,
+            )
+
+        if not langgraph_used:
+            # ── Sequential fallback: Stages 6-9 ─────────────────
+            logger.info(
+                "Running sequential pipeline stages 6-9: company_id=%s",
+                ctx.company_id,
+            )
+
+            # Stage 6-7: Routing (model + technique)
+            self._run_stage_sync("smart_router", ctx, self._stage_smart_router)
+            self._run_stage_sync("technique_router", ctx, self._stage_technique_router)
+
+            # Stage 8: RAG Retrieval
+            await self._run_stage("rag_retrieval", ctx, self._stage_rag_retrieval)
+
+            # Stage 9: Response Generation
+            await self._run_stage("response_generation", ctx, self._stage_response_generation)
+
+        # ── Stages 10-13: Always run (quality & safety) ──────────
 
         # Stage 10: CLARA Quality Gate
         await self._run_stage("clara_quality", ctx, self._stage_clara_quality)
@@ -450,6 +593,14 @@ class AIPipeline:
 
         # Set final response
         ctx.final_response = ctx.response_text or ctx.raw_response or self._get_safe_fallback_response(ctx)
+
+        logger.info(
+            "AI Pipeline completed: company_id=%s, langgraph_used=%s, "
+            "stages_completed=%s, stages_failed=%s, duration_ms=%.1f",
+            ctx.company_id, langgraph_used,
+            ctx.stages_completed, ctx.stages_failed,
+            ctx.pipeline_time_ms,
+        )
 
         return self._build_result(ctx, start_time)
 
@@ -692,23 +843,17 @@ class AIPipeline:
         """Retrieve relevant knowledge base chunks and rerank."""
         try:
             from app.core.rag_retrieval import RAGRetriever
-            from app.services.embedding_service import EmbeddingService
 
-            # Step 1: Generate query embedding
-            embed_svc = EmbeddingService()
-            query_embedding = await embed_svc.generate_embedding(ctx.query)
-
-            if not query_embedding:
-                logger.warning("RAG: Failed to generate query embedding")
-                return
-
-            # Step 2: Retrieve relevant chunks
-            retriever = RAGRetriever(company_id=ctx.company_id, variant_type=ctx.variant_type)
-            chunks = await retriever.retrieve(
+            # Retrieve relevant chunks (RAGRetriever handles embedding internally)
+            retriever = RAGRetriever()
+            rag_result = await retriever.retrieve(
                 query=ctx.query,
-                query_embedding=query_embedding,
+                company_id=ctx.company_id,
+                variant_type=ctx.variant_type,
                 top_k=5,
             )
+
+            chunks = rag_result.chunks if hasattr(rag_result, 'chunks') else rag_result
 
             if chunks:
                 rag_list = []

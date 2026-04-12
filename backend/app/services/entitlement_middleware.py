@@ -510,6 +510,19 @@ def create_instance_override(
             status_code=400,
         )
 
+    # Verify instance belongs to this company (BC-001)
+    from database.models.variant_engine import VariantInstance
+    instance = db.query(VariantInstance).filter(
+        VariantInstance.id == instance_id,
+        VariantInstance.company_id == company_id,
+    ).first()
+    if not instance:
+        raise ParwaBaseError(
+            status_code=404,
+            error_code="INSTANCE_NOT_FOUND",
+            detail="Instance not found",
+        )
+
     # Check if override already exists
     existing = db.query(VariantAICapability).filter_by(
         company_id=company_id,
@@ -598,6 +611,19 @@ def remove_instance_override(
             message="instance_id is required and cannot be empty",
             error_code="INVALID_INSTANCE_ID",
             status_code=400,
+        )
+
+    # Verify instance belongs to this company (BC-001)
+    from database.models.variant_engine import VariantInstance
+    instance = db.query(VariantInstance).filter(
+        VariantInstance.id == instance_id,
+        VariantInstance.company_id == company_id,
+    ).first()
+    if not instance:
+        raise ParwaBaseError(
+            status_code=404,
+            error_code="INSTANCE_NOT_FOUND",
+            detail="Instance not found",
         )
 
     override = db.query(VariantAICapability).filter_by(

@@ -60,7 +60,7 @@ class VariantAICapability(Base):
 
     instance_id = Column(
         String(36),
-        ForeignKey("variant_instances.id"),
+        ForeignKey("variant_instances.id", ondelete="CASCADE"),
         nullable=True,
     )
     # NULL = applies to all instances of this variant type
@@ -254,13 +254,12 @@ class VariantWorkloadDistribution(Base):
 class AIAgentAssignment(Base):
     """
     Tracks which build agent owns which features.
-    Global table (no company_id — this is for dev process).
+    Per-company agent assignments (BC-001).
     """
 
     __tablename__ = "ai_agent_assignments"
 
-    # Global table — no company_id column (for dev process)
-    company_id = None  # Explicitly None so tests asserting .company_id is None pass
+    company_id = Column(String(36), ForeignKey("companies.id"), nullable=False, index=True)
 
     id = Column(String(36), primary_key=True, default=_uuid)
     agent_name = Column(String(100), nullable=False)
@@ -305,7 +304,7 @@ class TechniqueCache(Base):
     )
     instance_id = Column(
         String(36),
-        ForeignKey("variant_instances.id"),
+        ForeignKey("variant_instances.id", ondelete="CASCADE"),
         nullable=True, index=True,
     )
     technique_id = Column(
@@ -361,7 +360,7 @@ class AITokenBudget(Base):
     )
     instance_id = Column(
         String(36),
-        ForeignKey("variant_instances.id"),
+        ForeignKey("variant_instances.id", ondelete="CASCADE"),
         nullable=True, index=True,
     )
 
@@ -422,7 +421,7 @@ class PromptInjectionAttempt(Base):
     )
     instance_id = Column(
         String(36),
-        ForeignKey("variant_instances.id"),
+        ForeignKey("variant_instances.id", ondelete="CASCADE"),
         nullable=True, index=True,
     )
 
@@ -485,7 +484,7 @@ class AIPerformanceVariantMetric(Base):
     )
     instance_id = Column(
         String(36),
-        ForeignKey("variant_instances.id"),
+        ForeignKey("variant_instances.id", ondelete="CASCADE"),
         nullable=True, index=True,
     )
 
@@ -541,7 +540,7 @@ class PipelineStateSnapshot(Base):
     )
     instance_id = Column(
         String(36),
-        ForeignKey("variant_instances.id"),
+        ForeignKey("variant_instances.id", ondelete="CASCADE"),
         nullable=True, index=True,
     )
     ticket_id = Column(

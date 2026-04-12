@@ -801,13 +801,21 @@ def batch_update_capabilities(
         "instance_id": str | None
       }
 
-    Returns {"updated": int, "skipped": int, "errors": int}.
+    Gap 7: Returns detailed partial-success info including
+    per-item error messages for debugging.
+
+    Returns {
+        "updated": int,
+        "skipped": int,
+        "errors": int,
+        "error_details": [{"index": int, "reason": str, "input": dict}]
+    }.
     """
     _validate_company_id(company_id)
 
-    result = {"updated": 0, "skipped": 0, "errors": 0}
+    result = {"updated": 0, "skipped": 0, "errors": 0, "error_details": []}
 
-    for upd in updates:
+    for idx, upd in enumerate(updates):
         fid = upd.get("feature_id")
         vt = upd.get("variant_type")
         ie = upd.get("instance_id")
@@ -815,12 +823,26 @@ def batch_update_capabilities(
 
         if not fid or not vt or en is None:
             result["errors"] += 1
+            result["error_details"].append({
+                "index": idx,
+                "reason": (
+                    "Missing required fields: "
+                    f"feature_id={fid!r}, variant_type={vt!r}, "
+                    f"is_enabled={en!r}"
+                ),
+                "input": upd,
+            })
             continue
 
         try:
             _validate_variant_type(vt)
-        except ParwaBaseError:
+        except ParwaBaseError as e:
             result["errors"] += 1
+            result["error_details"].append({
+                "index": idx,
+                "reason": e.message,
+                "input": upd,
+            })
             continue
 
         try:
@@ -844,10 +866,15 @@ def batch_update_capabilities(
             cap.is_enabled = en
             cap.updated_at = datetime.now(timezone.utc)  # GAP 4 fix
             result["updated"] += 1
-        except Exception:
+        except Exception as exc:
             # Individual item failure should not break
             # the entire batch (BC-008 graceful degradation)
             result["errors"] += 1
+            result["error_details"].append({
+                "index": idx,
+                "reason": str(exc),
+                "input": upd,
+            })
             continue
 
     if result["updated"] > 0:

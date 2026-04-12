@@ -106,6 +106,21 @@ def generate_embedding_sync(
         return None
 
 
+def _deterministic_pseudo_embedding(text: str, dim: int = EMBEDDING_DIMENSION) -> List[float]:
+    """Generate a deterministic pseudo-embedding using SHA-256 hash.
+    
+    Last-resort fallback when all embedding APIs are unavailable (BC-008).
+    NOT real embeddings — should only be used when no API keys are configured.
+    """
+    import hashlib
+    h = hashlib.sha256(text.encode("utf-8")).digest()
+    result = []
+    for i in range(dim):
+        byte_idx = i % len(h)
+        result.append((h[byte_idx] / 255.0) - 0.5)
+    return result
+
+
 # ── Embedding Service Class ───────────────────────────────────────────
 
 
@@ -164,24 +179,15 @@ class EmbeddingService:
     def generate_embedding(self, text: str) -> Optional[List[float]]:
         """Generate an embedding for a single text string.
 
-        Uses Google AI Studio text-embedding-004 model.
-        Returns None on any failure (BC-008).
+        Uses Google AI Studio text-embedding-004 model with fallback chain:
+        Google → LiteLLM → deterministic pseudo-embedding (BC-008).
 
         Args:
             text: Text to embed.
 
         Returns:
-            Embedding vector or None.
+            Embedding vector (never None — pseudo-embedding as last resort).
         """
-        api_key = self._get_api_key()
-        if not api_key:
-            logger.warning(
-                "EmbeddingService.generate_embedding: GOOGLE_AI_API_KEY not set "
-                "(company_id=%s)",
-                self.company_id,
-            )
-            return None
-
         if not text or not text.strip():
             logger.warning(
                 "EmbeddingService.generate_embedding: empty text "
@@ -190,70 +196,91 @@ class EmbeddingService:
             )
             return None
 
-        try:
-            response = httpx.post(
-                _GOOGLE_EMBED_ENDPOINT,
-                headers={
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": api_key,
-                },
-                json={
-                    "model": f"models/{self.model_name}",
-                    "content": {"parts": [{"text": text}]},
-                },
-                timeout=float(self.timeout_seconds),
-            )
+        # ── Primary: Google AI Studio ─────────────────────────────
+        api_key = self._get_api_key()
+        if api_key:
+            try:
+                response = httpx.post(
+                    _GOOGLE_EMBED_ENDPOINT,
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": api_key,
+                    },
+                    json={
+                        "model": f"models/{self.model_name}",
+                        "content": {"parts": [{"text": text}]},
+                    },
+                    timeout=float(self.timeout_seconds),
+                )
 
-            if response.status_code == 200:
-                values = response.json().get("embedding", {}).get("values")
-                if values:
-                    logger.debug(
-                        "EmbeddingService.generate_embedding: success, "
-                        "company_id=%s, dim=%d",
+                if response.status_code == 200:
+                    values = response.json().get("embedding", {}).get("values")
+                    if values:
+                        logger.debug(
+                            "EmbeddingService.generate_embedding: success, "
+                            "company_id=%s, dim=%d",
+                            self.company_id,
+                            len(values),
+                        )
+                        return values
+                    logger.error(
+                        "EmbeddingService.generate_embedding: response missing "
+                        "embedding values (company_id=%s)",
                         self.company_id,
-                        len(values),
                     )
-                    return values
+                else:
+                    logger.error(
+                        "EmbeddingService.generate_embedding: API returned status %d: %s "
+                        "(company_id=%s)",
+                        response.status_code,
+                        response.text[:200],
+                        self.company_id,
+                    )
+            except httpx.TimeoutException:
                 logger.error(
-                    "EmbeddingService.generate_embedding: response missing "
-                    "embedding values (company_id=%s)",
+                    "EmbeddingService.generate_embedding: request timed out "
+                    "(company_id=%s, timeout=%ds)",
+                    self.company_id,
+                    self.timeout_seconds,
+                )
+            except httpx.HTTPError as exc:
+                logger.error(
+                    "EmbeddingService.generate_embedding: HTTP error: %s "
+                    "(company_id=%s)",
+                    str(exc),
                     self.company_id,
                 )
-                return None
+            except Exception as exc:
+                logger.error(
+                    "EmbeddingService.generate_embedding: unexpected error: %s "
+                    "(company_id=%s)",
+                    str(exc),
+                    self.company_id,
+                )
+        else:
+            logger.warning(
+                "EmbeddingService.generate_embedding: GOOGLE_AI_API_KEY not set "
+                "(company_id=%s)",
+                self.company_id,
+            )
 
-            logger.error(
-                "EmbeddingService.generate_embedding: API returned status %d: %s "
-                "(company_id=%s)",
-                response.status_code,
-                response.text[:200],
-                self.company_id,
-            )
-            return None
+        # LiteLLM fallback
+        try:
+            import litellm
+            response = litellm.embedding(model="text-embedding-3-small", input=[text])
+            values = response.data[0]["embedding"]
+            if values:
+                logger.info("EmbeddingService: used LiteLLM fallback (company_id=%s)", self.company_id)
+                return values
+        except Exception as litellm_exc:
+            logger.warning("EmbeddingService: LiteLLM fallback failed: %s", str(litellm_exc))
 
-        except httpx.TimeoutException:
-            logger.error(
-                "EmbeddingService.generate_embedding: request timed out "
-                "(company_id=%s, timeout=%ds)",
-                self.company_id,
-                self.timeout_seconds,
-            )
-            return None
-        except httpx.HTTPError as exc:
-            logger.error(
-                "EmbeddingService.generate_embedding: HTTP error: %s "
-                "(company_id=%s)",
-                str(exc),
-                self.company_id,
-            )
-            return None
-        except Exception as exc:
-            logger.error(
-                "EmbeddingService.generate_embedding: unexpected error: %s "
-                "(company_id=%s)",
-                str(exc),
-                self.company_id,
-            )
-            return None
+        # Deterministic pseudo-embedding (last resort)
+        logger.warning(
+            "EmbeddingService: All embedding APIs unavailable, using pseudo-embedding (company_id=%s)",
+            self.company_id,
+        )
+        return _deterministic_pseudo_embedding(text)
 
     # ── Batch Embedding ───────────────────────────────────────────
 
@@ -292,7 +319,9 @@ class EmbeddingService:
                 "not set (company_id=%s)",
                 self.company_id,
             )
-            return [None] * len(texts)
+            # Fall back to per-item embedding
+            logger.info("EmbeddingService: batch failed, falling back to per-item (company_id=%s)", self.company_id)
+            return [self.generate_embedding(t) for t in texts]
 
         # Build batch request
         requests_body = []
@@ -343,7 +372,9 @@ class EmbeddingService:
                 response.text[:200],
                 self.company_id,
             )
-            return [None] * len(texts)
+            # Fall back to per-item embedding
+            logger.info("EmbeddingService: batch failed, falling back to per-item (company_id=%s)", self.company_id)
+            return [self.generate_embedding(t) for t in texts]
 
         except httpx.TimeoutException:
             logger.error(
@@ -351,7 +382,9 @@ class EmbeddingService:
                 "(company_id=%s)",
                 self.company_id,
             )
-            return [None] * len(texts)
+            # Fall back to per-item embedding
+            logger.info("EmbeddingService: batch failed, falling back to per-item (company_id=%s)", self.company_id)
+            return [self.generate_embedding(t) for t in texts]
         except httpx.HTTPError as exc:
             logger.error(
                 "EmbeddingService.generate_embeddings_batch: HTTP error: %s "
@@ -359,7 +392,9 @@ class EmbeddingService:
                 str(exc),
                 self.company_id,
             )
-            return [None] * len(texts)
+            # Fall back to per-item embedding
+            logger.info("EmbeddingService: batch failed, falling back to per-item (company_id=%s)", self.company_id)
+            return [self.generate_embedding(t) for t in texts]
         except Exception as exc:
             logger.error(
                 "EmbeddingService.generate_embeddings_batch: unexpected error: "
@@ -367,4 +402,6 @@ class EmbeddingService:
                 str(exc),
                 self.company_id,
             )
-            return [None] * len(texts)
+            # Fall back to per-item embedding
+            logger.info("EmbeddingService: batch failed, falling back to per-item (company_id=%s)", self.company_id)
+            return [self.generate_embedding(t) for t in texts]
