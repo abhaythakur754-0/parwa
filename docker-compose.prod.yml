@@ -200,15 +200,18 @@ services:
     build:
       context: .
       dockerfile: infra/docker/frontend.prod.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://parwa.ai}
+        NEXT_PUBLIC_PADDLE_KEY: ${NEXT_PUBLIC_PADDLE_KEY:-}
     image: parwa/frontend:${VERSION:-latest}
     container_name: parwa_prod_frontend
     restart: always
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=https://api.parwa.ai
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://parwa.ai}
       - NEXT_PUBLIC_ENV=production
-      - NEXT_PUBLIC_PADDLE_KEY=${NEXT_PUBLIC_PADDLE_KEY}
+      - NEXT_PUBLIC_PADDLE_KEY=${NEXT_PUBLIC_PADDLE_KEY:-}
     env_file:
       - .env.prod
     healthcheck:
@@ -279,8 +282,10 @@ services:
     container_name: parwa_prod_grafana
     restart: always
     user: "472:472"  # grafana user (non-root)
-    ports:
-      - "3001:3000"
+    # Grafana accessible via nginx /grafana/ or monitoring.parwa.ai
+    # Port NOT exposed to internet for security
+    # ports:
+    #   - "3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro

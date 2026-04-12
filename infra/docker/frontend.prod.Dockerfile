@@ -4,6 +4,9 @@
 #
 # NOTE: docker-compose.prod.yml sets context: . (project root)
 # So all COPY paths use frontend/ prefix
+#
+# IMPORTANT: NEXT_PUBLIC_* vars are baked in at BUILD TIME, not runtime.
+# Pass them as build args via docker-compose or docker build --build-arg
 # ════════════════════════════════════════════════════════════════
 
 # ──────────────────────────────────────────────────────────────
@@ -35,9 +38,18 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy frontend source (context is project root)
 COPY frontend/ ./
 
+# Build arguments — these are BAKED INTO the build
+# NOT available at runtime in the container
+ARG NEXT_PUBLIC_API_URL=https://parwa.ai
+ARG NEXT_PUBLIC_PADDLE_KEY=
+ARG NEXT_PUBLIC_ENV=production
+
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_PADDLE_KEY=${NEXT_PUBLIC_PADDLE_KEY}
+ENV NEXT_PUBLIC_ENV=${NEXT_PUBLIC_ENV}
 
 # Build the Next.js application
 RUN npm run build 2>/dev/null || \
