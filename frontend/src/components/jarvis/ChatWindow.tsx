@@ -90,7 +90,7 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
                 Hey there! 👋
               </h3>
               <p className="text-sm text-white/30 max-w-xs leading-relaxed">
-                I'm Jarvis, your AI assistant from PARWA. I'll help you find the perfect AI agents for your business. What brings you here today?
+                I&apos;m Jarvis, your AI assistant from PARWA. I&apos;ll help you find the perfect AI agents for your business. What brings you here today?
               </p>
 
               {/* Quick-start suggestions */}

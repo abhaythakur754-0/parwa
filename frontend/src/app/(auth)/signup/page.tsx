@@ -138,7 +138,7 @@ export default function SignupPage() {
           <div className="w-16 h-16 mx-auto rounded-full bg-orange-500/15 border border-orange-500/25 flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">You're already signed in! 👋</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">You&apos;re already signed in! 👋</h1>
           <p className="text-sm text-orange-200/50 mb-6">Looks like you already have an account. No need to sign up again.</p>
           <div className="flex flex-col gap-3 max-w-xs mx-auto">
             <Link href="/models" className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 shadow-lg shadow-orange-600/25">Go to Dashboard →</Link>

@@ -1,14 +1,10 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
   allowedDevOrigins: ["*.space.z.ai"],
-  turbopack: {
-    root: ".",
-  },
 };
 
 export default nextConfig;
