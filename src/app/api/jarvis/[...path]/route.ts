@@ -28,6 +28,49 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+// ── Backend Proxy Configuration ─────────────────────────────────
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
+
+/**
+ * Try to proxy a request to the backend FastAPI server.
+ * Returns the Response on success, or null if backend is unavailable / returned an error.
+ */
+async function proxyToBackend(request: NextRequest, pathSegments: string[]): Promise<Response | null> {
+  if (!BACKEND_URL) return null;
+
+  const backendPath = `${BACKEND_URL}/api/jarvis/${pathSegments.join('/')}`;
+  const url = new URL(request.url);
+  const searchParams = url.searchParams.toString();
+  const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
+
+  try {
+    const body = ['POST', 'PATCH', 'PUT'].includes(request.method)
+      ? await request.arrayBuffer()
+      : undefined;
+
+    const headers = new Headers(request.headers);
+    headers.delete('host');
+
+    const response = await fetch(fullUrl, {
+      method: request.method,
+      headers,
+      body,
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (response.status >= 200 && response.status < 300) {
+      return response;
+    }
+
+    // Backend returned an error — fall back to local handling
+    return null;
+  } catch (err) {
+    // Backend unreachable — fall back to local handling
+    console.warn('[Jarvis] Backend proxy failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 150));
+    return null;
+  }
+}
+
 // ── z-ai-web-dev-sdk — Primary AI Provider ───────────────────────
 
 let ZAI: any = null;
@@ -70,15 +113,20 @@ async function callZAISDK(messages: Array<{role: string, content: string}>): Pro
   }
 }
 
+// ── Free AI Provider Configuration (Fallback) ────────────────────
+
+const GOOGLE_AI_KEY = process.env.GOOGLE_AI_API_KEY;
+const CEREBRAS_KEY = process.env.CEREBRAS_API_KEY;
+const GROQ_KEY = process.env.GROQ_API_KEY;
+
 // ── Free AI Providers ──────────────────────────────────────────
 
 function getGoogleProvider(): any {
-  const key = process.env.GOOGLE_AI_API_KEY;
   return {
     name: 'google',
-    apiKey: key,
-    model: 'gemini-3.1-flash-lite',
-    apiUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${key}`,
+    apiKey: GOOGLE_AI_KEY,
+    model: 'gemini-2.0-flash',
+    apiUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_KEY}`,
     buildHeaders: () => ({ 'Content-Type': 'application/json' }),
     buildBody: (messages: any[]) => {
       const systemMsg = messages.find(m => m.role === 'system');
@@ -100,11 +148,10 @@ function getGoogleProvider(): any {
 }
 
 function getCerebrasProvider(): any {
-  const key = process.env.CEREBRAS_API_KEY;
   return {
     name: 'cerebras',
-    apiKey: key,
-    model: 'llama3.1-8b',
+    apiKey: CEREBRAS_KEY,
+    model: 'llama-4-scout-17b-16e-instruct',
     apiUrl: 'https://api.cerebras.ai/v1/chat/completions',
     buildHeaders: (key: string) => ({
       'Content-Type': 'application/json',
@@ -123,10 +170,9 @@ function getCerebrasProvider(): any {
 }
 
 function getGroqProvider(): any {
-  const key = process.env.GROQ_API_KEY;
   return {
     name: 'groq',
-    apiKey: key,
+    apiKey: GROQ_KEY,
     model: 'llama-3.3-70b-versatile',
     apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
     buildHeaders: (key: string) => ({
@@ -147,9 +193,9 @@ function getGroqProvider(): any {
 
 function getProvider(name: string): any | null {
   switch (name) {
-    case 'google': return process.env.GOOGLE_AI_API_KEY ? getGoogleProvider() : null;
-    case 'cerebras': return process.env.CEREBRAS_API_KEY ? getCerebrasProvider() : null;
-    case 'groq': return process.env.GROQ_API_KEY ? getGroqProvider() : null;
+    case 'google': return GOOGLE_AI_KEY ? getGoogleProvider() : null;
+    case 'cerebras': return CEREBRAS_KEY ? getCerebrasProvider() : null;
+    case 'groq': return GROQ_KEY ? getGroqProvider() : null;
     default: return null;
   }
 }
@@ -290,7 +336,7 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
 `;
   }
 
-  // Dynamic context
+  // Dynamic context — ALL user journey data for full awareness
   const contextLines = [
     selectedIndustry ? `Industry: ${String(selectedIndustry)}` : '',
     ctx.referral_source ? `Referred by: ${ctx.referral_source}` : '',
@@ -299,6 +345,13 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
     entrySourceParam === 'models_page' && !selectedVariant ? `Came from models page, was browsing plans` : '',
     entrySource === 'roi' ? `Came from ROI calculator — interested in cost savings` : '',
     ctx.concerns_raised?.length > 0 ? `Concerns raised: ${ctx.concerns_raised.join(', ')}. Address these naturally.` : '',
+    // Critical missing fields that broke context awareness
+    ctx.roi_result ? `ROI: user calculated savings — current=$${ctx.roi_result.current_monthly || 'N/A'}, parwa=$${ctx.roi_result.parwa_monthly || 'N/A'}, savings=$${ctx.roi_result.savings_annual || ctx.roi_result.monthly_savings || 'N/A'}` : '',
+    ctx.total_price ? `Total monthly price: $${ctx.total_price}` : '',
+    ctx.selected_variants?.length > 0 ? `Variants selected: ${Array.isArray(ctx.selected_variants) ? ctx.selected_variants.map((v: any) => typeof v === 'string' ? v : `${v.name || v.id} ($${v.pricePerMonth || v.price || 0}/mo)`).join(', ') : String(ctx.selected_variants)}` : '',
+    ctx.business_email ? `Business email: ${ctx.business_email} (verified: ${ctx.email_verified})` : '',
+    ctx.demo_topics?.length > 0 ? `Topics interested in: ${ctx.demo_topics.join(', ')}` : '',
+    ctx.selected_plan ? `Plan interest: ${ctx.selected_plan}` : '',
   ].filter(Boolean).join('\n');
 
   // ── Recent conversation memory ──
@@ -1077,8 +1130,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /message — Send Message & Get AI Reply ────────────
     if (endpoint === 'message') {
+      // ── Try backend proxy first (LangGraph 13-stage pipeline + RAG + PostgreSQL) ──
+      const proxyResult = await proxyToBackend(request, path);
+      console.log(`[Jarvis] Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`);
+      if (proxyResult) return proxyResult;
+
+      // ── Local fallback: in-memory handling ──
       const body = await request.json();
-      const { content, session_id } = body;
+      const { content, session_id, context: incomingContext } = body;
 
       let session = session_id ? sessions.get(session_id) : undefined;
       if (!session) {
@@ -1086,8 +1145,37 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         sessions.set(session.id, session);
       }
 
+      // ── Merge incoming context from frontend BEFORE building AI response ──
+      // This is how Jarvis "knows" what the user did on other pages (ROI, models, etc.)
+      if (incomingContext && typeof incomingContext === 'object') {
+        for (const [key, value] of Object.entries(incomingContext)) {
+          if (value !== null && value !== undefined) {
+            session.context[key] = value;
+          }
+        }
+        session.updated_at = new Date().toISOString();
+        sessions.set(session.id, session);
+      }
+
       if (!content || typeof content !== 'string') {
         return NextResponse.json({ error: { code: 'bad_request', message: 'Message content is required', details: null } }, { status: 400 });
+      }
+
+      // Auto-extract demo_topics and concerns from user message
+      const lower = content.toLowerCase();
+      const topicKeywords = { pricing: ['price', 'pricing', 'plan', 'cost', 'how much'], features: ['feature', 'capability', 'what can'], demo: ['demo', 'try', 'show me', 'test'], roi: ['roi', 'savings', 'save', 'return'], integrations: ['integration', 'connect', 'shopify', 'slack'] };
+      for (const [topic, keywords] of Object.entries(topicKeywords)) {
+        if (keywords.some(kw => lower.includes(kw)) && !(session.context.demo_topics || []).includes(topic)) {
+          if (!session.context.demo_topics) session.context.demo_topics = [];
+          session.context.demo_topics.push(topic);
+        }
+      }
+      const concernKeywords = { expensive: ['expensive', 'too much', 'costly', 'overpriced'], quality: ['wrong answer', 'dumb', 'mistake', 'inaccurate'], security: ['data breach', 'hack', 'privacy', 'unsafe'], setup: ['how long', 'setup time', 'complicated'] };
+      for (const [concern, keywords] of Object.entries(concernKeywords)) {
+        if (keywords.some(kw => lower.includes(kw)) && !(session.context.concerns_raised || []).includes(concern)) {
+          if (!session.context.concerns_raised) session.context.concerns_raised = [];
+          session.context.concerns_raised.push(concern);
+        }
       }
 
       const userMsg = {
