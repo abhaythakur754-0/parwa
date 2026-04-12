@@ -3,9 +3,9 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Calculator, TrendingUp, TrendingDown, DollarSign,
-  Users, Clock, Headphones, BarChart3, Zap, ArrowRight, Check,
-  ChevronDown, Info, Sparkles, Target, ShieldCheck
+  ArrowLeft, Calculator, TrendingUp, DollarSign,
+  Users, Clock, Headphones, BarChart3, Zap, ArrowRight,
+  ChevronDown, Sparkles, Target, ShieldCheck
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────────

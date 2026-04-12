@@ -51,7 +51,6 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
   const navLinks = [
     { name: 'Home', href: '/' },
     { name: 'Models', href: '/models' },
-    { name: 'Pricing', href: '/pricing' },
     { name: 'ROI Calculator', href: '/roi-calculator' },
     { name: 'Try Jarvis', href: '/jarvis' },
   ];
@@ -128,16 +127,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
             </div>
             {isAuthenticated && user ? (
               <>
-                <Link
-                  href="/onboarding"
-                  onClick={onOpenJarvis}
-                  className="bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-500 shadow-lg shadow-orange-600/30 hover:shadow-orange-600/50 hover:-translate-y-0.5 focus-visible-ring"
-                >
-                  Open Jarvis
-                </Link>
-                {/* User Menu with greeting */}
                 <UserMenu />
-              </>
             ) : (
               <Link
                 href="/signup"
@@ -212,21 +202,11 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
               {isAuthenticated && user ? (
                 <>
                   <Link
-                    href="/onboarding"
-                    className={`mt-3 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] px-5 py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-500 focus-visible-ring ${
-                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
-                    }`}
-                    style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Open Jarvis
-                  </Link>
-                  <Link
                     href="/profile"
                     className={`px-4 py-3.5 text-orange-200/60 hover:text-white text-sm font-medium rounded-xl hover:bg-orange-500/10 transition-all duration-500 focus-visible-ring ${
                       isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                     }`}
-                    style={{ transitionDelay: isMobileMenuOpen ? '300ms' : '0ms' }}
+                    style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     My Profile
