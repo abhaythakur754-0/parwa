@@ -84,8 +84,12 @@ services:
       - PADDLE_WEBHOOK_SECRET=${PADDLE_WEBHOOK_SECRET}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - STATE_SERIALIZATION_PATH=/app/state_data
+      - STATE_SERIALIZATION_ENABLED=true
     env_file:
       - .env.prod
+    volumes:
+      - state_prod_data:/app/state_data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -125,8 +129,12 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=production
       - SECRET_KEY=${SECRET_KEY}
+      - STATE_SERIALIZATION_PATH=/app/state_data
+      - STATE_SERIALIZATION_ENABLED=true
     env_file:
       - .env.prod
+    volumes:
+      - state_prod_data:/app/state_data
     depends_on:
       db:
         condition: service_healthy
@@ -337,6 +345,8 @@ volumes:
   postgres_prod_data:
     driver: local
   redis_prod_data:
+    driver: local
+  state_prod_data:
     driver: local
   prometheus_data:
     driver: local
