@@ -35,6 +35,13 @@ from database.base import Base
 
 config = context.config
 
+# Override sqlalchemy.url from DATABASE_URL environment variable
+# This is required for Docker deployments where the URL comes from env
+import os
+_database_url = os.environ.get("DATABASE_URL", "")
+if _database_url:
+    config.set_main_option("sqlalchemy.url", _database_url)
+
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 

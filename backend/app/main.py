@@ -93,9 +93,11 @@ async def lifespan(app: FastAPI):
 
     Startup:
     - Configure structured logging
+    - Run database migrations (Alembic)
     - OpenAPI visibility based on DEBUG flag (BC-011)
     - Initialize Redis connection pool
     - Register Socket.io ASGI app
+    - Pre-load Jarvis knowledge base
 
     Shutdown:
     - Close Redis connection pool
@@ -103,6 +105,30 @@ async def lifespan(app: FastAPI):
     """
     settings = get_settings()
     configure_logging(settings.ENVIRONMENT)
+
+    # ── Run Alembic migrations on startup (Docker-safe) ──
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["alembic", "-c", "/app/database/alembic.ini", "upgrade", "head"],
+            cwd="/app/database",
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode == 0:
+            logger = get_logger("lifespan")
+            logger.info("alembic_migrations_completed")
+        else:
+            logger = get_logger("lifespan")
+            logger.warning(
+                "alembic_migrations_failed",
+                returncode=result.returncode,
+                stderr=result.stderr[:500] if result.stderr else "",
+            )
+    except Exception as exc:
+        logger = get_logger("lifespan")
+        logger.warning("alembic_migrations_error", error=str(exc))
 
     # Hide OpenAPI schema when not in debug mode (BC-011)
     if settings.DEBUG:
