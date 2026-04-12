@@ -76,7 +76,7 @@ services:
     restart: always
     # No port exposure — accessed via nginx on frontend_network
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=production
       - SECRET_KEY=${SECRET_KEY}
@@ -127,7 +127,7 @@ services:
     container_name: parwa_prod_worker
     restart: always
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=production
       - SECRET_KEY=${SECRET_KEY}
@@ -165,7 +165,7 @@ services:
     container_name: parwa_prod_mcp
     restart: always
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=production
     env_file:
@@ -195,7 +195,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: infra/docker/frontend.Dockerfile
+      dockerfile: infra/docker/frontend.prod.Dockerfile
     image: parwa/frontend:${VERSION:-latest}
     container_name: parwa_prod_frontend
     restart: always

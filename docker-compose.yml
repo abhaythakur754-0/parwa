@@ -52,7 +52,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
       - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - STATE_SERIALIZATION_PATH=/app/state_data
@@ -76,7 +76,7 @@ services:
       start_period: 15s
 
   # ──────────────────────────────────────────────
-  # Worker — ARQ Background Jobs
+  # Worker — Celery Background Jobs
   # ──────────────────────────────────────────────
   worker:
     build:
@@ -85,7 +85,7 @@ services:
     container_name: parwa_worker
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
       - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - STATE_SERIALIZATION_PATH=/app/state_data
