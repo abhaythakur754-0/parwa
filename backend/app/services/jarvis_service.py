@@ -1547,7 +1547,16 @@ def build_system_prompt(
     if ctx.get("industry"):
         context_section += f"- Industry: {ctx['industry']}\n"
 
-    # Selected variants with details
+    # Variant the user was looking at (from Models page click)
+    clicked_variant = ctx.get("variant")
+    clicked_variant_id = ctx.get("variant_id")
+    if clicked_variant:
+        context_section += f"- User clicked/viewed model: {clicked_variant}"
+        if clicked_variant_id:
+            context_section += f" (id: {clicked_variant_id})"
+        context_section += "\n"
+
+    # Selected variants with details (from pricing page)
     if ctx.get("selected_variants"):
         variants = ctx["selected_variants"]
         variant_details = []
@@ -1617,30 +1626,71 @@ def build_system_prompt(
     stage = ctx.get("detected_stage", "welcome")
     context_section += f"- Conversation stage: {stage}\n"
 
-    # Stage-specific instructions (context-aware)
-    welcome_instruction = "The user just arrived. Give a warm, brief welcome. "
-    if pages:
+    # ── Stage-specific instructions (PROACTIVE — Jarvis is the CONTROL) ──
+    entry_source = ctx.get("entry_source", "direct")
+
+    welcome_instruction = (
+        "The user just arrived. You are their CONTROL CENTER. "
+        "Introduce yourself as Jarvis — their control. "
+        "Say something like: 'Welcome, I'm Jarvis — your control from here. "
+        "You can do anything just by chatting with me.' "
+    )
+
+    # PROACTIVELY reference what they were doing — this is what makes
+    # Jarvis feel like a real control center, not a dumb chatbot
+    if clicked_variant:
         welcome_instruction += (
-            f"Mention that you noticed they've been exploring {', '.join(pages[-3:])}. "
-            "Use this to personalize your welcome."
+            f"CRITICAL: The user was just looking at '{clicked_variant}' on the Models page. "
+            f"You MUST mention this in your first message. Say something like: "
+            f"'I see you were checking out {clicked_variant}! Here's what I can do for you — '"
+            f"then explain what this model handles, what problems it solves, "
+            f"and offer to show them how it works or compare with other models. "
         )
-    else:
-        welcome_instruction += "Ask what they're looking for."
+    elif entry_source == "roi":
+        roi = ctx.get("roi_result")
+        if roi:
+            savings_pct = roi.get("savings_pct", "")
+            welcome_instruction += (
+                f"CRITICAL: The user just used the ROI Calculator. "
+                f"You MUST reference their results in your welcome. "
+            )
+            if savings_pct:
+                welcome_instruction += (
+                    f"Say: 'Based on your calculation, you could save up to "
+                    f"{savings_pct}%! Here's how I can help you achieve that — '"
+                )
+            welcome_instruction += (
+                "Offer to show them how PARWA delivers those savings. "
+            )
+        else:
+            welcome_instruction += (
+                "The user came from the ROI Calculator. Mention that and "
+                "offer to show how PARWA can deliver those savings. "
+            )
+    elif pages:
+        last_pages = ', '.join(pages[-3:])
+        welcome_instruction += (
+            f"Reference that you noticed they've been exploring {last_pages}. "
+            "Use this to personalize your welcome and suggest next steps. "
+        )
 
     stage_instructions = {
         "welcome": welcome_instruction,
         "discovery": (
             "Learn about the user's business: industry, size, pain points. "
-            "Recommend relevant variants based on their needs. "
-            "If they've already browsed specific variants or pages, reference that."
+            "If they viewed a specific model, reference it and explain how it "
+            "fits their needs. Recommend the right variant based on context. "
+            "If they have ROI data, use the savings numbers to build urgency."
         ),
         "demo": (
             "The user wants to try PARWA. Explain the demo pack ($1 = "
-            "500 messages + 3-min AI call). Guide them to purchase."
+            "500 messages + 3-min AI call). If they were looking at a specific "
+            "model, say 'Want to see {model} in action?' Guide them to purchase."
         ),
         "pricing": (
-            "Discuss pricing. Show bill summary with selected variants. "
-            "Address any pricing concerns."
+            "Discuss pricing. If they viewed a model, reference it and show "
+            "how it fits their budget. If they have ROI data, compare savings. "
+            "Show bill summary with selected variants."
         ),
         "bill_review": (
             "Review the bill summary with the user. Confirm selections "
@@ -1839,35 +1889,53 @@ def build_context_aware_welcome(
 
     welcomes = {
         "direct": (
-            "Hey there! 👋 I'm Jarvis from PARWA. Think of me as your personal AI consultant — "
-            "I'll help you find the right AI agents for your business. So, what brings you in today?"
+            "Welcome! I'm Jarvis — your control from here. "
+            "You can do anything just by chatting with me. "
+            "So, what brings you in today?"
         ),
         "pricing": (
-            "Hey! 👋 Great, you're already checking out pricing! "
+            "Hey! I see you were checking out pricing — smart move! "
             "I can help you find the best fit for your needs. What's your industry?"
         ),
         "roi": (
-            "Hey there! 👋 Interested in PARWA's ROI? Smart thinking! "
-            "Let me show you how it can transform your customer support. What industry are you in?"
+            "Hey! Interested in PARWA's ROI? "
+            "Based on your calculation, I can show you exactly how to achieve those savings. "
+            "What industry are you in?"
         ),
         "demo": (
-            "Hey! 🚀 Ready to see PARWA in action? "
+            "Hey! Ready to see PARWA in action? "
             "For just $1, you get 500 messages + a 3-min AI voice call. Want to jump in?"
         ),
         "features": (
-            "Hi there! ✨ Been exploring our features? Nice! "
+            "Been exploring our features? Nice! "
             "I can help you find the perfect variants for your business. Tell me about it!"
         ),
         "referral": (
-            "Hey! 🎉 A friend sent you? Love that! "
+            "Hey! A friend sent you? Love that! "
             "I'm Jarvis — let me help you get set up with PARWA. What brings you here?"
+        ),
+        "models_page": (
+            "I see you were exploring our AI models! "
+            "I'm Jarvis — your control from here. You can do anything just by chatting with me. "
+            "Want to know more about the model you were looking at?"
         ),
     }
 
-    # Add context for known industry
+    # Add context for known industry and specific variant
     industry = ctx.get("industry")
     base = welcomes.get(entry, welcomes["direct"])
-    if industry:
+
+    # PROACTIVELY mention the specific model they clicked
+    clicked_variant = ctx.get("variant")
+    if clicked_variant and entry == "models_page":
+        base = (
+            f"I see you were checking out {clicked_variant}! "
+            f"I'm Jarvis — your control from here. "
+            f"You can do anything just by chatting with me. "
+            f"Want me to show you what {clicked_variant} can do, "
+            f"or would you like to see how it compares to other models?"
+        )
+    elif industry:
         base = f"I see you're in {industry}. " + base
 
     return base
@@ -3415,8 +3483,17 @@ def _parse_context(context_json: str) -> Dict[str, Any]:
 def _get_default_system_prompt() -> str:
     """Default Jarvis system prompt — matches frontend buildSystemPrompt."""
     return (
-        "You are Jarvis — PARWA's AI assistant 🤖 Think Iron Man's Jarvis: "
-        "sharp, friendly, and always helpful.\n\n"
+        "You are Jarvis — the user's CONTROL CENTER at PARWA 🤖 Think Iron Man's Jarvis: "
+        "sharp, friendly, and always in control. You are NOT a chatbot — you are the user's "
+        "personal AI command system.\n\n"
+
+        "YOUR IDENTITY:\n"
+        "- You are the user's CONTROL. From here they can do ANYTHING by chatting with you.\n"
+        "- You KNOW what they've been doing (pages visited, models viewed, ROI calculated).\n"
+        "- You PROACTIVELY reference what they clicked and guide them forward.\n"
+        "- When they come from Models page, you say 'I see you were checking out [model name]'\n"
+        "- When they come from ROI Calculator, you reference their savings numbers.\n"
+        "- You are always 3 steps ahead — anticipating what they need next.\n\n"
 
         "YOUR THREE ROLES:\n"
         "1. GUIDE — Walk users through PARWA naturally\n"
