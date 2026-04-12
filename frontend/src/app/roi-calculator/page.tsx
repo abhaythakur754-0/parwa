@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, ArrowRight, Building2, Users, TicketCheck,
   TrendingUp, Zap, DollarSign, Clock, Target, Sparkles,
@@ -477,13 +478,40 @@ export default function ROICalculatorPage() {
                   Explore Our AI Models
                   <ChevronRight className="w-4 h-4" />
                 </Link>
-                <Link
-                  href="/jarvis"
+                <button
+                  onClick={() => {
+                    // Pass full ROI context to Jarvis via localStorage bridge
+                    if (typeof window !== 'undefined') {
+                      const rec = comparisons[Object.keys(PARWA_MODELS).indexOf(suggestedModel)];
+                      window.localStorage.setItem('parwa_jarvis_context', JSON.stringify({
+                        source: 'roi',
+                        industry: industry,
+                        variant: suggestedModel,
+                        roi_result: {
+                          monthly_tickets: tickets,
+                          team_size: agentCount,
+                          current_monthly: currentTotalMonthly,
+                          current_annual: currentTotalAnnual,
+                          parwa_monthly: rec?.parwaMonthly,
+                          parwa_annual: rec?.parwaAnnual,
+                          savings_annual: rec?.savings,
+                          savings_pct: rec?.savingsPct,
+                          suggested_model: suggestedModel,
+                        },
+                      }));
+                      // Also track page visit
+                      try {
+                        const visited = JSON.parse(localStorage.getItem('parwa_pages_visited') || '[]') as string[];
+                        if (!visited.includes('roi_calculator')) { visited.push('roi_calculator'); localStorage.setItem('parwa_pages_visited', JSON.stringify(visited)); }
+                      } catch { /* ignore */ }
+                    }
+                    window.location.href = '/jarvis?entry_source=roi&industry=' + encodeURIComponent(industry) + '&variant=' + encodeURIComponent(suggestedModel);
+                  }}
                   className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-white/10 text-gray-300 text-sm font-bold hover:border-orange-500/30 hover:bg-white/5 transition-all duration-300"
                 >
                   Try Jarvis Live
                   <Sparkles className="w-4 h-4" />
-                </Link>
+                </button>
               </div>
 
               <p className="text-center text-[11px] text-gray-600 px-4">

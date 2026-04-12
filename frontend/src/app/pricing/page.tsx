@@ -233,7 +233,15 @@ function PricingContent() {
         otherIndustry: selectedIndustry === 'others' ? otherIndustry : null,
       };
       localStorage.setItem('parwa_pricing_selection', JSON.stringify(selectionData));
-      if (isAuthenticated) router.push('/jarvis');
+      // Also store to parwa_jarvis_context so Jarvis hook can read it
+      localStorage.setItem('parwa_jarvis_context', JSON.stringify({
+        source: 'pricing',
+        industry: selectionData.industry,
+        selected_variants: selectionData.variants,
+        total_price: selectionData.totalMonthly,
+        selected_plan: selectionData.plan,
+      }));
+      if (isAuthenticated) router.push('/jarvis?entry_source=pricing&industry=' + encodeURIComponent(selectionData.industry));
       else router.push(`/login?redirect=/jarvis`);
     } catch { toast.error('Something went wrong. Please try again.'); } finally { setIsSubmitting(false); }
   };
