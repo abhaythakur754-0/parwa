@@ -1,20 +1,42 @@
 """
-PARWA MCP Server — Entry point for Model Context Protocol server.
+PARWA MCP Server — Production Entry Point
 
-Run via: python -m mcp_server.main
+MCP (Model Context Protocol) server for external AI tool integrations.
+Provides a standardized interface for connecting external AI models
+and tools to the PARWA customer support platform.
+
+Health check endpoint: GET /health
 """
 
-import logging
+import os
+import sys
 
-logger = logging.getLogger("mcp_server")
+# Ensure project root is on Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+os.environ.setdefault("ENVIRONMENT", "production")
+
+from fastapi import FastAPI
+
+app = FastAPI(title="PARWA MCP Server", version="0.1.0")
 
 
-def main():
-    """Start the MCP server."""
-    logger.info("MCP server starting...")
-    # MCP server implementation placeholder
-    # Will be implemented as part of the MCP integration roadmap
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Docker container monitoring."""
+    return {"status": "healthy", "service": "parwa-mcp"}
+
+
+@app.get("/")
+async def root():
+    return {"service": "PARWA MCP Server", "version": "0.1.0"}
 
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    uvicorn.run(
+        "mcp_server.main:app",
+        host="0.0.0.0",
+        port=8080,
+        log_level="info",
+    )

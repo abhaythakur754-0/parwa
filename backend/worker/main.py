@@ -1,43 +1,46 @@
+#!/usr/bin/env python
 """
-PARWA Background Worker — Main entry point.
+PARWA Celery Worker — Production Entry Point
 
-Starts the Celery worker to process background tasks:
-- Email notifications
-- AI pipeline jobs
-- Periodic health checks
-- Webhook processing
-- Billing tasks
+Starts a Celery worker with all PARWA queues.
+This module is the entry point used by worker.Dockerfile:
+    CMD ["python", "-m", "backend.worker.main"]
+
+Queues:
+    default    — General tasks
+    ai_heavy   — Heavy AI workloads (DSPy, LangGraph)
+    ai_light   — Light AI workloads (classification, sentiment)
+    email      — Email sending (Brevo)
+    webhook    — Webhook processing (Paddle, Shopify, Twilio)
+    analytics  — Analytics aggregation
+    training   — Model training tasks
+    dead_letter — Failed task quarantine
 """
 
-import logging
+import os
 import sys
 
-logger = logging.getLogger("parwa.worker")
+# Ensure project root is on Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+# Set required env vars with safe defaults for container startup
+os.environ.setdefault("ENVIRONMENT", "production")
 
 
 def main():
-    """Start the Celery worker."""
-    logger.info("PARWA worker starting...")
+    """Start the Celery worker with all PARWA queues."""
+    from backend.app.tasks.celery_app import app as celery_app
 
-    try:
-        from backend.app.tasks.celery_app import app as celery_app
-
-        # Start Celery worker with concurrency
-        celery_app.worker_main(
-            argv=[
-                "worker",
-                "--loglevel=info",
-                "--concurrency=2",
-                "--max-tasks-per-child=100",
-                "--queues=default,ai,email,billing",
-            ]
-        )
-    except ImportError as exc:
-        logger.error("Failed to import Celery app: %s", exc)
-        sys.exit(1)
-    except Exception as exc:
-        logger.error("Worker failed to start: %s", exc)
-        sys.exit(1)
+    celery_app.worker_main([
+        "worker",
+        "--loglevel=info",
+        # All 8 PARWA queues
+        "--queues=default,ai_heavy,ai_light,email,webhook,analytics,training,dead_letter",
+        # Prevent memory leaks from long-running tasks
+        "--max-tasks-per-child=1000",
+        # Let broker handle liveness (reduces noise in logs)
+        "--without-heartbeat",
+    ])
 
 
 if __name__ == "__main__":

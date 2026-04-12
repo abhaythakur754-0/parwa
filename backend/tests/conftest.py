@@ -44,19 +44,41 @@ _fake_jarvis_models = types.ModuleType("database.models.jarvis")
 _fake_core_models = types.ModuleType("database.models.core")
 _fake_onboarding_models = types.ModuleType("database.models.onboarding")
 
+from unittest.mock import patch as _patch
+
 _fake_base.Base = MagicMock()
 _fake_base.engine = MagicMock()
 _fake_base.SessionLocal = MagicMock(return_value=_mock_db)
+
+def _fake_get_db():
+    """Fake get_db generator for tests."""
+    try:
+        yield _mock_db
+    finally:
+        pass
+
+_fake_base.get_db = _fake_get_db
+_fake_base.get_tenant_db = _fake_get_db
+_fake_base.init_db = MagicMock()
+_fake_base.TenantSession = MagicMock()
 _fake_core_models.__all__ = []
 _fake_onboarding_models.__all__ = []
+
+# User and Company are imported from database.models.core by deps.py
+_MockUser = type("User", (), {"id": None, "company_id": None, "role": None, "is_active": True})
+_MockCompany = type("Company", (), {"id": None})
+setattr(_fake_core_models, "User", _MockUser)
+setattr(_fake_core_models, "Company", _MockCompany)
+setattr(_fake_core_models, "RefreshToken", MagicMock(name="RefreshToken"))
+setattr(_fake_core_models, "OAuthAccount", MagicMock(name="OAuthAccount"))
 
 for model_name in [
     "JarvisSession", "JarvisMessage", "JarvisKnowledgeUsed",
     "JarvisActionTicket", "Ticket", "TicketMessage",
     "TicketIntent", "ClassificationCorrection", "TicketPriority",
     "TicketStatusChange", "TicketMerge", "Customer",
-    "CustomerChannel", "OnboardingSession", "Company",
-    "User", "RefreshToken", "AITokenBudget", "Subscription",
+    "CustomerChannel", "OnboardingSession",
+    "AITokenBudget", "Subscription",
     "OverageCharge", "OverageRecord", "Invoice",
     "AuditEntry", "Webhook", "WebhookDelivery",
 ]:
@@ -80,6 +102,12 @@ _FAKE_KB_RETRIEVER = types.ModuleType("shared.knowledge_base.retriever")
 _FAKE_KB_VECTOR = types.ModuleType("shared.knowledge_base.vector_search")
 _FAKE_KB_CHUNKER = types.ModuleType("shared.knowledge_base.chunker")
 _FAKE_KB_REINDEX = types.ModuleType("shared.knowledge_base.reindexing")
+
+# Populate vector_search mock with expected exports
+_FAKE_KB_VECTOR.EMBEDDING_DIMENSION = 1536
+_FAKE_KB_VECTOR.VectorStore = MagicMock()
+_FAKE_KB_VECTOR.get_vector_store = MagicMock()
+_FAKE_KB_VECTOR.add_documents = MagicMock()
 
 for mod in [_FAKE_SHARED, _FAKE_KB, _FAKE_KB_MANAGER, _FAKE_KB_RETRIEVER,
             _FAKE_KB_VECTOR, _FAKE_KB_CHUNKER, _FAKE_KB_REINDEX]:

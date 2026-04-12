@@ -632,6 +632,24 @@ class AIPipeline:
         # Set final response
         ctx.final_response = ctx.response_text or ctx.raw_response or self._get_safe_fallback_response(ctx)
 
+        # Record query in AI monitoring service (BC-008: never crash)
+        try:
+            from app.core.ai_monitoring_service import AIMonitoringService
+            _monitor = AIMonitoringService()
+            _monitor.record_query(
+                company_id=ctx.company_id,
+                variant_type=getattr(ctx, "variant_type", "parwa"),
+                query=ctx.query or "",
+                response=ctx.final_response or "",
+                routing_decision=getattr(ctx, "routing_decision", None),
+                confidence_result=getattr(ctx, "confidence_result", None),
+                guardrails_report=getattr(ctx, "guardrails_report", None),
+                latency_ms=ctx.pipeline_time_ms,
+                error=ctx.error if ctx.stages_failed else None,
+            )
+        except Exception:
+            pass  # BC-008: monitoring failure never blocks pipeline
+
         logger.info(
             "AI Pipeline completed: company_id=%s, langgraph_used=%s, "
             "stages_completed=%s, stages_failed=%s, duration_ms=%.1f",

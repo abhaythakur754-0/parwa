@@ -166,7 +166,7 @@ class TestFailoverChains:
     def test_medium_chain_has_gemini_flash_lite(self):
         medium = FAILOVER_CHAINS.get("medium", [])
         model_ids = [m for _, m in medium]
-        assert "gemini-2.0-flash-lite" in model_ids
+        assert "gemini-3.1-flash-lite" in model_ids
 
     def test_heavy_chain_has_gpt_oss(self):
         heavy = FAILOVER_CHAINS.get("heavy", [])
