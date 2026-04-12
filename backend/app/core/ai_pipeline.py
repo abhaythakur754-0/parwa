@@ -502,13 +502,19 @@ class AIPipeline:
                 lg_context["frustration_score"] = ctx.frustration_score
                 lg_context["sentiment_score"] = ctx.sentiment_score
                 lg_context["tone_recommendation"] = ctx.tone_recommendation
+                # Pass conversation_id and variant_type for context-aware steps
+                lg_context["conversation_id"] = ctx.conversation_id
+                lg_context["variant_type"] = ctx.variant_type
 
+                # IMPORTANT: Spread lg_context as top-level kwargs so
+                # _real_generate() finds system_prompt via context.get()
+                # instead of it being nested under a "customer_metadata" key.
                 lg_result = await asyncio.wait_for(
                     lg_workflow.execute(
                         company_id=ctx.company_id,
                         query=ctx.query,
                         conversation_history=ctx.conversation_history,
-                        customer_metadata=lg_context,
+                        **lg_context,
                     ),
                     timeout=35.0,  # BC-012: overall LangGraph timeout
                 )

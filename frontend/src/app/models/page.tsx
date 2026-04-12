@@ -139,12 +139,32 @@ export default function ModelsPage() {
                     onClick={() => {
                       // Pass variant context to Jarvis
                       if (typeof window !== 'undefined') {
-                        window.localStorage.setItem('parwa_jarvis_context', JSON.stringify({
+                        // Build rich context for Jarvis awareness
+                        const existingCtx = JSON.parse(
+                          localStorage.getItem('parwa_jarvis_context') || '{}'
+                        );
+                        const modelCtx = {
+                          ...existingCtx,
                           source: 'models_page',
                           variant: model.name,
                           variant_id: model.id,
                           entry_source: 'models_page',
-                        }));
+                          industry: model.industry || existingCtx.industry,
+                        };
+                        // If we have price data, include it
+                        if (model.price) {
+                          modelCtx.total_price = model.price;
+                        }
+                        localStorage.setItem('parwa_jarvis_context', JSON.stringify(modelCtx));
+
+                        // Track page visit
+                        const visited = JSON.parse(
+                          localStorage.getItem('parwa_pages_visited') || '[]'
+                        );
+                        if (!visited.includes('models_page')) {
+                          visited.push('models_page');
+                          localStorage.setItem('parwa_pages_visited', JSON.stringify(visited));
+                        }
                       }
                       window.location.href = '/jarvis?entry_source=models_page&variant=' + encodeURIComponent(model.id) + '&industry=ecommerce';
                     }}
