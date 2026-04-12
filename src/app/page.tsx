@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import {
   NavigationBar,
   FeatureCarousel,
@@ -10,6 +9,7 @@ import {
   JarvisDemo,
   Footer,
 } from '@/components/landing';
+import { useEffect } from 'react';
 
 /**
  * Landing Page (Home)
@@ -26,19 +26,27 @@ import {
  */
 
 export default function HomePage() {
-  const router = useRouter();
-
-  const handleOpenJarvis = () => {
-    localStorage.setItem('parwa_jarvis_context', JSON.stringify({ source: 'nav_bar' }));
-    router.push('/onboarding');
-  };
+  // Track page visit for context-aware Jarvis routing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const existing = JSON.parse(localStorage.getItem('parwa_pages_visited') || '[]') as string[];
+        if (!existing.includes('landing_page')) {
+          existing.push('landing_page');
+          localStorage.setItem('parwa_pages_visited', JSON.stringify(existing));
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#1A1A1A' }}>
+    <div className="min-h-screen flex flex-col">
       {/* Navigation */}
-      <NavigationBar onOpenJarvis={handleOpenJarvis} />
+      <NavigationBar />
 
-      {/* Main Content — unified background, no section seams */}
+      {/* Main Content */}
       <main className="flex-grow">
         {/* Feature Carousel - Netflix-style full-width */}
         <FeatureCarousel />
