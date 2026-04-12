@@ -216,6 +216,18 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
             if (bridgedContext.roi_result) {
               contextPatch.roi_result = bridgedContext.roi_result as JarvisContext['roi_result'];
             }
+            // CRITICAL: Bridge variant/variant_id from Models page click
+            // so the AI system prompt can reference the specific model
+            if (bridgedContext.variant) {
+              contextPatch.variant = bridgedContext.variant as string;
+            }
+            if (bridgedContext.variant_id) {
+              contextPatch.variant_id = bridgedContext.variant_id as string;
+            }
+            // Bridge entry_source so the backend knows the user's journey origin
+            if (bridgedContext.entry_source) {
+              contextPatch.entry_source = bridgedContext.entry_source as string;
+            }
             // Push context to backend
             const hasPatch = Object.keys(contextPatch).length > 0;
             if (hasPatch) {

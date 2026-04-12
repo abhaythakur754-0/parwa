@@ -1548,8 +1548,14 @@ def build_system_prompt(
         context_section += f"- Industry: {ctx['industry']}\n"
 
     # Variant the user was looking at (from Models page click)
+    # Check top-level context first, then fallback to entry_params
     clicked_variant = ctx.get("variant")
     clicked_variant_id = ctx.get("variant_id")
+    if not clicked_variant:
+        entry_params = ctx.get("entry_params", {})
+        if isinstance(entry_params, dict):
+            clicked_variant = entry_params.get("variant") or entry_params.get("model")
+            clicked_variant_id = clicked_variant_id or entry_params.get("variant_id")
     if clicked_variant:
         context_section += f"- User clicked/viewed model: {clicked_variant}"
         if clicked_variant_id:
@@ -1903,9 +1909,10 @@ def build_context_aware_welcome(
             "I can help you find the best fit for your needs. What's your industry?"
         ),
         "roi": (
-            "Hey! Interested in PARWA's ROI? "
-            "Based on your calculation, I can show you exactly how to achieve those savings. "
-            "What industry are you in?"
+            "Welcome! I'm Jarvis — your control from here. "
+            "I see you ran the ROI calculator — great move! "
+            "I can show you exactly how PARWA delivers those savings. "
+            "Want to see it in action?"
         ),
         "demo": (
             "Hey! Ready to see PARWA in action? "
@@ -1931,7 +1938,12 @@ def build_context_aware_welcome(
     base = welcomes.get(entry, welcomes["direct"])
 
     # PROACTIVELY mention the specific model they clicked
+    # Check top-level context first, then fallback to entry_params
     clicked_variant = ctx.get("variant")
+    if not clicked_variant:
+        entry_params = ctx.get("entry_params", {})
+        if isinstance(entry_params, dict):
+            clicked_variant = entry_params.get("variant") or entry_params.get("model")
     if clicked_variant and entry == "models_page":
         base = (
             f"I see you were checking out {clicked_variant}! "
@@ -3563,10 +3575,11 @@ def _get_default_system_prompt() -> str:
 
 
 def _get_default_welcome() -> str:
-    """Default welcome message."""
+    """Default welcome message — positions Jarvis as the user's CONTROL CENTER."""
     return (
-        "Hey there! 👋 I'm Jarvis from PARWA. Think of me as your personal AI consultant — "
-        "I'll help you find the right AI agents for your business. So, what brings you in today?"
+        "Welcome! I'm Jarvis — your control from here. "
+        "You can do anything just by chatting with me. "
+        "What would you like to explore?"
     )
 
 
