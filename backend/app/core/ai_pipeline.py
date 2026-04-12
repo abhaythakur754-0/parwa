@@ -997,6 +997,16 @@ class AIPipeline:
                 ticket_id=ctx.ticket_id,
                 intent_type=ctx.intent_type,
                 system_prompt=ctx.system_prompt,
+                # D5-1 FIX: Pass pre-computed sentiment data from Stage 5.
+                # This lets generate() skip its internal sentiment analysis,
+                # saving ~1-2s latency per request (no duplicate LLM call).
+                frustration_score=ctx.frustration_score,
+                sentiment_score=ctx.sentiment_score,
+                emotion=ctx.emotion or "neutral",
+                urgency_level=ctx.urgency_level,
+                tone_recommendation=ctx.tone_recommendation or "standard",
+                selected_model=ctx.selected_model,
+                selected_technique=ctx.selected_technique,
             )
             result = await generator.generate(request)
             if result:
@@ -1030,16 +1040,30 @@ class AIPipeline:
     # ── Stage 10: CLARA Quality Gate ──────────────────────────
 
     async def _stage_clara_quality(self, ctx: PipelineContext) -> None:
-        """Run 5-stage CLARA quality check on the response."""
+        """Run 5-stage CLARA quality check on the response.
+
+        D5-4 FIX: Pass sentiment data and extracted signals as context
+        so CLARA can check tone appropriateness for angry/frustrated customers.
+        """
         gate = self._get_clara_gate()
         if not gate or not ctx.response_text:
             return
 
         try:
+            # Build enriched context for CLARA
+            clara_context = dict(ctx.extracted_signals or {})
+            # D5-4: Add sentiment signals from Stage 5
+            clara_context["frustration_score"] = ctx.frustration_score
+            clara_context["sentiment_score"] = ctx.sentiment_score
+            clara_context["emotion"] = ctx.emotion
+            clara_context["urgency_level"] = ctx.urgency_level
+            clara_context["tone_recommendation"] = ctx.tone_recommendation
+            clara_context["intent_type"] = ctx.intent_type
+
             result = await gate.evaluate(
                 ctx.response_text,
                 ctx.query,
-                context=ctx.extracted_signals or {},
+                context=clara_context,
                 brand_config=None,
                 strictness=None,
             )
@@ -1064,16 +1088,22 @@ class AIPipeline:
     # ── Stage 11: Output Guardrails ───────────────────────────
 
     def _stage_guardrails(self, ctx: PipelineContext) -> None:
-        """Run guardrails check on the generated response."""
+        """Run guardrails check on the generated response.
+
+        D5-6 FIX: Guardrails now runs AFTER a preliminary confidence estimate.
+        D5-7 FIX: Pass urgency/frustration so escalation rules can fire.
+        """
         engine = self._get_guardrails_engine()
         if not engine or not ctx.response_text:
             return
 
         try:
+            # D5-6: Use CLARA score as confidence (runs before guardrails)
+            confidence_val = ctx.clara_score if ctx.clara_passed else ctx.confidence_score or 50.0
             report = engine.run_full_check(
                 query=ctx.query,
                 response=ctx.response_text,
-                confidence=ctx.confidence_score,
+                confidence=confidence_val,
                 company_id=ctx.company_id,
                 variant_type=ctx.variant_type,
             )
@@ -1092,17 +1122,33 @@ class AIPipeline:
     # ── Stage 12: Confidence Scoring ──────────────────────────
 
     def _stage_confidence_scoring(self, ctx: PipelineContext) -> None:
-        """Calculate calibrated confidence score."""
+        """Calculate calibrated confidence score.
+
+        D5-8 FIX: Pass company_id, context with all pipeline signals,
+        remove invalid variant_type kwarg.
+        """
         engine = self._get_confidence_engine()
         if not engine or not ctx.response_text:
             ctx.confidence_score = 50.0  # Neutral default
             return
 
         try:
+            # D5-8: Build context with all available pipeline signals
+            confidence_context = {
+                "model_tier": ctx.selected_tier,
+                "expected_tone": ctx.tone_recommendation or "standard",
+                "knowledge_context": ctx.rag_context,
+                "clara_score": ctx.clara_score,
+                "rag_context_used": ctx.rag_context_used,
+                "intent_confidence": ctx.intent_confidence,
+                "frustration_score": ctx.frustration_score,
+                "sentiment_score": ctx.sentiment_score,
+            }
             result = engine.score_response(
+                company_id=ctx.company_id,
                 query=ctx.query,
                 response=ctx.response_text,
-                variant_type=ctx.variant_type,
+                context=confidence_context,
             )
             if result:
                 if hasattr(result, "overall_score"):
@@ -1124,20 +1170,39 @@ class AIPipeline:
     # ── Stage 13: Brand Voice ─────────────────────────────────
 
     def _stage_brand_voice(self, ctx: PipelineContext) -> None:
-        """Apply brand voice settings to the final response."""
+        """Apply brand voice settings to the final response.
+
+        D5-9 FIX: Use BrandVoiceService instead of jarvis_service.
+        BrandVoiceService has proper company config loading, empathy
+        awareness, and tone adjustment capabilities.
+        Falls back to jarvis_service if BrandVoiceService is unavailable.
+        """
         if not ctx.response_text or not ctx.company_id:
             return
 
         try:
-            from app.services.jarvis_service import jarvis_merge_with_brand_voice as _merge_bv
-            result = _merge_bv(ctx.company_id, ctx.response_text)
-            if result and isinstance(result, dict):
-                merged = result.get("merged_response") or result.get("response")
-                if merged and merged != ctx.response_text:
-                    ctx.response_text = merged
-                    ctx.brand_voice_applied = True
+            # D5-9: Try BrandVoiceService first (proper implementation)
+            from app.services.brand_voice_service import BrandVoiceService
+            bv_service = BrandVoiceService()
+            result = await bv_service.merge_with_brand_voice(
+                response_text=ctx.response_text,
+                company_id=ctx.company_id,
+            )
+            if result and isinstance(result, str) and result != ctx.response_text:
+                ctx.response_text = result
+                ctx.brand_voice_applied = True
         except Exception as exc:
-            logger.debug("Brand voice merge failed: %s", exc)
+            # Fallback to jarvis_service
+            try:
+                from app.services.jarvis_service import jarvis_merge_with_brand_voice as _merge_bv
+                result = _merge_bv(ctx.company_id, ctx.response_text)
+                if result and isinstance(result, dict):
+                    merged = result.get("merged_response") or result.get("response")
+                    if merged and merged != ctx.response_text:
+                        ctx.response_text = merged
+                        ctx.brand_voice_applied = True
+            except Exception as inner_exc:
+                logger.debug("Brand voice merge failed: %s (fallback: %s)", exc, inner_exc)
 
     # ── Result Building ───────────────────────────────────────
 

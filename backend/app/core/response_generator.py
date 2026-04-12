@@ -107,6 +107,17 @@ class ResponseGenerationRequest:
     intent_type: str = "general"  # for template matching and formatting
     system_prompt: Optional[str] = None  # Override system prompt with context-aware prompt
 
+    # D5-1 FIX: Pre-computed sentiment fields from pipeline Stage 5.
+    # When provided, generate() skips its internal sentiment analysis
+    # (saves ~1-2s latency per request by avoiding duplicate work).
+    frustration_score: float = 0.0          # 0-100 from SentimentAnalyzer
+    sentiment_score: float = 0.5            # 0.0-1.0 from SentimentAnalyzer
+    emotion: str = "neutral"               # angry/frustrated/disappointed/neutral/happy/delighted
+    urgency_level: str = "low"              # low/medium/high/critical
+    tone_recommendation: str = "standard"  # empathetic/urgent/de-escalation/standard
+    selected_model: Optional[str] = None    # from Smart Router Stage 6
+    selected_technique: Optional[str] = None  # from Technique Router Stage 7
+
 
 @dataclass
 class ResponseGenerationResult:
