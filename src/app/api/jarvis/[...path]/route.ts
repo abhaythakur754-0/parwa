@@ -70,20 +70,15 @@ async function callZAISDK(messages: Array<{role: string, content: string}>): Pro
   }
 }
 
-// ── Free AI Provider Configuration (Fallback) ────────────────────
-
-const GOOGLE_AI_KEY = process.env.GOOGLE_AI_API_KEY;
-const CEREBRAS_KEY = process.env.CEREBRAS_API_KEY;
-const GROQ_KEY = process.env.GROQ_API_KEY;
-
 // ── Free AI Providers ──────────────────────────────────────────
 
 function getGoogleProvider(): any {
+  const key = process.env.GOOGLE_AI_API_KEY;
   return {
     name: 'google',
-    apiKey: GOOGLE_AI_KEY,
+    apiKey: key,
     model: 'gemini-2.0-flash',
-    apiUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_KEY}`,
+    apiUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
     buildHeaders: () => ({ 'Content-Type': 'application/json' }),
     buildBody: (messages: any[]) => {
       const systemMsg = messages.find(m => m.role === 'system');
@@ -105,9 +100,10 @@ function getGoogleProvider(): any {
 }
 
 function getCerebrasProvider(): any {
+  const key = process.env.CEREBRAS_API_KEY;
   return {
     name: 'cerebras',
-    apiKey: CEREBRAS_KEY,
+    apiKey: key,
     model: 'llama-4-scout-17b-16e-instruct',
     apiUrl: 'https://api.cerebras.ai/v1/chat/completions',
     buildHeaders: (key: string) => ({
@@ -127,9 +123,10 @@ function getCerebrasProvider(): any {
 }
 
 function getGroqProvider(): any {
+  const key = process.env.GROQ_API_KEY;
   return {
     name: 'groq',
-    apiKey: GROQ_KEY,
+    apiKey: key,
     model: 'llama-3.3-70b-versatile',
     apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
     buildHeaders: (key: string) => ({
@@ -150,9 +147,9 @@ function getGroqProvider(): any {
 
 function getProvider(name: string): any | null {
   switch (name) {
-    case 'google': return GOOGLE_AI_KEY ? getGoogleProvider() : null;
-    case 'cerebras': return CEREBRAS_KEY ? getCerebrasProvider() : null;
-    case 'groq': return GROQ_KEY ? getGroqProvider() : null;
+    case 'google': return process.env.GOOGLE_AI_API_KEY ? getGoogleProvider() : null;
+    case 'cerebras': return process.env.CEREBRAS_API_KEY ? getCerebrasProvider() : null;
+    case 'groq': return process.env.GROQ_API_KEY ? getGroqProvider() : null;
     default: return null;
   }
 }
