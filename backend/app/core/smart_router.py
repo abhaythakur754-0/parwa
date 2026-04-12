@@ -21,6 +21,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -28,6 +29,14 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger("parwa.smart_router")
+
+# LiteLLM — unified LLM API (BC-007)
+try:
+    import litellm
+    _HAS_LITELLM = True
+except ImportError:
+    _HAS_LITELLM = False
+    litellm = None  # type: ignore[assignment]
 
 
 # ── Enums ──────────────────────────────────────────────────────────
@@ -1210,77 +1219,111 @@ class SmartRouter:
         temperature: float,
         max_tokens: int,
     ) -> dict:
-        """Safe LLM call execution with retry and fallback."""
-        # Build ordered list of models to try
-        models_to_try = [routing_decision.model_config]
-        models_to_try.extend(routing_decision.fallback_models)
+        """Execute LLM call via LiteLLM with retry + fallback (sync).
 
-        # Add lower-tier fallbacks
-        if routing_decision.tier == ModelTier.HEAVY:
-            lower = self._fallback_to_lower_tier(
-                ModelTier.HEAVY,
-                {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.HEAVY, ModelTier.GUARDRAIL},
-            )
-            if lower and lower not in models_to_try:
-                models_to_try.append(lower)
-        elif routing_decision.tier == ModelTier.MEDIUM:
-            lower = self._fallback_to_lower_tier(
-                ModelTier.MEDIUM,
-                {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.GUARDRAIL},
-            )
-            if lower and lower not in models_to_try:
-                models_to_try.append(lower)
+        BC-001: company_id is always second parameter.
+        BC-008: Always returns a dict with 'content' key.
+        """
+        config = routing_decision.model_config
+        provider = config.provider
+        model_id = config.model_id
 
-        last_error = ""
-        for model in models_to_try:
-            for attempt in range(self.MAX_RETRIES + 1):
-                try:
-                    result = self._call_provider(
-                        model, messages, temperature, max_tokens,
+        # Try LiteLLM first, fall back to raw HTTP on auth/missing errors
+        use_litellm = _HAS_LITELLM and litellm is not None
+        api_key = self._get_api_key(provider) if use_litellm else None
+
+        for attempt in range(self.MAX_RETRIES + 1):
+            try:
+                if use_litellm and api_key:
+                    result = self._call_litellm_sync(
+                        provider=provider,
+                        model_id=model_id,
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
                     )
                     self._health.record_success(
-                        model.provider, model.model_id,
-                        tokens_used=result.get("total_tokens", 0),
+                        provider, model_id,
+                        tokens_used=result.get("tokens_used", 0),
                     )
                     return result
-                except RateLimitError as rle:
-                    # Record rate limit with Retry-After, skip retries for 429
-                    self._health.record_rate_limit(
-                        rle.provider, rle.model_id,
-                        retry_after_seconds=rle.retry_after,
+                else:
+                    # Fallback to raw HTTP if litellm not available or no API key
+                    result = self._call_provider(
+                        provider=provider,
+                        model_id=model_id,
+                        config=config,
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        company_id=company_id,
                     )
-                    last_error = str(rle)
+                    self._health.record_success(
+                        provider, model_id,
+                        tokens_used=result.get("tokens_used", 0),
+                    )
+                    return result
+            except RateLimitError as rle:
+                self._health.record_rate_limit(
+                    provider, model_id,
+                    retry_after_seconds=rle.retry_after,
+                )
+                logger.warning(
+                    "Rate limited: %s model=%s attempt=%d retry_after=%d",
+                    provider.value, model_id, attempt + 1, rle.retry_after,
+                )
+                if attempt < self.MAX_RETRIES:
+                    continue
+            except Exception as exc:
+                # If litellm auth fails, switch to raw HTTP for remaining retries
+                if use_litellm and api_key and ("auth" in str(exc).lower() or "api_key" in str(exc).lower()):
                     logger.warning(
-                        "Rate limited (company_id=%s, model=%s): %s",
-                        company_id, model.display_name, last_error,
+                        "LiteLLM auth failed, switching to raw HTTP: %s",
+                        str(exc),
                     )
-                    break  # Don't retry 429, move to next model
-                except Exception as exc:
-                    last_error = str(exc)
-                    logger.warning(
-                        "LLM call failed (company_id=%s, model=%s, "
-                        "attempt=%d/%d): %s",
-                        company_id, model.display_name,
-                        attempt + 1, self.MAX_RETRIES + 1, last_error,
-                    )
-                    self._health.record_failure(
-                        model.provider, model.model_id, last_error,
-                    )
+                    use_litellm = False
+                    api_key = None
+                    continue
+                self._health.record_failure(provider, model_id, str(exc))
+                logger.warning(
+                    "Call failed: %s model=%s attempt=%d error=%s",
+                    provider.value, model_id, attempt + 1, str(exc),
+                )
+                if attempt < self.MAX_RETRIES:
+                    continue
 
-        # All models and retries exhausted
-        logger.error(
-            "All LLM providers exhausted for company_id=%s, step=%s",
-            company_id, routing_decision.atomic_step_type.value,
-        )
+        # All retries exhausted, try fallback models
+        for fb in routing_decision.fallback_models:
+            if self._is_model_available(fb):
+                try:
+                    if _HAS_LITELLM and litellm is not None:
+                        result = self._call_litellm_sync(
+                            provider=fb.provider,
+                            model_id=fb.model_id,
+                            messages=messages,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        )
+                        self._health.record_success(fb.provider, fb.model_id)
+                        result["fallback_used"] = True
+                        return result
+                except Exception as exc:
+                    logger.warning(
+                        "Fallback failed: %s model=%s error=%s",
+                        fb.provider.value, fb.model_id, str(exc),
+                    )
+                    continue
+
+        # BC-008: Return empty fallback
         return {
             "content": "",
-            "model": routing_decision.model_config.model_id,
-            "provider": routing_decision.provider.value,
+            "model": model_id,
+            "provider": provider.value,
             "tier": routing_decision.tier.value,
             "atomic_step": routing_decision.atomic_step_type.value,
             "company_id": company_id,
             "fallback_used": True,
-            "error": last_error,
+            "error": "All providers exhausted",
             "finish_reason": "error",
         }
 
@@ -1292,80 +1335,205 @@ class SmartRouter:
         temperature: float,
         max_tokens: int,
     ) -> dict:
-        """Async version of _execute_llm_call_safe.
+        """Execute LLM call via LiteLLM with retry + fallback (async).
 
-        Runs directly in the caller's event loop (no new_event_loop).
-        For MAKER framework concurrent LLM calls.
+        BC-001: company_id is always second parameter.
+        BC-008: Always returns a dict with 'content' key.
         """
-        models_to_try = [routing_decision.model_config]
-        models_to_try.extend(routing_decision.fallback_models)
+        config = routing_decision.model_config
+        provider = config.provider
+        model_id = config.model_id
 
-        if routing_decision.tier == ModelTier.HEAVY:
-            lower = self._fallback_to_lower_tier(
-                ModelTier.HEAVY,
-                {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.HEAVY, ModelTier.GUARDRAIL},
-            )
-            if lower and lower not in models_to_try:
-                models_to_try.append(lower)
-        elif routing_decision.tier == ModelTier.MEDIUM:
-            lower = self._fallback_to_lower_tier(
-                ModelTier.MEDIUM,
-                {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.GUARDRAIL},
-            )
-            if lower and lower not in models_to_try:
-                models_to_try.append(lower)
-
-        last_error = ""
-        for model in models_to_try:
-            for attempt in range(self.MAX_RETRIES + 1):
-                try:
-                    if model.is_openai_compatible:
+        for attempt in range(self.MAX_RETRIES + 1):
+            try:
+                if _HAS_LITELLM and litellm is not None:
+                    result = await self._call_litellm_async(
+                        provider=provider,
+                        model_id=model_id,
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    )
+                    self._health.record_success(
+                        provider, model_id,
+                        tokens_used=result.get("tokens_used", 0),
+                    )
+                    return result
+                else:
+                    # Fallback to raw async HTTP if litellm not available
+                    if config.is_openai_compatible:
                         result = await self._call_openai_compatible_async(
-                            model, messages, temperature, max_tokens,
+                            config=config,
+                            messages=messages,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            company_id=company_id,
                         )
                     else:
                         result = await self._call_google_async(
-                            model, messages, temperature, max_tokens,
+                            config=config,
+                            messages=messages,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            company_id=company_id,
                         )
                     self._health.record_success(
-                        model.provider, model.model_id,
-                        tokens_used=result.get("total_tokens", 0),
+                        provider, model_id,
+                        tokens_used=result.get("tokens_used", 0),
                     )
                     return result
-                except RateLimitError as rle:
-                    self._health.record_rate_limit(
-                        rle.provider, rle.model_id,
-                        retry_after_seconds=rle.retry_after,
-                    )
-                    last_error = str(rle)
-                    logger.warning(
-                        "Async rate limited (company_id=%s, model=%s): %s",
-                        company_id, model.display_name, last_error,
-                    )
-                    break  # Don't retry 429, move to next model
-                except Exception as exc:
-                    last_error = str(exc)
-                    logger.warning(
-                        "Async LLM call failed (company_id=%s, model=%s, "
-                        "attempt=%d/%d): %s",
-                        company_id, model.display_name,
-                        attempt + 1, self.MAX_RETRIES + 1, last_error,
-                    )
-                    self._health.record_failure(
-                        model.provider, model.model_id, last_error,
-                    )
+            except RateLimitError as rle:
+                self._health.record_rate_limit(
+                    provider, model_id,
+                    retry_after_seconds=rle.retry_after,
+                )
+                if attempt < self.MAX_RETRIES:
+                    await asyncio.sleep(1)
+                    continue
+            except Exception as exc:
+                self._health.record_failure(provider, model_id, str(exc))
+                if attempt < self.MAX_RETRIES:
+                    await asyncio.sleep(1)
+                    continue
+
+        # All retries exhausted, try fallback models
+        for fb in routing_decision.fallback_models:
+            if self._is_model_available(fb):
+                try:
+                    if _HAS_LITELLM and litellm is not None:
+                        result = await self._call_litellm_async(
+                            provider=fb.provider,
+                            model_id=fb.model_id,
+                            messages=messages,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        )
+                        self._health.record_success(fb.provider, fb.model_id)
+                        result["fallback_used"] = True
+                        return result
+                except Exception:
+                    continue
 
         return {
             "content": "",
-            "model": routing_decision.model_config.model_id,
-            "provider": routing_decision.provider.value,
+            "model": model_id,
+            "provider": provider.value,
             "tier": routing_decision.tier.value,
             "atomic_step": routing_decision.atomic_step_type.value,
             "company_id": company_id,
             "fallback_used": True,
-            "error": last_error,
+            "error": "All providers exhausted",
             "finish_reason": "error",
         }
+
+    # ── LiteLLM Integration (BC-007) ──────────────────────────────
+
+    @staticmethod
+    def _build_litellm_model_name(provider: ModelProvider, model_id: str) -> str:
+        """Build the LiteLLM model name from provider and model_id.
+
+        LiteLLM uses format: provider/model_id for custom providers.
+        For OpenAI-compatible: openai/model_id or just model_id.
+        """
+        mapping = {
+            ModelProvider.CEREBRAS: f"cerebras/{model_id}",
+            ModelProvider.GROQ: f"groq/{model_id}",
+            ModelProvider.GOOGLE: f"gemini/{model_id}",
+        }
+        return mapping.get(provider, f"openai/{model_id}")
+
+    def _call_litellm_sync(
+        self,
+        provider: ModelProvider,
+        model_id: str,
+        messages: list,
+        temperature: float,
+        max_tokens: int,
+    ) -> dict:
+        """Make a synchronous LLM call via LiteLLM.
+
+        Uses LiteLLM's unified API which handles provider-specific
+        payload formatting, retries, and token counting.
+
+        BC-007: All AI interaction through Smart Router.
+        """
+        litellm_model = self._build_litellm_model_name(provider, model_id)
+
+        # Set API keys from environment
+        api_key = self._get_api_key(provider)
+        kwargs: Dict[str, Any] = {
+            "model": litellm_model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "timeout": self.REQUEST_TIMEOUT_SECONDS,
+        }
+        if api_key:
+            kwargs["api_key"] = api_key
+
+        response = litellm.completion(**kwargs)  # type: ignore[union-attr]
+        choice = response.choices[0]
+        content = choice.message.content or ""
+        usage = response.usage
+
+        return {
+            "content": content,
+            "model": model_id,
+            "provider": provider.value,
+            "finish_reason": choice.finish_reason or "stop",
+            "tokens_used": getattr(usage, 'total_tokens', 0),
+            "prompt_tokens": getattr(usage, 'prompt_tokens', 0),
+            "completion_tokens": getattr(usage, 'completion_tokens', 0),
+        }
+
+    async def _call_litellm_async(
+        self,
+        provider: ModelProvider,
+        model_id: str,
+        messages: list,
+        temperature: float,
+        max_tokens: int,
+    ) -> dict:
+        """Make an async LLM call via LiteLLM.
+
+        BC-007: All AI interaction through Smart Router.
+        """
+        litellm_model = self._build_litellm_model_name(provider, model_id)
+
+        api_key = self._get_api_key(provider)
+        kwargs: Dict[str, Any] = {
+            "model": litellm_model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "timeout": self.REQUEST_TIMEOUT_SECONDS,
+        }
+        if api_key:
+            kwargs["api_key"] = api_key
+
+        response = await litellm.acompletion(**kwargs)  # type: ignore[union-attr]
+        choice = response.choices[0]
+        content = choice.message.content or ""
+        usage = response.usage
+
+        return {
+            "content": content,
+            "model": model_id,
+            "provider": provider.value,
+            "finish_reason": choice.finish_reason or "stop",
+            "tokens_used": getattr(usage, 'total_tokens', 0),
+            "prompt_tokens": getattr(usage, 'prompt_tokens', 0),
+            "completion_tokens": getattr(usage, 'completion_tokens', 0),
+        }
+
+    def _get_api_key(self, provider: ModelProvider) -> Optional[str]:
+        """Get API key for a provider from environment variables."""
+        key_map = {
+            ModelProvider.CEREBRAS: os.environ.get("CEREBRAS_API_KEY"),
+            ModelProvider.GROQ: os.environ.get("GROQ_API_KEY"),
+            ModelProvider.GOOGLE: os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"),
+        }
+        return key_map.get(provider)
 
     def _call_provider(
         self,

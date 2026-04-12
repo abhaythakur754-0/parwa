@@ -315,12 +315,65 @@ class LangGraphWorkflow:
             step_ids = [s.step_id for s in self._steps]
             for step_id in step_ids:
                 async def _node_fn(state: dict, _sid=step_id) -> dict:
-                    """Thin wrapper that delegates to _execute_step."""
-                    return {
-                        "step_outputs": {
-                            _sid: {"status": "pending"},
-                        },
-                    }
+                    """Delegate to the real step executor."""
+                    try:
+                        # Find the WorkflowStep definition for this step_id
+                        wf_step = next(
+                            (s for s in self._steps if s.step_id == _sid), None,
+                        )
+                        if wf_step is None:
+                            return {
+                                "step_outputs": {
+                                    _sid: {"status": "error", "error": "Unknown step"},
+                                },
+                                "errors": state.get("errors", []) + [f"Unknown step: {_sid}"],
+                            }
+
+                        step_result = await self._execute_step(
+                            company_id=state.get("company_id", self._config.company_id),
+                            wf_step=wf_step,
+                            query=state.get("query", ""),
+                            context=state.get("context", {}),
+                            step_results={},  # Will be populated from state.step_outputs
+                        )
+
+                        return {
+                            "step_outputs": {
+                                _sid: {
+                                    "status": step_result.status,
+                                    "tokens_used": step_result.tokens_used,
+                                    "duration_ms": step_result.duration_ms,
+                                    "output": step_result.output,
+                                    "error": step_result.error,
+                                },
+                            },
+                            "final_response": (
+                                step_result.output.get("response", "")
+                                if _sid == "generate" and step_result.status == "success"
+                                else state.get("final_response", "")
+                            ),
+                            "total_tokens": (
+                                state.get("total_tokens", 0) + step_result.tokens_used
+                            ),
+                            "errors": (
+                                state.get("errors", [])
+                                + [step_result.error] if step_result.error
+                                else state.get("errors", [])
+                            ),
+                        }
+                    except Exception as exc:
+                        logger.warning(
+                            "langgraph_node_error",
+                            step_id=_sid,
+                            error=str(exc),
+                        )
+                        return {
+                            "step_outputs": {
+                                _sid: {"status": "error", "error": str(exc)},
+                            },
+                            "errors": state.get("errors", []) + [str(exc)],
+                        }
+
                 builder.add_node(step_id, _node_fn)
 
             # Wire edges sequentially
@@ -483,6 +536,26 @@ class LangGraphWorkflow:
                 "timeout_seconds",
                 _WORKFLOW_TIMEOUT_SECONDS,
             )
+
+            # Try LangGraph execution first (preferred path)
+            if self._langgraph_available and self._graph is not None:
+                graph_result = await self._execute_via_langgraph(
+                    company_id=company_id,
+                    query=query,
+                    variant=variant,
+                    max_time=max_time,
+                    pipeline_start=pipeline_start,
+                    workflow_id=workflow_id,
+                    **kwargs,
+                )
+                if graph_result is not None:
+                    return graph_result
+                # Fall through to sequential execution if graph failed
+                logger.warning(
+                    "langgraph_fallback_to_sequential",
+                    workflow_id=workflow_id,
+                    company_id=company_id,
+                )
 
             for wf_step in self._steps:
                 if not wf_step.enabled:
@@ -680,6 +753,97 @@ class LangGraphWorkflow:
                 status="error",
                 error=str(exc),
             )
+
+    async def _execute_via_langgraph(
+        self,
+        company_id: str,
+        query: str,
+        variant: str,
+        max_time: float,
+        pipeline_start: float,
+        workflow_id: str,
+        **kwargs: Any,
+    ) -> Optional[WorkflowResult]:
+        """Execute the pipeline using the compiled LangGraph StateGraph.
+
+        This is the preferred execution path when langgraph is available,
+        as it leverages the graph's built-in state management and error
+        handling. Falls back to sequential execution if graph invocation
+        fails (BC-008).
+        """
+        try:
+            initial_state = {
+                "query": query,
+                "company_id": company_id,
+                "variant_type": variant,
+                "context": kwargs,
+                "step_outputs": {},
+                "final_response": "",
+                "total_tokens": 0,
+                "errors": [],
+            }
+
+            # Invoke the compiled graph
+            config = {"configurable": {"workflow_id": workflow_id}}
+            final_state = await self._graph.ainvoke(initial_state, config)
+
+            # Parse results from graph state
+            step_outputs = final_state.get("step_outputs", {})
+            step_results: Dict[str, WorkflowStepResult] = {}
+            steps_completed: List[str] = []
+            total_tokens = final_state.get("total_tokens", 0)
+            final_response = final_state.get("final_response", "")
+            errors = final_state.get("errors", [])
+            overall_status = "success"
+
+            for step_id, output in step_outputs.items():
+                step_results[step_id] = WorkflowStepResult(
+                    step_id=step_id,
+                    status=output.get("status", "unknown"),
+                    tokens_used=output.get("tokens_used", 0),
+                    duration_ms=output.get("duration_ms", 0.0),
+                    error=output.get("error"),
+                    output=output.get("output", {}),
+                )
+                if output.get("status") == "success":
+                    steps_completed.append(step_id)
+                elif output.get("status") in ("error", "timeout"):
+                    overall_status = "partial"
+
+            if errors:
+                overall_status = "partial"
+
+            total_duration_ms = round((time.monotonic() - pipeline_start) * 1000, 2)
+
+            logger.info(
+                "langgraph_execution_completed",
+                workflow_id=workflow_id,
+                company_id=company_id,
+                status=overall_status,
+                steps_completed=len(steps_completed),
+                total_tokens=total_tokens,
+                duration_ms=total_duration_ms,
+            )
+
+            return WorkflowResult(
+                workflow_id=workflow_id,
+                variant_type=variant,
+                status=overall_status,
+                steps_completed=steps_completed,
+                step_results=step_results,
+                final_response=final_response,
+                total_tokens_used=total_tokens,
+                total_duration_ms=total_duration_ms,
+            )
+
+        except Exception as exc:
+            logger.warning(
+                "langgraph_execution_failed_falling_back_to_sequential",
+                error=str(exc),
+                workflow_id=workflow_id,
+                company_id=company_id,
+            )
+            return None  # Signals caller to fall back to sequential execution
 
     # ── Real AI Step Execution ──────────────────────────────
 
@@ -948,7 +1112,8 @@ class LangGraphWorkflow:
         )
 
         response_text = llm_result.get("content", "")
-        tokens_used = len(response_text.split()) * 4  # rough estimate
+        # Use real token count from LiteLLM response if available
+        tokens_used = llm_result.get("tokens_used", len(response_text.split()) * 4)
 
         return {
             "response": response_text,

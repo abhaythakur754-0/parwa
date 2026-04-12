@@ -25,7 +25,6 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from app.logger import get_logger
 from shared.knowledge_base.vector_search import (
     EMBEDDING_DIMENSION,
-    MockVectorStore,
     VectorStore,
     get_vector_store,
 )
@@ -335,30 +334,38 @@ class RAGRetriever:
     async def _generate_embedding(
         self, text: str
     ) -> Optional[List[float]]:
-        """Generate query embedding.
+        """Generate query embedding using EmbeddingService.
 
-        Uses MockVectorStore's embedding generator for testing.
-        In production, would use EmbeddingService.
+        Falls back to the store's own embedding generator if the service
+        is unavailable (BC-008).
         """
         if not text or not text.strip():
             return None
 
-        # Use the mock store's embedding generator
-        if isinstance(self._store, MockVectorStore):
-            return self._store._generate_embedding(text)
-
-        # Try using the real embedding service
+        # Try real embedding service first
         try:
             from app.services.embedding_service import EmbeddingService
-
             svc = EmbeddingService(company_id="rag_query")
-            return svc.generate_embedding(text)
+            embedding = svc.generate_embedding(text)
+            if embedding:
+                return embedding
         except Exception as exc:
-            logger.warning(
-                "rag_embedding_generation_failed",
+            logger.debug(
+                "rag_embedding_service_unavailable",
                 error=str(exc),
             )
-            return None
+
+        # BC-008: Fallback to store's own generator (e.g. MockVectorStore)
+        if hasattr(self._store, '_generate_embedding'):
+            try:
+                return self._store._generate_embedding(text)
+            except Exception as exc:
+                logger.warning(
+                    "rag_store_embedding_failed",
+                    error=str(exc),
+                )
+
+        return None
 
     # ── Keyword Search Fallback (BC-008) ──────────────────────────
 
@@ -393,28 +400,36 @@ class RAGRetriever:
             # G9-GAP-07 FIX: Use public get_all_documents() method instead of
             # accessing private _store._store attribute directly
             company_docs: Dict[str, Any] = {}
-            if isinstance(self._store, MockVectorStore):
-                if hasattr(self._store, 'get_all_documents'):
-                    company_docs = self._store.get_all_documents(company_id)
-                elif hasattr(self._store, '_store'):
-                    company_docs = self._store._store.get(company_id, {})
-                for doc_id, doc_data in company_docs.items():
-                    for chunk in doc_data.get("chunks", []):
-                        # Score based on word overlap
+            if hasattr(self._store, 'get_all_documents'):
+                company_docs = self._store.get_all_documents(company_id)
+            elif hasattr(self._store, '_store'):
+                company_docs = self._store._store.get(company_id, {})
+            for doc_id, doc_data in company_docs.items():
+                for chunk in doc_data.get("chunks", []):
+                    # Score based on word overlap — handle both dict and StoredChunk
+                    if isinstance(chunk, dict):
+                        content_lower = chunk.get("content", "").lower()
+                        chunk_id = chunk.get("chunk_id", "")
+                        document_id = doc_id
+                        chunk_metadata = chunk.get("metadata", {})
+                    else:
                         content_lower = chunk.content.lower()
-                        content_words = set(re.findall(r"\b\w+\b", content_lower))
-                        overlap = query_words & content_words
-                        if overlap:
-                            score = len(overlap) / max(len(query_words), 1)
-                            chunks.append(
-                                RAGChunk(
-                                    chunk_id=chunk.chunk_id,
-                                    document_id=chunk.document_id,
-                                    content=chunk.content,
-                                    score=round(score, 4),
-                                    metadata=chunk.metadata,
-                                )
+                        chunk_id = chunk.chunk_id
+                        document_id = chunk.document_id
+                        chunk_metadata = chunk.metadata
+                    content_words = set(re.findall(r"\b\w+\b", content_lower))
+                    overlap = query_words & content_words
+                    if overlap:
+                        score = len(overlap) / max(len(query_words), 1)
+                        chunks.append(
+                            RAGChunk(
+                                chunk_id=chunk_id,
+                                document_id=document_id,
+                                content=content_lower,
+                                score=round(score, 4),
+                                metadata=chunk_metadata,
                             )
+                        )
         except Exception as exc:
             logger.warning(
                 "rag_keyword_search_failed",

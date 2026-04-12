@@ -771,6 +771,159 @@ class StateSerializer:
                 details={"error": str(exc)},
             ) from exc
 
+    # ── Round-trip Verification (GAP 1) ───────────────────────
+
+    def verify_roundtrip(
+        self,
+        state_data: Dict[str, Any],
+        company_id: str,
+        ticket_id: str,
+    ) -> Dict[str, Any]:
+        """Verify state can survive a save → load round-trip without data loss.
+
+        Performs a purely in-memory round-trip: serialize → JSON encode →
+        JSON decode → deserialize, then compares the original and restored
+        state field-by-field. Validates _meta checksums match.
+
+        Args:
+            state_data: A previously serialized state dictionary (as
+                produced by serialize_state).
+            company_id: Tenant identifier (BC-001).
+            ticket_id: Ticket identifier.
+
+        Returns:
+            Dict with:
+                success: bool — True if round-trip preserved all data.
+                original_checksum: str — Hash of the original _meta.
+                loaded_checksum: str — Hash of the restored _meta.
+                data_matches: bool — Deep equality of top-level fields.
+                fields_checked: list — Fields that were compared.
+                missing_fields: list — Fields present in original but
+                    absent or changed after round-trip.
+        """
+        import hashlib
+
+        fields_checked: List[str] = []
+        missing_fields: List[str] = []
+        all_match = True
+
+        # 1. Build checksums from original _meta
+        original_meta = state_data.get("_meta", {})
+        original_checksum = hashlib.sha256(
+            json.dumps(original_meta, sort_keys=True).encode("utf-8")
+        ).hexdigest()[:16]
+
+        # 2. Simulate JSON round-trip (same as Redis/PG storage)
+        try:
+            state_json = json.dumps(state_data, default=_json_default, ensure_ascii=False)
+        except (TypeError, ValueError) as exc:
+            return {
+                "success": False,
+                "original_checksum": original_checksum,
+                "loaded_checksum": "",
+                "data_matches": False,
+                "fields_checked": [],
+                "missing_fields": ["json_encode_failed"],
+                "error": f"JSON encode failed: {exc}",
+            }
+
+        try:
+            restored_data = json.loads(state_json)
+        except (json.JSONDecodeError, TypeError) as exc:
+            return {
+                "success": False,
+                "original_checksum": original_checksum,
+                "loaded_checksum": "",
+                "data_matches": False,
+                "fields_checked": [],
+                "missing_fields": ["json_decode_failed"],
+                "error": f"JSON decode failed: {exc}",
+            }
+
+        # 3. Build checksum from restored _meta
+        restored_meta = restored_data.get("_meta", {})
+        loaded_checksum = hashlib.sha256(
+            json.dumps(restored_meta, sort_keys=True).encode("utf-8")
+        ).hexdigest()[:16]
+
+        # 4. Compare all critical top-level fields
+        critical_fields = [
+            "query", "gsd_state", "gsd_history", "technique_results",
+            "token_usage", "technique_token_budget", "response_parts",
+            "final_response", "ticket_id", "conversation_id",
+            "company_id", "reasoning_thread", "reflexion_trace",
+        ]
+
+        for field_name in critical_fields:
+            fields_checked.append(field_name)
+            original_value = state_data.get(field_name)
+            restored_value = restored_data.get(field_name)
+
+            if original_value != restored_value:
+                all_match = False
+                missing_fields.append(field_name)
+                logger.warning(
+                    "verify_roundtrip_field_mismatch",
+                    extra={
+                        "field": field_name,
+                        "ticket_id": ticket_id,
+                        "company_id": company_id,
+                    },
+                )
+
+        # 5. Validate _meta checksums match
+        checksums_match = original_checksum == loaded_checksum
+        if not checksums_match:
+            all_match = False
+            missing_fields.append("_meta_checksum")
+            logger.warning(
+                "verify_roundtrip_meta_checksum_mismatch",
+                extra={
+                    "original": original_checksum,
+                    "loaded": loaded_checksum,
+                    "ticket_id": ticket_id,
+                    "company_id": company_id,
+                },
+            )
+
+        # 6. Try full deserialize to catch any deeper issues
+        try:
+            self.deserialize_state(restored_data)
+            fields_checked.append("deserialize_state")
+        except Exception as exc:
+            all_match = False
+            missing_fields.append("deserialize_state")
+            logger.warning(
+                "verify_roundtrip_deserialize_failed",
+                extra={
+                    "error": str(exc),
+                    "ticket_id": ticket_id,
+                    "company_id": company_id,
+                },
+            )
+
+        result: Dict[str, Any] = {
+            "success": all_match,
+            "original_checksum": original_checksum,
+            "loaded_checksum": loaded_checksum,
+            "data_matches": all_match,
+            "fields_checked": fields_checked,
+            "missing_fields": missing_fields,
+        }
+
+        logger.info(
+            "verify_roundtrip_completed",
+            extra={
+                "success": all_match,
+                "ticket_id": ticket_id,
+                "company_id": company_id,
+                "fields_checked": len(fields_checked),
+                "missing_fields": len(missing_fields),
+            },
+        )
+
+        return result
+
     # ── Save / Load State ───────────────────────────────────────
 
     async def save_state(
@@ -847,6 +1000,23 @@ class StateSerializer:
 
         if redis_success:
             primary_backend = StorageBackend.REDIS
+            # GAP 2 FIX: Ensure PG sync after successful Redis write
+            # so data is never only in volatile Redis storage.
+            pg_sync_ok = await self._ensure_pg_sync(
+                company_id=company_id,
+                ticket_id=ticket_id,
+                state_json=state_json,
+                snapshot_id=snapshot_id,
+                snapshot_type=snapshot_type,
+                instance_id=instance_id,
+                session_id=session_id,
+                current_node=current_node,
+                technique_stack=technique_stack,
+                model_used=model_used,
+                token_count=conversation_state.token_usage,
+            )
+            if pg_sync_ok:
+                postgresql_success = True
         else:
             logger.warning(
                 "state_save_redis_failed_fallback_to_pg",
@@ -857,20 +1027,21 @@ class StateSerializer:
                 },
             )
 
-        # 2. Try PostgreSQL (fallback / audit trail)
-        postgresql_success = await self._save_to_postgresql(
-            ticket_id=ticket_id,
-            company_id=company_id,
-            state_json=state_json,
-            snapshot_id=snapshot_id,
-            snapshot_type=snapshot_type,
-            instance_id=instance_id,
-            session_id=session_id,
-            current_node=current_node,
-            technique_stack=technique_stack,
-            model_used=model_used,
-            token_count=conversation_state.token_usage,
-        )
+        # 2. If Redis failed, still try PostgreSQL as primary fallback
+        if not postgresql_success:
+            postgresql_success = await self._save_to_postgresql(
+                ticket_id=ticket_id,
+                company_id=company_id,
+                state_json=state_json,
+                snapshot_id=snapshot_id,
+                snapshot_type=snapshot_type,
+                instance_id=instance_id,
+                session_id=session_id,
+                current_node=current_node,
+                technique_stack=technique_stack,
+                model_used=model_used,
+                token_count=conversation_state.token_usage,
+            )
 
         if postgresql_success:
             if primary_backend == StorageBackend.NONE:
@@ -1919,6 +2090,93 @@ class StateSerializer:
         except Exception:
             return False
 
+    # ── PostgreSQL Sync Guarantee (GAP 2) ──────────────────────
+
+    async def _ensure_pg_sync(
+        self,
+        company_id: str,
+        ticket_id: str,
+        state_json: str,
+        snapshot_id: str,
+        snapshot_type: str,
+        instance_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        current_node: str = "unknown",
+        technique_stack: Optional[List[str]] = None,
+        model_used: Optional[str] = None,
+        token_count: int = 0,
+    ) -> bool:
+        """Ensure state is synced to PostgreSQL as a backup.
+
+        Called after every successful Redis save to guarantee that
+        critical state data is never only in volatile Redis storage.
+        If Redis is the primary store and goes down, PG must have
+        a complete copy for failover recovery.
+
+        Unlike the regular _save_to_postgresql call inside save_state,
+        this method uses retry logic (BC-004) because it is the safety
+        net. If PG sync fails, we log but don't crash (BC-008).
+
+        Args:
+            company_id: Tenant identifier (BC-001).
+            ticket_id: Ticket identifier.
+            state_json: Already-serialized state JSON string.
+            snapshot_id: Unique snapshot identifier.
+            snapshot_type: Type of snapshot.
+            instance_id: Optional variant instance ID.
+            session_id: Optional session ID.
+            current_node: Current pipeline node name.
+            technique_stack: List of technique IDs.
+            model_used: AI model used.
+            token_count: Token usage count.
+
+        Returns:
+            True if sync succeeded, False otherwise.
+        """
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            success = await self._save_to_postgresql(
+                ticket_id=ticket_id,
+                company_id=company_id,
+                state_json=state_json,
+                snapshot_id=snapshot_id,
+                snapshot_type=snapshot_type,
+                instance_id=instance_id,
+                session_id=session_id,
+                current_node=current_node,
+                technique_stack=technique_stack,
+                model_used=model_used,
+                token_count=token_count,
+            )
+            if success:
+                logger.debug(
+                    "ensure_pg_sync_success",
+                    extra={
+                        "ticket_id": ticket_id,
+                        "company_id": company_id,
+                        "snapshot_id": snapshot_id,
+                        "attempt": attempt,
+                    },
+                )
+                return True
+
+            # Exponential backoff (BC-004)
+            if attempt < max_retries:
+                backoff_ms = 100 * (2 ** (attempt - 1))
+                await asyncio.sleep(backoff_ms / 1000.0)
+
+        # BC-008: Never crash — log but don't raise
+        logger.error(
+            "ensure_pg_sync_all_retries_failed",
+            extra={
+                "ticket_id": ticket_id,
+                "company_id": company_id,
+                "snapshot_id": snapshot_id,
+                "max_retries": max_retries,
+            },
+        )
+        return False
+
     # ── PostgreSQL Backend Operations ───────────────────────────
 
     async def _save_to_postgresql(
@@ -2433,23 +2691,57 @@ class StateSerializer:
         Returns the lock token string on success, None if lock is already
         held or all retries exhausted.
 
+        GAP 3 FIX: Added wall-clock timeout to prevent indefinite waiting.
+        Even if lock_retries is high, the total time spent attempting to
+        acquire the lock is bounded by lock_timeout_seconds. This prevents
+        deadlock scenarios where multiple workers wait indefinitely for
+        each other's locks.
+
         Args:
             ticket_id: Ticket identifier to lock on.
 
         Returns:
-            Lock token string if acquired, None if all retries exhausted.
+            Lock token string if acquired, None if timeout or all retries
+            exhausted.
         """
         lock_key = _build_lock_key(ticket_id)
         lock_token = _new_uuid()
         ttl = int(self._config.lock_timeout_seconds)
 
-        for attempt in range(1, self._config.lock_retries + 1):
+        # GAP 3 FIX: Track wall-clock time to enforce a hard deadline.
+        deadline = time.monotonic() + self._config.lock_timeout_seconds
+
+        attempt = 0
+        while True:
+            attempt += 1
+
+            # GAP 3 FIX: Check wall-clock deadline before each attempt.
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.warning(
+                    "state_lock_deadline_exceeded",
+                    extra={
+                        "ticket_id": ticket_id,
+                        "elapsed": self._config.lock_timeout_seconds,
+                        "lock_timeout_seconds": self._config.lock_timeout_seconds,
+                    },
+                )
+                return None
+
             try:
                 # Check if lock already exists
                 existing = await self._redis_get(lock_key)
                 if existing is not None:
-                    # Lock already held by someone
-                    return None
+                    # Lock already held — wait briefly before retrying.
+                    # GAP 3 FIX: Don't return None immediately; instead, wait
+                    # up to the remaining deadline.
+                    wait_time = min(
+                        self._config.lock_retry_backoff_ms * attempt / 1000.0,
+                        remaining,
+                    )
+                    if wait_time > 0:
+                        await asyncio.sleep(wait_time)
+                    continue
 
                 # Try to set the lock
                 set_ok = await self._redis_set(
@@ -2463,6 +2755,9 @@ class StateSerializer:
                         extra={
                             "ticket_id": ticket_id,
                             "attempt": attempt,
+                            "elapsed_ms": int(
+                                (time.monotonic() - deadline + self._config.lock_timeout_seconds) * 1000
+                            ),
                         },
                     )
                     return lock_token
@@ -2477,16 +2772,26 @@ class StateSerializer:
                     },
                 )
 
-            # Backoff before retry
+            # GAP 3 FIX: Use bounded backoff that respects deadline.
             if attempt < self._config.lock_retries:
                 backoff_ms = self._config.lock_retry_backoff_ms * attempt
-                await asyncio.sleep(backoff_ms / 1000.0)
+                backoff_s = min(backoff_ms / 1000.0, remaining)
+                if backoff_s > 0:
+                    await asyncio.sleep(backoff_s)
+            elif remaining > 0:
+                # Beyond nominal retries but still within deadline —
+                # keep trying until deadline expires (GAP 3 safety net).
+                await asyncio.sleep(min(0.05, remaining))
+            else:
+                break
 
         logger.warning(
             "state_lock_exhausted",
             extra={
                 "ticket_id": ticket_id,
-                "retries": self._config.lock_retries,
+                "retries": attempt,
+                "max_retries": self._config.lock_retries,
+                "lock_timeout_seconds": self._config.lock_timeout_seconds,
             },
         )
         return None

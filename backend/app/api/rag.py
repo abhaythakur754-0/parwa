@@ -284,6 +284,6 @@ def rag_health_check(
         "status": "ok" if is_healthy else "degraded",
         "data": {
             "vector_store_healthy": is_healthy,
-            "store_type": "MockVectorStore",
+            "store_type": type(store).__name__,
         },
     }
