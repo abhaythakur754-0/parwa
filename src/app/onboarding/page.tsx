@@ -42,6 +42,8 @@ export default function OnboardingPage() {
     if (industry) ctx.industry = industry;
     if (variant) ctx.variant = variant;
     // Read bridged context from localStorage (set by other pages)
+    // NOTE: Do NOT remove context here — let useJarvisChat's pushContextToBackend handle the sync.
+    // Removing it here causes data loss if the push hasn't completed yet.
     try {
       const stored = localStorage.getItem('parwa_jarvis_context');
       if (stored) {
@@ -54,7 +56,7 @@ export default function OnboardingPage() {
         if (bridged.source) ctx.referral_source = bridged.source;
         if (bridged.roi_result) ctx.roi_result = bridged.roi_result;
         if (bridged.interests) ctx.interests = bridged.interests;
-        localStorage.removeItem('parwa_jarvis_context');
+        if (bridged.pages_visited) ctx.pages_visited = bridged.pages_visited;
       }
     } catch { /* ignore */ }
     // Also read pricing selection if available

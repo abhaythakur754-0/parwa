@@ -689,6 +689,9 @@ def send_message(
     detected = detect_stage(db, session_id)
     ctx["detected_stage"] = detected
 
+    # ── Auto-extract demo_topics and concerns_raised from user message ──
+    _extract_topics_and_concerns(ctx, user_message)
+
     # ── Week 8-11: Post-response audit logging ──
     try:
         audit_svc = _get_service_module("app.services.audit_service")
@@ -1522,32 +1525,104 @@ def build_system_prompt(
 
     prompt = _get_default_system_prompt()
 
-    # Inject context-aware section
+    # Inject context-aware section — ALL context_json fields
     context_section = "\n\n## Current User Context:\n"
+
+    # Pages visited (full journey awareness)
+    pages = ctx.get("pages_visited", [])
+    if pages:
+        context_section += f"- Pages visited: {', '.join(pages)}\n"
+
+    # Industry
     if ctx.get("industry"):
         context_section += f"- Industry: {ctx['industry']}\n"
+
+    # Selected variants with details
     if ctx.get("selected_variants"):
         variants = ctx["selected_variants"]
-        variant_names = [v.get("name", v.get("id", "unknown")) for v in variants]
-        context_section += f"- Selected variants: {', '.join(variant_names)}\n"
+        variant_details = []
+        for v in variants:
+            name = v.get("name", v.get("id", "unknown"))
+            qty = v.get("quantity", 1)
+            # Pricing page uses pricePerMonth, models page uses price
+            price = v.get("pricePerMonth") or v.get("price", 0)
+            variant_details.append(f"{name} (x{qty}, ${price}/mo)")
+        context_section += f"- Selected variants: {', '.join(variant_details)}\n"
+
+    # ROI result (calculated savings)
+    roi = ctx.get("roi_result")
+    if roi:
+        current_cost = roi.get('current_monthly') or roi.get('current_cost', 'N/A')
+        parwa_cost = roi.get('parwa_monthly') or roi.get('parwa_cost', 'N/A')
+        monthly_savings = roi.get('savings_annual') or roi.get('monthly_savings', 'N/A')
+        savings_pct = roi.get('savings_pct', '')
+        suggested = roi.get('suggested_model', '')
+        context_section += f"- ROI calculation: current_monthly_cost=${current_cost}, parwa_monthly_cost=${parwa_cost}"
+        if monthly_savings != 'N/A':
+            context_section += f", annual_savings=${monthly_savings}"
+        if savings_pct:
+            context_section += f", savings_pct={savings_pct}%"
+        if suggested:
+            context_section += f", suggested_model={suggested}"
+        context_section += "\n"
+
+    # Total price
+    if ctx.get("total_price"):
+        context_section += f"- Total monthly price: ${ctx['total_price']}\n"
+
+    # Business email
     if ctx.get("business_email"):
         context_section += f"- Business email: {ctx['business_email']}\n"
         context_section += f"- Email verified: {ctx.get('email_verified', False)}\n"
+
+    # Entry source & referral
     if ctx.get("entry_source") and ctx["entry_source"] != "direct":
         context_section += f"- Entry source: {ctx['entry_source']}\n"
+        if ctx.get("entry_params"):
+            params = ctx["entry_params"]
+            param_str = ", ".join(f"{k}={v}" for k, v in params.items())
+            context_section += f"- Entry params: {param_str}\n"
+    if ctx.get("referral_source"):
+        context_section += f"- Referral source: {ctx['referral_source']}\n"
 
+    # Demo topics discussed
+    demo_topics = ctx.get("demo_topics", [])
+    if demo_topics:
+        context_section += f"- Topics user is interested in: {', '.join(demo_topics)}\n"
+
+    # Concerns raised
+    concerns = ctx.get("concerns_raised", [])
+    if concerns:
+        context_section += f"- Concerns raised: {', '.join(concerns)}\n"
+
+    # Payment status
+    if ctx.get("payment_status") and ctx["payment_status"] != "none":
+        context_section += f"- Payment status: {ctx['payment_status']}\n"
+
+    # Pack type
+    if ctx.get("pack_type"):
+        context_section += f"- Pack type: {ctx['pack_type']}\n"
+
+    # Conversation stage
     stage = ctx.get("detected_stage", "welcome")
     context_section += f"- Conversation stage: {stage}\n"
 
-    # Stage-specific instructions
+    # Stage-specific instructions (context-aware)
+    welcome_instruction = "The user just arrived. Give a warm, brief welcome. "
+    if pages:
+        welcome_instruction += (
+            f"Mention that you noticed they've been exploring {', '.join(pages[-3:])}. "
+            "Use this to personalize your welcome."
+        )
+    else:
+        welcome_instruction += "Ask what they're looking for."
+
     stage_instructions = {
-        "welcome": (
-            "The user just arrived. Give a warm, brief welcome. "
-            "Ask what they're looking for."
-        ),
+        "welcome": welcome_instruction,
         "discovery": (
             "Learn about the user's business: industry, size, pain points. "
-            "Recommend relevant variants based on their needs."
+            "Recommend relevant variants based on their needs. "
+            "If they've already browsed specific variants or pages, reference that."
         ),
         "demo": (
             "The user wants to try PARWA. Explain the demo pack ($1 = "
@@ -3228,6 +3303,93 @@ def jarvis_merge_with_brand_voice(
 
 
 # ── Private Helpers ────────────────────────────────────────────────
+
+
+def _extract_topics_and_concerns(ctx: Dict[str, Any], user_message: str) -> None:
+    """Auto-extract demo_topics and concerns_raised from user messages.
+
+    Scans the user message for keywords that indicate interest in specific
+    topics or concerns, and appends them to the context so Jarvis can
+    reference them in future responses. Mutates ctx in place.
+    """
+    msg_lower = user_message.lower()
+
+    topic_keywords = {
+        "refund": "refunds & returns",
+        "return": "refunds & returns",
+        "shipping": "shipping & delivery",
+        "delivery": "shipping & delivery",
+        "order status": "order tracking",
+        "tracking": "order tracking",
+        "faq": "product FAQ",
+        "billing": "billing & payments",
+        "payment": "billing & payments",
+        "invoice": "billing & payments",
+        "integration": "integrations",
+        "shopify": "integrations",
+        "zendesk": "integrations",
+        "slack": "integrations",
+        "pricing": "pricing & plans",
+        "plan": "pricing & plans",
+        "cost": "pricing & plans",
+        "expensive": "pricing & plans",
+        "demo": "product demo",
+        "roi": "ROI & savings",
+        "savings": "ROI & savings",
+        "automation": "automation",
+        "scalability": "scalability",
+        "gdpr": "security & compliance",
+        "security": "security & compliance",
+        "data": "security & compliance",
+        "setup": "setup & onboarding",
+        "migration": "setup & onboarding",
+        "multilingual": "multi-language support",
+        "language": "multi-language support",
+        "24/7": "24/7 availability",
+        "escalation": "escalation handling",
+        "knowledge base": "knowledge base / self-learning",
+        "kb": "knowledge base / self-learning",
+    }
+
+    concern_keywords = {
+        "too expensive": "pricing concern",
+        "can't afford": "pricing concern",
+        "budget": "budget constraint",
+        "complex": "complexity concern",
+        "difficult": "ease of use concern",
+        "complicated": "ease of use concern",
+        "wrong answer": "accuracy concern",
+        "hallucin": "accuracy concern",
+        "make mistakes": "accuracy concern",
+        "data safe": "data security concern",
+        "data secure": "data security concern",
+        "data private": "data privacy concern",
+        "hack": "data security concern",
+        "breach": "data security concern",
+        "long setup": "setup time concern",
+        "take long": "setup time concern",
+        "won't work with": "integration concern",
+        "not sure": "uncertainty / hesitation",
+        "thinking about it": "uncertainty / hesitation",
+        "compare": "comparing alternatives",
+        "competitor": "comparing alternatives",
+        "switch": "migration concern",
+    }
+
+    existing_topics = set(ctx.get("demo_topics", []))
+    for keyword, topic in topic_keywords.items():
+        if keyword in msg_lower and topic not in existing_topics:
+            ctx.setdefault("demo_topics", []).append(topic)
+
+    existing_concerns = set(ctx.get("concerns_raised", []))
+    for keyword, concern in concern_keywords.items():
+        if keyword in msg_lower and concern not in existing_concerns:
+            ctx.setdefault("concerns_raised", []).append(concern)
+
+    if len(ctx.get("demo_topics", [])) > 10:
+        ctx["demo_topics"] = ctx["demo_topics"][-10:]
+    if len(ctx.get("concerns_raised", [])) > 10:
+        ctx["concerns_raised"] = ctx["concerns_raised"][-10:]
 
 
 def _parse_context(context_json: str) -> Dict[str, Any]:
