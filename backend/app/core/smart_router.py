@@ -1549,13 +1549,47 @@ class SmartRouter:
         }
 
     def _get_api_key(self, provider: ModelProvider) -> Optional[str]:
-        """Get API key for a provider from environment variables."""
+        """Get API key for a provider from environment variables or Settings.
+
+        Checks multiple env var names for compatibility:
+        - Google: GOOGLE_API_KEY, GEMINI_API_KEY, GOOGLE_AI_API_KEY
+        - Groq: GROQ_API_KEY
+        - Cerebras: CEREBRAS_API_KEY
+        """
         key_map = {
-            ModelProvider.CEREBRAS: os.environ.get("CEREBRAS_API_KEY"),
-            ModelProvider.GROQ: os.environ.get("GROQ_API_KEY"),
-            ModelProvider.GOOGLE: os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"),
+            ModelProvider.CEREBRAS: (
+                os.environ.get("CEREBRAS_API_KEY")
+            ),
+            ModelProvider.GROQ: (
+                os.environ.get("GROQ_API_KEY")
+            ),
+            ModelProvider.GOOGLE: (
+                os.environ.get("GOOGLE_API_KEY")
+                or os.environ.get("GEMINI_API_KEY")
+                or os.environ.get("GOOGLE_AI_API_KEY")
+            ),
         }
-        return key_map.get(provider)
+        key = key_map.get(provider)
+
+        # Also try loading from Settings class (pydantic-settings)
+        if not key:
+            try:
+                from app.config import get_settings
+                settings = get_settings()
+                if provider == ModelProvider.CEREBRAS:
+                    key = getattr(settings, "CEREBRAS_API_KEY", None)
+                elif provider == ModelProvider.GROQ:
+                    key = getattr(settings, "GROQ_API_KEY", None)
+                elif provider == ModelProvider.GOOGLE:
+                    key = (
+                        getattr(settings, "GOOGLE_AI_API_KEY", None)
+                        or getattr(settings, "GOOGLE_API_KEY", None)
+                        or getattr(settings, "GEMINI_API_KEY", None)
+                    )
+            except Exception:
+                pass  # Settings not available (missing required vars)
+
+        return key or None
 
     def _call_provider(
         self,
