@@ -279,10 +279,19 @@ class AIPipeline:
         return self._signal_extractor
 
     def _get_classification_engine(self):
+        """B5 FIX: Pass SmartRouter so AI classification actually fires.
+
+        Without a smart_router, ClassificationEngine always falls back to
+        keyword-only classification even for parwa/parwa_high variants.
+        """
         if self._classification_engine is None:
             try:
                 from app.core.classification_engine import ClassificationEngine
-                self._classification_engine = ClassificationEngine()
+                # Get smart_router for AI-powered classification
+                smart_router = self._get_smart_router()
+                self._classification_engine = ClassificationEngine(
+                    smart_router=smart_router,
+                )
             except Exception as exc:
                 logger.warning("ClassificationEngine init failed: %s", exc)
         return self._classification_engine
@@ -728,40 +737,69 @@ class AIPipeline:
     # ── Stage 4: Intent Classification ────────────────────────
 
     async def _stage_classification(self, ctx: PipelineContext) -> None:
-        """Classify the intent of the customer query."""
+        """Classify the intent of the customer query.
+
+        B1 FIX: Pass correct params to ClassificationEngine.classify().
+        B2 FIX: Read primary_confidence (not confidence).
+        company_id is now properly forwarded for tenant isolation.
+        """
         engine = self._get_classification_engine()
         if not engine:
             return
 
         try:
             result = await engine.classify(
-                ctx.query,
-                context=ctx.extracted_signals,
+                text=ctx.query,
+                company_id=ctx.company_id,
                 variant_type=ctx.variant_type,
+                use_ai=True,
             )
             if result:
                 if hasattr(result, "primary_intent"):
                     ctx.intent_type = result.primary_intent or "general"
-                if hasattr(result, "confidence"):
-                    ctx.intent_confidence = result.confidence or 0.0
+                if hasattr(result, "primary_confidence"):
+                    ctx.intent_confidence = result.primary_confidence or 0.0
                 if hasattr(result, "secondary_intents"):
-                    ctx.secondary_intents = result.secondary_intents or []
+                    # secondary_intents is List[Tuple[str, float]] — extract names
+                    raw = result.secondary_intents or []
+                    ctx.secondary_intents = [
+                        si[0] if isinstance(si, (list, tuple)) else si
+                        for si in raw
+                    ]
         except Exception as exc:
             logger.error("Classification failed: %s", exc)
 
     # ── Stage 5: Sentiment Analysis ───────────────────────────
 
     async def _stage_sentiment(self, ctx: PipelineContext) -> None:
-        """Analyze sentiment, frustration, emotion, urgency."""
+        """Analyze sentiment, frustration, emotion, urgency.
+
+        B3 FIX: Pass correct params to SentimentAnalyzer.analyze().
+        B4 FIX: Read urgency_level (not urgency); remove customer_tier
+        (SentimentResult has no customer_tier — it comes from signal extraction).
+        conversation_history is converted from dict list to string list.
+        """
         analyzer = self._get_sentiment_analyzer()
         if not analyzer:
             return
 
         try:
+            # PipelineContext stores conversation_history as List[dict],
+            # but SentimentAnalyzer expects List[str]
+            history = None
+            if ctx.conversation_history:
+                history = [
+                    m.get("content", str(m))
+                    if isinstance(m, dict) else str(m)
+                    for m in ctx.conversation_history
+                ]
+
             result = await analyzer.analyze(
-                ctx.query,
-                context=ctx.extracted_signals,
-                conversation_history=ctx.conversation_history,
+                query=ctx.query,
+                company_id=ctx.company_id,
+                variant_type=ctx.variant_type,
+                conversation_history=history,
+                customer_metadata=ctx.customer_metadata,
             )
             if result:
                 if hasattr(result, "frustration_score"):
@@ -770,12 +808,10 @@ class AIPipeline:
                     ctx.sentiment_score = result.sentiment_score or 0.5
                 if hasattr(result, "emotion"):
                     ctx.emotion = result.emotion
-                if hasattr(result, "urgency"):
-                    ctx.urgency_level = result.urgency or "normal"
+                if hasattr(result, "urgency_level"):
+                    ctx.urgency_level = result.urgency_level or "normal"
                 if hasattr(result, "tone_recommendation"):
                     ctx.tone_recommendation = result.tone_recommendation
-                if hasattr(result, "customer_tier"):
-                    ctx.customer_tier = result.customer_tier or "standard"
         except Exception as exc:
             logger.error("Sentiment analysis failed: %s", exc)
 
@@ -815,7 +851,14 @@ class AIPipeline:
     # ── Stage 7: Technique Router ─────────────────────────────
 
     def _stage_technique_router(self, ctx: PipelineContext) -> None:
-        """Select the reasoning technique based on signals."""
+        """Select the reasoning technique based on signals.
+
+        B7 FIX: Merge frustration_score from SentimentAnalyzer (Stage 5)
+        into QuerySignals before routing. Without this, the technique router
+        only used signal extraction's basic sentiment (0.0-1.0) and missed
+        the detailed frustration score (0-100) that triggers escalation
+        techniques like De-escalation Protocol.
+        """
         router = self._get_technique_router()
         if not router or not ctx.query_signals:
             ctx.selected_technique = "crp"  # Tier 1 always-active
@@ -823,6 +866,18 @@ class AIPipeline:
             return
 
         try:
+            # B7: Inject frustration_score from sentiment analysis
+            if ctx.frustration_score > 0:
+                ctx.query_signals.frustration_score = ctx.frustration_score
+
+            # Also enrich with classification confidence if available
+            if ctx.intent_confidence > 0:
+                ctx.query_signals.confidence_score = ctx.intent_confidence
+
+            # Update intent from classification (more accurate than signal extraction)
+            if ctx.intent_type and ctx.intent_type != "general":
+                ctx.query_signals.intent_type = ctx.intent_type
+
             result = router.route(ctx.query_signals)
             if result:
                 if hasattr(result, "technique"):
