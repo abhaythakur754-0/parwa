@@ -126,8 +126,7 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
               </div>
             </div>
             {isAuthenticated && user ? (
-              <>
-                <UserMenu />
+              <UserMenu />
             ) : (
               <Link
                 href="/signup"
