@@ -329,12 +329,26 @@ class LangGraphWorkflow:
                                 "errors": state.get("errors", []) + [f"Unknown step: {_sid}"],
                             }
 
+                        # Reconstruct step_results from accumulated state so
+                        # downstream steps (e.g. generate) can read upstream outputs
+                        # (e.g. classify intent, technique_select technique).
+                        prev_outputs = state.get("step_outputs", {})
+                        reconstructed: Dict[str, WorkflowStepResult] = {}
+                        for prev_sid, prev_out in prev_outputs.items():
+                            if isinstance(prev_out, dict):
+                                reconstructed[prev_sid] = WorkflowStepResult(
+                                    step_id=prev_sid,
+                                    status=prev_out.get("status", "unknown"),
+                                    tokens_used=prev_out.get("tokens_used", 0),
+                                    output=prev_out.get("output", {}),
+                                )
+
                         step_result = await self._execute_step(
                             company_id=state.get("company_id", self._config.company_id),
                             wf_step=wf_step,
                             query=state.get("query", ""),
                             context=state.get("context", {}),
-                            step_results={},  # Will be populated from state.step_outputs
+                            step_results=reconstructed,
                         )
 
                         return {
@@ -1103,7 +1117,7 @@ class LangGraphWorkflow:
             query_signals=query_signals,
         )
 
-        # Build messages payload
+        # Build messages payload — inject full session context
         system_prompt = context.get("system_prompt", "") or "You are a helpful customer support assistant."
         knowledge_ctx = context.get("knowledge_context", "")
         if knowledge_ctx and isinstance(knowledge_ctx, (list, str)):
@@ -1115,8 +1129,20 @@ class LangGraphWorkflow:
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": query},
         ]
+
+        # Inject conversation history so the AI has full session context
+        conversation_history = context.get("conversation_history")
+        if conversation_history and isinstance(conversation_history, list):
+            for msg in conversation_history[-20:]:  # Last 20 turns
+                if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                    messages.append({
+                        "role": msg["role"],
+                        "content": msg["content"],
+                    })
+
+        # Append current query
+        messages.append({"role": "user", "content": query})
 
         # Execute the LLM call (async)
         llm_result = await router.async_execute_llm_call(
@@ -1371,7 +1397,12 @@ class LangGraphWorkflow:
         context: Dict[str, Any],
         step_results: Dict[str, WorkflowStepResult],
     ) -> Tuple[Dict[str, Any], int]:
-        """Simulate a core processing step output."""
+        """Simulate a core processing step output.
+
+        Context-aware: incorporates system_prompt context, detected
+        intent, technique, and conversation history so the simulated
+        response is relevant rather than generic.
+        """
         tokens = WORKFLOW_STEP_DEFINITIONS.get(
             step_id, {},
         ).get("estimated_tokens", 500)
@@ -1384,10 +1415,36 @@ class LangGraphWorkflow:
                     "technique", technique,
                 )
 
+            # Extract context-aware details from the system prompt
+            system_prompt = context.get("system_prompt", "")
+            industry = ""
+            pages = ""
+            stage = ""
+            if system_prompt:
+                # Quick extraction of context hints from system prompt
+                for line in system_prompt.split("\n"):
+                    line_s = line.strip().lower()
+                    if line_s.startswith("- industry:"):
+                        industry = line.split(":", 1)[1].strip()
+                    elif line_s.startswith("- pages visited:"):
+                        pages = line.split(":", 1)[1].strip()
+                    elif line_s.startswith("- conversation stage:"):
+                        stage = line.split(":", 1)[1].strip()
+
+            # Build a contextually relevant response
+            context_hints = []
+            if industry:
+                context_hints.append(f"in the {industry} space")
+            if pages:
+                context_hints.append(f"based on your exploration of {pages}")
+            if stage:
+                context_hints.append(f"(stage: {stage})")
+
+            hint_str = " ".join(context_hints)
             response = (
                 f"Thank you for your message. "
                 f"Regarding your query about '{query[:50]}', "
-                f"I'd be happy to help. "
+                f"I'd be happy to help{(' ' + hint_str) if hint_str else ''}. "
                 f"[Technique: {technique}]"
             )
             return {

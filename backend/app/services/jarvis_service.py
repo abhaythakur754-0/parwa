@@ -575,9 +575,19 @@ def send_message(
         # Inject context-aware system prompt into the pipeline so it uses
         # the same rich user journey context (entry_source, pages_visited,
         # industry, variants, stage) instead of a bare prompt.
+        # Also pass raw session context as customer_metadata so LangGraph
+        # workflow steps can access structured fields directly.
         try:
             system_prompt = build_system_prompt(db, session_id)
             pipeline_args["system_prompt"] = system_prompt
+
+            # Pass raw session context as customer_metadata for LangGraph
+            # steps that need structured access (e.g. industry, variants, ROI).
+            # The system_prompt above already bakes these into text, but this
+            # gives downstream steps programmatic access too.
+            session_ctx = _parse_context(session.context_json) if session else {}
+            if session_ctx:
+                pipeline_args["customer_metadata"] = session_ctx
         except Exception:
             logger.debug("build_system_prompt failed, pipeline will use default context")
 
