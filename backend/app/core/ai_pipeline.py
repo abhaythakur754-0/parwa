@@ -621,7 +621,7 @@ class AIPipeline:
         )
 
         # Stage 13: Brand Voice
-        self._run_stage_sync("brand_voice", ctx, self._stage_brand_voice)
+        self._run_stage("brand_voice", ctx, self._stage_brand_voice)
 
         # Set final response
         ctx.final_response = ctx.response_text or ctx.raw_response or self._get_safe_fallback_response(ctx)
@@ -1247,7 +1247,7 @@ class AIPipeline:
 
     # ── Stage 13: Brand Voice ─────────────────────────────────
 
-    def _stage_brand_voice(self, ctx: PipelineContext) -> None:
+    async def _stage_brand_voice(self, ctx: PipelineContext) -> None:
         """Apply brand voice settings to the final response.
 
         D5-9 FIX: Use BrandVoiceService instead of jarvis_service.
