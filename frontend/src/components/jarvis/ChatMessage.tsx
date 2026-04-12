@@ -143,17 +143,37 @@ function ErrorMessage({
 
 // ── Inline Content Renderer (bullet-point aware, XSS-safe) ──────────
 
+function isEmojiChar(ch: string): boolean {
+  const code = ch.charCodeAt(0);
+  return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
+}
+
 function renderInlineContent(content: string) {
-  const lines = content.split('\n');
+  // Pre-process: if a single line contains multiple bullet markers (•, -, *) split them into separate lines
+  const preprocessed = content.split('\n').flatMap((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return [line];
+    // Check if line has 2+ bullet markers — meaning multiple bullets are jammed on one line
+    const bulletMatches = trimmed.match(/[\u2022\-*•]\s/g);
+    if (bulletMatches && bulletMatches.length >= 2) {
+      // Split on bullet markers but keep the marker with each piece
+      return trimmed.split(/(?=[\u2022\-*•]\s)/).filter(Boolean);
+    }
+    return [line];
+  });
+
+  const lines = preprocessed;
+  let openerUsed = false;
+
   return lines.map((line, index) => {
     const trimmed = line.trim();
     if (!trimmed) return <div key={index} className="h-2" />;
 
     // Bullet point lines (•, -, *, or emoji prefix)
     const firstChar = trimmed.charCodeAt(0);
-    const isEmoji = (firstChar >= 0x1F300 && firstChar <= 0x1FAFF) || (firstChar >= 0x2600 && firstChar <= 0x27BF) || (firstChar >= 0xFE00 && firstChar <= 0xFE0F);
+    const isEmoji = isEmojiChar(trimmed.charAt(0));
     const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed) || isEmoji;
-    const isOpener = index === 0 && !isBullet && trimmed.length < 80;
+    const isOpener = !openerUsed && !isBullet && trimmed.length < 80;
 
     if (isBullet) {
       // Strip leading bullet markers but keep emoji + text
@@ -169,6 +189,7 @@ function renderInlineContent(content: string) {
     }
 
     if (isOpener) {
+      openerUsed = true;
       return (
         <p key={index} className="text-white font-medium text-sm leading-relaxed">
           {trimmed}
