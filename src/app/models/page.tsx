@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import NavigationBar from '@/components/landing/NavigationBar';
 import Footer from '@/components/landing/Footer';
-import { AntiArbitrageMatrix } from '@/components/pricing';
+import { AntiArbitrageMatrix } from '@/components/models/AntiArbitrageMatrix';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { BookDemoModal } from '@/components/demo/BookDemoModal';
 import { useAuth } from '@/contexts/AuthContext';
