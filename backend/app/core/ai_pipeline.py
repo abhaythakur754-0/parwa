@@ -279,10 +279,19 @@ class AIPipeline:
         return self._signal_extractor
 
     def _get_classification_engine(self):
+        """B5 FIX: Pass SmartRouter so AI classification actually fires.
+
+        Without a smart_router, ClassificationEngine always falls back to
+        keyword-only classification even for parwa/parwa_high variants.
+        """
         if self._classification_engine is None:
             try:
                 from app.core.classification_engine import ClassificationEngine
-                self._classification_engine = ClassificationEngine()
+                # Get smart_router for AI-powered classification
+                smart_router = self._get_smart_router()
+                self._classification_engine = ClassificationEngine(
+                    smart_router=smart_router,
+                )
             except Exception as exc:
                 logger.warning("ClassificationEngine init failed: %s", exc)
         return self._classification_engine
@@ -479,12 +488,27 @@ class AIPipeline:
 
             if lg_workflow is not None:
                 lg_start = time.time()
+                # J7-G1: Build LangGraph context with system prompt + RAG
+                lg_context = dict(ctx.customer_metadata or {})
+                lg_context["system_prompt"] = ctx.system_prompt or ""
+                # J7-G4: Inject RAG context if available from pipeline stages 1-5
+                if ctx.rag_context:
+                    lg_context["knowledge_context"] = ctx.rag_context
+                if ctx.selected_model:
+                    lg_context["selected_model"] = ctx.selected_model
+                if ctx.selected_technique:
+                    lg_context["selected_technique"] = ctx.selected_technique
+                # Pass sentiment signals for tone-aware generation
+                lg_context["frustration_score"] = ctx.frustration_score
+                lg_context["sentiment_score"] = ctx.sentiment_score
+                lg_context["tone_recommendation"] = ctx.tone_recommendation
+
                 lg_result = await asyncio.wait_for(
                     lg_workflow.execute(
                         company_id=ctx.company_id,
                         query=ctx.query,
                         conversation_history=ctx.conversation_history,
-                        customer_metadata=ctx.customer_metadata,
+                        customer_metadata=lg_context,
                     ),
                     timeout=35.0,  # BC-012: overall LangGraph timeout
                 )
@@ -503,6 +527,14 @@ class AIPipeline:
                     ctx.tokens_used = lg_result.total_tokens_used
                     langgraph_used = True
                     ctx.stages_completed.append("langgraph_workflow")
+
+                    # J7-G3: Surface LangGraph metadata in PipelineResult
+                    if hasattr(lg_result, 'workflow_id'):
+                        ctx.stages_completed.append(f"langgraph_{lg_result.workflow_id}")
+                    if hasattr(lg_result, 'step_results'):
+                        ctx.stages_completed.extend(
+                            f"lg:{sid}" for sid in lg_result.step_results
+                        )
 
                     # Surface LangGraph step results as metadata
                     lg_step_summary = [
@@ -589,7 +621,7 @@ class AIPipeline:
         )
 
         # Stage 13: Brand Voice
-        self._run_stage_sync("brand_voice", ctx, self._stage_brand_voice)
+        self._run_stage("brand_voice", ctx, self._stage_brand_voice)
 
         # Set final response
         ctx.final_response = ctx.response_text or ctx.raw_response or self._get_safe_fallback_response(ctx)
@@ -632,33 +664,86 @@ class AIPipeline:
     # ── Stage 1: Edge Case Detection ─────────────────────────
 
     async def _stage_edge_case(self, ctx: PipelineContext) -> None:
-        """Detect edge cases that should short-circuit the pipeline."""
-        handlers = self._get_edge_case_handlers()
-        if not handlers:
-            return
+        """Detect edge cases that should short-circuit the pipeline.
 
-        context = {
-            "company_id": ctx.company_id,
-            "variant_type": ctx.variant_type,
-            "conversation_history": ctx.conversation_history or [],
-        }
+        E1 FIX: Use EdgeCaseRegistry for variant-aware handler filtering.
+        E2 FIX: Read result.reason (not result.response which doesn't exist).
+        E3 FIX: Handle rewrite/redirect/escalate actions, not just block.
+        """
+        # E1: Try EdgeCaseRegistry first (variant-aware)
+        try:
+            from app.core.edge_case_handlers import EdgeCaseRegistry
+            registry = EdgeCaseRegistry(variant=ctx.variant_type)
+            ec_context = {
+                "company_id": ctx.company_id,
+                "variant_type": ctx.variant_type,
+                "conversation_history": ctx.conversation_history or [],
+            }
+            registry_result = registry.process(ctx.query, ec_context)
+            if registry_result:
+                ctx.is_edge_case = registry_result.get("is_edge_case", False)
+                action = registry_result.get("action")
+                if action:
+                    ctx.edge_case_action = action
 
-        for handler in handlers:
-            try:
-                if handler.can_handle(ctx.query, context):
-                    result = handler.handle(ctx.query, context)
-                    if result and hasattr(result, "action"):
-                        ctx.is_edge_case = True
-                        ctx.edge_case_action = result.action.value if hasattr(result.action, "value") else str(result.action)
-                        if hasattr(result, "response") and result.response:
-                            ctx.edge_case_message = result.response
-                        if ctx.edge_case_action == "block":
-                            ctx.response_text = ctx.edge_case_message or "I cannot process this request."
-                            return
-                        break
-            except Exception as exc:
-                logger.debug("Edge case handler %s failed: %s", type(handler).__name__, exc)
-                continue
+                    if action == "block":
+                        # E2: Use reason, not response
+                        reason = registry_result.get("reason", "I cannot process this request.")
+                        ctx.edge_case_message = reason
+                        ctx.response_text = reason
+                        return
+
+                    elif action == "rewrite" and registry_result.get("rewritten_query"):
+                        # E3: Apply rewritten query
+                        ctx.query = registry_result["rewritten_query"]
+                        logger.info(
+                            "edge_case_rewrite",
+                            original=ctx.query[:80],
+                            company_id=ctx.company_id,
+                        )
+
+                    elif action == "redirect" and registry_result.get("redirect_target"):
+                        # E3: Handle redirect (e.g., FAQ match)
+                        ctx.edge_case_message = registry_result.get("reason", "")
+                        # Don't block — let the pipeline continue with the redirect context
+
+                    elif action == "escalate":
+                        # E3: Mark for escalation
+                        ctx.edge_case_message = registry_result.get("reason", "Escalating to human agent.")
+                        ctx.urgency_level = "critical"
+        except Exception as exc:
+            logger.debug("EdgeCaseRegistry failed, using manual handlers: %s", exc)
+            # Fallback to manual handler iteration
+            handlers = self._get_edge_case_handlers()
+            if not handlers:
+                return
+
+            context = {
+                "company_id": ctx.company_id,
+                "variant_type": ctx.variant_type,
+                "conversation_history": ctx.conversation_history or [],
+            }
+
+            for handler in handlers:
+                try:
+                    if handler.can_handle(ctx.query, context):
+                        result = handler.handle(ctx.query, context)
+                        if result and hasattr(result, "action"):
+                            ctx.is_edge_case = True
+                            ctx.edge_case_action = result.action.value if hasattr(result.action, "value") else str(result.action)
+                            # E2: Use reason, not response
+                            if hasattr(result, "reason") and result.reason:
+                                ctx.edge_case_message = result.reason
+                            if ctx.edge_case_action == "block":
+                                ctx.response_text = ctx.edge_case_message or "I cannot process this request."
+                                return
+                            # E3: Handle rewrite
+                            if ctx.edge_case_action == "rewrite" and hasattr(result, "rewritten_query"):
+                                ctx.query = result.rewritten_query
+                            break
+                except Exception as inner_exc:
+                    logger.debug("Edge case handler %s failed: %s", type(handler).__name__, inner_exc)
+                    continue
 
     # ── Stage 2: Prompt Injection Scan ────────────────────────
 
@@ -728,40 +813,69 @@ class AIPipeline:
     # ── Stage 4: Intent Classification ────────────────────────
 
     async def _stage_classification(self, ctx: PipelineContext) -> None:
-        """Classify the intent of the customer query."""
+        """Classify the intent of the customer query.
+
+        B1 FIX: Pass correct params to ClassificationEngine.classify().
+        B2 FIX: Read primary_confidence (not confidence).
+        company_id is now properly forwarded for tenant isolation.
+        """
         engine = self._get_classification_engine()
         if not engine:
             return
 
         try:
             result = await engine.classify(
-                ctx.query,
-                context=ctx.extracted_signals,
+                text=ctx.query,
+                company_id=ctx.company_id,
                 variant_type=ctx.variant_type,
+                use_ai=True,
             )
             if result:
                 if hasattr(result, "primary_intent"):
                     ctx.intent_type = result.primary_intent or "general"
-                if hasattr(result, "confidence"):
-                    ctx.intent_confidence = result.confidence or 0.0
+                if hasattr(result, "primary_confidence"):
+                    ctx.intent_confidence = result.primary_confidence or 0.0
                 if hasattr(result, "secondary_intents"):
-                    ctx.secondary_intents = result.secondary_intents or []
+                    # secondary_intents is List[Tuple[str, float]] — extract names
+                    raw = result.secondary_intents or []
+                    ctx.secondary_intents = [
+                        si[0] if isinstance(si, (list, tuple)) else si
+                        for si in raw
+                    ]
         except Exception as exc:
             logger.error("Classification failed: %s", exc)
 
     # ── Stage 5: Sentiment Analysis ───────────────────────────
 
     async def _stage_sentiment(self, ctx: PipelineContext) -> None:
-        """Analyze sentiment, frustration, emotion, urgency."""
+        """Analyze sentiment, frustration, emotion, urgency.
+
+        B3 FIX: Pass correct params to SentimentAnalyzer.analyze().
+        B4 FIX: Read urgency_level (not urgency); remove customer_tier
+        (SentimentResult has no customer_tier — it comes from signal extraction).
+        conversation_history is converted from dict list to string list.
+        """
         analyzer = self._get_sentiment_analyzer()
         if not analyzer:
             return
 
         try:
+            # PipelineContext stores conversation_history as List[dict],
+            # but SentimentAnalyzer expects List[str]
+            history = None
+            if ctx.conversation_history:
+                history = [
+                    m.get("content", str(m))
+                    if isinstance(m, dict) else str(m)
+                    for m in ctx.conversation_history
+                ]
+
             result = await analyzer.analyze(
-                ctx.query,
-                context=ctx.extracted_signals,
-                conversation_history=ctx.conversation_history,
+                query=ctx.query,
+                company_id=ctx.company_id,
+                variant_type=ctx.variant_type,
+                conversation_history=history,
+                customer_metadata=ctx.customer_metadata,
             )
             if result:
                 if hasattr(result, "frustration_score"):
@@ -770,19 +884,21 @@ class AIPipeline:
                     ctx.sentiment_score = result.sentiment_score or 0.5
                 if hasattr(result, "emotion"):
                     ctx.emotion = result.emotion
-                if hasattr(result, "urgency"):
-                    ctx.urgency_level = result.urgency or "normal"
+                if hasattr(result, "urgency_level"):
+                    ctx.urgency_level = result.urgency_level or "normal"
                 if hasattr(result, "tone_recommendation"):
                     ctx.tone_recommendation = result.tone_recommendation
-                if hasattr(result, "customer_tier"):
-                    ctx.customer_tier = result.customer_tier or "standard"
         except Exception as exc:
             logger.error("Sentiment analysis failed: %s", exc)
 
     # ── Stage 6: Smart Router (Model Selection) ───────────────
 
     def _stage_smart_router(self, ctx: PipelineContext) -> None:
-        """Select the AI model based on query complexity and variant."""
+        """Select the AI model based on query complexity and variant.
+
+        G3 FIX: Read result.model_config.model_id (not result.model_id).
+        G4 FIX: Use AtomicStepType enum based on complexity, not raw string.
+        """
         router = self._get_smart_router()
         if not router:
             ctx.selected_model = "gemini-2.0-flash"
@@ -791,19 +907,39 @@ class AIPipeline:
             return
 
         try:
+            from app.core.smart_router import AtomicStepType
+
+            # G4: Select atomic step type based on query complexity
+            complexity = 0.3
+            if ctx.extracted_signals:
+                complexity = ctx.extracted_signals.get("complexity", 0.3)
+
+            if complexity > 0.6:
+                atomic_step = AtomicStepType.DRAFT_RESPONSE_COMPLEX
+            elif complexity > 0.3:
+                atomic_step = AtomicStepType.DRAFT_RESPONSE_MODERATE
+            else:
+                atomic_step = AtomicStepType.DRAFT_RESPONSE_SIMPLE
+
             # Build query signals dict for router
             signals = ctx.extracted_signals or {}
+            # Enrich with frustration/sentiment for better routing
+            if ctx.frustration_score > 0:
+                signals["frustration_score"] = ctx.frustration_score
+            if ctx.urgency_level:
+                signals["urgency_level"] = ctx.urgency_level
+
             result = router.route(
                 company_id=ctx.company_id,
                 variant_type=ctx.variant_type,
-                atomic_step="draft_response",
+                atomic_step=atomic_step,
                 query_signals=signals,
             )
             if result:
-                if hasattr(result, "model_id"):
-                    ctx.selected_model = result.model_id
-                if hasattr(result, "provider"):
-                    ctx.selected_provider = result.provider
+                # G3: Read from model_config sub-object
+                if hasattr(result, "model_config"):
+                    ctx.selected_model = result.model_config.model_id
+                    ctx.selected_provider = result.model_config.provider.value if hasattr(result.model_config.provider, "value") else str(result.model_config.provider)
                 if hasattr(result, "tier"):
                     ctx.selected_tier = result.tier.value if hasattr(result.tier, "value") else str(result.tier)
         except Exception as exc:
@@ -815,7 +951,14 @@ class AIPipeline:
     # ── Stage 7: Technique Router ─────────────────────────────
 
     def _stage_technique_router(self, ctx: PipelineContext) -> None:
-        """Select the reasoning technique based on signals."""
+        """Select the reasoning technique based on signals.
+
+        B7 FIX: Merge frustration_score from SentimentAnalyzer (Stage 5)
+        into QuerySignals before routing. Without this, the technique router
+        only used signal extraction's basic sentiment (0.0-1.0) and missed
+        the detailed frustration score (0-100) that triggers escalation
+        techniques like De-escalation Protocol.
+        """
         router = self._get_technique_router()
         if not router or not ctx.query_signals:
             ctx.selected_technique = "crp"  # Tier 1 always-active
@@ -823,16 +966,29 @@ class AIPipeline:
             return
 
         try:
+            # B7: Inject frustration_score from sentiment analysis
+            if ctx.frustration_score > 0:
+                ctx.query_signals.frustration_score = ctx.frustration_score
+
+            # Also enrich with classification confidence if available
+            if ctx.intent_confidence > 0:
+                ctx.query_signals.confidence_score = ctx.intent_confidence
+
+            # Update intent from classification (more accurate than signal extraction)
+            if ctx.intent_type and ctx.intent_type != "general":
+                ctx.query_signals.intent_type = ctx.intent_type
+
             result = router.route(ctx.query_signals)
             if result:
-                if hasattr(result, "technique"):
-                    tech = result.technique
-                    ctx.selected_technique = tech.value if hasattr(tech, "value") else str(tech)
-                if hasattr(result, "tier"):
-                    ctx.technique_tier = result.tier.value if hasattr(result.tier, "value") else str(result.tier)
-                if hasattr(result, "fallback"):
-                    fb = result.fallback
-                    ctx.technique_fallback = fb.value if hasattr(fb, "value") else str(fb)
+                # G5 FIX: RouterResult has activated_techniques (not technique/tier/fallback)
+                if hasattr(result, "activated_techniques") and result.activated_techniques:
+                    first_activation = result.activated_techniques[0]
+                    tech_id = first_activation.technique_id
+                    ctx.selected_technique = tech_id.value if hasattr(tech_id, "value") else str(tech_id)
+                if hasattr(result, "model_tier"):
+                    ctx.technique_tier = str(result.model_tier)
+                if hasattr(result, "fallback_applied"):
+                    ctx.technique_fallback = "crp" if result.fallback_applied else None
         except Exception as exc:
             logger.error("Technique routing failed: %s", exc)
             ctx.selected_technique = "crp"
@@ -871,14 +1027,15 @@ class AIPipeline:
                 )
                 ctx.rag_context_used = bool(ctx.rag_context)
 
-                # Step 3: Optionally rerank
+                # Step 3: Optionally rerank (E4: skip for mini_parwa)
                 reranker = self._get_rag_reranker()
-                if reranker and len(ctx.rag_chunks) > 1:
+                if reranker and len(ctx.rag_chunks) > 1 and ctx.variant_type != "mini_parwa":
                     try:
                         assembled = await reranker.rerank(
-                            query=ctx.query,
                             chunks=ctx.rag_chunks,
-                            strategy="auto",
+                            query=ctx.query,
+                            company_id=ctx.company_id,
+                            variant_type=ctx.variant_type,
                             top_k=5,
                             filters={"company_id": ctx.company_id},
                         )
@@ -916,6 +1073,16 @@ class AIPipeline:
                 ticket_id=ctx.ticket_id,
                 intent_type=ctx.intent_type,
                 system_prompt=ctx.system_prompt,
+                # D5-1 FIX: Pass pre-computed sentiment data from Stage 5.
+                # This lets generate() skip its internal sentiment analysis,
+                # saving ~1-2s latency per request (no duplicate LLM call).
+                frustration_score=ctx.frustration_score,
+                sentiment_score=ctx.sentiment_score,
+                emotion=ctx.emotion or "neutral",
+                urgency_level=ctx.urgency_level,
+                tone_recommendation=ctx.tone_recommendation or "standard",
+                selected_model=ctx.selected_model,
+                selected_technique=ctx.selected_technique,
             )
             result = await generator.generate(request)
             if result:
@@ -949,16 +1116,32 @@ class AIPipeline:
     # ── Stage 10: CLARA Quality Gate ──────────────────────────
 
     async def _stage_clara_quality(self, ctx: PipelineContext) -> None:
-        """Run 5-stage CLARA quality check on the response."""
+        """Run 5-stage CLARA quality check on the response.
+
+        D5-4 FIX: Pass sentiment data and extracted signals as context
+        so CLARA can check tone appropriateness for angry/frustrated customers.
+        """
         gate = self._get_clara_gate()
         if not gate or not ctx.response_text:
             return
 
         try:
+            # Build enriched context for CLARA
+            clara_context = dict(ctx.extracted_signals or {})
+            # D5-4: Add sentiment signals from Stage 5
+            clara_context["frustration_score"] = ctx.frustration_score
+            clara_context["sentiment_score"] = ctx.sentiment_score
+            clara_context["emotion"] = ctx.emotion
+            clara_context["urgency_level"] = ctx.urgency_level
+            clara_context["tone_recommendation"] = ctx.tone_recommendation
+            clara_context["intent_type"] = ctx.intent_type
+            # E6: Add variant_type for variant-aware CLARA strictness
+            clara_context["variant_type"] = ctx.variant_type
+
             result = await gate.evaluate(
                 ctx.response_text,
                 ctx.query,
-                context=ctx.extracted_signals or {},
+                context=clara_context,
                 brand_config=None,
                 strictness=None,
             )
@@ -983,16 +1166,22 @@ class AIPipeline:
     # ── Stage 11: Output Guardrails ───────────────────────────
 
     def _stage_guardrails(self, ctx: PipelineContext) -> None:
-        """Run guardrails check on the generated response."""
+        """Run guardrails check on the generated response.
+
+        D5-6 FIX: Guardrails now runs AFTER a preliminary confidence estimate.
+        D5-7 FIX: Pass urgency/frustration so escalation rules can fire.
+        """
         engine = self._get_guardrails_engine()
         if not engine or not ctx.response_text:
             return
 
         try:
+            # D5-6: Use CLARA score as confidence (runs before guardrails)
+            confidence_val = ctx.clara_score if ctx.clara_passed else ctx.confidence_score or 50.0
             report = engine.run_full_check(
                 query=ctx.query,
                 response=ctx.response_text,
-                confidence=ctx.confidence_score,
+                confidence=confidence_val,
                 company_id=ctx.company_id,
                 variant_type=ctx.variant_type,
             )
@@ -1011,17 +1200,33 @@ class AIPipeline:
     # ── Stage 12: Confidence Scoring ──────────────────────────
 
     def _stage_confidence_scoring(self, ctx: PipelineContext) -> None:
-        """Calculate calibrated confidence score."""
+        """Calculate calibrated confidence score.
+
+        D5-8 FIX: Pass company_id, context with all pipeline signals,
+        remove invalid variant_type kwarg.
+        """
         engine = self._get_confidence_engine()
         if not engine or not ctx.response_text:
             ctx.confidence_score = 50.0  # Neutral default
             return
 
         try:
+            # D5-8: Build context with all available pipeline signals
+            confidence_context = {
+                "model_tier": ctx.selected_tier,
+                "expected_tone": ctx.tone_recommendation or "standard",
+                "knowledge_context": ctx.rag_context,
+                "clara_score": ctx.clara_score,
+                "rag_context_used": ctx.rag_context_used,
+                "intent_confidence": ctx.intent_confidence,
+                "frustration_score": ctx.frustration_score,
+                "sentiment_score": ctx.sentiment_score,
+            }
             result = engine.score_response(
+                company_id=ctx.company_id,
                 query=ctx.query,
                 response=ctx.response_text,
-                variant_type=ctx.variant_type,
+                context=confidence_context,
             )
             if result:
                 if hasattr(result, "overall_score"):
@@ -1042,21 +1247,40 @@ class AIPipeline:
 
     # ── Stage 13: Brand Voice ─────────────────────────────────
 
-    def _stage_brand_voice(self, ctx: PipelineContext) -> None:
-        """Apply brand voice settings to the final response."""
+    async def _stage_brand_voice(self, ctx: PipelineContext) -> None:
+        """Apply brand voice settings to the final response.
+
+        D5-9 FIX: Use BrandVoiceService instead of jarvis_service.
+        BrandVoiceService has proper company config loading, empathy
+        awareness, and tone adjustment capabilities.
+        Falls back to jarvis_service if BrandVoiceService is unavailable.
+        """
         if not ctx.response_text or not ctx.company_id:
             return
 
         try:
-            from app.services.jarvis_service import jarvis_merge_with_brand_voice as _merge_bv
-            result = _merge_bv(ctx.company_id, ctx.response_text)
-            if result and isinstance(result, dict):
-                merged = result.get("merged_response") or result.get("response")
-                if merged and merged != ctx.response_text:
-                    ctx.response_text = merged
-                    ctx.brand_voice_applied = True
+            # D5-9: Try BrandVoiceService first (proper implementation)
+            from app.services.brand_voice_service import BrandVoiceService
+            bv_service = BrandVoiceService()
+            result = await bv_service.merge_with_brand_voice(
+                response_text=ctx.response_text,
+                company_id=ctx.company_id,
+            )
+            if result and isinstance(result, str) and result != ctx.response_text:
+                ctx.response_text = result
+                ctx.brand_voice_applied = True
         except Exception as exc:
-            logger.debug("Brand voice merge failed: %s", exc)
+            # Fallback to jarvis_service
+            try:
+                from app.services.jarvis_service import jarvis_merge_with_brand_voice as _merge_bv
+                result = _merge_bv(ctx.company_id, ctx.response_text)
+                if result and isinstance(result, dict):
+                    merged = result.get("merged_response") or result.get("response")
+                    if merged and merged != ctx.response_text:
+                        ctx.response_text = merged
+                        ctx.brand_voice_applied = True
+            except Exception as inner_exc:
+                logger.debug("Brand voice merge failed: %s (fallback: %s)", exc, inner_exc)
 
     # ── Result Building ───────────────────────────────────────
 

@@ -913,7 +913,11 @@ class LangGraphWorkflow:
         context: Dict[str, Any],
         step_results: Dict[str, WorkflowStepResult],
     ) -> Tuple[Dict[str, Any], int]:
-        """Use ClassificationEngine for real intent classification."""
+        """Use ClassificationEngine for real intent classification.
+
+        B6 FIX: Read primary_confidence (not confidence). IntentResult has
+        no tokens_used field — estimate from processing_time_ms.
+        """
         from app.core.classification_engine import ClassificationEngine
 
         engine = ClassificationEngine()
@@ -923,12 +927,14 @@ class LangGraphWorkflow:
             variant_type=self._config.variant_type,
             use_ai=True,
         )
+        # Estimate tokens: ~4 tokens per ms of processing time, min 50
+        estimated_tokens = max(50, int(intent_result.processing_time_ms * 4))
         return {
             "intent": intent_result.primary_intent,
-            "confidence": intent_result.confidence,
+            "confidence": intent_result.primary_confidence,
             "secondary_intents": intent_result.secondary_intents,
-            "method": "ai",
-        }, intent_result.tokens_used or 50
+            "method": intent_result.classification_method,
+        }, estimated_tokens
 
     async def _real_extract_signals(
         self,
@@ -962,7 +968,12 @@ class LangGraphWorkflow:
         context: Dict[str, Any],
         step_results: Dict[str, WorkflowStepResult],
     ) -> Tuple[Dict[str, Any], int]:
-        """Use TechniqueRouter for real technique selection."""
+        """Use TechniqueRouter for real technique selection.
+
+        B8 FIX: Include frustration_score derived from sentiment score
+        in extract_signals output. Convert 0.0-1.0 sentiment → 0-100
+        frustration (inverted: low sentiment = high frustration).
+        """
         from app.core.technique_router import (
             TechniqueRouter,
             QuerySignals,
@@ -979,10 +990,15 @@ class LangGraphWorkflow:
         if extract_step and extract_step.output:
             extract_out = extract_step.output
 
+        # B8: Derive frustration from sentiment (inverse: sentiment 0.0 = frustration 100)
+        sentiment_val = extract_out.get("sentiment", 0.7)
+        frustration_est = round(max(0.0, min(100.0, (1.0 - sentiment_val) * 100.0)), 1)
+
         signals = QuerySignals(
             query_complexity=extract_out.get("complexity", 0.5),
             confidence_score=classify_out.get("confidence", 0.8),
             sentiment_score=extract_out.get("sentiment", 0.7),
+            frustration_score=frustration_est,
             intent_type=classify_out.get("intent", "general"),
             customer_tier=extract_out.get("customer_tier", "free"),
             monetary_value=extract_out.get("monetary_value", 0.0),
