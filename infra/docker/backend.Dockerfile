@@ -65,8 +65,6 @@ WORKDIR /app
 COPY --chown=parwa:parwa backend/ ./backend/
 COPY --chown=parwa:parwa shared/ ./shared/
 COPY --chown=parwa:parwa security/ ./security/
-COPY --chown=parwa:parwa variants/ ./variants/
-COPY --chown=parwa:parwa mcp_server/ ./mcp_server/
 COPY --chown=parwa:parwa database/ ./database/
 
 # Switch to non-root user
