@@ -61,8 +61,9 @@ def make_state(
 ):
     """Helper to create a test ConversationState."""
     if signals is None:
-        # QuerySignals doesn't have frustration_score directly;
-        # the engine derives it from sentiment_score: frustration = (1 - sentiment) * 100
+        # In production, the AI pipeline sets frustration_score explicitly on
+        # QuerySignals (ai_pipeline.py:971). Mirror that behavior here so
+        # tests exercise the same code path as production.
         sentiment_score = max(0.0, 1.0 - frustration / 100.0)
         signals = QuerySignals(
             intent_type=intent,
@@ -70,6 +71,7 @@ def make_state(
             query_complexity=complexity,
             customer_tier=tier,
             confidence_score=confidence,
+            frustration_score=frustration,
             turn_count=1,
         )
     return ConversationState(
@@ -2599,14 +2601,17 @@ class TestExtractSignalData:
         assert signals["customer_tier"] == "pro"
 
     def test_frustration_from_sentiment(self):
+        """Test that frustration_score is set on QuerySignals in production.
+        In the real pipeline, ai_pipeline.py:971 sets frustration_score
+        explicitly. This test verifies the extraction reads it correctly."""
         engine = GSDEngine()
         signals_data = QuerySignals(
             intent_type="general",
             sentiment_score=0.2,  # low sentiment → high frustration
+            frustration_score=80.0,  # Explicitly set by pipeline
         )
         state = ConversationState(query="test", signals=signals_data)
         signals = engine._extract_signal_data(state)
-        # frustration_score = (1.0 - 0.2) * 100 = 80.0
         assert signals["frustration_score"] == 80.0
 
     def test_ensures_all_keys(self):
