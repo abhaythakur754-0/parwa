@@ -641,33 +641,86 @@ class AIPipeline:
     # ── Stage 1: Edge Case Detection ─────────────────────────
 
     async def _stage_edge_case(self, ctx: PipelineContext) -> None:
-        """Detect edge cases that should short-circuit the pipeline."""
-        handlers = self._get_edge_case_handlers()
-        if not handlers:
-            return
+        """Detect edge cases that should short-circuit the pipeline.
 
-        context = {
-            "company_id": ctx.company_id,
-            "variant_type": ctx.variant_type,
-            "conversation_history": ctx.conversation_history or [],
-        }
+        E1 FIX: Use EdgeCaseRegistry for variant-aware handler filtering.
+        E2 FIX: Read result.reason (not result.response which doesn't exist).
+        E3 FIX: Handle rewrite/redirect/escalate actions, not just block.
+        """
+        # E1: Try EdgeCaseRegistry first (variant-aware)
+        try:
+            from app.core.edge_case_handlers import EdgeCaseRegistry
+            registry = EdgeCaseRegistry(variant=ctx.variant_type)
+            ec_context = {
+                "company_id": ctx.company_id,
+                "variant_type": ctx.variant_type,
+                "conversation_history": ctx.conversation_history or [],
+            }
+            registry_result = registry.process(ctx.query, ec_context)
+            if registry_result:
+                ctx.is_edge_case = registry_result.get("is_edge_case", False)
+                action = registry_result.get("action")
+                if action:
+                    ctx.edge_case_action = action
 
-        for handler in handlers:
-            try:
-                if handler.can_handle(ctx.query, context):
-                    result = handler.handle(ctx.query, context)
-                    if result and hasattr(result, "action"):
-                        ctx.is_edge_case = True
-                        ctx.edge_case_action = result.action.value if hasattr(result.action, "value") else str(result.action)
-                        if hasattr(result, "response") and result.response:
-                            ctx.edge_case_message = result.response
-                        if ctx.edge_case_action == "block":
-                            ctx.response_text = ctx.edge_case_message or "I cannot process this request."
-                            return
-                        break
-            except Exception as exc:
-                logger.debug("Edge case handler %s failed: %s", type(handler).__name__, exc)
-                continue
+                    if action == "block":
+                        # E2: Use reason, not response
+                        reason = registry_result.get("reason", "I cannot process this request.")
+                        ctx.edge_case_message = reason
+                        ctx.response_text = reason
+                        return
+
+                    elif action == "rewrite" and registry_result.get("rewritten_query"):
+                        # E3: Apply rewritten query
+                        ctx.query = registry_result["rewritten_query"]
+                        logger.info(
+                            "edge_case_rewrite",
+                            original=ctx.query[:80],
+                            company_id=ctx.company_id,
+                        )
+
+                    elif action == "redirect" and registry_result.get("redirect_target"):
+                        # E3: Handle redirect (e.g., FAQ match)
+                        ctx.edge_case_message = registry_result.get("reason", "")
+                        # Don't block — let the pipeline continue with the redirect context
+
+                    elif action == "escalate":
+                        # E3: Mark for escalation
+                        ctx.edge_case_message = registry_result.get("reason", "Escalating to human agent.")
+                        ctx.urgency_level = "critical"
+        except Exception as exc:
+            logger.debug("EdgeCaseRegistry failed, using manual handlers: %s", exc)
+            # Fallback to manual handler iteration
+            handlers = self._get_edge_case_handlers()
+            if not handlers:
+                return
+
+            context = {
+                "company_id": ctx.company_id,
+                "variant_type": ctx.variant_type,
+                "conversation_history": ctx.conversation_history or [],
+            }
+
+            for handler in handlers:
+                try:
+                    if handler.can_handle(ctx.query, context):
+                        result = handler.handle(ctx.query, context)
+                        if result and hasattr(result, "action"):
+                            ctx.is_edge_case = True
+                            ctx.edge_case_action = result.action.value if hasattr(result.action, "value") else str(result.action)
+                            # E2: Use reason, not response
+                            if hasattr(result, "reason") and result.reason:
+                                ctx.edge_case_message = result.reason
+                            if ctx.edge_case_action == "block":
+                                ctx.response_text = ctx.edge_case_message or "I cannot process this request."
+                                return
+                            # E3: Handle rewrite
+                            if ctx.edge_case_action == "rewrite" and hasattr(result, "rewritten_query"):
+                                ctx.query = result.rewritten_query
+                            break
+                except Exception as inner_exc:
+                    logger.debug("Edge case handler %s failed: %s", type(handler).__name__, inner_exc)
+                    continue
 
     # ── Stage 2: Prompt Injection Scan ────────────────────────
 
@@ -951,9 +1004,9 @@ class AIPipeline:
                 )
                 ctx.rag_context_used = bool(ctx.rag_context)
 
-                # Step 3: Optionally rerank
+                # Step 3: Optionally rerank (E4: skip for mini_parwa)
                 reranker = self._get_rag_reranker()
-                if reranker and len(ctx.rag_chunks) > 1:
+                if reranker and len(ctx.rag_chunks) > 1 and ctx.variant_type != "mini_parwa":
                     try:
                         assembled = await reranker.rerank(
                             chunks=ctx.rag_chunks,
@@ -1059,6 +1112,8 @@ class AIPipeline:
             clara_context["urgency_level"] = ctx.urgency_level
             clara_context["tone_recommendation"] = ctx.tone_recommendation
             clara_context["intent_type"] = ctx.intent_type
+            # E6: Add variant_type for variant-aware CLARA strictness
+            clara_context["variant_type"] = ctx.variant_type
 
             result = await gate.evaluate(
                 ctx.response_text,
