@@ -1136,8 +1136,13 @@ class LangGraphWorkflow:
         if conversation_history and isinstance(conversation_history, list):
             for msg in conversation_history[-20:]:  # Last 20 turns
                 if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                    # Map internal "jarvis" role to standard "assistant" role
+                    # (AI APIs only accept system/user/assistant)
+                    role = msg["role"]
+                    if role == "jarvis":
+                        role = "assistant"
                     messages.append({
-                        "role": msg["role"],
+                        "role": role,
                         "content": msg["content"],
                     })
 
