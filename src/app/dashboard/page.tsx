@@ -113,7 +113,7 @@ export default function DashboardPage() {
   useEffect(() => {
     analyticsApi
       .getAgents(50, dateRange)
-      .then((res) => setAgentData(res.agents))
+      .then((agents) => setAgentData(agents))
       .catch(() => {
         // Silent fail — agent data is secondary
       });
@@ -142,7 +142,8 @@ export default function DashboardPage() {
         userName={user?.full_name}
         companyName={user?.company_name}
         industry="Support"
-        variantCount={0}
+        variantCount={data?.summary.resolved ?? 0}
+        resolutionRate={data ? formatPercent(data.summary.resolution_rate) : '0%'}
       />
 
       {/* Header */}

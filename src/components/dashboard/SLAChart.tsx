@@ -121,7 +121,7 @@ export default function SLAChart({ data, className }: SLAChartProps) {
           <div>
             <p className="text-xs text-zinc-500">Avg First Response</p>
             <p className="text-sm font-medium text-zinc-300">
-              {formatMinutes(data.avg_first_response_minutes)}
+              {data.avg_first_response_minutes != null ? formatMinutes(data.avg_first_response_minutes) : '—'}
             </p>
           </div>
         </div>
@@ -130,7 +130,7 @@ export default function SLAChart({ data, className }: SLAChartProps) {
           <div>
             <p className="text-xs text-zinc-500">Avg Resolution</p>
             <p className="text-sm font-medium text-zinc-300">
-              {formatMinutes(data.avg_resolution_minutes)}
+              {data.avg_resolution_minutes != null ? formatMinutes(data.avg_resolution_minutes) : '—'}
             </p>
           </div>
         </div>

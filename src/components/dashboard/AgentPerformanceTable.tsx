@@ -33,8 +33,8 @@ function formatResolutionTime(hours: number): string {
 }
 
 /** Render a CSAT badge with color based on score. */
-function CSATBadge({ avg, count }: { avg: number; count: number }) {
-  if (count === 0) {
+function CSATBadge({ avg, count }: { avg: number | null; count: number }) {
+  if (count === 0 || avg == null) {
     return <span className="text-zinc-600 text-sm">N/A</span>;
   }
 
@@ -119,7 +119,7 @@ export default function AgentPerformanceTable({
         ),
         cell: ({ getValue }) => (
           <span className="text-sm text-zinc-300 font-medium">
-            {getValue()}
+            {getValue() || 'Unknown Agent'}
           </span>
         ),
       } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'agent_name'>>),
@@ -204,7 +204,7 @@ export default function AgentPerformanceTable({
         ),
         cell: ({ getValue }) => (
           <span className="text-sm text-zinc-400 tabular-nums">
-            {formatResolutionTime(getValue() as number)}
+            {getValue() != null ? formatResolutionTime(getValue() as number) : '—'}
           </span>
         ),
       } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'avg_resolution_time_hours'>>),
