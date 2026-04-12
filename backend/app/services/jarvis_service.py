@@ -3557,7 +3557,13 @@ def _call_ai_provider(
     """
     # Build messages for AI
     messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(history)
+    # Map internal "jarvis" role to standard "assistant" role
+    # (AI APIs only accept system/user/assistant)
+    for msg in history:
+        role = msg.get("role", "user")
+        if role == "jarvis":
+            role = "assistant"
+        messages.append({"role": role, "content": msg.get("content", "")})
     messages.append({"role": "user", "content": user_message})
 
     # Track which knowledge files were used
