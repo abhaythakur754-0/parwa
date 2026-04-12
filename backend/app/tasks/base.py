@@ -204,8 +204,11 @@ def with_company_id(func: Callable) -> Callable:
     """Decorator that validates company_id as first parameter (BC-001).
 
     Ensures:
-    - First positional argument is a non-empty string
+    - First positional argument (after self for bound methods) is a non-empty string
     - Provides clear error message on validation failure
+
+    For bound task methods (bind=True), the first arg is 'self' (the task),
+    so we need to check the second argument for company_id.
 
     Raises:
         ValueError: If company_id is missing or empty.
@@ -218,7 +221,21 @@ def with_company_id(func: Callable) -> Callable:
             raise ValueError(
                 "company_id is required as the first parameter (BC-001)"
             )
-        company_id = args[0]
+        
+        # For bound methods (bind=True), first arg is 'self' (task instance)
+        # Check if first arg is a Task instance
+        first_arg = args[0]
+        if isinstance(first_arg, Task):
+            # Bound method: self, company_id, ...other args
+            if len(args) < 2:
+                raise ValueError(
+                    "company_id is required as the second parameter for bound tasks (BC-001)"
+                )
+            company_id = args[1]
+        else:
+            # Unbound function: company_id is first arg
+            company_id = first_arg
+            
         if not isinstance(company_id, str) or not company_id.strip():
             raise ValueError(
                 "company_id must be a non-empty string (BC-001)"
