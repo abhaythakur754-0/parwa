@@ -77,8 +77,8 @@ function getGoogleProvider(): any {
   return {
     name: 'google',
     apiKey: key,
-    model: 'gemini-2.0-flash',
-    apiUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+    model: 'gemini-3.1-flash-lite',
+    apiUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${key}`,
     buildHeaders: () => ({ 'Content-Type': 'application/json' }),
     buildBody: (messages: any[]) => {
       const systemMsg = messages.find(m => m.role === 'system');
@@ -104,7 +104,7 @@ function getCerebrasProvider(): any {
   return {
     name: 'cerebras',
     apiKey: key,
-    model: 'llama-4-scout-17b-16e-instruct',
+    model: 'llama3.1-8b',
     apiUrl: 'https://api.cerebras.ai/v1/chat/completions',
     buildHeaders: (key: string) => ({
       'Content-Type': 'application/json',
