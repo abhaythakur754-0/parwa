@@ -208,7 +208,8 @@ class TestStorageBackend:
 
     def test_iteration(self):
         values = list(StorageBackend)
-        assert len(values) == 3
+        # REDIS, POSTGRESQL, FILE, NONE
+        assert len(values) == 4
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1228,6 +1229,9 @@ class TestLoadCheckpoint:
         state = _make_state()
         self.serializer._load_checkpoint_from_redis = AsyncMock(
             return_value=state,
+        )
+        self.serializer._load_checkpoint_from_postgresql = AsyncMock(
+            return_value=None,
         )
         result = await self.serializer.load_checkpoint(
             "t1", "co_1", "pre_resolution",
