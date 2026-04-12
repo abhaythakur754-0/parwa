@@ -9,6 +9,7 @@ import {
   JarvisDemo,
   Footer,
 } from '@/components/landing';
+import { useEffect } from 'react';
 
 /**
  * Landing Page (Home)
@@ -25,6 +26,21 @@ import {
  */
 
 export default function HomePage() {
+  // Track page visit for context-aware Jarvis routing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const existing = JSON.parse(localStorage.getItem('parwa_pages_visited') || '[]') as string[];
+        if (!existing.includes('landing_page')) {
+          existing.push('landing_page');
+          localStorage.setItem('parwa_pages_visited', JSON.stringify(existing));
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navigation */}
