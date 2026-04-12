@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { NavigationBar } from '@/components/landing/NavigationBar';
-import Footer from '@/components/landing/Footer';
+import { NavigationBar, Footer } from '@/components/landing';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
