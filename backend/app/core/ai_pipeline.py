@@ -843,23 +843,17 @@ class AIPipeline:
         """Retrieve relevant knowledge base chunks and rerank."""
         try:
             from app.core.rag_retrieval import RAGRetriever
-            from app.services.embedding_service import EmbeddingService
 
-            # Step 1: Generate query embedding
-            embed_svc = EmbeddingService()
-            query_embedding = await embed_svc.generate_embedding(ctx.query)
-
-            if not query_embedding:
-                logger.warning("RAG: Failed to generate query embedding")
-                return
-
-            # Step 2: Retrieve relevant chunks
-            retriever = RAGRetriever(company_id=ctx.company_id, variant_type=ctx.variant_type)
-            chunks = await retriever.retrieve(
+            # Retrieve relevant chunks (RAGRetriever handles embedding internally)
+            retriever = RAGRetriever()
+            rag_result = await retriever.retrieve(
                 query=ctx.query,
-                query_embedding=query_embedding,
+                company_id=ctx.company_id,
+                variant_type=ctx.variant_type,
                 top_k=5,
             )
+
+            chunks = rag_result.chunks if hasattr(rag_result, 'chunks') else rag_result
 
             if chunks:
                 rag_list = []
