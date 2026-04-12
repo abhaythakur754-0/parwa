@@ -11,16 +11,9 @@ import { JarvisChat } from '@/components/jarvis/JarvisChat';
  * Reads URL params (industry, variant, entry_source) and passes them
  * so Jarvis knows exactly what the user was looking at.
  */
-export default function JarvisPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: '#1A1A1A' }}><div className="text-white/60 text-sm animate-pulse">Loading Jarvis...</div></div>}>
-      <JarvisPageInner />
-    </Suspense>
-  );
-}
 
 function JarvisPageInner() {
-  const [isOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(true);
   const searchParams = useSearchParams();
 
   // Read URL params once on mount
@@ -48,7 +41,7 @@ function JarvisPageInner() {
           if (ctx.industry && !industry) params.industry = ctx.industry;
           if (ctx.selected_variants) params.selected_variants = ctx.selected_variants;
           if (ctx.interests) params.interests = ctx.interests;
-          localStorage.removeItem('parwa_jarvis_context');
+          // Do NOT remove — let useJarvisChat sync to backend first
         }
       } catch {
         // ignore
@@ -66,5 +59,13 @@ function JarvisPageInner() {
       entrySource={entrySource}
       entryParams={entryParams}
     />
+  );
+}
+
+export default function JarvisPage() {
+  return (
+    <Suspense>
+      <JarvisPageInner />
+    </Suspense>
   );
 }

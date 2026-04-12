@@ -41,7 +41,7 @@ function JarvisPageInner() {
           if (ctx.industry && !industry) params.industry = ctx.industry;
           if (ctx.selected_variants) params.selected_variants = ctx.selected_variants;
           if (ctx.interests) params.interests = ctx.interests;
-          localStorage.removeItem('parwa_jarvis_context');
+          // Do NOT remove — let useJarvisChat sync to backend first
         }
       } catch {
         // ignore
