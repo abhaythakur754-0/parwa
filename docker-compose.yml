@@ -116,12 +116,14 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXT_PUBLIC_ENV=development
+      - NODE_ENV=development
     env_file:
       - .env
     volumes:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
+    command: npm run dev
     depends_on:
       - backend
 
