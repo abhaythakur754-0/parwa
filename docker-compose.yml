@@ -55,11 +55,14 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
       - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
+      - STATE_SERIALIZATION_PATH=/app/state_data
+      - STATE_SERIALIZATION_ENABLED=true
     env_file:
       - .env
     volumes:
       - ./backend:/app/backend
       - ./shared:/app/shared
+      - state_data:/app/state_data
     depends_on:
       db:
         condition: service_healthy
@@ -70,6 +73,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
 
   # ──────────────────────────────────────────────
   # Worker — ARQ Background Jobs
@@ -84,11 +88,14 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
       - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
+      - STATE_SERIALIZATION_PATH=/app/state_data
+      - STATE_SERIALIZATION_ENABLED=true
     env_file:
       - .env
     volumes:
       - ./backend:/app/backend
       - ./shared:/app/shared
+      - state_data:/app/state_data
     depends_on:
       db:
         condition: service_healthy
@@ -121,6 +128,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  state_data:
 
 networks:
   default:

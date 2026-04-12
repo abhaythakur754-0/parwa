@@ -31,11 +31,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 import uuid
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.techniques.base import (
@@ -88,6 +90,7 @@ class StorageBackend(str, Enum):
     """Which backend was used for the operation."""
     REDIS = "redis"
     POSTGRESQL = "postgresql"
+    FILE = "file"
     NONE = "none"
 
 
@@ -227,6 +230,7 @@ class SaveResult:
     backend: StorageBackend
     redis_success: bool
     postgresql_success: bool
+    file_success: bool = False
     error_message: Optional[str] = None
     latency_ms: int = 0
 
@@ -238,6 +242,7 @@ class SaveResult:
             "backend": self.backend.value,
             "redis_success": self.redis_success,
             "postgresql_success": self.postgresql_success,
+            "file_success": self.file_success,
             "error_message": self.error_message,
             "latency_ms": self.latency_ms,
         }
@@ -467,12 +472,47 @@ class StateSerializer:
         # at the test level, not in production __init__.
         self._load_checkpoint_from_redis = self._load_checkpoint_from_redis_impl  # type: ignore[method-assign]
         self._load_checkpoint_from_postgresql = self._load_checkpoint_from_postgresql_impl  # type: ignore[method-assign]
+
+        # File-based tertiary persistence (BC-008: graceful degradation).
+        # Reads STATE_SERIALIZATION_PATH and STATE_SERIALIZATION_ENABLED from
+        # environment. If the path is not writable or not mounted, operations
+        # silently skip and fall back to Redis + PostgreSQL only.
+        self._file_state_path: Optional[str] = None
+        self._file_enabled = os.getenv(
+            "STATE_SERIALIZATION_ENABLED", "false"
+        ).lower() in ("true", "1", "yes")
+        if self._file_enabled:
+            raw_path = os.getenv("STATE_SERIALIZATION_PATH", "/app/state_data")
+            try:
+                path_obj = Path(raw_path)
+                path_obj.mkdir(parents=True, exist_ok=True)
+                # Verify the directory is actually writable (BC-008).
+                test_file = path_obj / ".write_probe"
+                test_file.write_text("probe")
+                test_file.unlink(missing_ok=True)
+                self._file_state_path = str(path_obj)
+                logger.info(
+                    "state_serializer_file_backend_enabled",
+                    extra={"file_state_path": self._file_state_path},
+                )
+            except (OSError, PermissionError) as exc:
+                self._file_enabled = False
+                self._file_state_path = None
+                logger.warning(
+                    "state_serializer_file_backend_disabled_unwritable",
+                    extra={"path": raw_path, "error": str(exc)},
+                )
+        else:
+            logger.info("state_serializer_file_backend_disabled")
+
         logger.info(
             "state_serializer_initialized",
             extra={
                 "active_ttl": self._config.active_state_ttl_seconds,
                 "checkpoint_ttl": self._config.checkpoint_ttl_seconds,
                 "lock_timeout": self._config.lock_timeout_seconds,
+                "file_backend_enabled": self._file_enabled,
+                "file_state_path": self._file_state_path,
             },
         )
 
@@ -984,6 +1024,7 @@ class StateSerializer:
 
         redis_success = False
         postgresql_success = False
+        file_success = False
         primary_backend = StorageBackend.NONE
         error_message: Optional[str] = None
 
@@ -1051,6 +1092,15 @@ class StateSerializer:
 
         elapsed_ms = int((time.monotonic() - start_time) * 1000)
 
+        # 3. Tertiary file-based persistence (always attempted if enabled).
+        file_success = await self._save_to_file(
+            ticket_id=ticket_id,
+            company_id=company_id,
+            state_json=state_json,
+            snapshot_id=snapshot_id,
+            snapshot_type=snapshot_type,
+        )
+
         success = redis_success or postgresql_success
 
         if not success:
@@ -1094,6 +1144,7 @@ class StateSerializer:
             backend=primary_backend,
             redis_success=redis_success,
             postgresql_success=postgresql_success,
+            file_success=file_success,
             latency_ms=elapsed_ms,
         )
 
@@ -1102,11 +1153,11 @@ class StateSerializer:
         ticket_id: str,
         company_id: str,
     ) -> Optional[ConversationState]:
-        """Load conversation state from Redis first, fallback to PostgreSQL.
+        """Load conversation state from Redis first, fallback to PostgreSQL, then file.
 
         Attempts to load from Redis (fast path). If not found or
-        Redis is unavailable, falls back to the most recent PostgreSQL
-        snapshot for this ticket.
+        Redis is unavailable, falls back to PostgreSQL. If PostgreSQL
+        also fails, attempts file-based tertiary fallback when enabled.
 
         Args:
             ticket_id: Ticket identifier.
@@ -1164,6 +1215,28 @@ class StateSerializer:
                     },
                 )
             return state
+
+        # 3. Tertiary file-based fallback
+        state_dict = self._load_from_file(ticket_id, company_id)
+        if state_dict is not None:
+            try:
+                state = self.deserialize_state(state_dict)
+                logger.info(
+                    "state_load_file_hit",
+                    extra={
+                        "ticket_id": ticket_id,
+                        "company_id": company_id,
+                    },
+                )
+                return state
+            except Exception:
+                logger.warning(
+                    "state_load_file_deserialize_failed",
+                    extra={
+                        "ticket_id": ticket_id,
+                        "company_id": company_id,
+                    },
+                )
 
         logger.info(
             "state_load_not_found",
@@ -1668,6 +1741,118 @@ class StateSerializer:
             diff.unchanged_fields.append("final_response")
 
         return diff
+
+    # ── File Backend Operations (Tertiary Fallback) ──────────
+
+    async def _save_to_file(
+        self,
+        ticket_id: str,
+        company_id: str,
+        state_json: str,
+        snapshot_id: str,
+        snapshot_type: str,
+    ) -> bool:
+        """Persist state to a local file as a tertiary fallback.
+
+        BC-008: Never crashes — returns False on any I/O error.
+        File layout: {file_state_path}/{company_id}/{ticket_id}/{snapshot_id}.json
+
+        Args:
+            ticket_id: Ticket identifier.
+            company_id: Tenant identifier.
+            state_json: Serialized JSON string.
+            snapshot_id: Unique snapshot identifier.
+            snapshot_type: One of SnapshotType values.
+
+        Returns:
+            True if file was written successfully, False otherwise.
+        """
+        if not self._file_enabled or not self._file_state_path:
+            return False
+        try:
+            dir_path = Path(self._file_state_path) / company_id / ticket_id
+            dir_path.mkdir(parents=True, exist_ok=True)
+            file_path = dir_path / f"{snapshot_id}.json"
+            payload = {
+                "snapshot_id": snapshot_id,
+                "ticket_id": ticket_id,
+                "company_id": company_id,
+                "snapshot_type": snapshot_type,
+                "state_data": state_json,
+                "saved_at": _utcnow(),
+            }
+            file_path.write_text(
+                json.dumps(payload, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            logger.debug(
+                "state_save_file_success",
+                extra={
+                    "ticket_id": ticket_id,
+                    "company_id": company_id,
+                    "snapshot_id": snapshot_id,
+                    "file_path": str(file_path),
+                },
+            )
+            return True
+        except Exception as exc:
+            logger.warning(
+                "state_save_file_failed",
+                extra={
+                    "ticket_id": ticket_id,
+                    "company_id": company_id,
+                    "snapshot_id": snapshot_id,
+                    "error": str(exc),
+                },
+            )
+            return False
+
+    def _load_from_file(
+        self,
+        ticket_id: str,
+        company_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Load most recent state from local file as a tertiary fallback.
+
+        Scans the company/ticket directory for the most recently modified
+        ``*.json`` snapshot file and returns its parsed content.
+
+        BC-008: Never crashes — returns None on any I/O error.
+
+        Args:
+            ticket_id: Ticket identifier.
+            company_id: Tenant identifier.
+
+        Returns:
+            Parsed state dictionary if found, None otherwise.
+        """
+        if not self._file_enabled or not self._file_state_path:
+            return None
+        try:
+            dir_path = Path(self._file_state_path) / company_id / ticket_id
+            if not dir_path.is_dir():
+                return None
+            # Find the most recent snapshot file.
+            json_files = sorted(dir_path.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
+            if not json_files:
+                return None
+            latest = json_files[0]
+            raw = latest.read_text(encoding="utf-8")
+            payload = json.loads(raw)
+            state_json = payload.get("state_data")
+            if not isinstance(state_json, str):
+                return None
+            return _safe_json_loads(state_json)
+        except Exception as exc:
+            logger.warning(
+                "state_load_file_failed",
+                extra={
+                    "ticket_id": ticket_id,
+                    "company_id": company_id,
+                    "error": str(exc),
+                },
+            )
+            return None
 
     # ── Redis Backend Operations ────────────────────────────────
 
