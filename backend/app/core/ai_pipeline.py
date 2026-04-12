@@ -818,7 +818,11 @@ class AIPipeline:
     # ── Stage 6: Smart Router (Model Selection) ───────────────
 
     def _stage_smart_router(self, ctx: PipelineContext) -> None:
-        """Select the AI model based on query complexity and variant."""
+        """Select the AI model based on query complexity and variant.
+
+        G3 FIX: Read result.model_config.model_id (not result.model_id).
+        G4 FIX: Use AtomicStepType enum based on complexity, not raw string.
+        """
         router = self._get_smart_router()
         if not router:
             ctx.selected_model = "gemini-2.0-flash"
@@ -827,19 +831,39 @@ class AIPipeline:
             return
 
         try:
+            from app.core.smart_router import AtomicStepType
+
+            # G4: Select atomic step type based on query complexity
+            complexity = 0.3
+            if ctx.extracted_signals:
+                complexity = ctx.extracted_signals.get("complexity", 0.3)
+
+            if complexity > 0.6:
+                atomic_step = AtomicStepType.DRAFT_RESPONSE_COMPLEX
+            elif complexity > 0.3:
+                atomic_step = AtomicStepType.DRAFT_RESPONSE_MODERATE
+            else:
+                atomic_step = AtomicStepType.DRAFT_RESPONSE_SIMPLE
+
             # Build query signals dict for router
             signals = ctx.extracted_signals or {}
+            # Enrich with frustration/sentiment for better routing
+            if ctx.frustration_score > 0:
+                signals["frustration_score"] = ctx.frustration_score
+            if ctx.urgency_level:
+                signals["urgency_level"] = ctx.urgency_level
+
             result = router.route(
                 company_id=ctx.company_id,
                 variant_type=ctx.variant_type,
-                atomic_step="draft_response",
+                atomic_step=atomic_step,
                 query_signals=signals,
             )
             if result:
-                if hasattr(result, "model_id"):
-                    ctx.selected_model = result.model_id
-                if hasattr(result, "provider"):
-                    ctx.selected_provider = result.provider
+                # G3: Read from model_config sub-object
+                if hasattr(result, "model_config"):
+                    ctx.selected_model = result.model_config.model_id
+                    ctx.selected_provider = result.model_config.provider.value if hasattr(result.model_config.provider, "value") else str(result.model_config.provider)
                 if hasattr(result, "tier"):
                     ctx.selected_tier = result.tier.value if hasattr(result.tier, "value") else str(result.tier)
         except Exception as exc:
@@ -880,14 +904,15 @@ class AIPipeline:
 
             result = router.route(ctx.query_signals)
             if result:
-                if hasattr(result, "technique"):
-                    tech = result.technique
-                    ctx.selected_technique = tech.value if hasattr(tech, "value") else str(tech)
-                if hasattr(result, "tier"):
-                    ctx.technique_tier = result.tier.value if hasattr(result.tier, "value") else str(result.tier)
-                if hasattr(result, "fallback"):
-                    fb = result.fallback
-                    ctx.technique_fallback = fb.value if hasattr(fb, "value") else str(fb)
+                # G5 FIX: RouterResult has activated_techniques (not technique/tier/fallback)
+                if hasattr(result, "activated_techniques") and result.activated_techniques:
+                    first_activation = result.activated_techniques[0]
+                    tech_id = first_activation.technique_id
+                    ctx.selected_technique = tech_id.value if hasattr(tech_id, "value") else str(tech_id)
+                if hasattr(result, "model_tier"):
+                    ctx.technique_tier = str(result.model_tier)
+                if hasattr(result, "fallback_applied"):
+                    ctx.technique_fallback = "crp" if result.fallback_applied else None
         except Exception as exc:
             logger.error("Technique routing failed: %s", exc)
             ctx.selected_technique = "crp"
@@ -931,9 +956,10 @@ class AIPipeline:
                 if reranker and len(ctx.rag_chunks) > 1:
                     try:
                         assembled = await reranker.rerank(
-                            query=ctx.query,
                             chunks=ctx.rag_chunks,
-                            strategy="auto",
+                            query=ctx.query,
+                            company_id=ctx.company_id,
+                            variant_type=ctx.variant_type,
                             top_k=5,
                             filters={"company_id": ctx.company_id},
                         )
