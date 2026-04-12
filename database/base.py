@@ -85,6 +85,32 @@ def get_db():
         db.close()
 
 
+@contextmanager
+def get_db_context() -> Generator[Session, None, None]:
+    """Context manager that yields a database session.
+
+    Unlike get_db() (which is a FastAPI dependency generator), this is a
+    plain context manager for use in Celery tasks, scripts, or any
+    non-request context.
+
+    Usage:
+        with get_db_context() as db:
+            db.query(Model).all()
+            db.commit()
+
+    Automatically commits on success and rolls back on exception.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 def get_tenant_db():
     """FastAPI dependency that yields a tenant-aware database session.
 

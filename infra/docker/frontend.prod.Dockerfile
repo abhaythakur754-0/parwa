@@ -1,11 +1,10 @@
 # ════════════════════════════════════════════════════════════════
-# PARWA — Frontend Dockerfile
-# Multi-stage build for Next.js frontend
-# Target: <500MB production image
-# ════════════════════════════════════════════════════════════════
+# PARWA — Frontend Production Dockerfile
+# Multi-stage build for Next.js frontend (production context)
 #
-# NOTE: docker-compose.yml sets context: ./frontend
-# So all COPY paths are relative to the frontend/ directory (no prefix)
+# NOTE: docker-compose.prod.yml sets context: . (project root)
+# So all COPY paths use frontend/ prefix
+# ════════════════════════════════════════════════════════════════
 
 # ──────────────────────────────────────────────────────────────
 # Stage 1: Dependencies
@@ -18,8 +17,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files first for better caching
-# Context is ./frontend so files are at root
-COPY package.json package-lock.json* yarn.lock* bun.lock* ./
+COPY frontend/package.json frontend/package-lock.json* frontend/yarn.lock* frontend/bun.lock* ./
 
 # Install dependencies
 RUN npm ci --legacy-peer-deps 2>/dev/null || npm install --legacy-peer-deps
@@ -34,8 +32,8 @@ WORKDIR /app
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copy frontend source (context is ./frontend)
-COPY . ./
+# Copy frontend source (context is project root)
+COPY frontend/ ./
 
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -77,7 +75,7 @@ RUN if [ ! -f "server.js" ]; then \
 COPY --from=builder /app/package.json ./package.json
 
 # Copy node_modules for next start fallback
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=deps /app/node_modules ./node_modules
 
 # Switch to non-root user
 USER nextjs
