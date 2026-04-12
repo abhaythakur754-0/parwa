@@ -15,7 +15,7 @@ import {
   TrendPointResponse,
   CategoryDistributionResponse,
   SLAMetricsResponse,
-  AgentMetricsResponse,
+  AgentMetrics,
   ResponseTimeDistribution,
   DateRange,
   IntervalType,
@@ -41,11 +41,11 @@ export const analyticsApi = {
   /**
    * Get combined dashboard data (summary + SLA + category + trend).
    * This is the primary endpoint for the dashboard page.
+   * Backend returns a flat object (not wrapped in {data: ...}).
    */
   getDashboard: async (dateRange?: Partial<DateRange>): Promise<DashboardData> => {
     const qs = formatDateParams(dateRange);
-    const response = await get<{ data: DashboardData }>(`${ANALYTICS_BASE}/dashboard${qs}`);
-    return response.data;
+    return get<DashboardData>(`${ANALYTICS_BASE}/dashboard${qs}`);
   },
 
   /**
@@ -86,14 +86,15 @@ export const analyticsApi = {
 
   /**
    * Get per-agent performance metrics.
+   * Backend returns List[AgentMetricsResponse] (plain array, not wrapped).
    * @param limit - Max agents to return (default 50)
    */
   getAgents: async (
     limit: number = 50,
     dateRange?: Partial<DateRange>
-  ): Promise<AgentMetricsResponse> => {
+  ): Promise<AgentMetrics[]> => {
     const qs = formatDateParams(dateRange);
-    return get<AgentMetricsResponse>(`${ANALYTICS_BASE}/agents?limit=${limit}${qs ? '&' + qs.slice(1) : ''}`);
+    return get<AgentMetrics[]>(`${ANALYTICS_BASE}/agents?limit=${limit}${qs ? '&' + qs.slice(1) : ''}`);
   },
 
   /**

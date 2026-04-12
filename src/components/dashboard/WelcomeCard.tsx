@@ -14,6 +14,7 @@ interface WelcomeCardProps {
   companyName?: string | null;
   variantCount?: number;
   industry?: string | null;
+  resolutionRate?: string;
 }
 
 export function WelcomeCard({
@@ -21,6 +22,7 @@ export function WelcomeCard({
   companyName,
   variantCount = 0,
   industry,
+  resolutionRate,
 }: WelcomeCardProps) {
   const firstName = userName?.split(' ')[0] || 'there';
   const displayName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
@@ -62,7 +64,7 @@ export function WelcomeCard({
           <StatItem
             icon={<TrendingUp className="w-4 h-4 text-purple-400" />}
             label="Resolution Rate"
-            value="0%"
+            value={resolutionRate ?? '0%'}
           />
           <StatItem
             icon={<Sparkles className="w-4 h-4 text-amber-400" />}

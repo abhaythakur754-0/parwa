@@ -69,26 +69,41 @@ export default function ResponseTimeChart({
   className,
 }: ResponseTimeChartProps) {
   const [distData, setDistData] = useState<ResponseTimeDistribution | null>(null);
-  const loading = distData === null && dateRange !== undefined;
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Track dateRange as a string for stable comparison
+  const rangeKey = dateRange
+    ? `${dateRange.start_date || ''}-${dateRange.end_date || ''}`
+    : 'initial';
 
   useEffect(() => {
     let cancelled = false;
 
-    analyticsApi
-      .getResponseTime(dateRange)
-      .then((result) => {
-        if (cancelled) return;
-        setDistData(result);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setDistData(null);
-      });
+    // Mark loading at the start of fetch (in async callback, not synchronously)
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const result = await analyticsApi.getResponseTime(dateRange);
+        if (!cancelled) {
+          setDistData(result);
+        }
+      } catch {
+        if (!cancelled) {
+          setDistData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchData();
 
     return () => {
       cancelled = true;
     };
-  }, [dateRange]);
+  }, [rangeKey, dateRange]);
 
   // Use real data if available and non-zero, otherwise show sample structure
   const chartData = React.useMemo(() => {
@@ -124,7 +139,7 @@ export default function ResponseTimeChart({
         </p>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="h-[220px] flex items-center justify-center text-zinc-600 text-sm animate-pulse">
           Loading response times…
         </div>

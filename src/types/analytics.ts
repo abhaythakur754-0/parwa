@@ -82,8 +82,8 @@ export interface SLAMetrics {
   approaching_count: number;
   compliant_count: number;
   compliance_rate: number;
-  avg_first_response_minutes: number;
-  avg_resolution_minutes: number;
+  avg_first_response_minutes: number | null;
+  avg_resolution_minutes: number | null;
 }
 
 export interface SLAMetricsResponse {
@@ -98,12 +98,12 @@ export interface SLAMetricsResponse {
 
 export interface AgentMetrics {
   agent_id: string;
-  agent_name: string;
+  agent_name: string | null;
   tickets_assigned: number;
   tickets_resolved: number;
   tickets_open: number;
-  avg_resolution_time_hours: number;
-  csat_avg: number;
+  avg_resolution_time_hours: number | null;
+  csat_avg: number | null;
   csat_count: number;
   resolution_rate: number;
 }
