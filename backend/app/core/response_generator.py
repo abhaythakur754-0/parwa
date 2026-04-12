@@ -105,6 +105,7 @@ class ResponseGenerationRequest:
     force_template_response: bool = False  # fallback to template if AI budget exhausted
     ticket_id: Optional[str] = None  # for GAP-028 draft check
     intent_type: str = "general"  # for template matching and formatting
+    system_prompt: Optional[str] = None  # Override system prompt with context-aware prompt
 
 
 @dataclass
@@ -486,13 +487,18 @@ class ResponseGenerator:
         llm_error: bool = False
 
         try:
-            system_prompt = self._build_system_prompt(
-                brand_config=brand_config,
-                response_guidelines=response_guidelines,
-                sentiment_result=sentiment_result,
-                rag_context=rag_context_string,
-                request=request,
-            )
+            # If an override system_prompt was provided (from build_system_prompt
+            # with user journey context), use it as the base; otherwise build one.
+            if request.system_prompt:
+                system_prompt = request.system_prompt
+            else:
+                system_prompt = self._build_system_prompt(
+                    brand_config=brand_config,
+                    response_guidelines=response_guidelines,
+                    sentiment_result=sentiment_result,
+                    rag_context=rag_context_string,
+                    request=request,
+                )
 
             messages = self._build_messages(
                 system_prompt=system_prompt,

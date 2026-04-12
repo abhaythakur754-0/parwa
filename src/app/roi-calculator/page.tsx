@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Calculator, TrendingUp, DollarSign,
@@ -99,6 +99,21 @@ export default function ROICalculatorPage() {
   });
 
   const [showResults, setShowResults] = useState(false);
+
+  // Track page visit for context-aware Jarvis routing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const existing = JSON.parse(localStorage.getItem('parwa_pages_visited') || '[]') as string[];
+        if (!existing.includes('roi_calculator')) {
+          existing.push('roi_calculator');
+          localStorage.setItem('parwa_pages_visited', JSON.stringify(existing));
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
 
   // ── Compute ROI ──
   const result: ROIResult = useMemo(() => {

@@ -164,6 +164,19 @@ function PricingContent() {
     if (planParam && ['mini-parwa', 'parwa', 'high-parwa'].includes(planParam)) {
       setSelectedPlan(planParam);
     }
+
+    // Track page visit for context-aware Jarvis routing
+    if (typeof window !== 'undefined') {
+      try {
+        const existing = JSON.parse(localStorage.getItem('parwa_pages_visited') || '[]') as string[];
+        if (!existing.includes('pricing_page')) {
+          existing.push('pricing_page');
+          localStorage.setItem('parwa_pages_visited', JSON.stringify(existing));
+        }
+      } catch {
+        // ignore
+      }
+    }
   }, [searchParams]);
 
   const variants = selectedIndustry ? INDUSTRY_VARIANTS[selectedIndustry] : [];

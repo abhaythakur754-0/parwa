@@ -572,6 +572,15 @@ def send_message(
             language="en",
         )
 
+        # Inject context-aware system prompt into the pipeline so it uses
+        # the same rich user journey context (entry_source, pages_visited,
+        # industry, variants, stage) instead of a bare prompt.
+        try:
+            system_prompt = build_system_prompt(db, session_id)
+            pipeline_args["system_prompt"] = system_prompt
+        except Exception:
+            logger.debug("build_system_prompt failed, pipeline will use default context")
+
         # Handle async call from sync context (BC-012: resilient execution)
         try:
             pipeline_result = asyncio.run(process_ai_message(**pipeline_args))

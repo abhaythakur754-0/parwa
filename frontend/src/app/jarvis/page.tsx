@@ -48,7 +48,7 @@ function JarvisPageInner() {
       }
     }
 
-    setEntrySource(entrySourceParam || 'direct');
+    setEntrySource(entrySourceParam || 'jarvis_chat');
     setEntryParams(params);
   }, [searchParams]);
 

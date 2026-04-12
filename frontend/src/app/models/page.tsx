@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
 import NavigationBar from '@/components/landing/NavigationBar';
 import Footer from '@/components/landing/Footer';
 
@@ -70,6 +71,21 @@ const models: AIModel[] = [
 ];
 
 export default function ModelsPage() {
+  // Track page visit for context-aware Jarvis routing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const existing = JSON.parse(localStorage.getItem('parwa_pages_visited') || '[]') as string[];
+        if (!existing.includes('models_page')) {
+          existing.push('models_page');
+          localStorage.setItem('parwa_pages_visited', JSON.stringify(existing));
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#ECFDF5] to-white">
       <NavigationBar />

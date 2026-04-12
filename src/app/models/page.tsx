@@ -233,6 +233,21 @@ export default function ModelsPage() {
   const [demoModalOpen, setDemoModalOpen] = useState(false);
   const [demoVariant, setDemoVariant] = useState<string>('');
 
+  // Track page visit for context-aware Jarvis routing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const existing = JSON.parse(localStorage.getItem('parwa_pages_visited') || '[]') as string[];
+        if (!existing.includes('models_page')) {
+          existing.push('models_page');
+          localStorage.setItem('parwa_pages_visited', JSON.stringify(existing));
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
   // Quantity state: { starter: 0, growth: 0, high: 0 }
   const [quantities, setQuantities] = useState<Record<VariantId, number>>({
     starter: 0,

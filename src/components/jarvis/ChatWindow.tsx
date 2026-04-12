@@ -11,7 +11,7 @@
 
 import { useEffect, useRef } from 'react';
 import { MessageSquare } from 'lucide-react';
-import type { JarvisMessage } from '@/types/jarvis';
+import type { JarvisMessage, JarvisContext } from '@/types/jarvis';
 import { ChatMessage } from './ChatMessage';
 import { TypingIndicator } from './TypingIndicator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,9 +44,63 @@ interface ChatWindowProps {
     otpState?: { status: string; email: string };
     demoCallState?: { status: string; phone: string | null; duration: number };
   };
+  /** Session context for personalized welcome message */
+  sessionContext?: JarvisContext | null;
 }
 
-export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hookActions, sessionState }: ChatWindowProps) {
+/** Build a context-aware welcome message based on session context. */
+function getWelcomeMessage(ctx?: JarvisContext | null): { heading: string; body: string } {
+  const entrySource = ctx?.entry_source;
+  const pagesVisited = ctx?.pages_visited || [];
+
+  // Match entry_source to specific messages
+  if (entrySource === 'pricing') {
+    return {
+      heading: 'Pricing questions? I can help! 💰',
+      body: "I see you were exploring our pricing! Ready to find the right plan for your business?",
+    };
+  }
+  if (entrySource === 'roi') {
+    return {
+      heading: 'Welcome back! 📊',
+      body: "I see you've been checking out our ROI calculator. Want to see how PARWA can save you money?",
+    };
+  }
+  if (entrySource === 'features' || entrySource === 'models') {
+    return {
+      heading: 'Explore our AI models! 🤖',
+      body: "I see you were browsing our AI models. Which ones caught your eye?",
+    };
+  }
+
+  // Check pages_visited for context hints
+  if (pagesVisited.includes('pricing_page')) {
+    return {
+      heading: 'Hey there! 👋',
+      body: "Welcome! I see you've been looking at our pricing. I can help you pick the perfect plan.",
+    };
+  }
+  if (pagesVisited.includes('roi_calculator')) {
+    return {
+      heading: 'Hey there! 👋',
+      body: "Welcome! I see you've been using our ROI calculator. Ready to see PARWA in action?",
+    };
+  }
+  if (pagesVisited.includes('models_page')) {
+    return {
+      heading: 'Hey there! 👋',
+      body: "Welcome! I see you were browsing our AI models. I'd love to help you find the right fit.",
+    };
+  }
+
+  // Default / direct / onboarding
+  return {
+    heading: "Hey there! 👋",
+    body: "I'm Jarvis, your AI assistant from PARWA. I'll help you find the perfect AI agents for your business. What brings you here today?",
+  };
+}
+
+export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hookActions, sessionState, sessionContext }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
@@ -73,6 +127,7 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
   }, [messages.length, isTyping]);
 
   const isEmpty = messages.length === 0 && !isTyping;
+  const welcome = getWelcomeMessage(sessionContext);
 
   return (
     <div className="flex-1 overflow-hidden relative" ref={containerRef} role="log" aria-label="Chat messages">
@@ -87,10 +142,10 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
               </div>
 
               <h3 className="text-base font-medium text-white/60 mb-1">
-                Hey there! 👋
+                {welcome.heading}
               </h3>
               <p className="text-sm text-white/30 max-w-xs leading-relaxed">
-                I'm Jarvis, your AI assistant from PARWA. I'll help you find the perfect AI agents for your business. What brings you here today?
+                {welcome.body}
               </p>
 
               {/* Quick-start suggestions */}
