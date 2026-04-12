@@ -250,7 +250,7 @@ def _validate_required_fields(
 
 def _parse_occurred_at(event: dict) -> datetime:
     """Parse occurred_at timestamp from event."""
-    occurred_str = event.get("occurred_at") or event.get("occurred_at")
+    occurred_str = event.get("occurred_at")
     if occurred_str:
         if isinstance(occurred_str, datetime):
             return occurred_str
