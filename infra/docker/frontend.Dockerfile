@@ -12,14 +12,14 @@
 # ──────────────────────────────────────────────────────────────
 FROM node:20-alpine AS deps
 
-# Install dependencies for native modules
-RUN apk add --no-cache libc6-compat
+# Install dependencies for native modules and Prisma
+RUN apk add --no-cache libc6-compat openssl
 
 WORKDIR /app
 
-# Copy package files first for better caching
-# Context is ./frontend so files are at root
+# Copy package files and Prisma schema for postinstall scripts
 COPY package.json package-lock.json* yarn.lock* bun.lock* ./
+COPY prisma ./prisma
 
 # Install dependencies
 RUN npm ci --legacy-peer-deps 2>/dev/null || npm install --legacy-peer-deps
