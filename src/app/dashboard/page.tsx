@@ -3,12 +3,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { WelcomeCard } from '@/components/dashboard';
+import {
+  WelcomeCard,
+  TrendChart,
+  CategoryChart,
+  SLAChart,
+  AgentPerformanceTable,
+  ResponseTimeChart,
+} from '@/components/dashboard';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import KPICard from '@/components/dashboard/KPICard';
 import { analyticsApi } from '@/lib/analytics-api';
 import { getErrorMessage } from '@/lib/api';
-import type { DashboardData, DateRange } from '@/types/analytics';
+import type { DashboardData, AgentMetrics, DateRange } from '@/types/analytics';
 
 // ── Icons (inline SVGs) ──────────────────────────────────────────────
 
@@ -77,6 +84,7 @@ function formatPercent(n: number): string {
 export default function DashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [agentData, setAgentData] = useState<AgentMetrics[]>([]);
   const [dateRange, setDateRange] = useState<Partial<DateRange>>({});
   const [datePreset, setDatePreset] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -99,6 +107,17 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  // ── Fetch Agent Data (separate endpoint) ──────────────────────────
+
+  useEffect(() => {
+    analyticsApi
+      .getAgents(50, dateRange)
+      .then((res) => setAgentData(res.agents))
+      .catch(() => {
+        // Silent fail — agent data is secondary
+      });
+  }, [dateRange]);
 
   // ── Handle Date Change ────────────────────────────────────────────
 
@@ -238,62 +257,33 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* ── Category Distribution (Day 2: Full Charts) ─────────────── */}
-      {data && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Trend placeholder */}
-          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6">
-            <h3 className="text-sm font-semibold text-zinc-300 mb-1">Ticket Trends</h3>
-            <p className="text-xs text-zinc-600 mb-4">Volume over time</p>
-            <div className="h-[240px] flex items-center justify-center text-zinc-600 text-sm">
-              <div className="text-center space-y-2">
-                <svg className="w-10 h-10 mx-auto text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                </svg>
-                <p>Trend chart coming in Day 2</p>
-                <p className="text-xs text-zinc-700">{data.trend.length} data points available</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Category bars */}
-          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6">
-            <h3 className="text-sm font-semibold text-zinc-300 mb-1">Category Distribution</h3>
-            <p className="text-xs text-zinc-600 mb-4">Tickets by category</p>
-            <div className="space-y-3">
-              {data.by_category.map((cat) => (
-                <div key={cat.category} className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-400">{cat.category}</span>
-                    <span className="text-xs text-zinc-500">
-                      {cat.count} ({cat.percentage.toFixed(1)}%)
-                    </span>
-                  </div>
-                  <div className="h-2 bg-white/[0.05] rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-orange-500/60 to-orange-400/40 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(cat.percentage, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-              {data.by_category.length === 0 && (
-                <p className="text-zinc-600 text-sm text-center py-8">No category data yet</p>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* ── Row 3: Ticket Trends (full width area chart) ───────────── */}
+      {data ? (
+        <TrendChart data={data.trend} />
+      ) : (
+        <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[332px] animate-pulse" />
       )}
 
-      {/* ── Agent Performance Placeholder (Day 2) ────────────────────── */}
-      {data && (
-        <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6">
-          <h3 className="text-sm font-semibold text-zinc-300 mb-4">Agent Performance</h3>
-          <div className="text-zinc-600 text-sm text-center py-6">
-            Agent performance table coming in Day 2
-          </div>
-        </div>
-      )}
+      {/* ── Row 4: Category Chart + SLA Chart ──────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {data ? (
+          <CategoryChart data={data.by_category} />
+        ) : (
+          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+        )}
+
+        {data ? (
+          <SLAChart data={data.sla} />
+        ) : (
+          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+        )}
+      </div>
+
+      {/* ── Row 5: Response Time Distribution ──────────────────────── */}
+      <ResponseTimeChart dateRange={dateRange} />
+
+      {/* ── Row 6: Agent Performance Table ─────────────────────────── */}
+      <AgentPerformanceTable data={agentData} />
     </div>
   );
 }

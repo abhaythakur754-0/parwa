@@ -161,6 +161,23 @@ export interface ChannelInfo {
   max_file_size: number;
 }
 
+// ── Response Time Distribution ───────────────────────────────────────
+
+export interface ResponseTimeBucket {
+  bucket: string;
+  count: number;
+  label: string;
+}
+
+export interface ResponseTimeDistribution {
+  buckets: ResponseTimeBucket[];
+  avg_response_minutes: number;
+  median_response_minutes: number;
+  p95_response_minutes: number;
+}
+
+// ── Channel Configuration ────────────────────────────────────────────
+
 export interface ChannelConfig {
   is_enabled: boolean;
   config: Record<string, unknown>;

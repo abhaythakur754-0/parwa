@@ -16,6 +16,7 @@ import {
   CategoryDistributionResponse,
   SLAMetricsResponse,
   AgentMetricsResponse,
+  ResponseTimeDistribution,
   DateRange,
   IntervalType,
 } from '@/types/analytics';
@@ -93,6 +94,33 @@ export const analyticsApi = {
   ): Promise<AgentMetricsResponse> => {
     const qs = formatDateParams(dateRange);
     return get<AgentMetricsResponse>(`${ANALYTICS_BASE}/agents?limit=${limit}${qs ? '&' + qs.slice(1) : ''}`);
+  },
+
+  /**
+   * Get response time distribution.
+   * NOTE: Backend endpoint coming Day 8. Returns mock data for now.
+   */
+  getResponseTime: async (dateRange?: Partial<DateRange>): Promise<ResponseTimeDistribution> => {
+    try {
+      const qs = formatDateParams(dateRange);
+      return get<ResponseTimeDistribution>(`${ANALYTICS_BASE}/response-time${qs}`);
+    } catch {
+      // Fallback mock data while backend endpoint is not available
+      return {
+        buckets: [
+          { bucket: '0-15m', count: 0, label: '<15m' },
+          { bucket: '15-30m', count: 0, label: '15-30m' },
+          { bucket: '30m-1h', count: 0, label: '30m-1h' },
+          { bucket: '1-2h', count: 0, label: '1-2h' },
+          { bucket: '2-4h', count: 0, label: '2-4h' },
+          { bucket: '4-8h', count: 0, label: '4-8h' },
+          { bucket: '8h+', count: 0, label: '8h+' },
+        ],
+        avg_response_minutes: 0,
+        median_response_minutes: 0,
+        p95_response_minutes: 0,
+      };
+    }
   },
 };
 
