@@ -761,6 +761,125 @@ class PgVectorStore(VectorStore):
         finally:
             self._close_session(session)
 
+    def add_document(
+        self,
+        document_id: str,
+        chunks: List[Dict[str, Any]],
+        company_id: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Add a document with chunk dicts — generates embeddings via EmbeddingService."""
+        doc_metadata = metadata or {}
+        stored_chunks: List[StoredChunk] = []
+        for i, chunk in enumerate(chunks):
+            content = chunk["content"]
+            chunk_meta = chunk.get("metadata", {})
+            merged_metadata: Dict[str, Any] = {**doc_metadata, **chunk_meta}
+            # Generate real embedding via EmbeddingService
+            embedding = self._generate_embedding(content)
+            chunk_id = f"{document_id}_chunk_{i}"
+            stored_chunks.append(
+                StoredChunk(
+                    chunk_id=chunk_id,
+                    document_id=document_id,
+                    content=content,
+                    embedding=embedding,
+                    metadata=merged_metadata,
+                )
+            )
+        added = self.add_chunks(stored_chunks, company_id)
+        return added > 0
+
+    def _generate_embedding(self, text: str) -> List[float]:
+        """Generate embedding for text via EmbeddingService."""
+        try:
+            from app.services.embedding_service import EmbeddingService
+            svc = EmbeddingService(company_id="system")
+            result = svc.generate_embedding(text)
+            if result:
+                return result
+        except Exception as exc:
+            logger.warning("PgVectorStore._generate_embedding failed: %s", exc)
+        # Fallback: return zero vector of correct dimension
+        return [0.0] * EMBEDDING_DIMENSION
+
+    def get_document(self, document_id: str, company_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a stored document as a dict."""
+        session = self._get_session()
+        if session is None:
+            return None
+        try:
+            stmt = text(
+                "SELECT chunk_id, document_id, content, metadata "
+                "FROM document_chunks "
+                "WHERE document_id = :document_id AND company_id = :company_id "
+                "ORDER BY chunk_index"
+            )
+            rows = session.execute(stmt, {"document_id": document_id, "company_id": company_id}).fetchall()
+            if not rows:
+                return None
+            chunks = []
+            for r in rows:
+                meta = r[3]
+                if isinstance(meta, str):
+                    try: meta = json.loads(meta)
+                    except: meta = {}
+                chunks.append({"chunk_id": r[0], "document_id": r[1], "content": r[2], "metadata": meta or {}})
+            return {
+                "document_id": document_id,
+                "company_id": company_id,
+                "metadata": {},
+                "chunks": chunks,
+            }
+        except Exception as exc:
+            logger.error("PgVectorStore.get_document failed: %s", exc)
+            return None
+        finally:
+            self._close_session(session)
+
+    def document_count(self, company_id: str) -> int:
+        """Return the number of documents for a company."""
+        session = self._get_session()
+        if session is None:
+            return 0
+        try:
+            stmt = text("SELECT COUNT(DISTINCT document_id) FROM document_chunks WHERE company_id = :company_id")
+            row = session.execute(stmt, {"company_id": company_id}).fetchone()
+            return row[0] if row else 0
+        except Exception:
+            return 0
+        finally:
+            self._close_session(session)
+
+    def get_all_documents(self, company_id: str) -> Dict[str, Dict[str, Any]]:
+        """Get all documents for a company (for keyword search fallback)."""
+        session = self._get_session()
+        if session is None:
+            return {}
+        try:
+            stmt = text(
+                "SELECT document_id, chunk_id, content, metadata "
+                "FROM document_chunks WHERE company_id = :company_id"
+            )
+            rows = session.execute(stmt, {"company_id": company_id}).fetchall()
+            result: Dict[str, Dict[str, Any]] = {}
+            for r in rows:
+                doc_id = r[0]
+                if doc_id not in result:
+                    result[doc_id] = {"metadata": {}, "chunks": []}
+                meta = r[3]
+                if isinstance(meta, str):
+                    try: meta = json.loads(meta)
+                    except: meta = {}
+                result[doc_id]["chunks"].append({
+                    "chunk_id": r[1], "content": r[2], "metadata": meta or {},
+                })
+            return result
+        except Exception:
+            return {}
+        finally:
+            self._close_session(session)
+
     def health_check(self) -> bool:
         """Verify pgvector extension is available and DB is reachable.
 
@@ -889,8 +1008,8 @@ def get_vector_store(force_mock: bool = False) -> VectorStore:
 
     environment = os.getenv("ENVIRONMENT", "development")
 
-    # In production/test, try PgVectorStore first
-    if environment in ("production", "test"):
+    # In all environments, try PgVectorStore first
+    if environment in ("production", "test", "development", "staging"):
         try:
             pg_store = PgVectorStore()
             if pg_store.health_check():
