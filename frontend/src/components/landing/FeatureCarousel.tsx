@@ -260,10 +260,10 @@ function SlideBackground4() {
           {/* Hour markers */}
           {Array.from({ length: 12 }).map((_, i) => {
             const angle = (i * 30 - 90) * (Math.PI / 180);
-            const x1 = 50 + 38 * Math.cos(angle);
-            const y1 = 50 + 38 * Math.sin(angle);
-            const x2 = 50 + 42 * Math.cos(angle);
-            const y2 = 50 + 42 * Math.sin(angle);
+            const x1 = Math.round((50 + 38 * Math.cos(angle)) * 1000) / 1000;
+            const y1 = Math.round((50 + 38 * Math.sin(angle)) * 1000) / 1000;
+            const x2 = Math.round((50 + 42 * Math.cos(angle)) * 1000) / 1000;
+            const y2 = Math.round((50 + 42 * Math.sin(angle)) * 1000) / 1000;
             return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,159,68,0.4)" strokeWidth="1.5" />;
           })}
           {/* Hour hand */}

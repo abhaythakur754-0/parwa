@@ -2522,19 +2522,22 @@ class TestGetTransitionTable:
 class TestEscalationCooldownInternal:
     """Tests for internal escalation cooldown methods."""
 
-    def test_check_cooldown_no_timestamp(self):
+    @pytest.mark.asyncio
+    async def test_check_cooldown_no_timestamp(self):
         engine = GSDEngine()
-        result = engine._check_escalation_cooldown("co_1", 300.0)
+        result = await engine._check_escalation_cooldown("co_1", 300.0)
         assert result == 0.0
 
-    def test_check_cooldown_none_company(self):
+    @pytest.mark.asyncio
+    async def test_check_cooldown_none_company(self):
         engine = GSDEngine()
-        result = engine._check_escalation_cooldown(None, 300.0)
+        result = await engine._check_escalation_cooldown(None, 300.0)
         assert result == 0.0
 
-    def test_check_cooldown_empty_company(self):
+    @pytest.mark.asyncio
+    async def test_check_cooldown_empty_company(self):
         engine = GSDEngine()
-        result = engine._check_escalation_cooldown("", 300.0)
+        result = await engine._check_escalation_cooldown("", 300.0)
         assert result == 0.0
 
     def test_record_escalation_timestamp(self):
@@ -2547,26 +2550,29 @@ class TestEscalationCooldownInternal:
         engine._record_escalation_timestamp(None)
         assert len(engine._escalation_timestamps) == 0
 
-    def test_cooldown_expired(self):
+    @pytest.mark.asyncio
+    async def test_cooldown_expired(self):
         engine = GSDEngine()
         # Set timestamp in the past
         past = datetime.now(timezone.utc).isoformat()
         engine._escalation_timestamps["co_1"] = past
         # With 0 cooldown, should be expired
-        result = engine._check_escalation_cooldown("co_1", 0.0)
+        result = await engine._check_escalation_cooldown("co_1", 0.0)
         assert result == 0.0
 
-    def test_cooldown_active(self):
+    @pytest.mark.asyncio
+    async def test_cooldown_active(self):
         engine = GSDEngine()
         now = datetime.now(timezone.utc).isoformat()
         engine._escalation_timestamps["co_1"] = now
-        result = engine._check_escalation_cooldown("co_1", 300.0)
+        result = await engine._check_escalation_cooldown("co_1", 300.0)
         assert result > 0
 
-    def test_invalid_timestamp_allows_escalation(self):
+    @pytest.mark.asyncio
+    async def test_invalid_timestamp_allows_escalation(self):
         engine = GSDEngine()
         engine._escalation_timestamps["co_1"] = "not-a-timestamp"
-        result = engine._check_escalation_cooldown("co_1", 300.0)
+        result = await engine._check_escalation_cooldown("co_1", 300.0)
         assert result == 0.0
 
 

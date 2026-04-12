@@ -12,11 +12,24 @@ BC-001: Tenant isolation — all operations scoped to company_id.
 from __future__ import annotations
 
 import hashlib
+import json
+import logging
 import math
+import os
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+# ── Optional PgVector dependencies (graceful degradation) ─────────
+try:
+    from sqlalchemy import text
+    _HAS_SQLALCHEMY = True
+except ImportError:
+    _HAS_SQLALCHEMY = False
+    text = None  # type: ignore[assignment]
+
+logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────
 
@@ -458,35 +471,449 @@ class MockVectorStore(VectorStore):
         return True
 
 
+# ── PgVector Store ───────────────────────────────────────────────
+
+
+class PgVectorStore(VectorStore):
+    """PostgreSQL pgvector-backed vector store.
+
+    Uses real semantic embeddings stored in PostgreSQL with the pgvector
+    extension for fast approximate nearest-neighbour cosine-similarity
+    search.
+
+    Every query is scoped to ``company_id`` (BC-001).  All database
+    operations are wrapped in ``try/except`` so that transient failures
+    are reported but never bubble up (BC-008).
+    """
+
+    def __init__(self, connection_string: Optional[str] = None) -> None:
+        """Initialise the PgVectorStore.
+
+        Args:
+            connection_string: Optional PostgreSQL URL.  When *None*,
+                the connection is obtained from
+                :func:`database.base.get_db` or the ``DATABASE_URL``
+                environment variable.
+        """
+        self._connection_string = connection_string
+        self._engine = None
+        self._session_factory = None
+        self._init_db()
+
+    # ── Internal: engine / session setup ───────────────────────────
+
+    def _init_db(self) -> None:
+        """Create a SQLAlchemy engine and session factory."""
+        try:
+            if not _HAS_SQLALCHEMY:
+                logger.warning(
+                    "PgVectorStore: sqlalchemy not available — "
+                    "operations will fail gracefully"
+                )
+                return
+
+            if self._connection_string:
+                url = self._connection_string
+            else:
+                # Try the shared database module first
+                try:
+                    from database.base import SessionLocal  # type: ignore[import-untyped]
+                    self._session_factory = SessionLocal
+                    logger.debug("PgVectorStore: using database.base.SessionLocal")
+                    return
+                except Exception:
+                    pass
+
+                url = os.environ.get(
+                    "DATABASE_URL",
+                    "postgresql://localhost:5432/parwa",
+                )
+
+            from sqlalchemy import create_engine  # type: ignore[import-untyped]
+            self._engine = create_engine(url, pool_pre_ping=True)
+            from sqlalchemy.orm import sessionmaker  # type: ignore[import-untyped]
+            self._session_factory = sessionmaker(
+                bind=self._engine,
+                autocommit=False,
+                autoflush=False,
+            )
+            logger.debug("PgVectorStore: engine created from connection string")
+        except Exception as exc:
+            logger.error(
+                "PgVectorStore._init_db failed: %s", exc,
+            )
+
+    def _get_session(self):
+        """Return a new DB session, or *None* on failure."""
+        if self._session_factory is None:
+            return None
+        try:
+            return self._session_factory()
+        except Exception as exc:
+            logger.error("PgVectorStore: cannot create session: %s", exc)
+            return None
+
+    # ── VectorStore interface ──────────────────────────────────────
+
+    def search(
+        self,
+        query_embedding: List[float],
+        company_id: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+        similarity_threshold: float = 0.3,
+    ) -> List[SearchResult]:
+        """Search for similar chunks via pgvector cosine similarity.
+
+        Uses the ``<=>`` (cosine distance) operator provided by the
+        ``pgvector`` extension and converts it to a similarity score
+        (``1 - distance``).  Results are filtered by ``company_id``
+        (BC-001) and optionally by ``similarity_threshold``.
+
+        Args:
+            query_embedding: Query vector.
+            company_id: Tenant identifier (BC-001).
+            top_k: Maximum results to return.
+            filters: Optional metadata filters (JSONB containment).
+            similarity_threshold: Minimum cosine similarity (default 0.3).
+
+        Returns:
+            List of search results sorted by score descending.
+        """
+        session = self._get_session()
+        if session is None:
+            return []
+
+        try:
+            embedding_str = _embedding_to_pgvector_str(query_embedding)
+
+            stmt = text(
+                "SELECT chunk_id, document_id, content, "
+                "       1 - (embedding <=> :embedding::vector) AS score, "
+                "       metadata "
+                "FROM document_chunks "
+                "WHERE company_id = :company_id "
+                "ORDER BY embedding <=> :embedding::vector "
+                "LIMIT :limit"
+            )
+            params: Dict[str, Any] = {
+                "embedding": embedding_str,
+                "company_id": company_id,
+                "limit": top_k,
+            }
+
+            row = session.execute(stmt, params).fetchall()
+
+            results: List[SearchResult] = []
+            for r in row:
+                chunk_id = r[0]
+                document_id = r[1]
+                content = r[2]
+                score = float(r[3]) if r[3] is not None else 0.0
+                metadata_raw = r[4]
+
+                if score < similarity_threshold:
+                    continue
+
+                # Parse metadata from JSONB / text
+                metadata: Dict[str, Any] = {}
+                if metadata_raw is not None:
+                    if isinstance(metadata_raw, dict):
+                        metadata = metadata_raw
+                    elif isinstance(metadata_raw, str):
+                        try:
+                            metadata = json.loads(metadata_raw)
+                        except (json.JSONDecodeError, TypeError):
+                            metadata = {}
+
+                # Apply optional Python-level metadata filters
+                if filters and not self._matches_filters(metadata, filters):
+                    continue
+
+                results.append(
+                    SearchResult(
+                        chunk_id=chunk_id,
+                        document_id=document_id,
+                        content=content,
+                        score=round(score, 6),
+                        metadata=metadata,
+                    )
+                )
+
+            return results
+
+        except Exception as exc:
+            logger.error(
+                "PgVectorStore.search failed [company_id=%s]: %s",
+                company_id, exc,
+            )
+            return []
+        finally:
+            self._close_session(session)
+
+    def add_chunks(
+        self,
+        chunks: List[StoredChunk],
+        company_id: str,
+    ) -> int:
+        """Insert chunks into ``document_chunks`` with pgvector embeddings.
+
+        Each chunk's ``embedding`` list is serialised as a pgvector literal.
+
+        Args:
+            chunks: List of chunks with embeddings.
+            company_id: Tenant identifier (BC-001).
+
+        Returns:
+            Number of chunks successfully added.
+        """
+        session = self._get_session()
+        if session is None:
+            return 0
+
+        try:
+            added = 0
+            for chunk in chunks:
+                embedding_str = _embedding_to_pgvector_str(chunk.embedding)
+                metadata_json = json.dumps(chunk.metadata) if chunk.metadata else None
+
+                stmt = text(
+                    "INSERT INTO document_chunks "
+                    "  (id, document_id, company_id, content, embedding, "
+                    "   metadata, chunk_index) "
+                    "VALUES "
+                    "  (:id, :document_id, :company_id, :content, "
+                    "   :embedding::vector, :metadata::jsonb, :chunk_index) "
+                    "ON CONFLICT (id) DO UPDATE SET "
+                    "  content = EXCLUDED.content, "
+                    "  embedding = EXCLUDED.embedding, "
+                    "  metadata = EXCLUDED.metadata"
+                )
+                session.execute(stmt, {
+                    "id": chunk.chunk_id,
+                    "document_id": chunk.document_id,
+                    "company_id": company_id,
+                    "content": chunk.content,
+                    "embedding": embedding_str,
+                    "metadata": metadata_json,
+                    "chunk_index": 0,
+                })
+                added += 1
+
+            session.commit()
+            return added
+
+        except Exception as exc:
+            logger.error(
+                "PgVectorStore.add_chunks failed [company_id=%s]: %s",
+                company_id, exc,
+            )
+            try:
+                session.rollback()
+            except Exception:
+                pass
+            return 0
+        finally:
+            self._close_session(session)
+
+    def delete_document(
+        self,
+        document_id: str,
+        company_id: str,
+    ) -> bool:
+        """Delete all chunks for a document.
+
+        Args:
+            document_id: Document to delete.
+            company_id: Tenant identifier (BC-001).
+
+        Returns:
+            True if rows were deleted, False otherwise.
+        """
+        session = self._get_session()
+        if session is None:
+            return False
+
+        try:
+            stmt = text(
+                "DELETE FROM document_chunks "
+                "WHERE document_id = :document_id "
+                "  AND company_id = :company_id"
+            )
+            result = session.execute(stmt, {
+                "document_id": document_id,
+                "company_id": company_id,
+            })
+            session.commit()
+            return result.rowcount > 0
+
+        except Exception as exc:
+            logger.error(
+                "PgVectorStore.delete_document failed "
+                "[document_id=%s, company_id=%s]: %s",
+                document_id, company_id, exc,
+            )
+            try:
+                session.rollback()
+            except Exception:
+                pass
+            return False
+        finally:
+            self._close_session(session)
+
+    def health_check(self) -> bool:
+        """Verify pgvector extension is available and DB is reachable.
+
+        Returns:
+            True if the ``vector`` extension is installed and a test
+            query succeeds, False otherwise.
+        """
+        session = self._get_session()
+        if session is None:
+            return False
+
+        try:
+            row = session.execute(
+                text(
+                    "SELECT extversion FROM pg_extension "
+                    "WHERE extname = 'vector'"
+                )
+            ).fetchone()
+
+            if row is None:
+                logger.warning(
+                    "PgVectorStore.health_check: pgvector extension not found"
+                )
+                return False
+
+            logger.debug(
+                "PgVectorStore.health_check: pgvector %s", row[0]
+            )
+            return True
+
+        except Exception as exc:
+            logger.error(
+                "PgVectorStore.health_check failed: %s", exc
+            )
+            return False
+        finally:
+            self._close_session(session)
+
+    # ── Internal helpers ───────────────────────────────────────────
+
+    @staticmethod
+    def _close_session(session: Any) -> None:
+        """Safely close a DB session."""
+        try:
+            session.close()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _matches_filters(
+        metadata: Dict[str, Any],
+        filters: Dict[str, Any],
+    ) -> bool:
+        """Check if *metadata* matches all *filters*.
+
+        Supports:
+        - Exact match: ``{"document_type": "faq"}``
+        - Tag membership: ``{"tags": ["refund", "billing"]}``
+        - Date range: ``{"date_after": "2024-01-01"}``
+        """
+        for key, value in filters.items():
+            meta_val = metadata.get(key)
+
+            if key in ("date_after", "date_before"):
+                if meta_val is None:
+                    return False
+                if key == "date_after" and meta_val < value:
+                    return False
+                if key == "date_before" and meta_val > value:
+                    return False
+            elif isinstance(value, list):
+                if not meta_val or not any(
+                    tag in value
+                    for tag in (
+                        meta_val if isinstance(meta_val, list)
+                        else [meta_val]
+                    )
+                ):
+                    return False
+            else:
+                if meta_val != value:
+                    return False
+        return True
+
+
+# ── Helpers ───────────────────────────────────────────────────────
+
+
+def _embedding_to_pgvector_str(embedding: List[float]) -> str:
+    """Convert a list of floats to a pgvector literal string.
+
+    Example:  ``[0.1, 0.2]`` -> ``'[0.1,0.2]'``
+    """
+    return "[" + ",".join(f"{x:.8g}" for x in embedding) + "]"
+
+
 # ── Module-level Singleton & Convenience Function ──────────────────
 
 
-_default_store: Optional[MockVectorStore] = None
+_default_store: Optional[VectorStore] = None
 
 
-def get_vector_store() -> VectorStore:
+def get_vector_store(force_mock: bool = False) -> VectorStore:
     """Get the appropriate vector store implementation.
 
-    Returns a singleton MockVectorStore instance in test/dev,
-    production store in production.
+    Resolution order:
+
+    1. If ``force_mock`` is *True*, return a :class:`MockVectorStore`.
+    2. In ``production`` or ``test`` environments, attempt to create a
+       :class:`PgVectorStore` backed by PostgreSQL + pgvector.
+    3. If PgVectorStore creation or its health-check fails, fall back
+       to :class:`MockVectorStore` (BC-008).
 
     Returns:
         VectorStore instance (singleton).
     """
     global _default_store
 
-    if _default_store is None:
-        import os
+    if _default_store is not None:
+        return _default_store
 
-        environment = os.getenv("ENVIRONMENT", "development")
+    # Force mock mode — useful in tests or when no DB is available
+    if force_mock:
+        _default_store = MockVectorStore()
+        return _default_store
 
-        if environment == "production":
-            # In production, use a real vector store
-            # For now, return mock with warning
-            _default_store = MockVectorStore()
-        else:
-            _default_store = MockVectorStore()
+    environment = os.getenv("ENVIRONMENT", "development")
 
+    # In production/test, try PgVectorStore first
+    if environment in ("production", "test"):
+        try:
+            pg_store = PgVectorStore()
+            if pg_store.health_check():
+                logger.info(
+                    "get_vector_store: using PgVectorStore (env=%s)",
+                    environment,
+                )
+                _default_store = pg_store
+                return _default_store
+            else:
+                logger.warning(
+                    "get_vector_store: PgVectorStore health_check failed, "
+                    "falling back to MockVectorStore (BC-008)"
+                )
+        except Exception as exc:
+            logger.warning(
+                "get_vector_store: PgVectorStore init failed (%s), "
+                "falling back to MockVectorStore (BC-008)",
+                exc,
+            )
+
+    # Default / fallback
+    _default_store = MockVectorStore()
     return _default_store
 
 
