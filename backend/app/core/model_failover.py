@@ -103,7 +103,7 @@ class CircuitBreaker:
 DEFAULT_PROVIDERS = ["google", "cerebras", "groq"]
 
 DEFAULT_MODELS: Dict[str, str] = {
-    "google": "gemini-2.0-flash-lite",
+    "google": "gemini-3.1-flash-lite",
     "cerebras": "llama-3.1-8b",
     "groq": "llama-3.1-8b",
 }
@@ -118,7 +118,8 @@ FAILOVER_CHAINS: Dict[str, List[Tuple[str, str]]] = {
         ("google", "gemma-3-27b-it"),
     ],
     "medium": [
-        ("google", "gemini-2.0-flash-lite"),
+        ("google", "gemini-3.1-flash-lite"),  # Primary: 500 RPD, 250K TPM
+        ("google", "gemini-2.5-flash-preview-05-20"),  # Backup: 1500 RPD
         ("groq", "llama-3.3-70b-versatile"),
         ("groq", "qwen3-32b"),
         # Falls to LIGHT if all MEDIUM exhausted
@@ -129,7 +130,7 @@ FAILOVER_CHAINS: Dict[str, List[Tuple[str, str]]] = {
         ("groq", "gpt-oss-120b"),
         ("groq", "llama-4-scout-instruct"),
         # Falls to MEDIUM then LIGHT
-        ("google", "gemini-2.0-flash-lite"),
+        ("google", "gemini-3.1-flash-lite"),
         ("cerebras", "llama-3.1-8b"),
     ],
     "guardrail": [
