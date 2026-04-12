@@ -229,8 +229,9 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
                 return { ...prev, context: { ...prev.context, ...contextPatch } };
               });
             }
-            // One-time transfer — clear after reading
-            localStorage.removeItem('parwa_jarvis_context');
+            // NOTE: Do NOT remove parwa_jarvis_context here.
+            // Other pages may still need to read it, and the pushContextToBackend
+            // above already synced it to the backend session.
           }
 
           // Also read parwa_pricing_selection as fallback (set by pricing page)
