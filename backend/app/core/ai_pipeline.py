@@ -639,10 +639,13 @@ class AIPipeline:
             return
 
         try:
+            # Build query signals dict for router
+            signals = ctx.extracted_signals or {}
             result = router.route(
-                ctx.query,
-                context=ctx.extracted_signals,
+                company_id=ctx.company_id,
                 variant_type=ctx.variant_type,
+                atomic_step="draft_response",
+                query_signals=signals,
             )
             if result:
                 if hasattr(result, "model_id"):
@@ -686,29 +689,58 @@ class AIPipeline:
 
     async def _stage_rag_retrieval(self, ctx: PipelineContext) -> None:
         """Retrieve relevant knowledge base chunks and rerank."""
-        reranker = self._get_rag_reranker()
-        if not reranker:
-            return
-
         try:
-            assembled = await reranker.rerank(
+            from app.core.rag_retrieval import RAGRetriever
+            from app.services.embedding_service import EmbeddingService
+
+            # Step 1: Generate query embedding
+            embed_svc = EmbeddingService()
+            query_embedding = await embed_svc.generate_embedding(ctx.query)
+
+            if not query_embedding:
+                logger.warning("RAG: Failed to generate query embedding")
+                return
+
+            # Step 2: Retrieve relevant chunks
+            retriever = RAGRetriever(company_id=ctx.company_id, variant_type=ctx.variant_type)
+            chunks = await retriever.retrieve(
                 query=ctx.query,
-                chunks=[],
-                strategy="auto",
+                query_embedding=query_embedding,
                 top_k=5,
-                filters={
-                    "company_id": ctx.company_id,
-                    "variant_type": ctx.variant_type,
-                },
             )
-            if assembled:
-                if hasattr(assembled, "context_text"):
-                    ctx.rag_context = assembled.context_text or ""
-                if hasattr(assembled, "to_dict"):
-                    d = assembled.to_dict()
-                    ctx.rag_chunks = d.get("chunks", [])
-                    ctx.rag_citations = d.get("citations", [])
+
+            if chunks:
+                rag_list = []
+                for c in chunks:
+                    if hasattr(c, 'to_dict'):
+                        rag_list.append(c.to_dict())
+                    elif isinstance(c, dict):
+                        rag_list.append(c)
+                    else:
+                        rag_list.append({"content": str(c), "score": 0.0})
+                ctx.rag_chunks = rag_list
+                ctx.rag_context = "\n\n".join(
+                    c.get("content", "") if isinstance(c, dict) else str(c)
+                    for c in ctx.rag_chunks[:5]
+                )
                 ctx.rag_context_used = bool(ctx.rag_context)
+
+                # Step 3: Optionally rerank
+                reranker = self._get_rag_reranker()
+                if reranker and len(ctx.rag_chunks) > 1:
+                    try:
+                        assembled = await reranker.rerank(
+                            query=ctx.query,
+                            chunks=ctx.rag_chunks,
+                            strategy="auto",
+                            top_k=5,
+                            filters={"company_id": ctx.company_id},
+                        )
+                        if assembled and hasattr(assembled, "context_text"):
+                            ctx.rag_context = assembled.context_text or ctx.rag_context
+                            ctx.rag_citations = assembled.to_dict().get("citations", [])
+                    except Exception as rerank_exc:
+                        logger.debug("Reranking failed (using unranked): %s", rerank_exc)
         except Exception as exc:
             logger.error("RAG retrieval failed: %s", exc)
 
@@ -745,7 +777,7 @@ class AIPipeline:
                     ctx.response_text = result.response_text
                 if hasattr(result, "confidence_score"):
                     # Use generation confidence as baseline
-                    pass
+                    ctx.confidence_score = max(ctx.confidence_score, result.confidence_score if hasattr(result, 'confidence_score') else 0.0)
                 if hasattr(result, "rag_context_used"):
                     ctx.rag_context_used = result.rag_context_used
                 if hasattr(result, "citations"):

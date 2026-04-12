@@ -452,6 +452,41 @@ class GSDEngine:
                 return config.variant
         return GSDVariant.PARWA.value
 
+    # ── Variant Resolution ──────────────────────────────────────
+
+    def _get_variant_for_company(self, company_id: Optional[str]) -> str:
+        """Get variant type for a company from the variant capability service.
+
+        Tries the VariantCapabilityService first for authoritative variant
+        lookup, then falls back to the cached tenant config, and finally
+        defaults to "parwa" (BC-008: never crash).
+
+        Args:
+            company_id: Tenant identifier.
+
+        Returns:
+            Variant string (mini_parwa, parwa, parwa_high).
+        """
+        # 1. Try cached tenant config first (fast path)
+        if company_id:
+            config = self._tenant_configs.get(company_id)
+            if config:
+                return config.variant
+
+        # 2. Try VariantCapabilityService for authoritative lookup
+        if company_id:
+            try:
+                from app.services.variant_capability_service import VariantCapabilityService
+                service = VariantCapabilityService()
+                caps = service.get_variant_capabilities(company_id)
+                if caps and hasattr(caps, 'variant_type'):
+                    return caps.variant_type
+            except Exception:
+                # BC-008: Service unavailable — fall through to default
+                pass
+
+        return "parwa"  # Default
+
     # ── Transition Table Access ───────────────────────────────────
 
     def _get_transition_table(self, variant: str) -> Dict[str, Set[str]]:
@@ -499,8 +534,9 @@ class GSDEngine:
         target_str = target_state.value if isinstance(target_state, GSDState) else str(target_state)
         current_str = state.gsd_state.value if isinstance(state.gsd_state, GSDState) else str(state.gsd_state)
 
-        # Validate the transition
-        if not await self.can_transition(state.gsd_state, target_state):
+        # Validate the transition using variant-aware check (BC-001)
+        variant = self._get_variant_for_company(state.company_id)
+        if not await self.can_transition_with_variant(state.gsd_state, target_state, variant):
             reason = await self._explain_invalid_transition(current_str, target_str, state)
             raise InvalidTransitionError(
                 from_state=current_str,
@@ -904,7 +940,7 @@ class GSDEngine:
         config = self.get_config(state.company_id)
 
         # Check cooldown
-        cooldown_remaining = self._check_escalation_cooldown(
+        cooldown_remaining = await self._check_escalation_cooldown(
             state.company_id, config.escalation_cooldown_seconds,
         )
         if cooldown_remaining > 0:
@@ -986,6 +1022,15 @@ class GSDEngine:
         company_id = state.company_id or ""
         if company_id in self._escalation_timestamps:
             del self._escalation_timestamps[company_id]
+
+        # Best-effort clear Redis cooldown key
+        try:
+            from app.core.redis import get_redis, make_key
+            redis = await get_redis()
+            key = make_key(company_id, "escalation_cooldown")
+            await redis.delete(key)
+        except Exception:
+            pass  # BC-008: Redis failure is non-fatal
 
         logger.info(
             "gsd_conversation_reset",
@@ -1585,21 +1630,92 @@ class GSDEngine:
     # INTERNAL: ESCALATION COOLDOWN
     # ═══════════════════════════════════════════════════════════
 
-    def _record_escalation_timestamp(self, company_id: Optional[str]) -> None:
+    def _record_escalation_timestamp(self, company_id: Optional[str], ticket_id: Optional[str] = None) -> None:
         """Record the timestamp of an escalation for cooldown tracking.
+
+        Persists the escalation timestamp to Redis with a 300-second TTL
+        so cooldown survives process restarts and is shared across workers.
+        Falls back to the in-memory dict if Redis is unavailable (BC-008).
 
         Args:
             company_id: Tenant identifier.
+            ticket_id: Optional ticket ID for per-ticket cooldown keys.
         """
-        if company_id:
-            self._escalation_timestamps[company_id] = datetime.now(
-                timezone.utc,
-            ).isoformat()
+        if not company_id:
+            return
 
-    def _check_escalation_cooldown(
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Always update the local dict (backward-compat for tests)
+        self._escalation_timestamps[company_id] = now_iso
+
+        # Best-effort persist to Redis with TTL
+        try:
+            import asyncio
+
+            async def _set_redis():
+                try:
+                    from app.core.redis import get_redis, make_key
+                    redis = await get_redis()
+                    if ticket_id:
+                        key = make_key(company_id, "escalation_cooldown", ticket_id)
+                    else:
+                        key = make_key(company_id, "escalation_cooldown")
+                    await redis.set(key, now_iso, ex=300)
+                except Exception:
+                    pass  # BC-008: Redis failure is non-fatal
+
+            # Try to schedule; if no event loop, just use local dict
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(_set_redis())
+            except RuntimeError:
+                # No running loop — fire-and-forget in new loop or skip
+                pass
+        except Exception:
+            pass  # BC-008
+
+    async def _record_escalation_timestamp_async(self, company_id: Optional[str], ticket_id: Optional[str] = None) -> None:
+        """Async version of _record_escalation_timestamp for call sites with an event loop.
+
+        Args:
+            company_id: Tenant identifier.
+            ticket_id: Optional ticket ID for per-ticket cooldown keys.
+        """
+        if not company_id:
+            return
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Always update the local dict (backward-compat for tests)
+        self._escalation_timestamps[company_id] = now_iso
+
+        # Best-effort persist to Redis with TTL
+        try:
+            from app.core.redis import get_redis, make_key
+            redis = await get_redis()
+            if ticket_id:
+                key = make_key(company_id, "escalation_cooldown", ticket_id)
+            else:
+                key = make_key(company_id, "escalation_cooldown")
+            await redis.set(key, now_iso, ex=300)
+        except Exception:
+            pass  # BC-008: Redis failure is non-fatal
+
+    async def _check_escalation_cooldown(
         self, company_id: Optional[str], cooldown_seconds: float,
+        ticket_id: Optional[str] = None,
     ) -> float:
         """Check if escalation cooldown is active.
+
+        Checks Redis first for a persisted cooldown timestamp, then falls
+        back to the in-memory dict. Returns the number of seconds remaining
+        in cooldown, or 0 if cooldown has expired.
+
+        Args:
+            company_id: Tenant identifier.
+            cooldown_seconds: Cooldown period in seconds.
+            ticket_id: Optional ticket ID for per-ticket cooldown keys.
 
         Returns:
             Seconds remaining in cooldown, or 0 if cooldown has expired.
@@ -1607,7 +1723,26 @@ class GSDEngine:
         if not company_id:
             return 0.0
 
-        last_escalation = self._escalation_timestamps.get(company_id)
+        last_escalation: Optional[str] = None
+
+        # Try Redis first for authoritative cooldown
+        try:
+            from app.core.redis import get_redis, make_key
+            redis = await get_redis()
+            if ticket_id:
+                key = make_key(company_id, "escalation_cooldown", ticket_id)
+            else:
+                key = make_key(company_id, "escalation_cooldown")
+            redis_val = await redis.get(key)
+            if redis_val:
+                last_escalation = redis_val
+        except Exception:
+            pass  # BC-008: Redis failure — fall back to local
+
+        # Fall back to in-memory dict
+        if not last_escalation:
+            last_escalation = self._escalation_timestamps.get(company_id)
+
         if not last_escalation:
             return 0.0
 
