@@ -58,6 +58,7 @@ class PipelineContext:
     customer_metadata: Optional[dict] = None
     language: str = "en"
     ticket_id: Optional[str] = None
+    system_prompt: Optional[str] = None
 
     # Stage 1: Edge Case
     edge_case_action: Optional[str] = None
@@ -769,6 +770,7 @@ class AIPipeline:
                 language=ctx.language,
                 ticket_id=ctx.ticket_id,
                 intent_type=ctx.intent_type,
+                system_prompt=ctx.system_prompt,
             )
             result = await generator.generate(request)
             if result:
@@ -999,6 +1001,7 @@ async def process_ai_message(
     customer_metadata: Optional[dict] = None,
     language: str = "en",
     ticket_id: Optional[str] = None,
+    system_prompt: Optional[str] = None,
 ) -> PipelineResult:
     """Process a customer message through the full AI pipeline.
 
@@ -1014,6 +1017,7 @@ async def process_ai_message(
         customer_metadata: Customer profile data.
         language: Message language (default: en).
         ticket_id: Optional ticket for draft co-pilot mode.
+        system_prompt: Optional context-aware system prompt with user journey context.
 
     Returns:
         PipelineResult with response and full metadata.
@@ -1029,5 +1033,6 @@ async def process_ai_message(
         customer_metadata=customer_metadata,
         language=language,
         ticket_id=ticket_id,
+        system_prompt=system_prompt,
     )
     return await pipeline.process(ctx)

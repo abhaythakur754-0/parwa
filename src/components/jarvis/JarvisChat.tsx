@@ -163,6 +163,7 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
         onSuggestionClick={sendMessage}
         hookActions={hookActions}
         sessionState={sessionState}
+        sessionContext={session?.context ?? null}
       />
 
       {/* Input area (pinned to bottom) */}

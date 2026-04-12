@@ -82,7 +82,7 @@ export default function OnboardingPage() {
 
   return (
     <ChatErrorBoundary>
-      <JarvisChat />
+      <JarvisChat entrySource="onboarding" />
     </ChatErrorBoundary>
   );
 }
