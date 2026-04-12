@@ -90,51 +90,52 @@ class TestTaskRouting:
         """Email tasks route to 'email' queue."""
         from backend.app.tasks.celery_app import app
         routes = app.conf.task_routes
-        assert "backend.app.tasks.email.*" in routes
-        assert routes["backend.app.tasks.email.*"]["queue"] == "email"
+        # Routes use 'app.tasks.*' prefix (Celery runs inside backend/)
+        assert "app.tasks.email.*" in routes
+        assert routes["app.tasks.email.*"]["queue"] == "email"
 
     def test_webhook_routes(self):
         """Webhook tasks route to 'webhook' queue."""
         from backend.app.tasks.celery_app import app
         routes = app.conf.task_routes
-        assert "backend.app.tasks.webhook.*" in routes
-        assert routes["backend.app.tasks.webhook.*"]["queue"] == "webhook"
+        assert "app.tasks.webhook.*" in routes
+        assert routes["app.tasks.webhook.*"]["queue"] == "webhook"
 
     def test_analytics_routes(self):
         """Analytics tasks route to 'analytics' queue."""
         from backend.app.tasks.celery_app import app
         routes = app.conf.task_routes
-        assert "backend.app.tasks.analytics.*" in routes
-        assert routes["backend.app.tasks.analytics.*"]["queue"] == "analytics"
+        assert "app.tasks.analytics.*" in routes
+        assert routes["app.tasks.analytics.*"]["queue"] == "analytics"
 
     def test_ai_heavy_routes(self):
         """Heavy AI tasks route to 'ai_heavy' queue."""
         from backend.app.tasks.celery_app import app
         routes = app.conf.task_routes
-        assert "backend.app.tasks.ai.heavy.*" in routes
-        assert routes["backend.app.tasks.ai.heavy.*"]["queue"] == "ai_heavy"
+        assert "app.tasks.ai.heavy.*" in routes
+        assert routes["app.tasks.ai.heavy.*"]["queue"] == "ai_heavy"
 
     def test_ai_light_routes(self):
         """Light AI tasks route to 'ai_light' queue."""
         from backend.app.tasks.celery_app import app
         routes = app.conf.task_routes
-        assert "backend.app.tasks.ai.light.*" in routes
-        assert routes["backend.app.tasks.ai.light.*"]["queue"] == "ai_light"
+        assert "app.tasks.ai.light.*" in routes
+        assert routes["app.tasks.ai.light.*"]["queue"] == "ai_light"
 
     def test_training_routes(self):
         """Training tasks route to 'training' queue."""
         from backend.app.tasks.celery_app import app
         routes = app.conf.task_routes
-        assert "backend.app.tasks.training.*" in routes
-        assert routes["backend.app.tasks.training.*"]["queue"] == "training"
+        assert "app.tasks.training.*" in routes
+        assert routes["app.tasks.training.*"]["queue"] == "training"
 
 
 class TestAutodiscover:
     """Test autodiscover is configured."""
 
     def test_autodiscover_tasks(self):
-        """Autodiscover is configured for backend.app.tasks."""
+        """Autodiscover is configured for app.tasks."""
         from backend.app.tasks.celery_app import app
         # Celery stores autodiscover in _autodiscover_tasks_from
         # or in the imports list
-        assert "backend.app.tasks.example_tasks" in app.conf.imports
+        assert "app.tasks.example_tasks" in app.conf.imports
