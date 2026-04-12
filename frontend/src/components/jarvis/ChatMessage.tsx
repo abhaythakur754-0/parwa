@@ -151,16 +151,18 @@ function renderInlineContent(content: string) {
 
     // Bullet point lines (•, -, *, or emoji prefix)
     const firstChar = trimmed.charCodeAt(0);
-    const isEmoji = firstChar >= 0x1F300 && firstChar <= 0x1F9FF;
-    const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || isEmoji;
+    const isEmoji = (firstChar >= 0x1F300 && firstChar <= 0x1FAFF) || (firstChar >= 0x2600 && firstChar <= 0x27BF) || (firstChar >= 0xFE00 && firstChar <= 0xFE0F);
+    const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed) || isEmoji;
     const isOpener = index === 0 && !isBullet && trimmed.length < 80;
 
     if (isBullet) {
+      // Strip leading bullet markers but keep emoji + text
+      const displayText = trimmed.replace(/^[\u2022\-*•]\s*/, '').replace(/^[0-9]+[.)]\s*/, '');
       return (
         <div key={index} className="flex items-start gap-2 py-0.5">
           <span className="text-orange-400 shrink-0 mt-0.5 text-xs">&#9656;</span>
           <span className="text-white/90 leading-relaxed text-sm">
-            {trimmed.replace(/^[\u2022\-*•]\s*/, '')}
+            {displayText}
           </span>
         </div>
       );
