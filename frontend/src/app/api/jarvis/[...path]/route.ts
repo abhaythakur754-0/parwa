@@ -676,8 +676,8 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
 const BULLET_EMOJIS = ['🤖', '💰', '📡', '🛒', '💻', '🚛', '🏥', '🔒', '🚀', '✅', '🎯', '📊', '⚡', '💡', '🔧', '🔗', '📦', '📈', '⭐', '🎯', '🧠', '💬', '📁', '🔑', '🎉', '✨', '🔔', '💪', '🥊', '🛡️'];
 
 function isEmojiChar(ch: string): boolean {
-  const code = ch.charCodeAt(0);
-  // Cover full emoji range including modern ones (0x1F300 - 0x1FAFF) and common pictographs
+  // Must use codePointAt for emoji (surrogate pairs in JS)
+  const code = ch.codePointAt(0) || 0;
   return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
 }
 
@@ -692,7 +692,7 @@ function forceBulletFormat(text: string): string {
   // Count bullet-formatted lines (lines starting with bullet markers or emojis)
   const bulletCount = nonEmpty.filter(l => {
     const t = l.trim();
-    return /^[\u2022\-*•]\s/.test(t) || /^[0-9]+[.)]\s/.test(t) || isEmojiChar(t.charAt(0));
+    return /^[\u2022\-*•]\s/.test(t) || /^[0-9]+[.)]\s/.test(t) || isEmojiChar(t);
   }).length;
 
   // If 40%+ lines are already bullets, return as-is
@@ -722,7 +722,7 @@ function forceBulletFormat(text: string): string {
     }
 
     // Starts with emoji — keep
-    if (isEmojiChar(trimmed.charAt(0))) {
+    if (isEmojiChar(trimmed)) {
       result.push(trimmed);
       continue;
     }
