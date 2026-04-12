@@ -424,30 +424,53 @@ async def get_analytics_dashboard(
     return {
         "summary": {
             "total_tickets": summary.total_tickets,
-            "open_tickets": summary.open_tickets,
-            "resolved_tickets": summary.resolved_tickets,
-            "closed_tickets": summary.closed_tickets,
+            "open": summary.open_tickets,
+            "in_progress": summary.in_progress_tickets,
+            "resolved": summary.resolved_tickets,
+            "closed": summary.closed_tickets,
+            "awaiting_client": summary.awaiting_client_tickets,
+            "awaiting_human": summary.awaiting_human_tickets,
+            "critical": summary.critical_tickets,
+            "high": summary.high_tickets,
+            "medium": summary.medium_tickets,
+            "low": summary.low_tickets,
             "resolution_rate": round(summary.resolution_rate, 3),
-            "avg_resolution_time_hours": summary.avg_resolution_time_hours,
+            "avg_resolution_time_hours": (
+                round(summary.avg_resolution_time_hours, 2)
+                if summary.avg_resolution_time_hours else 0
+            ),
+            "avg_first_response_time_hours": (
+                round(summary.avg_first_response_time_hours, 2)
+                if summary.avg_first_response_time_hours else 0
+            ),
         },
         "sla": {
-            "compliance_rate": round(sla.compliance_rate, 3),
+            "total_tickets_with_sla": sla.total_tickets_with_sla,
             "breached_count": sla.breached_count,
+            "approaching_count": sla.approaching_count,
+            "compliant_count": sla.compliant_count,
+            "compliance_rate": round(sla.compliance_rate, 3),
             "avg_first_response_minutes": sla.avg_first_response_minutes,
+            "avg_resolution_minutes": sla.avg_resolution_minutes,
         },
         "by_category": [
             {
                 "category": c.category,
                 "count": c.count,
-                "percentage": c.percentage,
+                "percentage": round(c.percentage, 1),
             }
-            for c in categories[:5]  # Top 5 categories
+            for c in categories[:10]
         ],
         "trend": [
             {
-                "date": t.label,
+                "timestamp": t.timestamp.isoformat() if hasattr(t.timestamp, 'isoformat') else str(t.timestamp),
                 "count": t.count,
+                "label": t.label,
             }
-            for t in trends[-7:]  # Last 7 data points
+            for t in trends
         ],
+        "date_range": {
+            "start_date": str(date_range.start_date.date()) if hasattr(date_range.start_date, 'date') else str(date_range.start_date),
+            "end_date": str(date_range.end_date.date()) if hasattr(date_range.end_date, 'date') else str(date_range.end_date),
+        },
     }
