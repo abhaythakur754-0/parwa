@@ -488,12 +488,27 @@ class AIPipeline:
 
             if lg_workflow is not None:
                 lg_start = time.time()
+                # J7-G1: Build LangGraph context with system prompt + RAG
+                lg_context = dict(ctx.customer_metadata or {})
+                lg_context["system_prompt"] = ctx.system_prompt or ""
+                # J7-G4: Inject RAG context if available from pipeline stages 1-5
+                if ctx.rag_context:
+                    lg_context["knowledge_context"] = ctx.rag_context
+                if ctx.selected_model:
+                    lg_context["selected_model"] = ctx.selected_model
+                if ctx.selected_technique:
+                    lg_context["selected_technique"] = ctx.selected_technique
+                # Pass sentiment signals for tone-aware generation
+                lg_context["frustration_score"] = ctx.frustration_score
+                lg_context["sentiment_score"] = ctx.sentiment_score
+                lg_context["tone_recommendation"] = ctx.tone_recommendation
+
                 lg_result = await asyncio.wait_for(
                     lg_workflow.execute(
                         company_id=ctx.company_id,
                         query=ctx.query,
                         conversation_history=ctx.conversation_history,
-                        customer_metadata=ctx.customer_metadata,
+                        customer_metadata=lg_context,
                     ),
                     timeout=35.0,  # BC-012: overall LangGraph timeout
                 )
@@ -512,6 +527,14 @@ class AIPipeline:
                     ctx.tokens_used = lg_result.total_tokens_used
                     langgraph_used = True
                     ctx.stages_completed.append("langgraph_workflow")
+
+                    # J7-G3: Surface LangGraph metadata in PipelineResult
+                    if hasattr(lg_result, 'workflow_id'):
+                        ctx.stages_completed.append(f"langgraph_{lg_result.workflow_id}")
+                    if hasattr(lg_result, 'step_results'):
+                        ctx.stages_completed.extend(
+                            f"lg:{sid}" for sid in lg_result.step_results
+                        )
 
                     # Surface LangGraph step results as metadata
                     lg_step_summary = [
