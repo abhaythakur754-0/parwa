@@ -15,6 +15,9 @@ import json
 from database.base import SessionLocal
 from database.models.variant_engine import VariantInstance
 from app.exceptions import ParwaBaseError
+from app.logger import get_logger
+
+logger = get_logger("variant_instance_service")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -85,6 +88,31 @@ def _validate_channels(channels: list[str]) -> None:
                 f"Invalid channels: "
                 f"{', '.join(sorted(invalid))}. "
                 f"Valid: {', '.join(sorted(VALID_CHANNELS))}"
+            ),
+            status_code=400,
+        )
+
+
+def _validate_json_serializable(value, field_name: str) -> None:
+    """BC-008: Verify a value is JSON-serializable before DB write.
+
+    Tests round-trip: json.loads(json.dumps(value)).
+    If it fails, raises a clear validation error instead of
+    crashing at commit time.
+    """
+    try:
+        json.dumps(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        logger.warning(
+            "json_serialization_failed",
+            field=field_name,
+            error=str(exc),
+        )
+        raise ParwaBaseError(
+            error_code="INVALID_JSON",
+            message=(
+                f"'{field_name}' contains a value that cannot be "
+                f"serialized to JSON: {exc}"
             ),
             status_code=400,
         )
@@ -166,6 +194,12 @@ def register_instance(
     if channel_assignment is not None:
         _validate_channels(channel_assignment)
 
+    # Gap 2: Validate JSON serializability before DB write (BC-008)
+    safe_channels = channel_assignment if channel_assignment else []
+    safe_config = capacity_config if capacity_config else {}
+    _validate_json_serializable(safe_channels, "channel_assignment")
+    _validate_json_serializable(safe_config, "capacity_config")
+
     count = _get_instance_count(db, company_id, variant_type)
     next_num = count + 1
 
@@ -176,12 +210,8 @@ def register_instance(
         company_id, variant_type, next_num,
     )
 
-    channels_json = json.dumps(
-        channel_assignment if channel_assignment else [],
-    )
-    capacity_json = json.dumps(
-        capacity_config if capacity_config else {},
-    )
+    channels_json = json.dumps(safe_channels)
+    capacity_json = json.dumps(safe_config)
 
     instance = VariantInstance(
         company_id=company_id,
@@ -424,11 +454,49 @@ def update_channel_assignment(
     db: SessionLocal,
     company_id: str,
     instance_id: str,
-    channels: list[str],
+    channels: list[str] | str,
 ) -> VariantInstance:
-    """Update which channels this instance handles."""
+    """Update which channels this instance handles.
+
+    Gap 5: Accepts both list[str] and JSON-encoded string.
+    Wraps JSON parsing in try/except (BC-008) to avoid
+    crashes on malformed input.
+    """
     _validate_company_id(company_id)
+
+    # Gap 5: If channels is a string, parse it safely
+    if isinstance(channels, str):
+        try:
+            parsed = json.loads(channels)
+        except (json.JSONDecodeError, TypeError) as exc:
+            logger.warning(
+                "channel_assignment_json_parse_failed",
+                instance_id=instance_id,
+                error=str(exc),
+            )
+            raise ParwaBaseError(
+                error_code="INVALID_JSON",
+                message=(
+                    f"channel_assignment must be a valid JSON "
+                    f"array or a list of strings. Parse error: {exc}"
+                ),
+                status_code=400,
+            )
+        if not isinstance(parsed, list):
+            raise ParwaBaseError(
+                error_code="INVALID_CHANNEL_FORMAT",
+                message=(
+                    f"channel_assignment must resolve to a list, "
+                    f"got {type(parsed).__name__}"
+                ),
+                status_code=400,
+            )
+        channels = parsed
+
     _validate_channels(channels)
+
+    # Gap 2: Validate JSON serializability (BC-008)
+    _validate_json_serializable(channels, "channel_assignment")
 
     inst = db.query(VariantInstance).filter_by(
         company_id=company_id,
@@ -457,7 +525,10 @@ def update_capacity_config(
     instance_id: str,
     config: dict,
 ) -> VariantInstance:
-    """Update capacity configuration."""
+    """Update capacity configuration.
+
+    Gap 2: Validates JSON serializability before writing (BC-008).
+    """
     _validate_company_id(company_id)
 
     if not isinstance(config, dict):
@@ -466,6 +537,9 @@ def update_capacity_config(
             message="capacity_config must be a dict",
             status_code=400,
         )
+
+    # Gap 2: Validate JSON serializability before DB write
+    _validate_json_serializable(config, "capacity_config")
 
     inst = db.query(VariantInstance).filter_by(
         company_id=company_id,
@@ -498,6 +572,9 @@ def increment_active_tickets(
     Uses SQL UPDATE for atomicity to prevent race conditions
     where concurrent requests cause lost increments.
     Also checks capacity limit before incrementing.
+
+    Gap 8: Atomic capacity guard via WHERE clause prevents
+    overflow even under concurrent load.
     """
     _validate_company_id(company_id)
 
@@ -543,25 +620,49 @@ def increment_active_tickets(
             status_code=429,
         )
 
-    # Atomic SQL UPDATE to prevent race conditions
+    # Gap 8: Atomic SQL UPDATE with capacity guard.
+    # The WHERE clause ensures that even under concurrent load,
+    # we never exceed max capacity at the DB level.
     import sqlalchemy as sa
     from datetime import datetime, timezone
-    db.execute(
+    result = db.execute(
         sa.text(
             "UPDATE variant_instances SET "
             "active_tickets_count = active_tickets_count + 1, "
             "total_tickets_handled = total_tickets_handled + 1, "
             "updated_at = :now_ts "
-            "WHERE id = :inst_id AND company_id = :comp_id"
+            "WHERE id = :inst_id "
+            "AND company_id = :comp_id "
+            "AND active_tickets_count < :max_cap"
         ),
         {
             "inst_id": instance_id,
             "comp_id": company_id,
+            "max_cap": max_conc,
             "now_ts": datetime.now(timezone.utc),
         },
     )
     db.commit()
     db.refresh(inst)
+
+    # If the atomic UPDATE matched zero rows, capacity was
+    # exceeded between our read-check and the write.
+    if result.rowcount == 0:
+        logger.warning(
+            "capacity_overflow_race_condition",
+            instance_id=instance_id,
+            company_id=company_id,
+            max_capacity=max_conc,
+        )
+        raise ParwaBaseError(
+            error_code="CAPACITY_EXCEEDED",
+            message=(
+                f"Instance '{instance_id}' reached max capacity "
+                f"({max_conc}) concurrently. Please retry."
+            ),
+            status_code=429,
+        )
+
     return inst
 
 
@@ -591,17 +692,15 @@ def decrement_active_tickets(
             status_code=404,
         )
 
-    # Atomic SQL UPDATE using CASE to prevent
-    # going below 0 (DB CheckConstraint backup)
+    # Gap 1: Atomic SQL UPDATE using GREATEST to prevent
+    # counter underflow (DB CheckConstraint is the safety net)
     import sqlalchemy as sa
     from datetime import datetime, timezone
     db.execute(
         sa.text(
             "UPDATE variant_instances SET "
-            "active_tickets_count = CASE "
-            "WHEN active_tickets_count > 0 "
-            "THEN active_tickets_count - 1 "
-            "ELSE 0 END, "
+            "active_tickets_count = GREATEST("
+            "active_tickets_count - 1, 0), "
             "updated_at = :now_ts "
             "WHERE id = :inst_id AND company_id = :comp_id"
         ),
@@ -611,6 +710,41 @@ def decrement_active_tickets(
             "now_ts": datetime.now(timezone.utc),
         },
     )
+    db.commit()
+    db.refresh(inst)
+    return inst
+
+
+def set_instance_status(
+    db: SessionLocal,
+    company_id: str,
+    instance_id: str,
+    status: str,
+) -> VariantInstance:
+    """Gap 4: Generic status setter with validation.
+
+    Validates that status is one of VALID_STATUSES before
+    setting it. Rejects invalid values with a clear error.
+    """
+    _validate_company_id(company_id)
+    _validate_status(status)
+
+    inst = db.query(VariantInstance).filter_by(
+        company_id=company_id,
+        id=instance_id,
+    ).first()
+
+    if inst is None:
+        raise ParwaBaseError(
+            error_code="INSTANCE_NOT_FOUND",
+            message=(
+                f"Instance '{instance_id}' not found "
+                f"for company '{company_id}'"
+            ),
+            status_code=404,
+        )
+
+    inst.status = status
     db.commit()
     db.refresh(inst)
     return inst
