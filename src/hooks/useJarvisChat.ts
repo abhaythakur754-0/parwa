@@ -322,9 +322,14 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       setMessages((prev) => [...prev, optimisticUserMsg]);
 
       try {
-        const body: JarvisMessageSendRequest = {
+        // ── Attach current session context to every message ──
+        // This ensures the AI always has the latest context even if
+        // the PATCH /context endpoint failed or hasn't completed yet
+        const currentCtx = session?.context || {};
+        const body: JarvisMessageSendRequest & { context?: typeof currentCtx } = {
           content: content.trim(),
           session_id: sessionId || undefined,
+          ...(Object.keys(currentCtx).length > 0 ? { context: currentCtx } : {}),
         };
 
         const aiMessage = await apiFetch<JarvisMessage>('/message', {
