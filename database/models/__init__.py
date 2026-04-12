@@ -56,3 +56,4 @@ from database.models.jarvis import (  # noqa: F401
     JarvisKnowledgeUsed,
     JarvisActionTicket,
 )
+from database.models.business_email_otp import BusinessEmailOTP  # noqa: F401
