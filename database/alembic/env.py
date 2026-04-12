@@ -26,6 +26,10 @@ import database.models.api_key_audit  # noqa: F401
 import database.models.webhook_event  # noqa: F401
 import database.models.remaining  # noqa: F401
 import database.models.jarvis  # noqa: F401
+import database.models.billing_extended  # noqa: F401
+import database.models.user_details  # noqa: F401
+import database.models.variant_engine  # noqa: F401
+import database.models.technique  # noqa: F401
 
 from database.base import Base
 

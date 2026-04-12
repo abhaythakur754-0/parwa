@@ -1116,3 +1116,69 @@ def get_failover_history(
     )
 
     return {"status": "ok", "data": stats}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# AI Monitoring Dashboard (SG-19)
+# ═══════════════════════════════════════════════════════════════════
+
+
+@router.get("/monitoring/dashboard")
+def get_monitoring_dashboard(
+    company_id: str = Depends(get_company_id),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Get AI performance monitoring dashboard data.
+
+    Returns aggregated metrics including latency percentiles,
+    confidence distribution, guardrail pass rates, error rates,
+    provider comparisons, and active alerts.
+    """
+    from app.core.ai_monitoring_service import AIMonitoringService
+
+    monitor = AIMonitoringService()
+    dashboard = monitor.get_dashboard_data(company_id=company_id)
+
+    return {"status": "ok", "data": dashboard}
+
+
+@router.get("/monitoring/alerts")
+def get_monitoring_alerts(
+    company_id: str = Depends(get_company_id),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Get active alert conditions for the company.
+
+    Returns list of alert conditions that have been triggered,
+    including error rate, confidence, latency, and guardrail alerts.
+    """
+    from app.core.ai_monitoring_service import AIMonitoringService
+
+    monitor = AIMonitoringService()
+    alerts = monitor.get_alert_conditions(company_id=company_id)
+
+    return {
+        "status": "ok",
+        "data": {
+            "alerts": alerts,
+            "total": len(alerts),
+        },
+    }
+
+
+@router.get("/monitoring/metrics")
+def get_monitoring_metrics(
+    company_id: str = Depends(get_company_id),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Get detailed AI execution metrics.
+
+    Returns execution count, success rate, average latency,
+    fallback rate, error rate, and per-task-type breakdown.
+    """
+    from app.core.ai_monitoring_service import AIMonitoringService
+
+    monitor = AIMonitoringService()
+    metrics = monitor.get_metrics_summary(company_id=company_id)
+
+    return {"status": "ok", "data": metrics}

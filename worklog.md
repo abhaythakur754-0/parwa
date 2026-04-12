@@ -54,3 +54,26 @@ Stage Summary:
 - Full Pipeline: signal→classification→routing→workflow end-to-end
 - Tenant Isolation BC-001: company_id first parameter on all public methods
 - Pre-existing test failures (561) are from old tests with broken import chains, not from Day 1-8 changes
+---
+Task ID: 9
+Agent: Main
+Task: Day 9 — Complete all remaining P1-P3 work
+
+Work Log:
+- DSPy Integration: Upgraded from scaffold to production-ready (735→1345 lines)
+  - Real composite metric (relevance/accuracy/conciseness/safety)
+  - Training data collection from 48 templates
+  - Compiled module persistence (pickle to /tmp/dspy_cache/)
+  - optimize_response() pipeline integration
+  - evaluate() harness with aggregate stats
+- Brevo SDK Migration: raw httpx → official sib-api-v3-sdk with fallback
+  - 3 new email functions + templates (payment_confirmation, payment_failed, subscription_canceled)
+- Paddle Client Fixes: webhook ts;h1 format, asyncio.sleep, parse bug fix
+- Monitoring: Grafana provisioning, Alertmanager, nginx, docker-compose.prod.yml
+- 53 new tests passing (Paddle: 20, Brevo: 11, DSPy: 22)
+- Committed as 99045eeb
+
+Stage Summary:
+- P1/P2/P3 all completed
+- 53 new tests, no regressions
+- Docker commands prepared for user

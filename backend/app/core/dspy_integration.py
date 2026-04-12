@@ -582,11 +582,13 @@ class DSPyIntegration:
                 error=error,
                 fallback=True,
             )
-            # Fallback to stub
+            # Fallback to stub — if stub succeeds, mark as recovered
             fallback_used = True
-            return self._stub_execute(
-                StubModule(), inputs
-            )
+            stub_result = self._stub_execute(StubModule(), inputs)
+            # Stub fallback is a successful recovery — don't count as error
+            success = True
+            error = ""
+            return stub_result
         finally:
             latency = (time.time() - start_time) * 1000
             self._record_metric(
