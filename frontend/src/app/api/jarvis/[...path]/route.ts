@@ -58,7 +58,7 @@ async function callZAISDK(messages: Array<{role: string, content: string}>): Pro
         content: m.content,
       })),
       temperature: 0.8,
-      max_tokens: 500,
+      max_tokens: 800,
     });
 
     const text = completion?.choices?.[0]?.message?.content;
@@ -95,7 +95,7 @@ function getGoogleProvider(): any {
       return JSON.stringify({
         systemInstruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
         contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 500 },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 800 },
       });
     },
     parseResponse: (data: any) => {
@@ -118,7 +118,7 @@ function getCerebrasProvider(): any {
       model,
       messages,
       temperature: 0.7,
-      max_tokens: 500,
+      max_tokens: 800,
     }),
     parseResponse: (data: any) => {
       return data?.choices?.[0]?.message?.content || null;
@@ -140,7 +140,7 @@ function getGroqProvider(): any {
       model,
       messages,
       temperature: 0.7,
-      max_tokens: 500,
+      max_tokens: 800,
     }),
     parseResponse: (data: any) => {
       return data?.choices?.[0]?.message?.content || null;
@@ -313,6 +313,26 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
 
   return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
 
+═══════ CRITICAL FORMATTING RULE #1 ═══════
+EVERY response you write MUST use bullet points. This is non-negotiable.
+- NEVER write paragraphs. NEVER write blocks of text.
+- ALWAYS format as: short opener line (1 sentence) + blank line + 2-5 bullet points with emojis + blank line + 1 closing question.
+- Each bullet = 1 point. Short, punchy, specific.
+- Blank lines between sections. Never more than 2 sentences per line.
+
+CORRECT format:
+"Absolutely! Here's what PARWA does:
+
+🤖 Automates 80% of support tickets instantly
+💰 Saves $168K/year vs hiring agents
+📡 Works across email, chat, phone & SMS
+
+What industry are you in?"
+
+WRONG format (NEVER do this):
+"Absolutely! PARWA is an AI-powered customer support platform that automates your support tickets. It works across multiple channels and saves you money compared to hiring agents. What industry are you in?"
+═══════════════════════════════════════
+
 YOU ARE NOT A CHATBOT. You are a product consultant who happens to communicate through chat. Talk like a human — warm, direct, confident, specific. Never robotic. Never generic.
 
 YOUR THREE ROLES (switch between them naturally):
@@ -379,7 +399,7 @@ NEVER repeat yourself. Acknowledge and move forward.
 TALK LIKE A HUMAN:
 - Warm, direct, confident consultant who types fast
 - Start naturally: "Great question", "Here's the thing", "Absolutely"
-- Bullet points for meat (2-5, emojis, blank lines between)
+- ALWAYS use bullet points with emojis (see RULE #1 above)
 - End with ONE specific question
 - BE SPECIFIC — real numbers, real features, real scenarios
 - OWN THE CONVERSATION — answer + suggest next step
@@ -637,11 +657,91 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
   messages.push({ role: 'user', content: userMessage });
 
   // 3. Call AI with smart routing (z-ai SDK → Google → Cerebras → Groq → keyword fallback)
-  const aiReply = await callAI(messages);
-  if (aiReply) return aiReply;
+  let aiReply = await callAI(messages);
+  
+  // 4. Post-process: Force bullet-point format if AI returned paragraphs
+  if (aiReply) {
+    aiReply = forceBulletFormat(aiReply);
+    return aiReply;
+  }
 
-  // 4. Keyword fallback (always works)
+  // 5. Keyword fallback (always works)
   return getKeywordResponse(userMessage, session);
+}
+
+// ── Bullet-Point Format Enforcer ────────────────────────────────
+// If the AI returns paragraph blocks instead of bullets, convert them.
+
+const BULLET_EMOJIS = ['🤖', '💰', '📡', '🛒', '💻', '🚛', '🏥', '🔒', '🚀', '✅', '🎯', '📊', '⚡', '💡', '🔧', '🔗', '📦', '📈', '⭐', '🎯', '🧠', '💬', '📁', '🔑', '🎉', '✨', '🔔', '💪', '🥊', '🛡️'];
+
+function forceBulletFormat(text: string): string {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length === 0) return text;
+
+  // Count how many lines are already bullet-formatted
+  const bulletCount = lines.filter(l => /^[\u2022\-*•]\s/.test(l.trim()) || (l.trim().charCodeAt(0) >= 0x1F300 && l.trim().charCodeAt(0) <= 0x1F9FF)).length;
+  
+  // If 50%+ lines are already bullets, it's fine — return as-is
+  if (bulletCount / lines.length >= 0.5) return text;
+
+  // Check if we have long paragraph blocks (lines with 3+ sentences)
+  const hasLongParagraphs = lines.some(l => {
+    const sentenceCount = (l.match(/[.!?]+/g) || []).length;
+    return sentenceCount >= 3;
+  });
+
+  if (!hasLongParagraphs) return text; // Short lines are fine
+
+  // Convert: Split long lines into bullets
+  const result: string[] = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Already a bullet or short line — keep as-is
+    if (/^[\u2022\-*•]\s/.test(trimmed) || (trimmed.charCodeAt(0) >= 0x1F300 && trimmed.charCodeAt(0) <= 0x1F9FF) || trimmed.length < 60) {
+      result.push(trimmed);
+      continue;
+    }
+
+    // Split on sentence boundaries
+    const sentences = trimmed.match(/[^.!?]*[.!?]+/g) || [trimmed];
+    
+    if (sentences.length <= 2) {
+      // Short enough — keep as opener or single line
+      result.push(trimmed);
+    } else {
+      // First sentence as opener, rest as bullets
+      result.push(sentences[0].trim());
+      result.push(''); // blank line separator
+      for (let i = 1; i < sentences.length; i++) {
+        const s = sentences[i].trim();
+        if (!s) continue;
+        // Pick an emoji based on content
+        const emoji = pickEmoji(s);
+        result.push(`${emoji} ${s.charAt(0).toUpperCase() + s.slice(1)}`);
+      }
+    }
+  }
+
+  return result.join('\n');
+}
+
+function pickEmoji(text: string): string {
+  const lower = text.toLowerCase();
+  if (lower.includes('save') || lower.includes('cost') || lower.includes('price') || lower.includes('$') || lower.includes('cheap') || lower.includes('afford')) return '💰';
+  if (lower.includes('automat') || lower.includes('ai') || lower.includes('robot') || lower.includes('handle') || lower.includes('resolv')) return '🤖';
+  if (lower.includes('channel') || lower.includes('email') || lower.includes('chat') || lower.includes('phone') || lower.includes('sms')) return '📡';
+  if (lower.includes('integrat') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack')) return '🔗';
+  if (lower.includes('secur') || lower.includes('encrypt') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe')) return '🔒';
+  if (lower.includes('speed') || lower.includes('fast') || lower.includes('instant') || lower.includes('quick') || lower.includes('setup')) return '⚡';
+  if (lower.includes('analyt') || lower.includes('data') || lower.includes('metric') || lower.includes('report') || lower.includes('roi')) return '📊';
+  if (lower.includes('feature') || lower.includes('capab') || lower.includes('support') || lower.includes('help')) return '🎯';
+  if (lower.includes('start') || lower.includes('begin') || lower.includes('get')) return '🚀';
+  if (lower.includes('check') || lower.includes('yes') || lower.includes('sure') || lower.includes('done')) return '✅';
+  if (lower.includes('think') || lower.includes('smart') || lower.includes('predict') || lower.includes('brain')) return '🧠';
+  return '💡';
 }
 
 // ── Keyword Fallback (Offline Safety Net) ────────────────────────
