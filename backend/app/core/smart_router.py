@@ -1378,23 +1378,68 @@ class SmartRouter:
 
         Sync wrapper -- runs async call in event loop.
         """
-        loop = asyncio.new_event_loop()
+        # Use httpx synchronous client instead of asyncio.new_event_loop()
+        # to avoid "attached to a different loop" errors in FastAPI.
+        import httpx
+
+        headers = {}
+        body: dict = {}
+
+        if model_config.is_openai_compatible:
+            api_url = model_config.base_url
+            api_key = model_config.api_key or ""
+            headers["Authorization"] = f"Bearer {api_key}"
+            headers["Content-Type"] = "application/json"
+            body = {
+                "model": model_config.model_id,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+        else:
+            # Google AI Studio
+            api_key = model_config.api_key or ""
+            headers["x-goog-api-key"] = api_key
+            headers["Content-Type"] = "application/json"
+            # Google API uses a different structure
+            body = {
+                "contents": [],
+                "generationConfig": {
+                    "temperature": temperature,
+                    "maxOutputTokens": max_tokens,
+                },
+            }
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    body["contents"].append({"role": role, "parts": [{"text": content}]})
+                elif isinstance(content, list):
+                    parts = [{"text": p.get("text", "")} for p in content if isinstance(p, dict)]
+                    body["contents"].append({"role": role, "parts": parts})
+
         try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(model_config.base_url, headers=headers, json=body)
+                response.raise_for_status()
+                data = response.json()
+
             if model_config.is_openai_compatible:
-                result = loop.run_until_complete(
-                    self._call_openai_compatible_async(
-                        model_config, messages, temperature, max_tokens,
-                    )
-                )
+                return data
             else:
-                result = loop.run_until_complete(
-                    self._call_google_async(
-                        model_config, messages, temperature, max_tokens,
-                    )
-                )
-            return result
-        finally:
-            loop.close()
+                # Parse Google format
+                candidates = data.get("candidates", [])
+                if candidates:
+                    text_parts = candidates[0].get("content", {}).get("parts", [])
+                    return {
+                        "choices": [{
+                            "message": {"role": "assistant", "content": text_parts[0].get("text", "")}
+                        }],
+                        "usage": data.get("usageMetadata", {}),
+                    }
+                return {"choices": [{"message": {"role": "assistant", "content": ""}}]}
+        except Exception as exc:
+            raise RuntimeError(f"LLM call failed for {model_config.model_id}: {exc}") from exc
 
     @staticmethod
     async def _call_google_async(

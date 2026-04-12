@@ -462,13 +462,11 @@ class StateSerializer:
                 defaults if not provided.
         """
         self._config = config or StateSerializerConfig()
-        # Wrap internal loaders as side_effect delegates so tests
-        # can replace them with mocks AND call assert_not_called().
-        from unittest.mock import AsyncMock
-        redis_mock = AsyncMock(side_effect=self._load_checkpoint_from_redis_impl)
-        pg_mock = AsyncMock(side_effect=self._load_checkpoint_from_postgresql_impl)
-        self._load_checkpoint_from_redis = redis_mock  # type: ignore[method-assign]
-        self._load_checkpoint_from_postgresql = pg_mock  # type: ignore[method-assign]
+        # Use direct method references — no unittest.mock in production code.
+        # Tests that need to mock these should patch them via unittest.mock.patch
+        # at the test level, not in production __init__.
+        self._load_checkpoint_from_redis = self._load_checkpoint_from_redis_impl  # type: ignore[method-assign]
+        self._load_checkpoint_from_postgresql = self._load_checkpoint_from_postgresql_impl  # type: ignore[method-assign]
         logger.info(
             "state_serializer_initialized",
             extra={

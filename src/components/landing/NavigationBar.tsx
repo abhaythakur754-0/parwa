@@ -51,7 +51,9 @@ export default function NavigationBar({ onOpenJarvis }: NavigationBarProps) {
   const navLinks = [
     { name: 'Home', href: '/' },
     { name: 'Models', href: '/models' },
-    { name: 'Jarvis Chatbot', href: '/onboarding', onClick: onOpenJarvis },
+    { name: 'Pricing', href: '/pricing' },
+    { name: 'ROI Calculator', href: '/roi-calculator' },
+    { name: 'Try Jarvis', href: '/jarvis' },
   ];
 
   const handleLogout = async () => {

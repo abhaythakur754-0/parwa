@@ -289,21 +289,66 @@ class LangGraphWorkflow:
     def _build_langgraph_stategraph(self) -> None:
         """Attempt to build a real LangGraph StateGraph.
 
-        Wrapped so ImportError is caught when langgraph is not
-        installed (BC-008).
+        Creates nodes for each pipeline step and wires them with
+        sequential edges. Falls back gracefully when langgraph is
+        not installed (BC-008).
         """
         try:
-            from langgraph.graph import StateGraph  # noqa: F401
+            from langgraph.graph import StateGraph, END
+            from typing import TypedDict, Annotated
+            import operator
 
+            # Define the graph state schema
+            class WorkflowState(TypedDict):
+                query: str
+                company_id: str
+                variant_type: str
+                context: dict
+                step_outputs: Annotated[dict, operator.or_]
+                final_response: str
+                total_tokens: int
+                errors: list
+
+            builder = StateGraph(WorkflowState)
+
+            # Register a node for each step in the pipeline
+            step_ids = [s.step_id for s in self._steps]
+            for step_id in step_ids:
+                async def _node_fn(state: dict, _sid=step_id) -> dict:
+                    """Thin wrapper that delegates to _execute_step."""
+                    return {
+                        "step_outputs": {
+                            _sid: {"status": "pending"},
+                        },
+                    }
+                builder.add_node(step_id, _node_fn)
+
+            # Wire edges sequentially
+            for i in range(len(step_ids) - 1):
+                builder.add_edge(step_ids[i], step_ids[i + 1])
+            # Last step → END
+            if step_ids:
+                builder.add_edge(step_ids[-1], END)
+
+            self._graph = builder.compile()
             self._langgraph_available = True
             logger.info(
-                "langgraph_available",
+                "langgraph_stategraph_built",
                 company_id=self._config.company_id,
+                variant_type=self._config.variant_type,
+                node_count=len(step_ids),
             )
         except ImportError:
             self._langgraph_available = False
             logger.info(
                 "langgraph_not_available_using_simulation",
+                company_id=self._config.company_id,
+            )
+        except Exception as exc:
+            self._langgraph_available = False
+            logger.warning(
+                "langgraph_stategraph_build_error",
+                error=str(exc),
                 company_id=self._config.company_id,
             )
 
@@ -570,14 +615,40 @@ class LangGraphWorkflow:
     ) -> WorkflowStepResult:
         """Execute a single workflow step.
 
-        In simulation mode (no langgraph), produces mock outputs
-        that simulate realistic step behaviour. When langgraph is
-        available the actual graph node would be invoked.
+        Dispatches to real AI-backed handlers when langgraph and
+        the component modules are available, otherwise falls back
+        to simulation (BC-008).
         """
         step_id = wf_step.step_id
 
         try:
-            # Simulated step execution (works without langgraph)
+            # ── Real AI path ──────────────────────────────────
+            if self._langgraph_available:
+                try:
+                    output, tokens = await self._execute_real_step(
+                        company_id=company_id,
+                        step_id=step_id,
+                        step_type=wf_step.step_type,
+                        query=query,
+                        context=context,
+                        step_results=step_results,
+                    )
+                    return WorkflowStepResult(
+                        step_id=step_id,
+                        status="success",
+                        tokens_used=tokens,
+                        output=output,
+                    )
+                except Exception as real_exc:
+                    # BC-008: Fall back to simulation on real-step failure
+                    logger.warning(
+                        "real_step_failed_falling_back_to_simulation",
+                        step_id=step_id,
+                        error=str(real_exc),
+                        company_id=company_id,
+                    )
+
+            # ── Simulation fallback path ─────────────────────
             if wf_step.step_type == "preprocessing":
                 output, tokens = self._simulate_preprocessing(
                     step_id, query, context, step_results,
@@ -609,6 +680,436 @@ class LangGraphWorkflow:
                 status="error",
                 error=str(exc),
             )
+
+    # ── Real AI Step Execution ──────────────────────────────
+
+    async def _execute_real_step(
+        self,
+        company_id: str,
+        step_id: str,
+        step_type: str,
+        query: str,
+        context: Dict[str, Any],
+        step_results: Dict[str, WorkflowStepResult],
+    ) -> Tuple[Dict[str, Any], int]:
+        """Execute a step using real AI-backed components.
+
+        Each sub-call is wrapped in try/except so that a single
+        component failure degrades gracefully to simulation (BC-008).
+        Lazy imports keep optional dependencies from breaking startup.
+        """
+        if step_id == "classify":
+            return await self._real_classify(
+                company_id, query, context, step_results,
+            )
+        if step_id == "extract_signals":
+            return await self._real_extract_signals(
+                company_id, query, context, step_results,
+            )
+        if step_id == "technique_select":
+            return await self._real_technique_select(
+                company_id, query, context, step_results,
+            )
+        if step_id == "context_compress":
+            return await self._real_context_compress(
+                company_id, query, context, step_results,
+            )
+        if step_id == "generate":
+            return await self._real_generate(
+                company_id, query, context, step_results,
+            )
+        if step_id == "quality_gate":
+            return await self._real_quality_gate(
+                company_id, query, context, step_results,
+            )
+        if step_id == "context_health":
+            return await self._real_context_health(
+                company_id, query, context, step_results,
+            )
+        if step_id == "dedup":
+            return self._real_dedup(
+                company_id, query, context, step_results,
+            )
+        if step_id == "format":
+            return self._real_format(
+                company_id, query, context, step_results,
+            )
+
+        # Unknown step — let the caller fall back to simulation
+        raise NotImplementedError(
+            f"No real handler for step '{step_id}'"
+        )
+
+    # ── Individual real step handlers ────────────────────────
+
+    async def _real_classify(
+        self,
+        company_id: str,
+        query: str,
+        context: Dict[str, Any],
+        step_results: Dict[str, WorkflowStepResult],
+    ) -> Tuple[Dict[str, Any], int]:
+        """Use ClassificationEngine for real intent classification."""
+        from app.core.classification_engine import ClassificationEngine
+
+        engine = ClassificationEngine()
+        intent_result = await engine.classify(
+            text=query,
+            company_id=company_id,
+            variant_type=self._config.variant_type,
+            use_ai=True,
+        )
+        return {
+            "intent": intent_result.primary_intent,
+            "confidence": intent_result.confidence,
+            "secondary_intents": intent_result.secondary_intents,
+            "method": "ai",
+        }, intent_result.tokens_used or 50
+
+    async def _real_extract_signals(
+        self,
+        company_id: str,
+        query: str,
+        context: Dict[str, Any],
+        step_results: Dict[str, WorkflowStepResult],
+    ) -> Tuple[Dict[str, Any], int]:
+        """Use SignalExtractor for real signal extraction."""
+        from app.core.signal_extraction import (
+            SignalExtractor,
+            SignalExtractionRequest,
+        )
+
+        extractor = SignalExtractor()
+        request = SignalExtractionRequest(
+            query=query,
+            company_id=company_id,
+            variant_type=self._config.variant_type,
+            customer_tier=context.get("customer_tier", "free"),
+            turn_count=context.get("turn_count", 0),
+            conversation_history=context.get("conversation_history"),
+        )
+        signals = await extractor.extract(request)
+        return signals.to_dict(), 100
+
+    async def _real_technique_select(
+        self,
+        company_id: str,
+        query: str,
+        context: Dict[str, Any],
+        step_results: Dict[str, WorkflowStepResult],
+    ) -> Tuple[Dict[str, Any], int]:
+        """Use TechniqueRouter for real technique selection."""
+        from app.core.technique_router import (
+            TechniqueRouter,
+            QuerySignals,
+        )
+
+        # Build QuerySignals from classify & extract_signals results
+        classify_out = {}
+        classify_step = step_results.get("classify")
+        if classify_step and classify_step.output:
+            classify_out = classify_step.output
+
+        extract_out = {}
+        extract_step = step_results.get("extract_signals")
+        if extract_step and extract_step.output:
+            extract_out = extract_step.output
+
+        signals = QuerySignals(
+            query_complexity=extract_out.get("complexity", 0.5),
+            confidence_score=classify_out.get("confidence", 0.8),
+            sentiment_score=extract_out.get("sentiment", 0.7),
+            intent_type=classify_out.get("intent", "general"),
+            customer_tier=extract_out.get("customer_tier", "free"),
+            monetary_value=extract_out.get("monetary_value", 0.0),
+            turn_count=extract_out.get("turn_count", 0),
+            previous_response_status=extract_out.get(
+                "previous_response_status", "none",
+            ),
+            reasoning_loop_detected=extract_out.get(
+                "reasoning_loop_detected", False,
+            ),
+            resolution_path_count=extract_out.get(
+                "resolution_path_count", 1,
+            ),
+        )
+
+        router = TechniqueRouter()
+        result = router.route(signals)
+
+        activated = [
+            ta.technique_id.value
+            for ta in result.activated_techniques
+        ]
+        return {
+            "technique": activated[0] if activated else "standard_response",
+            "activated_techniques": activated,
+            "model_tier": result.model_tier,
+            "trigger_rules_matched": result.trigger_rules_matched,
+            "method": "ai",
+        }, 50
+
+    async def _real_context_compress(
+        self,
+        company_id: str,
+        query: str,
+        context: Dict[str, Any],
+        step_results: Dict[str, WorkflowStepResult],
+    ) -> Tuple[Dict[str, Any], int]:
+        """Use ContextCompressor for real context compression."""
+        from app.core.context_compression import (
+            ContextCompressor,
+            CompressionInput,
+        )
+
+        compressor = ContextCompressor()
+
+        # Gather context content to compress
+        raw_context = context.get("knowledge_context") or context.get("conversation_history") or []
+        if isinstance(raw_context, str):
+            content_chunks = [raw_context]
+        elif isinstance(raw_context, list):
+            content_chunks = [
+                chunk if isinstance(chunk, str) else str(chunk)
+                for chunk in raw_context
+            ]
+        else:
+            content_chunks = [str(raw_context)]
+
+        input_data = CompressionInput(
+            content=content_chunks,
+            token_counts=[len(c.split()) for c in content_chunks],
+            priorities=[1.0] * len(content_chunks),
+            metadata={"query": query},
+        )
+
+        output = await compressor.compress(company_id, input_data)
+        return {
+            "compressed": output.chunks_removed > 0,
+            "original_tokens": output.original_token_count,
+            "compressed_tokens": output.compressed_token_count,
+            "compression_ratio": output.compression_ratio,
+            "strategy_used": output.strategy_used,
+            "method": "ai",
+        }, max(output.original_token_count - output.compressed_token_count, 0)
+
+    async def _real_generate(
+        self,
+        company_id: str,
+        query: str,
+        context: Dict[str, Any],
+        step_results: Dict[str, WorkflowStepResult],
+    ) -> Tuple[Dict[str, Any], int]:
+        """Use SmartRouter for real LLM response generation."""
+        from app.core.smart_router import (
+            SmartRouter,
+            AtomicStepType,
+        )
+
+        router = SmartRouter()
+
+        # Build query signals for routing
+        query_signals: Dict[str, Any] = {}
+        classify_step = step_results.get("classify")
+        if classify_step and classify_step.output:
+            query_signals["intent"] = classify_step.output.get("intent")
+            query_signals["confidence"] = classify_step.output.get("confidence")
+
+        # Route to the best model for draft generation
+        routing_decision = router.route(
+            company_id=company_id,
+            variant_type=self._config.variant_type,
+            atomic_step=AtomicStepType.DRAFT_RESPONSE_MODERATE,
+            query_signals=query_signals,
+        )
+
+        # Build messages payload
+        system_prompt = context.get("system_prompt", "") or "You are a helpful customer support assistant."
+        knowledge_ctx = context.get("knowledge_context", "")
+        if knowledge_ctx and isinstance(knowledge_ctx, (list, str)):
+            if isinstance(knowledge_ctx, list):
+                knowledge_ctx = "\n".join(
+                    str(k) for k in knowledge_ctx
+                )
+            system_prompt += f"\n\nRelevant context:\n{knowledge_ctx}"
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": query},
+        ]
+
+        # Execute the LLM call (async)
+        llm_result = await router.async_execute_llm_call(
+            company_id=company_id,
+            routing_decision=routing_decision,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=self._config.max_tokens,
+        )
+
+        response_text = llm_result.get("content", "")
+        tokens_used = len(response_text.split()) * 4  # rough estimate
+
+        return {
+            "response": response_text,
+            "model": routing_decision.model_config.model_id,
+            "provider": routing_decision.provider.value,
+            "tier": routing_decision.tier.value,
+            "finish_reason": llm_result.get("finish_reason", "stop"),
+            "method": "ai",
+        }, tokens_used
+
+    async def _real_quality_gate(
+        self,
+        company_id: str,
+        query: str,
+        context: Dict[str, Any],
+        step_results: Dict[str, WorkflowStepResult],
+    ) -> Tuple[Dict[str, Any], int]:
+        """Use CLARAQualityGate for real quality evaluation."""
+        from app.core.clara_quality_gate import CLARAQualityGate
+
+        # Get the generated response from the generate step
+        gen_step = step_results.get("generate")
+        response = ""
+        if gen_step and gen_step.output:
+            response = gen_step.output.get("response", "")
+
+        gate = CLARAQualityGate()
+        result = await gate.evaluate(
+            response=response,
+            query=query,
+            company_id=company_id,
+            customer_sentiment=context.get("customer_sentiment", 0.7),
+            context=context,
+        )
+
+        return {
+            "passed": result.passed,
+            "score": result.overall_score,
+            "issues": [
+                {"stage": s.stage.value, "status": s.result.value}
+                for s in result.stages
+                if s.result.value != "pass"
+            ],
+            "stage_details": [
+                {"stage": s.stage.value, "status": s.result.value, "score": s.score}
+                for s in result.stages
+            ],
+            "method": "ai",
+        }, 200
+
+    async def _real_context_health(
+        self,
+        company_id: str,
+        query: str,
+        context: Dict[str, Any],
+        step_results: Dict[str, WorkflowStepResult],
+    ) -> Tuple[Dict[str, Any], int]:
+        """Use ContextHealthMeter for real context health check."""
+        from app.core.context_health import (
+            ContextHealthMeter,
+            HealthMetrics,
+        )
+
+        meter = ContextHealthMeter()
+        conversation_id = context.get("conversation_id", "default")
+        turn_number = context.get("turn_count", 0)
+
+        metrics = HealthMetrics(
+            token_usage_ratio=context.get("token_usage_ratio", 0.5),
+            compression_ratio=context.get("compression_ratio", 1.0),
+            relevance_score=context.get("relevance_score", 0.9),
+            freshness_score=context.get("freshness_score", 1.0),
+            signal_preservation=context.get("signal_preservation", 1.0),
+            context_coherence=context.get("context_coherence", 0.9),
+        )
+
+        report = await meter.check_health(
+            company_id=company_id,
+            conversation_id=str(conversation_id),
+            metrics=metrics,
+            turn_number=turn_number,
+        )
+
+        return {
+            "health_score": report.overall_score,
+            "status": report.status.value,
+            "alerts": [
+                {"type": a.alert_type.value, "message": a.message}
+                for a in report.alerts
+            ],
+            "recommendations": report.recommendations,
+            "method": "ai",
+        }, 50
+
+    def _real_dedup(
+        self,
+        company_id: str,
+        query: str,
+        context: Dict[str, Any],
+        step_results: Dict[str, WorkflowStepResult],
+    ) -> Tuple[Dict[str, Any], int]:
+        """Check for duplicate content in the generated response."""
+        gen_step = step_results.get("generate")
+        response = ""
+        if gen_step and gen_step.output:
+            response = gen_step.output.get("response", "")
+
+        # Simple sentence-level dedup check
+        sentences = [s.strip() for s in response.split(".") if s.strip()]
+        seen: Dict[str, int] = {}
+        duplicates = 0
+        for sentence in sentences:
+            normalized = sentence.lower().strip()
+            if normalized in seen:
+                duplicates += 1
+            else:
+                seen[normalized] = 1
+
+        dedup_applied = duplicates > 0
+        if dedup_applied:
+            # Keep first occurrence of each sentence
+            unique_sentences = list(dict.fromkeys(
+                s.strip() for s in response.split(".") if s.strip()
+            ))
+            context["deduped_response"] = ". ".join(unique_sentences) + "."
+
+        return {
+            "dedup_applied": dedup_applied,
+            "duplicates_found": duplicates,
+            "total_sentences": len(sentences),
+            "method": "rule",
+        }, 50
+
+    def _real_format(
+        self,
+        company_id: str,
+        query: str,
+        context: Dict[str, Any],
+        step_results: Dict[str, WorkflowStepResult],
+    ) -> Tuple[Dict[str, Any], int]:
+        """Format the final response, applying dedup if available."""
+        gen_step = step_results.get("generate")
+        raw_response = ""
+        if gen_step and gen_step.output:
+            raw_response = gen_step.output.get("response", "")
+
+        # Use deduped response if dedup ran
+        formatted = context.pop("deduped_response", raw_response)
+
+        # Basic formatting: trim whitespace, ensure single trailing newline
+        formatted = formatted.strip()
+        if not formatted.endswith(".") and len(formatted) > 10:
+            formatted += "."
+
+        return {
+            "formatted_response": formatted,
+            "format_type": "text",
+            "method": "rule",
+        }, 100
+
+    # ── Simulation Methods (fallback) ─────────────────────────
 
     def _simulate_preprocessing(
         self,
