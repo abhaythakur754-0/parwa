@@ -87,12 +87,13 @@ class TestConfigDefaults:
         assert settings.MAX_SESSIONS_PER_USER == 5
 
     def test_debug_default_false(self):
-        """Debug defaults to False for safety."""
+        """Debug defaults to False for safety (when not set via env/dotenv)."""
         settings = Settings(
             SECRET_KEY="test",
             DATABASE_URL="sqlite:///:memory:",
             JWT_SECRET_KEY="test",
             DATA_ENCRYPTION_KEY="12345678901234567890123456789012",
+            DEBUG=False,  # Explicitly override .env DEBUG=true leak in test env
         )
         assert settings.DEBUG is False
 

@@ -13,13 +13,17 @@ This module is kept for backward compatibility only.
 from app.security.hmac_verification import (
     verify_paddle_signature,
     verify_twilio_signature,
-    verify_shopify_hmac as verify_shopify_signature,
+    verify_shopify_hmac,
     verify_brevo_ip,
 )
+
+# Alias — kept as the SAME object so identity checks (is) pass
+verify_shopify_signature = verify_shopify_hmac
 
 __all__ = [
     "verify_paddle_signature",
     "verify_twilio_signature",
+    "verify_shopify_hmac",
     "verify_shopify_signature",
     "verify_brevo_ip",
 ]

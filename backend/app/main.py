@@ -64,6 +64,13 @@ from app.api.integrations import router as integrations_router
 from app.api.knowledge_base import router as knowledge_base_router
 from app.api.verification import router as verification_router  # Week 6 Day 10-11: Business Email OTP
 
+# Import webhook handlers so their @register_handler decorators fire and
+# populate the registry. These modules have no other import side-effects.
+import app.webhooks.paddle_handler   # noqa: F401, E402
+import app.webhooks.brevo_handler    # noqa: F401, E402
+import app.webhooks.twilio_handler   # noqa: F401, E402
+import app.webhooks.shopify_handler  # noqa: F401, E402
+
 # Track if logging has been configured (idempotent)
 _logging_configured = False
 

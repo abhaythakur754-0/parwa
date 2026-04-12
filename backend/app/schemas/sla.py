@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator, computed_field
+from pydantic import BaseModel, Field, field_validator, computed_field, model_validator
 
 
 # ── Enums ────────────────────────────────────────────────────────────
@@ -152,6 +152,24 @@ class SLATimerResponse(BaseModel):
         None, 
         description="Target datetime for resolution"
     )
+
+    @model_validator(mode="after")
+    def _ensure_utc_aware(self) -> "SLATimerResponse":
+        """Normalize any naive datetimes to UTC-aware to avoid subtraction errors."""
+        def _to_utc(dt: Optional[datetime]) -> Optional[datetime]:
+            if dt is None:
+                return None
+            if dt.tzinfo is None:
+                return dt.replace(tzinfo=timezone.utc)
+            return dt
+
+        self.created_at = _to_utc(self.created_at)
+        self.updated_at = _to_utc(self.updated_at)
+        self.resolution_target = _to_utc(self.resolution_target)
+        self.first_response_at = _to_utc(self.first_response_at)
+        self.resolved_at = _to_utc(self.resolved_at)
+        self.breached_at = _to_utc(self.breached_at)
+        return self
 
     @computed_field
     @property

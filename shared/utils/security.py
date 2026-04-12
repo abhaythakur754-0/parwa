@@ -40,6 +40,8 @@ def hash_password(password: str) -> str:
         bcrypt hash string (includes salt and cost factor).
     """
     from passlib.hash import bcrypt  # noqa: C901 (lazy import)
+    # bcrypt hard limit is 72 bytes — truncate to avoid ValueError in bcrypt>=4.x
+    password = password[:72]
     return bcrypt.hash(password, rounds=BCRYPT_COST_FACTOR)
 
 
