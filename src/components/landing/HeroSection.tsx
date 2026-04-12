@@ -82,6 +82,9 @@ export default function HeroSection() {
     <section
       ref={sectionRef}
       className="relative overflow-hidden"
+      style={{
+        background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 30%, #2D1F0E 60%, #3D2A10 80%, #1A1A1A 100%)',
+      }}
     >
       {/* Animated Background */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -304,7 +307,15 @@ export default function HeroSection() {
             <button
               type="button"
               onClick={() => {
-                localStorage.setItem('parwa_jarvis_context', JSON.stringify({ source: 'landing_page' }));
+                // Merge into existing context instead of overwriting
+                if (typeof window !== 'undefined') {
+                  try {
+                    const existing = JSON.parse(localStorage.getItem('parwa_jarvis_context') || '{}');
+                    localStorage.setItem('parwa_jarvis_context', JSON.stringify({ ...existing, source: 'landing_page_cta' }));
+                  } catch {
+                    localStorage.setItem('parwa_jarvis_context', JSON.stringify({ source: 'landing_page_cta' }));
+                  }
+                }
                 router.push('/onboarding');
               }}
               className="flex items-center gap-2.5 px-7 py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] shadow-lg shadow-orange-500/25 hover:from-orange-400 hover:to-orange-300 hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 focus-visible-ring"
