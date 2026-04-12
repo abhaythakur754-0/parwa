@@ -30,8 +30,18 @@ function JarvisPageInner() {
     if (industry) params.industry = industry;
     if (variant) params.variant = variant;
 
-    // Also read bridged context from localStorage (set by ChatWidget/models page)
+    // Track page visit for context-aware Jarvis routing
     if (typeof window !== 'undefined') {
+      try {
+        const existing = JSON.parse(localStorage.getItem('parwa_pages_visited') || '[]') as string[];
+        if (!existing.includes('jarvis_chat_page')) {
+          existing.push('jarvis_chat_page');
+          localStorage.setItem('parwa_pages_visited', JSON.stringify(existing));
+        }
+      } catch {
+        // ignore
+      }
+
       try {
         const stored = localStorage.getItem('parwa_jarvis_context');
         if (stored) {
