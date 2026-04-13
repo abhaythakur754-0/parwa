@@ -159,9 +159,34 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     setError(null);
 
     try {
+      // ── Context Bridge (Enhanced for immediate awareness) ───────
+      let initialParams = { ...entryParams };
+      let initialIndustry = entryIndustry || null;
+      
+      if (typeof window !== 'undefined') {
+        try {
+          const storedContext = localStorage.getItem('parwa_jarvis_context');
+          if (storedContext) {
+            const bridged = JSON.parse(storedContext);
+            if (bridged.roi_result) {
+              initialParams.roi_result = bridged.roi_result;
+            }
+            if (bridged.industry) {
+              initialIndustry = bridged.industry;
+              initialParams.industry = bridged.industry;
+            }
+            if (bridged.variant) {
+              initialParams.variant = bridged.variant;
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse initial context', e);
+        }
+      }
+
       const body: JarvisSessionCreateRequest = {
         entry_source: (entrySource as EntrySource) || 'direct',
-        entry_params: entryParams,
+        entry_params: initialParams,
       };
 
       const sessionData = await apiFetch<JarvisSession>('/session', {
