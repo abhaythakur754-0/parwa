@@ -9,18 +9,36 @@ When the AI pipeline generates a response, this dispatcher:
 2. Builds channel-specific payload
 3. Dispatches to the correct channel service via Celery
 
+Integration Points:
+- Called from AI pipeline after response generation (Stage 12+)
+- Called from agent reply endpoints (manual agent sends)
+- Called from webhook handlers (e.g., email_channel_tasks after AI processing)
+
 Building Codes:
 - BC-001: Multi-tenant (scoped to company_id)
 - BC-005: Real-time (Socket.io events on dispatch)
+
+Usage:
+    dispatcher = ChannelDispatcher(db)
+    result = dispatcher.dispatch(
+        company_id="abc",
+        ticket_id="ticket-123",
+        ai_response_html="<p>Here is your answer</p>",
+        ai_response_text="Here is your answer",
+        role="ai",
+        model_used="gemini-pro",
+    )
 """
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from database.models.tickets import Ticket
+from database.models.tickets import Ticket, TicketMessage
+from app.core.email_utils import strip_html, run_async_coro
 
 logger = logging.getLogger("parwa.channel_dispatcher")
 
@@ -28,16 +46,15 @@ logger = logging.getLogger("parwa.channel_dispatcher")
 class ChannelDispatcher:
     """Dispatches AI responses to the correct communication channel.
 
-    Usage:
-        dispatcher = ChannelDispatcher(db)
-        dispatcher.dispatch(
-            company_id="abc",
-            ticket_id="ticket-123",
-            ai_response_html="<p>Here is your answer</p>",
-            ai_response_text="Here is your answer",
-            role="ai",
-            model_used="gemini-pro",
-        )
+    This is the central routing layer between the AI pipeline and
+    channel-specific senders. Every AI-generated response flows
+    through this dispatcher.
+
+    Channels supported:
+    - email: Via OutboundEmailService + Brevo (F-120)
+    - chat: Via Socket.io real-time push
+    - sms: Via Twilio (Week 13 Day 5 — stub for now)
+    - internal: TicketMessage only, no external send
     """
 
     def __init__(self, db: Session):
@@ -52,6 +69,7 @@ class ChannelDispatcher:
         role: str = "ai",
         model_used: Optional[str] = None,
         confidence: Optional[float] = None,
+        attachments: Optional[list] = None,
     ) -> dict:
         """Dispatch an AI response to the ticket's channel.
 
@@ -63,6 +81,7 @@ class ChannelDispatcher:
             role: Who is sending — "ai", "agent", or "system".
             model_used: AI model name for attribution.
             confidence: AI confidence score (0-1).
+            attachments: Optional list of attachment dicts for email.
 
         Returns:
             Dict with status, channel used, and channel-specific data.
@@ -97,6 +116,7 @@ class ChannelDispatcher:
                     role=role,
                     model_used=model_used,
                     confidence=confidence,
+                    attachments=attachments,
                 )
             elif channel == "chat":
                 return self._dispatch_chat(
@@ -111,7 +131,7 @@ class ChannelDispatcher:
                 return self._dispatch_sms(
                     company_id=company_id,
                     ticket=ticket,
-                    ai_response_text=ai_response_text or self._strip_html(ai_response_html),
+                    ai_response_text=ai_response_text or strip_html(ai_response_html),
                     role=role,
                     model_used=model_used,
                 )
@@ -147,6 +167,7 @@ class ChannelDispatcher:
         role: str,
         model_used: Optional[str],
         confidence: Optional[float],
+        attachments: Optional[list] = None,
     ) -> dict:
         """Dispatch AI response via email channel."""
         try:
@@ -159,6 +180,8 @@ class ChannelDispatcher:
                 ai_response_text=ai_response_text,
                 sender_name=model_used or "PARWA AI",
                 model_used=model_used,
+                confidence=confidence,
+                attachments=attachments,
             )
 
             logger.info(
@@ -189,6 +212,8 @@ class ChannelDispatcher:
                 ai_response_text=ai_response_text,
                 sender_name=model_used or "PARWA AI",
                 model_used=model_used,
+                confidence=confidence,
+                attachments=attachments,
             )
 
     def _dispatch_chat(
@@ -200,42 +225,53 @@ class ChannelDispatcher:
         role: str,
         model_used: Optional[str],
     ) -> dict:
-        """Dispatch AI response via chat channel (Socket.io)."""
-        try:
-            # Create TicketMessage
-            from database.models.tickets import TicketMessage
+        """Dispatch AI response via chat channel (Socket.io).
 
+        Creates a TicketMessage and emits via Socket.io for
+        real-time delivery to the customer's chat widget.
+        """
+        try:
             message = TicketMessage(
                 ticket_id=ticket.id,
                 company_id=company_id,
                 role=role,
                 channel="chat",
-                content=ai_response_text or self._strip_html(ai_response_html),
+                content=ai_response_text or strip_html(ai_response_html),
                 metadata_json=json.dumps({
                     "source": "ai_response",
                     "model_used": model_used,
                 }),
             )
             self.db.add(message)
+
+            if not ticket.first_response_at:
+                ticket.first_response_at = datetime.now(timezone.utc)
+
             self.db.commit()
             self.db.refresh(message)
 
-            # Emit via Socket.io
+            # Emit via Socket.io using run_async_coro (G-02 fix)
             try:
-                from app.core.ticket_events import emit_ticket_event
-                emit_ticket_event(
-                    company_id=company_id,
-                    event_type="message_added",
-                    ticket_id=ticket.id,
-                    data={
-                        "message_id": message.id,
-                        "role": role,
-                        "channel": "chat",
-                        "content": message.content[:200],
-                    },
+                from app.core.event_emitter import emit_ticket_event
+                run_async_coro(
+                    emit_ticket_event(
+                        company_id=company_id,
+                        event_type="ticket:message_added",
+                        payload={
+                            "ticket_id": ticket.id,
+                            "company_id": company_id,
+                            "channel": "chat",
+                            "message_id": str(message.id),
+                            "role": role,
+                            "extra": {
+                                "content": message.content[:200],
+                                "model_used": model_used,
+                            },
+                        },
+                    ),
                 )
             except Exception:
-                pass
+                pass  # Non-critical
 
             return {
                 "status": "sent",
@@ -262,19 +298,40 @@ class ChannelDispatcher:
         role: str,
         model_used: Optional[str],
     ) -> dict:
-        """Dispatch AI response via SMS channel (Week 13 Day 5 stub)."""
-        # Day 5 will implement full SMS dispatch via Twilio
+        """Dispatch AI response via SMS channel (Week 13 Day 5 stub).
+
+        Day 5 will implement full SMS dispatch via Twilio.
+        Currently stores a TicketMessage and returns a stub status.
+        """
+        # Create TicketMessage for audit trail even in stub mode
+        message = TicketMessage(
+            ticket_id=ticket.id,
+            company_id=company_id,
+            role=role,
+            channel="sms",
+            content=ai_response_text[:160],  # SMS length limit
+            metadata_json=json.dumps({
+                "source": "ai_response",
+                "model_used": model_used,
+                "dispatch_status": "stub_pending_day5",
+            }),
+        )
+        self.db.add(message)
+        self.db.commit()
+
         logger.info(
             "dispatch_sms_stub",
             extra={
                 "company_id": company_id,
                 "ticket_id": ticket.id,
+                "message_id": str(message.id),
             },
         )
         return {
             "status": "stub",
             "channel": "sms",
             "ticket_id": ticket.id,
+            "message_id": str(message.id),
             "message": "SMS dispatch not yet implemented (Week 13 Day 5)",
         }
 
@@ -288,15 +345,17 @@ class ChannelDispatcher:
         model_used: Optional[str],
         confidence: Optional[float],
     ) -> dict:
-        """Store AI response internally without external channel dispatch."""
-        from database.models.tickets import TicketMessage
+        """Store AI response internally without external channel dispatch.
 
+        Used for channels that don't have an external delivery mechanism
+        (e.g., internal notes, API-only channels).
+        """
         message = TicketMessage(
             ticket_id=ticket.id,
             company_id=company_id,
             role=role,
             channel=ticket.channel or "internal",
-            content=ai_response_text or self._strip_html(ai_response_html),
+            content=ai_response_text or strip_html(ai_response_html),
             metadata_json=json.dumps({
                 "source": "ai_response",
                 "model_used": model_used,
@@ -306,7 +365,7 @@ class ChannelDispatcher:
         self.db.add(message)
 
         if not ticket.first_response_at:
-            ticket.first_response_at = __import__("datetime", fromlist=["datetime"]).datetime.now(__import__("datetime", fromlist=["timezone"]).timezone.utc)
+            ticket.first_response_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(message)
@@ -317,13 +376,3 @@ class ChannelDispatcher:
             "ticket_id": ticket.id,
             "message_id": message.id,
         }
-
-    @staticmethod
-    def _strip_html(html: str) -> str:
-        """Strip HTML tags."""
-        if not html:
-            return ""
-        import re
-        text = re.sub(r"<[^>]+>", " ", html)
-        text = re.sub(r"\s+", " ", text).strip()
-        return text

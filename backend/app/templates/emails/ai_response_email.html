@@ -3,10 +3,6 @@
 {% extends "base.html" %}
 
 {% block body %}
-<h2 style="color:#1e1b4b;font-size:20px;margin:0 0 16px">
-  {% if subject_prefix %}{{ subject_prefix }}{% endif %}{{ ticket_subject }}
-</h2>
-
 <div style="background:#f8f7ff;border-left:4px solid #8b5cf6;padding:16px 20px;
      border-radius:0 6px 6px 0;margin-bottom:20px">
   <p style="margin:0 0 8px;font-size:13px;color:#7c3aed;font-weight:600">
@@ -22,6 +18,12 @@
 <div style="font-size:15px;line-height:1.7;color:#333;margin-bottom:20px">
   {{ ai_response_html | safe }}
 </div>
+
+{% if inline_quote_html %}
+<div style="margin-top:24px">
+  {{ inline_quote_html | safe }}
+</div>
+{% endif %}
 
 {% if agent_name %}
 <div style="border-top:1px solid #eee;padding-top:16px;margin-top:20px">

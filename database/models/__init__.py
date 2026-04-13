@@ -57,3 +57,8 @@ from database.models.jarvis import (  # noqa: F401
     JarvisActionTicket,
 )
 from database.models.business_email_otp import BusinessEmailOTP  # noqa: F401
+from database.models.outbound_email import OutboundEmail  # noqa: F401
+from database.models.email_channel import (  # noqa: F401
+    EmailThread,
+    InboundEmail,
+)
