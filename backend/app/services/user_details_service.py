@@ -35,6 +35,8 @@ from app.schemas.onboarding import (
 from database.models.core import User, Company
 from database.models.user_details import UserDetails
 from database.models.onboarding import OnboardingSession
+from app.services.email_service import send_verification_email
+from app.config import get_settings
 
 logger = get_logger("user_details_service")
 
@@ -363,9 +365,21 @@ def send_work_email_verification(
 
     db.commit()
 
-    # TODO: Send verification email via Brevo
-    # For now, we just store the token
-    # In production, this would call email_service.send_verification_email()
+    # Send verification email via Brevo
+    try:
+        settings = get_settings()
+        verification_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+        send_verification_email(
+            user_email=work_email,
+            user_name=details.full_name or "User",
+            verification_url=verification_url,
+        )
+    except Exception as e:
+        logger.error(
+            "work_email_verification_failed",
+            user_id=user_id,
+            error=str(e),
+        )
 
     logger.info(
         "work_email_verification_sent",

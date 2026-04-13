@@ -108,6 +108,10 @@ class KnowledgeDocument(Base):
     status = Column(String(50), default="processing")  # processing, completed, failed
     chunk_count = Column(Integer, default=0)
 
+    # Storage reference for async processing
+    file_path = Column(Text, nullable=True)  # Storage path for raw file content
+    storage_file_id = Column(String(36), nullable=True)  # Storage backend file ID
+
     # GAP 6: Failed document handling
     error_message = Column(Text, nullable=True)  # Error message if processing failed
     retry_count = Column(Integer, default=0)  # Number of retry attempts

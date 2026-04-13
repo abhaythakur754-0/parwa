@@ -25,10 +25,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.services.integration_service import (
     INTEGRATION_TYPES,
-    create_integration,
-    get_integrations,
-    test_integration,
-    delete_integration,
+    IntegrationService,
 )
 from database.base import get_db
 from database.models.core import User
@@ -120,8 +117,8 @@ def api_create_integration(
 
     BC-001: Scoped to user's company_id.
     """
-    integration = create_integration(
-        db=db,
+    service = IntegrationService(db)
+    integration = service.create_integration(
         company_id=user.company_id,
         integration_type=body.integration_type,
         name=body.name,
@@ -144,10 +141,10 @@ def api_list_integrations(
     """List integrations for the authenticated user's company.
 
     BC-001: Scoped to user's company_id.
-    Optional status filter: pending, active, error.
+    Optional status filter: pending, active, error, disconnected.
     """
-    integrations = get_integrations(
-        db=db,
+    service = IntegrationService(db)
+    integrations = service.get_integrations(
         company_id=user.company_id,
         status=status,
     )
@@ -171,8 +168,8 @@ def api_test_integration(
 
     BC-001: Scoped to user's company_id.
     """
-    result = test_integration(
-        db=db,
+    service = IntegrationService(db)
+    result = service.test_integration(
         integration_id=integration_id,
         company_id=user.company_id,
     )
@@ -193,8 +190,8 @@ def api_delete_integration(
 
     BC-001: Scoped to user's company_id.
     """
-    delete_integration(
-        db=db,
+    service = IntegrationService(db)
+    service.delete_integration(
         integration_id=integration_id,
         company_id=user.company_id,
     )

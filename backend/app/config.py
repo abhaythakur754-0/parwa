@@ -114,6 +114,9 @@ class Settings(BaseSettings):
     # ── CORS (frontend origin) ─────────────────────────────────
     CORS_ORIGINS: str = ""
 
+    # ── Frontend ────────────────────────────────────────────────
+    FRONTEND_URL: str = "http://localhost:3000"
+
     # ── MCP Server ───────────────────────────────────────────────
     MCP_SERVER_URL: str = ""
     MCP_AUTH_TOKEN: str = ""

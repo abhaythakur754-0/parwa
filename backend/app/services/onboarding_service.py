@@ -27,6 +27,7 @@ from sqlalchemy import select, and_
 from app.exceptions import ValidationError
 from app.logger import get_logger
 from app.services.user_details_service import check_ai_activation_prerequisites
+from app.tasks.knowledge_tasks import process_knowledge_document
 from database.models.onboarding import OnboardingSession, KnowledgeDocument
 from database.models.user_details import UserDetails
 
@@ -530,8 +531,16 @@ def retry_document_processing(
     doc.retry_count = retry_count + 1  # type: ignore
     db.commit()
 
-    # TODO: Trigger Celery task for processing
-    # process_knowledge_document.delay(document_id, company_id)
+    # Trigger Celery task for async processing
+    try:
+        process_knowledge_document.delay(str(document_id), str(company_id))
+    except Exception as e:
+        logger.error(
+            "retry_celery_trigger_failed",
+            document_id=document_id,
+            company_id=company_id,
+            error=str(e),
+        )
 
     logger.info(
         "document_processing_retried",

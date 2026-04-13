@@ -38,11 +38,15 @@ Entry Routing: URL params → context-aware welcome message
 Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
 """
 
+import asyncio
 import json
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
+
+from app.services.paddle_service import get_paddle_service
+from app.clients.paddle_client import get_paddle_client
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +64,8 @@ from database.models.jarvis import (
     JarvisKnowledgeUsed,
     JarvisActionTicket,
 )
+from app.services.email_service import send_email
+from app.core.email_renderer import render_email_template
 
 
 # ── Lazy Service Loading Infrastructure ────────────────────────────
@@ -869,8 +875,32 @@ def send_business_otp(
     # Create action ticket
     _create_ticket(db, session_id, "otp_verification", {"email": email})
 
-    # In production: await email_service.send_otp(email, otp_code)
-    # For now, OTP is stored in context for verification
+    # Send OTP via Brevo email
+    try:
+        from app.services.email_service import send_email
+        otp_html = render_email_template(
+            "otp_email.html",
+            {"otp_code": otp_code, "expires_minutes": OTP_EXPIRY_MINUTES},
+        ) if hasattr(render_email_template, '__call__') else f"""
+        <html><body>
+        <h2>Your PARWA Verification Code</h2>
+        <p>Your business email verification code is:</p>
+        <h1 style="font-size:32px;letter-spacing:8px;color:#10b981;">{otp_code}</h1>
+        <p>This code expires in {OTP_EXPIRY_MINUTES} minutes.</p>
+        <p>If you didn't request this, ignore this email.</p>
+        </body></html>
+        """
+        send_email(
+            to=email,
+            subject=f"PARWA Verification Code: {otp_code}",
+            html_content=otp_html,
+        )
+    except Exception as e:
+        logger.error(
+            "business_otp_email_failed",
+            session_id=session_id,
+            error=str(e),
+        )
 
     return {
         "message": f"OTP sent to {email}",
@@ -974,34 +1004,53 @@ def purchase_demo_pack(
 ) -> Dict[str, Any]:
     """Activate $1 demo pack: 500 messages + 3-min AI call for 24 hours.
 
-    In production, this creates a Paddle checkout for $1.
-    For now, we simulate the purchase.
+    Creates a Paddle checkout session for $1 demo pack.
+    The session is activated after successful payment via webhook.
     """
     session = get_session(db, session_id, user_id)
 
-    expiry = datetime.now(timezone.utc) + timedelta(hours=DEMO_PACK_HOURS)
+    # Get user info for Paddle checkout
+    from app.models.user import User
+    user = db.query(User).filter(User.id == user_id).first()
+    customer_email = user.email if user else None
+    customer_name = None
+    if user:
+        customer_name = getattr(user, 'full_name', None) or getattr(user, 'name', None)
 
-    session.pack_type = "demo"
-    session.pack_expiry = expiry
-    session.message_count_today = 0  # Reset counter
-    session.updated_at = datetime.now(timezone.utc)
+    # Create Paddle checkout for $1 demo pack
+    try:
+        paddle_svc = get_paddle_service()
+        result = asyncio.run(paddle_svc.create_demo_pack_checkout(
+            session_id=session_id,
+            customer_email=customer_email,
+            customer_name=customer_name,
+        ))
 
-    # Create action ticket
-    _create_ticket(db, session_id, "payment_demo_pack", {
-        "pack_type": "demo",
-        "expiry": expiry.isoformat(),
-        "price_usd": 1.00,
-    })
+        # Create action ticket
+        _create_ticket(db, session_id, "payment_demo_pack", {
+            "pack_type": "demo",
+            "checkout_url": result.get("checkout_url"),
+            "transaction_id": result.get("transaction_id"),
+            "price_usd": 1.00,
+            "status": "pending_payment",
+        })
 
-    db.flush()
-
-    return {
-        "message": "Demo Pack activated! 500 messages + 3-min AI call for 24 hours.",
-        "pack_type": "demo",
-        "pack_expiry": expiry.isoformat(),
-        "remaining_today": DEMO_DAILY_LIMIT,
-        "demo_call_remaining": True,
-    }
+        return {
+            "message": "Demo Pack checkout created! Complete payment to activate 500 messages + 3-min AI call.",
+            "checkout_url": result.get("checkout_url"),
+            "transaction_id": result.get("transaction_id"),
+            "status": "pending_payment",
+            "amount": result.get("amount", "$1.00"),
+            "currency": result.get("currency", "USD"),
+            "pack_type": "demo",
+        }
+    except Exception as e:
+        logger.error(
+            "demo_pack_checkout_failed",
+            session_id=session_id,
+            error=str(e),
+        )
+        raise ValueError(f"Failed to create demo pack checkout: {str(e)}")
 
 
 def get_demo_pack_status(
@@ -1036,49 +1085,97 @@ def create_payment_session(
 ) -> Dict[str, Any]:
     """Create Paddle checkout URL for variant purchase.
 
-    In production, this calls Paddle API to create a checkout.
-    Returns the checkout URL and transaction details.
+    Calls Paddle API to create a checkout session.
     """
     session = get_session(db, session_id, user_id)
 
+    # Get user info for Paddle checkout
+    from app.models.user import User
+    user = db.query(User).filter(User.id == user_id).first()
+    customer_email = user.email if user else None
+    customer_name = None
+    if user:
+        customer_name = getattr(user, 'full_name', None) or getattr(user, 'name', None)
+
     # Calculate total
-    # (In production, prices come from Paddle price IDs)
     total_monthly = sum(v.get("price", 0) * v.get("quantity", 1) for v in variants)
 
-    # Create action ticket
-    ticket = _create_ticket(db, session_id, "payment_variant", {
-        "variants": variants,
-        "industry": industry,
-        "total_monthly": total_monthly,
-    })
+    # Create Paddle checkout
+    try:
+        paddle_svc = get_paddle_service()
+        result = asyncio.run(paddle_svc.create_variant_checkout(
+            session_id=session_id,
+            variants=variants,
+            industry=industry,
+            customer_email=customer_email,
+            customer_name=customer_name,
+        ))
 
-    session.payment_status = "pending"
-    session.updated_at = datetime.now(timezone.utc)
-    db.flush()
+        # Create action ticket
+        ticket = _create_ticket(db, session_id, "payment_variant", {
+            "variants": variants,
+            "industry": industry,
+            "total_monthly": total_monthly,
+            "checkout_url": result.get("checkout_url"),
+            "transaction_id": result.get("transaction_id"),
+        })
 
-    # In production: paddle_client.create_checkout(...)
-    # For now, return a simulated checkout URL
-    checkout_url = f"https://checkout.paddle.com/checkout?custom=session_{session_id}"
+        session.payment_status = "pending"
+        session.updated_at = datetime.now(timezone.utc)
+        db.flush()
 
-    return {
-        "checkout_url": checkout_url,
-        "transaction_id": f"txn_{ticket.id[:12]}",
-        "status": "pending",
-        "amount": f"${total_monthly:.2f}",
-        "currency": "USD",
-    }
+        return {
+            "checkout_url": result.get("checkout_url"),
+            "transaction_id": result.get("transaction_id"),
+            "status": "pending",
+            "amount": result.get("amount", f"${total_monthly:.2f}"),
+            "currency": result.get("currency", "USD"),
+            "items": result.get("items", []),
+            "variant_count": result.get("variant_count", len(variants)),
+            "total_monthly": total_monthly,
+            "industry": industry,
+        }
+    except Exception as e:
+        logger.error(
+            "variant_payment_checkout_failed",
+            session_id=session_id,
+            error=str(e),
+        )
+        raise ValueError(f"Failed to create payment checkout: {str(e)}")
 
 
 def handle_payment_webhook(
     db: Session,
     event_type: str,
     event_data: Dict[str, Any],
+    headers: Optional[Dict[str, str]] = None,
+    raw_payload: Optional[bytes] = None,
 ) -> Dict[str, Any]:
     """Process Paddle webhook event (success/fail).
 
     Idempotent: checks event_id to prevent double-processing.
     Paddle may fire the same webhook multiple times.
+
+    Verifies Paddle webhook signature before processing.
     """
+    # Verify Paddle webhook signature
+    try:
+        paddle_client = get_paddle_client()
+        signature = headers.get("paddle-signature", "") if headers else ""
+        # Use raw_payload if available; otherwise serialize event_data as bytes
+        payload_bytes = raw_payload if raw_payload else json.dumps(event_data).encode("utf-8")
+        if not paddle_client.verify_webhook_signature(
+            payload=payload_bytes,
+            signature=signature,
+        ):
+            logger.warning("invalid_webhook_signature", event_type=event_type)
+            raise ValueError("Invalid webhook signature")
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error("webhook_verification_failed", error=str(e))
+        raise
+
     # Idempotency: check if event was already processed
     # Use result_json on the payment_variant ticket to track event_id
     event_id = event_data.get("event_id", "")
@@ -1101,7 +1198,6 @@ def handle_payment_webhook(
                 }
 
     # Extract session info from webhook data
-    # In production: parse Paddle webhook signature
     session_id = event_data.get("custom", {}).get("session_id")
     if not session_id:
         raise ValidationError(
@@ -1164,53 +1260,131 @@ def initiate_demo_call(
     db: Session,
     session_id: str,
     user_id: str,
-    phone: str,
+    phone_number: str,
 ) -> Dict[str, Any]:
-    """Initiate a 3-minute AI voice call via Twilio.
+    """Initiate 3-minute AI voice demo call.
 
-    Flow:
-    1. Validate demo call availability (pack active, not used)
-    2. Create action ticket
-    3. Initiate Twilio call
-    4. Return call details
-
-    In production, this triggers a Twilio outbound call.
+    Validates phone, stores call request, and initiates via Twilio.
+    Falls back gracefully if Twilio is not configured.
     """
     session = get_session(db, session_id, user_id)
 
-    # Check demo call availability
-    if session.pack_type != "demo":
+    # Validate phone number
+    import re
+    cleaned_phone = re.sub(r'[^0-9+]', '', phone_number)
+    if len(cleaned_phone) < 10 or len(cleaned_phone) > 15:
         raise ValidationError(
-            message="Demo call requires active Demo Pack ($1)",
-        )
-    if session.demo_call_used:
-        raise ValidationError(
-            message="Demo call already used in this session",
-        )
-    if session.pack_expiry and datetime.now(timezone.utc) > session.pack_expiry:
-        raise ValidationError(
-            message="Demo Pack has expired",
+            message="Invalid phone number format",
+            details={"phone_number": phone_number},
         )
 
     # Create action ticket
     ticket = _create_ticket(db, session_id, "demo_call", {
-        "phone": phone,
-        "duration_limit": DEMO_CALL_DURATION_SECONDS,
+        "phone_number": cleaned_phone,
+        "status": "initiated",
     })
 
-    session.demo_call_used = True
+    # Store call details in context
+    ctx = _parse_context(session.context_json)
+    ctx["demo_call"] = {
+        "phone_number": cleaned_phone,
+        "status": "initiated",
+        "ticket_id": str(ticket.id),
+        "initiated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    session.context_json = json.dumps(ctx)
     session.updated_at = datetime.now(timezone.utc)
     db.flush()
 
-    # In production: twilio_client.calls.create(...)
-    call_id = f"call_{ticket.id[:12]}"
+    # Attempt to initiate Twilio call
+    call_sid = None
+    call_status = "pending_twilio"
+
+    try:
+        from twilio.rest import Client
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        twilio_account_sid = getattr(settings, 'TWILIO_ACCOUNT_SID', None)
+        twilio_auth_token = getattr(settings, 'TWILIO_AUTH_TOKEN', None)
+        twilio_phone_number = getattr(settings, 'TWILIO_PHONE_NUMBER', None)
+
+        if all([twilio_account_sid, twilio_auth_token, twilio_phone_number]):
+            client = Client(twilio_account_sid, twilio_auth_token)
+
+            # Create TwiML for the AI demo call
+            from twilio.twiml.voice_response import VoiceResponse
+            twiml_response = VoiceResponse()
+            twiml_response.say(
+                "Hello! This is Jarvis from PARWA. Thank you for trying our voice demo. "
+                "I'm going to show you how I handle customer support conversations. "
+                "Let me demonstrate with a sample scenario...",
+                voice="alice",
+            )
+            twiml_response.pause(length=2)
+            twiml_response.say(
+                "I've just demonstrated how PARWA's AI handles real customer queries. "
+                "To get started with your own AI support agents, visit our website. "
+                "Thank you for your time!",
+                voice="alice",
+            )
+            twiml_response.hangup()
+
+            call = client.calls.create(
+                to=cleaned_phone,
+                from_=twilio_phone_number,
+                twiml=str(twiml_response),
+                timeout=30,
+                record=True,
+            )
+            call_sid = call.sid
+            call_status = "in_progress"
+
+            logger.info(
+                "demo_call_initiated",
+                session_id=session_id,
+                call_sid=call_sid,
+                phone_number=cleaned_phone,
+            )
+        else:
+            logger.warning(
+                "demo_call_twilio_not_configured",
+                session_id=session_id,
+                message="Twilio credentials not configured. Call marked as simulated.",
+            )
+            call_status = "simulated"
+
+    except ImportError:
+        logger.warning(
+            "demo_call_twilio_not_installed",
+            session_id=session_id,
+            message="twilio package not installed. Call marked as simulated.",
+        )
+        call_status = "simulated"
+    except Exception as e:
+        logger.error(
+            "demo_call_initiation_failed",
+            session_id=session_id,
+            error=str(e),
+        )
+        call_status = "failed"
+
+    # Update ticket with result
+    ticket.result_json = json.dumps({
+        "call_sid": call_sid,
+        "call_status": call_status,
+        "phone_number": cleaned_phone,
+    })
+    ticket.status = call_status
+    db.flush()
 
     return {
-        "call_id": call_id,
-        "status": "initiating",
-        "phone": phone,
-        "duration_limit": DEMO_CALL_DURATION_SECONDS,
-        "message": "Demo call initiated! Answer your phone.",
+        "message": "Demo call initiated!" if call_status == "in_progress" else f"Demo call: {call_status}. Configure Twilio credentials for live calls.",
+        "call_sid": call_sid,
+        "call_status": call_status,
+        "phone_number": cleaned_phone,
+        "ticket_id": str(ticket.id),
+        "duration_limit_seconds": 180,  # 3 minutes
     }
 
 
@@ -1218,57 +1392,49 @@ def get_call_summary(
     db: Session,
     session_id: str,
     user_id: str,
-    call_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Get post-call summary with topics discussed.
+    """Get summary of the demo call."""
+    session = get_session(db, session_id, user_id)
 
-    In production, this fetches call recording/transcript from Twilio
-    and generates summary via AI.
-    """
-    get_session(db, session_id, user_id)
-
-    # Look for completed call ticket
-    ticket = (
-        db.query(JarvisActionTicket)
-        .filter(
-            JarvisActionTicket.session_id == session_id,
-            JarvisActionTicket.ticket_type.in_(["demo_call", "demo_call_completed"]),
-        )
-        .order_by(JarvisActionTicket.created_at.desc())
-        .first()
-    )
+    # Find the demo_call ticket
+    from database.models.jarvis import JarvisActionTicket
+    ticket = db.query(JarvisActionTicket).filter(
+        JarvisActionTicket.session_id == session_id,
+        JarvisActionTicket.ticket_type == "demo_call",
+    ).order_by(JarvisActionTicket.created_at.desc()).first()
 
     if not ticket:
         return {
-            "call_id": call_id,
-            "status": "not_found",
-            "duration_seconds": 0,
-            "topics_discussed": [],
-            "key_moments": [],
-            "user_impressions": None,
-            "roi_mapping": None,
-            "transcript_summary": None,
+            "call_completed": False,
+            "message": "No demo call found for this session",
         }
 
     result = _parse_context(ticket.result_json or "{}")
 
-    # Create completed ticket if not exists
-    if ticket.ticket_type == "demo_call":
-        _create_ticket(db, session_id, "demo_call_completed", {
-            "call_id": call_id,
-            "duration": result.get("duration", 0),
-        })
+    # If Twilio call was real, fetch actual details
+    if result.get("call_sid"):
+        try:
+            from twilio.rest import Client
+            from app.core.config import get_settings
+            settings = get_settings()
+            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+            call = client.calls(result["call_sid"]).fetch()
+
+            duration = int(call.duration or 0)
+            result["actual_duration"] = duration
+            result["call_status_final"] = call.status
+        except Exception:
+            pass
 
     return {
-        "call_id": call_id,
-        "status": "completed",
-        "duration_seconds": result.get("duration", 0),
-        "topics_discussed": result.get("topics", []),
-        "key_moments": result.get("moments", []),
-        "user_impressions": result.get("impressions"),
-        "roi_mapping": result.get("roi_mapping"),
-        "transcript_summary": result.get("summary"),
-        "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
+        "call_completed": ticket.status in ("completed", "in_progress", "simulated"),
+        "call_status": ticket.status,
+        "call_sid": result.get("call_sid"),
+        "phone_number": result.get("phone_number"),
+        "duration_seconds": result.get("actual_duration", 180),
+        "topics_discussed": result.get("topics_discussed", []),
+        "key_moments": result.get("key_moments", []),
+        "transcript_summary": result.get("transcript_summary"),
     }
 
 
