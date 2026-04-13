@@ -521,6 +521,16 @@ def send_message(
     except Exception:
         pass
 
+    # ── Note-Taker Agent: Strategic Summary Generation ──
+    # Generate a concise 'mission summary' every few turns or when context changes significantly
+    turn_count = ctx.get("conversation_turn_count", session.total_message_count)
+    try:
+        if turn_count % 3 == 0 or turn_count == 1:
+            history = _get_recent_history(db, session_id)
+            _generate_strategic_summary(db, session_id, ctx, history)
+    except Exception:
+        pass
+
     # ── Week 8-11: Analytics tracking ──
     try:
         analytics_svc = _get_service_module("app.services.analytics_service")
@@ -4243,3 +4253,61 @@ def _determine_message_type(
         message_type = "handoff_card"
 
     return message_type, metadata
+
+# ── Note-Taker & Context Hygiene Services ─────────────────────
+
+def _generate_strategic_summary(db: Session, session_id: str, ctx: dict, history: list):
+    """
+    Note-Taker Agent: Analyzes history to extract a 'Mission Summary'.
+    Updates ctx['mission_summary'] with a high-level strategic overview.
+    """
+    if not history:
+        return
+
+    # Simple logic to determine strategic focus
+    industry = ctx.get("industry", "N/A")
+    roi = ctx.get("roi_result", {})
+    roi_val = roi.get("savings_annual", roi.get("monthly_savings", "calculated"))
+    
+    summary = f"STRATEGIC MISSION: Exploring {industry} automation. "
+    if roi_val != "calculated":
+        summary += f"Target ROI: ${roi_val} savings. "
+    
+    # Extract last user intent (very simple version for now)
+    last_user_msg = next((m.content for m in reversed(history) if m.role == "user"), "")
+    if "pricing" in last_user_msg.lower():
+        summary += "Phase: Financial Evaluation."
+    elif "demo" in last_user_msg.lower():
+        summary += "Phase: Operational Simulation."
+    else:
+        summary += "Phase: Discovery."
+
+    ctx["mission_summary"] = summary
+
+
+def prune_session_context(db: Session, session_id: str):
+    """
+    Context Hygiene: Removes transient data while preserving core strategic value.
+    Called on logout or session finalization.
+    """
+    session = db.query(JarvisSession).filter(JarvisSession.id == session_id).first()
+    if not session or not session.context:
+        return
+
+    ctx = session.context.copy()
+    
+    # Transient fields to REMOVE
+    to_remove = [
+        "pages_visited", "entry_params", "concerns_raised", 
+        "demo_topics", "otp_attempts", "referral_source",
+        "utm_medium", "referrer"
+    ]
+    
+    for key in to_remove:
+        ctx.pop(key, None)
+
+    # Core fields to KEEP:
+    # 'industry', 'roi_result', 'selected_variants', 'business_email', 'mission_summary'
+
+    session.context = ctx
+    db.commit()
