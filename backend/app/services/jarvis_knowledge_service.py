@@ -66,7 +66,7 @@ def search_knowledge(query: str, context: Optional[Dict[str, Any]] = None) -> Li
     
     Returns a list of match objects: {"source": str, "content": str, "score": float}
     """
-    _load_all_knowledge()
+    load_all_knowledge()
     
     query_lower = query.lower()
     matches = []
@@ -147,7 +147,7 @@ def build_context_knowledge(context: Dict[str, Any]) -> str:
     - Selected Variants
     - User Intent
     """
-    _load_all_knowledge()
+    load_all_knowledge()
     
     sections = []
     industry = context.get("industry")
@@ -204,7 +204,7 @@ def build_context_knowledge(context: Dict[str, Any]) -> str:
 
 def get_edge_case_response(intent: str) -> Optional[str]:
     """Get specialized response for edge cases (competitors, legal, etc)."""
-    _load_all_knowledge()
+    load_all_knowledge()
     
     edge_cases = _knowledge_cache.get("edge_cases", {})
     for case in edge_cases.get("edge_cases", []):

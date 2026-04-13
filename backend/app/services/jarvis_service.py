@@ -551,6 +551,7 @@ def send_message(
         pass
 
     # ── AI Path Selection (Jarvis Onboarding vs Support Pipeline) ──
+    history = _get_recent_history(db, session_id)
     ai_content = None
     ai_message_type = "text"
     metadata = {}
