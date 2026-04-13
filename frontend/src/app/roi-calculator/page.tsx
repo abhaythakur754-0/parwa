@@ -296,8 +296,12 @@ function calculateComparisons(
 ): ModelComparison[] {
   return PARWA_MODELS.map((model) => {
     // ── Quantity Scaling Logic ──
-    const quantity = Math.max(1, Math.ceil(tickets / model.ticketCapacity));
+    const quantity = Math.max(1, Math.ceil(tickets / (Number(model.ticketCapacity.replace(/[^0-9]/g, '')) || 1000)));
     
+    // Split volume into AI-resolved and human-handled
+    const aiTickets = Math.round(tickets * model.aiResolution);
+    const humanTickets = tickets - aiTickets;
+
     // PARWA cost = (platform fee * quantity) + remaining human ticket costs (at 25% efficiency gain)
     const humanCost = humanTickets * cpt * 0.25;
     const platformCost = model.price * quantity;

@@ -2330,7 +2330,10 @@ def build_context_aware_welcome(
     db: Session,
     session_id: str,
 ) -> str:
-    """Generate welcome message based on entry source with high persona integrity."""
+    """Generate welcome message based on entry source with high persona integrity.
+
+    Jarvis acts as a 'Control Center' — proactive, aware, and strategic.
+    """
     session = db.query(JarvisSession).filter(
         JarvisSession.id == session_id,
     ).first()
@@ -2339,7 +2342,7 @@ def build_context_aware_welcome(
 
     ctx = _parse_context(session.context_json)
     entry = ctx.get("entry_source", "direct")
-    industry = ctx.get("industry", "your business")
+    industry = ctx.get("industry", "your enterprise")
     
     # Extract specific variant/model if present
     clicked_variant = ctx.get("variant")
@@ -2356,55 +2359,59 @@ def build_context_aware_welcome(
         savings = roi.get("savings_annual") or roi.get("annual_savings", 0)
         suggested_model = roi.get("suggested_model") or "PARWA Growth"
         if savings:
-            savings_str = f"${float(savings):,.0f}"
+            try:
+                savings_num = float(savings)
+                savings_str = f"${savings_num:,.0f}" if savings_num > 0 else ""
+            except (ValueError, TypeError):
+                savings_str = ""
 
     welcomes = {
         "direct": (
-            "I'm Jarvis — your control center from here. "
-            "You can do anything just by chatting with me. "
-            "What would you like to explore?"
+            "Control Center active. I am Jarvis, your strategic partner for PARWA. "
+            "I have established a secure link to your support ecosystem. "
+            "How shall we begin your transformation today?"
         ),
         "pricing": (
-            f"I see you were looking at our pricing for {industry} — an excellent choice. "
-            "I can help you find the exact variant that maximizes your ROI. "
-            "Shall we explore the specific capabilities of our plans?"
+            f"Strategizing for {industry}. I see you've been reviewing our premium architecture. "
+            "I can help you optimize your deployment to maximize every dollar of ROI. "
+            "Shall we dive into the specific capabilities of our agents?"
         ),
         "roi": (
-            f"Control Center active. I've been reviewing your calculations for {industry}. "
-            f"With an annual ROI of {savings_str if savings_str else 'significant value'} and my recommendation for {suggested_model}, "
-            "your support efficiency is poised for a major upgrade. Shall we run a live simulation on your data now?"
+            f"Mission Objective: Efficiency. I've finished auditing your calculations for {industry}. "
+            f"By deploying {suggested_model}, we can secure an estimated {savings_str if savings_str else 'staggering'} in annual recaptured revenue. "
+            "Ready to see the blueprint of how we achieve these numbers?"
         ) if roi else (
-            "Welcome. I've been reviewing your ROI calculations. "
-            "Those savings aren't just theoretical; they are what PARWA achieves across 700+ features. "
-            "Would you like me to show you how we hit those numbers in real-time?"
+            "Welcome. I've been auditing your ROI calculations. "
+            "The numbers I've seen suggest significant untapped potential in your current workflow. "
+            "Shall I demonstrate how we convert those theoretical savings into operational reality?"
         ),
         "demo": (
-            "Ready for a live demonstration? "
-            "For just $1, I can provide you with 500 messages and a 3-minute professional AI voice call. "
-            "It's the most efficient way to see my full capabilities. Shall we begin?"
+            "System check complete. Ready for high-fidelity simulation. "
+            "For just $1, I can open 500 tactical channels and a 3-minute professional voice demonstration. "
+            "It is the optimal way to experience my full strategic range. Shall we initiate?"
         ),
         "features": (
-            "Exploring our feature landscape? I like your thoroughness. "
-            f"I can tailor our 700+ capabilities specifically for {industry}. "
-            "What's the biggest bottleneck in your support process right now?"
+            f"Mapping {industry} requirements to our 700+ feature landscape. "
+            "I've identified several high-impact nodes that would solve your current bottlenecks. "
+            "What is the single most critical operational friction point we should address first?"
         ),
         "models_page": (
-            f"I noticed you were just examining {clicked_variant if clicked_variant else 'our models'} for {industry}. "
-            "Smart selection. That specific agent is highly optimized for your vertical's specific workflow demands. "
-            "Would you like to try a 3-minute demo call right now for $1 to see how it handles your toughest questions?"
+            f"I see you've been analyzing the {clicked_variant if clicked_variant else 'specialized agents'} for {industry}. "
+            "A precise choice. That specific architecture is engineered for your vertical's unique logic demands. "
+            "Shall we run a 3-minute live simulation for $1 so you can witness its performance firsthand?"
         ),
     }
 
     base = welcomes.get(entry, welcomes["direct"])
     
-    # Final 'Human' awareness touch: if they clicked 'Demo Call' but came from models page
+    # Final 'Human' awareness touch: Handle specific logic for models page with variant
     if entry == "models_page" and clicked_variant:
         base = (
-            f"Greetings. I see you've been looking at {clicked_variant}. "
-            "It's one of my most capable variants for specialized support. "
-            "I'm here to act as your control center — you can test my logic right here, "
-            "or we can jump into that 3-minute demo call for $1 to see how I sound. "
-            "Which direction shall we take?"
+            f"Greetings. I noticed your interest in the {clicked_variant} agent. "
+            "It is one of my most sophisticated variants, optimized for high-precision operations. "
+            "As your control center, I can demonstrate its logic right here, "
+            "or we can initiate a voice simulation for $1 to hear its tone in action. "
+            "What is your command?"
         )
 
     return base
@@ -3966,11 +3973,11 @@ def _get_default_system_prompt() -> str:
 
 
 def _get_default_welcome() -> str:
-    """Default welcome message — positions Jarvis as the user's CONTROL CENTER."""
+    """Sophisticated fallback greeting."""
     return (
-        "Welcome! I'm Jarvis — your control from here. "
-        "You can do anything just by chatting with me. "
-        "What would you like to explore?"
+        "Project PARWA Control Center active. I am Jarvis, your strategic partner. "
+        "I have full visibility into your current support ecosystem. "
+        "What operation shall we prioritize first?"
     )
 
 
