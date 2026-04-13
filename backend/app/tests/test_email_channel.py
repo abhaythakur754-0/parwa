@@ -19,6 +19,9 @@ import pytest
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+# Service under test — must be imported before use in test classes
+from app.services.email_channel_service import EmailChannelService
+
 # ── Test Data ──────────────────────────────────────────────────
 
 SAMPLE_INBOUND_EMAIL = {

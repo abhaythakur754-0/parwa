@@ -28,6 +28,7 @@ from typing import Optional
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
+from app.schemas.email_channel import AutoReplyDetection, EmailLoopDetection
 from database.models.email_channel import EmailThread, InboundEmail
 from database.models.tickets import Ticket, TicketMessage
 
@@ -294,7 +295,7 @@ class EmailChannelService:
         self,
         company_id: str,
         email_data: dict,
-    ) -> "AutoReplyDetection":
+    ) -> EmailLoopDetection:
         """Detect if an inbound email is part of a mail loop.
 
         Checks:
@@ -311,8 +312,6 @@ class EmailChannelService:
         Returns:
             EmailLoopDetection with is_loop and reason.
         """
-        from app.schemas.email_channel import EmailLoopDetection
-
         sender_email = email_data.get("sender_email", "").lower().strip()
         message_id = email_data.get("message_id", "")
         in_reply_to = email_data.get("in_reply_to", "")
@@ -373,7 +372,7 @@ class EmailChannelService:
     def detect_auto_reply(
         self,
         email_data: dict,
-    ) -> "AutoReplyDetection":
+    ) -> AutoReplyDetection:
         """Detect if an inbound email is an auto-reply or out-of-office.
 
         Checks:
@@ -386,8 +385,6 @@ class EmailChannelService:
         Returns:
             AutoReplyDetection with is_auto_reply and reason.
         """
-        from app.schemas.email_channel import AutoReplyDetection
-
         headers_json = email_data.get("headers_json", "{}")
         body_text = email_data.get("body_text", "")
         body_html = email_data.get("body_html", "")
