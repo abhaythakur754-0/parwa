@@ -506,57 +506,69 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
   const source = entrySource || 'direct';
   const ep = ctx.entry_params || {};
   const variant = ep.variant || ctx.variant || null;
-  const variantId = ep.variant_id || ctx.variant_id || null;
-  const industry = ep.industry || ctx.industry || null;
-  const entryParamSource = ep.entry_source || source;
-  const ind = industry ? String(industry).toLowerCase() : null;
-
-  // Rich context from models page
-  const roi = ep.roi ? String(ep.roi) : null;
-  const scenario = ep.scenario ? String(ep.scenario) : null;
-  const uniqueFeatures = ep.unique_features ? String(ep.unique_features) : null;
-  const integrations = ep.integrations ? String(ep.integrations) : null;
-
-  // ── Variant + Industry specific welcome (from "Try Live Chat — Free") ──
-  if (variant && (entryParamSource.includes('free_chat') || entryParamSource === 'models_page')) {
-    const vName = String(variant);
-    const isS = variantId === 'starter' || vName.toLowerCase().includes('starter');
-    const isG = variantId === 'growth' || vName.toLowerCase().includes('growth');
-    const isH = variantId === 'high' || vName.toLowerCase().includes('high');
-
-    let featureBullets = '';
-    if (uniqueFeatures) {
-      const feats = uniqueFeatures.split(',').slice(0, 3);
-      featureBullets = feats.map((f: string) => `• ✨ ${f.trim()}`).join('\n');
+  const industry = ep.industry || ctx.industry || 'your enterprise';
+  
+  // Extract ROI data if available
+  const roi = ctx.roi_result || ep.roi_result;
+  let savingsStr = "";
+  if (roi) {
+    const savings = roi.savings_annual || roi.annual_savings || 0;
+    if (savings) {
+      try {
+        const num = Number(savings);
+        savingsStr = num > 0 ? `$${num.toLocaleString()}` : "";
+      } catch (e) {
+         savingsStr = "";
+      }
     }
-    if (integrations) featureBullets += `\n• 🔗 Integrates with ${integrations}`;
-
-    if (isS) return `Hey! 👋 You're now talking to PARWA Starter — "The 24/7 Trainee"${ind ? ` for ${industry}` : ''}.\n\nHere's what I bring to the table:\n\n• 🤖 Handle emails & chat 24/7 — no more midnight support shifts\n• 📋 Collect customer data automatically — orders, returns, FAQs\n• 📞 Take phone calls (up to 2 at once)\n${featureBullets}\n• 💰 Only $999/mo — saves you ~$168K/yr vs hiring trainees\n\nI gather info fast and escalate anything complex to your team. What do your customers ask about most? Let me show you how I'd handle it. 😊`;
-    if (isG) return `Hey! 👋 You're talking to PARWA Growth — "The Junior Agent"${ind ? ` for ${industry}` : ''}.\n\nThis is where PARWA gets really smart. Here's what I do:\n\n• 🧠 Smart recommendations — I analyze tickets and suggest actions\n• 📊 Churn prediction — I detect usage drops BEFORE customers leave\n• 📞 Handle up to 3 calls simultaneously + SMS + Voice\n${featureBullets}\n• 💰 $2,499/mo — saves ~$216K/yr vs hiring junior agents\n\nI don't just answer — I think.${scenario ? `\n\nReal example: ${scenario}` : ''}\n\nWhat's your biggest support headache right now? I'll show you exactly how I'd solve it. 🚀`;
-    if (isH) return `Hey! 👋 You're talking to PARWA High — "The Senior Agent"${ind ? ` for ${industry}` : ''}.\n\nFull autonomous mode. Here's what makes me different:\n\n• ✅ I approve actions up to $50 on my own — no human bottleneck\n• 🧠 Predict churn & coordinate across departments automatically\n• 📞 5 concurrent calls + video support with screen sharing\n${featureBullets}\n• 💰 $3,999/mo — saves ~$336K/yr vs hiring senior agents\n\nI don't assist — I lead.${scenario ? `\n\nReal example: ${scenario}` : ''}\n\nWhat's a complex scenario your support team struggles with? Let me handle it. 🔥`;
-  }
-
-  // ── Industry-specific welcomes ──
-  if (ind && !variant) {
-    const map: Record<string, string> = {
-      ecommerce: `Hey! 🛒 E-commerce is one of our strongest verticals!\n\nPARWA automates the heavy lifting:\n\n• 📦 Orders, returns, tracking & FAQ — fully automated\n• 🚚 Shipping & payment issues resolved in seconds\n• 🔗 Shopify, WooCommerce, Magento, BigCommerce ready\n• 💰 Starting at $999/mo — saves ~$168K/yr\n\nHow many support tickets does your store handle daily?`,
-      saas: `Hey! 💻 SaaS support — this is where PARWA really shines!\n\nHere's what we automate:\n\n• 🐛 Tech support & multi-step troubleshooting\n• 💳 Billing, subscriptions & API key management\n• 📉 Churn prediction — detect at-risk users before they leave\n• 💰 Starting at $999/mo — saves ~$168K/yr\n\nWhat's your monthly ticket volume?`,
-      logistics: `Hey! 🚛 Logistics is a perfect fit for PARWA!\n\nWe handle the full operations stack:\n\n• 📍 Real-time shipment tracking via carrier APIs\n• 🚚 Delivery issues, rerouting & driver coordination\n• 🏭 Fleet & warehouse management\n• 💰 Starting at $999/mo — saves ~$168K/yr\n\nWant to see how shipment tracking automation works?`,
-      others: `Hey! 👋 Whatever your industry — PARWA adapts.\n\nHere's what we bring:\n\n• 🤖 Custom workflows tailored to YOUR business\n• 🔗 20+ integrations out of the box\n• 📊 Advanced analytics & pattern recognition\n• 💰 Starting at $999/mo — save 85-92% vs hiring\n\nWhat does your current support setup look like?`,
-    };
-    return map[ind] || map.others;
   }
 
   const welcomes: Record<string, string> = {
-    direct: `Hey! 👋 I'm Jarvis — PARWA's AI assistant.\n\nI can help you with a few things right now:\n\n• 🤖 Find the right plan for your business (Starter / Growth / High)\n• 💰 Calculate your exact ROI savings\n• 🎥 Run a live demo\n\nWhat's your industry and how many tickets do you handle? I'll point you to the right fit.`,
-    pricing: `Hey! 👋 Checking out our plans — smart move.\n\nHere's the full lineup:\n\n• 🟠 Starter — $999/mo — 3 agents, 1K tickets — saves ~$168K/yr\n• 🟠 Growth — $2,499/mo — 8 agents, 5K tickets — saves ~$216K/yr\n• 🟠 High — $3,999/mo — 15 agents, 15K tickets — saves ~$336K/yr\n\nAll with 24/7 coverage, cancel anytime. What's your industry? I'll tell you which plan fits best.`,
-    demo: `Hey! 🎉 You're in the right place — I AM the demo!\n\nTry asking me what your customers would:\n\n• "Where's my order #12345?"\n• "My API key isn't working"\n• "I need a refund for this"\n\nOr grab the $1 Demo Pack — 500 messages + a 3-minute AI voice call. Want me to set that up?`,
-    features: `Hey! 👋 Exploring what PARWA can do?\n\nHere's the rundown:\n\n• 📬 6 channels — Email, Chat, Phone, SMS, Voice, Social\n• 🧠 700+ features across 4 industries\n• 🔗 20+ integrations (Shopify, Slack, Jira, Salesforce...)\n• 📊 Smart routing, churn prediction, sentiment analysis\n\nWhat area interests you most?`,
-    roi: `Hey! 📊 ROI-focused — love it.\n\nHere's what PARWA actually saves:\n\n• Starter → saves ~$168K/yr (replaces $14K/mo in salaries)\n• Growth → saves ~$216K/yr (replaces $18K/mo in salaries)\n• High → saves ~$336K/yr (replaces $28K/mo in salaries)\n\nThat's 85-92% cost reduction with 24/7 coverage. Want me to calculate your exact number?`,
-    referral: `Hey! 👋 Great to have you here!\n\nI can help with a few things:\n\n• 💡 Free plan recommendation based on your business\n• 📊 ROI calculation with real numbers\n• 🎥 Live demo\n\nWhat does your current support setup look like?`,
-    free_chat: `Hey! 👋 Welcome to the full PARWA experience!\n\nI can do a deep product walkthrough, live demo, ROI calculation, or plan recommendation right here.\n\nTell me about your business — industry, ticket volume, biggest support pain — and I'll show you exactly what PARWA can do. 🚀`,
-    models_page: `Hey! 👋 Welcome from our Models page!\n\nQuick recap of the lineup:\n\n• 🟠 Starter — $999/mo — "The 24/7 Trainee" — great for SMBs\n• 🟠 Growth — $2,499/mo — "The Junior Agent" — smart & proactive\n• 🟠 High — $3,999/mo — "The Senior Agent" — fully autonomous\n\nWant to try one out? I can roleplay as any of them right now — just tell me your industry. 😊`,
+    direct: (
+      "Control Center active. I am Jarvis, your strategic partner for PARWA. " +
+      "I have established a secure link to your support ecosystem. " +
+      "How shall we begin your transformation today?"
+    ),
+    pricing: (
+      `Strategizing for ${industry}. I see you've been reviewing our premium architecture. ` +
+      "I can help you optimize your deployment to maximize every dollar of ROI. " +
+      "Shall we dive into the specific capabilities of our agents?"
+    ),
+    roi: roi ? (
+      `Mission Objective: Efficiency. I've finished auditing your calculations for ${industry}. ` +
+      `With an estimate of ${savingsStr || 'staggering'} in annual recaptured revenue, ` +
+      "your operation is poised for a significant upgrade. Ready to see the blueprint?"
+    ) : (
+      "Welcome. I've been auditing your ROI calculations. " +
+      "The numbers suggest massive untapped potential in your current workflow. " +
+      "Shall I demonstrate how we convert those savings into operational reality?"
+    ),
+    demo: (
+      "System check complete. Ready for high-fidelity simulation. " +
+      "For just $1, I can open 500 tactical channels and a 3-minute professional voice demonstration. " +
+      "It is the optimal way to experience my full strategic range. Shall we initiate?"
+    ),
+    features: (
+      `Mapping ${industry} requirements to our 700+ feature landscape. ` +
+      "I've identified several high-impact nodes that would solve your current bottlenecks. " +
+      "What is the single most critical operational friction point we should address first?"
+    ),
+    models_page: (
+      `I see you've been analyzing our specialized agents for ${industry}. ` +
+      "A precise choice. Those specific architectures are engineered for your vertical's unique logic demands. " +
+      "Shall we run a 3-minute live simulation for $1 so you can witness the performance firsthand?"
+    ),
   };
+
+  // Variant-specific overrides (Demo Mode)
+  if (variant && source === 'models_page') {
+    return (
+      `Greetings. I noticed your interest in the ${variant} agent. ` +
+      "It is one of my most sophisticated variants, optimized for high-precision operations. " +
+      "As your control center, I can demonstrate its logic right here, " +
+      "or we can initiate a voice simulation for $1. What is your command?"
+    );
+  }
 
   return welcomes[source] || welcomes.direct;
 }

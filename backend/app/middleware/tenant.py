@@ -49,6 +49,8 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/api/client/",
         "/api/admin/",
         "/api/webhooks/",
+        "/api/jarvis/",
+        "/api/jarvis",
         "/test/",
     )
 
@@ -61,6 +63,9 @@ class TenantMiddleware(BaseHTTPMiddleware):
         for prefix in self.PUBLIC_PREFIXES:
             if path.startswith(prefix):
                 return await call_next(request)
+
+        # DEBUG: Log the path if we are about to block it
+        # logger.debug(f"TenantMiddleware check: path={path}")
 
         # Extract company_id from request state only.
         # JWT verification happens in get_current_user dependency.
