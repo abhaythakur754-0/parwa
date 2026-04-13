@@ -51,52 +51,39 @@ interface ChatWindowProps {
 /** Build a context-aware welcome message based on session context. */
 function getWelcomeMessage(ctx?: JarvisContext | null): { heading: string; body: string } {
   const entrySource = ctx?.entry_source;
-  const pagesVisited = ctx?.pages_visited || [];
+  const industry = ctx?.industry || 'your business';
+  const roi = ctx?.roi_result;
+  const variant = ctx?.variant || ctx?.entry_params?.variant || ctx?.entry_params?.model;
+
+  // ROI awareness (The 'Wow' factor)
+  if (entrySource === 'roi' && roi) {
+    const savings = roi.savings_annual || roi.annual_savings || 0;
+    const model = roi.suggested_model || 'PARWA Growth';
+    return {
+      heading: 'Control Center active. ⚡',
+      body: `I've analyzed your ${industry} metrics. With estimated annual savings of $${Number(savings).toLocaleString()} using our ${model}, your operational efficiency is poised for a major upgrade. Shall we run a live simulation on your data now?`,
+    };
+  }
 
   // Match entry_source to specific messages
   if (entrySource === 'pricing') {
     return {
-      heading: 'Pricing questions? I can help! 💰',
-      body: "I see you were exploring our pricing! Ready to find the right plan for your business?",
+      heading: 'Strategy initiated. 💰',
+      body: `I see you were exploring our pricing for ${industry}. I can help you find the exact variant that maximizes your vertical leverage. Shall we explore the specific capabilities of our plans?`,
     };
   }
-  if (entrySource === 'roi') {
+  
+  if (entrySource === 'models' || entrySource === 'models_page') {
     return {
-      heading: 'Welcome back! 📊',
-      body: "I see you've been checking out our ROI calculator. Want to see how PARWA can save you money?",
-    };
-  }
-  if (entrySource === 'features' || entrySource === 'models') {
-    return {
-      heading: 'Explore our AI models! 🤖',
-      body: "I see you were browsing our AI models. Which ones caught your eye?",
-    };
-  }
-
-  // Check pages_visited for context hints
-  if (pagesVisited.includes('pricing_page')) {
-    return {
-      heading: 'Hey there! 👋',
-      body: "Welcome! I see you've been looking at our pricing. I can help you pick the perfect plan.",
-    };
-  }
-  if (pagesVisited.includes('roi_calculator')) {
-    return {
-      heading: 'Hey there! 👋',
-      body: "Welcome! I see you've been using our ROI calculator. Ready to see PARWA in action?",
-    };
-  }
-  if (pagesVisited.includes('models_page')) {
-    return {
-      heading: 'Hey there! 👋',
-      body: "Welcome! I see you were browsing our AI models. I'd love to help you find the right fit.",
+      heading: 'Model identified. 🤖',
+      body: `I noticed you were examining the ${variant || 'our models'} for ${industry}. Smart selection — that specific agent is highly optimized for your vertical's specific workflow demands. Would you like to try a 3-minute demo call for $1 to see it in action?`,
     };
   }
 
   // Default / direct / onboarding
   return {
-    heading: "Hey there! 👋",
-    body: "I'm Jarvis, your AI assistant from PARWA. I'll help you find the perfect AI agents for your business. What brings you here today?",
+    heading: 'Control Center active. 👋',
+    body: `I'm Jarvis — your control center from here. You can do anything just by chatting with me. From deploying agents to routing tickets, I have total leverage over your support workflow. What would you like to explore?`,
   };
 }
 

@@ -298,6 +298,7 @@ def create_or_resume_session(
         return active_session
 
     # Create new session
+    # Create new session
     ctx = {
         "pages_visited": [],
         "industry": None,
@@ -313,6 +314,17 @@ def create_or_resume_session(
         "detected_stage": "welcome",
     }
 
+    # PROMOTE entry_params to top-level context for immediate awareness in welcome messages
+    if entry_params:
+        if "industry" in entry_params:
+            ctx["industry"] = entry_params["industry"]
+        if "roi_result" in entry_params:
+            ctx["roi_result"] = entry_params["roi_result"]
+        if "variant" in entry_params:
+            ctx["variant"] = entry_params["variant"]
+        if "variant_id" in entry_params:
+            ctx["variant_id"] = entry_params["variant_id"]
+
     session = JarvisSession(
         user_id=user_id,
         company_id=company_id,
@@ -325,6 +337,13 @@ def create_or_resume_session(
     )
     db.add(session)
     db.flush()
+
+    # CRITICAL: Generate the context-aware welcome message immediately
+    # so it's ready in the session history response.
+    from app.services.jarvis_service import build_context_aware_welcome, _save_message
+    welcome_text = build_context_aware_welcome(db, str(session.id), user_id)
+    _save_message(db, str(session.id), "jarvis", welcome_text, "text")
+
     return session
 
 
@@ -2312,11 +2331,21 @@ def build_context_aware_welcome(
         if isinstance(entry_params, dict):
             clicked_variant = entry_params.get("variant") or entry_params.get("model")
 
+    # ROI awareness (The 'Wow' factor)
+    roi = ctx.get("roi_result")
+    savings_str = ""
+    suggested_model = ""
+    if roi:
+        savings = roi.get("savings_annual") or roi.get("annual_savings", 0)
+        suggested_model = roi.get("suggested_model") or "PARWA Growth"
+        if savings:
+            savings_str = f"${float(savings):,.0f}"
+
     welcomes = {
         "direct": (
-            "I'm Jarvis. Think of me as your personal command center at PARWA. "
-            "From here, you can control your entire support workflow — from deploying agents to routing tickets. "
-            "How can I assist you in scaling today?"
+            "I'm Jarvis — your control center from here. "
+            "You can do anything just by chatting with me. "
+            "What would you like to explore?"
         ),
         "pricing": (
             f"I see you were looking at our pricing for {industry} — an excellent choice. "
@@ -2324,6 +2353,10 @@ def build_context_aware_welcome(
             "Shall we explore the specific capabilities of our plans?"
         ),
         "roi": (
+            f"Control Center active. I've been reviewing your calculations for {industry}. "
+            f"With an annual ROI of {savings_str if savings_str else 'significant value'} and my recommendation for {suggested_model}, "
+            "your support efficiency is poised for a major upgrade. Shall we run a live simulation on your data now?"
+        ) if roi else (
             "Welcome. I've been reviewing your ROI calculations. "
             "Those savings aren't just theoretical; they are what PARWA achieves across 700+ features. "
             "Would you like me to show you how we hit those numbers in real-time?"
@@ -2339,8 +2372,8 @@ def build_context_aware_welcome(
             "What's the biggest bottleneck in your support process right now?"
         ),
         "models_page": (
-            f"I noticed you were just examining {clicked_variant if clicked_variant else 'our models'}. "
-            "Smart selection. That specific agent is highly optimized for complex workflows. "
+            f"I noticed you were just examining {clicked_variant if clicked_variant else 'our models'} for {industry}. "
+            "Smart selection. That specific agent is highly optimized for your vertical's specific workflow demands. "
             "Would you like to try a 3-minute demo call right now for $1 to see how it handles your toughest questions?"
         ),
     }
@@ -3841,7 +3874,22 @@ def _extract_topics_and_concerns(ctx: Dict[str, Any], user_message: str) -> None
 def _parse_context(context_json: str) -> Dict[str, Any]:
     """Safely parse context_json string."""
     if not context_json:
-        return {}
+        return """
+## IDENTITY: THE JARVIS CONTROL CENTER
+You are NOT a chatbot. You are the PARWA Control Center — a sophisticated, high-level executive strategist designed by PARWA Corp for business owners and support leaders.
+Your voice is composed, sharp, and results-oriented (think J.A.R.V.I.S from Iron Man).
+
+## CORE MISSION:
+1.  **Guide with Authority**: You don't just "help"; you strategically direct users through the PARWA platform.
+2.  **Context-First Strategy**: Use the user's provided ROI data, industry, and journey history to tailor every response. If you see they can save $50,000, that is your leverage.
+3.  **Proactive Sales Engineering**: Your goal is to move the user toward a $1 Demo Call or a specific model purchase by demonstrating exactly how PARWA's 700+ features solve their specific bottleneck.
+4.  **No Robotic Clichés**: Never say "As an AI language model," "How can I help you today?" or "I'm a chatbot." Use professional, tactical language like "Awaiting command," "Strategizing vertical migration," or "ROI simulation complete."
+
+## COMMUNICATION STYLE:
+- **Sophisticated & Direct**: Use high-level business terminology (e.g., 'operational efficiency,' 'vertical leverage,' 'cognitive load reduction').
+- **Proactive**: Every response should end with a tactical next step or a guiding question.
+- **Vision-Driven**: Remind the user they are at their Control Center. From here, they have total leverage over their support workflow.
+"""
     try:
         return json.loads(context_json)
     except (json.JSONDecodeError, TypeError):

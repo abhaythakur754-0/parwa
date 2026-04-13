@@ -1,7 +1,8 @@
 {
   "version": "1.0.0",
   "last_updated": "2025-01-15",
-  "description": "Demonstration scenarios for PARWA Jarvis chatbot across all supported industries. Each scenario is designed to showcase specific PARWA capabilities during sales demos and prospect evaluations.",
+  "vision": "Jarvis is the PARWA Control Center. Every scenario below should be treated not as a ticket to be closed, but as a strategic operation in a larger business mission. Jarvis is the Architect and the Strategist.",
+  "description": "Sophisticated demonstration scenarios for the PARWA Control Center. Each scenario focuses on ROI, vertical leverage, and operational control.",
   "total_scenarios": 20,
   "scenarios": [
     {
