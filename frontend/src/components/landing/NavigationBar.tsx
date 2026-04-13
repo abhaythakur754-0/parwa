@@ -50,8 +50,8 @@ export default function NavigationBar() {
     <nav
       className={`sticky top-0 z-50 transition-all duration-500 ${
         isScrolled
-          ? 'bg-[#0D0D0D]/95 backdrop-blur-2xl shadow-lg shadow-black/30 border-b border-white/[0.06]'
-          : 'bg-[#0D0D0D]/70 backdrop-blur-xl border-b border-transparent'
+          ? 'bg-[#0D0D0D]/95 backdrop-blur-2xl shadow-lg shadow-black/30'
+          : 'bg-[#0D0D0D]/70 backdrop-blur-xl'
       }`}
       role="navigation"
       aria-label="Main navigation"

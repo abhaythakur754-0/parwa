@@ -83,7 +83,11 @@ export default function HowItWorks() {
     <section
       ref={sectionRef}
       className="relative overflow-hidden"
+      style={{ background: '#1A1A1A' }}
     >
+      {/* Section Blending — Softer boundaries */}
+      <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#1A1A1A] to-transparent z-10 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#1A1A1A] to-transparent z-10 pointer-events-none" />
       {/* Ambient glow orbs */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/4 right-0 w-80 h-80 bg-orange-500/15 rounded-full blur-[120px]" />

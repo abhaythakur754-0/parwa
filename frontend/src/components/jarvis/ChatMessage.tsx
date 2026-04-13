@@ -56,8 +56,8 @@ interface ChatMessageProps {
 function MessageAvatar({ role }: { role: MessageRole }) {
   if (role === 'user') {
     return (
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-400/20 flex items-center justify-center shrink-0">
-        <User className="w-4 h-4 text-blue-300" />
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400/20 to-orange-500/20 border border-orange-500/20 flex items-center justify-center shrink-0">
+        <User className="w-4 h-4 text-orange-300" />
       </div>
     );
   }
@@ -88,7 +88,7 @@ function MessageTimestamp({
   return (
     <p
       className={`text-[10px] mt-1 px-1 ${
-        isUser ? 'text-blue-300/40 text-right' : 'text-orange-300/40'
+        isUser ? 'text-orange-300/40 text-right' : 'text-orange-300/40'
       }`}
     >
       {time}
@@ -150,14 +150,22 @@ function isEmojiChar(ch: string): boolean {
 }
 
 function renderInlineContent(content: string) {
-  // Pre-process: if a single line contains multiple bullet markers (•, -, *) split them into separate lines
+  // Pre-process Bold text **text**
+  const processBold = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-bold text-white">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
   const preprocessed = content.split('\n').flatMap((line) => {
     const trimmed = line.trim();
     if (!trimmed) return [line];
-    // Check if line has 2+ bullet markers — meaning multiple bullets are jammed on one line
     const bulletMatches = trimmed.match(/[\u2022\-*•]\s/g);
     if (bulletMatches && bulletMatches.length >= 2) {
-      // Split on bullet markers but keep the marker with each piece
       return trimmed.split(/(?=[\u2022\-*•]\s)/).filter(Boolean);
     }
     return [line];
@@ -170,20 +178,17 @@ function renderInlineContent(content: string) {
     const trimmed = line.trim();
     if (!trimmed) return <div key={index} className="h-2" />;
 
-    // Bullet point lines (•, -, *, or emoji prefix)
-    const firstChar = trimmed.charCodeAt(0);
     const isEmoji = isEmojiChar(trimmed);
     const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed) || isEmoji;
-    const isOpener = !openerUsed && !isBullet && trimmed.length < 80;
+    const isOpener = !openerUsed && !isBullet && trimmed.length < 120; // Expanded opener detection
 
     if (isBullet) {
-      // Strip leading bullet markers but keep emoji + text
       const displayText = trimmed.replace(/^[\u2022\-*•]\s*/, '').replace(/^[0-9]+[.)]\s*/, '');
       return (
-        <div key={index} className="flex items-start gap-2 py-0.5">
-          <span className="text-orange-400 shrink-0 mt-0.5 text-xs">&#9656;</span>
+        <div key={index} className="flex items-start gap-2.5 py-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-orange-500/40 mt-1.5 shrink-0" />
           <span className="text-white/90 leading-relaxed text-sm">
-            {displayText}
+            {processBold(displayText)}
           </span>
         </div>
       );
@@ -192,15 +197,15 @@ function renderInlineContent(content: string) {
     if (isOpener) {
       openerUsed = true;
       return (
-        <p key={index} className="text-white font-medium text-sm leading-relaxed">
-          {trimmed}
+        <p key={index} className="text-white font-semibold text-[15px] leading-relaxed mb-1">
+          {processBold(trimmed)}
         </p>
       );
     }
 
     return (
-      <p key={index} className="text-white/80 text-sm leading-relaxed">
-        {trimmed}
+      <p key={index} className="text-white/80 text-[14px] leading-relaxed">
+        {processBold(trimmed)}
       </p>
     );
   });
@@ -219,12 +224,12 @@ function CardWrapper({
 }) {
   return (
     <div
-      className={`flex items-end gap-2 px-4 py-2 chat-msg-reveal ${
+      className={`flex items-start gap-3 px-4 py-4 chat-msg-reveal ${
         isUser ? 'flex-row-reverse' : ''
       }`}
     >
       <MessageAvatar role={message.role} />
-      <div className="max-w-[80%]">
+      <div className="max-w-[90%]">
         {children}
         <MessageTimestamp timestamp={message.timestamp} isUser={isUser} />
       </div>
@@ -397,18 +402,18 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
     default:
       return (
         <div
-          className={`flex items-end gap-2 px-4 py-2 chat-msg-reveal ${
-            isUser ? 'flex-row-reverse' : ''
+          className={`flex items-start gap-4 px-4 py-8 chat-msg-reveal border-b border-white/[0.03] ${
+            isUser ? 'flex-row-reverse bg-orange-500/[0.03]' : 'bg-transparent'
           }`}
         >
           <MessageAvatar role={message.role} />
 
-          <div className={`max-w-[75%] flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+          <div className={`flex-1 flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
             <div
-              className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                 isUser
-                  ? 'bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white rounded-br-md shadow-lg shadow-blue-500/10'
-                  : 'glass text-white/90 rounded-bl-md border border-white/[0.06]'
+                  ? 'bg-orange-600/90 text-white shadow-lg shadow-orange-500/10'
+                  : 'text-white/90'
               }`}
             >
               {isUser ? (

@@ -499,8 +499,8 @@ export default function FeatureCarousel() {
             );
           })}
 
-          {/* Bottom Controls */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#1A1A1A]/90 via-[#1A1A1A]/50 to-transparent pt-12 pb-5 sm:pb-6 md:pb-8 px-4 sm:px-6">
+          {/* Bottom Controls — Softened gradient to remove "blur" feel */}
+          <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#1A1A1A]/70 via-[#1A1A1A]/30 to-transparent pt-6 pb-5 sm:pb-6 md:pb-8 px-4 sm:px-6">
             <div className="flex items-center justify-between max-w-7xl mx-auto">
               <button
                 onClick={prevSlide}

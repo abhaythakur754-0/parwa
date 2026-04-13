@@ -80,7 +80,14 @@ export default function WhyChooseUs() {
   }, [isInView]);
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden">
+    <section
+      ref={sectionRef}
+      className="relative overflow-hidden"
+      style={{ background: '#1A1A1A' }}
+    >
+      {/* Section Blending — Softer boundaries */}
+      <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#1A1A1A] to-transparent z-10 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#1A1A1A] to-transparent z-10 pointer-events-none" />
       {/* Ambient glow orbs */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-orange-500/12 rounded-full blur-[140px]" />

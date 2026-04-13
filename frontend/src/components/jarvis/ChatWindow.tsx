@@ -10,7 +10,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Bot } from 'lucide-react';
 import type { JarvisMessage, JarvisContext } from '@/types/jarvis';
 import { ChatMessage } from './ChatMessage';
 import { TypingIndicator } from './TypingIndicator';
@@ -130,15 +130,15 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
   const welcome = getWelcomeMessage(sessionContext);
 
   return (
-    <div className="flex-1 overflow-hidden relative" ref={containerRef} role="log" aria-label="Chat messages">
+    <div className="flex-1 overflow-hidden relative bg-[#0D0D0D]" ref={containerRef} role="log" aria-label="Chat messages">
       <ScrollArea className="h-full scrollbar-premium">
-        <div className="flex flex-col min-h-full py-4">
+        <div className="flex flex-col min-h-full">
           {/* Empty state */}
           {isEmpty && (
-            <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center animate-fade-in">
+            <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center animate-fade-in max-w-2xl mx-auto">
               {/* Decorative icon */}
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/15 flex items-center justify-center mb-4">
-                <MessageSquare className="w-8 h-8 text-orange-400/50" />
+              <div className="w-16 h-16 rounded-3xl bg-orange-500/5 border border-orange-500/10 flex items-center justify-center mb-6">
+                <Bot className="w-8 h-8 text-orange-400/40" />
               </div>
 
               <h3 className="text-base font-medium text-white/60 mb-1">
@@ -159,7 +159,7 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
 
           {/* Message list */}
           {!isEmpty && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
               {messages.map((msg, idx) => (
                 <ChatMessage
                   key={msg.id || `msg-${idx}`}
