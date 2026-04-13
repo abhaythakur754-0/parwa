@@ -66,8 +66,9 @@ _DEFAULT_PRICE_IDS: Dict[str, str] = {
 def _load_price_ids() -> Dict[str, str]:
     """Load price IDs from env config, falling back to defaults."""
     try:
-        from app.config import settings
-        env_json = settings.PADDLE_PRICE_IDS
+        from app.config import get_settings
+        _settings = get_settings()
+        env_json = _settings.PADDLE_PRICE_IDS
         if env_json:
             overrides = json.loads(env_json)
             merged = {**_DEFAULT_PRICE_IDS, **overrides}
