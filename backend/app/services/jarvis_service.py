@@ -340,9 +340,16 @@ def create_or_resume_session(
 
     # CRITICAL: Generate the context-aware welcome message immediately
     # so it's ready in the session history response.
-    from app.services.jarvis_service import build_context_aware_welcome, _save_message
-    welcome_text = build_context_aware_welcome(db, str(session.id), user_id)
-    _save_message(db, str(session.id), "jarvis", welcome_text, "text")
+    welcome_text = build_context_aware_welcome(db, str(session.id))
+    welcome_msg = JarvisMessage(
+        session_id=str(session.id),
+        role="jarvis",
+        content=welcome_text,
+        message_type="text",
+        metadata_json=json.dumps({}),
+    )
+    db.add(welcome_msg)
+    db.flush()
 
     return session
 
