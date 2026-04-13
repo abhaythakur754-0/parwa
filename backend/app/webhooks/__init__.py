@@ -29,6 +29,9 @@ PROVIDER_EVENT_TYPES = {
     ],
     "brevo": [
         "inbound_email",
+        "bounce",
+        "complaint",
+        "delivered",
     ],
     "twilio": [
         "sms.incoming",
