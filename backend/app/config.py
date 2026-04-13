@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     PADDLE_CLIENT_TOKEN: str = ""
     PADDLE_API_KEY: str = ""
     PADDLE_WEBHOOK_SECRET: str = ""
+    # Paddle Price IDs — override via env when products are created in Paddle dashboard
+    # Format: JSON string {"demo_pack": "pri_xxx", "mini_parwa": "pri_xxx", ...}
+    PADDLE_PRICE_IDS: str = ""  # Optional: JSON override for all price IDs
 
     # ── Shopify (F-131) ─────────────────────────────────────────
     SHOPIFY_WEBHOOK_SECRET: str = ""

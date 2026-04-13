@@ -11,6 +11,7 @@ Uses the existing PaddleClient (BC-002) for all Paddle API calls.
 """
 
 import logging
+import json
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -20,48 +21,79 @@ from app.clients.paddle_client import PaddleClient, get_paddle_client, PaddleErr
 logger = logging.getLogger("parwa.services.paddle")
 
 
-# ── Constants ────────────────────────────────────────────────────────────────
+# ── Constants ────────────────────────────────────────────────────────
 
-DEMO_PACK_PRICE_ID = "pri_demo_pack_01"  # Paddle price ID for $1 demo pack
 DEMO_PACK_AMOUNT = "1.00"
 DEMO_PACK_CURRENCY = "USD"
 DEMO_PACK_MESSAGES = 500
 DEMO_PACK_CALL_MINUTES = 3
 DEMO_PACK_DURATION_HOURS = 24
 
-# Plan → Paddle price ID mapping (configurable)
-PLAN_PRICE_IDS: Dict[str, str] = {
+# Default price IDs — used until PADDLE_PRICE_IDS env var is set
+_DEFAULT_PRICE_IDS: Dict[str, str] = {
+    "demo_pack": "pri_demo_pack_01",
+    # Plan price IDs
     "mini_parwa": "pri_mini_parwa_01",
     "parwa": "pri_parwa_01",
     "parwa_high": "pri_parwa_high_01",
-}
-
-# Industry variant price IDs
-VARIANT_PRICE_IDS: Dict[str, str] = {
-    # E-commerce
+    # E-commerce variants
     "order_management": "pri_order_mgmt_01",
     "returns_refunds": "pri_returns_01",
     "product_faq": "pri_faq_01",
     "shipping_inquiries": "pri_shipping_01",
     "payment_issues": "pri_payment_issues_01",
-    # SaaS
+    # SaaS variants
     "technical_support": "pri_tech_support_01",
     "billing_support": "pri_billing_support_01",
     "feature_requests": "pri_feature_req_01",
     "api_support": "pri_api_support_01",
     "account_issues": "pri_account_issues_01",
-    # Logistics
+    # Logistics variants
     "shipment_tracking": "pri_shipment_track_01",
     "delivery_issues": "pri_delivery_issues_01",
     "warehouse_queries": "pri_warehouse_01",
     "fleet_management": "pri_fleet_01",
     "customs": "pri_customs_01",
-    # Healthcare
+    # Healthcare variants
     "appointment_scheduling": "pri_appt_sched_01",
     "insurance_verification": "pri_insurance_01",
     "medical_records": "pri_med_records_01",
     "prescription_management": "prescription_mgmt_01",
     "medical_billing": "pri_med_billing_01",
+}
+
+
+def _load_price_ids() -> Dict[str, str]:
+    """Load price IDs from env config, falling back to defaults."""
+    try:
+        from app.config import settings
+        env_json = settings.PADDLE_PRICE_IDS
+        if env_json:
+            overrides = json.loads(env_json)
+            merged = {**_DEFAULT_PRICE_IDS, **overrides}
+            logger.info("paddle_price_ids_loaded_from_env count=%d", len(merged))
+            return merged
+    except Exception as e:
+        logger.warning("paddle_price_ids_env_parse_failed error=%s", str(e))
+    return dict(_DEFAULT_PRICE_IDS)
+
+
+# Price ID lookups — loaded once at module level
+_PRICE_IDS = _load_price_ids()
+
+DEMO_PACK_PRICE_ID = _PRICE_IDS.get("demo_pack", "pri_demo_pack_01")
+
+# Plan → Paddle price ID mapping (configurable)
+PLAN_PRICE_IDS: Dict[str, str] = {
+    "mini_parwa": _PRICE_IDS.get("mini_parwa", "pri_mini_parwa_01"),
+    "parwa": _PRICE_IDS.get("parwa", "pri_parwa_01"),
+    "parwa_high": _PRICE_IDS.get("parwa_high", "pri_parwa_high_01"),
+}
+
+# Industry variant price IDs — all non-plan entries
+VARIANT_PRICE_IDS: Dict[str, str] = {
+    k: v for k, v in _PRICE_IDS.items()
+    if k not in ("demo_pack", "mini_parwa", "parwa", "parwa_high")
 }
 
 
