@@ -86,6 +86,9 @@ export default function HeroSection() {
         background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 30%, #2D1F0E 60%, #3D2A10 80%, #1A1A1A 100%)',
       }}
     >
+      {/* Section Blending — Softer boundaries */}
+      <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#1A1A1A] to-transparent z-10 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#1A1A1A] to-transparent z-10 pointer-events-none" />
       {/* Animated Background */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Floating orbs with parallax */}

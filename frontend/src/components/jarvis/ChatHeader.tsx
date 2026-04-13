@@ -38,27 +38,21 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
-  // Read auth state from localStorage synchronously on mount (no effect needed)
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return !!localStorage.getItem('parwa_user');
-    } catch {
-      return false;
-    }
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Listen for storage changes (login/logout from other tabs)
+  // Initialize and listen for storage changes (login/logout) after mount
   useEffect(() => {
-    const handleStorage = () => {
+    const checkAuth = () => {
       try {
         setIsAuthenticated(!!localStorage.getItem('parwa_user'));
       } catch {
         setIsAuthenticated(false);
       }
     };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    
+    checkAuth();
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
   }, []);
 
   const stageLabel = session?.detected_stage
@@ -66,7 +60,7 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
     : null;
 
   return (
-    <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.03] backdrop-blur-md shrink-0" role="banner">
+    <header className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-[#1A1A1A] backdrop-blur-md shrink-0" role="banner">
       {/* Left — Back link + Avatar + Title */}
       <div className="flex items-center gap-3">
         {/* Back to Home link */}

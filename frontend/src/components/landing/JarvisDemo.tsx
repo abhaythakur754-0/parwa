@@ -108,10 +108,13 @@ export default function JarvisDemo() {
       ref={sectionRef}
       className="relative overflow-hidden"
       style={{
-        background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 25%, #2D1F0E 50%, #3D2A10 75%, #1A1A1A 100%)',
         minHeight: '720px',
+        background: '#1A1A1A'
       }}
     >
+      {/* Section Blending — Softer boundaries */}
+      <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#1A1A1A] to-transparent z-10 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#1A1A1A] to-transparent z-10 pointer-events-none" />
       {/* ── Animated Background Layers ── */}
 
       {/* Layer 1: Large floating orbs with parallax */}
