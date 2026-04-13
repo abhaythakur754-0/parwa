@@ -40,7 +40,7 @@ KB_FILES = {
 
 _knowledge_cache: Dict[str, Any] = {}
 
-def _load_all_knowledge():
+def load_all_knowledge():
     """Load all JSON files into memory at startup/first call."""
     if _knowledge_cache:
         return
@@ -213,4 +213,4 @@ def get_edge_case_response(intent: str) -> Optional[str]:
     return None
 
 # Initial load
-_load_all_knowledge()
+load_all_knowledge()
