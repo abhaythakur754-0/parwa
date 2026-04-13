@@ -283,6 +283,7 @@ interface ModelComparison {
   hoursSavedPerMonth: number;
   paybackMonths: number;
   isRecommended: boolean;
+  quantity: number;
 }
 
 function calculateComparisons(
@@ -294,11 +295,13 @@ function calculateComparisons(
   recommendedId: string
 ): ModelComparison[] {
   return PARWA_MODELS.map((model) => {
-    const aiTickets = Math.round(tickets * model.aiResolution);
-    const humanTickets = tickets - aiTickets;
-    // PARWA cost = platform fee + remaining human ticket costs (at 25% efficiency gain)
+    // ── Quantity Scaling Logic ──
+    const quantity = Math.max(1, Math.ceil(tickets / model.ticketCapacity));
+    
+    // PARWA cost = (platform fee * quantity) + remaining human ticket costs (at 25% efficiency gain)
     const humanCost = humanTickets * cpt * 0.25;
-    const parwaMonthly = model.price + humanCost;
+    const platformCost = model.price * quantity;
+    const parwaMonthly = platformCost + humanCost;
     const parwaAnnual = parwaMonthly * 12;
     const monthlySavings = Math.max(0, currentMonthly - parwaMonthly);
     const annualSavings = Math.max(0, currentAnnual - parwaAnnual);
@@ -322,6 +325,7 @@ function calculateComparisons(
       hoursSavedPerMonth,
       paybackMonths: Math.min(12, Math.max(1, paybackMonths)),
       isRecommended: model.id === recommendedId,
+      quantity,
     };
   });
 }
@@ -669,6 +673,7 @@ export default function ROICalculatorPage() {
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                     <div>
                       <h2 className="text-2xl sm:text-3xl font-black text-white mb-1">
+                        {recommendedComparison.quantity > 1 ? `${recommendedComparison.quantity}x ` : ''}
                         {recommendedModel.name}
                       </h2>
                       <p className="text-base text-orange-300/80 font-medium">
@@ -677,7 +682,7 @@ export default function ROICalculatorPage() {
                     </div>
                     <div className="text-left sm:text-right flex-shrink-0">
                       <div className="text-4xl font-black text-orange-400">
-                        ${recommendedModel.price.toLocaleString()}
+                        ${(recommendedModel.price * recommendedComparison.quantity).toLocaleString()}
                       </div>
                       <div className="text-sm text-gray-400">/month</div>
                     </div>
@@ -697,9 +702,9 @@ export default function ROICalculatorPage() {
                       <Users className="w-3 h-3 text-orange-400" />
                       {recommendedModel.agents} AI Agents
                     </span>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs text-orange-300 font-bold">
                       <TicketCheck className="w-3 h-3 text-orange-400" />
-                      {recommendedModel.ticketCapacity}
+                      Total Capacity: {fmtNum(recommendedModel.ticketCapacity * recommendedComparison.quantity)}
                     </span>
                     {recommendedModel.channels.map((ch) => (
                       <span
@@ -882,7 +887,12 @@ export default function ROICalculatorPage() {
                             : '—'}
                         </td>
                         <td className="px-5 py-3.5 text-right text-gray-300 font-semibold">
-                          ${recommendedModel.price.toLocaleString()}/mo
+                          ${(recommendedModel.price * recommendedComparison.quantity).toLocaleString()}/mo
+                          {recommendedComparison.quantity > 1 && (
+                            <div className="text-[10px] text-gray-500 font-normal">
+                              ({recommendedComparison.quantity}x ${recommendedModel.price.toLocaleString()})
+                            </div>
+                          )}
                         </td>
                       </tr>
                       {/* TOTAL MONTHLY */}
@@ -1199,12 +1209,29 @@ export default function ROICalculatorPage() {
                       } catch {
                         /* ignore */
                       }
+                      try {
+                        const roiCtx = {
+                          industry,
+                          roi_result: {
+                            monthly_savings: recommendedComparison.monthlySavings,
+                            annual_savings: recommendedComparison.annualSavings,
+                            parwa_monthly: recommendedComparison.parwaMonthlyCost,
+                            current_monthly: recommendedComparison.currentMonthlyCost,
+                            quantity: recommendedComparison.quantity
+                          },
+                          variant: recommendedModel.id,
+                          quantity: recommendedComparison.quantity,
+                          entry_source: 'roi'
+                        };
+                        localStorage.setItem('parwa_jarvis_context', JSON.stringify(roiCtx));
+                      } catch (e) { /* ignore */ }
                     }
                     window.location.href =
                       '/jarvis?entry_source=roi&industry=' +
                       encodeURIComponent(industry) +
                       '&variant=' +
-                      encodeURIComponent(recommendedModel.id);
+                      encodeURIComponent(recommendedModel.id) +
+                      '&qty=' + recommendedComparison.quantity;
                   }}
                   className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-white/10 text-gray-300 text-sm font-bold hover:border-orange-500/30 hover:bg-white/5 transition-all duration-300"
                 >
