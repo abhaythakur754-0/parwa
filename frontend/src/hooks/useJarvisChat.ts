@@ -161,7 +161,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     try {
       // ── Context Bridge (Enhanced for immediate awareness) ───────
       let initialParams = { ...entryParams };
-      let initialIndustry = entryIndustry || null;
+      let initialIndustry = (entryParams?.industry as string) || null;
       
       if (typeof window !== 'undefined') {
         try {
