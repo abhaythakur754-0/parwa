@@ -1017,14 +1017,24 @@ def purchase_demo_pack(
     if user:
         customer_name = getattr(user, 'full_name', None) or getattr(user, 'name', None)
 
-    # Create Paddle checkout for $1 demo pack
+    # Create Paddle checkout for $1 demo pack (async-safe: BC-012)
     try:
         paddle_svc = get_paddle_service()
-        result = asyncio.run(paddle_svc.create_demo_pack_checkout(
-            session_id=session_id,
-            customer_email=customer_email,
-            customer_name=customer_name,
-        ))
+        try:
+            result = asyncio.run(paddle_svc.create_demo_pack_checkout(
+                session_id=session_id,
+                customer_email=customer_email,
+                customer_name=customer_name,
+            ))
+        except RuntimeError:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                result = pool.submit(
+                    asyncio.run, paddle_svc.create_demo_pack_checkout(
+                        session_id=session_id,
+                        customer_email=customer_email,
+                        customer_name=customer_name,
+                    ),
+                ).result(timeout=30)
 
         # Create action ticket
         _create_ticket(db, session_id, "payment_demo_pack", {
@@ -1100,16 +1110,28 @@ def create_payment_session(
     # Calculate total
     total_monthly = sum(v.get("price", 0) * v.get("quantity", 1) for v in variants)
 
-    # Create Paddle checkout
+    # Create Paddle checkout (async-safe: BC-012)
     try:
         paddle_svc = get_paddle_service()
-        result = asyncio.run(paddle_svc.create_variant_checkout(
-            session_id=session_id,
-            variants=variants,
-            industry=industry,
-            customer_email=customer_email,
-            customer_name=customer_name,
-        ))
+        try:
+            result = asyncio.run(paddle_svc.create_variant_checkout(
+                session_id=session_id,
+                variants=variants,
+                industry=industry,
+                customer_email=customer_email,
+                customer_name=customer_name,
+            ))
+        except RuntimeError:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                result = pool.submit(
+                    asyncio.run, paddle_svc.create_variant_checkout(
+                        session_id=session_id,
+                        variants=variants,
+                        industry=industry,
+                        customer_email=customer_email,
+                        customer_name=customer_name,
+                    ),
+                ).result(timeout=30)
 
         # Create action ticket
         ticket = _create_ticket(db, session_id, "payment_variant", {
@@ -1157,12 +1179,12 @@ def handle_payment_webhook(
     Paddle may fire the same webhook multiple times.
 
     Verifies Paddle webhook signature before processing.
+    Dispatches to demo-pack or subscription activation based on custom_data.
     """
     # Verify Paddle webhook signature
     try:
         paddle_client = get_paddle_client()
         signature = headers.get("paddle-signature", "") if headers else ""
-        # Use raw_payload if available; otherwise serialize event_data as bytes
         payload_bytes = raw_payload if raw_payload else json.dumps(event_data).encode("utf-8")
         if not paddle_client.verify_webhook_signature(
             payload=payload_bytes,
@@ -1177,13 +1199,12 @@ def handle_payment_webhook(
         raise
 
     # Idempotency: check if event was already processed
-    # Use result_json on the payment_variant ticket to track event_id
     event_id = event_data.get("event_id", "")
     if event_id:
         existing_ticket = (
             db.query(JarvisActionTicket)
             .filter(
-                JarvisActionTicket.ticket_type == "payment_variant_completed",
+                JarvisActionTicket.ticket_type.in_(["payment_variant_completed", "payment_demo_pack"]),
             )
             .all()
         )
@@ -1192,13 +1213,14 @@ def handle_payment_webhook(
             if result.get("event_id") == event_id:
                 return {
                     "status": "already_processed",
-                    "session_id": event_data.get("custom", {}).get("session_id"),
+                    "session_id": event_data.get("custom_data", event_data.get("custom", {})).get("session_id"),
                     "event_type": event_type,
                     "event_id": event_id,
                 }
 
-    # Extract session info from webhook data
-    session_id = event_data.get("custom", {}).get("session_id")
+    # Extract session info — Paddle sends custom_data or custom depending on version
+    custom_data = event_data.get("custom_data", event_data.get("custom", {}))
+    session_id = custom_data.get("session_id")
     if not session_id:
         raise ValidationError(
             message="Invalid webhook: no session reference",
@@ -1210,22 +1232,24 @@ def handle_payment_webhook(
     if not session:
         raise NotFoundError(message="Session not found for webhook")
 
-    if event_type in ("payment.completed", "payment.success"):
-        session.payment_status = "completed"
-        _complete_latest_ticket(
-            db, session_id, "payment_variant",
-            {"paddle_event": event_type, "data": event_data},
-        )
-        _create_ticket(db, session_id, "payment_variant_completed", {
-            "paddle_event": event_type,
-            "event_id": event_id,
-        })
-    elif event_type in ("payment.failed", "payment.declined"):
+    pack_type = custom_data.get("pack_type", "")
+
+    if event_type in ("payment.completed", "payment.success", "transaction.completed", "transaction.paid"):
+        # ── Determine if demo-pack or subscription ──
+        if pack_type == "demo":
+            _handle_demo_pack_success(db, session, event_data, custom_data, event_id, event_type)
+        else:
+            _handle_subscription_success(db, session, event_data, custom_data, event_id, event_type)
+    elif event_type in ("payment.failed", "payment.declined", "transaction.failed", "transaction.payment_failed"):
         session.payment_status = "failed"
+        ticket_type = "payment_demo_pack" if pack_type == "demo" else "payment_variant"
         _complete_latest_ticket(
-            db, session_id, "payment_variant",
+            db, session_id, ticket_type,
             {"paddle_event": event_type, "data": event_data, "success": False},
         )
+    elif event_type in ("subscription.activated", "subscription.updated"):
+        # Subscription lifecycle events — update status
+        _handle_subscription_success(db, session, event_data, custom_data, event_id, event_type)
 
     session.updated_at = datetime.now(timezone.utc)
     db.flush()
@@ -1234,7 +1258,154 @@ def handle_payment_webhook(
         "status": session.payment_status,
         "session_id": session_id,
         "event_type": event_type,
+        "pack_type": session.pack_type,
     }
+
+
+def _handle_demo_pack_success(
+    db: Session,
+    session: "JarvisSession",
+    event_data: Dict[str, Any],
+    custom_data: Dict[str, Any],
+    event_id: str,
+    event_type: str,
+) -> None:
+    """Activate demo pack on session after successful payment."""
+    paddle_svc = get_paddle_service()
+    try:
+        try:
+            activation = asyncio.run(paddle_svc.handle_demo_pack_webhook(event_data))
+        except RuntimeError:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                activation = pool.submit(
+                    asyncio.run, paddle_svc.handle_demo_pack_webhook(event_data),
+                ).result(timeout=15)
+    except Exception as e:
+        logger.error("demo_pack_activation_failed", session_id=session.id, error=str(e))
+        activation = None
+
+    # Apply activation data to session
+    session.payment_status = "completed"
+    session.pack_type = "demo"
+    if activation:
+        pack_expiry_str = activation.get("pack_expiry")
+        if pack_expiry_str:
+            try:
+                session.pack_expiry = datetime.fromisoformat(pack_expiry_str)
+            except (ValueError, TypeError):
+                from datetime import timedelta
+                session.pack_expiry = datetime.now(timezone.utc) + timedelta(hours=24)
+        session.message_count_today = activation.get("message_count_today", 0)
+        session.demo_call_used = not activation.get("demo_call_remaining", True)
+        transaction_id = activation.get("transaction_id", "")
+        amount = activation.get("amount", "1.00")
+    else:
+        from datetime import timedelta
+        session.pack_expiry = datetime.now(timezone.utc) + timedelta(hours=24)
+        session.message_count_today = 0
+        session.demo_call_used = False
+        transaction_id = event_data.get("transaction_id", "")
+        amount = "1.00"
+
+    # Complete the pending demo-pack ticket
+    _complete_latest_ticket(
+        db, session.id, "payment_demo_pack",
+        {
+            "paddle_event": event_type,
+            "data": event_data,
+            "transaction_id": transaction_id,
+            "amount": amount,
+            "pack_activated": True,
+        },
+    )
+    # Record completion ticket
+    _create_ticket(db, session.id, "payment_variant_completed", {
+        "paddle_event": event_type,
+        "event_id": event_id,
+        "pack_type": "demo",
+        "transaction_id": transaction_id,
+        "action": "demo_pack_activated",
+    })
+
+    logger.info(
+        "demo_pack_activated session_id=%s expiry=%s",
+        session.id, session.pack_expiry.isoformat() if session.pack_expiry else "none",
+    )
+
+
+def _handle_subscription_success(
+    db: Session,
+    session: "JarvisSession",
+    event_data: Dict[str, Any],
+    custom_data: Dict[str, Any],
+    event_id: str,
+    event_type: str,
+) -> None:
+    """Record subscription activation on session."""
+    paddle_svc = get_paddle_service()
+    try:
+        try:
+            activation = asyncio.run(paddle_svc.handle_subscription_webhook(event_data))
+        except RuntimeError:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                activation = pool.submit(
+                    asyncio.run, paddle_svc.handle_subscription_webhook(event_data),
+                ).result(timeout=15)
+    except Exception as e:
+        logger.error("subscription_activation_failed", session_id=session.id, error=str(e))
+        activation = None
+
+    session.payment_status = "completed"
+
+    # Store hired variants in context_json
+    ctx = _parse_context(session.context_json or "{}")
+    if activation:
+        hired_variants = activation.get("hired_variants", [])
+        subscription_id = activation.get("subscription_id", "")
+        industry = activation.get("industry", "")
+        ctx["hired_variants"] = hired_variants
+        ctx["subscription_id"] = subscription_id
+        ctx["industry"] = industry
+        ctx["subscription_activated_at"] = activation.get("activated_at", "")
+    else:
+        hired_variants = custom_data.get("variant_ids", [])
+        ctx["hired_variants"] = [
+            {"id": v, "quantity": custom_data.get("variant_quantities", {}).get(v, 1)}
+            for v in hired_variants
+        ]
+        ctx["subscription_id"] = event_data.get("subscription_id", "")
+        ctx["industry"] = custom_data.get("industry", "")
+        ctx["subscription_activated_at"] = datetime.now(timezone.utc).isoformat()
+
+    session.context_json = json.dumps(ctx)
+
+    # Update company subscription tier if possible
+    from app.models.user import User
+    from app.models.company import Company
+    user = db.query(User).filter(User.id == session.user_id).first()
+    if user and user.company_id:
+        company = db.query(Company).filter(Company.id == user.company_id).first()
+        if company:
+            company.subscription_status = "active"
+            db.flush()
+
+    # Complete the pending payment ticket
+    _complete_latest_ticket(
+        db, session.id, "payment_variant",
+        {"paddle_event": event_type, "data": event_data},
+    )
+    _create_ticket(db, session.id, "payment_variant_completed", {
+        "paddle_event": event_type,
+        "event_id": event_id,
+        "hired_variants": ctx.get("hired_variants", []),
+        "subscription_id": ctx.get("subscription_id", ""),
+        "action": "subscription_activated",
+    })
+
+    logger.info(
+        "subscription_activated session_id=%s variants=%d",
+        session.id, len(ctx.get("hired_variants", [])),
+    )
 
 
 def get_payment_status(
@@ -1242,14 +1413,64 @@ def get_payment_status(
     session_id: str,
     user_id: str,
 ) -> Dict[str, Any]:
-    """Get current payment status for a session."""
+    """Get current payment status for a session.
+
+    Returns real data from the session record plus any stored
+    transaction metadata from the webhook activation.
+    """
     session = get_session(db, session_id, user_id)
+
+    # Extract stored transaction data from context_json
+    ctx = _parse_context(session.context_json or "{}")
+
+    # Check action tickets for the latest payment info
+    latest_payment_ticket = (
+        db.query(JarvisActionTicket)
+        .filter(
+            JarvisActionTicket.session_id == session_id,
+            JarvisActionTicket.ticket_type.in_(["payment_demo_pack", "payment_variant"]),
+        )
+        .order_by(JarvisActionTicket.created_at.desc())
+        .first()
+    )
+
+    transaction_id = None
+    amount = None
+    paid_at = None
+
+    if latest_payment_ticket and latest_payment_ticket.result_json:
+        ticket_result = _parse_context(latest_payment_ticket.result_json)
+        transaction_id = ticket_result.get("transaction_id")
+        amount = ticket_result.get("amount")
+
+    if session.payment_status == "completed":
+        completed_ticket = (
+            db.query(JarvisActionTicket)
+            .filter(
+                JarvisActionTicket.session_id == session_id,
+                JarvisActionTicket.ticket_type == "payment_variant_completed",
+            )
+            .order_by(JarvisActionTicket.created_at.desc())
+            .first()
+        )
+        if completed_ticket:
+            paid_at = completed_ticket.created_at.isoformat() if completed_ticket.created_at else None
+            if not transaction_id:
+                ticket_result = _parse_context(completed_ticket.result_json or "{}")
+                transaction_id = ticket_result.get("transaction_id")
+
     return {
         "status": session.payment_status,
-        "paddle_transaction_id": None,  # From Paddle in production
-        "amount": None,
+        "paddle_transaction_id": transaction_id,
+        "amount": amount,
         "currency": "USD",
-        "paid_at": None,
+        "paid_at": paid_at,
+        "pack_type": session.pack_type,
+        "pack_expiry": session.pack_expiry.isoformat() if session.pack_expiry else None,
+        "demo_call_remaining": not session.demo_call_used,
+        "message_count_today": session.message_count_today,
+        "hired_variants": ctx.get("hired_variants", []),
+        "subscription_id": ctx.get("subscription_id"),
     }
 
 
