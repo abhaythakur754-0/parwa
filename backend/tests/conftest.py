@@ -87,6 +87,37 @@ for model_name in [
 for model_name in ["DocumentChunk", "KnowledgeDocument"]:
     setattr(_fake_onboarding_models, model_name, MagicMock(name=model_name))
 
+# ── database.models.email_channel and outbound_email (Week 13) ────
+_fake_email_channel = types.ModuleType("database.models.email_channel")
+_fake_outbound_email = types.ModuleType("database.models.outbound_email")
+
+_MockEmailThread = type("EmailThread", (), {
+    "id": None, "company_id": None, "ticket_id": None,
+    "thread_message_id": None, "latest_message_id": None,
+    "message_count": 0, "participants_json": "[]",
+})
+_MockInboundEmail = type("InboundEmail", (), {
+    "id": None, "company_id": None, "ticket_id": None,
+    "sender_email": None, "sender_name": None,
+    "body_html": None, "body_text": None,
+    "message_id": None, "created_at": None,
+})
+_MockOutboundEmail = type("OutboundEmail", (), {
+    "id": None, "company_id": None, "recipient_email": None,
+    "subject": None, "delivery_status": None,
+    "ticket_id": None, "brevo_message_id": None,
+    "__tablename__": "outbound_emails",
+    "to_dict": lambda self: {},
+})
+
+for model_name in ["EmailThread", "InboundEmail"]:
+    setattr(_fake_email_channel, model_name,
+            _MockEmailThread if model_name == "EmailThread" else _MockInboundEmail)
+setattr(_fake_outbound_email, "OutboundEmail", _MockOutboundEmail)
+
+sys.modules.setdefault("database.models.email_channel", _fake_email_channel)
+sys.modules.setdefault("database.models.outbound_email", _fake_outbound_email)
+
 sys.modules.setdefault("database", _fake_database)
 sys.modules.setdefault("database.base", _fake_base)
 sys.modules.setdefault("database.models", _fake_models)
@@ -153,6 +184,26 @@ for mod_path in [
     mod_file = mod_path.replace(".", "/") + ".py"
     if not os.path.exists(os.path.join(os.path.dirname(__file__), "..", mod_file)):
         sys.modules.setdefault(mod_path, MagicMock())
+
+# ── app.core.email_renderer — mock for outbound email tests ────────
+_core_dir = os.path.join(os.path.dirname(__file__), "..", "app", "core")
+_email_renderer_path = os.path.join(_core_dir, "email_renderer.py")
+if os.path.exists(_email_renderer_path):
+    # Real file exists — don't mock it
+    pass
+else:
+    _fake_email_renderer = types.ModuleType("app.core.email_renderer")
+    _fake_email_renderer.render_email_template = MagicMock(
+        return_value="<html><body>Mock Template</body></html>"
+    )
+    sys.modules.setdefault("app.core.email_renderer", _fake_email_renderer)
+
+# ── app.core.event_emitter — mock for async event tests ─────────────
+_event_emitter_path = os.path.join(_core_dir, "event_emitter.py")
+if not os.path.exists(_event_emitter_path):
+    _fake_event_emitter = types.ModuleType("app.core.event_emitter")
+    _fake_event_emitter.emit_ticket_event = MagicMock()
+    sys.modules.setdefault("app.core.event_emitter", _fake_event_emitter)
 
 
 # ════════════════════════════════════════════════════════════════════════

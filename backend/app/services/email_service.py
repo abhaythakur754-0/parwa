@@ -131,20 +131,90 @@ def send_email(
     Returns:
         True if sent successfully, False otherwise.
     """
+    return _do_send_email(
+        to=to,
+        subject=subject,
+        html_content=html_content,
+        reply_to_message_id=reply_to_message_id,
+        references=references,
+    ).get("success", False)
+
+
+def send_email_tracked(
+    to: str,
+    subject: str,
+    html_content: str,
+    text_content: Optional[str] = None,
+    reply_to_message_id: Optional[str] = None,
+    references: Optional[str] = None,
+    attachments: Optional[list] = None,
+) -> dict:
+    """Send an email via Brevo with tracking details.
+
+    Extended version of send_email() that returns Brevo message_id,
+    supports plain-text content, and attachments.
+
+    Args:
+        to: Recipient email address.
+        subject: Email subject line.
+        html_content: HTML body of the email.
+        text_content: Optional plain-text body (accessibility).
+        reply_to_message_id: Message-ID being replied to.
+        references: References header chain.
+        attachments: List of attachment dicts, each with:
+            - name: filename (str)
+            - content: base64-encoded content (str)
+            - content_type: MIME type, e.g. "application/pdf" (str)
+
+    Returns:
+        Dict with keys:
+        - success: bool
+        - message_id: str | None (Brevo message-id)
+        - error: str | None
+    """
+    return _do_send_email(
+        to=to,
+        subject=subject,
+        html_content=html_content,
+        text_content=text_content,
+        reply_to_message_id=reply_to_message_id,
+        references=references,
+        attachments=attachments,
+    )
+
+
+def _do_send_email(
+    to: str,
+    subject: str,
+    html_content: str,
+    text_content: Optional[str] = None,
+    reply_to_message_id: Optional[str] = None,
+    references: Optional[str] = None,
+    attachments: Optional[list] = None,
+) -> dict:
+    """Internal: send email via Brevo, return tracking dict.
+
+    Returns:
+        {"success": bool, "message_id": str|None, "error": str|None}
+    """
+    _result = {"success": False, "message_id": None, "error": None}
+
     if _is_circuit_open():
         logger.error(
             "email_send_skipped",
             reason="circuit_breaker_open",
             to=to,
         )
-        return False
+        _result["error"] = "circuit_breaker_open"
+        return _result
 
     settings = get_settings()
     if not settings.BREVO_API_KEY:
         logger.error(
             "email_send_skipped", reason="no_api_key"
         )
-        return False
+        _result["error"] = "no_api_key"
+        return _result
 
     # Build email headers for threading
     email_headers = {}
@@ -155,6 +225,20 @@ def send_email(
     # If only In-Reply-To is set without References, copy it
     if reply_to_message_id and not references:
         email_headers["References"] = reply_to_message_id
+
+    # Build attachment list for Brevo API
+    brevo_attachments = None
+    if attachments:
+        brevo_attachments = []
+        for att in attachments[:10]:  # Max 10 attachments per email
+            if not isinstance(att, dict):
+                continue
+            name = att.get("name", "attachment")
+            content = att.get("content", "")
+            brevo_attachments.append({
+                "name": name,
+                "content": content,
+            })
 
     # --- SDK path (preferred) ---
     if _BREVO_SDK_AVAILABLE:
@@ -168,6 +252,12 @@ def send_email(
                     html_content=html_content,
                     headers=email_headers if email_headers else None,
                 )
+                # SDK supports text_content and attachment
+                if text_content:
+                    send_email_obj.text_content = text_content  # type: ignore[attr-defined]
+                if brevo_attachments:
+                    send_email_obj.attachment = brevo_attachments  # type: ignore[attr-defined]
+
                 result = client.send_transac_email(send_email_obj)
                 if result and hasattr(result, 'message_id'):
                     _record_success()
@@ -177,7 +267,11 @@ def send_email(
                         message_id=result.message_id,
                         reply_to=reply_to_message_id,
                     )
-                    return True
+                    return {
+                        "success": True,
+                        "message_id": result.message_id,
+                        "error": None,
+                    }
         except Exception as exc:  # BC-008
             logger.warning(
                 "email_sdk_failed",
@@ -196,9 +290,15 @@ def send_email(
         "subject": subject,
         "htmlContent": html_content,
     }
-    # Add threading headers to payload if present
+    # Add plain-text content
+    if text_content:
+        payload["textContent"] = text_content
+    # Add threading headers
     if email_headers:
         payload["headers"] = email_headers
+    # Add attachments
+    if brevo_attachments:
+        payload["attachment"] = brevo_attachments
 
     headers = {
         "api-key": settings.BREVO_API_KEY,
@@ -214,12 +314,24 @@ def send_email(
         )
         if resp.status_code in (200, 201):
             _record_success()
+            # Extract Brevo message_id from response
+            brevo_msg_id = None
+            try:
+                body = resp.json()
+                brevo_msg_id = body.get("messageId")
+            except Exception:
+                pass
             logger.info(
                 "email_sent",
                 to=to,
                 template=subject,
+                brevo_message_id=brevo_msg_id,
             )
-            return True
+            return {
+                "success": True,
+                "message_id": brevo_msg_id,
+                "error": None,
+            }
         logger.error(
             "email_send_failed",
             status=resp.status_code,
@@ -227,13 +339,15 @@ def send_email(
             body=resp.text[:200],
         )
         _record_failure()
-        return False
+        _result["error"] = f"brevo_{resp.status_code}"
+        return _result
     except TimeoutException:
         logger.error(
             "email_send_timeout", to=to
         )
         _record_failure()
-        return False
+        _result["error"] = "timeout"
+        return _result
     except HTTPError as exc:
         logger.error(
             "email_send_error",
@@ -241,7 +355,8 @@ def send_email(
             error=str(exc),
         )
         _record_failure()
-        return False
+        _result["error"] = str(exc)[:200]
+        return _result
 
 
 def send_verification_email(
