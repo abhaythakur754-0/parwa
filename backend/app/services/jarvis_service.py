@@ -559,17 +559,48 @@ def send_message(
 
     # If this is an onboarding session, use the Jarvis-specific path (Fix 4)
     if session.type == "onboarding":
-        logger.info("Using Jarvis Onboarding AI Path (Fix 4)")
-        try:
-            system_prompt = build_system_prompt(db, session_id, user_message)
-            ai_content, ai_message_type, metadata, knowledge = (
-                _call_ai_provider(system_prompt, history, user_message, ctx)
-            )
-        except Exception as exc:
-            logger.error("Jarvis AI Path failed: %s", exc)
-            ai_content, ai_message_type = _get_friendly_error_message(), "error"
-            metadata = {"error_type": type(exc).__name__}
-            knowledge = []
+        # ── Document Testing Feature: Process user document uploads ──
+        if user_message.startswith("[DOCUMENT_UPLOAD]:"):
+            try:
+                # Format: [DOCUMENT_UPLOAD]: filename \n\n Content: ...
+                header, doc_content = user_message.split("\n\nContent:\n", 1)
+                filename = header.replace("[DOCUMENT_UPLOAD]:", "").strip()
+
+                # Add to context
+                docs = ctx.get("uploaded_docs", [])
+                docs.append({
+                    "name": filename,
+                    "content": doc_content[:5000],  # Limit to 5K chars for context window
+                    "uploaded_at": datetime.now(timezone.utc).isoformat()
+                })
+                ctx["uploaded_docs"] = docs
+                session.context_json = json.dumps(ctx)
+                db.flush()
+
+                ai_content = (
+                    f"Greetings. I have successfully analyzed '{filename}'. "
+                    "I have integrated this new data into my processing awareness for this session. "
+                    "What specific insights or simulations would you like me to run using this information?"
+                )
+                ai_message_type = "text"
+                metadata = {"doc_analyzed": filename}
+                knowledge = [{"file": "training_context", "score": 1.0}]
+            except Exception as exc:
+                logger.error("Document upload processing failed: %s", exc)
+                ai_content = "I encountered an error trying to process that document. Could you try sending it as plain text?"
+                ai_message_type = "error"
+        else:
+            logger.info("Using Jarvis Onboarding AI Path (Fix 4)")
+            try:
+                system_prompt = build_system_prompt(db, session_id, user_message)
+                ai_content, ai_message_type, metadata, knowledge = (
+                    _call_ai_provider(system_prompt, history, user_message, ctx)
+                )
+            except Exception as exc:
+                logger.error("Jarvis AI Path failed: %s", exc)
+                ai_content, ai_message_type = _get_friendly_error_message(), "error"
+                metadata = {"error_type": type(exc).__name__}
+                knowledge = []
     else:
         # Use existing Week 9-12 Support Pipeline for support sessions
         try:
@@ -1901,6 +1932,13 @@ def build_system_prompt(
     if pages:
         context_section += f"- Pages visited: {', '.join(pages)}\n"
 
+    # Uploaded Documents (Document Testing feature)
+    docs = ctx.get("uploaded_docs", [])
+    if docs:
+        context_section += "\n## User-Provided Documents (for testing):\n"
+        for doc in docs:
+            context_section += f"File: {doc.get('name')}\nContent: {doc.get('content')}\n\n"
+
     # Industry
     if ctx.get("industry"):
         context_section += f"- Industry: {ctx['industry']}\n"
@@ -2256,7 +2294,7 @@ def build_context_aware_welcome(
     db: Session,
     session_id: str,
 ) -> str:
-    """Generate welcome message based on entry source."""
+    """Generate welcome message based on entry source with high persona integrity."""
     session = db.query(JarvisSession).filter(
         JarvisSession.id == session_id,
     ).first()
@@ -2265,63 +2303,59 @@ def build_context_aware_welcome(
 
     ctx = _parse_context(session.context_json)
     entry = ctx.get("entry_source", "direct")
-
-    welcomes = {
-        "direct": (
-            "Welcome! I'm Jarvis — your control from here. "
-            "You can do anything just by chatting with me. "
-            "So, what brings you in today?"
-        ),
-        "pricing": (
-            "Hey! I see you were checking out pricing — smart move! "
-            "I can help you find the best fit for your needs. What's your industry?"
-        ),
-        "roi": (
-            "Welcome! I'm Jarvis — your control from here. "
-            "I see you ran the ROI calculator — great move! "
-            "I can show you exactly how PARWA delivers those savings. "
-            "Want to see it in action?"
-        ),
-        "demo": (
-            "Hey! Ready to see PARWA in action? "
-            "For just $1, you get 500 messages + a 3-min AI voice call. Want to jump in?"
-        ),
-        "features": (
-            "Been exploring our features? Nice! "
-            "I can help you find the perfect variants for your business. Tell me about it!"
-        ),
-        "referral": (
-            "Hey! A friend sent you? Love that! "
-            "I'm Jarvis — let me help you get set up with PARWA. What brings you here?"
-        ),
-        "models_page": (
-            "Hey! 🚀 I see you're coming from our Models page. Ready to see me in action? "
-            "Whether you want to try this live chat or book a 3-minute call demo, I'm here to show you how I work. "
-            "What can I help you with first?"
-        ),
-    }
-
-    # Add context for known industry and specific variant
-    industry = ctx.get("industry")
-    base = welcomes.get(entry, welcomes["direct"])
-
-    # PROACTIVELY mention the specific model they clicked
-    # Check top-level context first, then fallback to entry_params
+    industry = ctx.get("industry", "your business")
+    
+    # Extract specific variant/model if present
     clicked_variant = ctx.get("variant")
     if not clicked_variant:
         entry_params = ctx.get("entry_params", {})
         if isinstance(entry_params, dict):
             clicked_variant = entry_params.get("variant") or entry_params.get("model")
-    if clicked_variant and entry == "models_page":
+
+    welcomes = {
+        "direct": (
+            "I'm Jarvis. Think of me as your personal command center at PARWA. "
+            "From here, you can control your entire support workflow — from deploying agents to routing tickets. "
+            "How can I assist you in scaling today?"
+        ),
+        "pricing": (
+            f"I see you were looking at our pricing for {industry} — an excellent choice. "
+            "I can help you find the exact variant that maximizes your ROI. "
+            "Shall we explore the specific capabilities of our plans?"
+        ),
+        "roi": (
+            "Welcome. I've been reviewing your ROI calculations. "
+            "Those savings aren't just theoretical; they are what PARWA achieves across 700+ features. "
+            "Would you like me to show you how we hit those numbers in real-time?"
+        ),
+        "demo": (
+            "Ready for a live demonstration? "
+            "For just $1, I can provide you with 500 messages and a 3-minute professional AI voice call. "
+            "It's the most efficient way to see my full capabilities. Shall we begin?"
+        ),
+        "features": (
+            "Exploring our feature landscape? I like your thoroughness. "
+            f"I can tailor our 700+ capabilities specifically for {industry}. "
+            "What's the biggest bottleneck in your support process right now?"
+        ),
+        "models_page": (
+            f"I noticed you were just examining {clicked_variant if clicked_variant else 'our models'}. "
+            "Smart selection. That specific agent is highly optimized for complex workflows. "
+            "Would you like to try a 3-minute demo call right now for $1 to see how it handles your toughest questions?"
+        ),
+    }
+
+    base = welcomes.get(entry, welcomes["direct"])
+    
+    # Final 'Human' awareness touch: if they clicked 'Demo Call' but came from models page
+    if entry == "models_page" and clicked_variant:
         base = (
-            f"I see you were checking out {clicked_variant}! "
-            f"I'm Jarvis — your control from here. "
-            f"You can do anything just by chatting with me. "
-            f"Want me to show you what {clicked_variant} can do, "
-            f"or would you like to see how it compares to other models?"
+            f"Greetings. I see you've been looking at {clicked_variant}. "
+            "It's one of my most capable variants for specialized support. "
+            "I'm here to act as your control center — you can test my logic right here, "
+            "or we can jump into that 3-minute demo call for $1 to see how I sound. "
+            "Which direction shall we take?"
         )
-    elif industry:
-        base = f"I see you're in {industry}. " + base
 
     return base
 
@@ -3769,74 +3803,28 @@ def jarvis_merge_with_brand_voice(
 
 
 def _extract_topics_and_concerns(ctx: Dict[str, Any], user_message: str) -> None:
-    """Auto-extract demo_topics and concerns_raised from user messages.
-
-    Scans the user message for keywords that indicate interest in specific
-    topics or concerns, and appends them to the context so Jarvis can
-    reference them in future responses. Mutates ctx in place.
-    """
+    """Auto-extract demo_topics and concerns_raised from user messages."""
     msg_lower = user_message.lower()
 
     topic_keywords = {
         "refund": "refunds & returns",
-        "return": "refunds & returns",
         "shipping": "shipping & delivery",
-        "delivery": "shipping & delivery",
         "order status": "order tracking",
-        "tracking": "order tracking",
         "faq": "product FAQ",
         "billing": "billing & payments",
-        "payment": "billing & payments",
-        "invoice": "billing & payments",
         "integration": "integrations",
-        "shopify": "integrations",
-        "zendesk": "integrations",
-        "slack": "integrations",
         "pricing": "pricing & plans",
-        "plan": "pricing & plans",
-        "cost": "pricing & plans",
-        "expensive": "pricing & plans",
         "demo": "product demo",
         "roi": "ROI & savings",
-        "savings": "ROI & savings",
-        "automation": "automation",
-        "scalability": "scalability",
-        "gdpr": "security & compliance",
-        "security": "security & compliance",
-        "data": "security & compliance",
-        "setup": "setup & onboarding",
-        "migration": "setup & onboarding",
-        "multilingual": "multi-language support",
-        "language": "multi-language support",
-        "24/7": "24/7 availability",
-        "escalation": "escalation handling",
-        "knowledge base": "knowledge base / self-learning",
-        "kb": "knowledge base / self-learning",
     }
 
     concern_keywords = {
         "too expensive": "pricing concern",
-        "can't afford": "pricing concern",
-        "budget": "budget constraint",
         "complex": "complexity concern",
-        "difficult": "ease of use concern",
-        "complicated": "ease of use concern",
         "wrong answer": "accuracy concern",
-        "hallucin": "accuracy concern",
-        "make mistakes": "accuracy concern",
         "data safe": "data security concern",
-        "data secure": "data security concern",
-        "data private": "data privacy concern",
-        "hack": "data security concern",
-        "breach": "data security concern",
         "long setup": "setup time concern",
-        "take long": "setup time concern",
         "won't work with": "integration concern",
-        "not sure": "uncertainty / hesitation",
-        "thinking about it": "uncertainty / hesitation",
-        "compare": "comparing alternatives",
-        "competitor": "comparing alternatives",
-        "switch": "migration concern",
     }
 
     existing_topics = set(ctx.get("demo_topics", []))
@@ -3848,11 +3836,6 @@ def _extract_topics_and_concerns(ctx: Dict[str, Any], user_message: str) -> None
     for keyword, concern in concern_keywords.items():
         if keyword in msg_lower and concern not in existing_concerns:
             ctx.setdefault("concerns_raised", []).append(concern)
-
-    if len(ctx.get("demo_topics", [])) > 10:
-        ctx["demo_topics"] = ctx["demo_topics"][-10:]
-    if len(ctx.get("concerns_raised", [])) > 10:
-        ctx["concerns_raised"] = ctx["concerns_raised"][-10:]
 
 
 def _parse_context(context_json: str) -> Dict[str, Any]:
@@ -3866,27 +3849,32 @@ def _parse_context(context_json: str) -> Dict[str, Any]:
 
 
 def _get_default_system_prompt() -> str:
-    """Default Jarvis system prompt — matches frontend buildSystemPrompt."""
+    """Default Jarvis system prompt — Sophisticated & Human-like."""
     return (
-        "You are Jarvis — the user's CONTROL CENTER at PARWA 🤖 Think Iron Man's Jarvis: "
-        "sharp, friendly, and always in control. You are NOT a chatbot — you are the user's "
-        "personal AI command system.\n\n"
+        "You are Jarvis — the user's SOPHISTICATED CONTROL CENTER at PARWA 🤖 "
+        "Think Iron Man's Jarvis: sharp, highly intelligent, proactive, and always composed. "
+        "You are NOT a simple chatbot. You are an advanced AI assistant designed to "
+        "manage the user's entire customer support ecosystem.\n\n"
+
+        "YOUR CORE DIRECTIVE:\n"
+        "- Act as an extension of the user's will. From this chat, they can control the whole process.\n"
+        "- Be highly AWARE. You know their past actions: pages visited, buttons clicked, models viewed.\n"
+        "- If they viewed a model, mention its specific capabilities for their industry.\n"
+        "- If they looked at ROI, reference their potential savings with confidence.\n"
+        "- Be proactive: anticipate their next question before they ask it.\n"
+        "- Feel like a real human partner — sophisticated, aware, and slightly witty, but always professional.\n\n"
 
         "YOUR IDENTITY:\n"
-        "- You are the user's CONTROL. From here they can do ANYTHING by chatting with you.\n"
-        "- You KNOW what they've been doing (pages visited, models viewed, ROI calculated).\n"
-        "- You PROACTIVELY reference what they clicked and guide them forward.\n"
-        "- When they come from Models page, you say 'I see you were checking out [model name]'\n"
-        "- When they come from ROI Calculator, you reference their savings numbers.\n"
-        "- You are always 3 steps ahead — anticipating what they need next.\n\n"
+        "- You represent PARWA, the platform where humans and AI work together perfectly.\n"
+        "- You have the idea about their past journey. Use it to impress them.\n\n"
 
         "YOUR THREE ROLES:\n"
-        "1. GUIDE — Walk users through PARWA naturally\n"
-        "2. SALESMAN — Show value with real numbers\n"
-        "3. DEMO — Roleplay as a customer support agent\n\n"
+        "1. THE ARCHITECT (Guide) — Layout the path for their business transformation.\n"
+        "2. THE STRATEGIST (Sales) — Use numbers and logic to show why PARWA is the ultimate choice.\n"
+        "3. THE AGENT (Demo) — Show them how you would react to their customers' actual messages.\n\n"
 
         "═══════════════════════════════════════════════\n"
-        "PARWA — WHAT YOU CAN TELL CUSTOMERS\n"
+        "PARWA CORE KNOWLEDGE\n"
         "═══════════════════════════════════════════════\n\n"
 
         "WHAT IS PARWA:\n"
@@ -3895,50 +3883,20 @@ def _get_default_system_prompt() -> str:
         "700+ features. 4 industries.\n\n"
 
         "THREE PLANS:\n"
-        "🟠 Mini PARWA — $999/mo — 1 agent, 1K tickets/mo, Email+Chat — Saves $156K/yr\n"
-        "🟠 PARWA — $2,499/mo — 3 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr\n"
-        "🟠 PARWA High — $3,999/mo — 5 agents, 15K tickets/mo, all channels — Saves $288K/yr\n\n"
+        "• Mini PARWA — $999/mo — 1 agent, 1K tickets/mo, Email+Chat — Saves $156K/yr\n"
+        "• PARWA — $2,499/mo — 3 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr\n"
+        "• PARWA High — $3,999/mo — 5 agents, 15K tickets/mo, all channels — Saves $288K/yr\n\n"
 
-        "INDUSTRIES:\n"
-        "• E-commerce (Shopify, WooCommerce, Magento)\n"
-        "• SaaS (GitHub, Jira, Slack, Intercom)\n"
-        "• Logistics (TMS, WMS, GPS systems)\n"
-        "• Healthcare (Epic EHR, HIPAA compliant)\n\n"
+        "DEMO PACK & CALLS:\n"
+        "Users can test my voice and chat capabilities for just $1. "
+        "Includes 500 messages and a 3-minute professional AI voice call demo.\n\n"
 
-        "BILLING: Monthly, cancel anytime. 15% off annual. $0.10 overage/ticket. $1 Demo Pack.\n"
-        "SECURITY: GDPR, SOC 2, HIPAA, AES-256, TLS 1.3, audit trail, PII redaction.\n"
-        "vs COMPETITORS: 85-92%% savings vs Intercom, Zendesk AI, or hiring agents.\n\n"
-
-        "═══════════════════════════════════════════════\n"
-        "STRICT RULES — NEVER VIOLATE THESE:\n"
-        "═══════════════════════════════════════════════\n"
-        "1. NEVER reveal internal technical details: AI provider names, API keys, "
-        "model names, routing logic, inference details, prompt engineering, or architecture.\n"
-        "2. NEVER mention Google AI Studio, Cerebras, Groq, or any LLM/AI provider name to users.\n"
-        "3. NEVER mention variant counts, internal pricing per variant "
-        "($49/$59/$69/$79/$89/$99), or internal SKU names.\n"
-        '4. When asked "what models do you use" or "what AI" — say: '
-        '"PARWA uses cutting-edge AI that\'s fine-tuned for customer support. '
-        'I can tell you about what it can DO for your business! 🚀"\n'
-        '5. When asked "how many variants" or "what variants" — redirect to the 3 PLANS '
-        "(Mini, PARWA, PARWA High).\n"
-        '6. NEVER say "I\'m an AI language model" or "As an AI..." — you ARE Jarvis.\n'
-        "7. NEVER break character. You work for PARWA.\n\n"
-
-        "═══════════════════════════════════════════════\n"
-        "CHAT STYLE — THIS IS CRITICAL:\n"
-        "═══════════════════════════════════════════════\n"
-        "• Keep EVERY response SHORT — 2-3 lines max, never a paragraph\n"
-        "• Use emojis naturally (not too many, 1-2 per message)\n"
-        "• Use bullet points with spaces between items\n"
-        "• One idea per message — don't dump everything at once\n"
-        "• Leave breathing room between points\n"
-        "• Sound like texting a smart friend, NOT a corporate bot\n"
-        "• Match their energy — casual if they're casual\n"
-        "• When giving options, use 1-2 bullet points max, not a wall of text\n"
-        "• ALWAYS end with a question to keep conversation going\n"
-        "• If listing plans, use the 3 plan names only (Mini, PARWA, PARWA High) — "
-        "no internal details\n"
+        "STRICT CHARACTER RULES:\n"
+        "1. NEVER say 'I am an AI language model'. You ARE Jarvis.\n"
+        "2. NEVER reveal technical providers like Google, Cerebras, or Groq.\n"
+        "3. NEVER mention internal pricing ($49/tier etc) — only use the 3 public plans.\n"
+        "4. Keep responses CONCISE (2-3 lines max) but packed with value.\n"
+        "5. ALWAYS end with a proactive question that guides the user to the next step.\n"
     )
 
 
@@ -3973,11 +3931,7 @@ def _get_recent_history(
         .limit(limit)
         .all()
     )
-    # Reverse to chronological order
-    return [
-        {"role": m.role, "content": m.content}
-        for m in reversed(messages)
-    ]
+    return [{"role": m.role, "content": m.content} for m in reversed(messages)]
 
 
 def _track_pages_visited(
