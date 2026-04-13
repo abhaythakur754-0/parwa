@@ -42,6 +42,7 @@ import asyncio
 import json
 import logging
 import secrets
+import concurrent.futures
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -549,124 +550,92 @@ def send_message(
     except Exception:
         pass
 
-    # ── P2: Full AI Pipeline (signal extraction → classification →
-    #    sentiment → routing → RAG → response → CLARA → guardrails →
-    #    confidence → brand voice) ──
-    history = _get_recent_history(db, session_id)
+    # ── AI Path Selection (Jarvis Onboarding vs Support Pipeline) ──
     ai_content = None
     ai_message_type = "text"
     metadata = {}
     knowledge = []
 
-    try:
-        import asyncio
-        import concurrent.futures
-        from app.core.ai_pipeline import process_ai_message
-
-        conversation_history = [
-            {"role": msg.role, "content": msg.content}
-            for msg in history[-MAX_CONTEXT_HISTORY_MESSAGES:]
-        ]
-
-        pipeline_args = dict(
-            query=user_message,
-            company_id=company_id or "",
-            conversation_id=session_id,
-            variant_type=session.pack_type or "parwa",
-            customer_id=user_id,
-            conversation_history=conversation_history,
-            language="en",
-        )
-
-        # Inject context-aware system prompt into the pipeline so it uses
-        # the same rich user journey context (entry_source, pages_visited,
-        # industry, variants, stage) instead of a bare prompt.
-        # Also pass raw session context as customer_metadata so LangGraph
-        # workflow steps can access structured fields directly.
+    # If this is an onboarding session, use the Jarvis-specific path (Fix 4)
+    if session.type == "onboarding":
+        logger.info("Using Jarvis Onboarding AI Path (Fix 4)")
         try:
-            system_prompt = build_system_prompt(db, session_id)
-            pipeline_args["system_prompt"] = system_prompt
-
-            # Pass raw session context as customer_metadata for LangGraph
-            # steps that need structured access (e.g. industry, variants, ROI).
-            # The system_prompt above already bakes these into text, but this
-            # gives downstream steps programmatic access too.
-            session_ctx = _parse_context(session.context_json) if session else {}
-            if session_ctx:
-                pipeline_args["customer_metadata"] = session_ctx
-        except Exception:
-            logger.debug("build_system_prompt failed, pipeline will use default context")
-
-        # Handle async call from sync context (BC-012: resilient execution)
-        try:
-            pipeline_result = asyncio.run(process_ai_message(**pipeline_args))
-        except RuntimeError:
-            # Already inside an event loop — run in a separate thread
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(
-                    asyncio.run, process_ai_message(**pipeline_args),
-                )
-                pipeline_result = future.result(timeout=60)
-
-        ai_content = pipeline_result.response
-        ai_message_type = "ai_generated"
-        metadata = pipeline_result.to_dict()
-        knowledge = [
-            {"file": c.get("source", ""), "score": c.get("score", 1.0)}
-            for c in pipeline_result.citations
-        ]
-
-        # Store pipeline results in context for downstream use
-        ctx["ai_pipeline"] = {
-            "intent": pipeline_result.intent_type,
-            "confidence": pipeline_result.confidence_score,
-            "auto_action": pipeline_result.auto_action,
-            "frustration": pipeline_result.frustration_score,
-            "sentiment": pipeline_result.sentiment_score,
-            "urgency": pipeline_result.urgency_level,
-            "technique": pipeline_result.technique_used,
-            "model": pipeline_result.model_used,
-            "rag_used": pipeline_result.rag_context_used,
-            "clara_passed": pipeline_result.clara_passed,
-            "guardrails_passed": not pipeline_result.guardrails_blocked,
-            "pipeline_ms": pipeline_result.pipeline_time_ms,
-            "stages_completed": pipeline_result.stages_completed,
-            "stages_failed": pipeline_result.stages_failed,
-        }
-
-        # Set message type based on pipeline outcome
-        if pipeline_result.is_edge_case:
-            ai_message_type = "edge_case"
-        elif pipeline_result.injection_blocked:
-            ai_message_type = "injection_blocked"
-        elif pipeline_result.guardrails_blocked:
-            ai_message_type = "guardrails_blocked"
-        elif not pipeline_result.auto_action:
-            ai_message_type = "needs_review"
-
-        logger.info(
-            "AI Pipeline result: intent=%s confidence=%.1f auto=%s "
-            "technique=%s model=%s rag=%s clara=%s guardrails=%s "
-            "pipeline_ms=%.0f",
-            pipeline_result.intent_type,
-            pipeline_result.confidence_score,
-            pipeline_result.auto_action,
-            pipeline_result.technique_used,
-            pipeline_result.model_used,
-            pipeline_result.rag_context_used,
-            pipeline_result.clara_passed,
-            not pipeline_result.guardrails_blocked,
-            pipeline_result.pipeline_time_ms,
-        )
-
-    except Exception as exc:
-        logger.error("AI Pipeline failed, falling back to legacy: %s", exc)
-        # Fallback to legacy AI provider
-        system_prompt = build_system_prompt(db, session_id)
-        try:
+            system_prompt = build_system_prompt(db, session_id, user_message)
             ai_content, ai_message_type, metadata, knowledge = (
                 _call_ai_provider(system_prompt, history, user_message, ctx)
             )
+        except Exception as exc:
+            logger.error("Jarvis AI Path failed: %s", exc)
+            ai_content, ai_message_type = _get_friendly_error_message(), "error"
+            metadata = {"error_type": type(exc).__name__}
+            knowledge = []
+    else:
+        # Use existing Week 9-12 Support Pipeline for support sessions
+        try:
+            from app.core.ai_pipeline import process_ai_message
+
+            conversation_history = [
+                {"role": msg.role, "content": msg.content}
+                for msg in history[-MAX_CONTEXT_HISTORY_MESSAGES:]
+            ]
+
+            pipeline_args = dict(
+                query=user_message,
+                company_id=company_id or "",
+                conversation_id=session_id,
+                variant_type=session.pack_type or "parwa",
+                customer_id=user_id,
+                conversation_history=conversation_history,
+                language="en",
+            )
+
+            try:
+                system_prompt = build_system_prompt(db, session_id, user_message)
+                pipeline_args["system_prompt"] = system_prompt
+                session_ctx = _parse_context(session.context_json) if session else {}
+                if session_ctx:
+                    pipeline_args["customer_metadata"] = session_ctx
+            except Exception:
+                logger.debug("build_system_prompt failed, pipeline will use default context")
+
+            # Handle async call from sync context
+            try:
+                pipeline_result = asyncio.run(process_ai_message(**pipeline_args))
+            except RuntimeError:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(
+                        asyncio.run, process_ai_message(**pipeline_args),
+                    )
+                    pipeline_result = future.result(timeout=60)
+
+            ai_content = pipeline_result.response
+            ai_message_type = "ai_generated"
+            metadata = pipeline_result.to_dict()
+            knowledge = [
+                {"file": c.get("source", ""), "score": c.get("score", 1.0)}
+                for c in pipeline_result.citations
+            ]
+            
+            # Store pipeline results in context
+            ctx["ai_pipeline"] = {
+                "intent": pipeline_result.intent_type,
+                "confidence": pipeline_result.confidence_score,
+                "auto_action": pipeline_result.auto_action,
+                "technique": pipeline_result.technique_used,
+                "model": pipeline_result.model_used,
+            }
+
+        except Exception as exc:
+            logger.error("AI Pipeline failed, falling back to legacy: %s", exc)
+            system_prompt = build_system_prompt(db, session_id, user_message)
+            try:
+                ai_content, ai_message_type, metadata, knowledge = (
+                    _call_ai_provider(system_prompt, history, user_message, ctx)
+                )
+            except Exception as inner_exc:
+                ai_content, ai_message_type = _get_friendly_error_message(), "error"
+                metadata = {"error_type": type(inner_exc).__name__}
+                knowledge = []
         except Exception as inner_exc:
             ai_content, ai_message_type = (
                 _get_friendly_error_message(), "error"
@@ -1901,6 +1870,7 @@ def _complete_latest_ticket(
 def build_system_prompt(
     db: Session,
     session_id: str,
+    query: Optional[str] = None,
 ) -> str:
     """Build dynamic system prompt with session context + knowledge.
 
@@ -2120,12 +2090,22 @@ def build_system_prompt(
     try:
         from app.services.jarvis_knowledge_service import (
             build_context_knowledge,
+            search_and_format_knowledge,
         )
+        
+        # 1. General context knowledge based on stage/industry
         knowledge_section = build_context_knowledge(ctx)
         if knowledge_section:
             prompt += f"\n\n{knowledge_section}"
-    except Exception:
-        # Knowledge service not available — continue without it
+            
+        # 2. Specific search results for the current query
+        if query:
+            search_results = search_and_format_knowledge(query, ctx)
+            if search_results:
+                prompt += f"\n\n{search_results}"
+                
+    except Exception as e:
+        logger.debug(f"Knowledge service injection failed: {str(e)}")
         pass
 
     # ── Week 8-11: Inject brand voice guidelines ──
