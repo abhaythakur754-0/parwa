@@ -20,9 +20,12 @@ GAP 2: Tenant isolation in document processing.
 GAP 6: Failed document handling.
 """
 
+import logging
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+
+from app.services.file_storage_service import FileStorageService
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -38,6 +41,8 @@ from database.models.core import User
 from database.models.onboarding import KnowledgeDocument
 
 router = APIRouter(prefix="/api/kb", tags=["Knowledge Base"])
+
+logger = logging.getLogger("parwa.knowledge_base")
 
 
 # ── Allowed File Types ─────────────────────────────────────────────
@@ -153,10 +158,24 @@ async def api_upload_document(
     db.commit()
     db.refresh(document)
 
-    # Store raw content for async processing
-    # In production, this would go to object storage (S3/GCS)
-    # For now, the Celery task will extract placeholder chunks
-    # TODO: Store content to object storage and pass path to Celery
+    # Store raw file to object storage for async processing
+    storage_svc = FileStorageService()
+    try:
+        storage_result = storage_svc.upload_file(
+            company_id=user.company_id,
+            content=content,
+            file_name=file.filename,
+            content_type=file.content_type or "application/octet-stream",
+            uploaded_by=str(user.id),
+            metadata={"document_id": str(document.id), "source": "knowledge_base"},
+        )
+        # Store file reference on document for Celery task to retrieve
+        document.file_path = storage_result.get("file_path", storage_result.get("id"))
+        document.storage_file_id = storage_result.get("id")
+        db.flush()
+    except Exception as e:
+        logger.error("kb_file_storage_failed", document_id=str(document.id), error=str(e))
+        # Continue processing even if storage fails - Celery task will handle gracefully
 
     # Trigger async processing via Celery
     try:

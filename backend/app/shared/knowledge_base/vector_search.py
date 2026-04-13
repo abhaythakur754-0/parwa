@@ -240,6 +240,157 @@ class MockVectorStore(VectorStore):
         return dot / (mag_a * mag_b)
 
 
+# ── PgVectorStore (production — PostgreSQL + pgvector) ──────────
+
+
+class PgVectorStore(VectorStore):
+    """PostgreSQL + pgvector vector store implementation.
+
+    Uses the document_chunks table which already has an embedding
+    column with pgvector vector(768) type.
+    """
+
+    def __init__(self, dimension: int = 768):
+        self.dimension = dimension
+
+    def add_document(
+        self,
+        document_id: str,
+        chunks: List[Dict[str, Any]],
+        company_id: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Store document chunks and their embeddings in the database."""
+        from sqlalchemy import create_engine, text
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        engine = create_engine(settings.DATABASE_URL)
+
+        try:
+            with engine.begin() as conn:
+                for i, chunk in enumerate(chunks):
+                    chunk_id = chunk.get("chunk_id", f"{document_id}_{i}")
+                    embedding = chunk.get("embedding")
+                    if embedding:
+                        conn.execute(
+                            text("""
+                                INSERT INTO document_chunks (id, document_id, chunk_index, content, embedding, metadata_json)
+                                VALUES (:id, :document_id, :chunk_index, :content, :embedding, :metadata_json)
+                                ON CONFLICT (id) DO UPDATE SET
+                                    embedding = EXCLUDED.embedding,
+                                    content = EXCLUDED.content,
+                                    metadata_json = EXCLUDED.metadata_json
+                            """),
+                            {
+                                "id": chunk_id,
+                                "document_id": document_id,
+                                "chunk_index": chunk.get("chunk_index", i),
+                                "content": chunk.get("content", ""),
+                                "embedding": str(embedding),
+                                "metadata_json": str({"company_id": company_id, **(metadata or {})}),
+                            },
+                        )
+            return True
+        except Exception as exc:
+            logger.warning("PgVectorStore add_document failed: %s", exc)
+            return False
+        finally:
+            engine.dispose()
+
+    def search(
+        self,
+        query_embedding: List[float],
+        company_id: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[SearchResult]:
+        """Find similar documents using cosine similarity."""
+        from sqlalchemy import create_engine, text
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        engine = create_engine(settings.DATABASE_URL)
+
+        query_sql = """
+            SELECT id, document_id, chunk_index, content, metadata_json,
+                   1 - (embedding <=> :query_embedding::vector) AS similarity
+            FROM document_chunks
+            WHERE embedding IS NOT NULL
+              AND metadata_json::text LIKE :company_pattern
+        """
+        params = {
+            "query_embedding": str(query_embedding),
+            "company_pattern": f"%\"company_id\": \"{company_id}\"%",
+            "limit": top_k,
+        }
+
+        query_sql += " ORDER BY embedding <=> :query_embedding::vector LIMIT :limit"
+
+        results: List[SearchResult] = []
+        try:
+            with engine.connect() as conn:
+                rows = conn.execute(text(query_sql), params).fetchall()
+                for row in rows:
+                    results.append(SearchResult(
+                        chunk_id=str(row[0]),
+                        document_id=str(row[1]) if row[1] else "",
+                        content=row[3] or "",
+                        score=float(row[5]),
+                        metadata=row[4] if isinstance(row[4], dict) else {},
+                    ))
+        except Exception as exc:
+            logger.warning("PgVectorStore search failed: %s", exc)
+        finally:
+            engine.dispose()
+
+        return results
+
+    def delete_document(self, document_id: str, company_id: str) -> bool:
+        """Delete all chunks for a document."""
+        from sqlalchemy import create_engine, text
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        engine = create_engine(settings.DATABASE_URL)
+
+        try:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("DELETE FROM document_chunks WHERE document_id = :document_id"),
+                    {"document_id": document_id},
+                )
+            return True
+        except Exception as exc:
+            logger.warning("PgVectorStore delete_document failed: %s", exc)
+            return False
+        finally:
+            engine.dispose()
+
+    def health_check(self) -> bool:
+        """Check if pgvector extension is available."""
+        return self.is_available()
+
+    def is_available(self) -> bool:
+        """Check if pgvector extension is available."""
+        try:
+            from sqlalchemy import create_engine, text
+            from app.core.config import get_settings
+
+            settings = get_settings()
+            engine = create_engine(settings.DATABASE_URL)
+
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+                ).fetchone()
+
+            engine.dispose()
+            return result is not None
+        except Exception:
+            return False
+
+
 # ── Factory ────────────────────────────────────────────────────────
 
 _store_instance: Optional[VectorStore] = None
@@ -280,21 +431,15 @@ def get_vector_store() -> VectorStore:
 
 
 def _create_pg_vector_store() -> Optional[VectorStore]:
-    """Attempt to create a PgVectorStore instance.
-
-    Returns None if pgvector is not available.
-    """
+    """Try to create a real PgVectorStore if pgvector is available."""
     try:
-        # Lazy import — pgvector might not be installed
-        import asyncpg  # noqa: F401
-
-        # Check if pgvector extension function is available
-        # This will be properly implemented when pgvector is integrated
-        logger.info("pgvector detected, PgVectorStore available")
-        return None  # Return actual PgVectorStore when implemented
-    except ImportError:
-        logger.debug("asyncpg not installed — MockVectorStore will be used")
-        return None
+        store = PgVectorStore()
+        if store.is_available():
+            logger.info("PgVectorStore created — using real pgvector search")
+            return store
+        else:
+            logger.warning("pgvector extension not found in database — MockVectorStore will be used")
+            return None
     except Exception as exc:
         logger.warning("PgVectorStore creation failed: %s", exc)
         return None

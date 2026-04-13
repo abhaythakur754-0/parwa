@@ -339,23 +339,26 @@ async def payment_webhook(
 
     Processes payment.success and payment.failed events.
     """
+    # Read raw body bytes first (needed for HMAC signature verification)
+    raw_body = await request.body()
+
     try:
-        body = await request.json()
+        body = json.loads(raw_body)
         event_type = body.get("event_type", "")
         event_data = body.get("data", {})
     except Exception:
         return {"error": {"code": "INVALID_PAYLOAD", "message": "Invalid webhook payload", "details": None}}
 
-    # In production: verify Paddle HMAC signature
-    # paddle_sig = request.headers.get("paddle-signature", "")
-    # if not verify_paddle_signature(body, paddle_sig):
-    #     return {"error": {"code": "INVALID_SIGNATURE", "message": "Invalid signature", "details": None}}
+    # Pass request headers for Paddle signature verification in the service layer
+    webhook_headers = dict(request.headers)
 
     try:
         result = jarvis_service.handle_payment_webhook(
             db=db,
             event_type=event_type,
             event_data=event_data,
+            headers=webhook_headers,
+            raw_payload=raw_body,
         )
         return result
     except ParwaBaseError as exc:

@@ -178,11 +178,64 @@ class PaymentFailureService:
                 failure_code,
             )
 
-            # TODO: In production, trigger these async tasks:
-            # - Stop all AI agents for this company
-            # - Freeze open tickets
-            # - Send payment_failed email
-            # - Emit Socket.io event for real-time UI update
+            # Trigger side-effects for payment failure
+            try:
+                # Send payment failure notification email
+                from app.services.email_service import send_email
+                from database.models.core import User
+                company_owner = db.query(User).filter(
+                    User.company_id == str(company_id),
+                    User.role == "owner",
+                ).first()
+                if company_owner:
+                    try:
+                        send_email(
+                            to=company_owner.email,
+                            subject="PARWA: Payment Failed — Action Required",
+                            html_content=f"""
+                            <html><body>
+                            <h2>Payment Failed</h2>
+                            <p>Hello {company_owner.full_name or 'there'},</p>
+                            <p>We were unable to process your recent payment for your PARWA subscription.</p>
+                            <p><strong>Company:</strong> {company.name}</p>
+                            <p><strong>Reason:</strong> {failure_reason or 'Payment declined by payment provider'}</p>
+                            <p>Please update your payment method to avoid service interruption.</p>
+                            <p>Your AI agents will remain active for 48 hours. After that, they will be paused until payment is resolved.</p>
+                            </body></html>
+                            """,
+                        )
+                    except Exception as email_err:
+                        logger.error(
+                            "payment_failure_email_failed",
+                            company_id=str(company_id),
+                            error=str(email_err),
+                        )
+
+                # Notify via notification service
+                try:
+                    from app.services.notification_service import NotificationService
+                    notif_svc = NotificationService(db)
+                    notif_svc.create_notification(
+                        user_id=str(company_owner.id) if company_owner else None,
+                        company_id=str(company_id),
+                        event_type="payment_failed",
+                        title="Payment Failed",
+                        message=f"Payment processing failed for {company.name}. Please update your billing information.",
+                        priority="high",
+                    )
+                except Exception as notif_err:
+                    logger.error(
+                        "payment_failure_notification_failed",
+                        company_id=str(company_id),
+                        error=str(notif_err),
+                    )
+
+            except Exception as e:
+                logger.error(
+                    "payment_failure_side_effects_failed",
+                    company_id=str(company_id),
+                    error=str(e),
+                )
 
             return {
                 "status": "stopped",

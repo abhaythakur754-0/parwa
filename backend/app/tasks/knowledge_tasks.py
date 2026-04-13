@@ -102,12 +102,36 @@ def process_knowledge_document(
             doc.updated_at = datetime.now(timezone.utc)
             db.commit()
 
-            # Process document content
-            # TODO: In production, fetch content from storage
-            # content = storage.download(company_id, doc.file_path)
+            # Fetch document content from storage
+            content = ""
+            try:
+                from app.services.file_storage_service import FileStorageService
+                storage_svc = FileStorageService()
+                file_id = getattr(doc, 'storage_file_id', None) or getattr(doc, 'file_path', None)
+                if file_id:
+                    storage_result = storage_svc.download_file(
+                        company_id=company_id,
+                        file_id=file_id,
+                    )
+                    content = storage_result.get("content", b"")
+                    if isinstance(content, bytes):
+                        # Decode bytes to text
+                        for encoding in ['utf-8', 'latin-1', 'ascii']:
+                            try:
+                                content = content.decode(encoding)
+                                break
+                            except (UnicodeDecodeError, AttributeError):
+                                continue
+            except Exception as e:
+                logger.warning(
+                    "kb_content_download_failed",
+                    document_id=document_id,
+                    company_id=company_id,
+                    error=str(e),
+                )
 
             # Extract text chunks from document content
-            chunks = _extract_chunks(doc.content or "", doc.filename)
+            chunks = _extract_chunks(content or "", doc.filename)
 
             # Generate embeddings in batch for tenant-isolated processing
             embedding_svc = EmbeddingService(company_id=company_id)
@@ -262,12 +286,11 @@ def _extract_chunks(content: str, filename: str) -> list:
     # In production, use PyPDF2, python-docx, etc.
 
     if not content:
-        # Return placeholder chunks for testing
-        return [
-            f"Sample chunk 1 from {filename}",
-            f"Sample chunk 2 from {filename}",
-            f"Sample chunk 3 from {filename}",
-        ]
+        logger.warning(
+            "kb_empty_content_no_chunks",
+            filename=filename,
+        )
+        return []
 
     # Split content into chunks with overlap
     chunks = []
