@@ -64,6 +64,7 @@ from app.api.integrations import router as integrations_router
 from app.api.knowledge_base import router as knowledge_base_router
 from app.api.verification import router as verification_router  # Week 6 Day 10-11: Business Email OTP
 from app.api.ticket_analytics import router as analytics_router  # Phase 4: Ticket analytics dashboard
+from app.api.email_channel import router as email_channel_router  # Week 13 Day 1: Email channel admin endpoints
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
@@ -280,6 +281,7 @@ app.include_router(integrations_router)  # Week 6: Integration management (F-030
 app.include_router(knowledge_base_router)  # Week 6: Knowledge base (F-032/F-033)
 app.include_router(verification_router)  # Week 6 Day 10-11: Business Email OTP verification
 app.include_router(analytics_router)  # Phase 4: Ticket analytics dashboard
+app.include_router(email_channel_router)  # Week 13 Day 1: Email channel admin endpoints
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

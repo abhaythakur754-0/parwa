@@ -12,6 +12,7 @@ Currently synchronous — will be wrapped in Celery task later.
 """
 
 import time
+from typing import Optional
 
 import httpx
 from httpx import HTTPError, TimeoutException
@@ -110,6 +111,8 @@ def send_email(
     to: str,
     subject: str,
     html_content: str,
+    reply_to_message_id: Optional[str] = None,
+    references: Optional[str] = None,
 ) -> bool:
     """Send an email via Brevo REST API.
 
@@ -120,6 +123,10 @@ def send_email(
         to: Recipient email address.
         subject: Email subject line.
         html_content: HTML body of the email.
+        reply_to_message_id: Message-ID of the email being replied to.
+            Sets the In-Reply-To header for proper email threading.
+        references: The References header chain (space-separated Message-IDs).
+            Used for multi-hop email threading.
 
     Returns:
         True if sent successfully, False otherwise.
@@ -139,6 +146,16 @@ def send_email(
         )
         return False
 
+    # Build email headers for threading
+    email_headers = {}
+    if reply_to_message_id:
+        email_headers["In-Reply-To"] = reply_to_message_id
+    if references:
+        email_headers["References"] = references
+    # If only In-Reply-To is set without References, copy it
+    if reply_to_message_id and not references:
+        email_headers["References"] = reply_to_message_id
+
     # --- SDK path (preferred) ---
     if _BREVO_SDK_AVAILABLE:
         try:
@@ -149,6 +166,7 @@ def send_email(
                     to=[SendSmtpEmailTo(email=to)],
                     subject=subject,
                     html_content=html_content,
+                    headers=email_headers if email_headers else None,
                 )
                 result = client.send_transac_email(send_email_obj)
                 if result and hasattr(result, 'message_id'):
@@ -157,6 +175,7 @@ def send_email(
                         "email_sent_sdk",
                         to=to,
                         message_id=result.message_id,
+                        reply_to=reply_to_message_id,
                     )
                     return True
         except Exception as exc:  # BC-008
@@ -177,6 +196,9 @@ def send_email(
         "subject": subject,
         "htmlContent": html_content,
     }
+    # Add threading headers to payload if present
+    if email_headers:
+        payload["headers"] = email_headers
 
     headers = {
         "api-key": settings.BREVO_API_KEY,

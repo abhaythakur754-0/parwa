@@ -189,6 +189,8 @@ def _verify_provider_signature(
             from app.security.hmac_verification import (
                 verify_brevo_ip,
             )
+            from app.config import get_settings
+            settings = get_settings()
             forwarded = request.headers.get(
                 "x-forwarded-for", "",
             )
@@ -199,7 +201,15 @@ def _verify_provider_signature(
                 if request.client
                 else ""
             )
-            result = verify_brevo_ip(client_ip)
+            # Use configured IPs if set, otherwise use defaults
+            custom_ips = None
+            if settings.BREVO_INBOUND_IPS:
+                custom_ips = [
+                    cidr.strip()
+                    for cidr in settings.BREVO_INBOUND_IPS.split(",")
+                    if cidr.strip()
+                ]
+            result = verify_brevo_ip(client_ip, allowed_ips=custom_ips)
             if not result:
                 logger.warning(
                     "webhook_brevo_ip_blocked client_ip=%s",

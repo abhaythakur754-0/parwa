@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # ── Email (Brevo) ────────────────────────────────────────────
     BREVO_API_KEY: str = ""
     FROM_EMAIL: str = "noreply@parwa.ai"
+    # Comma-separated CIDR ranges for Brevo inbound webhook IP allowlist.
+    # Falls back to DEFAULT_BREVO_IPS in hmac_verification.py if empty.
+    BREVO_INBOUND_IPS: str = ""
 
     # ── SMS/Voice (Twilio) ──────────────────────────────────────
     TWILIO_ACCOUNT_SID: str = ""
