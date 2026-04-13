@@ -229,6 +229,7 @@ export function ChatInput({
             </button>
           </div>
         </div>
+      </div>
 
       {/* Footer hint */}
       <div className="flex items-center justify-between mt-1.5 px-1">
