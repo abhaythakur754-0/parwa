@@ -54,6 +54,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
       - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app:/app/backend
       - ENVIRONMENT=development
       - STATE_SERIALIZATION_PATH=/app/state_data
       - STATE_SERIALIZATION_ENABLED=true
@@ -87,6 +88,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-parwa}:${POSTGRES_PASSWORD:-parwa_dev}@db:5432/${POSTGRES_DB:-parwa_db}
       - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app:/app/backend
       - ENVIRONMENT=development
       - STATE_SERIALIZATION_PATH=/app/state_data
       - STATE_SERIALIZATION_ENABLED=true
