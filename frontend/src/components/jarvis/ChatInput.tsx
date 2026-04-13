@@ -10,7 +10,7 @@
 'use client';
 
 import { useCallback, useRef, useEffect, useState } from 'react';
-import { Send, ArrowUp, AlertCircle } from 'lucide-react';
+import { ArrowUp, AlertCircle, Paperclip } from 'lucide-react';
 
 interface ChatInputProps {
   /** Send message callback */
@@ -95,6 +95,25 @@ export function ChatInput({
     });
   }, [value, isDisabled, isOverLimit, onSend]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // For the onboarding demo, we read small text files directly
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        onSend(`[DOCUMENT_UPLOAD]: ${file.name}\n\nContent:\n${content.slice(0, 5000)}`);
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    e.target.value = '';
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       // Enter to send (without Shift)
@@ -131,6 +150,26 @@ export function ChatInput({
       )}
 
       {/* Input row */}
+      <div className="flex items-end gap-3">
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+          accept=".txt,.json,.md,.csv"
+        />
+        
+        {/* Attachment Button */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isDisabled}
+          className="mb-2 w-10 h-10 rounded-xl flex items-center justify-center bg-white/[0.04] border border-white/10 text-white/40 hover:text-white hover:bg-white/[0.08] transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+          title="Attach document to test Jarvis"
+        >
+          <Paperclip className="w-5 h-5" />
+        </button>
+
         <div className="flex-1 relative group">
           <textarea
             ref={textareaRef}
