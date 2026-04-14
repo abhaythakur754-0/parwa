@@ -1,7 +1,7 @@
 # PARWA Execution Roadmap
 
-> **Last Updated:** Week 14 COMPLETE (Jarvis Command Center) → Moving to Week 15 (Phase 4)
-> **Current Phase:** Week 15 - Dashboard + Analytics (F-036 to F-045)
+> **Last Updated:** Week 15 COMPLETE (Dashboard + Analytics) → Moving to Week 17 (Integrations + Settings)
+> **Current Phase:** Week 17 - Integrations + Settings (F-031, F-097 to F-108)
 
 ---
 
@@ -23,7 +23,7 @@
 | **Week 11-12** | AI Advanced + Production Hardening | ✅ COMPLETE | F-071 to F-073, F-008 + hardening + testing |
 | **Week 13** | Channels — Phase 4 | ✅ COMPLETE | Communication Channels (F-120 to F-130) |
 | **Week 14** | Jarvis Command Center | ✅ COMPLETE | F-087 to F-096 (10 features, 93 tests) |
-| **Week 15** | Dashboard + Analytics | 🔵 CURRENT | F-036 to F-045, F-109 to F-121 |
+| **Week 15** | Dashboard + Analytics | ✅ COMPLETE | F-036 to F-045 (10 features, 35 tests) |
 | **Week 17** | Integrations + Settings | ⬜ UPCOMING | F-031, F-097 to F-108 |
 | **Week 18-21** | Public Facing + Training + Polish | ⬜ UPCOMING | Phase 5 |
 
@@ -657,7 +657,67 @@ Week 14 builds the Jarvis Command Center — the operational backbone for managi
 
 ---
 
-## 🔵 CURRENT WEEK: Week 15-16 - Dashboard + Analytics
+## ✅ Week 15: Dashboard + Analytics (F-036 to F-045) — COMPLETE
+
+### Scope
+Week 15 builds the Dashboard + Analytics layer — the visual brain of PARWA. Operators get a unified dashboard with real-time KPIs, activity feeds, AI learning progress tracking, cost savings visualization, workforce allocation charts, growth nudges, ticket volume forecasting, CSAT analytics, and exportable reports.
+
+### Day 1 (COMPLETE) — F-036/037/038
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Dashboard Home — Unified Widget Data | F-036 | ✅ Done | `backend/app/services/dashboard_service.py` |
+| Activity Feed — Global Event Stream | F-037 | ✅ Done | `backend/app/services/dashboard_service.py` |
+| Key Metrics Aggregation — KPIs | F-038 | ✅ Done | `backend/app/services/dashboard_service.py` |
+| Dashboard Schemas (30+ Pydantic models) | — | ✅ Done | `backend/app/schemas/dashboard.py` |
+| Dashboard API (4 endpoints) | — | ✅ Done | `backend/app/api/dashboard.py` |
+
+### Day 2 (COMPLETE) — F-039/040/041
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Adaptation Tracker — 30-day AI Learning | F-039 | ✅ Done | `backend/app/services/analytics_advanced_service.py` |
+| Running Savings Counter — AI vs Human Cost | F-040 | ✅ Done | `backend/app/services/analytics_advanced_service.py` |
+| Workforce Allocation — AI vs Human Split | F-041 | ✅ Done | `backend/app/services/analytics_advanced_service.py` |
+| Advanced Analytics API (3 endpoints) | — | ✅ Done | `backend/app/api/analytics_advanced.py` |
+
+### Day 3 (COMPLETE) — F-042/043/044
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Growth Nudge Alert — Usage Patterns | F-042 | ✅ Done | `backend/app/services/analytics_intelligence_service.py` |
+| Ticket Volume Forecast — Predictive Analytics | F-043 | ✅ Done | `backend/app/services/analytics_intelligence_service.py` |
+| CSAT Trends — Satisfaction Analytics | F-044 | ✅ Done | `backend/app/services/analytics_intelligence_service.py` |
+| Intelligence API (3 endpoints) | — | ✅ Done | `backend/app/api/analytics_intelligence.py` |
+
+### Day 4 (COMPLETE) — F-045
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Export Reports — CSV/PDF Generation | F-045 | ✅ Done | `backend/app/services/export_service.py` |
+| Reports API (4 endpoints) | — | ✅ Done | `backend/app/api/reports.py` |
+
+### Day 5 (COMPLETE) — Integration Testing
+
+| Task | ID | Status |
+|------|----|--------|
+| Integration Tests (35 tests) | — | ✅ Done |
+| Roadmap Update | — | ✅ Done |
+
+### Week 15 Summary
+
+| Metric | Count |
+|--------|-------|
+| Features built | 10 (F-036 to F-045) |
+| New files | 8 |
+| API endpoints | 14 |
+| Pydantic schemas | 30+ |
+| Integration tests | 35 |
+| Building codes applied | BC-001,002,005,007,010,011,012 |
+
+---
+
+## 🔵 CURRENT WEEK: Week 17 - Integrations + Settings
 
 | Feature | Description |
 |---------|-------------|
