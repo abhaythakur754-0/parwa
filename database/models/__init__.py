@@ -63,3 +63,14 @@ from database.models.email_channel import (  # noqa: F401
     EmailThread,
     InboundEmail,
 )
+from database.models.chat_widget import (  # noqa: F401
+    ChatWidgetSession,
+    ChatWidgetMessage,
+    CannedResponse,
+    ChatWidgetConfig,
+)
+from database.models.sms_channel import (  # noqa: F401
+    SMSMessage,
+    SMSConversation,
+    SMSChannelConfig,
+)

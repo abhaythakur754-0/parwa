@@ -296,6 +296,122 @@ setattr(_fake_bounces_models, "CustomerEmailStatus", _MockCustomerEmailStatus)
 setattr(_fake_bounces_models, "EmailDeliverabilityAlert", _MockEmailDeliverabilityAlert)
 sys.modules.setdefault("database.models.email_bounces", _fake_bounces_models)
 
+# ── database.models.chat_widget (Week 13 Day 4 — F-122) ────────
+_fake_chat_widget_models = types.ModuleType("database.models.chat_widget")
+
+_MockChatWidgetSession = type("ChatWidgetSession", (object,), {
+    "__tablename__": "chat_widget_sessions",
+    "id": None, "company_id": _AttrChainer(), "visitor_name": None,
+    "visitor_email": None, "visitor_phone": None, "visitor_ip": None,
+    "visitor_user_agent": None, "visitor_page_url": None,
+    "visitor_referrer": None, "status": "active",
+    "assigned_agent_id": None, "department": None,
+    "ticket_id": None, "customer_id": None,
+    "message_count": 0, "visitor_message_count": 0,
+    "agent_response_time_seconds": None, "csat_rating": None,
+    "csat_comment": None, "first_message_at": None,
+    "last_message_at": None, "closed_at": None,
+    "created_at": None, "updated_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockChatWidgetMessage = type("ChatWidgetMessage", (object,), {
+    "__tablename__": "chat_widget_messages",
+    "id": None, "session_id": None, "company_id": None,
+    "sender_id": None, "sender_name": None, "role": "visitor",
+    "content": None, "message_type": "text",
+    "attachments_json": "[]", "quick_replies_json": "[]",
+    "event_name": None, "event_data_json": "{}",
+    "is_ai_generated": False, "ai_confidence": None,
+    "is_read": False, "read_at": None, "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockCannedResponse = type("CannedResponse", (object,), {
+    "__tablename__": "canned_responses",
+    "id": None, "company_id": None, "title": None,
+    "content": None, "category": "general", "shortcut": None,
+    "sort_order": 0, "is_active": True, "created_by": None,
+    "updated_by": None, "created_at": None, "updated_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockChatWidgetConfig = type("ChatWidgetConfig", (object,), {
+    "__tablename__": "chat_widget_configs",
+    "id": None, "company_id": None, "widget_title": "Chat with us",
+    "welcome_message": "Hi!", "placeholder_text": "Type here...",
+    "primary_color": "#4F46E5", "widget_position": "bottom_right",
+    "is_enabled": True, "auto_greeting_enabled": True,
+    "auto_greeting_delay_seconds": 5, "bot_enabled": True,
+    "max_file_size_mb": 10, "allowed_file_types": "[]",
+    "max_queue_size": 50, "queue_message": None,
+    "business_hours_json": "{}", "offline_message": None,
+    "require_visitor_name": False, "require_visitor_email": False,
+    "created_at": None, "updated_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+setattr(_fake_chat_widget_models, "ChatWidgetSession", _MockChatWidgetSession)
+setattr(_fake_chat_widget_models, "ChatWidgetMessage", _MockChatWidgetMessage)
+setattr(_fake_chat_widget_models, "CannedResponse", _MockCannedResponse)
+setattr(_fake_chat_widget_models, "ChatWidgetConfig", _MockChatWidgetConfig)
+sys.modules.setdefault("database.models.chat_widget", _fake_chat_widget_models)
+
+# ── database.models.sms_channel (Week 13 Day 5 — F-123) ────────
+_fake_sms_models = types.ModuleType("database.models.sms_channel")
+
+_MockSMSMessage = type("SMSMessage", (object,), {
+    "__tablename__": "sms_messages",
+    "id": None, "company_id": _AttrChainer(),
+    "conversation_id": None, "direction": "inbound",
+    "from_number": None, "to_number": None, "body": None,
+    "num_segments": 1, "char_count": None,
+    "twilio_message_sid": None, "twilio_account_sid": None,
+    "twilio_status": "queued", "twilio_error_code": None,
+    "twilio_error_message": None, "ticket_id": None,
+    "ticket_message_id": None, "sender_id": None,
+    "sender_role": "visitor", "is_ai_generated": False,
+    "ai_confidence": None, "ai_model": None,
+    "is_opt_out": False, "opt_out_keyword": None,
+    "error_message": None, "retry_count": 0,
+    "sent_at": None, "delivered_at": None,
+    "created_at": _AttrChainer(), "updated_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockSMSConversation = type("SMSConversation", (object,), {
+    "__tablename__": "sms_conversations",
+    "id": None, "company_id": _AttrChainer(),
+    "customer_number": None, "twilio_number": None,
+    "ticket_id": None, "customer_id": None,
+    "message_count": 0, "last_message_at": None,
+    "is_opted_out": False, "opt_out_keyword": None,
+    "opt_out_at": None, "created_at": None, "updated_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockSMSChannelConfig = type("SMSChannelConfig", (object,), {
+    "__tablename__": "sms_channel_configs",
+    "id": None, "company_id": None,
+    "twilio_account_sid": None, "twilio_auth_token_encrypted": None,
+    "twilio_phone_number": None, "is_enabled": True,
+    "auto_create_ticket": True, "char_limit": 1600,
+    "max_outbound_per_hour": 5, "max_outbound_per_day": 50,
+    "opt_out_keywords": "STOP,STOPALL,UNSUBSCRIBE,CANCEL,QUIT,END",
+    "opt_in_keywords": "START,YES,UNSTOP,CONTINUE",
+    "opt_out_response": "You have been opted out.",
+    "auto_reply_enabled": False, "auto_reply_message": None,
+    "auto_reply_delay_seconds": 10,
+    "after_hours_message": None, "business_hours_json": "{}",
+    "created_at": None, "updated_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+setattr(_fake_sms_models, "SMSMessage", _MockSMSMessage)
+setattr(_fake_sms_models, "SMSConversation", _MockSMSConversation)
+setattr(_fake_sms_models, "SMSChannelConfig", _MockSMSChannelConfig)
+sys.modules.setdefault("database.models.sms_channel", _fake_sms_models)
+
 sys.modules.setdefault("database", _fake_database)
 sys.modules.setdefault("database.base", _fake_base)
 sys.modules.setdefault("database.models", _fake_models)
