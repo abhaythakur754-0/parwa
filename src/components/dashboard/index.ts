@@ -36,3 +36,6 @@ export { default as CSATTrends } from './CSATTrends';
 export { default as ConfidenceTrend } from './ConfidenceTrend';
 export { default as DriftDetection } from './DriftDetection';
 export { default as QAScores } from './QAScores';
+
+// Week 16 Day 6 — ROI Dashboard
+export { default as ROIDashboard } from './ROIDashboard';

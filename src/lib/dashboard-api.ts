@@ -190,6 +190,14 @@ export const dashboardApi = {
    */
   getQAScores: (days: number = 30) =>
     get<QAScoresResponse>(`/api/analytics/qa-scores?days=${days}`),
+
+  /**
+   * Get ROI dashboard — cost savings, AI vs human ticket comparison,
+   * monthly trend, and return on investment metrics.
+   * F-113
+   */
+  getROIDashboard: (months: number = 12) =>
+    get<ROIDashboardResponse>(`/api/analytics/savings?months=${months}`),
 };
 
 // ── F-042: Growth Nudge Types ─────────────────────────────────────────
@@ -341,6 +349,42 @@ export interface QAScoresResponse {
   trend_direction: 'improving' | 'declining' | 'stable';
   change_vs_previous_period: number | null;
   threshold_pass: number;
+}
+
+// ── F-113: ROI Dashboard Types ──────────────────────────────────────
+
+export interface ROIMonthSnapshot {
+  period: string;
+  date: string;
+  tickets_ai: number;
+  tickets_human: number;
+  ai_cost: number;
+  human_cost: number;
+  savings: number;
+  cumulative_savings: number;
+}
+
+export interface ROIMonthDetail {
+  tickets_ai: number;
+  tickets_human: number;
+  ai_cost: number;
+  human_cost: number;
+  savings: number;
+  cumulative_savings: number;
+  period: string;
+  date: string;
+}
+
+export interface ROIDashboardResponse {
+  current_month: ROIMonthDetail;
+  previous_month: ROIMonthDetail;
+  all_time_savings: number;
+  all_time_tickets_ai: number;
+  all_time_tickets_human: number;
+  monthly_trend: ROIMonthSnapshot[];
+  avg_cost_per_ticket_ai: number;
+  avg_cost_per_ticket_human: number;
+  savings_pct: number;
 }
 
 export default dashboardApi;

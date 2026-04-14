@@ -22,6 +22,7 @@ import CSATTrends from '@/components/dashboard/CSATTrends';
 import ConfidenceTrend from '@/components/dashboard/ConfidenceTrend';
 import DriftDetection from '@/components/dashboard/DriftDetection';
 import QAScores from '@/components/dashboard/QAScores';
+import ROIDashboard from '@/components/dashboard/ROIDashboard';
 import { analyticsApi } from '@/lib/analytics-api';
 import { dashboardApi, type DashboardHomeResponse } from '@/lib/dashboard-api';
 import { getErrorMessage } from '@/lib/api';
@@ -342,7 +343,10 @@ export default function DashboardPage() {
       {/* ── Row 10: Drift Detection (W16D5 — F-116) ────────────────── */}
       <DriftDetection />
 
-      {/* ── Row 11: Agent Performance Table ──────────────────────────── */}
+      {/* ── Row 11: ROI Dashboard (W16D6 — F-113) ──────────────────── */}
+      <ROIDashboard />
+
+      {/* ── Row 12: Agent Performance Table ──────────────────────────── */}
       <AgentPerformanceTable data={agentData} />
     </div>
   );
