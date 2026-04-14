@@ -1,16 +1,19 @@
 """
-Email Channel Celery Tasks: Async processing for inbound emails.
+Email Channel Celery Tasks: Async processing for email events.
 
 Week 13 Day 1 (F-121: Email Inbound).
+Week 13 Day 3 (F-122 + F-124: OOO + Bounce/Complaint).
 
 Tasks:
 - process_inbound_email_task: Process inbound email via Brevo webhook
-- process_bounce_event_task: Process email bounce (Day 3 stub)
-- process_complaint_event_task: Process spam complaint (Day 3 stub)
+- process_bounce_event_task: Process email bounce (F-124)
+- process_complaint_event_task: Process spam complaint (F-124)
+- process_delivered_event_task: Process delivery confirmation (F-124)
 
 BC-003: Idempotent webhook processing.
 BC-004: Celery task pattern (ParwaBaseTask + @with_company_id).
 BC-006: Email communication.
+BC-010: GDPR compliance (complaint handling).
 """
 
 import logging
@@ -105,44 +108,44 @@ def process_bounce_event_task(
     company_id: str,
     bounce_data: dict,
 ) -> dict:
-    """Process email bounce event from Brevo.
+    """Process email bounce event from Brevo (F-124).
 
-    Day 3 stub — will be fully implemented in Week 13 Day 3 (F-124).
-    For now, just logs the event.
+    Determines hard vs soft bounce, updates contact status,
+    schedules retries for soft bounces, and logs the event.
 
     Args:
         company_id: Tenant company ID.
-        bounce_data: Bounce event payload from Brevo.
+        bounce_data: Bounce event payload with email, bounce_type,
+            reason, message_id, event_id.
 
     Returns:
-        Dict with status.
+        Dict with status, event_type, actions taken.
     """
     try:
-        email = bounce_data.get("email", "unknown")
-        bounce_type = bounce_data.get("event", "unknown")
-        reason = bounce_data.get("reason", "")
+        from app.core.tenant_context import get_db_session
+        from app.services.bounce_complaint_service import BounceComplaintService
 
-        logger.info(
-            "bounce_event_received_stub",
-            extra={
-                "task": self.name,
-                "company_id": company_id,
-                "email": email,
-                "bounce_type": bounce_type,
-                "reason": str(reason)[:200],
-            },
-        )
+        db = get_db_session()
+        try:
+            service = BounceComplaintService(db)
+            result = service.process_bounce(
+                company_id=company_id,
+                bounce_data=bounce_data,
+            )
 
-        # TODO: Day 3 — implement full bounce processing
-        # - Update contact email status
-        # - Track in EmailDeliveryEvent table
-        # - Notify agents
-
-        return {
-            "status": "stub_processed",
-            "email": email,
-            "bounce_type": bounce_type,
-        }
+            logger.info(
+                "bounce_event_processed",
+                extra={
+                    "task": self.name,
+                    "company_id": company_id,
+                    "email": bounce_data.get("email"),
+                    "status": result.get("status"),
+                    "event_type": result.get("event_type"),
+                },
+            )
+            return result
+        finally:
+            db.close()
 
     except Exception as exc:
         logger.error(
@@ -171,46 +174,100 @@ def process_complaint_event_task(
     company_id: str,
     complaint_data: dict,
 ) -> dict:
-    """Process email spam complaint event from Brevo.
+    """Process email spam complaint event from Brevo (F-124).
 
-    Day 3 stub — will be fully implemented in Week 13 Day 3 (F-124).
-    For now, just logs the event.
+    Marks the contact as complained (BC-010), updates outbound
+    email status, and logs the event for review.
 
     Args:
         company_id: Tenant company ID.
-        complaint_data: Complaint event payload from Brevo.
+        complaint_data: Complaint event payload with email,
+            complaint_type, reason, message_id, event_id.
+
+    Returns:
+        Dict with status and actions taken.
+    """
+    try:
+        from app.core.tenant_context import get_db_session
+        from app.services.bounce_complaint_service import BounceComplaintService
+
+        db = get_db_session()
+        try:
+            service = BounceComplaintService(db)
+            result = service.process_complaint(
+                company_id=company_id,
+                complaint_data=complaint_data,
+            )
+
+            logger.info(
+                "complaint_event_processed",
+                extra={
+                    "task": self.name,
+                    "company_id": company_id,
+                    "email": complaint_data.get("email"),
+                    "status": result.get("status"),
+                },
+            )
+            return result
+        finally:
+            db.close()
+
+    except Exception as exc:
+        logger.error(
+            "complaint_event_task_failed",
+            extra={
+                "task": self.name,
+                "company_id": company_id,
+                "error": str(exc)[:200],
+            },
+        )
+        raise
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="email",
+    name="app.tasks.email_channel.process_delivered_event",
+    max_retries=1,
+    soft_time_limit=10,
+    time_limit=20,
+)
+@with_company_id
+def process_delivered_event_task(
+    self,
+    company_id: str,
+    delivery_data: dict,
+) -> dict:
+    """Process email delivery confirmation from Brevo (F-124).
+
+    Updates OutboundEmail status to "delivered" and stores the event.
+
+    Args:
+        company_id: Tenant company ID.
+        delivery_data: Delivery event payload with email, message_id.
 
     Returns:
         Dict with status.
     """
     try:
-        email = complaint_data.get("email", "unknown")
-        complaint_type = complaint_data.get("event", "unknown")
+        from app.core.tenant_context import get_db_session
+        from app.services.bounce_complaint_service import BounceComplaintService
 
-        logger.info(
-            "complaint_event_received_stub",
-            extra={
-                "task": self.name,
-                "company_id": company_id,
-                "email": email,
-                "complaint_type": complaint_type,
-            },
-        )
-
-        # TODO: Day 3 — implement full complaint processing
-        # - Update contact email status
-        # - Flag for review
-        # - Notify admins
-
-        return {
-            "status": "stub_processed",
-            "email": email,
-            "complaint_type": complaint_type,
-        }
+        db = get_db_session()
+        try:
+            service = BounceComplaintService(db)
+            result = service.process_delivered(
+                company_id=company_id,
+                delivery_data=delivery_data,
+            )
+            return result
+        finally:
+            db.close()
 
     except Exception as exc:
         logger.error(
-            "complaint_event_task_failed",
+            "delivered_event_task_failed",
             extra={
                 "task": self.name,
                 "company_id": company_id,

@@ -229,19 +229,19 @@ def handle_inbound_email(event: dict) -> dict:
         }
 
 
-# ── Bounce Handler (Day 3 Stub — F-124) ─────────────────────────
+# ── Bounce Handler (Day 3 — F-124) ────────────────────────────
 
 def handle_bounce(event: dict) -> dict:
-    """Handle Brevo bounce event.
+    """Handle Brevo bounce event (F-124).
 
-    Day 3 stub — extracts bounce data and dispatches to Celery.
-    Full implementation in F-124.
+    Extracts bounce data, determines hard/soft type, and dispatches
+    to Celery for async processing via BounceComplaintService.
 
     Args:
-        event: Full event dict.
+        event: Full event dict with payload, company_id, event_id.
 
     Returns:
-        Dict with status and bounce data.
+        Dict with status and extracted bounce data.
     """
     payload = event.get("payload", {})
     bounce_data = {
@@ -250,6 +250,7 @@ def handle_bounce(event: dict) -> dict:
         "bounce_type": payload.get("type", "unknown"),
         "reason": payload.get("reason", ""),
         "message_id": payload.get("message_id", ""),
+        "event_id": event.get("event_id", ""),
     }
 
     logger.info(
@@ -279,16 +280,16 @@ def handle_bounce(event: dict) -> dict:
         return {"status": "dispatch_failed", "error": str(exc)[:200]}
 
 
-# ── Complaint Handler (Day 3 Stub — F-124) ──────────────────────
+# ── Complaint Handler (Day 3 — F-124) ──────────────────────────
 
 def handle_complaint(event: dict) -> dict:
-    """Handle Brevo spam complaint event.
+    """Handle Brevo spam complaint event (F-124).
 
-    Day 3 stub — extracts complaint data and dispatches to Celery.
-    Full implementation in F-124.
+    Extracts complaint data and dispatches to Celery for async
+    processing via BounceComplaintService.
 
     Args:
-        event: Full event dict.
+        event: Full event dict with payload, company_id, event_id.
 
     Returns:
         Dict with status and complaint data.
@@ -298,7 +299,9 @@ def handle_complaint(event: dict) -> dict:
         "email": _sanitize_email_field(payload.get("email", ""), 254),
         "event": "complaint",
         "complaint_type": payload.get("reason", "unknown"),
+        "reason": payload.get("reason", ""),
         "message_id": payload.get("message_id", ""),
+        "event_id": event.get("event_id", ""),
     }
 
     logger.info(
@@ -327,12 +330,12 @@ def handle_complaint(event: dict) -> dict:
         return {"status": "dispatch_failed", "error": str(exc)[:200]}
 
 
-# ── Delivered Handler (Log Only) ───────────────────────────────
+# ── Delivered Handler (F-124) ──────────────────────────────────
 
 def handle_delivered(event: dict) -> dict:
-    """Handle Brevo delivered event.
+    """Handle Brevo delivered event (F-124).
 
-    Logs delivery confirmation for tracking purposes.
+    Dispatches to Celery for OutboundEmail status update.
 
     Args:
         event: Full event dict.
@@ -341,16 +344,27 @@ def handle_delivered(event: dict) -> dict:
         Dict with status.
     """
     payload = event.get("payload", {})
-    logger.info(
-        "brevo_delivered email=%s message_id=%s",
-        payload.get("email", ""),
-        payload.get("message_id", ""),
-        extra={
-            "company_id": event.get("company_id"),
-            "event_id": event.get("event_id"),
-        },
-    )
-    return {"status": "logged", "event_type": "delivered"}
+    delivery_data = {
+        "email": _sanitize_email_field(payload.get("email", ""), 254),
+        "message_id": payload.get("message_id", ""),
+        "event_id": event.get("event_id", ""),
+    }
+
+    try:
+        from app.tasks.email_channel_tasks import process_delivered_event_task
+
+        process_delivered_event_task.delay(
+            company_id=event.get("company_id", ""),
+            delivery_data=delivery_data,
+        )
+        return {"status": "dispatched", "data": delivery_data}
+    except Exception as exc:
+        logger.error(
+            "brevo_delivered_dispatch_failed error=%s",
+            str(exc)[:200],
+            extra={"company_id": event.get("company_id")},
+        )
+        return {"status": "dispatch_failed", "error": str(exc)[:200]}
 
 
 # ── Main Dispatcher ────────────────────────────────────────────
