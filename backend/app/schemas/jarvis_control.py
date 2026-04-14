@@ -537,3 +537,218 @@ class TrainingStats(BaseModel):
     recent_reviews_24h: int = 0
     ready_for_dataset: int = 0
     review_backlog: int = 0
+
+
+# ══════════════════════════════════════════════════════════════════
+# F-093: Self-Healing Orchestrator Schemas
+# ══════════════════════════════════════════════════════════════════
+
+VALID_RISK_LEVELS = ("low", "medium", "high", "critical")
+VALID_HEALING_OUTCOMES = (
+    "success", "failed", "skipped",
+    "requires_confirmation", "cooldown_active",
+)
+
+
+class HealingActionInfo(BaseModel):
+    """Definition of a registered healing action."""
+
+    name: str = Field(description="Unique action identifier")
+    description: str = Field(description="What the healing action does")
+    risk_level: str = Field(
+        default="low",
+        description="Risk level: low/medium/high/critical",
+    )
+    requires_confirmation: bool = Field(
+        default=False,
+        description="Whether admin confirmation is required",
+    )
+    cooldown_seconds: int = Field(
+        default=300,
+        description="Minimum seconds between auto-triggers",
+    )
+    enabled: bool = Field(default=True)
+
+
+class HealingStatusResponse(BaseModel):
+    """Current status of the self-healing orchestrator."""
+
+    company_id: str
+    is_monitoring: bool = False
+    last_check_at: Optional[str] = None
+    actions_registered: int = 0
+    active_healings: int = 0
+    total_healings_24h: int = 0
+    healings_by_outcome: Dict[str, int] = Field(default_factory=dict)
+    healings_by_action: Dict[str, int] = Field(default_factory=dict)
+
+
+class HealingHistoryEntry(BaseModel):
+    """A single healing event in the audit log."""
+
+    event_id: str
+    company_id: str
+    action_name: str
+    trigger_reason: str
+    risk_level: str = "low"
+    outcome: str = "success"
+    triggered_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    details: Dict[str, Any] = Field(default_factory=dict)
+    triggered_by: str = "auto"
+
+
+class HealingHistoryResponse(BaseModel):
+    """Healing event history response."""
+
+    company_id: str
+    events: List[HealingHistoryEntry] = Field(default_factory=list)
+    total: int = 0
+    limit: int = 50
+    offset: int = 0
+
+
+class HealingTriggerRequest(BaseModel):
+    """Request to manually trigger a healing action."""
+
+    action_name: str = Field(
+        description="Name of the healing action to trigger",
+    )
+    context: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional context for the healing action",
+    )
+
+
+class HealingActionsListResponse(BaseModel):
+    """List of all registered healing actions."""
+
+    actions: List[HealingActionInfo] = Field(default_factory=list)
+    total: int = 0
+
+
+class HealingMonitorResult(BaseModel):
+    """Result of a monitor_and_heal cycle."""
+
+    company_id: str
+    checked_at: Optional[str] = None
+    actions_checked: int = 0
+    actions_triggered: int = 0
+    results: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+# ══════════════════════════════════════════════════════════════════
+# F-094: Trust Preservation Protocol Schemas
+# ══════════════════════════════════════════════════════════════════
+
+VALID_PROTOCOL_MODES = ("green", "amber", "red")
+
+
+class ProtocolModeInfo(BaseModel):
+    """Current trust protocol mode and details."""
+
+    company_id: str
+    current_mode: str = Field(
+        description="Current protocol mode: green/amber/red",
+    )
+    manual_override: bool = False
+    checked_at: Optional[str] = None
+    last_evaluation: Optional[str] = None
+    subsystem_summary: Dict[str, str] = Field(default_factory=dict)
+    critical_degraded: List[str] = Field(default_factory=list)
+    critical_down: List[str] = Field(default_factory=list)
+    total_degraded_subsystems: int = 0
+    features: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ProtocolSetModeRequest(BaseModel):
+    """Request to manually set the protocol mode (admin only)."""
+
+    mode: str = Field(
+        description="Target protocol mode: green/amber/red",
+    )
+    reason: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Optional reason for the manual change",
+    )
+
+
+class ProtocolSetModeResponse(BaseModel):
+    """Result of setting protocol mode."""
+
+    company_id: str
+    previous_mode: str
+    new_mode: str
+    manual_override: bool = True
+    set_by: Optional[str] = None
+    set_at: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class ProtocolEvaluateResponse(BaseModel):
+    """Result of protocol auto-evaluation."""
+
+    company_id: str
+    previous_mode: str = "green"
+    current_mode: str = "green"
+    transitioned: bool = False
+    transition_reason: Optional[str] = None
+    manual_override: bool = False
+    subsystem_summary: Dict[str, str] = Field(default_factory=dict)
+    critical_degraded: List[str] = Field(default_factory=list)
+    critical_down: List[str] = Field(default_factory=list)
+    total_degraded_subsystems: int = 0
+    healthy_duration_seconds: float = 0.0
+    evaluated_at: Optional[str] = None
+
+
+class ProtocolTransition(BaseModel):
+    """A single protocol mode transition event."""
+
+    transition_id: str
+    company_id: str
+    previous_mode: str
+    new_mode: str
+    reason: str = ""
+    triggered_by: str = "auto"
+    transitioned_at: Optional[str] = None
+
+
+class ProtocolHistoryResponse(BaseModel):
+    """Protocol transition history response."""
+
+    company_id: str
+    transitions: List[ProtocolTransition] = Field(default_factory=list)
+    total: int = 0
+    limit: int = 50
+
+
+class RecoveryEstimate(BaseModel):
+    """Estimated time to protocol recovery."""
+
+    company_id: str
+    current_mode: str = "green"
+    estimate_seconds: int = 0
+    estimate_message: str = ""
+    critical_issues: List[Dict[str, Any]] = Field(default_factory=list)
+    degraded_count: int = 0
+    subsystem_summary: Dict[str, Any] = Field(default_factory=dict)
+    next_mode: Optional[str] = None
+    healthy_duration_seconds: float = 0.0
+    required_stable_seconds: int = 0
+    recovery_progress_pct: float = 0.0
+
+
+class ResponseWrapper(BaseModel):
+    """Response modification wrapper based on protocol mode."""
+
+    response: str
+    mode: str = "green"
+    modified: bool = False
+    modification_type: Optional[str] = None
+    auto_execute_enabled: bool = True
+    ai_paused: bool = False
+    original_response: Optional[str] = None
+    original_response_length: Optional[int] = None
+    modified_response_length: Optional[int] = None

@@ -194,3 +194,65 @@ Stage Summary:
 - Total lines: ~1,700+ lines of production code
 - All 6 files pass Python syntax verification
 - Building Codes applied: BC-001 (multi-tenant), BC-005 (real-time), BC-007 (AI model), BC-010 (GDPR/PII), BC-011 (auth), BC-012 (error handling)
+
+
+---
+Task ID: W14D3
+Agent: Main
+Task: Week 14 Day 3 - Self-Healing Orchestrator (F-093) + Trust Preservation Protocol (F-094)
+
+Work Log:
+- Read existing codebase patterns: self_healing_engine.py, system_status_service.py, error_panel_service.py, train_from_error_service.py, jarvis_ops.py, jarvis_control.py schemas
+- Created backend/app/services/self_healing_orchestrator.py — F-093 Self-Healing Orchestrator (~750 lines)
+  - SelfHealingOrchestrator class with company_id-scoped methods
+  - 8 registered healing actions as BaseHealingAction subclasses:
+    1. LLM Provider Failover — Switch to next available provider on 5xx
+    2. Queue Drain — Auto-scale recommendation when Celery queue depth > 1000
+    3. Memory Pressure — Evict stale session keys when Redis memory > 80%
+    4. Database Connection Pool — Force recycle idle connections (HIGH risk, requires confirmation)
+    5. Integration Recovery — Retry external APIs (Brevo/Twilio/Paddle) with exponential backoff
+    6. Stuck Ticket Recovery — Identify tickets stuck > 60 min in GSD state (HIGH risk, requires confirmation)
+    7. Approval Queue Backlog — Escalate when pending approvals > 50
+    8. Confidence Drop Recovery — Alert + suggest retraining when avg confidence drops > 15%
+  - Each action: name, trigger_condition(), heal(), requires_confirmation, risk_level, cooldown
+  - monitor_and_heal() — Run all checks and trigger healing automatically
+  - manual_trigger() — Admin-triggered healing action with audit log
+  - get_healing_status() — Current orchestrator status with 24h stats
+  - get_healing_history() — Redis-backed healing event log with 7-day retention
+  - register_healing_action() — Register custom healing actions
+  - Socket.io broadcast on healing events (BC-005)
+  - Lazy service loading pattern with get_self_healing_orchestrator()
+- Created backend/app/services/trust_preservation_service.py — F-094 Trust Preservation Protocol (~550 lines)
+  - TrustPreservationService class with company_id-scoped methods
+  - Three-tier protocol: GREEN (normal), AMBER (degraded), RED (critical)
+  - Auto-escalation logic based on system_status_service health data:
+    - GREEN→AMBER: Any critical subsystem (LLM, DB) degraded
+    - AMBER→RED: Any critical subsystem down OR > 2 subsystems degraded
+    - RED→AMBER: All subsystems healthy for 5 consecutive minutes
+    - AMBER→GREEN: All subsystems healthy for 15 consecutive minutes (debounce)
+  - Response modification: get_response_wrapper() returns honesty-prefixed/simplified/handoff responses
+  - Manual override support (admin-only mode changes)
+  - Redis-persisted protocol state with 7-day transition log
+  - Socket.io broadcast on protocol changes to tenant rooms (BC-005)
+  - Recovery estimate with progress percentage tracking
+  - Lazy service loading pattern with get_trust_preservation_service()
+- Appended 22 new Pydantic schemas to backend/app/schemas/jarvis_control.py:
+  - F-093: HealingActionInfo, HealingStatusResponse, HealingHistoryEntry, HealingHistoryResponse, HealingTriggerRequest, HealingActionsListResponse, HealingMonitorResult
+  - F-094: ProtocolModeInfo, ProtocolSetModeRequest, ProtocolSetModeResponse, ProtocolEvaluateResponse, ProtocolTransition, ProtocolHistoryResponse, RecoveryEstimate, ResponseWrapper
+- Appended 8 new FastAPI endpoints to backend/app/api/jarvis_ops.py (~420 lines):
+  - GET /api/jarvis/self-healing/status — Self-healing orchestrator status
+  - GET /api/jarvis/self-healing/history — Healing event history with filters
+  - POST /api/jarvis/self-healing/trigger — Manual healing trigger (admin only)
+  - GET /api/jarvis/self-healing/actions — List registered healing actions
+  - GET /api/jarvis/trust-protocol/status — Trust protocol status with features
+  - POST /api/jarvis/trust-protocol/mode — Set protocol mode (admin only)
+  - GET /api/jarvis/trust-protocol/history — Protocol transition history
+  - GET /api/jarvis/trust-protocol/recovery — Recovery estimate with progress
+  - All endpoints: admin role enforcement, audit logging, lazy service loading
+- All 4 files pass Python syntax verification (py_compile)
+
+Stage Summary:
+- Files created: 2 new files (self_healing_orchestrator.py, trust_preservation_service.py)
+- Files modified: 2 files (jarvis_control.py schemas, jarvis_ops.py routes)
+- Total lines: ~1,700+ lines of production code
+- Building Codes applied: BC-001 (multi-tenant), BC-004 (Celery), BC-005 (real-time), BC-007 (AI model), BC-011 (auth), BC-012 (resilience/error handling)
