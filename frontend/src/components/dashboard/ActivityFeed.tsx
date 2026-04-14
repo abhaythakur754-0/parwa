@@ -336,10 +336,12 @@ export default function ActivityFeed({
         </div>
 
         {showFilters && (
-          <div className="flex items-center gap-0.5 bg-white/[0.03] rounded-lg p-0.5">
+          <div className="flex items-center gap-0.5 bg-white/[0.03] rounded-lg p-0.5" role="tablist" aria-label="Activity filter">
             {FILTER_TABS.map(tab => (
               <button
                 key={tab.key}
+                role="tab"
+                aria-selected={activeFilter === tab.key}
                 onClick={() => handleFilterChange(tab.key)}
                 className={cn(
                   'px-2 py-1 text-[11px] font-medium rounded-md transition-all duration-150',

@@ -62,10 +62,12 @@ export default function DateRangeSelector({
   className,
 }: DateRangeSelectorProps) {
   return (
-    <div className={cn('flex items-center gap-1 bg-white/[0.04] rounded-lg p-1', className)}>
+    <div className={cn('flex items-center gap-1 bg-white/[0.04] rounded-lg p-1', className)} role="tablist" aria-label="Date range">
       {presetRanges.map((preset) => (
         <button
           key={preset.value}
+          role="tab"
+          aria-selected={value === preset.value}
           onClick={() => onChange(getDateRange(preset.value))}
           className={cn(
             'px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200',

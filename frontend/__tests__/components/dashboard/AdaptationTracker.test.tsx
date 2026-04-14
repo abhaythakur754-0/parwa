@@ -30,6 +30,10 @@ jest.mock('recharts', () => {
     CartesianGrid: () => null,
     Tooltip: () => null,
     Legend: () => null,
+    // SVG gradient elements
+    defs: () => null,
+    linearGradient: () => null,
+    stop: () => null,
   };
 });
 
@@ -125,6 +129,15 @@ const mockEmptyData: AdaptationTrackerResponse = {
 describe('AdaptationTracker Component (F-039)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  // ── Accessibility ───────────────────────────────────────────────
+
+  describe('Accessibility', () => {
+    it('has role=img with aria-label on chart', () => {
+      render(<AdaptationTracker initialData={mockData} />);
+      expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'AI vs Human accuracy chart over 30 days');
+    });
   });
 
   // ── Rendering ──────────────────────────────────────────────────────

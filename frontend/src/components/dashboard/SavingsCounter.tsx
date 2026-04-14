@@ -155,9 +155,11 @@ export default function SavingsCounter({
           <h3 className="text-sm font-semibold text-zinc-300">AI Savings</h3>
         </div>
 
-        <div className="flex items-center gap-0.5 bg-white/[0.03] rounded-lg p-0.5">
+        <div className="flex items-center gap-0.5 bg-white/[0.03] rounded-lg p-0.5" role="tablist" aria-label="Savings view">
           <button
             onClick={() => setView('overview')}
+            role="tab"
+            aria-selected={view === 'overview'}
             className={cn(
               'px-2 py-1 text-[11px] font-medium rounded-md transition-all duration-150',
               view === 'overview'
@@ -169,6 +171,8 @@ export default function SavingsCounter({
           </button>
           <button
             onClick={() => setView('trend')}
+            role="tab"
+            aria-selected={view === 'trend'}
             className={cn(
               'px-2 py-1 text-[11px] font-medium rounded-md transition-all duration-150',
               view === 'trend'

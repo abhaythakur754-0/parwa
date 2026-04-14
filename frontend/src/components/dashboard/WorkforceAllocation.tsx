@@ -103,10 +103,12 @@ export default function WorkforceAllocation({
           <h3 className="text-sm font-semibold text-zinc-300">Workforce Allocation</h3>
         </div>
 
-        <div className="flex items-center gap-0.5 bg-white/[0.03] rounded-lg p-0.5">
+        <div className="flex items-center gap-0.5 bg-white/[0.03] rounded-lg p-0.5" role="tablist" aria-label="Workforce view">
           {(['overview', 'channels', 'categories'] as const).map(tab => (
             <button
               key={tab}
+              role="tab"
+              aria-selected={activeTab === tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
                 'px-2 py-1 text-[11px] font-medium rounded-md transition-all duration-150 capitalize',

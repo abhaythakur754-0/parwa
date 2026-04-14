@@ -191,7 +191,7 @@ export default function DashboardAlerts({
   if (visibleAlerts.length === 0) return null;
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-2', className)} role="list" aria-label="Dashboard alerts">
       {/* Alert count header */}
       {visibleAlerts.length > 1 && (
         <div className="flex items-center justify-between px-1">
@@ -205,6 +205,7 @@ export default function DashboardAlerts({
           </div>
           <button
             onClick={() => setDismissedIndices(new Set(alerts.map((_, i) => i)))}
+            aria-label="Dismiss all alerts"
             className="text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors"
           >
             Dismiss all
