@@ -55,7 +55,8 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
   };
 
   const uploadFile = async (file: File) => {
-    const ext = '.' + file.name.rsplit('.', 1).pop()?.toLowerCase();
+    const parts = file.name.split('.');
+    const ext = parts.length > 1 ? '.' + parts.pop()?.toLowerCase() : '';
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       setError(`File type "${ext}" not allowed. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
       return;

@@ -18,6 +18,7 @@ const TONE_OPTIONS: Array<{ value: AITone; label: string; description: string }>
 
 const STYLE_OPTIONS: Array<{ value: AIResponseStyle; label: string; description: string }> = [
   { value: 'concise', label: 'Concise', description: 'Short, direct answers' },
+  { value: 'balanced', label: 'Balanced', description: 'Mix of brevity and detail' },
   { value: 'detailed', label: 'Detailed', description: 'Comprehensive, thorough explanations' },
 ];
 
@@ -165,7 +166,7 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
       {/* Response Style */}
       <div className="space-y-3">
         <Label>Response Style</Label>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {STYLE_OPTIONS.map((opt) => (
             <Card
               key={opt.value}

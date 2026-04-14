@@ -3,15 +3,15 @@
  *
  * Full-page route: /onboarding
  *
+ * Supports two modes based on ?mode query parameter:
+ *   - mode=wizard  → 5-step onboarding wizard (Legal → Integrations → KB → AI Config → First Victory)
+ *   - mode=chat    → Jarvis conversational AI chat (default, demo/exploratory experience)
+ *
  * Auth guard logic:
  *   1. If loading → show spinner
  *   2. If not authenticated → redirect to /login?redirect=/onboarding
  *   3. If already onboarded → redirect to /dashboard
- *   4. Otherwise → render JarvisChat
- *
- * Uses the useAuth hook for authentication state.
- * Session detection: checks if user has an active Jarvis session
- * (handoff_completed or onboarding_completed flag).
+ *   4. Otherwise → render Wizard or Chat based on mode param
  */
 
 'use client';
@@ -22,10 +22,18 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { JarvisChat } from '@/components/jarvis/JarvisChat';
 import { ChatErrorBoundary } from '@/components/jarvis/ChatErrorBoundary';
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading, hydrate } = useAuth();
+
+  // ── Determine render mode ──
+  const [mode, setMode] = useState<'wizard' | 'chat'>(() => {
+    if (typeof window === 'undefined') return 'chat';
+    const params = new URLSearchParams(window.location.search);
+    return (params.get('mode') as 'wizard' | 'chat') || 'chat';
+  });
 
   // ── Context: Read URL params for entry_source, variant, industry ──
   const [entrySource] = useState(() => {
@@ -124,8 +132,18 @@ export default function OnboardingPage() {
     );
   }
 
-  // ── Render Chat ──────────────────────────────────────────────
+  // ── Render based on mode ─────────────────────────────────────
 
+  // Wizard mode: 5-step onboarding form
+  if (mode === 'wizard') {
+    return (
+      <ChatErrorBoundary>
+        <OnboardingWizard />
+      </ChatErrorBoundary>
+    );
+  }
+
+  // Chat mode: Jarvis conversational AI (default)
   return (
     <ChatErrorBoundary>
       <JarvisChat entrySource={entrySource} entryParams={entryParams} />

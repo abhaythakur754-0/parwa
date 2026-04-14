@@ -566,3 +566,30 @@ Stage Summary:
 - 29/29 unit tests passing
 - Commit: c08a2ae pushed to origin/main
 - Day 4 COMPLETE: F-042 Growth Nudge, F-043 Ticket Forecast, F-044 CSAT Trends
+---
+Task ID: 2-day2
+Agent: Main Agent
+Task: Day 2 — Fix 4 deferred bugs from Day 1 + deep gap analysis + fix gaps
+
+Work Log:
+- Read all 3 target files: jarvis-ai-engine.ts (897 lines), route.ts (1763 lines), useJarvisChat.ts (726 lines)
+- Confirmed Bug #9 already fixed (single apiFetch client in useJarvisChat.ts)
+- Fixed Bug #2: Added @deprecated header to jarvis-ai-engine.ts (confirmed no imports anywhere)
+- Fixed Bug #3: Added file-based session persistence with .parwa_sessions.json, loadSessionsFromDisk(), debouncedPersist(), saveSession() helper — replaced all 15 sessions.set() calls with saveSession()
+- Fixed Bug #4: Added proxyToBackendWithBody() function, restructured message handler to parse body and merge context BEFORE proxying
+- Fixed Gap J1: Changed Smart Router provider order from ['google','cerebras','groq'] to ['cerebras','groq','google']
+- Fixed Gap J3: Added ensureDailyReset() function that resets message_count_today and remaining_today at midnight
+- Fixed Gap J4: Changed demo pack expiry from 7 days to 24 hours, added expiry check that sends pack_expired message and reverts to free tier
+- Fixed Gap J6: Added free tier limit enforcement — when remaining_today <= 0, sends limit_reached message instead of processing
+- Fixed Gap J8: Enhanced handoff to create new customer_care session with selective context transfer (industry, email, variants — NOT chat history), sends handoff_card to both sessions
+- Fixed Gap O2: Changed legal API path from /api/onboarding/legal to /api/onboarding/legal-consent
+- Fixed Gap O6: Fixed all 4 knowledge API paths from /api/knowledge/* to /api/kb/*
+- Ran deep gap analysis via 3 parallel agents comparing JARVIS_SPECIFICATION.md, ONBOARDING_SPEC.md, and CORRECTED_PARWA_Complete_Frontend_Documentation.md against actual code
+- Found 50+ gaps total: 19 from Jarvis spec, 17 from onboarding spec, 22+ from frontend docs
+- Pushed commit d1964ff to main
+
+Stage Summary:
+- 4 deferred bugs fixed (Bug #2, #3, #4, #9)
+- 8 code-level gaps fixed from deep analysis
+- 50+ additional gaps documented for future days (P0: Legal UI, Integration wizard, KB upload, AI config; P1: Settings pages, Dashboard sub-pages; P2: Admin, Quality, Emergency controls)
+- Commit: d1964ff, Push: main

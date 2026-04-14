@@ -23,7 +23,7 @@ export default function WelcomeDetailsPage() {
         ]);
         setInitialData(details);
         setOnboardingState(state);
-        if (state?.details_completed) router.push('/onboarding');
+        if (state?.details_completed) router.push('/onboarding?mode=wizard');
       } catch (error) {
         console.error('Failed to fetch initial data:', error);
       } finally {
@@ -34,7 +34,7 @@ export default function WelcomeDetailsPage() {
   }, [router]);
 
   const handleSubmit = (data: UserDetails) => { setInitialData(data); };
-  const handleNext = () => { router.push('/onboarding'); };
+  const handleNext = () => { router.push('/onboarding?mode=wizard'); };
 
   if (isLoading) {
     return (

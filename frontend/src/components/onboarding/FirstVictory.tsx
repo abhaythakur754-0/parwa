@@ -63,7 +63,7 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
         </div>
       )}
 
-      <style jsx>{`
+      <style jsx global>{`
         @keyframes confetti-fall {
           0% {
             transform: translateY(0) rotate(0deg);
@@ -105,7 +105,7 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
           Go to Dashboard
           <ArrowRight className="h-4 w-4" />
         </Button>
-        <Button size="lg" variant="outline" onClick={goToDashboard} className="gap-2">
+        <Button size="lg" variant="outline" onClick={() => router.push('/onboarding?mode=chat')} className="gap-2">
           <Sparkles className="h-4 w-4" />
           Chat with {aiName}
         </Button>

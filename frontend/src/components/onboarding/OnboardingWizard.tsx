@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProgressIndicator } from './ProgressIndicator';
 import { LegalCompliance } from './LegalCompliance';
 import { IntegrationSetup } from './IntegrationSetup';
@@ -15,6 +16,7 @@ interface OnboardingWizardProps {
 }
 
 export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,14 +48,27 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
 
   const completeStep = async (step: number) => {
     setCompletedSteps((prev) => [...prev.filter((s) => s !== step), step]);
-    setCurrentStep(step + 1);
 
     try {
-      await fetch(`/api/onboarding/complete-step?step=${step}`, {
+      const res = await fetch(`/api/onboarding/complete-step?step=${step}`, {
         method: 'POST',
       });
+      if (res.ok) {
+        // After step 5, show FirstVictory directly (don't advance to step 6)
+        if (step >= 5) {
+          setOnboardingState((prev) => prev ? { ...prev, status: 'completed' as const } : prev);
+          return;
+        }
+        setCurrentStep(step + 1);
+      } else {
+        // API failed — still advance locally
+        if (step < 5) setCurrentStep(step + 1);
+        else setOnboardingState((prev) => prev ? { ...prev, status: 'completed' as const } : prev);
+      }
     } catch {
-      // Step completed locally even if API fails
+      // Network error — still advance locally
+      if (step < 5) setCurrentStep(step + 1);
+      else setOnboardingState((prev) => prev ? { ...prev, status: 'completed' as const } : prev);
     }
   };
 
@@ -70,10 +85,20 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
     return <FirstVictory aiName={aiName} aiGreeting={aiGreeting} />;
   }
 
-  // Show dashboard redirect if first victory is done
+  // Redirect to dashboard if first victory is done
+  useEffect(() => {
+    if (onboardingState?.first_victory_completed || onboardingState?.status === 'completed') {
+      // Check if first victory API has been called
+      if (onboardingState.first_victory_completed) {
+        router.replace('/dashboard');
+      }
+    }
+  }, [onboardingState?.first_victory_completed, onboardingState?.status, router]);
+
   if (onboardingState?.first_victory_completed) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center text-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mb-3" />
         <p className="text-muted-foreground">Redirecting to dashboard...</p>
       </div>
     );
