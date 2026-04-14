@@ -27,6 +27,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
 const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -67,6 +69,42 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
   } catch (err) {
     // Backend unreachable — fall back to local handling
     console.warn('[Jarvis] Backend proxy failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 150));
+    return null;
+  }
+}
+
+/**
+ * Bug #4 fix: Proxy to backend with a custom body (merged context).
+ * This ensures the backend receives the full merged context from the
+ * local session, not just the raw frontend payload.
+ */
+async function proxyToBackendWithBody(request: NextRequest, pathSegments: string[], bodyOverride: string): Promise<Response | null> {
+  if (!BACKEND_URL) return null;
+
+  const backendPath = `${BACKEND_URL}/api/jarvis/${pathSegments.join('/')}`;
+  const url = new URL(request.url);
+  const searchParams = url.searchParams.toString();
+  const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
+
+  try {
+    const headers = new Headers(request.headers);
+    headers.delete('host');
+    headers.set('content-type', 'application/json');
+
+    const response = await fetch(fullUrl, {
+      method: 'POST',
+      headers,
+      body: bodyOverride,
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (response.status >= 200 && response.status < 300) {
+      return response;
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('[Jarvis] Backend proxy (merged body) failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 150));
     return null;
   }
 }
@@ -236,8 +274,8 @@ async function callAI(messages: Array<{role: string, content: string}>): Promise
     console.warn('[Jarvis] z-ai-web-dev-sdk error:', (error instanceof Error ? error.message : String(error))?.slice(0, 100));
   }
 
-  // 2. Try free providers in order: Google → Cerebras → Groq
-  const providerList = ['google', 'cerebras', 'groq'];
+  // 2. Try free providers in order: Cerebras → Groq → Google (per JARVIS_SPECIFICATION.md)
+  const providerList = ['cerebras', 'groq', 'google'];
   for (const name of providerList) {
     const provider = getProvider(name);
     if (provider) {
@@ -469,9 +507,79 @@ STAGE: ${session.detected_stage || session.context?.detected_stage || 'welcome'}
 ${getStageInstructions(session.detected_stage || session.context?.detected_stage || 'welcome')}`;
 }
 
-// ── In-Memory Stores ──────────────────────────────────────────────
+// ── Session Persistence (Bug #3 fix) ──────────────────────────────
+// Sessions survive hot-reloads and server restarts via JSON file.
+
+const SESSION_STORE_PATH = path.join(process.cwd(), '.parwa_sessions.json');
+let _sessionsLoaded = false;
+let _persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 const sessions = new Map();
+
+function loadSessionsFromDisk(): void {
+  if (_sessionsLoaded) return;
+  _sessionsLoaded = true;
+  try {
+    if (fs.existsSync(SESSION_STORE_PATH)) {
+      const raw = fs.readFileSync(SESSION_STORE_PATH, 'utf-8');
+      const data = JSON.parse(raw);
+      if (data && typeof data === 'object') {
+        for (const [id, session] of Object.entries(data)) {
+          sessions.set(id, session);
+        }
+        console.log(`[Jarvis] Loaded ${Object.keys(data).length} sessions from disk`);
+      }
+    }
+  } catch (err) {
+    console.warn('[Jarvis] Failed to load sessions from disk:', (err instanceof Error ? err.message : String(err))?.slice(0, 100));
+  }
+}
+
+function persistSessionsToDisk(): void {
+  try {
+    const data: Record<string, any> = {};
+    for (const [id, session] of sessions.entries()) {
+      data[id] = session;
+    }
+    fs.writeFileSync(SESSION_STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('[Jarvis] Failed to persist sessions:', (err instanceof Error ? err.message : String(err))?.slice(0, 100));
+  }
+}
+
+function debouncedPersist(): void {
+  if (_persistTimer) clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(() => {
+    persistSessionsToDisk();
+    _persistTimer = null;
+  }, 2000);
+}
+
+// Auto-load on first module evaluation
+loadSessionsFromDisk();
+
+/** Save a session and schedule a debounced disk write. */
+function saveSession(id: string, session: any): void {
+  sessions.set(id, session);
+  debouncedPersist();
+}
+
+/**
+ * Gap J3 fix: Reset daily message counters if the day has changed.
+ * Per spec: 20 free messages/day, reset at midnight (user's timezone).
+ * Uses a simple date-string comparison on session.created_at / last_reset_date.
+ */
+function ensureDailyReset(session: any): void {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const lastReset = session.context._last_reset_date || session.created_at?.slice(0, 10);
+  if (lastReset !== today) {
+    if (session.pack_type !== 'demo') {
+      session.message_count_today = 0;
+      session.remaining_today = 20;
+    }
+    session.context._last_reset_date = today;
+  }
+}
 
 function generateId(): string {
   return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -1136,25 +1244,49 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         timestamp: new Date().toISOString(),
       };
       (session.messages as any[]).push(welcomeMsg);
-      sessions.set(session.id, session);
+      saveSession(session.id, session);
       return NextResponse.json(session);
     }
 
     // ── POST /message — Send Message & Get AI Reply ────────────
     if (endpoint === 'message') {
-      // ── Try backend proxy first (LangGraph 13-stage pipeline + RAG + PostgreSQL) ──
-      const proxyResult = await proxyToBackend(request, path);
-      console.log(`[Jarvis] Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`);
-      if (proxyResult) return proxyResult;
-
-      // ── Local fallback: in-memory handling ──
+      // Parse body FIRST so we can merge context before proxying (Bug #4 fix)
       const body = await request.json();
       const { content, session_id, context: incomingContext } = body;
 
+      // Ensure session exists and merge incoming context locally
       let session = session_id ? sessions.get(session_id) : undefined;
       if (!session) {
         session = createDefaultSession('direct');
-        sessions.set(session.id, session);
+        saveSession(session.id, session);
+      }
+
+      // Gap J3: Reset daily counters if day changed
+      ensureDailyReset(session);
+
+      // Gap J4: Check if demo pack has expired (24h validity per spec)
+      if (session.pack_type === 'demo' && session.context.demo_pack_expiry) {
+        const expiry = new Date(session.context.demo_pack_expiry);
+        if (Date.now() > expiry.getTime()) {
+          session.pack_type = 'free';
+          session.remaining_today = 20;
+          session.message_count_today = 0;
+          delete session.context.demo_pack_expiry;
+          saveSession(session.id, session);
+
+          // Send pack_expired message
+          const expiredMsg = {
+            id: `pack_expired_${Date.now()}`,
+            session_id: session.id,
+            role: 'jarvis',
+            content: 'Your demo pack has expired. Upgrade to a plan to continue with unlimited messages.',
+            message_type: 'pack_expired',
+            metadata: { expired_at: new Date().toISOString() },
+            timestamp: new Date().toISOString(),
+          };
+          session.messages.push(expiredMsg);
+          return NextResponse.json(expiredMsg);
+        }
       }
 
       // ── Merge incoming context from frontend BEFORE building AI response ──
@@ -1166,11 +1298,43 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           }
         }
         session.updated_at = new Date().toISOString();
-        sessions.set(session.id, session);
+        saveSession(session.id, session);
       }
+
+      // ── Try backend proxy first (LangGraph 13-stage pipeline + RAG + PostgreSQL) ──
+      // Bug #4 fix: Build a new request body with merged context so the backend
+      // also receives the full context even when proxying
+      const mergedBody = JSON.stringify({
+        content,
+        session_id: session.id,
+        context: session.context,
+      });
+
+      const proxyResult = await proxyToBackendWithBody(request, path, mergedBody);
+      console.log(`[Jarvis] Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`);
+      if (proxyResult) return proxyResult;
+
+      // ── Local fallback: in-memory handling ──
+      // (context already merged above)
 
       if (!content || typeof content !== 'string') {
         return NextResponse.json({ error: { code: 'bad_request', message: 'Message content is required', details: null } }, { status: 400 });
+      }
+
+      // Gap J6: Enforce free tier message limit (20 messages/day per spec)
+      if (session.pack_type !== 'demo' && session.remaining_today <= 0) {
+        const limitMsg = {
+          id: `limit_reached_${Date.now()}`,
+          session_id: session.id,
+          role: 'jarvis',
+          content: "You've reached your daily message limit. Upgrade to a plan for unlimited messages, or try our $1 Demo Pack for 500 messages + a 3-minute AI voice call!",
+          message_type: 'limit_reached',
+          metadata: { remaining: 0, total: 20, reset_at: new Date(new Date().setHours(24, 0, 0, 0)).toISOString() },
+          timestamp: new Date().toISOString(),
+        };
+        session.messages.push(limitMsg);
+        saveSession(session.id, session);
+        return NextResponse.json(limitMsg);
       }
 
       // Auto-extract demo_topics and concerns from user message
@@ -1243,7 +1407,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
       }
 
-      sessions.set(session.id, session);
+      saveSession(session.id, session);
       return NextResponse.json(aiMsg);
     }
 
@@ -1258,7 +1422,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const session = sessions.get(sessionId);
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json(session);
     }
 
@@ -1279,7 +1443,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         };
         // Phase 10e: Create action ticket for OTP
         const ticket = createActionTicket(session, 'otp_verification', { email: body.email, otp_status: 'sent' });
-        sessions.set(sessionId, session);
+        saveSession(sessionId, session);
         return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), ticket_id: ticket.id });
       }
       return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
@@ -1305,7 +1469,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         updateActionTicket(session, otpTickets[otpTickets.length - 1].id, { status: 'completed' });
       }
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json({ message: 'Email verified successfully!', status: 'verified', attempts_remaining: Number(otpData?.attempts_remaining) });
     }
 
@@ -1319,6 +1483,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const session = sessions.get(sessionId);
       session.pack_type = 'demo';
       session.remaining_today = 500;
+      session.context.demo_pack_expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // Gap J4: 24h expiry
 
       // Phase 10d: Calculate bill summary for demo pack
       const billSummary = calculateBillSummary(session);
@@ -1350,8 +1515,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.messages.push(paymentCardMsg);
 
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
-      return NextResponse.json({ message: 'Demo pack activated! You now have 500 messages.', pack_type: 'demo', pack_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), remaining_today: 500, demo_call_remaining: true, bill_summary: billSummary, ticket_id: ticket.id });
+      saveSession(sessionId, session);
+      return NextResponse.json({ message: 'Demo pack activated! You now have 500 messages.', pack_type: 'demo', pack_expiry: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), remaining_today: 500, demo_call_remaining: true, bill_summary: billSummary, ticket_id: ticket.id });
     }
 
     // ── POST /payment/create ───────────────────────────────────
@@ -1421,7 +1586,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.messages.push(paymentCardMsg);
 
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json({ checkout_url: checkoutUrl, transaction_id: transactionId, status: 'pending', amount: `$${total.toFixed(2)}/mo`, currency: 'USD', items, subtotal, tax, total, ticket_id: ticket.id });
     }
 
@@ -1439,7 +1604,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const session = sessions.get(sessionId);
         const ticket = createActionTicket(session, 'demo_call', { phone: body.phone, duration_limit: 300 });
         ticketId = ticket.id;
-        sessions.set(sessionId, session);
+        saveSession(sessionId, session);
       }
       return NextResponse.json({ call_id: `call_${Date.now()}`, status: 'initiated', phone: body.phone, duration_limit: 300, message: `Demo call initiated to ${body.phone}. You'll receive a call within 30 seconds.`, ticket_id: ticketId });
     }
@@ -1453,6 +1618,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       const session = sessions.get(sessionId);
       session.handoff_completed = true;
+      session.is_active = false; // Deactivate old onboarding session
       session.detected_stage = 'handoff';
       session.context.detected_stage = 'handoff';
 
@@ -1464,9 +1630,52 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         payment_status: session.payment_status,
       });
 
+      // Gap J8: Create new customer care session (per spec: type='customer_care',
+      // selective context transfer — NO chat history, only business info)
+      const careSession = createDefaultSession('handoff');
+      careSession.type = 'customer_care';
+      careSession.context.industry = session.context.industry;
+      careSession.context.business_email = session.context.business_email;
+      careSession.context.email_verified = session.context.email_verified;
+      careSession.context.selected_variants = session.context.selected_variants;
+      careSession.context.selected_plan = session.context.selected_plan;
+      careSession.context.entry_source = 'handoff';
+      careSession.context.handoff_from_session = sessionId;
+      // Intentionally NOT transferring: messages, roi_result, concerns_raised, demo_topics
+
+      const careWelcome = getContextAwareWelcome('handoff', careSession.context);
+      const careWelcomeMsg = {
+        id: `jarvis_welcome_${Date.now()}`,
+        session_id: careSession.id,
+        role: 'jarvis',
+        content: careWelcome,
+        message_type: 'handoff_card',
+        metadata: {
+          handoff_from: sessionId,
+          handoff_at: new Date().toISOString(),
+          ticket_id: ticket.id,
+          transferred_fields: ['industry', 'business_email', 'selected_variants', 'selected_plan'],
+        },
+        timestamp: new Date().toISOString(),
+      };
+      careSession.messages.push(careWelcomeMsg);
+      saveSession(careSession.id, careSession);
+
+      // Add handoff_card to old session too
+      const handoffCardMsg = {
+        id: `handoff_card_${Date.now()}`,
+        session_id: sessionId,
+        role: 'jarvis',
+        content: "You've been transferred to Customer Care. A specialist will take over from here with full context of your journey.",
+        message_type: 'handoff_card',
+        metadata: { new_session_id: careSession.id, ticket_id: ticket.id },
+        timestamp: new Date().toISOString(),
+      };
+      session.messages.push(handoffCardMsg);
+
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
-      return NextResponse.json({ handoff_completed: true, new_session_id: null, handoff_at: new Date().toISOString(), ticket_id: ticket.id });
+      saveSession(sessionId, session);
+      return NextResponse.json({ handoff_completed: true, new_session_id: careSession.id, handoff_at: new Date().toISOString(), ticket_id: ticket.id });
     }
 
     // ── POST /context/entry — Update Entry Context ────────────
@@ -1514,7 +1723,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       };
       session.messages.push(welcomeMsg);
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      saveSession(session.id, session);
       return NextResponse.json({ session, new_welcome: welcomeMsg });
     }
 
@@ -1578,7 +1787,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
 
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      saveSession(session.id, session);
       return NextResponse.json({ received: true, event_type, payment_status: session.payment_status });
     }
 
@@ -1597,7 +1806,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const session = sessions.get(session_id);
       const ticket = createActionTicket(session, type, metadata || {});
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      saveSession(session.id, session);
       return NextResponse.json(ticket, { status: 201 });
     }
 
@@ -1731,7 +1940,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const session = sessions.get(sessionId)!;
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json(session);
     }
 
@@ -1750,7 +1959,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: { code: 'not_found', message: 'Ticket not found', details: null } }, { status: 404 });
       }
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json(updated);
     }
 

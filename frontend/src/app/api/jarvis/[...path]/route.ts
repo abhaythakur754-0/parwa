@@ -27,6 +27,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
 const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -67,6 +69,42 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
   } catch (err) {
     // Backend unreachable — fall back to local handling
     console.warn('[Jarvis] Backend proxy failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 150));
+    return null;
+  }
+}
+
+/**
+ * Bug #4 fix: Proxy to backend with a custom body (merged context).
+ * This ensures the backend receives the full merged context from the
+ * local session, not just the raw frontend payload.
+ */
+async function proxyToBackendWithBody(request: NextRequest, pathSegments: string[], bodyOverride: string): Promise<Response | null> {
+  if (!BACKEND_URL) return null;
+
+  const backendPath = `${BACKEND_URL}/api/jarvis/${pathSegments.join('/')}`;
+  const url = new URL(request.url);
+  const searchParams = url.searchParams.toString();
+  const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
+
+  try {
+    const headers = new Headers(request.headers);
+    headers.delete('host');
+    headers.set('content-type', 'application/json');
+
+    const response = await fetch(fullUrl, {
+      method: 'POST',
+      headers,
+      body: bodyOverride,
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (response.status >= 200 && response.status < 300) {
+      return response;
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('[Jarvis] Backend proxy (merged body) failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 150));
     return null;
   }
 }
@@ -236,8 +274,8 @@ async function callAI(messages: Array<{role: string, content: string}>): Promise
     console.warn('[Jarvis] z-ai-web-dev-sdk error:', (error instanceof Error ? error.message : String(error))?.slice(0, 100));
   }
 
-  // 2. Try free providers in order: Google → Cerebras → Groq
-  const providerList = ['google', 'cerebras', 'groq'];
+  // 2. Try free providers in order: Cerebras → Groq → Google (per JARVIS_SPECIFICATION.md)
+  const providerList = ['cerebras', 'groq', 'google'];
   for (const name of providerList) {
     const provider = getProvider(name);
     if (provider) {
@@ -264,14 +302,10 @@ function buildSystemPrompt(session: any): string {
   const ep = ctx.entry_params || {};
   const entrySource = ctx.entry_source || 'direct';
 
-  // Bug #7 Fix: PATCHed context (ctx.*) now takes PRIORITY over entry_params (ep.*).
-  // Previously entry_params always won, so even after user told Jarvis their real
-  // industry via chat (which PATCHed ctx.industry), the system prompt still used
-  // the entry_params industry from page load. Now: ctx first, ep as fallback.
-  const selectedVariant = ctx.variant || ep.variant || null;
-  const selectedVariantId = ctx.variant_id || ep.variant_id || null;
-  const selectedIndustry = ctx.industry || ep.industry || null;
-  const entrySourceParam = ctx.entry_source || ep.entry_source || entrySource;
+  const selectedVariant = ep.variant || ctx.variant || null;
+  const selectedVariantId = ep.variant_id || ctx.variant_id || null;
+  const selectedIndustry = ep.industry || ctx.industry || null;
+  const entrySourceParam = ep.entry_source || entrySource;
 
   // Rich variant context from models page
   const epK = (k: string) => ep[k] ? String(ep[k]) : null;
@@ -362,10 +396,7 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
   const recentMsgs = session.messages.slice(-6);
   const conversationMemory = recentMsgs.map((m: any) => {
     const role = m.role === 'jarvis' ? 'Jarvis' : m.role === 'user' ? 'User' : 'System';
-    // Bug #8 Fix: Increased from 120 to 500 chars. 120 chars was cutting off
-    // important details like ticket numbers, company names, and product specs —
-    // making Jarvis repeat questions it already had answers to.
-    return `${role}: ${String(m.content).slice(0, 500)}`;
+    return `${role}: ${String(m.content).slice(0, 120)}`;
   }).join('\n');
 
   return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
@@ -476,9 +507,79 @@ STAGE: ${session.detected_stage || session.context?.detected_stage || 'welcome'}
 ${getStageInstructions(session.detected_stage || session.context?.detected_stage || 'welcome')}`;
 }
 
-// ── In-Memory Stores ──────────────────────────────────────────────
+// ── Session Persistence (Bug #3 fix) ──────────────────────────────
+// Sessions survive hot-reloads and server restarts via JSON file.
+
+const SESSION_STORE_PATH = path.join(process.cwd(), '.parwa_sessions.json');
+let _sessionsLoaded = false;
+let _persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 const sessions = new Map();
+
+function loadSessionsFromDisk(): void {
+  if (_sessionsLoaded) return;
+  _sessionsLoaded = true;
+  try {
+    if (fs.existsSync(SESSION_STORE_PATH)) {
+      const raw = fs.readFileSync(SESSION_STORE_PATH, 'utf-8');
+      const data = JSON.parse(raw);
+      if (data && typeof data === 'object') {
+        for (const [id, session] of Object.entries(data)) {
+          sessions.set(id, session);
+        }
+        console.log(`[Jarvis] Loaded ${Object.keys(data).length} sessions from disk`);
+      }
+    }
+  } catch (err) {
+    console.warn('[Jarvis] Failed to load sessions from disk:', (err instanceof Error ? err.message : String(err))?.slice(0, 100));
+  }
+}
+
+function persistSessionsToDisk(): void {
+  try {
+    const data: Record<string, any> = {};
+    for (const [id, session] of sessions.entries()) {
+      data[id] = session;
+    }
+    fs.writeFileSync(SESSION_STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('[Jarvis] Failed to persist sessions:', (err instanceof Error ? err.message : String(err))?.slice(0, 100));
+  }
+}
+
+function debouncedPersist(): void {
+  if (_persistTimer) clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(() => {
+    persistSessionsToDisk();
+    _persistTimer = null;
+  }, 2000);
+}
+
+// Auto-load on first module evaluation
+loadSessionsFromDisk();
+
+/** Save a session and schedule a debounced disk write. */
+function saveSession(id: string, session: any): void {
+  sessions.set(id, session);
+  debouncedPersist();
+}
+
+/**
+ * Gap J3 fix: Reset daily message counters if the day has changed.
+ * Per spec: 20 free messages/day, reset at midnight (user's timezone).
+ * Uses a simple date-string comparison on session.created_at / last_reset_date.
+ */
+function ensureDailyReset(session: any): void {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const lastReset = session.context._last_reset_date || session.created_at?.slice(0, 10);
+  if (lastReset !== today) {
+    if (session.pack_type !== 'demo') {
+      session.message_count_today = 0;
+      session.remaining_today = 20;
+    }
+    session.context._last_reset_date = today;
+  }
+}
 
 function generateId(): string {
   return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -512,59 +613,70 @@ function getStageInstructions(stage: string): string {
 function getContextAwareWelcome(entrySource: string, ctx: any): string {
   const source = entrySource || 'direct';
   const ep = ctx.entry_params || {};
-  // Bug #7 Fix: PATCHed ctx takes priority over entry_params
-  const variant = ctx.variant || ep.variant || null;
-  const variantId = ctx.variant_id || ep.variant_id || null;
-  const industry = ctx.industry || ep.industry || null;
-  const entryParamSource = ctx.entry_source || ep.entry_source || source;
-  const ind = industry ? String(industry).toLowerCase() : null;
-
-  // Rich context from models page
-  const roi = ep.roi ? String(ep.roi) : null;
-  const scenario = ep.scenario ? String(ep.scenario) : null;
-  const uniqueFeatures = ep.unique_features ? String(ep.unique_features) : null;
-  const integrations = ep.integrations ? String(ep.integrations) : null;
-
-  // ── Variant + Industry specific welcome (from "Try Live Chat — Free") ──
-  if (variant && (entryParamSource.includes('free_chat') || entryParamSource === 'models_page')) {
-    const vName = String(variant);
-    const isS = variantId === 'starter' || vName.toLowerCase().includes('starter');
-    const isG = variantId === 'growth' || vName.toLowerCase().includes('growth');
-    const isH = variantId === 'high' || vName.toLowerCase().includes('high');
-
-    let featureBullets = '';
-    if (uniqueFeatures) {
-      const feats = uniqueFeatures.split(',').slice(0, 3);
-      featureBullets = feats.map((f: string) => `• ✨ ${f.trim()}`).join('\n');
+  const variant = ep.variant || ctx.variant || null;
+  const industry = ep.industry || ctx.industry || 'your enterprise';
+  
+  // Extract ROI data if available
+  const roi = ctx.roi_result || ep.roi_result;
+  let savingsStr = "";
+  if (roi) {
+    const savings = roi.savings_annual || roi.annual_savings || 0;
+    if (savings) {
+      try {
+        const num = Number(savings);
+        savingsStr = num > 0 ? `$${num.toLocaleString()}` : "";
+      } catch (e) {
+         savingsStr = "";
+      }
     }
-    if (integrations) featureBullets += `\n• 🔗 Integrates with ${integrations}`;
-
-    if (isS) return `Hey! 👋 You're now talking to PARWA Starter — "The 24/7 Trainee"${ind ? ` for ${industry}` : ''}.\n\nHere's what I bring to the table:\n\n• 🤖 Handle emails & chat 24/7 — no more midnight support shifts\n• 📋 Collect customer data automatically — orders, returns, FAQs\n• 📞 Take phone calls (up to 2 at once)\n${featureBullets}\n• 💰 Only $999/mo — saves you ~$168K/yr vs hiring trainees\n\nI gather info fast and escalate anything complex to your team. What do your customers ask about most? Let me show you how I'd handle it. 😊`;
-    if (isG) return `Hey! 👋 You're talking to PARWA Growth — "The Junior Agent"${ind ? ` for ${industry}` : ''}.\n\nThis is where PARWA gets really smart. Here's what I do:\n\n• 🧠 Smart recommendations — I analyze tickets and suggest actions\n• 📊 Churn prediction — I detect usage drops BEFORE customers leave\n• 📞 Handle up to 3 calls simultaneously + SMS + Voice\n${featureBullets}\n• 💰 $2,499/mo — saves ~$216K/yr vs hiring junior agents\n\nI don't just answer — I think.${scenario ? `\n\nReal example: ${scenario}` : ''}\n\nWhat's your biggest support headache right now? I'll show you exactly how I'd solve it. 🚀`;
-    if (isH) return `Hey! 👋 You're talking to PARWA High — "The Senior Agent"${ind ? ` for ${industry}` : ''}.\n\nFull autonomous mode. Here's what makes me different:\n\n• ✅ I approve actions up to $50 on my own — no human bottleneck\n• 🧠 Predict churn & coordinate across departments automatically\n• 📞 5 concurrent calls + video support with screen sharing\n${featureBullets}\n• 💰 $3,999/mo — saves ~$336K/yr vs hiring senior agents\n\nI don't assist — I lead.${scenario ? `\n\nReal example: ${scenario}` : ''}\n\nWhat's a complex scenario your support team struggles with? Let me handle it. 🔥`;
-  }
-
-  // ── Industry-specific welcomes ──
-  if (ind && !variant) {
-    const map: Record<string, string> = {
-      ecommerce: `Hey! 🛒 E-commerce is one of our strongest verticals!\n\nPARWA automates the heavy lifting:\n\n• 📦 Orders, returns, tracking & FAQ — fully automated\n• 🚚 Shipping & payment issues resolved in seconds\n• 🔗 Shopify, WooCommerce, Magento, BigCommerce ready\n• 💰 Starting at $999/mo — saves ~$168K/yr\n\nHow many support tickets does your store handle daily?`,
-      saas: `Hey! 💻 SaaS support — this is where PARWA really shines!\n\nHere's what we automate:\n\n• 🐛 Tech support & multi-step troubleshooting\n• 💳 Billing, subscriptions & API key management\n• 📉 Churn prediction — detect at-risk users before they leave\n• 💰 Starting at $999/mo — saves ~$168K/yr\n\nWhat's your monthly ticket volume?`,
-      logistics: `Hey! 🚛 Logistics is a perfect fit for PARWA!\n\nWe handle the full operations stack:\n\n• 📍 Real-time shipment tracking via carrier APIs\n• 🚚 Delivery issues, rerouting & driver coordination\n• 🏭 Fleet & warehouse management\n• 💰 Starting at $999/mo — saves ~$168K/yr\n\nWant to see how shipment tracking automation works?`,
-      others: `Hey! 👋 Whatever your industry — PARWA adapts.\n\nHere's what we bring:\n\n• 🤖 Custom workflows tailored to YOUR business\n• 🔗 20+ integrations out of the box\n• 📊 Advanced analytics & pattern recognition\n• 💰 Starting at $999/mo — save 85-92% vs hiring\n\nWhat does your current support setup look like?`,
-    };
-    return map[ind] || map.others;
   }
 
   const welcomes: Record<string, string> = {
-    direct: `Control Center active. 👋 I'm Jarvis.\n\nI've initialized the strategic console for your PARWA deployment. Here is our tactical situation:\n\n• 🤖 **Plan Optimization**: Find your exact fit (Starter / Growth / High)\n• 💰 **ROI Analysis**: View your specific cost-savings profile\n• 🎥 **Live Simulation**: Run a mission demo\n\nTo begin: What industry are we analyzing, and what is our monthly ticket volume?`,
-    pricing: `Hey! 👋 Checking out our plans — smart move.\n\nHere's the full lineup:\n\n• 🟠 Starter — $999/mo — 3 agents, 1K tickets — saves ~$168K/yr\n• 🟠 Growth — $2,499/mo — 8 agents, 5K tickets — saves ~$216K/yr\n• 🟠 High — $3,999/mo — 15 agents, 15K tickets — saves ~$336K/yr\n\nAll with 24/7 coverage, cancel anytime. What's your industry? I'll tell you which plan fits best.`,
-    demo: `Hey! 🎉 You're in the right place — I AM the demo!\n\nTry asking me what your customers would:\n\n• "Where's my order #12345?"\n• "My API key isn't working"\n• "I need a refund for this"\n\nOr grab the $1 Demo Pack — 500 messages + a 3-minute AI voice call. Want me to set that up?`,
-    features: `Hey! 👋 Exploring what PARWA can do?\n\nHere's the rundown:\n\n• 📬 6 channels — Email, Chat, Phone, SMS, Voice, Social\n• 🧠 700+ features across 4 industries\n• 🔗 20+ integrations (Shopify, Slack, Jira, Salesforce...)\n• 📊 Smart routing, churn prediction, sentiment analysis\n\nWhat area interests you most?`,
-    roi: `ROI Analysis Protocol engaged. 📊\n\nWe're calculating the strategic impact of PARWA on your overhead. Here are the baseline projections:\n\n• **Starter**: Saves ~$168K/yr vs manual agents\n• **Growth**: Saves ~$216K/yr vs manual agents\n• **High**: Saves ~$336K/yr vs manual agents\n\nThis represents an 85-92% cost reduction with 24/7 tactical coverage. Shall I calculate your exact numbers?`,
-    referral: `Hey! 👋 Great to have you here!\n\nI can help with a few things:\n\n• 💡 Free plan recommendation based on your business\n• 📊 ROI calculation with real numbers\n• 🎥 Live demo\n\nWhat does your current support setup look like?`,
-    free_chat: `Hey! 👋 Welcome to the full PARWA experience!\n\nI can do a deep product walkthrough, live demo, ROI calculation, or plan recommendation right here.\n\nTell me about your business — industry, ticket volume, biggest support pain — and I'll show you exactly what PARWA can do. 🚀`,
-    models_page: `Hey! 👋 Welcome from our Models page!\n\nQuick recap of the lineup:\n\n• 🟠 Starter — $999/mo — "The 24/7 Trainee" — great for SMBs\n• 🟠 Growth — $2,499/mo — "The Junior Agent" — smart & proactive\n• 🟠 High — $3,999/mo — "The Senior Agent" — fully autonomous\n\nWant to try one out? I can roleplay as any of them right now — just tell me your industry. 😊`,
+    direct: (
+      "Control Center active. I am Jarvis, your strategic partner for PARWA. " +
+      "I have established a secure link to your support ecosystem. " +
+      "How shall we begin your transformation today?"
+    ),
+    pricing: (
+      `Strategizing for ${industry}. I see you've been reviewing our premium architecture. ` +
+      "I can help you optimize your deployment to maximize every dollar of ROI. " +
+      "Shall we dive into the specific capabilities of our agents?"
+    ),
+    roi: roi ? (
+      `Mission Objective: Efficiency. I've finished auditing your calculations for ${industry}. ` +
+      `With an estimate of ${savingsStr || 'staggering'} in annual recaptured revenue, ` +
+      "your operation is poised for a significant upgrade. Ready to see the blueprint?"
+    ) : (
+      "Welcome. I've been auditing your ROI calculations. " +
+      "The numbers suggest massive untapped potential in your current workflow. " +
+      "Shall I demonstrate how we convert those savings into operational reality?"
+    ),
+    demo: (
+      "System check complete. Ready for high-fidelity simulation. " +
+      "For just $1, I can open 500 tactical channels and a 3-minute professional voice demonstration. " +
+      "It is the optimal way to experience my full strategic range. Shall we initiate?"
+    ),
+    features: (
+      `Mapping ${industry} requirements to our 700+ feature landscape. ` +
+      "I've identified several high-impact nodes that would solve your current bottlenecks. " +
+      "What is the single most critical operational friction point we should address first?"
+    ),
+    models_page: (
+      `I see you've been analyzing our specialized agents for ${industry}. ` +
+      "A precise choice. Those specific architectures are engineered for your vertical's unique logic demands. " +
+      "Shall we run a 3-minute live simulation for $1 so you can witness the performance firsthand?"
+    ),
   };
+
+  // Variant-specific overrides (Demo Mode)
+  if (variant && source === 'models_page') {
+    return (
+      `Greetings. I noticed your interest in the ${variant} agent. ` +
+      "It is one of my most sophisticated variants, optimized for high-precision operations. " +
+      "As your control center, I can demonstrate its logic right here, " +
+      "or we can initiate a voice simulation for $1. What is your command?"
+    );
+  }
 
   return welcomes[source] || welcomes.direct;
 }
@@ -1132,25 +1244,49 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         timestamp: new Date().toISOString(),
       };
       (session.messages as any[]).push(welcomeMsg);
-      sessions.set(session.id, session);
+      saveSession(session.id, session);
       return NextResponse.json(session);
     }
 
     // ── POST /message — Send Message & Get AI Reply ────────────
     if (endpoint === 'message') {
-      // ── Try backend proxy first (LangGraph 13-stage pipeline + RAG + PostgreSQL) ──
-      const proxyResult = await proxyToBackend(request, path);
-      console.log(`[Jarvis] Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`);
-      if (proxyResult) return proxyResult;
-
-      // ── Local fallback: in-memory handling ──
+      // Parse body FIRST so we can merge context before proxying (Bug #4 fix)
       const body = await request.json();
       const { content, session_id, context: incomingContext } = body;
 
+      // Ensure session exists and merge incoming context locally
       let session = session_id ? sessions.get(session_id) : undefined;
       if (!session) {
         session = createDefaultSession('direct');
-        sessions.set(session.id, session);
+        saveSession(session.id, session);
+      }
+
+      // Gap J3: Reset daily counters if day changed
+      ensureDailyReset(session);
+
+      // Gap J4: Check if demo pack has expired (24h validity per spec)
+      if (session.pack_type === 'demo' && session.context.demo_pack_expiry) {
+        const expiry = new Date(session.context.demo_pack_expiry);
+        if (Date.now() > expiry.getTime()) {
+          session.pack_type = 'free';
+          session.remaining_today = 20;
+          session.message_count_today = 0;
+          delete session.context.demo_pack_expiry;
+          saveSession(session.id, session);
+
+          // Send pack_expired message
+          const expiredMsg = {
+            id: `pack_expired_${Date.now()}`,
+            session_id: session.id,
+            role: 'jarvis',
+            content: 'Your demo pack has expired. Upgrade to a plan to continue with unlimited messages.',
+            message_type: 'pack_expired',
+            metadata: { expired_at: new Date().toISOString() },
+            timestamp: new Date().toISOString(),
+          };
+          session.messages.push(expiredMsg);
+          return NextResponse.json(expiredMsg);
+        }
       }
 
       // ── Merge incoming context from frontend BEFORE building AI response ──
@@ -1162,11 +1298,43 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           }
         }
         session.updated_at = new Date().toISOString();
-        sessions.set(session.id, session);
+        saveSession(session.id, session);
       }
+
+      // ── Try backend proxy first (LangGraph 13-stage pipeline + RAG + PostgreSQL) ──
+      // Bug #4 fix: Build a new request body with merged context so the backend
+      // also receives the full context even when proxying
+      const mergedBody = JSON.stringify({
+        content,
+        session_id: session.id,
+        context: session.context,
+      });
+
+      const proxyResult = await proxyToBackendWithBody(request, path, mergedBody);
+      console.log(`[Jarvis] Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`);
+      if (proxyResult) return proxyResult;
+
+      // ── Local fallback: in-memory handling ──
+      // (context already merged above)
 
       if (!content || typeof content !== 'string') {
         return NextResponse.json({ error: { code: 'bad_request', message: 'Message content is required', details: null } }, { status: 400 });
+      }
+
+      // Gap J6: Enforce free tier message limit (20 messages/day per spec)
+      if (session.pack_type !== 'demo' && session.remaining_today <= 0) {
+        const limitMsg = {
+          id: `limit_reached_${Date.now()}`,
+          session_id: session.id,
+          role: 'jarvis',
+          content: "You've reached your daily message limit. Upgrade to a plan for unlimited messages, or try our $1 Demo Pack for 500 messages + a 3-minute AI voice call!",
+          message_type: 'limit_reached',
+          metadata: { remaining: 0, total: 20, reset_at: new Date(new Date().setHours(24, 0, 0, 0)).toISOString() },
+          timestamp: new Date().toISOString(),
+        };
+        session.messages.push(limitMsg);
+        saveSession(session.id, session);
+        return NextResponse.json(limitMsg);
       }
 
       // Auto-extract demo_topics and concerns from user message
@@ -1239,7 +1407,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
       }
 
-      sessions.set(session.id, session);
+      saveSession(session.id, session);
       return NextResponse.json(aiMsg);
     }
 
@@ -1254,7 +1422,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const session = sessions.get(sessionId);
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json(session);
     }
 
@@ -1275,7 +1443,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         };
         // Phase 10e: Create action ticket for OTP
         const ticket = createActionTicket(session, 'otp_verification', { email: body.email, otp_status: 'sent' });
-        sessions.set(sessionId, session);
+        saveSession(sessionId, session);
         return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), ticket_id: ticket.id });
       }
       return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
@@ -1301,7 +1469,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         updateActionTicket(session, otpTickets[otpTickets.length - 1].id, { status: 'completed' });
       }
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json({ message: 'Email verified successfully!', status: 'verified', attempts_remaining: Number(otpData?.attempts_remaining) });
     }
 
@@ -1315,9 +1483,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const session = sessions.get(sessionId);
       session.pack_type = 'demo';
       session.remaining_today = 500;
-      // GAP-D1-05 Fix: Store actual purchase time for expiry checking
-      // Spec says 24 hours validity (Section 8.1), was incorrectly set to 7 days
-      session.context.pack_purchased_at = Date.now();
+      session.context.demo_pack_expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // Gap J4: 24h expiry
 
       // Phase 10d: Calculate bill summary for demo pack
       const billSummary = calculateBillSummary(session);
@@ -1349,7 +1515,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.messages.push(paymentCardMsg);
 
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json({ message: 'Demo pack activated! You now have 500 messages.', pack_type: 'demo', pack_expiry: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), remaining_today: 500, demo_call_remaining: true, bill_summary: billSummary, ticket_id: ticket.id });
     }
 
@@ -1420,7 +1586,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.messages.push(paymentCardMsg);
 
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json({ checkout_url: checkoutUrl, transaction_id: transactionId, status: 'pending', amount: `$${total.toFixed(2)}/mo`, currency: 'USD', items, subtotal, tax, total, ticket_id: ticket.id });
     }
 
@@ -1438,7 +1604,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const session = sessions.get(sessionId);
         const ticket = createActionTicket(session, 'demo_call', { phone: body.phone, duration_limit: 300 });
         ticketId = ticket.id;
-        sessions.set(sessionId, session);
+        saveSession(sessionId, session);
       }
       return NextResponse.json({ call_id: `call_${Date.now()}`, status: 'initiated', phone: body.phone, duration_limit: 300, message: `Demo call initiated to ${body.phone}. You'll receive a call within 30 seconds.`, ticket_id: ticketId });
     }
@@ -1452,6 +1618,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       const session = sessions.get(sessionId);
       session.handoff_completed = true;
+      session.is_active = false; // Deactivate old onboarding session
       session.detected_stage = 'handoff';
       session.context.detected_stage = 'handoff';
 
@@ -1463,9 +1630,52 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         payment_status: session.payment_status,
       });
 
+      // Gap J8: Create new customer care session (per spec: type='customer_care',
+      // selective context transfer — NO chat history, only business info)
+      const careSession = createDefaultSession('handoff');
+      careSession.type = 'customer_care';
+      careSession.context.industry = session.context.industry;
+      careSession.context.business_email = session.context.business_email;
+      careSession.context.email_verified = session.context.email_verified;
+      careSession.context.selected_variants = session.context.selected_variants;
+      careSession.context.selected_plan = session.context.selected_plan;
+      careSession.context.entry_source = 'handoff';
+      careSession.context.handoff_from_session = sessionId;
+      // Intentionally NOT transferring: messages, roi_result, concerns_raised, demo_topics
+
+      const careWelcome = getContextAwareWelcome('handoff', careSession.context);
+      const careWelcomeMsg = {
+        id: `jarvis_welcome_${Date.now()}`,
+        session_id: careSession.id,
+        role: 'jarvis',
+        content: careWelcome,
+        message_type: 'handoff_card',
+        metadata: {
+          handoff_from: sessionId,
+          handoff_at: new Date().toISOString(),
+          ticket_id: ticket.id,
+          transferred_fields: ['industry', 'business_email', 'selected_variants', 'selected_plan'],
+        },
+        timestamp: new Date().toISOString(),
+      };
+      careSession.messages.push(careWelcomeMsg);
+      saveSession(careSession.id, careSession);
+
+      // Add handoff_card to old session too
+      const handoffCardMsg = {
+        id: `handoff_card_${Date.now()}`,
+        session_id: sessionId,
+        role: 'jarvis',
+        content: "You've been transferred to Customer Care. A specialist will take over from here with full context of your journey.",
+        message_type: 'handoff_card',
+        metadata: { new_session_id: careSession.id, ticket_id: ticket.id },
+        timestamp: new Date().toISOString(),
+      };
+      session.messages.push(handoffCardMsg);
+
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
-      return NextResponse.json({ handoff_completed: true, new_session_id: null, handoff_at: new Date().toISOString(), ticket_id: ticket.id });
+      saveSession(sessionId, session);
+      return NextResponse.json({ handoff_completed: true, new_session_id: careSession.id, handoff_at: new Date().toISOString(), ticket_id: ticket.id });
     }
 
     // ── POST /context/entry — Update Entry Context ────────────
@@ -1513,7 +1723,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       };
       session.messages.push(welcomeMsg);
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      saveSession(session.id, session);
       return NextResponse.json({ session, new_welcome: welcomeMsg });
     }
 
@@ -1577,7 +1787,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
 
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      saveSession(session.id, session);
       return NextResponse.json({ received: true, event_type, payment_status: session.payment_status });
     }
 
@@ -1596,7 +1806,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const session = sessions.get(session_id);
       const ticket = createActionTicket(session, type, metadata || {});
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      saveSession(session.id, session);
       return NextResponse.json(ticket, { status: 201 });
     }
 
@@ -1646,35 +1856,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const session = sessions.get(sessionId)!;
-
-      // GAP-D1-05 Fix: Check actual expiry against stored purchase time
-      let isExpired = false;
-      let purchasedAt = session.context.pack_purchased_at;
-      if (session.pack_type === 'demo' && purchasedAt) {
-        const age = Date.now() - purchasedAt;
-        const MAX_PACK_AGE = 24 * 60 * 60 * 1000; // 24 hours per spec Section 8.1
-        if (age > MAX_PACK_AGE) {
-          isExpired = true;
-          // Downgrade back to free
-          session.pack_type = 'free';
-          session.remaining_today = 0;
-          session.context.pack_expired = true;
-          sessions.set(sessionId, session);
-        }
-      }
-
-      const expiryDate = purchasedAt
-        ? new Date(purchasedAt + 24 * 60 * 60 * 1000).toISOString()
-        : null;
-
-      return NextResponse.json({
-        pack_type: session.pack_type,
-        remaining_today: session.remaining_today,
-        total_allowed: session.pack_type === 'demo' ? 500 : 20,
-        pack_expiry: expiryDate,
-        is_expired: isExpired,
-        demo_call_remaining: !session.context.demo_call_used,
-      });
+      return NextResponse.json({ pack_type: session.pack_type, remaining_today: session.remaining_today, total_allowed: session.pack_type === 'demo' ? 50 : 20, pack_expiry: session.pack_type === 'demo' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null, demo_call_remaining: !session.context.demo_call_used });
     }
 
     // ── GET /payment/status — Payment Status Check ───────────────
@@ -1758,7 +1940,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const session = sessions.get(sessionId)!;
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json(session);
     }
 
@@ -1777,7 +1959,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: { code: 'not_found', message: 'Ticket not found', details: null } }, { status: 404 });
       }
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      saveSession(sessionId, session);
       return NextResponse.json(updated);
     }
 

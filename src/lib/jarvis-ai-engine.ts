@@ -1,9 +1,16 @@
 /**
- * PARWA Jarvis AI Engine — Knowledge-Based Conversational Intelligence
+ * @deprecated PARWA Jarvis AI Engine — Knowledge-Based Conversational Intelligence
  *
- * When external AI providers (z-ai-sdk, Google, Cerebras, Groq) are unavailable,
- * this engine generates intelligent, contextual responses using the 10-file
- * knowledge base. It scores intents, matches FAQs/objections/competitors,
+ * DEPRECATED: This module is no longer actively imported or used.
+ * The proxy route (src/app/api/jarvis/[...path]/route.ts) handles all AI
+ * responses via its own getAIResponse() / callAI() / getKeywordResponse() pipeline.
+ *
+ * Retained for reference — the knowledge-base loading logic, intent detection,
+ * and response builders may be re-integrated into the proxy route in a future refactor.
+ *
+ * Original purpose: When external AI providers (z-ai-sdk, Google, Cerebras, Groq)
+ * are unavailable, this engine generates intelligent, contextual responses using the
+ * 10-file knowledge base. It scores intents, matches FAQs/objections/competitors,
  * tracks context, and avoids repetition — making Jarvis feel smart, not robotic.
  */
 

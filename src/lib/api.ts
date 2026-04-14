@@ -226,7 +226,7 @@ export const onboardingApi = {
    * Submit legal consents.
    */
   submitLegal: (consents: { terms: boolean; privacy: boolean; ai_data: boolean }) => 
-    post<OnboardingState>('/api/onboarding/legal', consents),
+    post<OnboardingState>('/api/onboarding/legal-consent', consents),
   
   /**
    * Activate AI assistant.
@@ -330,7 +330,7 @@ export const knowledgeApi = {
     const formData = new FormData();
     formData.append('file', file);
     
-    const response = await apiClient.post('/api/knowledge/upload', formData, {
+    const response = await apiClient.post('/api/kb/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -348,17 +348,17 @@ export const knowledgeApi = {
   /**
    * List documents.
    */
-  list: () => get('/api/knowledge'),
+  list: () => get('/api/kb/documents'),
   
   /**
    * Get document status.
    */
-  getStatus: (id: string) => get(`/api/knowledge/${id}/status`),
+  getStatus: (id: string) => get(`/api/kb/documents/${id}`),
   
   /**
    * Delete document.
    */
-  delete: (id: string) => del(`/api/knowledge/${id}`),
+  delete: (id: string) => del(`/api/kb/documents/${id}`),
 };
 
 // ── Auth API Endpoints ──────────────────────────────────────────────────
