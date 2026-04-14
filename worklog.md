@@ -100,3 +100,42 @@ Stage Summary:
 - Key features: email loop detection, OOO detection, email thread linking, idempotent processing
 - Building Codes applied: BC-001 (multi-tenant), BC-003 (idempotent webhook), BC-006 (email), BC-010 (audit trail)
 
+
+---
+Task ID: W14D1
+Agent: Main
+Task: Week 14 Day 1 - Jarvis Command Center Backend (F-087, F-088, F-089)
+
+Work Log:
+- Read existing codebase patterns (jarvis_service.py, health.py, gsd_engine.py, redis.py, deps.py, etc.)
+- Created backend/app/schemas/jarvis_control.py — Pydantic schemas for all 3 features
+- Created backend/app/core/jarvis_command_parser.py — F-087 NL Command Parser (600+ lines)
+  - 26+ command types across 8 categories (system, agents, tickets, analytics, usage, integrations, queues, incidents, training, deployment, meta)
+  - Pattern/regex matching engine with alias index
+  - Fuzzy matching fallback for typos
+  - Confidence scoring and auto-execution logic
+  - `get_available_commands()` for help system
+- Created backend/app/services/system_status_service.py — F-088 System Status Service (500+ lines)
+  - Aggregates health from LLM providers, Redis, PostgreSQL, Celery, integrations
+  - Redis-cached snapshots with 5-minute TTL
+  - Historical status timeline with 24h retention
+  - Automatic incident detection (healthy→degraded→unhealthy transitions)
+  - Auto-resolves incidents when subsystem recovers
+- Created backend/app/services/gsd_terminal_service.py — F-089 GSD Debug Terminal (600+ lines)
+  - Multi-source GSD state reads (Redis → in-memory → DB per BC-008)
+  - Active session listing with stuck detection (>30 min threshold)
+  - Admin-only force transitions with full audit logging
+  - Transition history tracking
+  - Suggested recovery actions for stuck sessions
+- Created backend/app/api/jarvis_control.py — 8 FastAPI endpoints
+  - POST /api/jarvis/command, GET /api/jarvis/commands
+  - GET /api/system/status, GET /api/system/status/history, GET /api/system/incidents
+  - POST /api/gsd/state/{ticket_id}, GET /api/gsd/sessions, POST /api/gsd/force-transition
+- Registered router in main.py and __init__.py
+
+Stage Summary:
+- Files created: 5 new files
+- Files modified: 2 files (main.py, api/__init__.py)
+- Total lines: ~2,300+ lines of production code
+- Key patterns followed: BC-001 (tenant isolation), BC-008 (graceful degradation), BC-011 (auth), BC-012 (error handling)
+- All files pass Python syntax verification

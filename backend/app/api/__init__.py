@@ -20,6 +20,9 @@ from app.api import technique_config
 # Week 6 Day 2: Jarvis Onboarding Chat API
 from app.api import jarvis
 
+# Week 14 Day 1: Jarvis Command Center API
+from app.api import jarvis_control
+
 api_router = APIRouter()
 
 # Register all routers
@@ -42,3 +45,6 @@ api_router.include_router(technique_config.router, prefix="/api/techniques", tag
 
 # Week 6 Day 2: Jarvis onboarding chat routes
 api_router.include_router(jarvis.router, tags=["jarvis"])
+
+# Week 14 Day 1: Jarvis Command Center routes
+api_router.include_router(jarvis_control.router, tags=["jarvis-control"])
