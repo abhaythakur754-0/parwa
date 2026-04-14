@@ -116,14 +116,134 @@ export interface AgentMetricsResponse {
   };
 }
 
-// ── Combined Dashboard ────────────────────────────────────────────────
+// ── Activity Feed (F-037) ─────────────────────────────────────────────
 
+export type ActivityEventType =
+  | 'ticket_created'
+  | 'status_changed'
+  | 'assigned'
+  | 'resolved'
+  | 'message_added'
+  | 'note_added'
+  | 'tag_added'
+  | 'sla_warning'
+  | 'attachment_added'
+  | 'merged';
+
+export interface ActivityEvent {
+  event_id: string;
+  event_type: ActivityEventType;
+  actor_id?: string;
+  actor_type?: 'human' | 'ai' | 'system' | 'customer';
+  actor_name?: string;
+  description: string;
+  ticket_id?: string;
+  ticket_subject?: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ActivityFeedResponse {
+  events: ActivityEvent[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+}
+
+// ── Dashboard Alerts / Anomalies (F-036) ──────────────────────────────
+
+export type AnomalySeverity = 'high' | 'medium' | 'low';
+export type AnomalyType = 'volume_spike' | 'sla_breach_cluster' | 'resolution_drop' | 'csat_decline';
+
+export interface AnomalyAlert {
+  type: AnomalyType;
+  severity: AnomalySeverity;
+  message: string;
+  detected_at: string;
+}
+
+// ── Widget Config (F-036 Layout) ───────────────────────────────────────
+
+export interface WidgetPosition {
+  row: number;
+  col: number;
+}
+
+export interface WidgetSize {
+  width: number;
+  height: number;
+}
+
+export interface WidgetConfig {
+  widget_id: string;
+  widget_type: 'kpi' | 'chart' | 'feed' | 'counter' | 'table';
+  title: string;
+  position: WidgetPosition;
+  size: WidgetSize;
+  enabled?: boolean;
+  refresh_interval_seconds?: number;
+}
+
+// ── Savings Summary (F-040) ───────────────────────────────────────────
+
+export interface SavingsSummary {
+  total_savings: number;
+  tickets_ai: number;
+  tickets_human: number;
+  ai_accuracy?: number;
+}
+
+// ── Workforce Summary (F-041) ─────────────────────────────────────────
+
+export interface WorkforceSummary {
+  ai_tickets: number;
+  human_tickets: number;
+  ai_pct: number;
+  human_pct: number;
+  total: number;
+}
+
+// ── CSAT Summary (F-044) ──────────────────────────────────────────────
+
+export interface CSATSummary {
+  avg_rating: number;
+  total_ratings: number;
+}
+
+// ── Dashboard Layout Response (F-036) ─────────────────────────────────
+
+export interface DashboardLayoutResponse {
+  layout_id: string;
+  widgets: WidgetConfig[];
+  is_default: boolean;
+}
+
+// ── Combined Dashboard (F-036: Unified Home) ───────────────────────────
+
+export interface DashboardHomeData {
+  summary: TicketSummary;
+  kpis: Record<string, unknown>;
+  sla: SLAMetrics;
+  trend: TrendPoint[];
+  by_category: CategoryDistribution[];
+  activity_feed: ActivityEvent[];
+  savings: SavingsSummary;
+  workforce: WorkforceSummary;
+  csat: CSATSummary;
+  anomalies: AnomalyAlert[];
+  layout?: DashboardLayoutResponse;
+  generated_at?: string;
+  error?: string;
+}
+
+// Keep backward-compatible alias
 export interface DashboardData {
   summary: TicketSummary;
   sla: SLAMetrics;
   by_category: CategoryDistribution[];
   trend: TrendPoint[];
-  date_range: {
+  date_range?: {
     start_date: string;
     end_date: string;
   };

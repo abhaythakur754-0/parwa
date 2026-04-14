@@ -5,9 +5,11 @@ import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import KPICard from '@/components/dashboard/KPICard';
-import { analyticsApi } from '@/lib/analytics-api';
+import ActivityFeed from '@/components/dashboard/ActivityFeed';
+import DashboardAlerts from '@/components/dashboard/DashboardAlerts';
+import { dashboardApi } from '@/lib/analytics-api';
 import { getErrorMessage } from '@/lib/api';
-import type { DashboardData, DateRange } from '@/types/analytics';
+import type { DashboardHomeData, AnomalyAlert } from '@/types/analytics';
 
 // ── Icons (inline SVGs) ──────────────────────────────────────────────
 
@@ -76,38 +78,54 @@ function formatPercent(n: number): string {
   return `${n.toFixed(1)}%`;
 }
 
+// ── Period mapping for date presets ───────────────────────────────────
+
+const PERIOD_DAYS_MAP: Record<string, number> = {
+  'today': 1,
+  '7d': 7,
+  '30d': 30,
+  '90d': 90,
+  'custom': 30,
+};
+
 // ── Dashboard Page ────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [dateRange, setDateRange] = useState<Partial<DateRange>>({});
+  const [data, setData] = useState<DashboardHomeData | null>(null);
   const [datePreset, setDatePreset] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [alerts, setAlerts] = useState<AnomalyAlert[]>([]);
 
-  // ── Fetch Dashboard Data ──────────────────────────────────────────
+  // ── Fetch Dashboard Data (unified F-036 endpoint) ──────────────────
 
   const fetchDashboard = useCallback(async () => {
     try {
       setIsRefreshing(true);
-      const dashboardData = await analyticsApi.getDashboard(dateRange);
+      const periodDays = PERIOD_DAYS_MAP[datePreset] || 30;
+      const dashboardData = await dashboardApi.getHome(periodDays);
+
+      if (dashboardData.error) {
+        console.warn('Dashboard returned error:', dashboardData.error);
+        toast.error('Some dashboard data could not be loaded');
+      }
+
       setData(dashboardData);
+      setAlerts(dashboardData.anomalies || []);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
       toast.error(getErrorMessage(error));
     } finally {
       setIsRefreshing(false);
     }
-  }, [dateRange]);
+  }, [datePreset]);
 
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  // ── Handle Date Change ────────────────────────────────────────────
+  // ── Handle Date Preset Change ───────────────────────────────────────
 
   const handleDateChange = useCallback((range: { start_date: string; end_date: string }) => {
-    setDateRange(range);
-    // Infer preset from the range
     const today = new Date().toISOString().split('T')[0];
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
@@ -118,7 +136,20 @@ export default function DashboardPage() {
     else setDatePreset('custom');
   }, []);
 
-  // ── Render ─────────────────────────────────────────────────────────
+  // ── Handle Alert Dismiss ────────────────────────────────────────────
+
+  const handleAlertDismiss = useCallback((index: number) => {
+    setAlerts(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // ── Safe data accessors ─────────────────────────────────────────────
+
+  const summary = data?.summary;
+  const sla = data?.sla;
+  const trend = data?.trend || [];
+  const byCategory = data?.by_category || [];
+  const activityFeed = data?.activity_feed || [];
+  const csat = data?.csat;
 
   return (
     <div className="min-h-screen jarvis-page-body">
@@ -133,11 +164,17 @@ export default function DashboardPage() {
           isRefreshing={isRefreshing}
         />
 
+        {/* ── F-036: Dashboard Alerts Banner ──────────────────────────── */}
+        <DashboardAlerts
+          alerts={alerts}
+          onDismiss={handleAlertDismiss}
+        />
+
         {/* ── KPI Cards Row 1 ───────────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <KPICard
             title="Total Tickets"
-            value={data ? formatNumber(data.summary.total_tickets) : '—'}
+            value={summary ? formatNumber(summary.total_tickets) : '—'}
             subtitle="All time in range"
             icon={Icons.tickets}
             variant="default"
@@ -145,52 +182,51 @@ export default function DashboardPage() {
           />
           <KPICard
             title="Open Tickets"
-            value={data ? formatNumber(data.summary.open + data.summary.in_progress) : '—'}
-            subtitle={`${data ? formatNumber(data.summary.in_progress) : '—'} in progress`}
+            value={summary ? formatNumber(summary.open + summary.in_progress) : '—'}
+            subtitle={`${summary ? formatNumber(summary.in_progress) : '—'} in progress`}
             icon={Icons.open}
             variant="info"
             isLoading={!data}
           />
           <KPICard
             title="Resolved"
-            value={data ? formatNumber(data.summary.resolved) : '—'}
-            subtitle={`${data ? formatPercent(data.summary.resolution_rate) : '—'} resolution rate`}
+            value={summary ? formatNumber(summary.resolved) : '—'}
+            subtitle={`${summary ? formatPercent(summary.resolution_rate * 100) : '—'} resolution rate`}
             icon={Icons.resolved}
             variant="success"
             isLoading={!data}
           />
           <KPICard
             title="Avg Response"
-            value={data ? formatHours(data.summary.avg_first_response_time_hours) : '—'}
+            value={summary ? formatHours(summary.avg_first_response_time_hours) : '—'}
             subtitle="First response time"
             icon={Icons.responseTime}
-            variant={data && data.summary.avg_first_response_time_hours > 2 ? 'warning' : 'default'}
+            variant={summary && summary.avg_first_response_time_hours > 2 ? 'warning' : 'default'}
             isLoading={!data}
           />
           <KPICard
             title="Resolution Rate"
-            value={data ? formatPercent(data.summary.resolution_rate) : '—'}
+            value={summary ? formatPercent(summary.resolution_rate * 100) : '—'}
             subtitle="Tickets resolved"
             icon={Icons.resolutionRate}
-            variant={data && data.summary.resolution_rate >= 80 ? 'success' : 'warning'}
+            variant={summary && summary.resolution_rate >= 0.8 ? 'success' : 'warning'}
             isLoading={!data}
           />
           <KPICard
             title="CSAT Score"
-            value={data ? '—' : '—'}
-            subtitle="Customer satisfaction"
+            value={csat ? `${csat.avg_rating.toFixed(1)}/5` : '—'}
+            subtitle={csat ? `${csat.total_ratings} ratings` : 'Customer satisfaction'}
             icon={Icons.csat}
-            variant="default"
+            variant={csat && csat.avg_rating >= 4 ? 'success' : 'default'}
             isLoading={!data}
           />
         </div>
 
         {/* ── KPI Cards Row 2: Priority + SLA ───────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-          {/* Priority Breakdown */}
           <KPICard
             title="Critical"
-            value={data ? formatNumber(data.summary.critical) : '—'}
+            value={summary ? formatNumber(summary.critical) : '—'}
             icon={(
               <span className="w-3 h-3 rounded-full bg-red-500" />
             )}
@@ -199,7 +235,7 @@ export default function DashboardPage() {
           />
           <KPICard
             title="High Priority"
-            value={data ? formatNumber(data.summary.high) : '—'}
+            value={summary ? formatNumber(summary.high) : '—'}
             icon={(
               <span className="w-3 h-3 rounded-full bg-orange-500" />
             )}
@@ -208,44 +244,42 @@ export default function DashboardPage() {
           />
           <KPICard
             title="Awaiting Client"
-            value={data ? formatNumber(data.summary.awaiting_client) : '—'}
+            value={summary ? formatNumber(summary.awaiting_client) : '—'}
             icon={Icons.awaiting}
             variant="default"
             isLoading={!data}
           />
           <KPICard
             title="Avg Resolution"
-            value={data ? formatHours(data.summary.avg_resolution_time_hours) : '—'}
+            value={summary ? formatHours(summary.avg_resolution_time_hours) : '—'}
             subtitle="Time to resolve"
             icon={Icons.responseTime}
             variant="default"
             isLoading={!data}
           />
-
-          {/* SLA Metrics */}
           <KPICard
             title="SLA Breached"
-            value={data ? formatNumber(data.sla.breached_count) : '—'}
-            subtitle={`of ${data ? formatNumber(data.sla.total_tickets_with_sla) : '—'} tickets`}
+            value={sla ? formatNumber(sla.breached_count) : '—'}
+            subtitle={`of ${sla ? formatNumber(sla.total_tickets_with_sla) : '—'} tickets`}
             icon={Icons.breached}
-            variant={data && data.sla.breached_count > 0 ? 'danger' : 'success'}
+            variant={sla && sla.breached_count > 0 ? 'danger' : 'success'}
             isLoading={!data}
           />
           <KPICard
             title="SLA Compliance"
-            value={data ? formatPercent(data.sla.compliance_rate) : '—'}
-            subtitle={`${data ? formatNumber(data.sla.approaching_count) : '—'} approaching`}
+            value={sla ? formatPercent(sla.compliance_rate) : '—'}
+            subtitle={`${sla ? formatNumber(sla.approaching_count) : '—'} approaching`}
             icon={Icons.compliance}
-            variant={data && data.sla.compliance_rate >= 95 ? 'success' : data && data.sla.compliance_rate >= 80 ? 'warning' : 'danger'}
+            variant={sla && sla.compliance_rate >= 95 ? 'success' : sla && sla.compliance_rate >= 80 ? 'warning' : 'danger'}
             isLoading={!data}
           />
         </div>
 
-        {/* ── Charts Section (Day 2) ────────────────────────────────── */}
+        {/* ── Charts + Activity Feed Row ─────────────────────────────── */}
         {data && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
-            {/* Placeholder for Day 2: Ticket Trend Chart */}
-            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
+            {/* Ticket Trend Chart (placeholder for Day 2) */}
+            <div className="lg:col-span-2 rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
               <h3 className="text-sm font-semibold text-zinc-300 mb-1">Ticket Trends</h3>
               <p className="text-xs text-zinc-600 mb-4">Volume over time</p>
               <div className="h-[260px] flex items-center justify-center text-zinc-600 text-sm">
@@ -254,17 +288,28 @@ export default function DashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
                   </svg>
                   <p>Trend chart coming in Day 2</p>
-                  <p className="text-xs text-zinc-700">{data.trend.length} data points available</p>
+                  <p className="text-xs text-zinc-700">{trend.length} data points available</p>
                 </div>
               </div>
             </div>
 
-            {/* Placeholder for Day 2: Category Distribution */}
+            {/* F-037: Activity Feed */}
+            <ActivityFeed
+              initialEvents={activityFeed}
+              showFilters={true}
+            />
+          </div>
+        )}
+
+        {/* ── Bottom Row: Category + Agent Performance ───────────────── */}
+        {data && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Category Distribution */}
             <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
               <h3 className="text-sm font-semibold text-zinc-300 mb-1">Category Distribution</h3>
               <p className="text-xs text-zinc-600 mb-4">Tickets by category</p>
               <div className="space-y-3">
-                {data.by_category.map((cat) => (
+                {byCategory.map((cat) => (
                   <div key={cat.category} className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-zinc-400">{cat.category}</span>
@@ -274,26 +319,24 @@ export default function DashboardPage() {
                     </div>
                     <div className="h-2 bg-white/[0.05] rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-orange-500/60 to-orange-400/40 rounded-full transition-all duration-500"
+                        className="h-full bg-gradient-to-r from-[#FF7F11]/60 to-[#FF7F11]/40 rounded-full transition-all duration-500"
                         style={{ width: `${Math.min(cat.percentage, 100)}%` }}
                       />
                     </div>
                   </div>
                 ))}
-                {data.by_category.length === 0 && (
+                {byCategory.length === 0 && (
                   <p className="text-zinc-600 text-sm text-center py-8">No category data yet</p>
                 )}
               </div>
             </div>
-          </div>
-        )}
 
-        {/* ── Agent Performance (Day 2: Full table) ─────────────────── */}
-        {data && (
-          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
-            <h3 className="text-sm font-semibold text-zinc-300 mb-4">Quick Agent Overview</h3>
-            <div className="text-zinc-600 text-sm text-center py-6">
-              Agent performance table coming in Day 2
+            {/* Agent Performance (placeholder for Day 2) */}
+            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
+              <h3 className="text-sm font-semibold text-zinc-300 mb-4">Quick Agent Overview</h3>
+              <div className="text-zinc-600 text-sm text-center py-6">
+                Agent performance table coming in Day 2
+              </div>
             </div>
           </div>
         )}
