@@ -1,7 +1,7 @@
 # PARWA Execution Roadmap
 
-> **Last Updated:** Week 12 COMPLETE (Phase 3 AI Engine) → Moving to Week 13 (Phase 4)
-> **Current Phase:** Week 13 - Communication Channels (F-120 to F-130)
+> **Last Updated:** Week 14 COMPLETE (Jarvis Command Center) → Moving to Week 15 (Phase 4)
+> **Current Phase:** Week 15 - Dashboard + Analytics (F-036 to F-045)
 
 ---
 
@@ -21,9 +21,9 @@
 | **Week 10** | AI Core — GSD Engine + Workflow | ✅ COMPLETE | F-053, F-060 to F-069 + 10 SG gaps |
 | **Week 10.5** | AI Technique Framework (14 Techniques) | ✅ COMPLETE | F-140 to F-148, CoT, ReAct, ThoT + 5 SG gaps |
 | **Week 11-12** | AI Advanced + Production Hardening | ✅ COMPLETE | F-071 to F-073, F-008 + hardening + testing |
-| **Week 13** | Channels — Phase 4 | 🔵 CURRENT | Communication Channels (F-120 to F-130) |
-| **Week 14-15** | Jarvis Command Center | ⬜ UPCOMING | F-087 to F-096 |
-| **Week 16** | Dashboard + Analytics | ⬜ UPCOMING | F-036 to F-045, F-109 to F-121 |
+| **Week 13** | Channels — Phase 4 | ✅ COMPLETE | Communication Channels (F-120 to F-130) |
+| **Week 14** | Jarvis Command Center | ✅ COMPLETE | F-087 to F-096 (10 features, 93 tests) |
+| **Week 15** | Dashboard + Analytics | 🔵 CURRENT | F-036 to F-045, F-109 to F-121 |
 | **Week 17** | Integrations + Settings | ⬜ UPCOMING | F-031, F-097 to F-108 |
 | **Week 18-21** | Public Facing + Training + Polish | ⬜ UPCOMING | Phase 5 |
 
@@ -596,24 +596,68 @@ Week 13 starts **Phase 4**. PARWA talks to the outside world — email, chat, SM
 
 ---
 
-## ⬜ UPCOMING: Week 14-15 - Jarvis Command Center
+## ✅ Week 14: Jarvis Command Center (F-087 to F-096) — COMPLETE
 
-| Feature | Description |
-|---------|-------------|
-| F-087 | Jarvis chat panel backend — NL command parsing |
-| F-088 | System status panel — aggregate health metrics |
-| F-089 | GSD state terminal — debug data exposure |
-| F-090 | Quick command buttons — pre-parsed shortcuts |
-| F-091 | Last 5 errors panel — stack traces, affected tickets |
-| F-092 | Train from error button — package error context |
-| F-093 | Proactive self-healing — monitor API failures |
-| F-094 | Trust preservation protocol — reassuring messaging |
-| F-095 | Jarvis "create agent" — NL agent provisioning |
-| F-096 | Dynamic instruction workflow — version-controlled instructions |
+### Scope
+Week 14 builds the Jarvis Command Center — the operational backbone for managing PARWA. Operators control the entire system through natural language commands, quick-action buttons, real-time health monitoring, self-healing automation, and AI agent management.
+
+### Day 1 (COMPLETE) — F-087/088/089
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Jarvis NL Command Parser (26+ commands) | F-087 | ✅ Done | `backend/app/core/jarvis_command_parser.py` |
+| System Status Panel | F-088 | ✅ Done | `backend/app/services/system_status_service.py` |
+| GSD State Terminal | F-089 | ✅ Done | `backend/app/services/gsd_terminal_service.py` |
+| Control Center API (8 endpoints) | — | ✅ Done | `backend/app/api/jarvis_control.py` |
+| Control Center Schemas | — | ✅ Done | `backend/app/schemas/jarvis_control.py` |
+
+### Day 2 (COMPLETE) — F-090/091/092
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Quick Command Buttons (16 commands) | F-090 | ✅ Done | `backend/app/services/quick_command_service.py` |
+| Last 5 Errors Panel | F-091 | ✅ Done | `backend/app/services/error_panel_service.py` |
+| Train from Error Button | F-092 | ✅ Done | `backend/app/services/train_from_error_service.py` |
+| System Health Models | — | ✅ Done | `backend/app/models/system_health.py` |
+| Ops API (12 endpoints) | — | ✅ Done | `backend/app/api/jarvis_ops.py` |
+
+### Day 3 (COMPLETE) — F-093/094
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Self-Healing Orchestrator (8 actions) | F-093 | ✅ Done | `backend/app/services/self_healing_orchestrator.py` |
+| Trust Preservation Protocol | F-094 | ✅ Done | `backend/app/services/trust_preservation_service.py` |
+
+### Day 4 (COMPLETE) — F-095/096
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Jarvis Create Agent (8 specialties) | F-095 | ✅ Done | `backend/app/services/agent_provisioning_service.py` |
+| Dynamic Instruction Workflow + A/B | F-096 | ✅ Done | `backend/app/services/instruction_workflow_service.py` |
+| Agent Models (6 tables) | — | ✅ Done | `database/models/agent.py` |
+| Agent API (15 endpoints) | — | ✅ Done | `backend/app/api/agents.py` |
+| Agent Schemas (30+ schemas) | — | ✅ Done | `backend/app/schemas/agents.py` |
+
+### Day 5 (COMPLETE) — Integration Testing
+
+| Task | ID | Status |
+|------|----|--------|
+| Integration Tests (93 tests) | — | ✅ Done |
+| Roadmap + PROJECT_STATE Update | — | ✅ Done |
+
+### Week 14 Summary
+
+| Metric | Count |
+|--------|-------|
+| Features built | 10 (F-087 to F-096) |
+| New files | 17 |
+| API endpoints | 35+ |
+| Integration tests | 93 |
+| Building codes applied | BC-001,003,004,005,006,007,008,009,010,011,012,013 |
 
 ---
 
-## ⬜ UPCOMING: Week 16 - Dashboard + Analytics
+## 🔵 CURRENT WEEK: Week 15-16 - Dashboard + Analytics
 
 | Feature | Description |
 |---------|-------------|
