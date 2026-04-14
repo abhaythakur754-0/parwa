@@ -12,7 +12,17 @@ import '@testing-library/jest-dom';
 // Mock the dashboardApi before importing the component
 jest.mock('@/lib/analytics-api', () => ({
   dashboardApi: {
+    getHome: jest.fn(),
     getActivityFeed: jest.fn(),
+    getMetrics: jest.fn(),
+    getAdaptationTracker: jest.fn(),
+    getGrowthNudges: jest.fn(),
+    getTicketForecast: jest.fn(),
+    getCSATTrends: jest.fn(),
+    getConfidenceTrend: jest.fn(),
+    getDriftReports: jest.fn(),
+    getQAScores: jest.fn(),
+    getROIDashboard: jest.fn(),
   },
 }));
 

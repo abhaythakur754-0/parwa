@@ -9,6 +9,23 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
+// Mock dashboardApi (module may not exist on disk; Days 3-6 added these functions)
+jest.mock('@/lib/dashboard-api', () => ({
+  dashboardApi: {
+    getHome: jest.fn(),
+    getActivityFeed: jest.fn(),
+    getMetrics: jest.fn(),
+    getAdaptationTracker: jest.fn(),
+    getGrowthNudges: jest.fn(),
+    getTicketForecast: jest.fn(),
+    getCSATTrends: jest.fn(),
+    getConfidenceTrend: jest.fn(),
+    getDriftReports: jest.fn(),
+    getQAScores: jest.fn(),
+    getROIDashboard: jest.fn(),
+  },
+}));
+
 import DashboardAlerts from '@/components/dashboard/DashboardAlerts';
 import type { AnomalyAlert } from '@/types/analytics';
 

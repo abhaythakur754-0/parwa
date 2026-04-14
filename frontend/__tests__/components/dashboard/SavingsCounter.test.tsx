@@ -14,6 +14,23 @@ jest.mock('@/lib/api', () => ({
   get: jest.fn(),
 }));
 
+// Mock dashboardApi (module may not exist on disk; Days 3-6 added these functions)
+jest.mock('@/lib/dashboard-api', () => ({
+  dashboardApi: {
+    getHome: jest.fn(),
+    getActivityFeed: jest.fn(),
+    getMetrics: jest.fn(),
+    getAdaptationTracker: jest.fn(),
+    getGrowthNudges: jest.fn(),
+    getTicketForecast: jest.fn(),
+    getCSATTrends: jest.fn(),
+    getConfidenceTrend: jest.fn(),
+    getDriftReports: jest.fn(),
+    getQAScores: jest.fn(),
+    getROIDashboard: jest.fn(),
+  },
+}));
+
 import SavingsCounter from '@/components/dashboard/SavingsCounter';
 import { get } from '@/lib/api';
 
