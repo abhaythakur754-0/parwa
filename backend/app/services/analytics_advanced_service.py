@@ -132,6 +132,8 @@ def get_adaptation_tracker(
             "overall_improvement_pct": 0,
             "current_accuracy": 0,
             "starting_accuracy": 0,
+            "best_day": None,
+            "worst_day": None,
             "training_runs_count": 0,
             "drift_reports_count": 0,
         }

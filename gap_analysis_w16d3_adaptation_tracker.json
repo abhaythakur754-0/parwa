@@ -1,0 +1,326 @@
+{
+  "meta": {
+    "feature": "F-039 Adaptation Tracker",
+    "build": "Week 16 Day 3",
+    "analyzed_at": "2026-06-26T00:00:00Z",
+    "files_reviewed": [
+      "src/lib/dashboard-api.ts",
+      "src/components/dashboard/AdaptationTracker.tsx",
+      "src/components/dashboard/index.ts",
+      "src/app/dashboard/page.tsx",
+      "frontend/__tests__/components/dashboard/AdaptationTracker.test.tsx",
+      "backend/app/api/analytics_advanced.py",
+      "backend/app/services/analytics_advanced_service.py"
+    ],
+    "verdict": "PASS_WITH_GAPS",
+    "summary": "The component is functional and well-structured. 12 gaps identified: 2 high, 5 medium, 5 low. No blocking issues."
+  },
+
+  "gaps": [
+    {
+      "id": "GAP-001",
+      "severity": "HIGH",
+      "category": "data_integrity",
+      "title": "Backend error fallback missing best_day and worst_day keys",
+      "file": "backend/app/services/analytics_advanced_service.py",
+      "line": 130,
+      "description": "The successful response path (line 113-122) returns `best_day` and `worst_day`, but the exception fallback (line 130-137) omits both keys entirely. The frontend types declare these as `AdaptationDayData | null`, so the missing keys cause runtime `undefined` values instead of `null`.",
+      "impact": "If the backend exception path fires, `data.best_day` and `data.worst_day` are `undefined` at runtime. The component checks `best_day ?` (truthy) which handles `null` but also handles `undefined`, so it won't crash. However, TypeScript types are violated, and any code using `=== null` checks would fail.",
+      "fix": {
+        "file": "backend/app/services/analytics_advanced_service.py",
+        "action": "Add `\"best_day\": None, \"worst_day\": None` to the error fallback dict at line 130-137.",
+        "code_snippet": "return {\n    \"daily_data\": [],\n    \"overall_improvement_pct\": 0,\n    \"current_accuracy\": 0,\n    \"starting_accuracy\": 0,\n    \"best_day\": None,\n    \"worst_day\": None,\n    \"training_runs_count\": 0,\n    \"drift_reports_count\": 0,\n}"
+      }
+    },
+
+    {
+      "id": "GAP-002",
+      "severity": "HIGH",
+      "category": "ux_data_display",
+      "title": "Tooltip displays CSAT scores as percentages — misleading unit",
+      "file": "src/components/dashboard/AdaptationTracker.tsx",
+      "line": 155,
+      "description": "The CustomTooltip component formats all values with `{entry.value.toFixed(1)}%`. The backend returns CSAT ratings on a 1–5 scale (not 0–100%). Displaying '4.3%' for a CSAT score of 4.3 is semantically incorrect and confusing to users.",
+      "impact": "Users see 'AI accuracy: 4.3%' and may think the AI is only 4.3% accurate when it's actually 4.3 out of 5 stars. This is a critical UX misrepresentation.",
+      "fix": {
+        "file": "src/components/dashboard/AdaptationTracker.tsx",
+        "action": "Either (a) display as '/5' rating (e.g., '4.3 / 5.0'), or (b) convert CSAT to percentage in the tooltip (multiply by 20, e.g., '86%'). Recommend option (a) for consistency with the metric card's 'out of 5.0' sublabel.",
+        "code_snippet": "// Option A: Show as rating out of 5\n<span className=\"text-zinc-200 font-semibold ml-auto\">\n  {entry.value.toFixed(1)} / 5.0\n</span>\n\n// Option B: Convert to percentage\n<span className=\"text-zinc-200 font-semibold ml-auto\">\n  {(entry.value * 20).toFixed(0)}%\n</span>"
+      }
+    },
+
+    {
+      "id": "GAP-003",
+      "severity": "MEDIUM",
+      "category": "accessibility",
+      "title": "Refresh button has no accessible label",
+      "file": "src/components/dashboard/AdaptationTracker.tsx",
+      "line": 308,
+      "description": "The refresh <button> contains only an SVG icon with no text or aria-label. Screen readers announce it as an unlabeled button, providing no context about its function.",
+      "impact": "Screen reader users cannot determine the button's purpose. Fails WCAG 2.1 Level A (1.1.1 Non-text Content) and Level AA (2.4.4 Link Purpose).",
+      "fix": {
+        "file": "src/components/dashboard/AdaptationTracker.tsx",
+        "action": "Add aria-label to the button element.",
+        "code_snippet": "<button\n  onClick={fetchData}\n  disabled={isFetching}\n  aria-label={isFetching ? 'Refreshing adaptation data' : 'Refresh adaptation data'}\n  className=\"p-1.5 rounded-md hover:bg-white/[0.04] text-zinc-500 hover:text-zinc-400 transition-all disabled:opacity-40\"\n>"
+      }
+    },
+
+    {
+      "id": "GAP-004",
+      "severity": "MEDIUM",
+      "category": "accessibility",
+      "title": "Chart container has no accessible description",
+      "file": "src/components/dashboard/AdaptationTracker.tsx",
+      "line": 327,
+      "description": "The AreaChart container (h-[240px] div) has no role, aria-label, or sr-only description. Screen reader users get no information about the chart's purpose or data summary.",
+      "impact": "Chart data is completely inaccessible to assistive technology. Fails WCAG 2.1 Level A (1.1.1).",
+      "fix": {
+        "file": "src/components/dashboard/AdaptationTracker.tsx",
+        "action": "Add aria-label to the chart container div with a data summary. Add a visually hidden summary div inside.",
+        "code_snippet": "<div className=\"h-[240px]\" role=\"img\" aria-label={`AI adaptation chart showing ${daily_data.length} days of data. AI accuracy: ${current_accuracy} out of 5. Overall improvement: ${overall_improvement_pct}%.`}>\n  <ResponsiveContainer ...>\n    ...\n  </ResponsiveContainer>\n</div>"
+      }
+    },
+
+    {
+      "id": "GAP-005",
+      "severity": "MEDIUM",
+      "category": "code_quality",
+      "title": "Unused imports: LineChart and Line from recharts",
+      "file": "src/components/dashboard/AdaptationTracker.tsx",
+      "line": 14,
+      "description": "LineChart and Line are imported from recharts (lines 14-15) but never used. Only AreaChart and Area are rendered. The component description and comments say 'dual-line chart' but the implementation uses AreaChart.",
+      "impact": "Dead imports increase bundle size (tree-shaking may handle this but it's not guaranteed for all bundler configs). Misleading comments create maintenance confusion.",
+      "fix": {
+        "file": "src/components/dashboard/AdaptationTracker.tsx",
+        "action": "Remove unused LineChart and Line imports. Update component-level JSDoc to say 'area chart' instead of 'dual-line chart'.",
+        "code_snippet": "import {\n  AreaChart,\n  Area,\n  XAxis,\n  YAxis,\n  CartesianGrid,\n  Tooltip,\n  ResponsiveContainer,\n  Legend,\n} from 'recharts';"
+      }
+    },
+
+    {
+      "id": "GAP-006",
+      "severity": "MEDIUM",
+      "category": "edge_case",
+      "title": "Hardcoded '30 days' in mistake rate average label",
+      "file": "src/components/dashboard/AdaptationTracker.tsx",
+      "line": 447,
+      "description": "The average mistake rate label reads 'Avg: X.X% over 30 days' but the component fetches data for a fixed 30-day window. While the API function accepts a `days` parameter, the component always passes 30. The hard-coded string is technically correct today but creates a maintenance trap if the window is ever changed.",
+      "impact": "Low current impact since days=30 is always passed. If someone changes the fetch to use a different period, the label becomes incorrect.",
+      "fix": {
+        "file": "src/components/dashboard/AdaptationTracker.tsx",
+        "action": "Either make the days configurable via props (recommended) or keep the hardcoded string with a comment noting the coupling.",
+        "code_snippet": "// Option: Add days prop\ninterface AdaptationTrackerProps {\n  initialData?: AdaptationTrackerResponse;\n  isLoading?: boolean;\n  className?: string;\n  days?: number;\n}\n\n// Then use:\n<p className=\"text-[10px] text-zinc-600\">\n  Avg: {avgMistakeRate.toFixed(1)}% over {days} days\n</p>"
+      }
+    },
+
+    {
+      "id": "GAP-007",
+      "severity": "MEDIUM",
+      "category": "edge_case",
+      "title": "Silent error swallowing hides API failures from users",
+      "file": "src/components/dashboard/AdaptationTracker.tsx",
+      "line": 224,
+      "description": "The catch block in fetchData (line 224) is empty with comment 'Silent fail — supplementary widget'. If the API returns a 500, 403, or network error, the user sees the EmptyState ('No adaptation data yet') with no indication that an error occurred. This makes debugging difficult and users may think they simply have no data.",
+      "impact": "Users cannot distinguish between 'no data exists' and 'data failed to load'. For a supplementary widget this is acceptable, but it should at minimum log the error.",
+      "fix": {
+        "file": "src/components/dashboard/AdaptationTracker.tsx",
+        "action": "Add console.error in the catch block and optionally set an error state to show a retry prompt.",
+        "code_snippet": "const [error, setError] = useState(false);\n\n// In fetchData:\n} catch (err) {\n  console.error('AdaptationTracker: failed to fetch', err);\n  setError(true);\n} finally {\n  setIsFetching(false);\n}"
+      }
+    },
+
+    {
+      "id": "GAP-008",
+      "severity": "LOW",
+      "category": "code_quality",
+      "title": "worst_day destructured but never used",
+      "file": "src/components/dashboard/AdaptationTracker.tsx",
+      "line": 263,
+      "description": "On line 263, `worst_day` is destructured from `data` but is never referenced in the JSX. Meanwhile, `starting_accuracy` is NOT destructured but is accessed via `data.starting_accuracy` on line 394.",
+      "impact": "Unused variable may trigger ESLint warnings. Inconsistent destructuring style reduces readability.",
+      "fix": {
+        "file": "src/components/dashboard/AdaptationTracker.tsx",
+        "action": "Either (a) remove `worst_day` from destructuring (it's not used in the UI), or (b) add a 'Worst Day' metric card to display it. Also destructure `starting_accuracy` for consistency.",
+        "code_snippet": "// Option A: Remove worst_day, add starting_accuracy\nconst { daily_data, overall_improvement_pct, current_accuracy, starting_accuracy, best_day, training_runs_count, drift_reports_count } = data;\n\n// Option B: Add worst_day display\n<MetricCard\n  label=\"Worst Day\"\n  value={worst_day ? worst_day.ai_accuracy.toFixed(1) : '—'}\n  sublabel={worst_day ? worst_day.date : 'No data'}\n  variant=\"danger\"\n  icon={...}\n/>"
+      }
+    },
+
+    {
+      "id": "GAP-009",
+      "severity": "LOW",
+      "category": "test_quality",
+      "title": "Invalid CSS selector in test — querySelectorAll('training runs')",
+      "file": "frontend/__tests__/components/dashboard/AdaptationTracker.test.tsx",
+      "line": 333,
+      "description": "The test 'hides footer when both counts are zero' uses `container.querySelectorAll('training runs')`. This is NOT a valid CSS selector — it would be parsed as looking for a <training> element with a 'runs' attribute. In real browsers this throws DOMException; in JSDOM it may silently return empty, making the assertion vacuously pass regardless of whether the footer is actually hidden.",
+      "impact": "The test gives false confidence. It always passes without actually verifying that the footer text is absent.",
+      "fix": {
+        "file": "frontend/__tests__/components/dashboard/AdaptationTracker.test.tsx",
+        "action": "Replace querySelectorAll with proper text absence check using @testing-library methods.",
+        "code_snippet": "it('hides footer when both counts are zero', () => {\n  const noTrainingData = {\n    ...mockData,\n    training_runs_count: 0,\n    drift_reports_count: 0,\n  };\n  render(<AdaptationTracker initialData={noTrainingData} />);\n  expect(screen.queryByText('training runs')).not.toBeInTheDocument();\n  expect(screen.queryByText('drift reports')).not.toBeInTheDocument();\n});"
+      }
+    },
+
+    {
+      "id": "GAP-010",
+      "severity": "LOW",
+      "category": "ux_consistency",
+      "title": "Legend formatter produces lowercase labels without proper capitalization",
+      "file": "src/components/dashboard/AdaptationTracker.tsx",
+      "line": 358,
+      "description": "The Legend formatter does `value.replace(/_/g, ' ')` which converts 'ai_accuracy' to 'ai accuracy' — all lowercase. Other Parwa dashboard components typically use title-case labels (e.g., 'AI Accuracy').",
+      "impact": "Minor visual inconsistency with dashboard conventions. 'ai accuracy' looks less polished than 'AI Accuracy'.",
+      "fix": {
+        "file": "src/components/dashboard/AdaptationTracker.tsx",
+        "action": "Add name prop to each Area component for display-friendly names.",
+        "code_snippet": "<Area\n  name=\"AI Accuracy\"\n  type=\"monotone\"\n  dataKey=\"ai_accuracy\"\n  ...\n/>\n<Area\n  name=\"Human Accuracy\"\n  type=\"monotone\"\n  dataKey=\"human_accuracy\"\n  ...\n/>"
+      }
+    },
+
+    {
+      "id": "GAP-011",
+      "severity": "LOW",
+      "category": "test_coverage",
+      "title": "No test for API error state showing empty state vs error state",
+      "file": "frontend/__tests__/components/dashboard/AdaptationTracker.test.tsx",
+      "description": "The test 'handles API errors silently' only verifies that rendering doesn't throw. It doesn't verify what the user actually sees after an error (empty state? loading forever? error message?). As the component currently stands, the empty state is shown on error, but this isn't explicitly tested.",
+      "impact": "If error handling logic changes, the test wouldn't catch it. The test is verifying the absence of a crash rather than the presence of correct behavior.",
+      "fix": {
+        "file": "frontend/__tests__/components/dashboard/AdaptationTracker.test.tsx",
+        "action": "Add assertion that the empty state message appears after API error.",
+        "code_snippet": "it('shows empty state after API error', async () => {\n  (dashboardApi.getAdaptationTracker as jest.Mock).mockRejectedValue(\n    new Error('Network error')\n  );\n  render(<AdaptationTracker />);\n  await waitFor(() => {\n    expect(screen.getByText('No adaptation data yet')).toBeInTheDocument();\n  });\n});"
+      }
+    },
+
+    {
+      "id": "GAP-012",
+      "severity": "LOW",
+      "category": "type_safety",
+      "title": "Frontend types don't enforce response shape — relies on generic get<T> cast",
+      "file": "src/lib/dashboard-api.ts",
+      "line": 148,
+      "description": "The `get<AdaptationTrackerResponse>(...)` call relies entirely on the generic type parameter for type safety. The underlying `safeParseResponse` just does `response.data as T` with no runtime validation. If the backend adds/removes/re-names a field, TypeScript won't catch it at runtime.",
+      "impact": "This is a systemic pattern (not unique to this feature). The risk is low since the backend is controlled, but it means schema drift between backend and frontend would only be caught during manual testing.",
+      "fix": {
+        "file": "src/lib/dashboard-api.ts",
+        "action": "Consider adding a lightweight runtime validator (e.g., zod schema) for the response. This is a non-blocking improvement for future hardening.",
+        "code_snippet": "// Optional future enhancement — not blocking\nimport { z } from 'zod';\n\nconst AdaptationDayDataSchema = z.object({\n  date: z.string(),\n  ai_accuracy: z.number(),\n  human_accuracy: z.number(),\n  gap: z.number(),\n  tickets_processed: z.number(),\n  mistakes_count: z.number(),\n  mistake_rate: z.number(),\n});\n\nconst AdaptationTrackerSchema = z.object({\n  daily_data: z.array(AdaptationDayDataSchema),\n  overall_improvement_pct: z.number(),\n  current_accuracy: z.number(),\n  starting_accuracy: z.number(),\n  best_day: AdaptationDayDataSchema.nullable(),\n  worst_day: AdaptationDayDataSchema.nullable(),\n  training_runs_count: z.number(),\n  drift_reports_count: z.number(),\n});"
+      }
+    }
+  ],
+
+  "pass_checks": [
+    {
+      "check": "API endpoint URL alignment",
+      "status": "PASS",
+      "detail": "Frontend calls GET /api/analytics/adaptation?days=30. Backend route is router.get('/adaptation') with prefix /api/analytics. Query param 'days' matches on both sides."
+    },
+    {
+      "check": "All backend response fields present in frontend type (happy path)",
+      "status": "PASS",
+      "detail": "Backend returns 8 keys. Frontend AdaptationTrackerResponse has all 8 fields. daily_data items have 7 keys matching AdaptationDayData's 7 fields."
+    },
+    {
+      "check": "YAxis domain correct for CSAT 1-5 scale",
+      "status": "PASS",
+      "detail": "domain={[0, 5]} correctly maps to the CSAT rating scale used by the backend."
+    },
+    {
+      "check": "Dark theme consistency",
+      "status": "PASS",
+      "detail": "Background #1A1A1A, primary #FF7F11, borders white/[0.06], text zinc palette — all consistent with Parwa design system."
+    },
+    {
+      "check": "Empty state handling",
+      "status": "PASS",
+      "detail": "EmptyState component shown when !data || !data.daily_data?.length. Clean UX with descriptive message."
+    },
+    {
+      "check": "Negative improvement handling",
+      "status": "PASS",
+      "detail": "Component handles negative overall_improvement_pct with conditional formatting: '+/-' prefix, red variant, down-trend icon."
+    },
+    {
+      "check": "Zero improvement handling",
+      "status": "PASS",
+      "detail": "Zero improvement shows 'neutral' variant and displays '0.0%' correctly."
+    },
+    {
+      "check": "Null best_day/worst_day handling",
+      "status": "PASS",
+      "detail": "Component uses ternary best_day ? ... : '—' for both display and sublabel."
+    },
+    {
+      "check": "Loading skeleton",
+      "status": "PASS",
+      "detail": "ChartSkeleton renders proper skeleton shapes matching the component layout."
+    },
+    {
+      "check": "Barrel export",
+      "status": "PASS",
+      "detail": "index.ts exports AdaptationTracker correctly."
+    },
+    {
+      "check": "Page integration",
+      "status": "PASS",
+      "detail": "Dashboard page renders AdaptationTracker in the grid alongside ActivityFeed (lg:grid-cols-2)."
+    },
+    {
+      "check": "Data sync with prop changes",
+      "status": "PASS",
+      "detail": "useEffect syncs initialData to state. Tested in 'updates when initialData prop changes'."
+    },
+    {
+      "check": "Refresh button functionality",
+      "status": "PASS",
+      "detail": "Button calls fetchData, disabled during fetch, shows spin animation."
+    },
+    {
+      "check": "Mistake rate zero handling",
+      "status": "PASS",
+      "detail": "MistakeRateBar handles rate === 0 with neutral color. avgMistakeRate defaults to 0 when no data."
+    },
+    {
+      "check": "Backend tenant isolation",
+      "status": "PASS",
+      "detail": "Endpoint uses Depends(get_company_id) for BC-001 tenant scoping. All queries filter by company_id."
+    }
+  ],
+
+  "statistics": {
+    "total_gaps": 12,
+    "by_severity": {
+      "HIGH": 2,
+      "MEDIUM": 5,
+      "LOW": 5
+    },
+    "by_category": {
+      "data_integrity": 1,
+      "ux_data_display": 1,
+      "accessibility": 2,
+      "code_quality": 2,
+      "edge_case": 2,
+      "test_quality": 1,
+      "ux_consistency": 1,
+      "test_coverage": 1,
+      "type_safety": 1
+    },
+    "pass_checks": 15,
+    "files_with_gaps": 4
+  },
+
+  "recommended_fix_order": [
+    "GAP-002 — Tooltip percentage display (HIGH, user-facing data error)",
+    "GAP-001 — Backend error fallback missing fields (HIGH, type safety)",
+    "GAP-003 — Refresh button aria-label (MEDIUM, a11y)",
+    "GAP-009 — Invalid test selector (MEDIUM, test integrity)",
+    "GAP-005 — Unused imports (MEDIUM, cleanup)",
+    "GAP-007 — Silent error swallowing (MEDIUM, DX)",
+    "GAP-004 — Chart a11y description (MEDIUM, a11y)",
+    "GAP-006 — Hardcoded '30 days' (MEDIUM, maintenance)",
+    "GAP-008 — Unused worst_day (LOW, cleanup)",
+    "GAP-010 — Legend casing (LOW, polish)",
+    "GAP-011 — Error state test (LOW, coverage)",
+    "GAP-012 — Runtime validation (LOW, future)"
+  ]
+}

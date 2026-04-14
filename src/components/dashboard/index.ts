@@ -23,3 +23,6 @@ export { default as ResponseTimeChart } from './ResponseTimeChart';
 // Week 16 Day 1 — Activity Feed & Alerts
 export { default as ActivityFeed } from './ActivityFeed';
 export { default as AlertBanner } from './AlertBanner';
+
+// Week 16 Day 3 — Adaptation Tracker
+export { default as AdaptationTracker } from './AdaptationTracker';

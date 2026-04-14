@@ -79,6 +79,31 @@ export interface DashboardHomeResponse {
 
 // ── Dashboard API ────────────────────────────────────────────────────
 
+// ── F-039: Adaptation Tracker Types ────────────────────────────────────
+
+export interface AdaptationDayData {
+  date: string;
+  ai_accuracy: number;
+  human_accuracy: number;
+  gap: number;
+  tickets_processed: number;
+  mistakes_count: number;
+  mistake_rate: number;
+}
+
+export interface AdaptationTrackerResponse {
+  daily_data: AdaptationDayData[];
+  overall_improvement_pct: number;
+  current_accuracy: number;
+  starting_accuracy: number;
+  best_day: AdaptationDayData | null;
+  worst_day: AdaptationDayData | null;
+  training_runs_count: number;
+  drift_reports_count: number;
+}
+
+// ── Dashboard API ────────────────────────────────────────────────────
+
 export const dashboardApi = {
   /**
    * Get unified dashboard home data.
@@ -114,6 +139,14 @@ export const dashboardApi = {
    */
   getMetrics: (period: string = 'last_30d') =>
     get<MetricsResponse>(`/api/dashboard/metrics?period=${period}`),
+
+  /**
+   * Get AI adaptation tracker — 30-day AI learning progress.
+   * Returns daily AI vs human accuracy, mistake rates,
+   * training runs, and drift reports.
+   */
+  getAdaptationTracker: (days: number = 30) =>
+    get<AdaptationTrackerResponse>(`/api/analytics/adaptation?days=${days}`),
 };
 
 export default dashboardApi;
