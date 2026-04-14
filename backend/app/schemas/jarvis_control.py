@@ -307,3 +307,233 @@ class StuckSessionInfo(BaseModel):
     stuck_threshold_seconds: float
     last_transition_at: Optional[str] = None
     suggested_actions: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+# ══════════════════════════════════════════════════════════════════
+# F-090: Quick Command Buttons Schemas
+# ══════════════════════════════════════════════════════════════════
+
+
+class QuickCommand(BaseModel):
+    """A single quick command definition."""
+
+    id: str = Field(description="Unique command identifier")
+    label: str = Field(description="Display label")
+    icon: str = Field(default="zap", description="Icon name")
+    category: str = Field(description="Command category")
+    command_text: str = Field(description="Underlying jarvis command text")
+    confirmation_required: bool = Field(default=False)
+    risk_level: str = Field(default="low", description="Risk level: low/medium/high/critical")
+    requires_admin: bool = Field(default=False)
+    description: Optional[str] = Field(default=None)
+    display_label: Optional[str] = Field(default=None, description="Tenant-overridden label")
+    tenant_enabled: bool = Field(default=True)
+    custom_params: Optional[Dict[str, Any]] = Field(default=None)
+
+
+class QuickCommandExecuteResponse(BaseModel):
+    """Result of executing a quick command."""
+
+    command_id: str
+    command_text: str
+    parsed: Dict[str, Any] = Field(default_factory=dict)
+    executed: bool = Field(default=False)
+    requires_confirmation: bool = Field(default=False)
+    risk_level: str = Field(default="low")
+
+
+class QuickCommandConfigSchema(BaseModel):
+    """Per-tenant quick command configuration."""
+
+    id: str
+    company_id: str
+    command_id: str
+    enabled: bool = Field(default=True)
+    custom_label: Optional[str] = None
+    custom_params: Optional[Dict[str, Any]] = None
+    created_at: Optional[str] = None
+
+
+class QuickCommandConfigUpdate(BaseModel):
+    """Request to update a quick command configuration."""
+
+    enabled: Optional[bool] = Field(default=None)
+    custom_label: Optional[str] = Field(default=None, max_length=200)
+    custom_params: Optional[Dict[str, Any]] = Field(default=None)
+
+
+class QuickCommandsResponse(BaseModel):
+    """List of available quick commands."""
+
+    commands: List[QuickCommand] = Field(default_factory=list)
+    total: int = 0
+    categories: Dict[str, List[Dict[str, Any]]] = Field(default_factory=dict)
+
+
+# ══════════════════════════════════════════════════════════════════
+# F-091: Error Panel Schemas
+# ══════════════════════════════════════════════════════════════════
+
+
+class ErrorEntry(BaseModel):
+    """A single error entry in the Error Panel."""
+
+    id: str
+    error_type: str
+    message: str
+    severity: str = Field(default="error")
+    subsystem: Optional[str] = None
+    affected_ticket_id: Optional[str] = None
+    affected_agent_id: Optional[str] = None
+    created_at: Optional[str] = None
+    message_hash: Optional[str] = None
+
+
+class ErrorGroup(BaseModel):
+    """A group of identical errors with count badge."""
+
+    group_key: str
+    error_type: str
+    message_hash: str
+    message_preview: str
+    severity: str
+    subsystem: Optional[str] = None
+    count: int = 1
+    latest_error_id: Optional[str] = None
+    latest_created_at: Optional[str] = None
+
+
+class ErrorDetail(BaseModel):
+    """Full detail for a single error."""
+
+    id: str
+    company_id: str
+    error_type: str
+    message: str
+    stack_trace: Optional[str] = None
+    severity: str
+    subsystem: Optional[str] = None
+    affected_ticket_id: Optional[str] = None
+    affected_agent_id: Optional[str] = None
+    dismissed: bool = False
+    dismissed_by: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class ErrorStormAlert(BaseModel):
+    """Error storm detection alert."""
+
+    active: bool = True
+    error_count: int
+    window_seconds: int = 10
+    threshold: int = 100
+    detected_at: str
+    severity: str = Field(default="high")
+
+
+class ErrorStats(BaseModel):
+    """Aggregated error statistics."""
+
+    total_errors: int = 0
+    dismissed_count: int = 0
+    by_severity: Dict[str, int] = Field(default_factory=dict)
+    by_subsystem: List[Dict[str, Any]] = Field(default_factory=list)
+    by_type: List[Dict[str, Any]] = Field(default_factory=list)
+    storm_alert: Optional[ErrorStormAlert] = None
+    period_hours: int = 24
+    since: Optional[str] = None
+
+
+class DismissResponse(BaseModel):
+    """Result of dismissing an error."""
+
+    message: str = "Error dismissed successfully"
+    error_id: str
+    dismissed: bool = True
+    dismissed_by: Optional[str] = None
+    dismissed_at: Optional[str] = None
+
+
+# ══════════════════════════════════════════════════════════════════
+# F-092: Train from Error Schemas
+# ══════════════════════════════════════════════════════════════════
+
+
+VALID_TRAINING_ACTIONS = ("approved", "rejected", "needs_revision")
+VALID_TRAINING_SOURCES = ("error_auto", "error_manual", "feedback", "correction")
+VALID_TRAINING_STATUSES_FILTER = (
+    "queued_for_review", "approved", "rejected", "in_dataset", "archived",
+)
+
+
+class TrainingPointCreate(BaseModel):
+    """Request to create a training point from an error."""
+
+    error_id: str = Field(description="Error log UUID to convert")
+    ticket_id: Optional[str] = Field(default=None)
+    correction_notes: Optional[str] = Field(
+        default=None, max_length=2000,
+        description="Operator notes about what went wrong",
+    )
+    expected_response: Optional[str] = Field(
+        default=None, max_length=5000,
+        description="What the correct AI response should have been",
+    )
+    source: str = Field(
+        default="error_manual",
+        description="Source of the training data",
+    )
+
+
+class TrainingPoint(BaseModel):
+    """A training data point in the pipeline."""
+
+    id: str
+    company_id: str
+    error_id: Optional[str] = None
+    ticket_id: Optional[str] = None
+    intent_label: Optional[str] = None
+    source: str = Field(default="error_auto")
+    status: str = Field(default="queued_for_review")
+    created_by: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    created_at: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    has_correction: bool = False
+    has_expected_response: bool = False
+
+
+class TrainingPointReview(BaseModel):
+    """Request to review a training point."""
+
+    action: str = Field(
+        description="Review action: approved, rejected, needs_revision",
+    )
+    review_notes: Optional[str] = Field(
+        default=None, max_length=1000,
+        description="Reviewer notes",
+    )
+
+
+class TrainingPointReviewResponse(BaseModel):
+    """Result of reviewing a training point."""
+
+    id: str
+    training_point_id: str
+    previous_status: str
+    new_status: str
+    action: str
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[str] = None
+
+
+class TrainingStats(BaseModel):
+    """Aggregated training pipeline statistics."""
+
+    total: int = 0
+    by_status: Dict[str, int] = Field(default_factory=dict)
+    by_source: Dict[str, int] = Field(default_factory=dict)
+    by_intent: List[Dict[str, Any]] = Field(default_factory=list)
+    recent_reviews_24h: int = 0
+    ready_for_dataset: int = 0
+    review_backlog: int = 0

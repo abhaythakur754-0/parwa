@@ -139,3 +139,58 @@ Stage Summary:
 - Total lines: ~2,300+ lines of production code
 - Key patterns followed: BC-001 (tenant isolation), BC-008 (graceful degradation), BC-011 (auth), BC-012 (error handling)
 - All files pass Python syntax verification
+
+---
+Task ID: W14D2
+Agent: Main
+Task: Week 14 Day 2 - Quick Commands (F-090) + Error Panel (F-091) + Train from Error (F-092)
+
+Work Log:
+- Read existing codebase patterns (jarvis_service.py, system_status_service.py, gsd_terminal_service.py, jarvis_control.py, jarvis_control.py schemas, main.py, deps.py, jarvis.py models, pii_redaction_engine.py, exceptions.py)
+- Created backend/app/models/system_health.py — SQLAlchemy models for W14D2 features
+  - SystemHealthSnapshot: periodic health snapshots per subsystem
+  - SystemIncident: state transitions with severity tracking
+  - ErrorLog: application errors with soft-delete (dismiss)
+  - TrainingDataPoint: training data from errors with review workflow
+  - QuickCommandConfig: per-tenant command customization
+  - All models use UUID strings, CheckConstraints, consistent with jarvis.py pattern
+- Created backend/app/services/quick_command_service.py — F-090 Quick Command Buttons Service (~350 lines)
+  - 16 structured quick commands across 5 categories (system_ops, agent_mgmt, ticket_ops, analytics, emergency)
+  - Risk-level classification (low/medium/high/critical)
+  - Per-tenant customization (enable/disable, custom labels, custom params)
+  - Delegation to jarvis_command_parser for execution
+  - Lazy service loading pattern
+- Created backend/app/services/error_panel_service.py — F-091 Error Panel Service (~350 lines)
+  - Recent errors with configurable limit (default 5)
+  - Identical error grouping with message hash (SHA-256) and count badges
+  - Soft-delete dismissal (preserves in database for audit)
+  - Filter by subsystem, severity, date range
+  - Socket.io event names defined for real-time push
+  - Error storm detection (100+ errors in 10 seconds)
+  - Aggregated error statistics by severity, subsystem, type
+- Created backend/app/services/train_from_error_service.py — F-092 Train from Error Service (~400 lines)
+  - Create training data points from error entries with auto-context extraction
+  - Deduplication by error_id + ticket_id
+  - PII redaction on all text fields before storage (BC-010)
+  - Manual correction notes and expected_response support
+  - Review workflow: queued_for_review → approved/rejected → in_dataset
+  - Intent label inference from error type heuristics
+  - Aggregated training pipeline statistics
+- Updated backend/app/schemas/jarvis_control.py — Appended 16 new Pydantic schemas
+  - F-090: QuickCommand, QuickCommandExecuteResponse, QuickCommandConfigSchema, QuickCommandConfigUpdate, QuickCommandsResponse
+  - F-091: ErrorEntry, ErrorGroup, ErrorDetail, ErrorStormAlert, ErrorStats, DismissResponse
+  - F-092: TrainingPointCreate, TrainingPoint, TrainingPointReview, TrainingPointReviewResponse, TrainingStats
+- Created backend/app/api/jarvis_ops.py — 12 FastAPI endpoints (~450 lines)
+  - GET/POST /api/jarvis/quick-commands (list + execute + custom config)
+  - GET/POST /api/errors (recent + detail + dismiss + stats)
+  - POST/GET /api/training-points (create + list + review + stats)
+  - Admin role enforcement for destructive commands (BC-011)
+  - Comprehensive error handling and logging
+- Registered jarvis_ops_router in backend/app/main.py
+
+Stage Summary:
+- Files created: 4 new files
+- Files modified: 2 files (main.py, schemas/jarvis_control.py)
+- Total lines: ~1,700+ lines of production code
+- All 6 files pass Python syntax verification
+- Building Codes applied: BC-001 (multi-tenant), BC-005 (real-time), BC-007 (AI model), BC-010 (GDPR/PII), BC-011 (auth), BC-012 (error handling)
