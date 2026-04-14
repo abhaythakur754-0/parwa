@@ -18,7 +18,7 @@ Building Codes: BC-001 (tenant isolation), BC-011 (auth),
 """
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
