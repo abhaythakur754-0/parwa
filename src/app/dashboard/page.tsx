@@ -16,6 +16,9 @@ import KPICard from '@/components/dashboard/KPICard';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import AlertBanner from '@/components/dashboard/AlertBanner';
 import AdaptationTracker from '@/components/dashboard/AdaptationTracker';
+import GrowthNudge from '@/components/dashboard/GrowthNudge';
+import TicketForecast from '@/components/dashboard/TicketForecast';
+import CSATTrends from '@/components/dashboard/CSATTrends';
 import { analyticsApi } from '@/lib/analytics-api';
 import { dashboardApi, type DashboardHomeResponse } from '@/lib/dashboard-api';
 import { getErrorMessage } from '@/lib/api';
@@ -318,7 +321,16 @@ export default function DashboardPage() {
         <AdaptationTracker />
       </div>
 
-      {/* ── Row 7: Agent Performance Table ─────────────────────────── */}
+      {/* ── Row 7: Growth Nudge + Ticket Forecast (W16D4) ─────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GrowthNudge />
+        <TicketForecast />
+      </div>
+
+      {/* ── Row 8: CSAT Trends (W16D4 — F-044) ────────────────────── */}
+      <CSATTrends />
+
+      {/* ── Row 9: Agent Performance Table ──────────────────────────── */}
       <AgentPerformanceTable data={agentData} />
     </div>
   );

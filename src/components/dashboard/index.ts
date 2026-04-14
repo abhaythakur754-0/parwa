@@ -26,3 +26,8 @@ export { default as AlertBanner } from './AlertBanner';
 
 // Week 16 Day 3 — Adaptation Tracker
 export { default as AdaptationTracker } from './AdaptationTracker';
+
+// Week 16 Day 4 — Growth Nudge, Ticket Forecast, CSAT Trends
+export { default as GrowthNudge } from './GrowthNudge';
+export { default as TicketForecast } from './TicketForecast';
+export { default as CSATTrends } from './CSATTrends';

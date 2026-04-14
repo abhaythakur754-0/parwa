@@ -77,8 +77,6 @@ export interface DashboardHomeResponse {
   generated_at: string;
 }
 
-// ── Dashboard API ────────────────────────────────────────────────────
-
 // ── F-039: Adaptation Tracker Types ────────────────────────────────────
 
 export interface AdaptationDayData {
@@ -147,6 +145,93 @@ export const dashboardApi = {
    */
   getAdaptationTracker: (days: number = 30) =>
     get<AdaptationTrackerResponse>(`/api/analytics/adaptation?days=${days}`),
+
+  /**
+   * Get growth nudge alerts based on usage pattern analysis.
+   * Returns actionable recommendations for scaling, channels, CSAT, etc.
+   */
+  getGrowthNudges: () =>
+    get<GrowthNudgeResponse>('/api/analytics/growth-nudges'),
+
+  /**
+   * Get ticket volume forecast using predictive analytics.
+   * Returns historical + forecast data with confidence bounds.
+   */
+  getTicketForecast: (forecastDays: number = 14, historicalDays: number = 30) =>
+    get<TicketForecastResponse>(`/api/analytics/forecast?forecast_days=${forecastDays}&historical_days=${historicalDays}`),
+
+  /**
+   * Get CSAT trend analytics with daily trend, distribution,
+   * and breakdowns by agent, category, and channel.
+   */
+  getCSATTrends: (days: number = 30) =>
+    get<CSATTrendsResponse>(`/api/analytics/csat-trends?days=${days}`),
 };
+
+// ── F-042: Growth Nudge Types ─────────────────────────────────────────
+
+export interface GrowthNudge {
+  nudge_id: string;
+  nudge_type: string;
+  severity: 'urgent' | 'recommendation' | 'suggestion' | 'info';
+  title: string;
+  message: string;
+  action_label?: string;
+  action_url?: string;
+  dismissed: boolean;
+  detected_at: string;
+}
+
+export interface GrowthNudgeResponse {
+  nudges: GrowthNudge[];
+  total: number;
+  dismissed_count: number;
+}
+
+// ── F-043: Ticket Forecast Types ────────────────────────────────────────
+
+export interface ForecastPoint {
+  date: string;
+  predicted: number;
+  lower_bound?: number;
+  upper_bound?: number;
+  actual?: number | null;
+}
+
+export interface TicketForecastResponse {
+  historical: ForecastPoint[];
+  forecast: ForecastPoint[];
+  model_type: string;
+  confidence_level: number;
+  seasonality_detected: boolean;
+  trend_direction: 'increasing' | 'decreasing' | 'stable';
+  avg_daily_volume: number;
+}
+
+// ── F-044: CSAT Trends Types ────────────────────────────────────────────
+
+export interface CSATDayData {
+  date: string;
+  avg_rating: number;
+  total_ratings: number;
+  distribution: Record<string, number>;
+}
+
+export interface CSATDimension {
+  dimension_name: string;
+  avg_rating: number;
+  total_ratings: number;
+}
+
+export interface CSATTrendsResponse {
+  daily_trend: CSATDayData[];
+  overall_avg: number;
+  overall_total: number;
+  by_agent: CSATDimension[];
+  by_category: CSATDimension[];
+  by_channel: CSATDimension[];
+  trend_direction: 'improving' | 'declining' | 'stable';
+  change_vs_previous_period: number | null;
+}
 
 export default dashboardApi;
