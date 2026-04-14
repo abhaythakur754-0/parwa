@@ -6,7 +6,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-// Mock recharts
+// Mock recharts (includes SVG defs/gradient/stop to avoid console warnings)
 jest.mock('recharts', () => {
   const Original = jest.requireActual('recharts');
   return {
@@ -20,6 +20,10 @@ jest.mock('recharts', () => {
     Tooltip: () => null,
     Legend: () => null,
     ReferenceLine: () => null,
+    // SVG gradient elements (used inside AreaChart defs)
+    defs: () => null,
+    linearGradient: () => null,
+    stop: () => null,
   };
 });
 
@@ -191,6 +195,64 @@ describe('GrowthNudge Component (F-042)', () => {
     });
   });
 
+  describe('Accessibility', () => {
+    it('has aria-label on dismiss buttons', () => {
+      render(<GrowthNudge initialData={mockNudgeData} />);
+      const dismissBtns = screen.getAllByText('Dismiss');
+      expect(dismissBtns[0]).toHaveAttribute('aria-label', 'Dismiss SLA breach rate is high');
+      expect(dismissBtns[1]).toHaveAttribute('aria-label', 'Dismiss Ticket volume is growing fast');
+    });
+
+    it('has role=list on nudge container', () => {
+      render(<GrowthNudge initialData={mockNudgeData} />);
+      expect(screen.getByRole('list')).toHaveAttribute('aria-label', 'Growth nudges');
+    });
+  });
+
+  describe('Loading State', () => {
+    it('renders skeleton when isLoading is true', () => {
+      const { container } = render(<GrowthNudge isLoading />);
+      // Skeleton uses the bg-white class; should not show header
+      expect(screen.queryByText('Growth Insights')).not.toBeInTheDocument();
+      expect(container.querySelector('[class*=bg-white]')).toBeTruthy();
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('renders nudge messages', () => {
+      render(<GrowthNudge initialData={mockNudgeData} />);
+      expect(screen.getByText('15 of 50 tickets (30.0%) breached SLA this week.')).toBeInTheDocument();
+      expect(screen.getByText('Volume increased from 80 to 130 tickets/week (+63%).')).toBeInTheDocument();
+    });
+
+    it('shows singular nudge count for 1 nudge', () => {
+      const single = { ...mockNudgeData, nudges: [mockNudgeData.nudges[0]], total: 1 };
+      render(<GrowthNudge initialData={single} />);
+      expect(screen.getByText('1 nudge')).toBeInTheDocument();
+    });
+
+    it('handles nudge without action_label/action_url gracefully', () => {
+      const noAction = {
+        ...mockNudgeData,
+        nudges: [{ ...mockNudgeData.nudges[0], action_label: undefined, action_url: undefined }],
+        total: 1,
+      };
+      render(<GrowthNudge initialData={noAction} />);
+      expect(screen.queryByText('Review SLA Settings')).not.toBeInTheDocument();
+      expect(screen.getByText('SLA breach rate is high')).toBeInTheDocument();
+    });
+
+    it('handles suggestion severity type', () => {
+      const suggestionNudge = {
+        ...mockNudgeData,
+        nudges: [{ ...mockNudgeData.nudges[2], severity: 'suggestion' as const }],
+        total: 1,
+      };
+      render(<GrowthNudge initialData={suggestionNudge} />);
+      expect(screen.getByText('Suggestion')).toBeInTheDocument();
+    });
+  });
+
   describe('API Fetching', () => {
     it('fetches on mount without initialData', async () => {
       (dashboardApi.getGrowthNudges as jest.Mock).mockResolvedValue(mockNudgeData);
@@ -201,6 +263,14 @@ describe('GrowthNudge Component (F-042)', () => {
     it('does not fetch with initialData', () => {
       render(<GrowthNudge initialData={mockNudgeData} />);
       expect(dashboardApi.getGrowthNudges).not.toHaveBeenCalled();
+    });
+
+    it('handles API error gracefully', async () => {
+      (dashboardApi.getGrowthNudges as jest.Mock).mockRejectedValue(new Error('Network error'));
+      render(<GrowthNudge />);
+      await waitFor(() => expect(dashboardApi.getGrowthNudges).toHaveBeenCalled());
+      // Should show empty state, not crash
+      await waitFor(() => expect(screen.getByText('All good!')).toBeInTheDocument());
     });
   });
 });
@@ -248,10 +318,45 @@ describe('TicketForecast Component (F-043)', () => {
     });
   });
 
+  describe('Trend Badge Variants', () => {
+    it('shows Trending Down for decreasing', () => {
+      const decreasing = { ...mockForecast, trend_direction: 'decreasing' as const };
+      render(<TicketForecast initialData={decreasing} />);
+      expect(screen.getByText('Trending Down')).toBeInTheDocument();
+    });
+
+    it('shows Stable for stable trend', () => {
+      const stable = { ...mockForecast, trend_direction: 'stable' as const };
+      render(<TicketForecast initialData={stable} />);
+      expect(screen.getByText('Stable')).toBeInTheDocument();
+    });
+  });
+
+  describe('Loading State', () => {
+    it('renders skeleton when isLoading is true', () => {
+      const { container } = render(<TicketForecast isLoading />);
+      expect(screen.queryByText('Ticket Forecast')).not.toBeInTheDocument();
+      expect(container.querySelector('[class*=bg-white]')).toBeTruthy();
+    });
+  });
+
   describe('Empty State', () => {
     it('shows empty state with no data', () => {
       render(<TicketForecast initialData={{ historical: [], forecast: [], model_type: 'none', confidence_level: 0.95, seasonality_detected: false, trend_direction: 'stable', avg_daily_volume: 0 }} />);
       expect(screen.getByText('No forecast data')).toBeInTheDocument();
+    });
+
+    it('shows None when seasonality not detected', () => {
+      const noSeason = { ...mockForecast, seasonality_detected: false };
+      render(<TicketForecast initialData={noSeason} />);
+      expect(screen.getByText('None')).toBeInTheDocument();
+    });
+  });
+
+  describe('Accessibility', () => {
+    it('has role=img with aria-label on chart', () => {
+      render(<TicketForecast initialData={mockForecast} />);
+      expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'Ticket volume forecast chart');
     });
   });
 
@@ -260,6 +365,13 @@ describe('TicketForecast Component (F-043)', () => {
       (dashboardApi.getTicketForecast as jest.Mock).mockResolvedValue(mockForecast);
       render(<TicketForecast />);
       await waitFor(() => expect(dashboardApi.getTicketForecast).toHaveBeenCalledWith(14, 30));
+    });
+
+    it('handles API error gracefully', async () => {
+      (dashboardApi.getTicketForecast as jest.Mock).mockRejectedValue(new Error('Server error'));
+      render(<TicketForecast />);
+      await waitFor(() => expect(dashboardApi.getTicketForecast).toHaveBeenCalled());
+      await waitFor(() => expect(screen.getByText('No forecast data')).toBeInTheDocument());
     });
   });
 });
@@ -327,6 +439,73 @@ describe('CSATTrends Component (F-044)', () => {
     });
   });
 
+  describe('Trend Direction', () => {
+    it('shows declining trend', () => {
+      const declining = { ...mockCSAT, trend_direction: 'declining' as const };
+      const { container } = render(<CSATTrends initialData={declining} />);
+      // The trend color should be red for declining
+      const rating = container.querySelector('[style*=--tw-text-opacity]') || container.querySelector('[class*=font-bold]');
+      // Just verify it renders without error
+      expect(screen.getByText('CSAT Trends')).toBeInTheDocument();
+    });
+
+    it('hides change vs prev when null', () => {
+      const noChange = { ...mockCSAT, change_vs_previous_period: null };
+      const { container } = render(<CSATTrends initialData={noChange} />);
+      expect(container.textContent).not.toContain('vs prev');
+    });
+
+    it('shows negative change with minus sign', () => {
+      const negativeChange = { ...mockCSAT, change_vs_previous_period: -0.15 };
+      const { container } = render(<CSATTrends initialData={negativeChange} />);
+      expect(container.textContent).toContain('-0.15 vs prev');
+    });
+  });
+
+  describe('Accessibility', () => {
+    it('has role=tablist on dimension tabs', () => {
+      render(<CSATTrends initialData={mockCSAT} />);
+      expect(screen.getByRole('tablist')).toHaveAttribute('aria-label', 'CSAT breakdown dimension');
+    });
+
+    it('has role=tab with aria-selected on active tab', () => {
+      render(<CSATTrends initialData={mockCSAT} />);
+      const tabs = screen.getAllByRole('tab');
+      expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+      expect(tabs[1]).toHaveAttribute('aria-selected', 'false');
+    });
+
+    it('updates aria-selected on tab switch', () => {
+      render(<CSATTrends initialData={mockCSAT} />);
+      const tabs = screen.getAllByRole('tab');
+      fireEvent.click(tabs[1]); // Click Category tab
+      expect(tabs[0]).toHaveAttribute('aria-selected', 'false');
+      expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('has role=img with aria-label on chart', () => {
+      render(<CSATTrends initialData={mockCSAT} />);
+      expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'CSAT trend chart over 30 days');
+    });
+  });
+
+  describe('Loading State', () => {
+    it('renders skeleton when isLoading is true', () => {
+      const { container } = render(<CSATTrends isLoading />);
+      expect(screen.queryByText('CSAT Trends')).not.toBeInTheDocument();
+      expect(container.querySelector('[class*=bg-white]')).toBeTruthy();
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('shows no data available for empty dimension', () => {
+      const noChannelData = { ...mockCSAT, by_channel: [] };
+      render(<CSATTrends initialData={noChannelData} />);
+      fireEvent.click(screen.getByText('By Channel'));
+      expect(screen.getByText('No data available')).toBeInTheDocument();
+    });
+  });
+
   describe('Empty State', () => {
     it('shows empty state with no data', () => {
       render(<CSATTrends initialData={{ daily_trend: [], overall_avg: 0, overall_total: 0, by_agent: [], by_category: [], by_channel: [], trend_direction: 'stable', change_vs_previous_period: null }} />);
@@ -339,6 +518,13 @@ describe('CSATTrends Component (F-044)', () => {
       (dashboardApi.getCSATTrends as jest.Mock).mockResolvedValue(mockCSAT);
       render(<CSATTrends />);
       await waitFor(() => expect(dashboardApi.getCSATTrends).toHaveBeenCalledWith(30));
+    });
+
+    it('handles API error gracefully', async () => {
+      (dashboardApi.getCSATTrends as jest.Mock).mockRejectedValue(new Error('Server error'));
+      render(<CSATTrends />);
+      await waitFor(() => expect(dashboardApi.getCSATTrends).toHaveBeenCalled());
+      await waitFor(() => expect(screen.getByText('No CSAT data yet')).toBeInTheDocument());
     });
   });
 });

@@ -158,6 +158,7 @@ function NudgeCard({ nudge, onDismiss }: { nudge: GrowthNudge; onDismiss: (id: s
             )}
             <button
               onClick={() => onDismiss(nudge.nudge_id)}
+              aria-label={`Dismiss ${nudge.title}`}
               className="text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors ml-auto"
             >
               Dismiss
@@ -244,7 +245,7 @@ export default function GrowthNudge({
       </div>
 
       {/* Nudge List */}
-      <div className="p-4 space-y-2.5">
+      <div className="p-4 space-y-2.5" role="list" aria-label="Growth nudges">
         {visibleNudges.length === 0 ? (
           <EmptyState />
         ) : (

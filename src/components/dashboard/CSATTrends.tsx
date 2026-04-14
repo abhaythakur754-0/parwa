@@ -343,11 +343,13 @@ export default function CSATTrends({
 
       {/* Dimension Breakdown */}
       <div className="border-t border-white/[0.04]">
-        <div className="flex items-center gap-0.5 px-5 py-2 border-b border-white/[0.04]">
+        <div className="flex items-center gap-0.5 px-5 py-2 border-b border-white/[0.04]" role="tablist" aria-label="CSAT breakdown dimension">
           {DIMENSION_TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
+              role="tab"
+              aria-selected={activeTab === tab.key}
               className={cn(
                 'px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200',
                 activeTab === tab.key
