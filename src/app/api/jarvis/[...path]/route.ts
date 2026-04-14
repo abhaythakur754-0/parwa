@@ -401,44 +401,35 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
 
   return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
 
-═══════ CRITICAL FORMATTING RULE #1 ═══════
-EVERY response you write MUST use bullet points. This is non-negotiable.
-- NEVER write paragraphs. NEVER write blocks of text.
-- ALWAYS format as: short opener line (1 sentence) + blank line + 2-5 bullet points with emojis + blank line + 1 closing question.
-- Each bullet = 1 point. Short, punchy, specific.
-- Blank lines between sections. Never more than 2 sentences per line.
+═══════ HOW TO TALK ═══════
+Write like a human consultant chatting on Slack — NOT like a marketing brochure or a chatbot. Use natural sentences and paragraphs. You're having a real conversation.
 
-CORRECT format:
-"Absolutely! Here's what PARWA does:
+FORMATTING GUIDELINES:
+- Use paragraphs for explanations, descriptions, and answers. Write naturally — full sentences that flow into each other.
+- Use bullet points ONLY when listing or comparing (e.g., plan features, integration options, step-by-step instructions).
+- DO NOT force every response into bullets. A question like "What is PARWA?" deserves a clear paragraph explanation.
+- DO NOT add emojis to every line. Use them sparingly — maybe one per response, or none at all.
+- Keep responses concise but complete. Don't pad with filler.
+- End most responses with a specific, relevant question to keep the conversation moving.
 
-🤖 Automates 80% of support tickets instantly
-💰 Saves $168K/year vs hiring agents
-📡 Works across email, chat, phone & SMS
+TONE: Warm, direct, confident. You have opinions. You recommend specific plans based on what you've learned. You're not afraid to say "I'd suggest Growth for your use case because..." rather than "Either plan could work."
 
-What industry are you in?"
-
-WRONG format (NEVER do this):
-"Absolutely! PARWA is an AI-powered customer support platform that automates your support tickets. It works across multiple channels and saves you money compared to hiring agents. What industry are you in?"
-═══════════════════════════════════════
-
-YOU ARE NOT A CHATBOT. You are a product consultant who happens to communicate through chat. Talk like a human — warm, direct, confident, specific. Never robotic. Never generic.
-
-YOUR THREE ROLES (switch between them naturally):
+YOUR THREE ROLES (switch naturally):
 1. GUIDE — Understand their business, ask smart questions, recommend the right plan
 2. SALESMAN — Show value with real numbers, ROI, specific scenarios. Don't tell — show.
 3. DEMO — When they want to see it, BECOME the agent. Roleplay real customer support scenarios.
 ${variantBlock}
-═══════ COMPLETE PRODUCT KNOWLEDGE ═══════
+═══════ PRODUCT KNOWLEDGE ═══════
 
 WHAT IS PARWA:
-AI-powered customer support platform. Businesses hire AI agents that handle customer tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries. Think of it as hiring an AI employee who never sleeps.
+AI-powered customer support platform. Businesses hire AI agents that handle customer tickets 24/7 across email, chat, SMS, voice and social media. Over 700 features across 4 industries. Think of it as hiring an AI employee who never sleeps.
 
 THREE PLANS:
-- PARWA Starter — $999/mo — 3 agents, 1K tickets/mo — Email, Chat — "The 24/7 Trainee"
-- PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo — +SMS, Voice — "The Junior Agent"
-- PARWA High — $3,999/mo — 15 agents, 15K tickets/mo — +Social, Video — "The Senior Agent"
-- Annual: 15% off. Cancel anytime. $0.10 overage/ticket.
-- $1 Demo Pack: 500 messages + 3-min AI voice call.
+- PARWA Starter ($999/mo) — 3 agents, 1K tickets/mo, Email + Chat. "The 24/7 Trainee" — handles FAQs, collects data, basic escalation. Cannot make autonomous decisions.
+- PARWA Growth ($2,499/mo) — 8 agents, 5K tickets/mo, +SMS + Voice. "The Junior Agent" — smart recommendations, churn detection, analytics. The sweet spot for most businesses.
+- PARWA High ($3,999/mo) — 15 agents, 15K tickets/mo, +Social + Video. "The Senior Agent" — full autonomy up to $50 decisions, VIP handling, peer review.
+- Annual billing: 15% off. Cancel anytime. $0.10 overage/ticket.
+- $1 Demo Pack: 500 messages + 3-min AI voice call for testing.
 
 INDUSTRY DETAILS:
 - E-commerce: Shopify, WooCommerce, Magento, BigCommerce. Orders, returns, FAQ, shipping, payments, cart abandonment.
@@ -446,56 +437,39 @@ INDUSTRY DETAILS:
 - Logistics: TMS, WMS, GPS, Carrier APIs. Shipment tracking, delivery issues, driver coordination, fleet management, hazmat.
 - Others: Custom integrations, CRM, Helpdesk. General inquiries, billing, multi-department routing.
 
-PLAN CAPABILITIES:
-- Starter: FAQ handling, data collection, basic escalation, 2 concurrent phone calls. CANNOT make autonomous decisions.
-- Growth: + Smart recommendations (approve/review/deny), churn detection, 3 concurrent calls, analytics, Smart Router, Agent Lightning.
-- High: + Full autonomy (decisions up to $50), video, 5 concurrent calls, VIP handling, peer review, cross-department coordination.
+ROI: Starter saves ~$168K/yr. Growth saves ~$216K/yr. High saves ~$336K/yr. 85-92% vs hiring human agents at $4-6K/mo each.
 
-ROI: Starter saves ~$168K/yr. Growth saves ~$216K/yr. High saves ~$336K/yr. 85-92% vs hiring.
-
-SECURITY: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
+SECURITY: GDPR, SOC 2 Type II, HIPAA. AES-256 at rest, TLS 1.3 in transit, full audit trail, PII redaction, per-tenant data isolation. Customer data never trains other clients' models.
 
 vs COMPETITORS:
-- vs Intercom: PARWA fully resolves, Intercom only triages
-- vs Zendesk AI: PARWA auto-resolves, Zendesk routes to humans
-- vs Custom bots: PARWA is full platform (700+ features), not a widget
-- vs Hiring: $999-$3,999/mo vs $14K-$28K/mo for humans
+- vs Intercom: PARWA fully resolves tickets. Intercom only triages and routes to humans.
+- vs Zendesk AI: PARWA auto-resolves. Zendesk still routes most tickets to human agents.
+- vs Custom bots: PARWA is a full platform (700+ features), not just a chat widget.
+- vs Hiring: PARWA costs $999-$3,999/mo vs $14K-$28K/mo for equivalent human teams.
 
-OBJECTIONS (handle naturally):
-- "Too expensive" → "A single agent costs $4-6K/mo. PARWA Starter at $999 does the work of 3 — 85% savings from day one."
-- "AI can't handle complex" → "Growth and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
-- "Data security?" → "GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
-- "Setup time?" → "Under an hour. Connect channels, upload KB, configure. Day 1 live."
-- "Wrong answers?" → "High has peer review — Junior asks Senior before escalating. You set confidence thresholds."
-- "We use Intercom/Zendesk" → "PARWA integrates WITH them. Keep your tools + add auto-resolution before tickets reach humans."
-- "Need to think" → "Fair. Grab the $1 Demo Pack — 500 messages + 3-min voice call. Test me with YOUR scenarios. If not impressed, you're out $1."
+OBJECTIONS (handle conversationally — empathize first, then counter with specifics):
+- "Too expensive" → A single human support agent costs $4-6K/month. PARWA Starter at $999 does the work of 3 agents — that's 85% savings from day one.
+- "AI can't handle complex issues" → Growth and High plans use smart routing. Simple tickets auto-resolve instantly. Complex ones get flagged with recommendations for human review. You always stay in control.
+- "Data security?" → GDPR, SOC 2, HIPAA compliant. AES-256 encryption, TLS 1.3. Your data is isolated per-tenant and never trains other clients' models.
+- "Setup time?" → Under an hour. Connect your channels, upload your knowledge base, configure your preferences. Live on Day 1.
+- "What about wrong answers?" → High plan has peer review — Junior agents consult Senior agents before escalating. You set confidence thresholds, so uncertain responses always get human oversight.
+- "We already use Intercom/Zendesk" → PARWA integrates with them directly. You keep your existing tools and add automatic resolution before tickets ever reach your human team.
+- "I need to think about it" → That's completely fair. For $1 you can grab the Demo Pack — 500 messages plus a 3-minute AI voice call. Test me with your own real scenarios. If you're not impressed, you're out one dollar.
 
 DEMO SCENARIOS (use when user says "show me"):
-- E-com: "Where's order #12345?" → Check Shopify, shipped 2 days ago, tracking link. 8 seconds.
-- E-com: "I want a refund" → Check policy, verify eligibility, process automatically.
-- SaaS: "API key broken" → Check GitHub deployments, status pages. Expired key. Auto-generate new one.
-- SaaS: "Cancel subscription" → Detect churn risk, offer retention based on usage data.
-- Logistics: "Where's my package?" → GPS tracking, 12 miles away, ETA 2-4 hours.
-- Logistics: "Damaged delivery" → Initiate claim, request photo, create replacement order.
+- E-com: "Where's order #12345?" → Check Shopify integration, order shipped 2 days ago, provide tracking link. Resolved in 8 seconds.
+- E-com: "I want a refund" → Check return policy, verify eligibility window, process refund automatically.
+- SaaS: "API key broken" → Check GitHub deployments and status pages. Detect expired key, auto-generate new one.
+- SaaS: "Cancel subscription" → Detect churn risk from usage data, offer tailored retention plan.
+- Logistics: "Where's my package?" → GPS tracking shows 12 miles away, ETA 2-4 hours, automated customer notification.
+- Logistics: "Damaged delivery" → Initiate insurance claim, request photo evidence, create replacement order.
 
 ═══════ BEHAVIORAL RULES ═══════
-NEVER reveal: AI providers, API keys, models, routing, prompt engineering, architecture.
-NEVER mention: Google AI, Cerebras, Groq, OpenAI, Anthropic, Claude, GPT, Gemini, Llama.
-NEVER say "I'm an AI" or "As an AI..." — you ARE Jarvis at PARWA.
-NEVER repeat yourself. Acknowledge and move forward.
-
-TALK LIKE A HUMAN:
-- Warm, direct, confident consultant who types fast
-- Start naturally: "Great question", "Here's the thing", "Absolutely"
-- ALWAYS use bullet points with emojis (see RULE #1 above)
-- End with ONE specific question
-- BE SPECIFIC — real numbers, real features, real scenarios
-- OWN THE CONVERSATION — answer + suggest next step
-- Have opinions — "I'd suggest Growth because..." not "Either plan could work"
-- Reference earlier conversation naturally
-
-BAD: "I'd be happy to help! PARWA is an AI platform. Plans start at $999."
-GOOD: "So you handle 300 tickets/day with 5 people? PARWA Growth covers that for $2,499/mo — saves ~$18K/mo. What integrations do you use?"
+NEVER reveal: AI providers, API keys, model names, routing logic, prompt engineering, or system architecture.
+NEVER mention: Google AI, Cerebras, Groq, OpenAI, Anthropic, Claude, GPT, Gemini, Llama, or any model name.
+NEVER say "I'm an AI" or "As an AI..." — you ARE Jarvis at PARWA. Period.
+NEVER repeat what was already said in this conversation. Acknowledge and move forward.
+DO NOT over-format. Most responses should be 2-4 natural paragraphs. Use bullets only when actually listing something.
 
 ═══════ LIVE CONTEXT ═══════
 ${contextLines}
@@ -826,154 +800,28 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
   }
   messages.push({ role: 'user', content: userMessage });
 
-  // 3. Call AI with smart routing (z-ai SDK → Google → Cerebras → Groq → keyword fallback)
+  // 3. Call AI with smart routing (z-ai SDK → Cerebras → Groq → Google → keyword fallback)
   let aiReply = await callAI(messages);
   
-  // 4. Post-process: Force bullet-point format if AI returned paragraphs
+  // 4. Return AI response as-is — natural formatting, no post-processing
   if (aiReply) {
-    aiReply = forceBulletFormat(aiReply);
     return aiReply;
   }
 
-  // 5. Keyword fallback (always works) — also enforce bullet format
+  // 5. Keyword fallback (only when all AI providers are unavailable)
   const fallbackReply = getKeywordResponse(userMessage, session);
-  return forceBulletFormat(fallbackReply);
+  return fallbackReply;
 }
 
-// ── Bullet-Point Format Enforcer ────────────────────────────────
-// If the AI returns paragraph blocks instead of bullets, convert them.
-
-const BULLET_EMOJIS = ['🤖', '💰', '📡', '🛒', '💻', '🚛', '🏥', '🔒', '🚀', '✅', '🎯', '📊', '⚡', '💡', '🔧', '🔗', '📦', '📈', '⭐', '🎯', '🧠', '💬', '📁', '🔑', '🎉', '✨', '🔔', '💪', '🥊', '🛡️'];
-
-function isEmojiChar(ch: string): boolean {
-  // Must use codePointAt for emoji (surrogate pairs in JS)
-  const code = ch.codePointAt(0) || 0;
-  return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
-}
-
-function forceBulletFormat(text: string): string {
-  const lines = text.split('\n');
-  if (lines.length === 0) return text;
-
-  // Check if text already has proper bullet formatting
-  const nonEmpty = lines.filter(l => l.trim());
-  if (nonEmpty.length === 0) return text;
-
-  // Count bullet-formatted lines (lines starting with bullet markers or emojis)
-  const bulletCount = nonEmpty.filter(l => {
-    const t = l.trim();
-    return /^[\u2022\-*•]\s/.test(t) || /^[0-9]+[.)]\s/.test(t) || isEmojiChar(t);
-  }).length;
-
-  // If 40%+ lines are already bullets, return as-is
-  if (nonEmpty.length > 2 && bulletCount / nonEmpty.length >= 0.4) return text;
-
-  // If only 1-2 non-empty lines total AND none are long paragraphs, keep as-is
-  if (nonEmpty.length <= 2) {
-    const hasLongLine = nonEmpty.some(l => l.trim().length > 150);
-    if (!hasLongLine) return text;
-  }
-
-  // Convert paragraph text into bullet-point format
-  const result: string[] = [];
-  let openerUsed = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      result.push('');
-      continue;
-    }
-
-    // Already a bullet or numbered list item — keep
-    if (/^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed)) {
-      result.push(trimmed);
-      continue;
-    }
-
-    // Starts with emoji — keep
-    if (isEmojiChar(trimmed)) {
-      result.push(trimmed);
-      continue;
-    }
-
-    // Very short line (< 50 chars) — treat as opener or question
-    if (trimmed.length < 50) {
-      if (!openerUsed) {
-        result.push(trimmed);
-        openerUsed = true;
-      } else {
-        // Subsequent short lines get bullet treatment
-        const emoji = pickEmoji(trimmed);
-        result.push(`${emoji} ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`);
-      }
-      continue;
-    }
-
-    // Long line: split into sentences and convert to bullets
-    const sentences = trimmed.match(/[^.!?]*[.!?]+/g) || [trimmed];
-
-    if (sentences.length === 1 && trimmed.length < 80) {
-      // Single short sentence — keep as is
-      result.push(trimmed);
-      continue;
-    }
-
-    if (sentences.length === 1) {
-      // Single long sentence — break on commas if possible
-      const parts = trimmed.split(/,/g).map(s => s.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        // First part as opener
-        result.push(parts[0]);
-        result.push('');
-        for (let i = 1; i < parts.length; i++) {
-          const p = parts[i].trim();
-          if (!p) continue;
-          const emoji = pickEmoji(p);
-          result.push(`${emoji} ${p.charAt(0).toUpperCase() + p.slice(1)}`);
-        }
-      } else {
-        const emoji = pickEmoji(trimmed);
-        result.push(`${emoji} ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`);
-      }
-      continue;
-    }
-
-    // Multiple sentences — first as opener, rest as bullets
-    if (!openerUsed) {
-      result.push(sentences[0].trim());
-      result.push('');
-      openerUsed = true;
-    }
-
-    for (let i = 1; i < sentences.length; i++) {
-      const s = sentences[i].trim();
-      if (!s) continue;
-      const emoji = pickEmoji(s);
-      result.push(`${emoji} ${s.charAt(0).toUpperCase() + s.slice(1)}`);
-    }
-  }
-
-  return result.join('\n');
-}
-
-function pickEmoji(text: string): string {
-  const lower = text.toLowerCase();
-  if (lower.includes('save') || lower.includes('cost') || lower.includes('price') || lower.includes('$') || lower.includes('cheap') || lower.includes('afford')) return '💰';
-  if (lower.includes('automat') || lower.includes('ai') || lower.includes('robot') || lower.includes('handle') || lower.includes('resolv')) return '🤖';
-  if (lower.includes('channel') || lower.includes('email') || lower.includes('chat') || lower.includes('phone') || lower.includes('sms')) return '📡';
-  if (lower.includes('integrat') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack')) return '🔗';
-  if (lower.includes('secur') || lower.includes('encrypt') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe')) return '🔒';
-  if (lower.includes('speed') || lower.includes('fast') || lower.includes('instant') || lower.includes('quick') || lower.includes('setup')) return '⚡';
-  if (lower.includes('analyt') || lower.includes('data') || lower.includes('metric') || lower.includes('report') || lower.includes('roi')) return '📊';
-  if (lower.includes('feature') || lower.includes('capab') || lower.includes('support') || lower.includes('help')) return '🎯';
-  if (lower.includes('start') || lower.includes('begin') || lower.includes('get')) return '🚀';
-  if (lower.includes('check') || lower.includes('yes') || lower.includes('sure') || lower.includes('done')) return '✅';
-  if (lower.includes('think') || lower.includes('smart') || lower.includes('predict') || lower.includes('brain')) return '🧠';
-  return '💡';
-}
+// ── Removed: forceBulletFormat(), pickEmoji(), isEmojiChar(), BULLET_EMOJIS ──
+// Day 4: These post-processors were making Jarvis sound robotic by shredding
+// natural paragraph responses into emoji-bullet lists. The AI now returns
+// responses in their natural format — paragraphs for explanations, bullets
+// only when listing or comparing. No post-processing applied.
 
 // ── Keyword Fallback (Offline Safety Net) ────────────────────────
+// Natural paragraph responses — no forced bullets or emojis.
+// This only fires when ALL AI providers (z-ai-sdk, Cerebras, Groq, Google) are unavailable.
 
 function getKeywordResponse(message: string, session: any): string {
   const lower = message.toLowerCase();
@@ -986,93 +834,75 @@ function getKeywordResponse(message: string, session: any): string {
     .slice(-3)
     .map((m: any) => m.content.toLowerCase());
 
-  // Helper: check if a response would repeat
   const wouldRepeat = (text: string) => {
     const t = text.toLowerCase();
     return recentReplies.some((r: string) => {
-      // Compare first 50 chars for similarity
       return r.slice(0, 50) === t.slice(0, 50) || r.includes(t.slice(0, 40));
     });
   };
 
-  // Helper: generate varied response
   const responses: Record<string, string[]> = {
     greeting: [
-      `Hey there! 👋 Welcome to PARWA — I'm Jarvis.\n\n🏢 I find the right plan for your business\n💰 Calculate your exact ROI savings\n🎥 Run a live demo right here\n\nWhat industry are you in?`,
-      `Hello! 👋 Great to have you — I'm Jarvis from PARWA.\n\n🤖 AI agents that handle 24/7 support\n💡 Smart routing across all your channels\n📊 Plans from $999/mo — save 85-92%\n\nTell me about your business!`,
-      `Hi! 👋 I'm Jarvis, ready to help.\n\n🎯 I recommend the perfect plan for your needs\n🚀 Show you a live demo in 30 seconds\n💰 Prove ROI with real numbers\n\nWhat's your industry?`,
+      "Hey there! Welcome to PARWA. I'm Jarvis, your guide to finding the right AI support setup for your business. I can help you pick a plan, calculate your savings, or run a live demo right here in this chat. What industry are you in?",
+      "Hello! I'm Jarvis from PARWA. We build AI agents that handle customer support 24/7 across email, chat, phone and SMS — typically saving our clients 85-92% compared to hiring. What does your current support setup look like?",
+      "Hi! I'm Jarvis. I help businesses figure out the perfect PARWA plan based on their actual needs — ticket volume, channels, industry, all of it. Tell me a bit about your business and I'll point you in the right direction.",
     ],
     ecommerce: [
-      `🛒 E-commerce is one of our strongest areas!\n\n- Order tracking, returns, FAQ, shipping & payments — all automated\n- Integrates with Shopify, WooCommerce, Magento & BigCommerce\n\nMost e-com stores start with PARWA Starter ($999/mo). Want pricing details?`,
-      `🛍️ E-commerce support is where PARWA shines!\n\n⚡ Top 5 ticket types automated from Day 1\n🔗 Shopify / WooCommerce / Magento integration\n⏱️ Setup takes under an hour\n\nWant to see how order tracking works?`,
+      "E-commerce is actually one of our strongest verticals. PARWA automates order tracking, returns, product FAQ, shipping inquiries, and payment issues out of the box. We integrate directly with Shopify, WooCommerce, Magento, and BigCommerce, so you're up and running in under an hour. Most e-commerce stores start with our Starter plan at $999/mo. What's your monthly ticket volume like?",
     ],
     saas: [
-      `💻 SaaS support with PARWA automates the heavy lifting!\n\n- Tech support, churn prediction, billing & API help\n- Integrates with GitHub, Jira, Slack & Intercom\n\nMost SaaS teams go with PARWA Growth ($2,499/mo). Want a quick ROI calc?`,
-      `🚀 For SaaS, PARWA transforms your support stack.\n\n🔑 API questions resolved in seconds\n📉 Churn prediction catches at-risk users\n💳 Subscription changes & in-app help — automated\n\nWant to see a demo of a tech support ticket?`,
+      "For SaaS companies, PARWA handles the stuff that eats up your support team's time — tech support, billing questions, API issues, churn prediction, and feature requests. We integrate with GitHub, Jira, Slack, and Intercom natively. Most SaaS teams find the Growth plan at $2,499/mo is the sweet spot because it adds smart recommendations and churn detection. How many support tickets do you handle per month?",
     ],
     logistics: [
-      `🚛 Logistics is a perfect fit for PARWA!\n\n- Shipment tracking, driver coordination, delivery updates & customs\n- Integrates with TMS, WMS & GPS systems\n\nCompanies usually go PARWA High ($3,999/mo) for voice support. Want the cost breakdown?`,
-      `📦 PARWA is built for logistics complexity.\n\n⚡ Real-time tracking across all carriers\n📡 Automated updates to customers\n🚚 Fleet coordination connected to your systems\n\nWant to see a delivery delay scenario?`,
+      "Logistics is a great fit for PARWA. We automate shipment tracking, delivery updates, driver coordination, warehouse queries, and customs documentation. Our integrations connect to TMS, WMS, and GPS systems directly. Companies handling high-volume logistics typically go with the High plan at $3,999/mo since it includes voice support for driver calls. Want me to walk through a delivery delay scenario?",
     ],
     healthcare: [
-      `🏥 Healthcare support with PARWA is HIPAA-compliant by design.\n\n- Appointments, insurance verification, records & clinical escalation\n- Integrates with Epic EHR & FHIR\n\nMost healthcare orgs start with PARWA Growth ($2,499/mo). Want to discuss compliance?`,
-      `✅ PARWA meets healthcare's strictest requirements.\n\n🛡️ HIPAA compliant with full audit trails\n🔐 AES-256 encryption at rest & in transit\n🩺 Smart clinical escalation built in\n\nWant to see a patient scheduling scenario?`,
+      "PARWA is HIPAA-compliant by design for healthcare organizations. We handle appointment scheduling, insurance verification, medical records requests, and prescription management with full audit trails and AES-256 encryption. We integrate with Epic EHR and FHIR standards. Most healthcare organizations start with the Growth plan at $2,499/mo. What compliance requirements are most important to you?",
     ],
     pricing: [
-      `💰 Here's the lineup:\n\n• 🟠 PARWA Starter — $999/mo — 1 agent, 1K tickets/mo\n• 🟠 PARWA Growth — $2,499/mo — 3 agents, 5K tickets/mo\n• 🟠 PARWA High — $3,999/mo — 5 agents, 15K tickets/mo\n\nAll with zero AI markup, cancel anytime. Which one fits your needs?`,
+      "PARWA has three plans. Starter is $999/mo with 3 agents and 1,000 tickets — great for email and chat support. Growth is $2,499/mo with 8 agents and 5,000 tickets, adding SMS and voice capabilities along with smart analytics. High is $3,999/mo with 15 agents and 15,000 tickets, including social media, video support, and full decision-making autonomy. All plans come with 15% off for annual billing and you can cancel anytime. Which plan sounds like it might fit?",
     ],
     roi: [
-      `📊 Here's the math:\n\n• PARWA Starter → saves ~$156K/yr (vs 3 agents)\n• PARWA Growth → saves ~$186K/yr (vs 4 juniors)\n• PARWA High → saves ~$288K/yr (vs 5 seniors)\n\nThat's 85-92% savings with 24/7 coverage. Want me to calculate yours?`,
-      `💡 Bottom line — PARWA saves 85-92% vs hiring agents.\n\n⏰ 24/7 coverage from Day 1\n📈 Zero training time needed\n⚡ Instant scaling during peak periods\n\nWant the exact number for your business?`,
+      "Here's the straightforward math. PARWA Starter at $999/mo replaces roughly 3 human agents who would cost $14K/mo combined — that's about $156K/year in savings. Growth at $2,499/mo saves roughly $186K/year versus 4 junior agents. High at $3,999/mo saves roughly $288K/year versus 5 senior agents. Across all plans we see 85-92% cost reduction while actually improving response times to under 3 seconds. Want me to calculate what your specific savings would look like?",
     ],
     demo: [
-      `🎉 You're in luck — this chat IS the demo!\n\n💬 Ask me anything your customers would ask\n💰 Grab the $1 Demo Pack for 500 messages + AI voice call\n🚀 See real responses, not sales talk\n\nWant me to set up the Demo Pack?`,
-      `✨ Try me right now — I AM the demo!\n\n📦 Try: "Where's my order?"\n🔑 Try: "My API key isn't working"\n💳 Try: "I need a refund"\n\nOr get the $1 Demo Pack for the full experience!`,
+      "You're in the right place — this chat is the demo. You can ask me anything your customers would ask and I'll respond exactly how a deployed PARWA agent would. Try asking things like 'Where's my order #12345?' or 'How do I reset my API key?' and you'll see the quality firsthand. If you want the full experience, our $1 Demo Pack gives you 500 messages plus a 3-minute AI voice call.",
     ],
     how_works: [
-      `🤖 PARWA uses cutting-edge AI fine-tuned for customer support.\n\n- Bring your own AI keys — zero markup on AI costs\n- Smart routing picks the best model for each conversation\n- Works across email, chat, phone, SMS & voice\n\nWant to know about setup?`,
-      `⚙️ PARWA connects to your tools and starts on Day 1.\n\n🔗 Connect your channels in under an hour\n🔑 Bring your own AI keys — zero markup\n🚀 Configure and go live immediately\n\nWant to hear about the setup process?`,
+      "PARWA connects to your existing tools — your helpdesk, your e-commerce platform, your CRM — and deploys AI agents that handle support tickets across all your channels. Setup takes under an hour: connect your channels, upload your knowledge base, configure your preferences, and you're live. The AI learns from your existing documentation and gets smarter over time. What tools are you currently using for support?",
     ],
     features: [
-      `🎯 PARWA covers your entire support stack:\n\n- 📬 6 channels — Email, Chat, Phone, SMS, Voice, Social\n- 🧠 Smart routing, sentiment analysis, churn prediction\n- 🔗 20+ integrations out of the box\n\nWhat area interests you most?`,
-      `✅ PARWA's got 700+ features across 4 industries.\n\n⚡ Automation of the full ticket lifecycle\n📊 Analytics & quality coaching built in\n🔄 Escalation workflows that learn & improve\n\nWhat are you most curious about?`,
+      "PARWA covers the entire support lifecycle. On the channel side, we handle email, chat, phone, SMS, voice, and social media. On the intelligence side, there's smart routing, sentiment analysis, churn prediction, and pattern detection across tickets. We have over 700 features across 4 industries. The key differentiator is that PARWA actually resolves tickets end-to-end rather than just triaging them to humans. What area are you most interested in?",
     ],
     buy: [
-      `🚀 Getting started is easy:\n\n1. Pick your plan (Starter, Growth, or High)\n2. Connect your AI keys\n3. Configure your channels\n4. Go live — PARWA starts immediately\n\nNo contracts, cancel anytime. Want to pick a plan?`,
-      `✨ Ready to get started?\n\n🎯 Choose your plan\n🔑 Connect your AI keys\n⏱️ Go live in under an hour\n\nWhich plan are you leaning toward?`,
+      "Getting started is straightforward. First, pick the plan that matches your volume — Starter, Growth, or High. Then connect your existing tools (Shopify, Zendesk, Slack, whatever you use). Upload your knowledge base so the AI learns your product. Configure your preferences and go live — most companies are handling their first automated ticket within the hour. No long-term contracts, cancel anytime. Which plan are you leaning toward?",
     ],
     thanks: [
-      `You're welcome! 🙌 Quick recap:\n\n• 3 plans: Starter ($999), Growth ($2,499), High ($3,999)\n• Zero AI markup, 24/7 from Day 1\n• 85-92% cost savings\n\nCome back anytime! Have a great day! 😊`,
-      `Anytime! 😊 When you're ready, I'm here to help.\n\n🏢 Come back and we'll pick up where we left off\n📊 Your session context is saved\n🎉 Have an awesome day!`,
+      "You're welcome! As a quick recap, PARWA has three plans starting at $999/mo, covers 4 industries with 700+ features, and typically saves businesses 85-92% versus hiring. Come back anytime — I'll remember our conversation and we can pick up right where we left off. Have a great day!",
     ],
     competitors: [
-      `🥊 PARWA vs the rest:\n\n- vs Intercom: fully resolves tickets, not just triage\n- vs Zendesk AI: auto-resolves before reaching your team\n- vs Custom bots: full platform, not a widget\n\nBest part? You can keep your existing tools and add PARWA on top. Want more details?`,
-      `💪 PARWA works WITH your tools, not against them.\n\n🔗 Integrates with Zendesk, Intercom, Freshdesk & more\n⚡ Auto-resolves tickets before humans see them\n💰 Cuts your support costs by 85-92%\n\nWant to hear about specific integrations?`,
+      "The main difference is that PARWA actually resolves tickets, while most competitors just organize them for humans to handle. Intercom triages and routes to your team. Zendesk AI still pushes most tickets to human agents. Custom chatbots are limited to simple FAQ matching. PARWA's agents handle the full resolution — checking systems, processing requests, updating records — across all your channels. The best part is we integrate with those existing tools rather than replacing them. Want a detailed comparison on any specific competitor?",
     ],
     security: [
-      `🔒 Security is baked in:\n\n- GDPR, SOC 2, HIPAA compliant\n- AES-256 encryption, TLS 1.3\n- Full audit trail & PII redaction\n- Your data never trains other clients' models\n\nWant more details on any area?`,
-      `🛡️ Your data is safe with PARWA.\n\n📜 GDPR + SOC 2 + HIPAA certified\n🔐 Encrypted at rest & in transit\n🏢 Full isolation between clients\n\nAny specific compliance question?`,
+      "Security is foundational to PARWA, not an add-on. We're GDPR, SOC 2 Type II, and HIPAA compliant. All data is encrypted with AES-256 at rest and TLS 1.3 in transit. Every tenant's data is fully isolated — your data never trains models used by other clients. We maintain full audit trails with 24-month retention and support data residency in US, EU, and APAC. Is there a specific compliance area you'd like to dig into?",
     ],
     integrations: [
-      `🔗 PARWA plugs into your existing stack:\n\n- E-commerce: Shopify, WooCommerce, Magento\n- Support: Zendesk, Intercom, Freshdesk\n- Comms: Slack, WhatsApp, Email\n- CRM: Salesforce, HubSpot\n\n~5 minutes per integration. Which tools are you using?`,
-      `✅ We integrate with 20+ tools out of the box.\n\n⚙️ OAuth or API key setup\n⏱️ Usually under 5 minutes each\n🔌 Custom APIs & webhooks also supported\n\nWhich integrations matter most to you?`,
+      "PARWA integrates with over 20 tools out of the box. For e-commerce we have Shopify, WooCommerce, and Magento. For helpdesks there's Zendesk, Intercom, and Freshdesk. For communications we support Slack, WhatsApp, and standard email. Plus Salesforce and HubSpot for CRM. Most integrations take under 5 minutes via API key or OAuth. We also support custom REST APIs and webhooks for anything else. Which tools are in your current stack?",
     ],
     models_variants: [
-      `🤖 PARWA offers 3 plans tailored to different needs:\n\n• 🟠 PARWA Starter — $999/mo (SMBs, "The Trainee")\n• 🟠 PARWA Growth — $2,499/mo (growth teams, "The Junior Agent")\n• 🟠 PARWA High — $3,999/mo (enterprise, "The Senior Agent")\n\nEach scales with your business. Which sounds like the right fit?`,
-      `✨ PARWA comes in 3 tiers — Starter, Growth & High.\n\n🤖 Different agent capabilities per tier\n📈 Scales ticket volumes & channel support\n💰 All use cutting-edge AI with zero markup\n\nWant me to recommend one based on your business?`,
+      "PARWA offers three tiers designed for different business needs. Starter at $999/mo is built for SMBs that need reliable 24/7 FAQ handling and data collection. Growth at $2,499/mo adds intelligent decision-making — it can approve, review, or deny actions and detect patterns like churn. High at $3,999/mo gives you a fully autonomous agent with authority to make decisions up to $50, handle VIP customers, and coordinate across departments. Each tier scales with your business. Want me to recommend one based on your specific situation?",
     ],
   };
 
-  // Pick a random variant if multiple exist
+  // Pick a random variant, skip if it would repeat
   const pick = (key: string) => {
     const arr = responses[key];
     if (!arr) return null;
-    // Try each variant, skip if it would repeat
     const shuffled = [...arr].sort(() => Math.random() - 0.5);
     for (const text of shuffled) {
       if (!wouldRepeat(text)) return text;
     }
-    return arr[0]; // fallback to first if all repeat
+    return arr[0];
   };
 
   // Greeting patterns
@@ -1084,15 +914,12 @@ function getKeywordResponse(message: string, session: any): string {
   if (lower.includes('ecommerce') || lower.includes('e-commerce') || lower.includes('online store') || lower.includes('shop') || lower.includes('retail')) {
     return pick('ecommerce') || responses.ecommerce[0];
   }
-
   if (lower.includes('saas') || lower.includes('software') || lower.includes('app') || lower.includes('platform')) {
     return pick('saas') || responses.saas[0];
   }
-
   if (lower.includes('logistics') || lower.includes('shipping') || lower.includes('warehouse') || lower.includes('delivery') || lower.includes('freight')) {
     return pick('logistics') || responses.logistics[0];
   }
-
   if (lower.includes('health') || lower.includes('medical') || lower.includes('hospital') || lower.includes('clinic') || lower.includes('pharma')) {
     return pick('healthcare') || responses.healthcare[0];
   }
@@ -1101,44 +928,33 @@ function getKeywordResponse(message: string, session: any): string {
   if (lower.includes('price') || lower.includes('pricing') || lower.includes('cost') || lower.includes('plan') || lower.includes('how much')) {
     return pick('pricing') || responses.pricing[0];
   }
-
   if (lower.includes('roi') || lower.includes('save') || lower.includes('saving') || lower.includes('comparison') || lower.includes('compare') || lower.includes('worth')) {
     return pick('roi') || responses.roi[0];
   }
-
   if (lower.includes('demo') || lower.includes('try') || lower.includes('see it') || lower.includes('test') || lower.includes('experience')) {
     return pick('demo') || responses.demo[0];
   }
-
-  // Model/variant questions — redirect to 3 plans, never reveal internals
   if (lower.includes('model') || lower.includes('variant') || lower.includes('how many') || (lower.includes('which') && (lower.includes('plan') || lower.includes('option')))) {
     return pick('models_variants') || responses.models_variants[0];
   }
-
   if (lower.includes('ai') || (lower.includes('how') && lower.includes('work')) || lower.includes('gemini') || lower.includes('cerebras') || lower.includes('groq') || lower.includes('llm')) {
     return pick('how_works') || responses.how_works[0];
   }
-
   if (lower.includes('support') || lower.includes('feature') || lower.includes('what can') || lower.includes('capabilities')) {
     return pick('features') || responses.features[0];
   }
-
   if (lower.includes('pay') || lower.includes('buy') || lower.includes('checkout') || lower.includes('subscribe') || lower.includes('sign up')) {
     return pick('buy') || responses.buy[0];
   }
-
   if (lower.includes('thank') || lower.includes('bye') || lower.includes('goodbye') || lower.includes("that's all") || lower.includes('that is all')) {
     return pick('thanks') || responses.thanks[0];
   }
-
   if (lower.includes('competitor') || lower.includes('intercom') || lower.includes('zendesk') || lower.includes('freshdesk')) {
     return pick('competitors') || responses.competitors[0];
   }
-
   if (lower.includes('security') || lower.includes('data') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe') || lower.includes('privacy')) {
     return pick('security') || responses.security[0];
   }
-
   if (lower.includes('integrate') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack') || lower.includes('api')) {
     return pick('integrations') || responses.integrations[0];
   }
@@ -1147,24 +963,22 @@ function getKeywordResponse(message: string, session: any): string {
   if (industry) {
     const indName = String(industry || '').charAt(0).toUpperCase() + String(industry || '').slice(1);
     const industryResponses = [
-      `Great choice — ${indName} is one of our specialties! 🎯\n\n⚡ PARWA automates up to 80% of support\n🧠 AI trained for ${indName} workflows\n💰 Save 85-92% vs hiring\n\nHow many tickets do you handle daily?`,
-      `Nice! ${indName} is a great fit for PARWA. 🚀\n\n📊 Industry-specific workflows built in\n🔗 Integrations for ${indName} tools\n🤖 24/7 coverage from Day 1\n\nWhat's your daily ticket volume?`,
+      `${indName} is one of our specialties here at PARWA. We've built industry-specific workflows and integrations for exactly the kinds of tickets your team handles every day. Depending on your volume, we can automate up to 80% of those tickets from day one while saving you 85-92% compared to hiring. How many support tickets do you handle on a typical day?`,
+      `Great — ${indName} is a strong fit for PARWA. We have purpose-built AI agents for ${indName} workflows, plus integrations with the tools your team already uses. Most companies in your space see full ROI within the first 30 days. What's your biggest support pain point right now?`,
     ];
     for (const r of industryResponses) {
       if (!wouldRepeat(r)) return r;
     }
   }
 
-  // Smart generic fallback — varied responses
+  // Generic fallback
   const genericFallbacks = [
-    `Good question! 🤔 Let me point you the right way.\n\n🏢 What industry are you in?\n📊 How many tickets do you handle daily?\n💬 What's your biggest support challenge?\n\nAnswer any of these and I'll find your perfect plan!`,
-    `I'd love to help! 💬 Tell me about your business:\n\n🏢 Industry?\n📈 Daily ticket volume?\n💡 Biggest support pain point?\n\nI'll recommend the right plan based on your answers.`,
-    `Let's find your perfect fit! 🎯\n\n🏢 What industry are you in?\n📡 Which channels do your customers use?\n🤔 What does your current support look like?\n\nShare any of these and I'll match you to the right plan!`,
+    "I'd love to help with that. To point you in the right direction, it'd help to know a bit about your business — what industry you're in, how many support tickets you handle daily, and what channels your customers use. With that I can recommend the right plan and show you exactly what PARWA would look like for your team.",
+    "Good question. The best way I can help is if you tell me a bit about your situation — your industry, your current support setup, and roughly how many tickets you handle. From there I can give you a specific recommendation with real numbers.",
   ];
   for (const r of genericFallbacks) {
     if (!wouldRepeat(r)) return r;
   }
-
   return genericFallbacks[0];
 }
 
