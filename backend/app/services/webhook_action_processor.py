@@ -105,8 +105,11 @@ def _process_brevo_inbound_email(
         from app.services.email_channel_service import EmailChannelService
 
         with get_db_context() as db:
-            service = EmailChannelService(db, company_id)
-            ticket_id = service.process_inbound_email(email_data)
+            service = EmailChannelService(db)
+            result = service.process_inbound_email(
+                company_id=company_id, email_data=email_data,
+            )
+            ticket_id = result.get("ticket_id") if isinstance(result, dict) else result
 
             if ticket_id:
                 logger.info(
@@ -150,47 +153,95 @@ def _process_brevo_bounce(
     company_id: str,
     bounce_data: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Process Brevo bounce event (stub for Day 3).
+    """Process Brevo bounce event (F-124).
+
+    Delegates to BounceComplaintService for full bounce processing:
+    hard/soft classification, email status update, retry scheduling.
 
     Args:
         company_id: Tenant company ID.
-        bounce_data: Bounce event data.
+        bounce_data: Bounce event data with email, bounce_type, reason.
 
     Returns:
         Dict with processing result.
     """
-    logger.info(
-        "webhook_bounce_received (stub) email=%s",
-        bounce_data.get("email"),
-        extra={"company_id": company_id},
-    )
-    return {
-        "status": "skipped",
-        "action": "process_bounce",
-        "reason": "Bounce processing not yet implemented (Day 3)",
-    }
+    try:
+        from database.base import get_db_context
+        from app.services.bounce_complaint_service import (
+            BounceComplaintService,
+        )
+
+        with get_db_context() as db:
+            service = BounceComplaintService(db)
+            result = service.process_bounce(
+                company_id=company_id,
+                bounce_data=bounce_data,
+            )
+            logger.info(
+                "webhook_bounce_processed email=%s status=%s",
+                bounce_data.get("email"),
+                result.get("status"),
+                extra={"company_id": company_id},
+            )
+            return result
+    except Exception as exc:
+        logger.error(
+            "webhook_bounce_processing_error error=%s email=%s",
+            str(exc)[:200],
+            bounce_data.get("email"),
+            extra={"company_id": company_id},
+        )
+        return {
+            "status": "error",
+            "action": "process_bounce",
+            "error": str(exc)[:500],
+        }
 
 
 def _process_brevo_complaint(
     company_id: str,
     complaint_data: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Process Brevo complaint event (stub for Day 3).
+    """Process Brevo complaint event (F-124).
+
+    Delegates to BounceComplaintService for full complaint processing:
+    mark email as complained, BC-010 permanent suppression.
 
     Args:
         company_id: Tenant company ID.
-        complaint_data: Complaint event data.
+        complaint_data: Complaint event data with email, reason.
 
     Returns:
         Dict with processing result.
     """
-    logger.info(
-        "webhook_complaint_received (stub) email=%s",
-        complaint_data.get("email"),
-        extra={"company_id": company_id},
-    )
-    return {
-        "status": "skipped",
-        "action": "process_complaint",
-        "reason": "Complaint processing not yet implemented (Day 3)",
-    }
+    try:
+        from database.base import get_db_context
+        from app.services.bounce_complaint_service import (
+            BounceComplaintService,
+        )
+
+        with get_db_context() as db:
+            service = BounceComplaintService(db)
+            result = service.process_complaint(
+                company_id=company_id,
+                complaint_data=complaint_data,
+            )
+            logger.warning(
+                "webhook_complaint_processed email=%s status=%s",
+                complaint_data.get("email"),
+                result.get("status"),
+                extra={"company_id": company_id},
+            )
+            return result
+    except Exception as exc:
+        logger.error(
+            "webhook_complaint_processing_error error=%s email=%s",
+            str(exc)[:200],
+            complaint_data.get("email"),
+            extra={"company_id": company_id},
+        )
+        return {
+            "status": "error",
+            "action": "process_complaint",
+            "error": str(exc)[:500],
+        }

@@ -92,7 +92,17 @@ def _get_event_type_from_payload(
     if provider == "twilio":
         return payload.get("EventType") or "sms.incoming"
     if provider == "brevo":
-        return payload.get("event")
+        event = payload.get("event", "")
+        # Normalize Brevo event types (F-124 Day 3)
+        brevo_event_map = {
+            "hard_bounce": "bounce",
+            "soft_bounce": "bounce",
+            "blocked": "bounce",
+            "deferred": "bounce",
+            "spam": "complaint",
+            "request_unsubscribed": "complaint",
+        }
+        return brevo_event_map.get(event, event)
     return payload.get("event_type")
 
 

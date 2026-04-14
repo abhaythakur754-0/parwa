@@ -91,6 +91,7 @@ def _build_config() -> dict:
         # Task routing
         "task_routes": {
             "app.tasks.email.*": {"queue": "email"},
+            "app.tasks.email_channel.*": {"queue": "email"},
             "app.tasks.webhook.*": {"queue": "webhook"},
             "app.tasks.analytics.*": {"queue": "analytics"},
             "app.tasks.ai.heavy.*": {"queue": "ai_heavy"},
@@ -188,6 +189,19 @@ def _build_config() -> dict:
                 "schedule": {"hour": 4, "minute": 0},
                 "kwargs": {"days": 90},
             },
+            # Week 13 Day 3: Email channel beat schedule entries
+            "cleanup-expired-ooo-profiles-hourly": {
+                "task": ("app.tasks.periodic"
+                          ".cleanup_expired_ooo_profiles"),
+                "schedule": 3600.0,  # Every hour
+                "kwargs": {},
+            },
+            "retry-soft-bounces-every-2h": {
+                "task": ("app.tasks.periodic"
+                          ".retry_soft_bounces"),
+                "schedule": 7200.0,  # Every 2 hours
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,
@@ -206,6 +220,8 @@ def _build_config() -> dict:
             "app.tasks.billing_tasks",
             # Week 8: AI Engine task module
             "app.tasks.ai_engine_tasks",
+            # Week 13 Day 3: Email channel task module
+            "app.tasks.email_channel_tasks",
         ],
     }
 

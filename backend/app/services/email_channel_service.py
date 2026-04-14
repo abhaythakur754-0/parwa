@@ -170,10 +170,38 @@ class EmailChannelService:
                 "loop_detection": loop_result.model_dump(),
             }
 
-        # Step 4: Auto-reply detection
+        # Step 4: Auto-reply / OOO detection (F-122)
+        # Primary: fast header/body check; Secondary: rich OOODetectionService
         auto_reply_result = self.detect_auto_reply(email_data)
         if auto_reply_result.is_auto_reply:
             inbound_email.is_auto_reply = True
+
+            # Rich OOO detection: log event + update sender profile (F-122)
+            ooo_result = None
+            try:
+                from app.services.ooo_detection_service import (
+                    OOODetectionService,
+                )
+                ooo_svc = OOODetectionService(self.db)
+                ooo_result = ooo_svc.detect_ooo(email_data, company_id)
+                if ooo_result.get("is_ooo"):
+                    ooo_svc.log_ooo_event(
+                        company_id, email_data, ooo_result,
+                    )
+                    ooo_svc.update_sender_profile(
+                        company_id, email_data, ooo_result,
+                    )
+            except Exception as ooo_exc:
+                # BC-012: OOO logging failure must never block processing
+                logger.warning(
+                    "ooo_detection_log_failed error=%s",
+                    str(ooo_exc)[:200],
+                    extra={
+                        "company_id": company_id,
+                        "message_id": message_id,
+                    },
+                )
+
             self.db.commit()
             logger.info(
                 "email_auto_reply_skip",
@@ -182,6 +210,8 @@ class EmailChannelService:
                     "message_id": message_id,
                     "source": auto_reply_result.detection_source,
                     "sender": email_data.get("sender_email"),
+                    "ooo_detected": ooo_result.get("is_ooo") if ooo_result else False,
+                    "ooo_confidence": ooo_result.get("confidence") if ooo_result else None,
                 },
             )
             return {
@@ -189,6 +219,7 @@ class EmailChannelService:
                 "ticket_id": None,
                 "inbound_email_id": inbound_email.id,
                 "auto_reply_detection": auto_reply_result.model_dump(),
+                "ooo_detection": ooo_result,
             }
 
         # Step 4b: Spam detection (PS15 + MF21)

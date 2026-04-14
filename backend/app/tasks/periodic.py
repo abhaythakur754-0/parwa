@@ -242,6 +242,114 @@ def cleanup_audit_trail(self):
         return {"status": "failed", "error": str(exc)[:200]}
 
 
+# ── Week 13 Day 3: Email Channel Periodic Tasks ─────────────────────
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="email",
+    name="app.tasks.periodic.cleanup_expired_ooo_profiles",
+    max_retries=1,
+)
+def cleanup_expired_ooo_profiles(self):
+    """Hourly cleanup of expired OOO sender profiles.
+
+    Resets active_ooo=false for profiles where ooo_until has passed.
+    This ensures that follow-up emails resume after a customer's
+    OOO period ends.
+
+    BC-001: Scans across all tenants.
+    BC-004: Runs hourly via Celery Beat.
+    F-122: OOO detection Day 3 requirement.
+    """
+    try:
+        from app.core.tenant_context import get_db_session
+        from app.services.ooo_detection_service import OOODetectionService
+
+        db = get_db_session()
+        try:
+            svc = OOODetectionService(db)
+            cleaned = svc.cleanup_expired_profiles()
+            logger.info(
+                "cleanup_expired_ooo_profiles completed cleaned=%d",
+                cleaned,
+            )
+            return {"status": "ok", "cleaned": cleaned}
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(
+            "cleanup_expired_ooo_profiles failed error=%s",
+            exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="email",
+    name="app.tasks.periodic.retry_soft_bounces",
+    max_retries=1,
+)
+def retry_soft_bounces(self):
+    """Every 2 hours: retry soft-bounced emails that are due.
+
+    Finds EmailDeliveryEvent records where event_type='soft_bounce',
+    retry_count < max_retries, and next_retry_at <= now.
+    For each, re-dispatches the original outbound email.
+
+    BC-004: Runs every 2 hours via Celery Beat.
+    F-124: Bounce handling Day 3 requirement.
+    """
+    try:
+        from app.core.tenant_context import get_db_session
+        from app.services.bounce_complaint_service import BounceComplaintService
+
+        db = get_db_session()
+        try:
+            svc = BounceComplaintService(db)
+            due_events = svc.get_soft_bounces_for_retry()
+            retried = 0
+            for event in due_events:
+                try:
+                    # Re-dispatch the original outbound email via Celery
+                    from app.tasks.email_tasks import send_outbound_email
+                    if event.outbound_email_id:
+                        send_outbound_email.delay(
+                            outbound_email_id=str(
+                                event.outbound_email_id,
+                            ),
+                        )
+                        retried += 1
+                except Exception as retry_exc:
+                    logger.warning(
+                        "retry_soft_bounce_failed event_id=%s "
+                        "error=%s",
+                        str(event.id),
+                        str(retry_exc)[:200],
+                    )
+            logger.info(
+                "retry_soft_bounces completed due=%d retried=%d",
+                len(due_events),
+                retried,
+            )
+            return {
+                "status": "ok",
+                "due": len(due_events),
+                "retried": retried,
+            }
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(
+            "retry_soft_bounces failed error=%s",
+            exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
+
+
 # ── Day 22: Beat Dispatchers ──────────────────────────────────────
 
 

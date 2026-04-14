@@ -87,27 +87,91 @@ for model_name in [
 for model_name in ["DocumentChunk", "KnowledgeDocument"]:
     setattr(_fake_onboarding_models, model_name, MagicMock(name=model_name))
 
+# ── Attribute chain support for ORM mock queries ─────────────────
+class _AttrChainer:
+    """Supports SQLAlchemy-style attribute chaining on mock model classes.
+    e.g., EmailDeliveryEvent.created_at.desc() for order_by() calls,
+    Model.severity.in_([...]) for filter expressions.
+    """
+    def __getattr__(self, name):
+        return _AttrChainer()
+    def desc(self):
+        return self
+    def asc(self):
+        return self
+    def __ge__(self, other):
+        return True  # Always pass for mock filter comparisons
+    def __le__(self, other):
+        return True
+    def __eq__(self, other):
+        return True  # Filters always match in mocks
+    def __ne__(self, other):
+        return False
+    def in_(self, *args):
+        return self  # Support .in_() for filter expressions
+    def isnot(self, *args):
+        return self  # Support .isnot() for filter expressions
+    def contains(self, *args):
+        return self  # Support .contains() for JSON column queries
+    def __bool__(self):
+        return True
+
 # ── database.models.email_channel and outbound_email (Week 13) ────
 _fake_email_channel = types.ModuleType("database.models.email_channel")
 _fake_outbound_email = types.ModuleType("database.models.outbound_email")
+_fake_tickets_models = types.ModuleType("database.models.tickets")
+
+# Customer mock with optional fields used by bounce/complaint service
+_MockCustomer = type("Customer", (), {
+    "id": None, "company_id": None, "email": None, "name": None,
+    "email_valid": True, "email_status": None, "email_opt_out": False,
+    "notification_preferences": None,
+})
+setattr(_fake_tickets_models, "Customer", _MockCustomer)
+
+# Ticket/TicketMessage needed by outbound_email_service.py (imports from database.models.tickets)
+_MockTicket = type("Ticket", (), {
+    "id": None, "company_id": None, "customer_id": None,
+    "channel": "email", "subject": None, "status": "open",
+    "category": None, "priority": "medium",
+    "first_response_at": None,
+    "metadata_json": None,
+})
+_MockTicketMessage = type("TicketMessage", (), {
+    "id": None, "company_id": _AttrChainer(), "ticket_id": _AttrChainer(),
+    "role": "customer", "channel": "email",
+    "content": None, "metadata_json": None,
+    "created_at": _AttrChainer(),
+})
+setattr(_fake_tickets_models, "Ticket", _MockTicket)
+setattr(_fake_tickets_models, "TicketMessage", _MockTicketMessage)
+
+sys.modules.setdefault("database.models.tickets", _fake_tickets_models)
 
 _MockEmailThread = type("EmailThread", (), {
-    "id": None, "company_id": None, "ticket_id": None,
+    "id": None, "company_id": _AttrChainer(), "ticket_id": _AttrChainer(),
     "thread_message_id": None, "latest_message_id": None,
     "message_count": 0, "participants_json": "[]",
 })
 _MockInboundEmail = type("InboundEmail", (), {
-    "id": None, "company_id": None, "ticket_id": None,
-    "sender_email": None, "sender_name": None,
+    "id": None, "company_id": _AttrChainer(), "ticket_id": _AttrChainer(),
+    "sender_email": _AttrChainer(), "sender_name": None,
     "body_html": None, "body_text": None,
-    "message_id": None, "created_at": None,
+    "message_id": None, "created_at": _AttrChainer(),
+    "in_reply_to": None, "references": None,
+    "is_auto_reply": False, "is_loop": False,
+    "is_processed": False, "headers_json": None,
+    "raw_size_bytes": 0, "recipient_email": None,
 })
 _MockOutboundEmail = type("OutboundEmail", (), {
-    "id": None, "company_id": None, "recipient_email": None,
+    "id": None, "company_id": _AttrChainer(), "recipient_email": None,
     "subject": None, "delivery_status": None,
-    "ticket_id": None, "brevo_message_id": None,
+    "ticket_id": _AttrChainer(), "brevo_message_id": None,
     "__tablename__": "outbound_emails",
     "to_dict": lambda self: {},
+    "bounced_at": None, "delivered_at": None, "error_message": None,
+    "created_at": _AttrChainer(), "sent_at": None,
+    "reply_to_message_id": None, "references": None,
 })
 
 for model_name in ["EmailThread", "InboundEmail"]:
@@ -115,8 +179,122 @@ for model_name in ["EmailThread", "InboundEmail"]:
             _MockEmailThread if model_name == "EmailThread" else _MockInboundEmail)
 setattr(_fake_outbound_email, "OutboundEmail", _MockOutboundEmail)
 
+_MockEmailDeliveryEvent = type("EmailDeliveryEvent", (object,), {
+    "id": None, "company_id": _AttrChainer(), "event_type": None,
+    "recipient_email": None, "recipient_name": None,
+    "brevo_message_id": None, "brevo_event_id": None,
+    "outbound_email_id": None, "ticket_id": None,
+    "reason": None, "bounce_type": None, "ooo_until": None,
+    "provider": "brevo", "provider_data": None,
+    "is_processed": _AttrChainer(), "processing_error": None,
+    "retry_count": 0, "max_retries": 3, "next_retry_at": None,
+    "event_at": None, "created_at": _AttrChainer(), "updated_at": None,
+    "__tablename__": "email_delivery_events",
+})
+
+def _email_delivery_to_dict(self):
+    return {"id": getattr(self, 'id', None), "event_type": getattr(self, 'event_type', None)}
+
+_MockEmailDeliveryEvent.to_dict = _email_delivery_to_dict
+
+def _email_delivery_init(self, **kwargs):
+    for k, v in kwargs.items():
+        setattr(self, k, v)
+
+_MockEmailDeliveryEvent.__init__ = _email_delivery_init
+
+_fake_delivery_event = types.ModuleType("database.models.email_delivery_event")
+setattr(_fake_delivery_event, "EmailDeliveryEvent", _MockEmailDeliveryEvent)
+
 sys.modules.setdefault("database.models.email_channel", _fake_email_channel)
 sys.modules.setdefault("database.models.outbound_email", _fake_outbound_email)
+sys.modules.setdefault("database.models.email_delivery_event", _fake_delivery_event)
+
+# ── database.models.ooo_detection (Week 13 Day 3 — F-122) ──────────
+_fake_ooo_models = types.ModuleType("database.models.ooo_detection")
+
+def _mock_model_init(self, **kwargs):
+    for k, v in kwargs.items():
+        setattr(self, k, v)
+
+def _mock_model_to_dict(self):
+    return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+
+_MockOOODetectionRule = type("OOODetectionRule", (object,), {
+    "__tablename__": "ooo_detection_rules",
+    "id": None, "company_id": _AttrChainer(), "rule_type": "body",
+    "pattern": None, "pattern_type": "regex",
+    "classification": "ooo", "active": _AttrChainer(),
+    "match_count": 0, "last_matched_at": None,
+    "created_at": None, "updated_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockOOODetectionLog = type("OOODetectionLog", (object,), {
+    "__tablename__": "ooo_detection_log",
+    "id": None, "company_id": _AttrChainer(), "thread_id": None,
+    "sender_email": None, "classification": "ooo",
+    "confidence": 0.0, "detected_signals": None,
+    "rule_ids_matched": None, "action_taken": "tagged",
+    "related_ticket_id": None, "message_id": None,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockOOOSenderProfile = type("OOOSenderProfile", (object,), {
+    "__tablename__": "ooo_sender_profiles",
+    "id": None, "company_id": _AttrChainer(), "sender_email": None,
+    "ooo_detected_count": 0, "last_ooo_at": None,
+    "ooo_until": None, "active_ooo": False,
+    "created_at": None, "updated_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+setattr(_fake_ooo_models, "OOODetectionRule", _MockOOODetectionRule)
+setattr(_fake_ooo_models, "OOODetectionLog", _MockOOODetectionLog)
+setattr(_fake_ooo_models, "OOOSenderProfile", _MockOOOSenderProfile)
+sys.modules.setdefault("database.models.ooo_detection", _fake_ooo_models)
+
+# ── database.models.email_bounces (Week 13 Day 3 — F-124) ─────────
+_fake_bounces_models = types.ModuleType("database.models.email_bounces")
+
+_MockEmailBounce = type("EmailBounce", (object,), {
+    "__tablename__": "email_bounces",
+    "id": None, "company_id": _AttrChainer(), "customer_email": None,
+    "bounce_type": "hard", "bounce_reason": None,
+    "provider": "gmail", "provider_code": None,
+    "event_id": None, "related_ticket_id": None,
+    "email_status_before": "active", "email_status_after": "hard_bounced",
+    "whitelisted": False, "whitelist_justification": None,
+    "whitelisted_by": None, "whitelisted_at": None,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockCustomerEmailStatus = type("CustomerEmailStatus", (object,), {
+    "__tablename__": "customer_email_status",
+    "id": None, "company_id": _AttrChainer(), "customer_email": None,
+    "email_status": "active", "bounce_count": 0,
+    "complaint_count": 0, "last_bounce_at": None,
+    "last_complaint_at": None, "suppressed_at": None,
+    "whitelisted": False, "updated_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockEmailDeliverabilityAlert = type("EmailDeliverabilityAlert", (object,), {
+    "__tablename__": "email_deliverability_alerts",
+    "id": None, "company_id": _AttrChainer(), "alert_type": "bounce_spike",
+    "severity": _AttrChainer(), "message": None,
+    "metric_value": 0.0, "threshold": 0.0,
+    "acknowledged": _AttrChainer(), "acknowledged_by": None,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+setattr(_fake_bounces_models, "EmailBounce", _MockEmailBounce)
+setattr(_fake_bounces_models, "CustomerEmailStatus", _MockCustomerEmailStatus)
+setattr(_fake_bounces_models, "EmailDeliverabilityAlert", _MockEmailDeliverabilityAlert)
+sys.modules.setdefault("database.models.email_bounces", _fake_bounces_models)
 
 sys.modules.setdefault("database", _fake_database)
 sys.modules.setdefault("database.base", _fake_base)

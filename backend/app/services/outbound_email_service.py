@@ -142,6 +142,30 @@ class OutboundEmailService:
             )
             return {"status": "skipped", "error": "Customer has opted out of emails"}
 
+        # Step 3b: Check suppression list (F-124 — bounced/complained emails)
+        if self._is_email_suppressed(company_id, customer.email):
+            logger.info(
+                "outbound_skipped_suppressed",
+                extra={
+                    "company_id": company_id,
+                    "ticket_id": ticket_id,
+                    "customer_email": customer.email,
+                },
+            )
+            return {"status": "skipped", "error": "Customer email is suppressed (bounced/complained)"}
+
+        # Step 3c: Check OOO status — don't send if customer is OOO (F-122)
+        if self._is_customer_ooo(company_id, customer.email):
+            logger.info(
+                "outbound_skipped_ooo",
+                extra={
+                    "company_id": company_id,
+                    "ticket_id": ticket_id,
+                    "customer_email": customer.email,
+                },
+            )
+            return {"status": "skipped", "error": "Customer has active out-of-office status"}
+
         # Step 4: Check BC-003 idempotency (G-13)
         dedup_id = f"outbound:{ticket_id}:{hash(ai_response_html) % 100000}"
         if self._is_duplicate_send(company_id, ticket_id, dedup_id):
@@ -695,3 +719,44 @@ class OutboundEmailService:
         Kept for backward compatibility with callers.
         """
         return strip_html(html)
+
+    def _is_email_suppressed(self, company_id: str, email: str) -> bool:
+        """Check F-124 suppression list: bounced/complained emails.
+
+        Uses BounceComplaintService to check customer_email_status table.
+
+        Args:
+            company_id: Tenant company ID.
+            email: Customer email address.
+
+        Returns:
+            True if email is suppressed from receiving.
+        """
+        try:
+            from app.services.bounce_complaint_service import BounceComplaintService
+            svc = BounceComplaintService(self.db)
+            return svc.is_email_suppressed(company_id, email)
+        except Exception:
+            # Suppression check is advisory — never block on failure
+            return False
+
+    def _is_customer_ooo(self, company_id: str, email: str) -> bool:
+        """Check F-122 OOO status: don't send if customer is out of office.
+
+        Uses OOODetectionService to check sender profile.
+
+        Args:
+            company_id: Tenant company ID.
+            email: Customer email address.
+
+        Returns:
+            True if customer has active OOO status.
+        """
+        try:
+            from app.services.ooo_detection_service import OOODetectionService
+            svc = OOODetectionService(self.db)
+            result = svc.is_customer_ooo(company_id, email)
+            return result is not None
+        except Exception:
+            # OOO check is advisory — never block on failure
+            return False
