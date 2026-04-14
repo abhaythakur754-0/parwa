@@ -343,3 +343,31 @@ Stage Summary:
 - Files modified: 2 files (main.py, models/__init__.py)
 - Total lines: ~2,880+ lines of production code
 - Building Codes applied: BC-001 (multi-tenant), BC-004 (Celery), BC-007 (AI model), BC-008 (state management), BC-009 (financial approval), BC-011 (auth), BC-012 (structured errors)
+---
+Task ID: W14D5
+Agent: Main (Super Z)
+Task: Week 14 Day 5 - Integration Testing + Documentation Update
+
+Work Log:
+- Verified syntax of all 17 Week 14 Python files (16 OK, 1 path mismatch fixed)
+- Created backend/app/tests/test_week14_integration.py — 93 integration tests (1,215 lines)
+  - F-087 Command Parser: 15 tests (parsing, aliases, categories, confidence, edge cases)
+  - F-088 System Status: 10 tests (subsystems, history, incidents, Redis caching)
+  - F-089 GSD Terminal: 8 tests (state reads, sessions, force transitions, stuck detection)
+  - F-090 Quick Commands: 8 tests (commands, categories, risk levels, execution)
+  - F-091 Error Panel: 8 tests (recent errors, grouping, dismissal, stats)
+  - F-092 Train from Error: 8 tests (creation, deduplication, PII, review workflow)
+  - F-093 Self-Healing: 8 tests (8 actions, risk levels, history, manual trigger)
+  - F-094 Trust Protocol: 8 tests (GREEN/AMBER/RED transitions, response wrappers, debounce)
+  - F-095 Agent Provisioning: 10 tests (creation, templates, permissions, limits, NL parsing)
+  - F-096 Instructions: 10 tests (CRUD, publish, A/B tests, deterministic routing)
+- Updated roadmap.md: Week 14 marked COMPLETE, Week 15 set as CURRENT
+- Updated PROJECT_STATE.md: Phase 4 Week 14 COMPLETE, Week 15 CURRENT
+- Cleaned up nested parwa/parwa directory (git submodule conflict)
+- Committed and pushed to GitHub main (commit 6093161)
+
+Stage Summary:
+- Test file: backend/app/tests/test_week14_integration.py (93 tests, 1,215 lines)
+- Documentation: roadmap.md, PROJECT_STATE.md updated
+- Commit: 6093161 pushed to origin/main
+- Week 14 COMPLETE: 10 features (F-087 to F-096), 17 new files, 35+ API endpoints
