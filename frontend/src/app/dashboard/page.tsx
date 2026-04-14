@@ -7,6 +7,8 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import KPICard from '@/components/dashboard/KPICard';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import DashboardAlerts from '@/components/dashboard/DashboardAlerts';
+import SavingsCounter from '@/components/dashboard/SavingsCounter';
+import WorkforceAllocation from '@/components/dashboard/WorkforceAllocation';
 import { dashboardApi } from '@/lib/analytics-api';
 import { getErrorMessage } from '@/lib/api';
 import type { DashboardHomeData, AnomalyAlert } from '@/types/analytics';
@@ -300,6 +302,16 @@ export default function DashboardPage() {
             />
           </div>
         )}
+
+        {/* ── Savings + Workforce Row (F-040 + F-041) ─────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <SavingsCounter
+            initialData={data?.savings ? { ...data.savings } : undefined}
+          />
+          <WorkforceAllocation
+            initialData={data?.workforce ? { ...data.workforce } : undefined}
+          />
+        </div>
 
         {/* ── Bottom Row: Category + Agent Performance ───────────────── */}
         {data && (
