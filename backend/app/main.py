@@ -72,6 +72,7 @@ from app.api.sms_channel import router as sms_channel_router  # Week 13 Day 5: S
 from app.api.jarvis_control import router as jarvis_control_router  # Week 14 Day 1: Jarvis Command Center (F-087, F-088, F-089)
 from app.api.jarvis_ops import router as jarvis_ops_router  # Week 14 Day 2: Quick Commands (F-090), Error Panel (F-091), Train from Error (F-092)
 from app.api.agents import router as agents_router  # Week 14 Day 4: Agent Provisioning (F-095), Dynamic Instructions (F-096)
+from app.api.dashboard import router as dashboard_router  # Week 15 Day 1: Dashboard Home (F-036), Activity Feed (F-037), KPI Metrics (F-038)
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
@@ -296,6 +297,7 @@ app.include_router(sms_channel_router)  # Week 13 Day 5: SMS channel endpoints (
 app.include_router(jarvis_control_router)  # Week 14 Day 1: Jarvis Command Center (F-087, F-088, F-089)
 app.include_router(jarvis_ops_router)  # Week 14 Day 2: Quick Commands (F-090), Error Panel (F-091), Train from Error (F-092)
 app.include_router(agents_router)  # Week 14 Day 4: Agent Provisioning (F-095), Dynamic Instructions (F-096)
+app.include_router(dashboard_router)  # Week 15 Day 1: Dashboard Home (F-036), Activity Feed (F-037), KPI Metrics (F-038)
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
