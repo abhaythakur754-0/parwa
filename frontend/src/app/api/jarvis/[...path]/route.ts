@@ -1315,6 +1315,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const session = sessions.get(sessionId);
       session.pack_type = 'demo';
       session.remaining_today = 500;
+      // GAP-D1-05 Fix: Store actual purchase time for expiry checking
+      // Spec says 24 hours validity (Section 8.1), was incorrectly set to 7 days
+      session.context.pack_purchased_at = Date.now();
 
       // Phase 10d: Calculate bill summary for demo pack
       const billSummary = calculateBillSummary(session);
@@ -1347,7 +1350,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
-      return NextResponse.json({ message: 'Demo pack activated! You now have 500 messages.', pack_type: 'demo', pack_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), remaining_today: 500, demo_call_remaining: true, bill_summary: billSummary, ticket_id: ticket.id });
+      return NextResponse.json({ message: 'Demo pack activated! You now have 500 messages.', pack_type: 'demo', pack_expiry: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), remaining_today: 500, demo_call_remaining: true, bill_summary: billSummary, ticket_id: ticket.id });
     }
 
     // ── POST /payment/create ───────────────────────────────────
@@ -1643,7 +1646,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const session = sessions.get(sessionId)!;
-      return NextResponse.json({ pack_type: session.pack_type, remaining_today: session.remaining_today, total_allowed: session.pack_type === 'demo' ? 50 : 20, pack_expiry: session.pack_type === 'demo' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null, demo_call_remaining: !session.context.demo_call_used });
+
+      // GAP-D1-05 Fix: Check actual expiry against stored purchase time
+      let isExpired = false;
+      let purchasedAt = session.context.pack_purchased_at;
+      if (session.pack_type === 'demo' && purchasedAt) {
+        const age = Date.now() - purchasedAt;
+        const MAX_PACK_AGE = 24 * 60 * 60 * 1000; // 24 hours per spec Section 8.1
+        if (age > MAX_PACK_AGE) {
+          isExpired = true;
+          // Downgrade back to free
+          session.pack_type = 'free';
+          session.remaining_today = 0;
+          session.context.pack_expired = true;
+          sessions.set(sessionId, session);
+        }
+      }
+
+      const expiryDate = purchasedAt
+        ? new Date(purchasedAt + 24 * 60 * 60 * 1000).toISOString()
+        : null;
+
+      return NextResponse.json({
+        pack_type: session.pack_type,
+        remaining_today: session.remaining_today,
+        total_allowed: session.pack_type === 'demo' ? 500 : 20,
+        pack_expiry: expiryDate,
+        is_expired: isExpired,
+        demo_call_remaining: !session.context.demo_call_used,
+      });
     }
 
     // ── GET /payment/status — Payment Status Check ───────────────

@@ -159,6 +159,44 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     setError(null);
 
     try {
+      // ── GAP-D1-01 Fix: Try to resume existing session before creating new ──
+      let sessionData: JarvisSession | null = null;
+      let isResumed = false;
+
+      if (typeof window !== 'undefined') {
+        const storedSessionId = localStorage.getItem('parwa_jarvis_session_id');
+        const storedSessionTime = localStorage.getItem('parwa_jarvis_session_time');
+
+        // Resume if session exists and is less than 24 hours old (per spec: sessions persist daily)
+        if (storedSessionId && storedSessionTime) {
+          const sessionAge = Date.now() - parseInt(storedSessionTime, 10);
+          const MAX_SESSION_AGE = 24 * 60 * 60 * 1000; // 24 hours
+
+          if (sessionAge < MAX_SESSION_AGE) {
+            try {
+              const existingSession = await apiFetch<JarvisSession>(
+                `/session?session_id=${storedSessionId}`,
+              );
+              if (existingSession && existingSession.id) {
+                sessionData = existingSession;
+                sessionRef.current = existingSession.id;
+                isResumed = true;
+              }
+            } catch {
+              // Session expired or invalid — will create new below
+              localStorage.removeItem('parwa_jarvis_session_id');
+              localStorage.removeItem('parwa_jarvis_session_time');
+            }
+          } else {
+            // Session too old — clean up
+            localStorage.removeItem('parwa_jarvis_session_id');
+            localStorage.removeItem('parwa_jarvis_session_time');
+          }
+        }
+      }
+
+      // ── Create new session if no existing one to resume ──
+      if (!sessionData) {
       // ── Context Bridge (Enhanced for immediate awareness) ───────
       let initialParams = { ...entryParams };
       let initialIndustry = (entryParams?.industry as string) || null;
@@ -168,15 +206,41 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
           const storedContext = localStorage.getItem('parwa_jarvis_context');
           if (storedContext) {
             const bridged = JSON.parse(storedContext);
-            if (bridged.roi_result) {
-              initialParams.roi_result = bridged.roi_result;
-            }
-            if (bridged.industry) {
-              initialIndustry = bridged.industry;
-              initialParams.industry = bridged.industry;
-            }
-            if (bridged.variant) {
-              initialParams.variant = bridged.variant;
+
+            // GAP-D1-09 Fix: Reject stale context older than 2 hours
+            const contextTimestamp = bridged._timestamp || bridged.timestamp;
+            if (contextTimestamp) {
+              const contextAge = Date.now() - parseInt(String(contextTimestamp), 10);
+              const MAX_CONTEXT_AGE = 2 * 60 * 60 * 1000; // 2 hours
+              if (contextAge > MAX_CONTEXT_AGE) {
+                console.warn('[Jarvis] Context is stale, ignoring');
+                localStorage.removeItem('parwa_jarvis_context');
+                // Skip this entire block — use URL params only
+              } else {
+                // Use bridged context (non-stale)
+                if (bridged.roi_result) {
+                  initialParams.roi_result = bridged.roi_result;
+                }
+                if (bridged.industry && !initialIndustry) {
+                  initialIndustry = bridged.industry;
+                  initialParams.industry = bridged.industry;
+                }
+                if (bridged.variant && !initialParams.variant) {
+                  initialParams.variant = bridged.variant;
+                }
+              }
+            } else {
+              // No timestamp — context from older code, use it but it's not ideal
+              if (bridged.roi_result) {
+                initialParams.roi_result = bridged.roi_result;
+              }
+              if (bridged.industry && !initialIndustry) {
+                initialIndustry = bridged.industry;
+                initialParams.industry = bridged.industry;
+              }
+              if (bridged.variant && !initialParams.variant) {
+                initialParams.variant = bridged.variant;
+              }
             }
           }
         } catch (e) {
@@ -189,20 +253,34 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
         entry_params: initialParams,
       };
 
-      const sessionData = await apiFetch<JarvisSession>('/session', {
+      sessionData = await apiFetch<JarvisSession>('/session', {
         method: 'POST',
         body: JSON.stringify(body),
       });
 
       sessionRef.current = sessionData.id;
-      setSession(sessionData);
+
+      // GAP-D1-01: Persist session_id for page refresh recovery
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('parwa_jarvis_session_id', sessionData.id);
+        localStorage.setItem('parwa_jarvis_session_time', String(Date.now()));
+      }
+      } // end of "if (!sessionData)" block
+
+      setSession(sessionData!);
 
       // Load history
       const history = await apiFetch<JarvisHistoryResponse>(
-        `/history?session_id=${sessionData.id}&limit=100`,
+        `/history?session_id=${sessionData!.id}&limit=100`,
       );
 
       setMessages(history.messages || []);
+
+      // Skip context bridge on resume — already has context
+      if (isResumed) {
+        setIsLoading(false);
+        return;
+      }
 
       // Restore OTP state from context if present
       const ctx = sessionData.context as JarvisContext;
@@ -532,6 +610,11 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
         setError('Please enter a valid OTP code (at least 4 digits).');
         return false;
       }
+      // GAP-D1-07 Fix: Enforce max 3 OTP attempts per spec Section 6.2
+      if (otpState.attempts >= 3) {
+        setError('Maximum 3 OTP attempts reached. Please request a new OTP.');
+        return false;
+      }
       const sessionId = sessionRef.current;
       if (!sessionId) return false;
 
@@ -568,11 +651,14 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
           return true;
         }
 
-        setOtpState((prev) => ({
-          ...prev,
-          status: 'sent', // Allow retry
-          attempts: prev.attempts + 1,
-        }));
+        setOtpState((prev) => {
+          const newAttempts = prev.attempts + 1;
+          // GAP-D1-07: Lock after 3 failed attempts
+          if (newAttempts >= 3) {
+            return { ...prev, status: 'locked', attempts: newAttempts };
+          }
+          return { ...prev, status: 'sent', attempts: newAttempts };
+        });
 
         return false;
       } catch (err) {
