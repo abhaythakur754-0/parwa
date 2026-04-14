@@ -906,6 +906,47 @@
   50% { opacity: 0.35; transform: scale(1.15); }
 }
 
+/* ── Activity Feed Slide-In ─────────────────────────────── */
+
+@keyframes slideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Alert Banner Slide-Down ────────────────────────────── */
+
+@keyframes alertSlideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px);
+    max-height: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 200px;
+  }
+}
+
+@keyframes alertCollapse {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 200px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px);
+    max-height: 0;
+  }
+}
+
 /* ── Jarvis Animations (PARWA Dot Pulse & Orb Float) ─────── */
 
 @keyframes jarvisDotPulse {

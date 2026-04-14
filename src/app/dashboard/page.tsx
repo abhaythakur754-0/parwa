@@ -13,7 +13,10 @@ import {
 } from '@/components/dashboard';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import KPICard from '@/components/dashboard/KPICard';
+import ActivityFeed from '@/components/dashboard/ActivityFeed';
+import AlertBanner from '@/components/dashboard/AlertBanner';
 import { analyticsApi } from '@/lib/analytics-api';
+import { dashboardApi, type DashboardHomeResponse } from '@/lib/dashboard-api';
 import { getErrorMessage } from '@/lib/api';
 import type { DashboardData, AgentMetrics, DateRange } from '@/types/analytics';
 
@@ -89,7 +92,10 @@ export default function DashboardPage() {
   const [datePreset, setDatePreset] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // ── Fetch Dashboard Data ──────────────────────────────────────────
+  // ── NEW: Dashboard Home data (anomalies + activity feed) ─────────
+  const [homeData, setHomeData] = useState<DashboardHomeResponse | null>(null);
+
+  // ── Fetch Dashboard Data (existing — old analytics endpoint) ──────
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -107,6 +113,17 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  // ── Fetch NEW Dashboard Home data (anomalies + activity) ──────────
+
+  useEffect(() => {
+    dashboardApi
+      .getHome(30)
+      .then((home) => setHomeData(home))
+      .catch(() => {
+        // Silent fail — new features are supplementary
+      });
+  }, []);
 
   // ── Fetch Agent Data (separate endpoint) ──────────────────────────
 
@@ -155,6 +172,11 @@ export default function DashboardPage() {
         onRefresh={fetchDashboard}
         isRefreshing={isRefreshing}
       />
+
+      {/* ── Alert Banners (NEW — W16D1) ───────────────────────────── */}
+      {homeData?.anomalies && homeData.anomalies.length > 0 && (
+        <AlertBanner anomalies={homeData.anomalies} />
+      )}
 
       {/* ── KPI Cards Row 1: Primary Metrics ────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -283,7 +305,29 @@ export default function DashboardPage() {
       {/* ── Row 5: Response Time Distribution ──────────────────────── */}
       <ResponseTimeChart dateRange={dateRange} />
 
-      {/* ── Row 6: Agent Performance Table ─────────────────────────── */}
+      {/* ── Row 6: Activity Feed + Placeholder (NEW — W16D1) ─────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Activity Feed */}
+        <ActivityFeed
+          initialEvents={homeData?.activity_feed}
+          isLoading={!homeData}
+        />
+
+        {/* Placeholder for future widgets */}
+        <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl flex flex-col items-center justify-center min-h-[320px]">
+          <div className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-3">
+            <svg className="w-6 h-6 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" />
+            </svg>
+          </div>
+          <p className="text-sm text-zinc-500 font-medium">AI Insights</p>
+          <p className="text-xs text-zinc-600 mt-1 text-center max-w-[200px]">
+            Intelligent ticket analysis and recommendations coming soon
+          </p>
+        </div>
+      </div>
+
+      {/* ── Row 7: Agent Performance Table ─────────────────────────── */}
       <AgentPerformanceTable data={agentData} />
     </div>
   );
