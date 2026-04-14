@@ -31,3 +31,8 @@ export { default as AdaptationTracker } from './AdaptationTracker';
 export { default as GrowthNudge } from './GrowthNudge';
 export { default as TicketForecast } from './TicketForecast';
 export { default as CSATTrends } from './CSATTrends';
+
+// Week 16 Day 5 — Confidence Trend, Drift Detection, QA Scores
+export { default as ConfidenceTrend } from './ConfidenceTrend';
+export { default as DriftDetection } from './DriftDetection';
+export { default as QAScores } from './QAScores';

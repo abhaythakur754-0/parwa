@@ -19,6 +19,9 @@ import AdaptationTracker from '@/components/dashboard/AdaptationTracker';
 import GrowthNudge from '@/components/dashboard/GrowthNudge';
 import TicketForecast from '@/components/dashboard/TicketForecast';
 import CSATTrends from '@/components/dashboard/CSATTrends';
+import ConfidenceTrend from '@/components/dashboard/ConfidenceTrend';
+import DriftDetection from '@/components/dashboard/DriftDetection';
+import QAScores from '@/components/dashboard/QAScores';
 import { analyticsApi } from '@/lib/analytics-api';
 import { dashboardApi, type DashboardHomeResponse } from '@/lib/dashboard-api';
 import { getErrorMessage } from '@/lib/api';
@@ -330,7 +333,16 @@ export default function DashboardPage() {
       {/* ── Row 8: CSAT Trends (W16D4 — F-044) ────────────────────── */}
       <CSATTrends />
 
-      {/* ── Row 9: Agent Performance Table ──────────────────────────── */}
+      {/* ── Row 9: Confidence Trend + QA Scores (W16D5) ───────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ConfidenceTrend />
+        <QAScores />
+      </div>
+
+      {/* ── Row 10: Drift Detection (W16D5 — F-116) ────────────────── */}
+      <DriftDetection />
+
+      {/* ── Row 11: Agent Performance Table ──────────────────────────── */}
       <AgentPerformanceTable data={agentData} />
     </div>
   );

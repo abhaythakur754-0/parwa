@@ -166,6 +166,30 @@ export const dashboardApi = {
    */
   getCSATTrends: (days: number = 30) =>
     get<CSATTrendsResponse>(`/api/analytics/csat-trends?days=${days}`),
+
+  /**
+   * Get AI confidence trend — daily avg confidence scores
+   * over time with distribution buckets and thresholds.
+   * F-115
+   */
+  getConfidenceTrend: (days: number = 30) =>
+    get<ConfidenceTrendResponse>(`/api/analytics/confidence-trend?days=${days}`),
+
+  /**
+   * Get drift detection reports — model performance drift
+   * alerts with severity, metrics, and recovery status.
+   * F-116
+   */
+  getDriftReports: (limit: number = 20) =>
+    get<DriftReportsResponse>(`/api/analytics/drift-reports?limit=${limit}`),
+
+  /**
+   * Get QA scores — response quality scores with dimension
+   * breakdowns, pass rates, and trend data.
+   * F-119
+   */
+  getQAScores: (days: number = 30) =>
+    get<QAScoresResponse>(`/api/analytics/qa-scores?days=${days}`),
 };
 
 // ── F-042: Growth Nudge Types ─────────────────────────────────────────
@@ -232,6 +256,91 @@ export interface CSATTrendsResponse {
   by_channel: CSATDimension[];
   trend_direction: 'improving' | 'declining' | 'stable';
   change_vs_previous_period: number | null;
+}
+
+// ── F-115: Confidence Trend Types ──────────────────────────────────────
+
+export interface ConfidenceDayData {
+  date: string;
+  avg_confidence: number;
+  min_confidence: number;
+  max_confidence: number;
+  total_predictions: number;
+  low_confidence_count: number;
+}
+
+export interface ConfidenceBucket {
+  range: string;
+  count: number;
+  percentage: number;
+}
+
+export interface ConfidenceTrendResponse {
+  daily_trend: ConfidenceDayData[];
+  current_avg: number;
+  overall_avg: number;
+  trend_direction: 'improving' | 'declining' | 'stable';
+  change_vs_previous_period: number;
+  distribution: ConfidenceBucket[];
+  low_confidence_threshold: number;
+  critical_threshold: number;
+  total_predictions: number;
+}
+
+// ── F-116: Drift Detection Types ───────────────────────────────────────
+
+export interface DriftReport {
+  report_id: string;
+  detected_at: string;
+  severity: 'critical' | 'warning' | 'info';
+  metric_name: string;
+  metric_value: number;
+  baseline_value: number;
+  drift_pct: number;
+  description: string;
+  status: 'active' | 'resolved' | 'investigating';
+  resolved_at?: string;
+  recovery_action?: string;
+}
+
+export interface DriftReportsResponse {
+  reports: DriftReport[];
+  total: number;
+  active_count: number;
+  last_detected_at: string | null;
+  most_severe: 'critical' | 'warning' | 'info' | null;
+}
+
+// ── F-119: QA Scores Types ─────────────────────────────────────────────
+
+export interface QADayData {
+  date: string;
+  overall_score: number;
+  accuracy_score: number;
+  completeness_score: number;
+  tone_score: number;
+  relevance_score: number;
+  total_evaluated: number;
+  pass_count: number;
+}
+
+export interface QADimension {
+  dimension_name: string;
+  avg_score: number;
+  pass_rate: number;
+  trend: 'improving' | 'declining' | 'stable';
+}
+
+export interface QAScoresResponse {
+  daily_trend: QADayData[];
+  current_overall: number;
+  overall_avg: number;
+  pass_rate: number;
+  total_evaluated: number;
+  dimensions: QADimension[];
+  trend_direction: 'improving' | 'declining' | 'stable';
+  change_vs_previous_period: number | null;
+  threshold_pass: number;
 }
 
 export default dashboardApi;
