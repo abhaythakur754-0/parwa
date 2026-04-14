@@ -74,3 +74,11 @@ from database.models.sms_channel import (  # noqa: F401
     SMSConversation,
     SMSChannelConfig,
 )
+from database.models.agent import (  # noqa: F401 — Week 14 Day 4: F-095, F-096
+    Agent as AIAgent,
+    AgentSetupLog,
+    InstructionSet,
+    InstructionVersion,
+    InstructionABTest,
+    InstructionABAssignment,
+)

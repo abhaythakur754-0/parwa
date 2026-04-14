@@ -256,3 +256,90 @@ Stage Summary:
 - Files modified: 2 files (jarvis_control.py schemas, jarvis_ops.py routes)
 - Total lines: ~1,700+ lines of production code
 - Building Codes applied: BC-001 (multi-tenant), BC-004 (Celery), BC-005 (real-time), BC-007 (AI model), BC-011 (auth), BC-012 (resilience/error handling)
+
+---
+Task ID: W14D4
+Agent: Main
+Task: Week 14 Day 4 - Agent Provisioning (F-095) + Dynamic Instructions (F-096)
+
+Work Log:
+- Read existing codebase patterns: jarvis.py models, system_status_service.py, jarvis_ops.py, jarvis_control.py schemas, deps.py, exceptions.py, main.py, base.py, core.py, __init__.py
+- Created database/models/agent.py — SQLAlchemy models for F-095/F-096 (~350 lines)
+  - Agent: AI agent instances with specialty, channels, permissions, model config, lifecycle states
+  - AgentSetupLog: Step-by-step setup progress tracking (6 steps: configuration, training, integration_setup, permission_config, testing, activation)
+  - InstructionSet: Versioned behavioral instruction collections with draft→active→archived lifecycle
+  - InstructionVersion: Full version history snapshots with change summaries and publisher tracking
+  - InstructionABTest: A/B tests with traffic split, chi-squared auto-evaluation, metric tracking (CSAT, resolution rate)
+  - InstructionABAssignment: Per-ticket deterministic variant assignments for A/B routing
+  - All models use UUID strings, CheckConstraints, FK relationships, consistent with jarvis.py pattern
+  - Aliased Agent import as AIAgent in __init__.py to avoid collision with core.Agent
+- Created backend/app/schemas/agents.py — Pydantic schemas (~450 lines)
+  - F-095: AgentCreateRequest, AgentConfig, AgentResponse, AgentListResponse, AgentCreateResponse
+  - F-095: SetupLogEntry, SetupStatusResponse, CompleteSetupRequest, CompleteSetupResponse
+  - F-095: PlanLimitsResponse, AgentStatusDetail, SpecialtyTemplate, SpecialtyTemplatesResponse
+  - F-096: InstructionContent (JSONB schema with behavioral_rules, tone_guidelines, escalation_triggers, response_templates, prohibited_actions, confidence_thresholds)
+  - F-096: InstructionSetCreateRequest, InstructionSetUpdateRequest, InstructionSetResponse
+  - F-096: InstructionVersionResponse, VersionHistoryResponse, PublishResponse, ArchiveResponse, RollbackResponse
+  - F-096: ABTestCreateRequest, ABTestResponse, ABTestDetailResponse, ABTestListResponse
+  - F-096: ABTestStopRequest, ABTestStopResponse, ABTestEvaluation, ABAssignmentResponse, ActiveInstructionsResponse
+- Created backend/app/services/agent_provisioning_service.py — F-095 Agent Provisioning (~650 lines)
+  - 8 pre-defined specialty templates: billing_specialist, returns_specialist, technical_support, general_support, sales_assistant, onboarding_guide, vip_concierge, feedback_collector
+  - 4 permission levels: basic (3 perms), standard (6 perms), advanced (9 perms), admin (12 perms)
+  - Plan-based agent limits: free(1), starter(3), growth(10), pro(25), enterprise(unlimited)
+  - NL command parsing with specialty alias mapping (17 aliases)
+  - Channel extraction from text (chat, email, sms, whatsapp, voice)
+  - Permission level inference from text keywords
+  - Name extraction with regex patterns and quoted name support
+  - Clarification question generation for ambiguous commands
+  - Financial action flagging for approval queue (BC-009)
+  - Agent name uniqueness validation per tenant
+  - Plan limit checking before creation
+  - Setup log creation for all 6 steps
+  - Agent activation with timestamp tracking
+  - Full agent listing with status filtering and pagination
+  - Detailed agent status with setup progress and instruction info
+  - Lazy service loading pattern with get_agent_provisioning_service()
+- Created backend/app/services/instruction_workflow_service.py — F-096 Dynamic Instructions (~850 lines)
+  - Instruction set CRUD: create, list, get, update (draft only), publish, archive
+  - Version control: automatic version incrementing on publish, InstructionVersion snapshots
+  - Publish deactivates previously active sets for the same agent
+  - Rollback by re-publishing a previous version snapshot
+  - A/B testing with full lifecycle:
+    - Create test between two instruction sets
+    - One active test per agent enforcement (409 on duplicate)
+    - Configurable traffic split (0-100%), success metric, duration
+    - Deterministic ticket-to-variant routing via MD5 hash
+    - Per-ticket assignment recording with outcome tracking
+    - Chi-squared statistical significance evaluation
+    - Auto-complete criteria: p < 0.05 with min 100 tickets per variant
+    - Manual stop with optional winner selection
+    - Winner auto-activation on test completion
+  - Custom statistical implementation: chi-squared p-value approximation using regularized incomplete gamma function
+  - Active instruction resolution (instruction set or A/B test)
+  - Lazy service loading pattern with get_instruction_workflow_service()
+- Created backend/app/api/agents.py — 15 FastAPI endpoints (~580 lines)
+  - F-095: POST /api/agents/create — Create agent from config with validation
+  - F-095: GET /api/agents — List agents with status filter and pagination
+  - F-095: GET /api/agents/{id} — Detailed agent status with setup progress
+  - F-095: POST /api/agents/{id}/setup/complete — Complete setup and activate
+  - F-095: GET /api/agents/{id}/setup — Get setup progress with step details
+  - F-096: GET /api/instructions/sets — List instruction sets for an agent
+  - F-096: POST /api/instructions/sets — Create instruction set
+  - F-096: PUT /api/instructions/sets/{id} — Update draft instruction set
+  - F-096: POST /api/instructions/sets/{id}/publish — Publish instruction set
+  - F-096: POST /api/instructions/sets/{id}/archive — Archive instruction set
+  - F-096: GET /api/instructions/sets/{id}/versions — Version history
+  - F-096: POST /api/instructions/ab-tests — Create A/B test
+  - F-096: GET /api/instructions/ab-tests — List A/B tests
+  - F-096: GET /api/instructions/ab-tests/{id} — A/B test detail with evaluation
+  - F-096: POST /api/instructions/ab-tests/{id}/stop — Stop A/B test with winner selection
+  - All endpoints: auth (BC-011), tenant isolation (BC-001), structured errors (BC-012)
+- Registered agents_router in backend/app/main.py
+- Updated database/models/__init__.py with new model imports (AIAgent alias to avoid core.Agent collision)
+- All 5 new files pass Python syntax verification (ast.parse)
+
+Stage Summary:
+- Files created: 4 new files (models/agent.py, schemas/agents.py, services/agent_provisioning_service.py, services/instruction_workflow_service.py, api/agents.py)
+- Files modified: 2 files (main.py, models/__init__.py)
+- Total lines: ~2,880+ lines of production code
+- Building Codes applied: BC-001 (multi-tenant), BC-004 (Celery), BC-007 (AI model), BC-008 (state management), BC-009 (financial approval), BC-011 (auth), BC-012 (structured errors)
