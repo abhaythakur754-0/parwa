@@ -264,10 +264,14 @@ function buildSystemPrompt(session: any): string {
   const ep = ctx.entry_params || {};
   const entrySource = ctx.entry_source || 'direct';
 
-  const selectedVariant = ep.variant || ctx.variant || null;
-  const selectedVariantId = ep.variant_id || ctx.variant_id || null;
-  const selectedIndustry = ep.industry || ctx.industry || null;
-  const entrySourceParam = ep.entry_source || entrySource;
+  // Bug #7 Fix: PATCHed context (ctx.*) now takes PRIORITY over entry_params (ep.*).
+  // Previously entry_params always won, so even after user told Jarvis their real
+  // industry via chat (which PATCHed ctx.industry), the system prompt still used
+  // the entry_params industry from page load. Now: ctx first, ep as fallback.
+  const selectedVariant = ctx.variant || ep.variant || null;
+  const selectedVariantId = ctx.variant_id || ep.variant_id || null;
+  const selectedIndustry = ctx.industry || ep.industry || null;
+  const entrySourceParam = ctx.entry_source || ep.entry_source || entrySource;
 
   // Rich variant context from models page
   const epK = (k: string) => ep[k] ? String(ep[k]) : null;
@@ -358,7 +362,10 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
   const recentMsgs = session.messages.slice(-6);
   const conversationMemory = recentMsgs.map((m: any) => {
     const role = m.role === 'jarvis' ? 'Jarvis' : m.role === 'user' ? 'User' : 'System';
-    return `${role}: ${String(m.content).slice(0, 120)}`;
+    // Bug #8 Fix: Increased from 120 to 500 chars. 120 chars was cutting off
+    // important details like ticket numbers, company names, and product specs —
+    // making Jarvis repeat questions it already had answers to.
+    return `${role}: ${String(m.content).slice(0, 500)}`;
   }).join('\n');
 
   return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
@@ -505,10 +512,11 @@ function getStageInstructions(stage: string): string {
 function getContextAwareWelcome(entrySource: string, ctx: any): string {
   const source = entrySource || 'direct';
   const ep = ctx.entry_params || {};
-  const variant = ep.variant || ctx.variant || null;
-  const variantId = ep.variant_id || ctx.variant_id || null;
-  const industry = ep.industry || ctx.industry || null;
-  const entryParamSource = ep.entry_source || source;
+  // Bug #7 Fix: PATCHed ctx takes priority over entry_params
+  const variant = ctx.variant || ep.variant || null;
+  const variantId = ctx.variant_id || ep.variant_id || null;
+  const industry = ctx.industry || ep.industry || null;
+  const entryParamSource = ctx.entry_source || ep.entry_source || source;
   const ind = industry ? String(industry).toLowerCase() : null;
 
   // Rich context from models page

@@ -1047,7 +1047,7 @@ def purchase_demo_pack(
     session = get_session(db, session_id, user_id)
 
     # Get user info for Paddle checkout
-    from app.models.user import User
+    from database.models.core import User
     user = db.query(User).filter(User.id == user_id).first()
     customer_email = user.email if user else None
     customer_name = None
@@ -1137,7 +1137,7 @@ def create_payment_session(
     session = get_session(db, session_id, user_id)
 
     # Get user info for Paddle checkout
-    from app.models.user import User
+    from database.models.core import User
     user = db.query(User).filter(User.id == user_id).first()
     customer_email = user.email if user else None
     customer_name = None
@@ -1417,7 +1417,7 @@ def _handle_subscription_success(
     session.context_json = json.dumps(ctx)
 
     # Update company subscription tier if possible
-    from app.models.user import User
+    from database.models.core import User
     from app.models.company import Company
     user = db.query(User).filter(User.id == session.user_id).first()
     if user and user.company_id:

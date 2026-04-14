@@ -48,44 +48,17 @@ interface ChatWindowProps {
   sessionContext?: JarvisContext | null;
 }
 
-/** Build a context-aware welcome message based on session context. */
-function getWelcomeMessage(ctx?: JarvisContext | null): { heading: string; body: string } {
-  const entrySource = ctx?.entry_source;
-  const industry = ctx?.industry || 'your business';
-  const roi = ctx?.roi_result;
-  const variant = ctx?.variant || ctx?.entry_params?.variant || ctx?.entry_params?.model;
-
-  // ROI awareness (The 'Wow' factor)
-  if (entrySource === 'roi' && roi) {
-    const savings = roi.savings_annual || roi.annual_savings || 0;
-    const model = roi.suggested_model || 'PARWA Growth';
-    return {
-      heading: 'Control Center active. ⚡',
-      body: `I've analyzed your ${industry} metrics. With estimated annual savings of $${Number(savings).toLocaleString()} using our ${model}, your operational efficiency is poised for a major upgrade. Shall we run a live simulation on your data now?`,
-    };
-  }
-
-  // Match entry_source to specific messages
-  if (entrySource === 'pricing') {
-    return {
-      heading: 'Strategy initiated. 💰',
-      body: `I see you were exploring our pricing for ${industry}. I can help you find the exact variant that maximizes your vertical leverage. Shall we explore the specific capabilities of our plans?`,
-    };
-  }
-  
-  if (entrySource === 'models' || entrySource === 'models_page') {
-    return {
-      heading: 'Model identified. 🤖',
-      body: `I noticed you were examining the ${variant || 'our models'} for ${industry}. Smart selection — that specific agent is highly optimized for your vertical's specific workflow demands. Would you like to try a 3-minute demo call for $1 to see it in action?`,
-    };
-  }
-
-  // Default / direct / onboarding
-  return {
-    heading: 'Control Center active. 👋',
-    body: `I'm Jarvis — your control center from here. You can do anything just by chatting with me. From deploying agents to routing tickets, I have total leverage over your support workflow. What would you like to explore?`,
-  };
-}
+/**
+ * Bug #5 Fix: Removed local getWelcomeMessage to prevent dual-welcome conflict.
+ * The server-side route.ts generates a rich, context-aware welcome via
+ * getContextAwareWelcome(). That message arrives as the first jarvis message.
+ * Previously, ChatWindow showed its OWN welcome (above) during the loading gap,
+ * then the server welcome appeared — causing confusing duplicate messages.
+ *
+ * Now: During loading, we show a generic connecting state.
+ * After loading: The server's welcome message (already in messages[]) is displayed.
+ * Single source of truth = route.ts getContextAwareWelcome().
+ */
 
 export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hookActions, sessionState, sessionContext }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -114,13 +87,13 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
   }, [messages.length, isTyping]);
 
   const isEmpty = messages.length === 0 && !isTyping;
-  const welcome = getWelcomeMessage(sessionContext);
 
   return (
     <div className="flex-1 overflow-hidden relative bg-[#0D0D0D]" ref={containerRef} role="log" aria-label="Chat messages">
       <ScrollArea className="h-full scrollbar-premium">
         <div className="flex flex-col min-h-full">
-          {/* Empty state */}
+          {/* Empty state — Bug #5 Fix: generic loading/connecting state.
+              The real context-aware welcome comes from the server (route.ts) */}
           {isEmpty && (
             <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center animate-fade-in max-w-2xl mx-auto">
               {/* Decorative icon */}
@@ -129,13 +102,13 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
               </div>
 
               <h3 className="text-base font-medium text-white/60 mb-1">
-                {welcome.heading}
+                Connecting to Jarvis...
               </h3>
               <p className="text-sm text-white/30 max-w-xs leading-relaxed">
-                {welcome.body}
+                Initializing your control center. One moment...
               </p>
 
-              {/* Quick-start suggestions */}
+              {/* Quick-start suggestions — shown until server welcome arrives */}
               <div className="flex flex-wrap justify-center gap-2 mt-6">
                 {SUGGESTIONS.map((s) => (
                   <QuickSuggestion key={s} text={s} onClick={onSuggestionClick} />

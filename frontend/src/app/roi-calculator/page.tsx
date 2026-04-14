@@ -1227,7 +1227,13 @@ export default function ROICalculatorPage() {
                           quantity: recommendedComparison.quantity,
                           entry_source: 'roi'
                         };
-                        localStorage.setItem('parwa_jarvis_context', JSON.stringify(roiCtx));
+                        // Gap #10 Fix: MERGE into existing context
+                        try {
+                          const existing = JSON.parse(localStorage.getItem('parwa_jarvis_context') || '{}');
+                          localStorage.setItem('parwa_jarvis_context', JSON.stringify({ ...existing, ...roiCtx }));
+                        } catch {
+                          localStorage.setItem('parwa_jarvis_context', JSON.stringify(roiCtx));
+                        }
                       } catch (e) { /* ignore */ }
                     }
                     window.location.href =

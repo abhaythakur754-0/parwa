@@ -266,9 +266,16 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
                 return { ...prev, context: { ...prev.context, ...contextPatch } };
               });
             }
-            // NOTE: Do NOT remove parwa_jarvis_context here.
-            // Other pages may still need to read it, and the pushContextToBackend
-            // above already synced it to the backend session.
+            // Bug #6 Fix: Clean up consumed localStorage context after bridging.
+            // The data has been synced to the backend session via PATCH /context above.
+            // We keep it for 5 seconds so any concurrent reads still work, then clean.
+            setTimeout(() => {
+              try {
+                localStorage.removeItem('parwa_jarvis_context');
+                localStorage.removeItem('parwa_pricing_selection');
+                localStorage.removeItem('parwa_pages_visited');
+              } catch { /* ignore */ }
+            }, 5000);
           }
 
           // Also read parwa_pricing_selection as fallback (set by pricing page)
@@ -325,6 +332,15 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     };
   }, [initSession]);
 
+  // ── Session Ref (avoids stale closure in sendMessage) ─────────
+
+  // Bug #1 Fix: Keep a ref to the latest session so sendMessage always
+  // reads the CURRENT context — not a stale closure from render time.
+  const sessionContextRef = useRef(session?.context || {});
+  useEffect(() => {
+    sessionContextRef.current = session?.context || {};
+  }, [session]);
+
   // ── Send Message ────────────────────────────────────────────────
 
   const sendMessage = useCallback(
@@ -360,9 +376,8 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
 
       try {
         // ── Attach current session context to every message ──
-        // This ensures the AI always has the latest context even if
-        // the PATCH /context endpoint failed or hasn't completed yet
-        const currentCtx = session?.context || {};
+        // Bug #1 Fix: Use ref instead of closure — always reads latest context
+        const currentCtx = sessionContextRef.current;
         const body: JarvisMessageSendRequest & { context?: typeof currentCtx } = {
           content: content.trim(),
           session_id: sessionId || undefined,
@@ -418,7 +433,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
         isSendingRef.current = false;
       }
     },
-    [isLimitReached],
+    [isLimitReached], // session accessed via sessionContextRef (Bug #1 fix)
   );
 
   // ── Retry Last Message ──────────────────────────────────────────
