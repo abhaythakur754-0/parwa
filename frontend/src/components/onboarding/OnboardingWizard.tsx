@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ProgressIndicator } from './ProgressIndicator';
@@ -24,6 +24,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [aiName, setAiName] = useState('Jarvis');
   const [aiGreeting, setAiGreeting] = useState<string | null>(null);
+  // P6: Track last error so we don't silently advance past failures
+  const [stepError, setStepError] = useState<string | null>(null);
 
   // Fetch initial state
   useEffect(() => {
@@ -58,6 +60,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   }, [onboardingState?.first_victory_completed, onboardingState?.status, router]);
 
   const completeStep = async (step: number, extraData?: Record<string, unknown>) => {
+    setStepError(null);
     setCompletedSteps((prev) => [...prev.filter((s) => s !== step), step]);
 
     // D8-4: Merge extra data from child component (e.g., AI config from activation)
@@ -85,14 +88,17 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
         }
         setCurrentStep(step + 1);
       } else {
-        // API failed — still advance locally
-        if (step < 5) setCurrentStep(step + 1);
-        else setOnboardingState((prev) => prev ? { ...prev, status: 'completed' as const } : prev);
+        // P6 FIX: Do NOT silently advance on API failure.
+        // Parse the error and show it to the user.
+        const errorData = await res.json().catch(() => ({ detail: `Step ${step} failed. Please try again.` }));
+        setStepError(errorData.detail || `Failed to complete step ${step}.`);
+        // Revert the local optimistic step completion
+        setCompletedSteps((prev) => prev.filter((s) => s !== step));
       }
     } catch {
-      // Network error — still advance locally
-      if (step < 5) setCurrentStep(step + 1);
-      else setOnboardingState((prev) => prev ? { ...prev, status: 'completed' as const } : prev);
+      // P6 FIX: On network error, don't advance. Show error instead.
+      setStepError(`Network error. Please check your connection and try again.`);
+      setCompletedSteps((prev) => prev.filter((s) => s !== step));
     }
   };
 
@@ -105,6 +111,30 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       status: 'completed' as const,
     } : prev);
   };
+
+  // P17 FIX: Listen for changes from other tabs via localStorage.
+  // When a user has the onboarding open in two tabs and completes a step
+  // in one tab, the other tab should detect the state change and refresh.
+  const handleStorageChange = useCallback((e: StorageEvent) => {
+    if (e.key?.startsWith('parwa_')) {
+      // Re-fetch state when another tab updates onboarding data
+      fetch('/api/onboarding/state')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.current_step) {
+            setOnboardingState(data);
+            if (data.current_step > 1) setCurrentStep(data.current_step);
+            if (data.completed_steps) setCompletedSteps(data.completed_steps);
+          }
+        })
+        .catch(() => { /* best effort */ });
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [handleStorageChange]);
 
   if (loading) {
     return (
@@ -147,6 +177,10 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
               <p className="text-muted-foreground mb-6">
                 Let&apos;s set up your AI-powered customer support platform in a few steps.
               </p>
+              {/* P6: Show step error if any */}
+              {stepError && (
+                <p className="text-destructive text-sm mb-4">{stepError}</p>
+              )}
               {/* D8-5: Use shadcn Button instead of raw <button> */}
               <Button
                 onClick={() => completeStep(1)}

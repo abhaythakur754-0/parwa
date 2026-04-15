@@ -18,26 +18,34 @@ Services:
 """
 
 import json
+import threading
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
+from sqlalchemy.exc import IntegrityError
 
 from app.exceptions import ValidationError
 from app.logger import get_logger
 from app.services.user_details_service import check_ai_activation_prerequisites
 from app.tasks.knowledge_tasks import process_knowledge_document
-from database.models.onboarding import OnboardingSession, KnowledgeDocument
+from database.models.onboarding import OnboardingSession, KnowledgeDocument, ConsentRecord
 from database.models.user_details import UserDetails
 
 logger = get_logger("onboarding_service")
 
-# Consent timestamp tolerance (5 minutes)
-_CONSENT_TIMESTAMP_TOLERANCE_SECONDS = 300
+# Consent timestamp tolerance (5 minutes) — P20: configurable via env
+import os
+_CONSENT_TIMESTAMP_TOLERANCE_SECONDS = int(
+    os.environ.get("CONSENT_TIMESTAMP_TOLERANCE", "300")
+)
 
 # Max retry count for failed documents
 _MAX_DOCUMENT_RETRIES = 3
+
+# P11: Steps that are optional and can be skipped
+_OPTIONAL_STEPS = {4}  # Step 4 = Knowledge Base (optional)
 
 
 # ── GAP 1: Row-Level Locking for Race Condition Prevention ────────────────
@@ -91,6 +99,8 @@ def get_or_create_session(
 
     BC-001: Scoped to company_id.
     GAP 1: Uses locking when updating existing session.
+    P1 FIX: Handles race condition on concurrent creation by catching
+    IntegrityError from unique constraint and retrying the read.
 
     Args:
         db: Database session.
@@ -100,12 +110,26 @@ def get_or_create_session(
     Returns:
         OnboardingSession instance.
     """
-    session = db.query(OnboardingSession).filter(
-        OnboardingSession.user_id == user_id,
-        OnboardingSession.company_id == company_id,
-    ).first()
+    # P1: Always try to acquire lock first — if row exists, we get it.
+    # If it doesn't exist, the lock query returns None and we create below.
+    try:
+        session = db.execute(
+            select(OnboardingSession)
+            .where(
+                and_(
+                    OnboardingSession.user_id == user_id,
+                    OnboardingSession.company_id == company_id,
+                )
+            )
+            .with_for_update()
+        ).scalar_one_or_none()
 
-    if not session:
+        if session:
+            return session
+
+        # Session doesn't exist — create it inside the same transaction
+        # that holds the lock intent. If another request created it between
+        # our SELECT and INSERT, the unique constraint will catch it.
         session = OnboardingSession(
             user_id=user_id,
             company_id=company_id,
@@ -116,13 +140,34 @@ def get_or_create_session(
             knowledge_base_files="[]",
         )
         db.add(session)
-        db.commit()
-        db.refresh(session)
-        logger.info(
-            "onboarding_session_created",
-            user_id=user_id,
-            company_id=company_id,
-        )
+        db.flush()  # Flush to trigger any IntegrityError before commit
+
+    except IntegrityError:
+        # Another concurrent request created the session — roll back and retry
+        db.rollback()
+        session = db.execute(
+            select(OnboardingSession)
+            .where(
+                and_(
+                    OnboardingSession.user_id == user_id,
+                    OnboardingSession.company_id == company_id,
+                )
+            )
+            .with_for_update()
+        ).scalar_one_or_none()
+        if not session:
+            raise ValidationError(
+                message="Failed to create onboarding session. Please retry.",
+                details={"user_id": user_id, "company_id": company_id},
+            )
+
+    db.commit()
+    db.refresh(session)
+    logger.info(
+        "onboarding_session_created",
+        user_id=user_id,
+        company_id=company_id,
+    )
 
     return session
 
@@ -169,9 +214,26 @@ def complete_step(
     except json.JSONDecodeError:
         completed = []
 
-    # Validate sequential transition
+    # P11: Allow skipping optional steps (Step 4 = KB).
+    # If the requested step is an optional step, advance past it
+    # if all previous non-optional steps are completed.
     expected_step = session.current_step
-    if step != expected_step:
+    if step != expected_step and step in _OPTIONAL_STEPS:
+        # Check that all required steps before this optional step are done
+        required_before = [s for s in range(1, step) if s not in _OPTIONAL_STEPS]
+        if all(s in completed for s in required_before):
+            # Allow skipping this optional step
+            pass
+        else:
+            raise ValidationError(
+                message=f"Cannot skip to step {step}. Complete required steps first.",
+                details={
+                    "expected_step": expected_step,
+                    "actual_step": step,
+                    "missing_required": [s for s in required_before if s not in completed],
+                },
+            )
+    elif step != expected_step:
         raise ValidationError(
             message=f"Invalid step transition. Expected step {expected_step}, got {step}.",
             details={
@@ -346,18 +408,40 @@ def accept_legal_consents(
     session.ai_data_accepted_at = server_time
     session.updated_at = datetime.now(timezone.utc)
 
-    # Create consent record for audit trail
-    from database.models.onboarding import ConsentRecord
-    consent_record = ConsentRecord(
-        company_id=company_id,
-        user_id=user_id,
-        consent_type="onboarding_legal",
-        consent_version="1.0",
-        ip_address=ip_address,
-        user_agent=user_agent,
-        granted=True,
-    )
-    db.add(consent_record)
+    # P12 FIX: Create SEPARATE consent records per consent type for GDPR audit.
+    # Each consent type gets its own record with version tracking,
+    # so version changes to individual agreements are traceable.
+    consent_records = [
+        ConsentRecord(
+            company_id=company_id,
+            user_id=user_id,
+            consent_type="terms_of_service",
+            consent_version="1.0",
+            ip_address=ip_address,
+            user_agent=user_agent,
+            granted=True,
+        ),
+        ConsentRecord(
+            company_id=company_id,
+            user_id=user_id,
+            consent_type="privacy_policy",
+            consent_version="1.0",
+            ip_address=ip_address,
+            user_agent=user_agent,
+            granted=True,
+        ),
+        ConsentRecord(
+            company_id=company_id,
+            user_id=user_id,
+            consent_type="ai_data_processing",
+            consent_version="1.0",
+            ip_address=ip_address,
+            user_agent=user_agent,
+            granted=True,
+        ),
+    ]
+    for cr in consent_records:
+        db.add(cr)
 
     db.commit()
     db.refresh(session)
@@ -526,12 +610,9 @@ def retry_document_processing(
             },
         )
 
-    # Reset status for retry
-    doc.status = "processing"
-    doc.retry_count = retry_count + 1  # type: ignore
-    db.commit()
-
-    # Trigger Celery task for async processing
+    # P15 FIX: Trigger Celery BEFORE committing. If Celery trigger fails,
+    # rollback the status change so the document stays in "failed" and
+    # doesn't get stuck in "processing" forever.
     try:
         process_knowledge_document.delay(str(document_id), str(company_id))
     except Exception as e:
@@ -541,6 +622,18 @@ def retry_document_processing(
             company_id=company_id,
             error=str(e),
         )
+        raise ValidationError(
+            message="Failed to start document processing. Please try again.",
+            details={
+                "document_id": document_id,
+                "reason": "celery_unavailable",
+            },
+        )
+
+    # Celery task queued successfully — now commit status change
+    doc.status = "processing"
+    doc.retry_count = retry_count + 1  # type: ignore
+    db.commit()
 
     logger.info(
         "document_processing_retried",
@@ -610,6 +703,23 @@ def activate_ai(
             details={"user_id": user_id},
         )
 
+    # P4 FIX: Idempotency — if already activated, return existing config.
+    # Prevents duplicate warmup triggers on double-click or network retry.
+    if session.status == "completed" and session.ai_name:
+        logger.info(
+            "ai_activation_idempotent_return",
+            user_id=user_id,
+            company_id=company_id,
+            existing_ai_name=session.ai_name,
+        )
+        return {
+            "message": "AI assistant is already activated.",
+            "ai_name": session.ai_name,
+            "ai_tone": session.ai_tone,
+            "ai_response_style": session.ai_response_style,
+            "ai_greeting": session.ai_greeting,
+        }
+
     # Update AI config
     session.ai_name = ai_name[:50] if ai_name else "Jarvis"
     session.ai_tone = ai_tone if ai_tone in ["professional", "friendly", "casual"] else "professional"
@@ -629,50 +739,59 @@ def activate_ai(
         ai_name=ai_name,
     )
 
-    # D7-1: Trigger cold start warmup for the tenant's AI models.
-    # This runs asynchronously (fire-and-forget) so the activation
-    # response returns immediately. Model warmup happens in the
-    # background so the first real customer interaction isn't slow.
-    try:
-        from app.core.cold_start_service import get_cold_start_service
-        # Determine variant_type from plan tier (default to parwa)
-        from database.models.user_details import UserDetails
-        details = db.query(UserDetails).filter(
-            UserDetails.company_id == company_id,
-        ).first()
-        # Map company size to variant type for tier selection
-        variant_type = "parwa"  # default
-        if details:
-            size_to_variant = {
-                "1_10": "mini_parwa",
-                "11_50": "parwa",
-                "51_200": "parwa",
-                "201_500": "parwa_high",
-                "501_1000": "parwa_high",
-                "1000_plus": "parwa_high",
-            }
-            variant_type = size_to_variant.get(details.company_size, "parwa")
+    # P3 FIX: Trigger cold start warmup in a BACKGROUND THREAD so the
+    # activation response returns immediately. Previously warmup_tenant()
+    # was synchronous and could block the HTTP response for 30-60s.
+    # P2 FIX: The DB commit happened before warmup. Now warmup is truly
+    # async — if it fails, the DB state is already committed and a
+    # recovery check on startup will re-trigger for tenants with no warmup.
 
-        cold_start = get_cold_start_service()
-        warmup_result = cold_start.warmup_tenant(company_id, variant_type)
-        logger.info(
-            "cold_start_warmup_triggered",
-            user_id=user_id,
-            company_id=company_id,
-            variant_type=variant_type,
-            overall_status=warmup_result.overall_status.value,
-            time_to_warm_ms=warmup_result.time_to_warm_ms,
-            fallback_used=warmup_result.fallback_used,
-        )
-    except Exception as e:
-        # Cold start failure should NOT block activation.
-        # The AI will still work — just slower on first request.
-        logger.warning(
-            "cold_start_warmup_failed_non_blocking",
-            user_id=user_id,
-            company_id=company_id,
-            error=str(e),
-        )
+    def _background_warmup(cid: str, uid: str) -> None:
+        try:
+            from app.core.cold_start_service import get_cold_start_service
+            details = db.query(UserDetails).filter(
+                UserDetails.company_id == cid,
+            ).first()
+            # P16 FIX: Default to mini_parwa for unknown/null company_size
+            # to avoid over-provisioning free trial users with parwa tier.
+            variant_type = "mini_parwa"
+            if details and details.company_size:
+                size_to_variant = {
+                    "1_10": "mini_parwa",
+                    "11_50": "parwa",
+                    "51_200": "parwa",
+                    "201_500": "parwa_high",
+                    "501_1000": "parwa_high",
+                    "1000_plus": "parwa_high",
+                }
+                variant_type = size_to_variant.get(details.company_size, "mini_parwa")
+
+            cold_start = get_cold_start_service()
+            warmup_result = cold_start.warmup_tenant(cid, variant_type)
+            logger.info(
+                "cold_start_warmup_background_complete",
+                user_id=uid,
+                company_id=cid,
+                variant_type=variant_type,
+                overall_status=warmup_result.overall_status.value,
+                time_to_warm_ms=warmup_result.time_to_warm_ms,
+                fallback_used=warmup_result.fallback_used,
+            )
+        except Exception as e:
+            logger.warning(
+                "cold_start_warmup_failed_non_blocking",
+                user_id=uid,
+                company_id=cid,
+                error=str(e),
+            )
+
+    warmup_thread = threading.Thread(
+        target=_background_warmup,
+        args=(company_id, user_id),
+        daemon=True,
+        name=f"warmup-{company_id[:8]}",
+    )
+    warmup_thread.start()
 
     return {
         "message": "AI assistant activated successfully.",

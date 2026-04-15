@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 import urllib.error
 import urllib.request
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -33,6 +35,9 @@ logger = logging.getLogger(__name__)
 # ── Constants ────────────────────────────────────────────────────────
 
 HEAVY_WARMUP_TIMEOUT_MS = 5000  # BC-008: 5s max for Heavy model
+
+# P21: Cooldown between system-wide prewarm calls (seconds)
+_PREWARM_COOLDOWN_SECONDS = 60
 
 
 # ── Enums ────────────────────────────────────────────────────────────
@@ -187,8 +192,17 @@ class ColdStartService:
     """
 
     def __init__(self, max_tenant_states: int = 10000) -> None:
-        self._tenant_states: Dict[str, TenantWarmupState] = {}
+        # P8 FIX: Use OrderedDict for LRU eviction instead of plain dict.
+        # Plain dict preserves insertion order (Python 3.7+), which means
+        # oldest SIGNUPS get evicted, not least-recently-used tenants.
+        self._tenant_states: OrderedDict[str, TenantWarmupState] = OrderedDict()
         self._max_tenant_states = max_tenant_states
+        # P7: Track last accessed time for each tenant for LRU eviction
+        # and for future persistence/recovery on restart.
+        self._last_accessed: Dict[str, float] = {}
+        # P21: Guard against rapid prewarm calls
+        self._last_prewarm_time: float = 0.0
+        self._prewarm_lock = threading.Lock()
 
     # ── Public API ───────────────────────────────────────────────────
 
@@ -196,7 +210,12 @@ class ColdStartService:
         """Get warmup status for a tenant. BC-001: company_id is second param."""
         if not company_id:
             return None
-        return self._tenant_states.get(company_id)
+        state = self._tenant_states.get(company_id)
+        if state:
+            # P8: Update LRU access time
+            self._last_accessed[company_id] = time.monotonic()
+            self._tenant_states.move_to_end(company_id)
+        return state
 
     def is_ready(self, company_id: str, tier: str = "light") -> bool:
         """Is the tenant's AI ready for a specific tier?"""
@@ -205,6 +224,9 @@ class ColdStartService:
         state = self._tenant_states.get(company_id)
         if state is None:
             return False
+        # P8: Touch LRU on access
+        self._last_accessed[company_id] = time.monotonic()
+        self._tenant_states.move_to_end(company_id)
         tier = tier.lower()
         for model_state in state.models_warmed.values():
             if model_state.tier == tier and model_state.warmup_success:
@@ -253,14 +275,23 @@ class ColdStartService:
         )
 
         self._tenant_states[company_id] = state
+        self._last_accessed[company_id] = time.monotonic()
 
-        # Trim old tenant states to prevent unbounded memory growth
+        # P8 FIX: Evict least-recently-used tenants (not oldest signups).
+        # OrderedDict preserves insertion order, and move_to_end() is called
+        # on every access, so the front of the dict is the LRU entry.
         if len(self._tenant_states) > self._max_tenant_states:
-            oldest_keys = list(self._tenant_states.keys())
-            for k in oldest_keys[: len(oldest_keys) // 2]:
-                del self._tenant_states[k]
-            logger.debug(
-                "Trimmed tenant states to %d", len(self._tenant_states)
+            evict_count = len(self._tenant_states) // 4  # Evict 25%
+            evicted = []
+            for _ in range(evict_count):
+                if self._tenant_states:
+                    k, _ = self._tenant_states.popitem(last=False)
+                    self._last_accessed.pop(k, None)
+                    evicted.append(k[:8])
+            logger.info(
+                "LRU evicted %d tenant states: %s",
+                evict_count,
+                evicted,
             )
 
         start_time = time.monotonic()
@@ -314,7 +345,21 @@ class ColdStartService:
         """
         Warm up ALL providers (system-wide, not tenant-specific).
         Call each provider's LIGHT model with a simple probe.
+        P21 FIX: Rate-limited to prevent rapid repeated calls generating
+        unnecessary API costs.
         """
+        # P21: Cooldown guard
+        now = time.monotonic()
+        with self._prewarm_lock:
+            if now - self._last_prewarm_time < _PREWARM_COOLDOWN_SECONDS:
+                remaining = int(_PREWARM_COOLDOWN_SECONDS - (now - self._last_prewarm_time))
+                return {
+                    "status": "cooldown",
+                    "message": f"Prewarm on cooldown. Retry in {remaining}s.",
+                    "cooldown_remaining_seconds": remaining,
+                }
+            self._last_prewarm_time = now
+
         light_combos = [c for c in PREWARM_COMBOS if c.tier == "light"]
         results: Dict[str, Any] = {}
 
@@ -417,7 +462,19 @@ class ColdStartService:
         """Reset tenant warmup state (e.g., after config change)."""
         if company_id and company_id in self._tenant_states:
             del self._tenant_states[company_id]
+            self._last_accessed.pop(company_id, None)
             logger.info("Warmup state invalidated for tenant %s", company_id)
+
+    # P7: Recovery — find tenants marked completed but without warmup state.
+    # Call this on startup to re-warm active tenants after deploy/restart.
+    def recover_tenant_warmup(self, company_id: str, variant_type: str) -> Optional[TenantWarmupState]:
+        """
+        Re-trigger warmup for a tenant that should be warm but isn't
+        (e.g., after server restart). Call from startup recovery.
+        """
+        if company_id in self._tenant_states:
+            return self._tenant_states[company_id]
+        return self.warmup_tenant(company_id, variant_type)
 
     def get_all_tenant_statuses(self) -> dict:
         """Overview of all tenant warmup states for monitoring."""
@@ -457,7 +514,7 @@ class ColdStartService:
 
         try:
             effective_timeout = timeout_ms or combo.max_acceptable_latency_ms
-            result = self._simulate_llm_call(
+            result = self._probe_llm_api(
                 provider=combo.provider,
                 model_id=combo.model_id,
                 query=combo.probe_query,
@@ -494,7 +551,12 @@ class ColdStartService:
 
         return model_state
 
-    def _simulate_llm_call(
+    # P19 FIX: Renamed from _simulate_llm_call to _probe_llm_api.
+    # The old name was misleading — it suggested a mock/simulation but
+    # actually makes REAL HTTP requests to production LLM APIs.
+    # Future developers would see "simulate" and try to mock it,
+    # thinking it's already fake.
+    def _probe_llm_api(
         self,
         provider: str,
         model_id: str,
@@ -502,9 +564,9 @@ class ColdStartService:
         timeout_ms: int,
     ) -> dict:
         """
-        Actually call the LLM API with timeout.
-        Uses urllib.request with timeout — the ONLY method that makes
-        real API calls. In tests, mock this method.
+        Probe a real LLM API endpoint with a test query to warm the model.
+        Uses urllib.request with timeout.
+        In tests, mock this method.
 
         Returns dict with keys: success (bool), response (str), error (str).
         """
@@ -543,10 +605,13 @@ class ColdStartService:
             api_key = getattr(settings, "GROQ_API_KEY", "")
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
+        # P9 FIX: Use x-goog-api-key header instead of URL query parameter.
+        # API keys in URLs appear in server logs, proxy logs, error messages,
+        # and exception stack traces — a security audit failure.
         elif provider == "google" and settings:
             api_key = getattr(settings, "GOOGLE_AI_API_KEY", "")
             if api_key:
-                url = f"{url}?key={api_key}"
+                headers["x-goog-api-key"] = api_key
 
         if provider == "google":
             payload = json.dumps({

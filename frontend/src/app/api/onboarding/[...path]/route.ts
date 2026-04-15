@@ -4,6 +4,9 @@
  * Proxies onboarding wizard requests to the Python backend.
  * Falls back to local JSON-file-based state when backend is unavailable.
  *
+ * P5: Local fallback is DISABLED in production to prevent multi-tenancy
+ *     issues (all users sharing one state file causes data corruption).
+ *
  * Endpoints:
  *   GET  /api/onboarding/state           — Get current onboarding state
  *   POST /api/onboarding/complete-step    — Complete a wizard step
@@ -20,6 +23,11 @@ import * as path from 'path';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
 const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
+
+// P5: In production, local fallback is DISABLED to prevent multi-tenancy issues.
+// When backend is unreachable in production, return 503 instead of falling back
+// to a single shared JSON file that all users would overwrite.
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 async function proxyToBackend(request: NextRequest, pathSegments: string[]): Promise<Response | null> {
   if (!BACKEND_URL) return null;
@@ -51,7 +59,12 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
     }
     return response;
   } catch {
-    // Backend genuinely unreachable — fall back to local handling
+    // P5: In production, do NOT fall back to local JSON state.
+    // All users sharing one state file causes data corruption.
+    if (IS_PRODUCTION) {
+      return null;
+    }
+    // In dev/staging, fall back to local handling
     return null;
   }
 }
@@ -109,6 +122,17 @@ function saveState(state: OnboardingState): void {
   } catch { /* ignore */ }
 }
 
+// P5: Production guard — returns 503 instead of falling back to shared state
+function productionGuard(): Response | null {
+  if (IS_PRODUCTION) {
+    return NextResponse.json(
+      { detail: 'Backend unavailable. Please try again.' },
+      { status: 503 }
+    );
+  }
+  return null;
+}
+
 // ── Route Handler ──────────────────────────────────────────────
 
 export async function GET(
@@ -122,7 +146,11 @@ export async function GET(
   const proxied = await proxyToBackend(request, segments);
   if (proxied) return proxied;
 
-  // Local fallback
+  // P5: Production guard — no local fallback allowed
+  const prodBlock = productionGuard();
+  if (prodBlock) return prodBlock;
+
+  // Local fallback (dev/staging only)
   const state = loadState();
 
   switch (pathKey) {
@@ -161,7 +189,11 @@ export async function POST(
   const proxied = await proxyToBackend(request, segments);
   if (proxied) return proxied;
 
-  // Local fallback
+  // P5: Production guard — no local fallback allowed
+  const prodBlock = productionGuard();
+  if (prodBlock) return prodBlock;
+
+  // Local fallback (dev/staging only)
   const state = loadState();
 
   switch (pathKey) {
@@ -171,8 +203,25 @@ export async function POST(
       if (step < 1 || step > 5) {
         return NextResponse.json({ detail: 'Invalid step' }, { status: 400 });
       }
+      // P18 FIX: Enforce sequential step progression in local fallback.
+      // Without this, users can POST step=5 directly and skip all prerequisites.
+      if (step !== state.current_step) {
+        // P11: Allow skipping optional step 4 (KB) — if user is on step 4,
+        // they can advance without uploading documents.
+        const isOptionalSkip = step === 5 && state.current_step === 4;
+        if (!isOptionalSkip) {
+          return NextResponse.json(
+            { detail: `Invalid step transition. Expected step ${state.current_step}, got ${step}.` },
+            { status: 400 }
+          );
+        }
+      }
       if (!state.completed_steps.includes(step)) {
         state.completed_steps.push(step);
+      }
+      // If skipping step 4, also mark it as completed
+      if (step === 5 && !state.completed_steps.includes(4)) {
+        state.completed_steps.push(4);
       }
       if (step >= state.current_step) {
         state.current_step = step + 1;
@@ -213,8 +262,6 @@ export async function POST(
 
     case 'activate': {
       // D7-6: Validate prerequisites in local fallback too.
-      // This ensures the local dev path doesn't bypass the
-      // same checks that the real backend enforces.
       const missing: string[] = [];
       if (!state.legal_consents) missing.push('Legal consents not accepted');
 
