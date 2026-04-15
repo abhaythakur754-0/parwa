@@ -40,9 +40,14 @@ function getDateRange(preset: string): { start_date: string; end_date: string } 
       start.setDate(start.getDate() - 30);
   }
 
+  // Use local date formatting to avoid UTC offset issues (e.g. dates near midnight)
+  const formatDate = (d: Date) => {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   return {
-    start_date: start.toISOString().split('T')[0],
-    end_date: end.toISOString().split('T')[0],
+    start_date: formatDate(start),
+    end_date: formatDate(end),
   };
 }
 

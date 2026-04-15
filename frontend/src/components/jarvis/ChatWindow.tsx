@@ -66,17 +66,22 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
   const isNearBottomRef = useRef(true);
 
   // Track scroll position — user is near bottom if within 80px
+  // Attach to the ScrollArea viewport (data-radix-scroll-area-viewport),
+  // NOT the outer containerRef which has overflow-hidden and never scrolls.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    const viewport = container.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]');
+    if (!viewport) return;
+
     const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
+      const { scrollTop, scrollHeight, clientHeight } = viewport;
       isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 80;
     };
 
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+    return () => viewport.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Auto-scroll to bottom only when user is near bottom

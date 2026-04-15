@@ -143,8 +143,11 @@ function AnimatedPrice({
   monthly: number;
   isAnnual: boolean;
 }) {
-  const annualTotal = Math.round(monthly * 0.8 * 12);
-  const annualMonthly = Math.round(annualTotal / 12);
+  // D10-P13 FIX: Compute discounted monthly price first, then derive annual.
+  // Previous approach (round annual, divide by 12) caused a $2 discrepancy
+  // where annualMonthly * 12 !== annualTotal due to rounding at two levels.
+  const annualMonthly = Math.round(monthly * 0.8);
+  const annualTotal = annualMonthly * 12;
   const displayPrice = isAnnual ? annualMonthly : monthly;
 
   return (

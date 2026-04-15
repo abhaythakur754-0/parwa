@@ -15,6 +15,8 @@ interface OtpVerificationCardProps {
   onSendOtp: (email: string) => Promise<void>;
   onVerifyOtp: (code: string) => Promise<boolean>;
   initialEmail?: string;
+  /** Current OTP attempt count from the parent hook (single source of truth) */
+  otpAttempts: number;
   maxAttempts?: number;
   onVerified?: () => void;
   /** ISO timestamp when OTP expires (e.g. from server response) */
@@ -25,6 +27,7 @@ export function OtpVerificationCard({
   onSendOtp,
   onVerifyOtp,
   initialEmail = '',
+  otpAttempts,
   maxAttempts = 3,
   onVerified,
   expiresAt,
@@ -34,7 +37,6 @@ export function OtpVerificationCard({
   const [stage, setStage] = useState<'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error'>(
     initialEmail ? 'sent' : 'idle',
   );
-  const [attempts, setAttempts] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
 
@@ -108,8 +110,8 @@ export function OtpVerificationCard({
         setStage('verified');
         onVerified?.();
       } else {
-        const newAttempts = attempts + 1;
-        setAttempts(newAttempts);
+        // D11-P3 Fix: Use otpAttempts prop from parent hook instead of local state
+        const newAttempts = otpAttempts + 1;
         if (newAttempts >= maxAttempts) {
           setError(`Too many attempts. Please request a new OTP.`);
           setStage('error');
@@ -133,7 +135,7 @@ export function OtpVerificationCard({
     try {
       await onSendOtp(email.trim());
       setStage('sent');
-      setAttempts(0);
+      // D11-P3 Fix: attempts reset is handled by the parent hook (sendOtp resets otpState.attempts to 0)
     } catch {
       setError('Failed to resend OTP.');
       setStage('error');

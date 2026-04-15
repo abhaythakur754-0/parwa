@@ -256,6 +256,49 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }));
   }, []);
 
+  // ── D9-P12: Cross-tab token synchronisation ──────────────────────
+  // Listen for parwa:session-expired dispatched by the 401 interceptor
+  // (api.ts) so that all tabs log out together when the refresh token dies.
+  // Also listen for native 'storage' events to detect token changes made
+  // in another tab (login, logout, delete account).
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      clearAuthStorage();
+      setState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        isInitialized: true,
+      });
+      router.push('/login');
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      // If another tab cleared the token, we must also log out
+      if (e.key === AUTH_TOKEN_KEY && !e.newValue) {
+        clearAuthStorage();
+        setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          isInitialized: true,
+        });
+        router.push('/login');
+      }
+      // If another tab set a new token (fresh login), hydrate from storage
+      if (e.key === AUTH_TOKEN_KEY && e.newValue) {
+        hydrate();
+      }
+    };
+
+    window.addEventListener('parwa:session-expired', handleSessionExpired);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('parwa:session-expired', handleSessionExpired);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [router, hydrate]);
+
   // ── Context Value ────────────────────────────────────────────────────
 
   const value = useMemo<AuthContextType>(() => ({

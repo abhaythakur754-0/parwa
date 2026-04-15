@@ -220,6 +220,18 @@ export async function patch<T>(url: string, data?: unknown, config?: AxiosReques
 }
 
 /**
+ * Generic PUT request with safe parsing.
+ */
+export async function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.put<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
  * Generic DELETE request with safe parsing.
  */
 export async function del<T>(url: string, config?: AxiosRequestConfig): Promise<T> {

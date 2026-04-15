@@ -13,6 +13,37 @@ export default function WelcomeDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [initialData, setInitialData] = useState<UserDetails | null>(null);
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [showDraftRestore, setShowDraftRestore] = useState(false);
+  const [draftData, setDraftData] = useState<UserDetails | null>(null);
+
+  // On mount, check for saved draft in sessionStorage
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('parwa_details_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved) as UserDetails;
+        setDraftData(parsed);
+        setShowDraftRestore(true);
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
+
+  const restoreDraft = () => {
+    if (draftData) {
+      setInitialData(draftData);
+      setIsDirty(true);
+    }
+    setShowDraftRestore(false);
+  };
+
+  const dismissDraft = () => {
+    sessionStorage.removeItem('parwa_details_draft');
+    setShowDraftRestore(false);
+    setDraftData(null);
+  };
 
   useEffect(() => {
     async function fetchInitialData() {
@@ -23,7 +54,7 @@ export default function WelcomeDetailsPage() {
         ]);
         setInitialData(details);
         setOnboardingState(state);
-        if (state?.details_completed) router.push('/onboarding?mode=wizard');
+        if (state?.details_completed && !isDirty) router.push('/onboarding?mode=wizard');
       } catch (error) {
         console.error('Failed to fetch initial data:', error);
       } finally {
@@ -31,10 +62,17 @@ export default function WelcomeDetailsPage() {
       }
     }
     fetchInitialData();
-  }, [router]);
+  }, [router, isDirty]);
 
-  const handleSubmit = (data: UserDetails) => { setInitialData(data); };
-  const handleNext = () => { router.push('/onboarding?mode=wizard'); };
+  const handleSubmit = (data: UserDetails) => {
+    setInitialData(data);
+    sessionStorage.setItem('parwa_details_draft', JSON.stringify(data));
+    setIsDirty(false);
+  };
+  const handleNext = () => {
+    sessionStorage.removeItem('parwa_details_draft');
+    router.push('/onboarding?mode=wizard');
+  };
 
   if (isLoading) {
     return (
@@ -76,6 +114,27 @@ export default function WelcomeDetailsPage() {
             <h1 className="text-3xl font-bold text-gradient">PARWA</h1>
             <p className="text-orange-200/50 text-sm mt-1">AI-Powered Customer Support</p>
           </div>
+
+            {/* Draft restore banner */}
+          {showDraftRestore && (
+            <div className="mb-4 px-4 py-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+              <p className="text-sm text-orange-300 mb-2">You have an unsaved draft. Restore it?</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={restoreDraft}
+                  className="px-3 py-1.5 rounded-md bg-orange-500/20 text-orange-300 text-xs font-medium hover:bg-orange-500/30 transition-colors"
+                >
+                  Restore
+                </button>
+                <button
+                  onClick={dismissDraft}
+                  className="px-3 py-1.5 rounded-md text-zinc-400 text-xs hover:text-zinc-300 transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
 
           <DetailsForm initialData={initialData} onSubmit={handleSubmit} onNext={handleNext} />
         </div>

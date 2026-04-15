@@ -10,7 +10,7 @@ interface DashboardAlertsProps {
   /** Alert data from dashboard home /anomalies */
   alerts: AnomalyAlert[];
   /** Optional callback when an alert is dismissed */
-  onDismiss?: (alertIndex: number) => void;
+  onDismiss?: (alertKey: string) => void;
   className?: string;
 }
 
@@ -175,18 +175,23 @@ function AlertBanner({
   );
 }
 
-// ── DashboardAlerts Component ─────────────────────────────────────────
+// ── Stable Alert Key ───────────────────────────────────────────────
+
+function getAlertKey(alert: AnomalyAlert): string {
+  // Use composite key from alert properties that uniquely identify it
+  return `${alert.type}::${alert.detected_at}::${alert.severity}::${alert.message}`;
+}
 
 export default function DashboardAlerts({
   alerts,
   onDismiss,
   className,
 }: DashboardAlertsProps) {
-  const [dismissedIndices, setDismissedIndices] = useState<Set<number>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
   if (alerts.length === 0) return null;
 
-  const visibleAlerts = alerts.filter((_, i) => !dismissedIndices.has(i));
+  const visibleAlerts = alerts.filter((a) => !dismissedIds.has(getAlertKey(a)));
 
   if (visibleAlerts.length === 0) return null;
 
@@ -204,7 +209,7 @@ export default function DashboardAlerts({
             </div>
           </div>
           <button
-            onClick={() => setDismissedIndices(new Set(alerts.map((_, i) => i)))}
+            onClick={() => setDismissedIds(new Set(alerts.map(a => getAlertKey(a))))}
             aria-label="Dismiss all alerts"
             className="text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors"
           >
@@ -214,15 +219,15 @@ export default function DashboardAlerts({
       )}
 
       {/* Alert banners */}
-      {visibleAlerts.map((alert, idx) => {
-        const originalIndex = alerts.indexOf(alert);
+      {visibleAlerts.map((alert) => {
+        const key = getAlertKey(alert);
         return (
           <AlertBanner
-            key={`${alert.type}-${alert.detected_at}-${originalIndex}`}
+            key={key}
             alert={alert}
             onDismiss={() => {
-              setDismissedIndices(prev => new Set(prev).add(originalIndex));
-              onDismiss?.(originalIndex);
+              setDismissedIds(prev => new Set(prev).add(key));
+              onDismiss?.(key);
             }}
           />
         );

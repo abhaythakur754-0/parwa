@@ -46,7 +46,7 @@ interface ChatMessageProps {
     isDemoPackActive?: boolean;
     isHandoffComplete?: boolean;
     paymentProcessing?: boolean;
-    otpState?: { status: string; email: string };
+    otpState?: { status: string; email: string; attempts?: number };
     demoCallState?: { status: string; phone: string | null; duration: number };
   };
 }
@@ -303,6 +303,7 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
             onSendOtp={hookActions?.sendOtp || (async () => {})}
             onVerifyOtp={hookActions?.verifyOtp || (async () => false)}
             initialEmail={sessionState?.otpState?.email || (metadata.email as string) || ''}
+            otpAttempts={sessionState?.otpState?.attempts ?? 0}
             onVerified={undefined}
           />
         </CardWrapper>

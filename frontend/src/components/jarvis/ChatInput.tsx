@@ -38,6 +38,7 @@ export function ChatInput({
   isDemoPackActive,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendingRef = useRef(false);
 
@@ -99,6 +100,16 @@ export function ChatInput({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // D11-P2 Fix: File size guard — reject files over 1MB before any FileReader work
+    const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
+    if (file.size > MAX_FILE_SIZE) {
+      setError('File too large. Maximum 1MB.');
+      e.target.value = ''; // clear the input
+      return;
+    }
+
+    setError(null);
+
     // For the onboarding demo, we read small text files directly
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -135,6 +146,14 @@ export function ChatInput({
   return (
     <div className="shrink-0 bg-[#0D0D0D] px-4 pb-8 pt-2">
       <div className="max-w-3xl mx-auto">
+      {/* File upload error */}
+      {error && (
+        <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-red-500/10 border border-red-500/15">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          <p className="text-xs text-red-200/80">{error}</p>
+        </div>
+      )}
+
       {/* Limit reached banner */}
       {isLimitReached && (
         <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/15">
@@ -174,7 +193,7 @@ export function ChatInput({
           <textarea
             ref={textareaRef}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => { setValue(e.target.value); setError(null); }}
             onKeyDown={handleKeyDown}
             placeholder={
               isLoading

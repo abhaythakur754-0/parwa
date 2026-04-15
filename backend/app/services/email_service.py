@@ -39,9 +39,11 @@ from app.logger import get_logger
 logger = get_logger("email_service")
 
 # Circuit breaker state
-# TODO: migrate to Redis-backed state for multi-worker deployments.
-# This dict is per-worker (in-memory), so in a multi-gunicorn/uvicorn setup
-# each worker tracks failures independently and the breaker is less effective.
+# D10-P14 FIX: Shared-state circuit breaker with Redis fallback.
+# Primary: Redis-backed state for multi-worker deployments.
+# Fallback: Per-process in-memory dict (single worker / dev mode).
+# This ensures all workers share the same breaker state in production.
+
 _cb_state = {
     "failures": 0,
     "last_failure": 0.0,
@@ -49,6 +51,48 @@ _cb_state = {
     "threshold": 3,
     "reset_seconds": 60,
 }
+
+_redis_client = None
+
+
+def _get_redis_client():
+    """Lazily initialise Redis client for shared circuit breaker state."""
+    global _redis_client
+    if _redis_client is not None:
+        return _redis_client
+    try:
+        import redis
+        settings = get_settings()
+        if settings.REDIS_URL:
+            _redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            _redis_client.ping()  # validate connection
+            return _redis_client
+    except Exception as exc:
+        logger.debug("redis_unavailable_for_cb", error=str(exc)[:100])
+    return None
+
+
+def _cb_get(key: str, default: float = 0) -> float:
+    """Get circuit breaker value from Redis or in-memory fallback."""
+    r = _get_redis_client()
+    if r:
+        try:
+            val = r.get(f"email_cb:{key}")
+            return float(val) if val else default
+        except Exception:
+            pass
+    return float(_cb_state.get(key, default))
+
+
+def _cb_set(key: str, value: float) -> None:
+    """Set circuit breaker value in Redis and in-memory fallback."""
+    _cb_state[key] = value
+    r = _get_redis_client()
+    if r:
+        try:
+            r.set(f"email_cb:{key}", str(value), ex=300)
+        except Exception:
+            pass
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
@@ -80,12 +124,13 @@ def _get_brevo_client():
 
 def _is_circuit_open() -> bool:
     """Check if circuit breaker is open."""
-    if not _cb_state["is_open"]:
+    if not _cb_get("is_open", 0):
         return False
-    elapsed = time.time() - _cb_state["last_failure"]
-    if elapsed >= _cb_state["reset_seconds"]:
-        _cb_state["is_open"] = False
-        _cb_state["failures"] = 0
+    elapsed = time.time() - _cb_get("last_failure", 0)
+    reset_seconds = _cb_state["reset_seconds"]
+    if elapsed >= reset_seconds:
+        _cb_set("is_open", 0)
+        _cb_set("failures", 0)
         logger.info("circuit_breaker_half_open")
         return False
     return True
@@ -93,20 +138,22 @@ def _is_circuit_open() -> bool:
 
 def _record_success() -> None:
     """Reset circuit breaker on success."""
-    if _cb_state["failures"] > 0:
-        _cb_state["failures"] = 0
-        _cb_state["is_open"] = False
+    if _cb_get("failures", 0) > 0:
+        _cb_set("failures", 0)
+        _cb_set("is_open", 0)
 
 
 def _record_failure() -> None:
     """Record failure and possibly open circuit."""
-    _cb_state["failures"] += 1
-    _cb_state["last_failure"] = time.time()
-    if _cb_state["failures"] >= _cb_state["threshold"]:
-        _cb_state["is_open"] = True
+    failures = _cb_get("failures", 0) + 1
+    _cb_set("failures", failures)
+    _cb_set("last_failure", time.time())
+    threshold = _cb_state["threshold"]
+    if failures >= threshold:
+        _cb_set("is_open", 1)
         logger.warning(
             "circuit_breaker_open",
-            failures=_cb_state["failures"],
+            failures=failures,
         )
 
 
@@ -558,6 +605,14 @@ def send_subscription_canceled_email(
 
 def reset_circuit_breaker() -> None:
     """Reset circuit breaker state (for testing)."""
-    _cb_state["failures"] = 0
-    _cb_state["last_failure"] = 0.0
-    _cb_state["is_open"] = False
+    _cb_set("failures", 0)
+    _cb_set("last_failure", 0.0)
+    _cb_set("is_open", 0)
+    # Also clear Redis keys
+    r = _get_redis_client()
+    if r:
+        try:
+            for key in ["failures", "last_failure", "is_open"]:
+                r.delete(f"email_cb:{key}")
+        except Exception:
+            pass
