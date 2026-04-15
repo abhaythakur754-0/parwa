@@ -104,14 +104,35 @@ class TrainingRun(Base):
         nullable=False, index=True,
     )
     agent_id = Column(String(36), ForeignKey("agents.id"))
-    # auto_mistake_threshold, time_fallback, manual
+    dataset_id = Column(String(36), ForeignKey("training_datasets.id"))
+    name = Column(String(255))
+    # manual, auto_threshold, scheduled, cold_start
     trigger = Column(String(50), nullable=False)
+    base_model = Column(String(255))
+    status = Column(String(50), default="queued")  # queued, initializing, running, completed, failed, cancelled
+    progress_pct = Column(Numeric(5, 2), default=0)
+    current_epoch = Column(Integer, default=0)
+    total_epochs = Column(Integer, default=3)
+    epochs = Column(Integer, default=3)
+    learning_rate = Column(Numeric(10, 8), default=0.0001)
+    batch_size = Column(Integer, default=16)
+    # Mistake count at trigger (for F-101)
     mistake_count_at_trigger = Column(Integer, default=0)
-    status = Column(String(50), default="pending")
     dataset_size = Column(Integer, default=0)
+    # Model storage paths
+    model_path = Column(Text)
+    checkpoint_path = Column(Text)
+    # GPU Provider info (F-102)
+    provider = Column(String(50))  # local, colab, runpod
+    instance_id = Column(String(255))
+    gpu_type = Column(String(50))  # T4, A100, V100, A10G
+    cost_usd = Column(Numeric(10, 4), default=0)
+    # Timestamps
     started_at = Column(DateTime)
     completed_at = Column(DateTime)
-    metrics = Column(Text)  # JSON
+    # Metrics JSON (loss, accuracy, quality_score, etc.)
+    metrics = Column(Text)
+    # Model management
     previous_model_id = Column(String(255))
     new_model_id = Column(String(255))
     rolled_back = Column(Boolean, default=False)

@@ -355,6 +355,120 @@ class DatasetPreparationService:
 
         return {"status": "archived", "dataset_id": dataset_id}
 
+    def create_dataset_from_samples(
+        self,
+        company_id: str,
+        agent_id: str,
+        samples: List[Dict],
+        name: str,
+        source: str = "cold_start_template",
+    ) -> Dict:
+        """Create a dataset directly from provided samples (for cold start).
+
+        Args:
+            company_id: Tenant company ID.
+            agent_id: Agent this dataset is for.
+            samples: List of training samples with 'input' and 'expected_output'.
+            name: Dataset name.
+            source: Data source type.
+
+        Returns:
+            Dict with dataset_id and sample_count.
+        """
+        from database.models.training import TrainingDataset
+
+        if not samples:
+            return {
+                "status": "error",
+                "error": "No samples provided",
+            }
+
+        # Create dataset record
+        dataset = TrainingDataset(
+            company_id=company_id,
+            agent_id=agent_id,
+            name=name,
+            source=source,
+            status=DATASET_STATUS_PREPARING,
+            record_count=0,
+            format_version=FORMAT_VERSION,
+        )
+        self.db.add(dataset)
+        self.db.commit()
+        self.db.refresh(dataset)
+        dataset_id = str(dataset.id)
+
+        try:
+            # Transform to training format
+            training_data = []
+            for i, sample in enumerate(samples):
+                formatted = {
+                    "id": sample.get("id", f"{dataset_id}_{i}"),
+                    "messages": [
+                        {"role": "user", "content": sample.get("input", "")},
+                        {"role": "assistant", "content": sample.get("expected_output", "")},
+                    ],
+                    "metadata": {
+                        "source": source,
+                        "type": sample.get("type", "template"),
+                        "category": sample.get("category"),
+                        "industry": sample.get("industry"),
+                    },
+                }
+                training_data.append(formatted)
+
+            # Calculate quality score
+            quality_score = self._calculate_quality_score(training_data)
+
+            # Store dataset
+            storage_path = self._store_dataset(company_id, dataset_id, training_data)
+
+            # Update dataset record
+            dataset.status = DATASET_STATUS_READY
+            dataset.record_count = len(samples)
+            dataset.quality_score = quality_score
+            dataset.storage_path = storage_path
+            dataset.prepared_at = datetime.now(timezone.utc)
+            self.db.commit()
+
+            logger.info(
+                "dataset_created_from_samples",
+                extra={
+                    "company_id": company_id,
+                    "agent_id": agent_id,
+                    "dataset_id": dataset_id,
+                    "sample_count": len(samples),
+                    "source": source,
+                },
+            )
+
+            return {
+                "status": "created",
+                "dataset_id": dataset_id,
+                "sample_count": len(samples),
+                "quality_score": quality_score,
+                "storage_path": storage_path,
+            }
+
+        except Exception as exc:
+            dataset.status = DATASET_STATUS_FAILED
+            dataset.error_message = str(exc)[:500]
+            self.db.commit()
+
+            logger.error(
+                "create_dataset_from_samples_failed",
+                extra={
+                    "company_id": company_id,
+                    "agent_id": agent_id,
+                    "dataset_id": dataset_id,
+                    "error": str(exc)[:200],
+                },
+            )
+            return {
+                "status": "error",
+                "error": str(exc)[:500],
+            }
+
     # ══════════════════════════════════════════════════════════════════════════
     # Data Collection Methods
     # ══════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,6 @@
 # PARWA Execution Roadmap
 
-> **Last Updated:** Week 17 Day 5 COMPLETE (F-104, F-105) → Moving to Week 17 Day 6
+> **Last Updated:** Week 17 Day 6 COMPLETE (F-106, F-107) → Moving to Week 17 Day 7
 > **Current Phase:** Week 17 - Integrations + Settings (F-031, F-097 to F-108)
 
 ---
@@ -24,7 +24,7 @@
 | **Week 13** | Channels — Phase 4 | ✅ COMPLETE | Communication Channels (F-120 to F-130) |
 | **Week 14** | Jarvis Command Center | ✅ COMPLETE | F-087 to F-096 (10 features, 93 tests) |
 | **Week 15** | Dashboard + Analytics | ✅ COMPLETE | F-036 to F-045 (10 features, 35 tests) |
-| **Week 17** | Integrations + Settings | 🔵 IN PROGRESS | F-031, F-097 to F-108 (Day 5 complete: F-100-F-105) |
+| **Week 17** | Integrations + Settings | 🔵 IN PROGRESS | F-031, F-097 to F-108 (Day 6 complete: F-100-F-107) |
 | **Week 18-21** | Public Facing + Training + Polish | ⬜ UPCOMING | Phase 5 |
 
 ---
@@ -776,10 +776,19 @@ Week 17 builds Integrations + Settings — Custom Integration Builder (F-031), A
 | Deployment Monitoring | F-105 | ✅ Done | Integrated in model_deployment_service.py |
 | F-104/F-105 tests | — | ✅ Done | `backend/app/tests/test_w17_day5_validation_deployment.py` |
 
-#### Day 6 — Fallback Training + Cold Start (F-106, F-107)
-- Bi-weekly scheduled retraining
-- New agent cold start handling
-- Industry template injection
+#### Day 6 — Fallback Training + Cold Start (F-106, F-107) ✅ COMPLETE
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Bi-weekly Scheduled Retraining Service | F-106 | ✅ Done | `backend/app/services/fallback_training_service.py` |
+| Retraining Schedule Management | F-106 | ✅ Done | Integrated in fallback_training_service.py |
+| Training Effectiveness Tracking | F-106 | ✅ Done | Integrated in fallback_training_service.py |
+| Cold Start Detection | F-107 | ✅ Done | `backend/app/services/cold_start_service.py` |
+| Industry Templates (9 industries) | F-107 | ✅ Done | Integrated in cold_start_service.py |
+| Template Training Data Generation | F-107 | ✅ Done | Integrated in cold_start_service.py |
+| Cold Start Initialization | F-107 | ✅ Done | Integrated in cold_start_service.py |
+| Training Advanced API | — | ✅ Done | `backend/app/api/training_advanced.py` |
+| F-106/F-107 tests | — | ✅ Done | `backend/app/tests/test_w17_day6_training.py` |
 
 #### Day 7 — Peer Review + Integration Testing (F-108)
 - Junior-to-senior escalation
@@ -794,7 +803,7 @@ Week 17 builds Integrations + Settings — Custom Integration Builder (F-031), A
 | **Day 3** | Training Loop + Mistake Threshold | F-100, F-101 ✅ |
 | **Day 4** | Training Execution + Dataset | F-102, F-103 ✅ |
 | **Day 5** | Model Validation + Deployment | F-104, F-105 ✅ |
-| **Day 6** | Fallback Training + Cold Start | F-106, F-107 |
+| **Day 6** | Fallback Training + Cold Start | F-106, F-107 ✅ |
 | **Day 7** | Peer Review + Integration | F-108 |
 
 ---

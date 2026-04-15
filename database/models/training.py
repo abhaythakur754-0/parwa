@@ -30,10 +30,16 @@ class TrainingDataset(Base):
     )
     agent_id = Column(String(36), ForeignKey("agents.id"))
     name = Column(String(255), nullable=False)
+    description = Column(Text)
     record_count = Column(Integer, default=0)
-    source = Column(String(50), nullable=False)  # mistakes, manual, export
+    source = Column(String(50), nullable=False)  # mistakes, manual, export, cold_start_template
     status = Column(String(50), default="draft")
     file_path = Column(Text)
+    storage_path = Column(Text)  # Path to stored JSONL file
+    quality_score = Column(Numeric(5, 3))
+    format_version = Column(String(10), default="1.0")
+    error_message = Column(Text)
+    prepared_at = Column(DateTime)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
