@@ -414,6 +414,28 @@ class PaddleClient:
 
         return await self._request("GET", "/transactions", params=params)
 
+    async def create_transaction(
+        self,
+        customer_id: str,
+        items: List[Dict[str, Any]],
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Create a one-time transaction (charge) in Paddle.
+
+        API: POST /transactions
+
+        Args:
+            customer_id: Paddle customer ID
+            items: List of {"price_id": str, "quantity": int} dicts
+        """
+        data = {
+            "customer_id": customer_id,
+            "items": items,
+            **kwargs,
+        }
+        return await self._request("POST", "/transactions", json=data)
+
     # ── Price Methods ────────────────────────────────────────────────
 
     async def get_price(self, price_id: str) -> Dict[str, Any]:

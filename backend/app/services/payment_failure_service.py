@@ -200,7 +200,7 @@ class PaymentFailureService:
                             <p><strong>Company:</strong> {company.name}</p>
                             <p><strong>Reason:</strong> {failure_reason or 'Payment declined by payment provider'}</p>
                             <p>Please update your payment method to avoid service interruption.</p>
-                            <p>Your AI agents will remain active for 48 hours. After that, they will be paused until payment is resolved.</p>
+                            <p><strong>Your AI agents have been stopped immediately.</strong> Please update your payment method to resume service. If not resolved within 7 days, your subscription will be canceled.</p>
                             </body></html>
                             """,
                         )
@@ -412,7 +412,7 @@ class PaymentFailureService:
                     "paddle_transaction_id": f.paddle_transaction_id,
                     "failure_code": f.failure_code,
                     "failure_reason": f.failure_reason,
-                    "amount_attempted": float(f.amount_attempted) if f.amount_attempted else None,
+                    "amount_attempted": str(f.amount_attempted) if f.amount_attempted else None,
                     "currency": f.currency,
                     "service_stopped_at": f.service_stopped_at.isoformat() if f.service_stopped_at else None,
                     "service_resumed_at": f.service_resumed_at.isoformat() if f.service_resumed_at else None,
@@ -451,7 +451,7 @@ class PaymentFailureService:
                 "paddle_transaction_id": failure.paddle_transaction_id,
                 "failure_code": failure.failure_code,
                 "failure_reason": failure.failure_reason,
-                "amount_attempted": float(failure.amount_attempted) if failure.amount_attempted else None,
+                "amount_attempted": str(failure.amount_attempted) if failure.amount_attempted else None,
                 "currency": failure.currency,
                 "service_stopped_at": failure.service_stopped_at.isoformat() if failure.service_stopped_at else None,
                 "resolved": failure.resolved,

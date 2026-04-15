@@ -29,11 +29,12 @@ logger = logging.getLogger(__name__)
 # ── Mock data factories ────────────────────────────────────────────
 
 _PLANS = [
-    {"plan_id": "PARWA-STD-MO", "name": "Standard Monthly", "price": 49.00},
-    {"plan_id": "PARWA-STD-YR", "name": "Standard Annual", "price": 499.00},
-    {"plan_id": "PARWA-PRO-MO", "name": "Pro Monthly", "price": 99.00},
-    {"plan_id": "PARWA-PRO-YR", "name": "Pro Annual", "price": 999.00},
-    {"plan_id": "PARWA-ENT-YR", "name": "Enterprise Annual", "price": 2999.00},
+    {"plan_id": "PARWA-STARTER-MO", "name": "Mini PARWA", "price": 999.00},
+    {"plan_id": "PARWA-STARTER-YR", "name": "Mini PARWA (Annual)", "price": 9990.00},
+    {"plan_id": "PARWA-GROWTH-MO", "name": "PARWA", "price": 2499.00},
+    {"plan_id": "PARWA-GROWTH-YR", "name": "PARWA (Annual)", "price": 24990.00},
+    {"plan_id": "PARWA-HIGH-MO", "name": "PARWA High", "price": 3999.00},
+    {"plan_id": "PARWA-HIGH-YR", "name": "PARWA High (Annual)", "price": 39990.00},
 ]
 
 _PAYMENT_METHODS = ["visa_****4242", "mastercard_****8888", "amex_****1234", "bank_acct_****5678"]

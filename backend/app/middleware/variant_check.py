@@ -134,6 +134,26 @@ class VariantCheckMiddleware:
         result = await self._check_limit(company_id, limit_type)
 
         if not result.get("allowed", True):
+            # Service error (unable to verify) → 503 Service Unavailable
+            if result.get("error") and not result.get("limit"):
+                logger.error(
+                    "variant_check_service_error company_id=%s limit_type=%s error=%s path=%s",
+                    company_id,
+                    limit_type,
+                    result.get("error"),
+                    path,
+                )
+                response = JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": result.get("error"),
+                        "message": result.get("error"),
+                    },
+                )
+                await response(scope, receive, send)
+                return
+
+            # Limit exceeded → 402 Payment Required
             logger.info(
                 "variant_limit_exceeded company_id=%s limit_type=%s "
                 "current_usage=%s limit=%s path=%s",
@@ -266,13 +286,11 @@ class VariantCheckMiddleware:
 
         For ``tickets`` the full usage-vs-limit check is performed.
         For other limit types (team_members, ai_agents, kb_docs) the
-        check is delegated to the service layer since those require a
-        ``current_count`` parameter that is only known after request
-        body parsing.
+        check is delegated to ``enforce_limit`` on the service layer.
 
-        The method is **fail-open**: on any service error the request
-        is allowed through so that a transient service failure never
-        blocks legitimate traffic.
+        The method is **fail-closed**: on any service error the request
+        is blocked with a 503 status so that a transient service failure
+        never allows unchecked resource consumption.
 
         Args:
             company_id: The tenant's company identifier.
@@ -282,12 +300,19 @@ class VariantCheckMiddleware:
         Returns:
             ``{"allowed": True}`` when within limits, or
             ``{"allowed": False, "message": ..., "current_usage": ...,
-              "limit": ...}`` when the limit has been exceeded.
+              "limit": ...}`` when the limit has been exceeded, or
+            ``{"allowed": False, "error": ...}`` when verification fails.
         """
-        # Team/agent/KB limits need current_count from request body —
-        # defer those to the service layer inside the route handler.
         if limit_type != "tickets":
-            return {"allowed": True}
+            # Enforce all resource limits, not just tickets
+            from app.services.variant_limit_service import get_variant_limit_service
+            limit_service = get_variant_limit_service()
+            try:
+                result = limit_service.enforce_limit(company_id, limit_type)
+                return result  # Returns {"allowed": True} on success
+            except Exception as limit_err:
+                logger.error("variant_check_enforcement_failed limit_type=%s error=%s", limit_type, str(limit_err))
+                return {"allowed": False, "error": f"Unable to verify {limit_type} limit"}
 
         try:
             from app.services.variant_limit_service import (
@@ -298,11 +323,10 @@ class VariantCheckMiddleware:
             result = await service.check_ticket_limit(UUID(company_id))
             return result
         except Exception as exc:
-            logger.warning(
+            logger.error(
                 "variant_check_failed company_id=%s limit_type=%s error=%s",
                 company_id,
                 limit_type,
                 str(exc)[:200],
             )
-            # Fail open — never block on middleware errors
-            return {"allowed": True}
+            return {"allowed": False, "error": "Unable to verify resource limit. Please try again."}

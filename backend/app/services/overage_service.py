@@ -44,6 +44,9 @@ from database.models.billing import Subscription, OverageCharge
 from database.models.billing_extended import UsageRecord, get_variant_limits
 from database.models.core import Company
 
+import os
+OVERAGE_PRICE_ID = os.getenv("PADDLE_OVERAGE_PRICE_ID", "pri_overage")
+
 logger = logging.getLogger("parwa.services.overage")
 
 # Overage rate: $0.10 per ticket
@@ -166,8 +169,8 @@ class OverageService:
                 db.commit()
                 db.refresh(usage_record)
 
-            # Get month-to-date usage
-            month_start = target_date.replace(day=1)
+            # Get month-to-date usage (current day's record is already included
+            # because it was committed before this query and has same record_month)
             month_usage = db.query(
                 func.sum(UsageRecord.tickets_used).label("total_tickets")
             ).filter(
@@ -175,8 +178,7 @@ class OverageService:
                 UsageRecord.record_month == target_date.strftime("%Y-%m"),
             ).scalar() or 0
 
-            # Add current day's usage
-            total_tickets = int(month_usage) + usage_record.tickets_used
+            total_tickets = int(month_usage)
 
             # Calculate overage
             overage_result = self._calculate_overage(total_tickets, ticket_limit)
@@ -355,7 +357,7 @@ class OverageService:
             result = await paddle.create_transaction(
                 customer_id=company.paddle_customer_id,
                 items=[{
-                    "price_id": "pri_overage",  # Overage price ID in Paddle
+                    "price_id": OVERAGE_PRICE_ID,
                     "quantity": overage_charge.tickets_over_limit,
                 }],
                 custom_data={
@@ -588,8 +590,8 @@ class OverageService:
             ).first()
 
             if usage_record:
-                # Update existing record
-                usage_record.tickets_used = ticket_count
+                # Increment existing record (not replace)
+                usage_record.tickets_used = (usage_record.tickets_used or 0) + ticket_count
             else:
                 # Create new record
                 usage_record = UsageRecord(
