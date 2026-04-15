@@ -629,6 +629,51 @@ def activate_ai(
         ai_name=ai_name,
     )
 
+    # D7-1: Trigger cold start warmup for the tenant's AI models.
+    # This runs asynchronously (fire-and-forget) so the activation
+    # response returns immediately. Model warmup happens in the
+    # background so the first real customer interaction isn't slow.
+    try:
+        from app.core.cold_start_service import get_cold_start_service
+        # Determine variant_type from plan tier (default to parwa)
+        from database.models.user_details import UserDetails
+        details = db.query(UserDetails).filter(
+            UserDetails.company_id == company_id,
+        ).first()
+        # Map company size to variant type for tier selection
+        variant_type = "parwa"  # default
+        if details:
+            size_to_variant = {
+                "1_10": "mini_parwa",
+                "11_50": "parwa",
+                "51_200": "parwa",
+                "201_500": "parwa_high",
+                "501_1000": "parwa_high",
+                "1000_plus": "parwa_high",
+            }
+            variant_type = size_to_variant.get(details.company_size, "parwa")
+
+        cold_start = get_cold_start_service()
+        warmup_result = cold_start.warmup_tenant(company_id, variant_type)
+        logger.info(
+            "cold_start_warmup_triggered",
+            user_id=user_id,
+            company_id=company_id,
+            variant_type=variant_type,
+            overall_status=warmup_result.overall_status.value,
+            time_to_warm_ms=warmup_result.time_to_warm_ms,
+            fallback_used=warmup_result.fallback_used,
+        )
+    except Exception as e:
+        # Cold start failure should NOT block activation.
+        # The AI will still work — just slower on first request.
+        logger.warning(
+            "cold_start_warmup_failed_non_blocking",
+            user_id=user_id,
+            company_id=company_id,
+            error=str(e),
+        )
+
     return {
         "message": "AI assistant activated successfully.",
         "ai_name": session.ai_name,

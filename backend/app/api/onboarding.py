@@ -14,7 +14,10 @@ AI activation, and first victory celebration.
 BC-001: All operations scoped to authenticated user's company_id.
 """
 
+from typing import List
+
 from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -122,13 +125,20 @@ def api_legal_consent(
 # ── AI Activation (Step 5) ────────────────────────────────────────
 
 
+class PrerequisitesResponse(BaseModel):
+    """Response for prerequisite check."""
+    can_activate: bool
+    missing: List[str] = []
+
+
 @router.get(
     "/prerequisites",
+    response_model=PrerequisitesResponse,
 )
 def api_get_prerequisites(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> dict:
+) -> PrerequisitesResponse:
     """Check AI activation prerequisites.
 
     Returns which prerequisites are met and which are missing.
@@ -141,7 +151,7 @@ def api_get_prerequisites(
         user_id=user.id,
         company_id=user.company_id,
     )
-    return prereqs
+    return PrerequisitesResponse(**prereqs)
 
 
 @router.post(

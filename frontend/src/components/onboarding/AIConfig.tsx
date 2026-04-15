@@ -47,18 +47,58 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
   const [activated, setActivated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [prereqError, setPrereqError] = useState<string | null>(null);
+
   useEffect(() => {
     fetch('/api/onboarding/prerequisites')
       .then((res) => res.json())
-      .then(setPrerequisites)
+      .then((data) => {
+        if (data && typeof data.can_activate === 'boolean') {
+          setPrerequisites(data);
+        } else {
+          // Malformed response — treat as unknown
+          setPrerequisites({ can_activate: false, missing: ['Unable to verify prerequisites. Please refresh.'] });
+        }
+      })
       .catch(() => {
-        // Fallback: allow activation if prerequisites endpoint fails
-        setPrerequisites({ can_activate: true, missing: [] });
+        // D7-3: On error, BLOCK activation instead of silently allowing it.
+        // Previously this fell back to can_activate: true, which bypassed
+        // all prerequisite checks if the backend was unreachable.
+        setPrereqError('Could not reach server. Check your connection and refresh.');
+        setPrerequisites({ can_activate: false, missing: ['Server unreachable — cannot verify prerequisites.'] });
       })
       .finally(() => setLoading(false));
   }, []);
 
   const handleActivate = async () => {
+    // D7-4: Client-side validation before making network request
+    const validationErrors: string[] = [];
+    const trimmedName = aiName.trim();
+    if (!trimmedName) {
+      validationErrors.push('Assistant name is required.');
+    } else if (trimmedName.length < 2) {
+      validationErrors.push('Assistant name must be at least 2 characters.');
+    }
+
+    const validTones = ['professional', 'friendly', 'casual'];
+    if (!validTones.includes(aiTone)) {
+      validationErrors.push(`Invalid tone: ${aiTone}.`);
+    }
+
+    const validStyles = ['concise', 'detailed'];
+    if (!validStyles.includes(aiStyle)) {
+      validationErrors.push(`Invalid response style: ${aiStyle}.`);
+    }
+
+    if (aiGreeting && aiGreeting.length > 500) {
+      validationErrors.push('Greeting must be 500 characters or fewer.');
+    }
+
+    if (validationErrors.length > 0) {
+      setError(validationErrors.join(' '));
+      return;
+    }
+
     setActivating(true);
     setError(null);
 
@@ -67,10 +107,10 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ai_name: aiName,
+          ai_name: trimmedName,
           ai_tone: aiTone,
           ai_response_style: aiStyle,
-          ai_greeting: aiGreeting || undefined,
+          ai_greeting: aiGreeting.trim() || undefined,
         }),
       });
 
@@ -107,8 +147,16 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
         </p>
       </div>
 
+      {/* Prerequisites fetch error */}
+      {prereqError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{prereqError}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Prerequisites Warnings */}
-      {prerequisites && !prerequisites.can_activate && (
+      {prerequisites && !prerequisites.can_activate && !prereqError && (
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
@@ -220,7 +268,7 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
       <div className="flex justify-end">
         <Button
           onClick={handleActivate}
-          disabled={activating || activated || (prerequisites && !prerequisites.can_activate)}
+          disabled={activating || activated || !prerequisites?.can_activate || !!prereqError}
           size="lg"
         >
           {activating ? (

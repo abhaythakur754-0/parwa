@@ -212,11 +212,35 @@ export async function POST(
     }
 
     case 'activate': {
+      // D7-6: Validate prerequisites in local fallback too.
+      // This ensures the local dev path doesn't bypass the
+      // same checks that the real backend enforces.
+      const missing: string[] = [];
+      if (!state.legal_consents) missing.push('Legal consents not accepted');
+
+      if (missing.length > 0) {
+        return NextResponse.json(
+          { detail: `Prerequisites not met: ${missing.join(', ')}` },
+          { status: 422 },
+        );
+      }
+
       const body = await request.json().catch(() => ({}));
-      state.ai_name = body.ai_name || 'Jarvis';
-      state.ai_tone = body.ai_tone || 'professional';
-      state.ai_response_style = body.ai_response_style || 'concise';
-      state.ai_greeting = body.ai_greeting || null;
+
+      // Basic validation of AI config values
+      const ai_name = (body.ai_name || 'Jarvis').trim().slice(0, 50);
+      const ai_tone = ['professional', 'friendly', 'casual'].includes(body.ai_tone)
+        ? body.ai_tone : 'professional';
+      const ai_response_style = ['concise', 'detailed'].includes(body.ai_response_style)
+        ? body.ai_response_style : 'concise';
+      const ai_greeting = body.ai_greeting
+        ? String(body.ai_greeting).trim().slice(0, 500) || null
+        : null;
+
+      state.ai_name = ai_name;
+      state.ai_tone = ai_tone;
+      state.ai_response_style = ai_response_style;
+      state.ai_greeting = ai_greeting;
       state.status = 'completed';
       saveState(state);
       return NextResponse.json({

@@ -577,12 +577,14 @@ def check_ai_activation_prerequisites(
     ).count()
     has_integrations = integration_count > 0
     
-    # KB check still uses session JSON field (KB upload flow writes there)
-    try:
-        kb_files = json.loads(session.knowledge_base_files or "[]")
-        has_kb = len(kb_files) > 0
-    except json.JSONDecodeError:
-        has_kb = False
+    # D7-2: Query knowledge_documents table (not stale session JSON).
+    # The KB upload flow (Day 6) now writes to the knowledge_documents table.
+    from database.models.onboarding import KnowledgeDocument
+    kb_doc_count = db.query(KnowledgeDocument).filter(
+        KnowledgeDocument.company_id == company_id,
+        KnowledgeDocument.status.in_(["completed", "processing"]),
+    ).count()
+    has_kb = kb_doc_count > 0
     
     if not has_integrations and not has_kb:
         missing.append("integration_or_kb_required")
