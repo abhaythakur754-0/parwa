@@ -58,23 +58,34 @@ def sanitize_text_input(text: str, max_length: int = 100) -> str:
     - JavaScript protocol
     - Event handlers
     - Dangerous characters
+    
+    P13 FIX: Uses html.escape() instead of regex tag stripping.
+    The old regex `re.sub(r'<[^>]*>', '', text)` silently removed legitimate
+    content like "AT&T < Wireless" → "AT&T ". Now we escape HTML entities
+    so they render safely as-is in the browser.
     """
     if not text or not isinstance(text, str):
         return ''
     
     sanitized = text.strip()
     
-    # Remove HTML tags
-    sanitized = re.sub(r'<[^>]*>', '', sanitized)
+    # P13: Escape HTML entities instead of stripping them.
+    # This preserves content like "AT&T < Partner >" as
+    # "AT&T &lt; Partner &gt;" instead of destroying it.
+    sanitized = sanitized.replace('&', '&amp;')
+    sanitized = sanitized.replace('<', '&lt;')
+    sanitized = sanitized.replace('>', '&gt;')
+    sanitized = sanitized.replace('"', '&quot;')
+    sanitized = sanitized.replace("'", '&#x27;')
     
-    # Remove javascript: protocol
-    sanitized = re.sub(r'javascript:', '', sanitized, flags=re.IGNORECASE)
+    # Remove javascript: protocol (after escaping, look for the escaped form)
+    sanitized = re.sub(r'javascript\s*:', '', sanitized, flags=re.IGNORECASE)
     
     # Remove event handlers (onclick, onerror, etc.)
     sanitized = re.sub(r'on\w+\s*=', '', sanitized, flags=re.IGNORECASE)
     
     # Remove data: URLs
-    sanitized = re.sub(r'data:', '', sanitized, flags=re.IGNORECASE)
+    sanitized = re.sub(r'data\s*:', '', sanitized, flags=re.IGNORECASE)
     
     # Truncate to max length
     return sanitized[:max_length]
@@ -577,12 +588,13 @@ def check_ai_activation_prerequisites(
     ).count()
     has_integrations = integration_count > 0
     
-    # D7-2: Query knowledge_documents table (not stale session JSON).
-    # The KB upload flow (Day 6) now writes to the knowledge_documents table.
-    from database.models.onboarding import KnowledgeDocument
+    # P22 FIX: Only count "completed" KB documents as valid.
+    # Previously "processing" documents counted too — a doc that just
+    # started processing but will fail in 10 seconds was treated as valid.
+    # This could allow activation with a KB that never actually processed.
     kb_doc_count = db.query(KnowledgeDocument).filter(
         KnowledgeDocument.company_id == company_id,
-        KnowledgeDocument.status.in_(["completed", "processing"]),
+        KnowledgeDocument.status == "completed",  # P22: Only completed, not processing
     ).count()
     has_kb = kb_doc_count > 0
     
