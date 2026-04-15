@@ -58,6 +58,11 @@ class DataRetentionExpiredError(DataRetentionError):
     pass
 
 
+class DataExportError(DataRetentionError):
+    """Raised when a data export operation fails validation."""
+    pass
+
+
 class DataExportInProgressError(DataRetentionError):
     """Data export is already in progress."""
     pass
