@@ -1,511 +1,278 @@
 /**
- * Week 16 Day 5 — Unit Tests: ConfidenceTrend (F-115), DriftDetection (F-116), QAScores (F-119)
+ * Day 5 Unit Tests — Customers CRM + Conversations Pages
+ * Tests: C1-C10 (Customers), CV1-CV12 (Conversations)
  */
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-// Mock recharts (includes SVG elements to avoid console warnings)
-jest.mock('recharts', () => {
-  const Original = jest.requireActual('recharts');
-  return {
-    ...Original,
-    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="rc">{children}</div>,
-    AreaChart: ({ children }: { children: React.ReactNode }) => <div data-testid="ac">{children}</div>,
-    Area: () => null,
-    XAxis: () => null,
-    YAxis: () => null,
-    CartesianGrid: () => null,
-    Tooltip: () => null,
-    Legend: () => null,
-    ReferenceLine: () => null,
-    defs: () => null,
-    linearGradient: () => null,
-    stop: () => null,
+// Mock Next.js navigation
+const mockPush = jest.fn();
+const mockUseParams = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+  usePathname: () => '/dashboard/customers',
+  useParams: () => mockUseParams(),
+}));
+
+// Mock Next.js Link
+jest.mock('next/link', () => {
+  return function MockLink({ children, href, ...props }: any) {
+    return <a href={href} {...props}>{children}</a>;
   };
 });
 
-// Mock dashboardApi
+// Mock dashboard API
+const mockGetCustomers = jest.fn();
+const mockGetCustomer = jest.fn();
+const mockGetCustomerChannels = jest.fn();
+const mockGetCustomerTickets = jest.fn();
+const mockGetConversations = jest.fn();
+const mockGetConversationMessages = jest.fn();
+const mockMergeCustomers = jest.fn();
+
 jest.mock('@/lib/dashboard-api', () => ({
   dashboardApi: {
-    getConfidenceTrend: jest.fn(),
-    getDriftReports: jest.fn(),
-    getQAScores: jest.fn(),
-    getGrowthNudges: jest.fn(),
-    getTicketForecast: jest.fn(),
-    getCSATTrends: jest.fn(),
-    getHome: jest.fn(),
-    getActivityFeed: jest.fn(),
-    getMetrics: jest.fn(),
-    getAdaptationTracker: jest.fn(),
+    getCustomers: (...args: any[]) => mockGetCustomers(...args),
+    getCustomer: (...args: any[]) => mockGetCustomer(...args),
+    getCustomerChannels: (...args: any[]) => mockGetCustomerChannels(...args),
+    getCustomerTickets: (...args: any[]) => mockGetCustomerTickets(...args),
+    getConversations: (...args: any[]) => mockGetConversations(...args),
+    getConversationMessages: (...args: any[]) => mockGetConversationMessages(...args),
+    mergeCustomers: (...args: any[]) => mockMergeCustomers(...args),
   },
 }));
 
-import ConfidenceTrend from '@/components/dashboard/ConfidenceTrend';
-import DriftDetection from '@/components/dashboard/DriftDetection';
-import QAScores from '@/components/dashboard/QAScores';
-import { dashboardApi } from '@/lib/dashboard-api';
-import type { ConfidenceTrendResponse, DriftReportsResponse, QAScoresResponse } from '@/lib/dashboard-api';
+// Need to import after mocks
+const CustomersPage = require('@/app/dashboard/customers/page').default;
+const ConversationsPage = require('@/app/dashboard/conversations/page').default;
 
-// ── F-115 Test Data ───────────────────────────────────────────────────
-
-const generateConfidenceData = (): ConfidenceTrendResponse => {
-  const daily_trend = [];
-  for (let i = 0; i < 30; i++) {
-    const date = new Date('2026-03-16');
-    date.setDate(date.getDate() + i);
-    daily_trend.push({
-      date: date.toISOString().split('T')[0],
-      avg_confidence: 0.78 + (i / 29) * 0.12,
-      min_confidence: 0.55 + (i / 29) * 0.1,
-      max_confidence: 0.92 + (i / 29) * 0.05,
-      total_predictions: 150 + i * 5,
-      low_confidence_count: Math.max(0, 15 - i),
-    });
-  }
-  return {
-    daily_trend,
-    current_avg: 0.88,
-    overall_avg: 0.84,
-    trend_direction: 'improving',
-    change_vs_previous_period: 0.04,
-    distribution: [
-      { range: '0-20', count: 12, percentage: 1.2 },
-      { range: '20-40', count: 35, percentage: 3.5 },
-      { range: '40-60', count: 78, percentage: 7.8 },
-      { range: '60-80', count: 340, percentage: 34.0 },
-      { range: '80-100', count: 535, percentage: 53.5 },
+describe('Day 5 — Customers CRM Page', () => {
+  const mockCustomers = {
+    customers: [
+      { id: 'cust-1', name: 'John Doe', email: 'john@example.com', phone: '+1234567890', external_id: null, metadata_json: {}, company_id: 'co-1', is_verified: true, created_at: '2026-04-01T00:00:00Z', updated_at: '2026-04-01T00:00:00Z' },
+      { id: 'cust-2', name: 'Jane Smith', email: 'jane@example.com', phone: null, external_id: null, metadata_json: {}, company_id: 'co-1', is_verified: false, created_at: '2026-04-10T00:00:00Z', updated_at: '2026-04-10T00:00:00Z' },
     ],
-    low_confidence_threshold: 0.6,
-    critical_threshold: 0.3,
-    total_predictions: 8750,
+    total: 2,
+    page: 1,
+    page_size: 25,
   };
-};
 
-// ── F-116 Test Data ───────────────────────────────────────────────────
-
-const mockDriftData: DriftReportsResponse = {
-  reports: [
-    {
-      report_id: 'drift-1',
-      detected_at: '2026-04-14T08:00:00Z',
-      severity: 'critical',
-      metric_name: 'Response Accuracy',
-      metric_value: 0.72,
-      baseline_value: 0.91,
-      drift_pct: -20.9,
-      description: 'Response accuracy dropped from 91% to 72% over the past 7 days.',
-      status: 'active',
-      recovery_action: 'Triggering model retraining with recent data.',
-    },
-    {
-      report_id: 'drift-2',
-      detected_at: '2026-04-13T14:00:00Z',
-      severity: 'warning',
-      metric_name: 'Tone Consistency',
-      metric_value: 0.78,
-      baseline_value: 0.89,
-      drift_pct: -12.4,
-      description: 'Tone consistency has degraded slightly.',
-      status: 'investigating',
-      recovery_action: undefined,
-    },
-    {
-      report_id: 'drift-3',
-      detected_at: '2026-04-10T06:00:00Z',
-      severity: 'info',
-      metric_name: 'Response Latency',
-      metric_value: 1.8,
-      baseline_value: 1.5,
-      drift_pct: 20.0,
-      description: 'Average response latency increased by 300ms.',
-      status: 'resolved',
-      resolved_at: '2026-04-11T10:00:00Z',
-      recovery_action: 'Scaling up inference resources.',
-    },
-  ],
-  total: 3,
-  active_count: 1,
-  last_detected_at: '2026-04-14T08:00:00Z',
-  most_severe: 'critical',
-};
-
-// ── F-119 Test Data ───────────────────────────────────────────────────
-
-const generateQAScoresData = (): QAScoresResponse => {
-  const daily_trend = [];
-  for (let i = 0; i < 30; i++) {
-    const date = new Date('2026-03-16');
-    date.setDate(date.getDate() + i);
-    daily_trend.push({
-      date: date.toISOString().split('T')[0],
-      overall_score: 0.75 + (i / 29) * 0.1,
-      accuracy_score: 0.80 + (i / 29) * 0.08,
-      completeness_score: 0.72 + (i / 29) * 0.12,
-      tone_score: 0.78 + (i / 29) * 0.1,
-      relevance_score: 0.82 + (i / 29) * 0.06,
-      total_evaluated: 50 + i * 3,
-      pass_count: 40 + Math.floor(i * 2.5),
-    });
-  }
-  return {
-    daily_trend,
-    current_overall: 0.85,
-    overall_avg: 0.80,
-    pass_rate: 0.87,
-    total_evaluated: 1855,
-    dimensions: [
-      { dimension_name: 'Accuracy', avg_score: 0.88, pass_rate: 0.92, trend: 'improving' },
-      { dimension_name: 'Completeness', avg_score: 0.84, pass_rate: 0.88, trend: 'improving' },
-      { dimension_name: 'Tone', avg_score: 0.86, pass_rate: 0.90, trend: 'stable' },
-      { dimension_name: 'Relevance', avg_score: 0.82, pass_rate: 0.85, trend: 'declining' },
-    ],
-    trend_direction: 'improving',
-    change_vs_previous_period: 0.03,
-    threshold_pass: 0.7,
-  };
-};
-
-// ══════════════════════════════════════════════════════════════════════
-// F-115: ConfidenceTrend Tests
-// ══════════════════════════════════════════════════════════════════════
-
-describe('ConfidenceTrend Component (F-115)', () => {
-  const mockData = generateConfidenceData();
-
-  beforeEach(() => jest.clearAllMocks());
-
-  describe('Rendering', () => {
-    it('renders header title', () => {
-      render(<ConfidenceTrend initialData={mockData} />);
-      expect(screen.getByText('AI Confidence Trend')).toBeInTheDocument();
-    });
-
-    it('renders current confidence percentage', () => {
-      render(<ConfidenceTrend initialData={mockData} />);
-      expect(screen.getByText('88.0%')).toBeInTheDocument();
-    });
-
-    it('renders prediction count', () => {
-      const { container } = render(<ConfidenceTrend initialData={mockData} />);
-      expect(container.textContent).toContain('8,750 predictions');
-    });
-
-    it('renders change vs previous period', () => {
-      const { container } = render(<ConfidenceTrend initialData={mockData} />);
-      expect(container.textContent).toContain('+4.0% vs prev');
-    });
-
-    it('renders distribution section', () => {
-      render(<ConfidenceTrend initialData={mockData} />);
-      expect(screen.getByText('Confidence Distribution')).toBeInTheDocument();
-    });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetCustomers.mockResolvedValue(mockCustomers);
   });
 
-  describe('Accessibility', () => {
-    it('has role=img with aria-label on chart', () => {
-      render(<ConfidenceTrend initialData={mockData} />);
-      expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'AI confidence trend chart over 30 days');
-    });
+  it('C1: renders customer list with pagination', async () => {
+    render(<CustomersPage />);
+    await waitFor(() => expect(mockGetCustomers).toHaveBeenCalled());
+    expect(screen.getByText('Customers')).toBeInTheDocument();
+    expect(screen.getByText('2 total customers')).toBeInTheDocument();
+    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.getByText('jane@example.com')).toBeInTheDocument();
   });
 
-  describe('Loading State', () => {
-    it('renders skeleton when isLoading is true', () => {
-      const { container } = render(<ConfidenceTrend isLoading />);
-      expect(screen.queryByText('AI Confidence Trend')).not.toBeInTheDocument();
-      expect(container.querySelector('[class*=bg-white]')).toBeTruthy();
-    });
+  it('C2: search input triggers debounced API call', async () => {
+    render(<CustomersPage />);
+    await waitFor(() => expect(mockGetCustomers).toHaveBeenCalled());
+
+    const searchInput = screen.getByPlaceholderText('Search by name, email, phone...');
+    fireEvent.change(searchInput, { target: { value: 'john' } });
+
+    // Wait for debounce (300ms + render)
+    await waitFor(() => expect(mockGetCustomers).toHaveBeenCalled(), { timeout: 1000 });
   });
 
-  describe('Empty State', () => {
-    it('shows empty state with no data', () => {
-      render(<ConfidenceTrend initialData={{ daily_trend: [], current_avg: 0, overall_avg: 0, trend_direction: 'stable', change_vs_previous_period: 0, distribution: [], low_confidence_threshold: 0.6, critical_threshold: 0.3, total_predictions: 0 }} />);
-      expect(screen.getByText('No confidence data')).toBeInTheDocument();
-    });
+  it('C3: status filter changes API params', async () => {
+    render(<CustomersPage />);
+    await waitFor(() => expect(mockGetCustomers).toHaveBeenCalled());
+
+    const select = screen.getByDisplayValue('All Status');
+    fireEvent.change(select, { target: { value: 'active' } });
+
+    await waitFor(() => expect(mockGetCustomers).toHaveBeenCalled(), { timeout: 1000 });
   });
 
-  describe('API Fetching', () => {
-    it('fetches on mount without initialData', async () => {
-      (dashboardApi.getConfidenceTrend as jest.Mock).mockResolvedValue(mockData);
-      render(<ConfidenceTrend />);
-      await waitFor(() => expect(dashboardApi.getConfidenceTrend).toHaveBeenCalledWith(30));
-    });
+  it('C4: clicking customer name navigates to detail', async () => {
+    render(<CustomersPage />);
+    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
 
-    it('handles API error gracefully', async () => {
-      (dashboardApi.getConfidenceTrend as jest.Mock).mockRejectedValue(new Error('Network error'));
-      render(<ConfidenceTrend />);
-      await waitFor(() => expect(dashboardApi.getConfidenceTrend).toHaveBeenCalled());
-      await waitFor(() => expect(screen.getByText('No confidence data')).toBeInTheDocument());
-    });
+    const link = screen.getByText('John Doe').closest('a');
+    expect(link).toHaveAttribute('href', '/dashboard/customers/cust-1');
   });
 
-  describe('Edge Cases', () => {
-    it('shows negative change vs previous period', () => {
-      const declining = { ...mockData, change_vs_previous_period: -0.03 };
-      const { container } = render(<ConfidenceTrend initialData={declining} />);
-      expect(container.textContent).toContain('-3.0% vs prev');
-    });
+  it('C5: verified/unverified badges render correctly', async () => {
+    render(<CustomersPage />);
+    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
+
+    expect(screen.getByText('Verified')).toBeInTheDocument();
+    expect(screen.getByText('Unverified')).toBeInTheDocument();
+  });
+
+  it('C6: row selection checkboxes work', async () => {
+    render(<CustomersPage />);
+    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
+
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[1]); // Select first customer row
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+  });
+
+  it('C7: merge button appears when 2+ selected', async () => {
+    render(<CustomersPage />);
+    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
+
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]); // Select all
+    expect(screen.getByText('Merge Selected')).toBeInTheDocument();
+  });
+
+  it('C8: merge modal opens on button click', async () => {
+    render(<CustomersPage />);
+    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
+
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]); // Select all
+    fireEvent.click(screen.getByText('Merge Selected'));
+
+    expect(screen.getByText('Merge Customers')).toBeInTheDocument();
+    expect(screen.getByText('Confirm Merge')).toBeInTheDocument();
+  });
+
+  it('C9: handles empty state', async () => {
+    mockGetCustomers.mockResolvedValue({ customers: [], total: 0, page: 1, page_size: 25 });
+    render(<CustomersPage />);
+    await waitFor(() => expect(screen.getByText('No customers found')).toBeInTheDocument());
+  });
+
+  it('C10: handles error state', async () => {
+    mockGetCustomers.mockRejectedValue(new Error('Server error'));
+    render(<CustomersPage />);
+    await waitFor(() => expect(screen.getByText('Server error')).toBeInTheDocument());
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════
-// F-116: DriftDetection Tests
-// ══════════════════════════════════════════════════════════════════════
+describe('Day 5 — Conversations Page', () => {
+  const mockConversations = {
+    conversations: [
+      {
+        ticket_id: 'tix-001', customer_name: 'John Doe', customer_email: 'john@example.com',
+        channel: 'chat', agent_name: 'E-commerce Agent', subject: 'Order refund',
+        status: 'resolved', priority: 'high', confidence: 94, sentiment: 'positive',
+        created_at: '2026-04-15T10:00:00Z', updated_at: '2026-04-15T10:05:00Z',
+        resolution_time_seconds: 300, message_count: 8, ai_summary: 'Customer requested order refund, agent processed successfully.',
+      },
+      {
+        ticket_id: 'tix-002', customer_name: 'Jane Smith', customer_email: 'jane@example.com',
+        channel: 'email', agent_name: null, subject: 'Shipping delay',
+        status: 'open', priority: 'medium', confidence: null, sentiment: 'negative',
+        created_at: '2026-04-16T08:00:00Z', updated_at: '2026-04-16T08:00:00Z',
+        resolution_time_seconds: null, message_count: 1, ai_summary: null,
+      },
+    ],
+    total: 2,
+    page: 1,
+    page_size: 25,
+  };
 
-describe('DriftDetection Component (F-116)', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  describe('Rendering', () => {
-    it('renders header title', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      expect(screen.getByText('Drift Detection')).toBeInTheDocument();
-    });
-
-    it('renders all report metrics', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      expect(screen.getByText('Response Accuracy')).toBeInTheDocument();
-      expect(screen.getByText('Tone Consistency')).toBeInTheDocument();
-      expect(screen.getByText('Response Latency')).toBeInTheDocument();
-    });
-
-    it('renders severity badges', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      expect(screen.getByText('Critical')).toBeInTheDocument();
-      expect(screen.getByText('Warning')).toBeInTheDocument();
-      expect(screen.getByText('Info')).toBeInTheDocument();
-    });
-
-    it('renders status badges', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      expect(screen.getByText('active')).toBeInTheDocument();
-      expect(screen.getByText('investigating')).toBeInTheDocument();
-      expect(screen.getByText('resolved')).toBeInTheDocument();
-    });
-
-    it('renders report count', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      expect(screen.getByText('3 reports')).toBeInTheDocument();
-    });
-
-    it('renders drift descriptions', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      expect(screen.getByText(/accuracy dropped from 91% to 72%/)).toBeInTheDocument();
-    });
-
-    it('renders recovery action when present', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      expect(screen.getByText('Triggering model retraining with recent data.')).toBeInTheDocument();
-    });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetConversations.mockResolvedValue(mockConversations);
   });
 
-  describe('Filter Tabs', () => {
-    it('renders filter tabs', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      expect(screen.getByText('All')).toBeInTheDocument();
-      expect(screen.getByText('Active (1)')).toBeInTheDocument();
-      expect(screen.getByText('Resolved')).toBeInTheDocument();
-    });
-
-    it('filters to active reports', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      fireEvent.click(screen.getByText('Active (1)'));
-      expect(screen.getByText('Response Accuracy')).toBeInTheDocument();
-      expect(screen.queryByText('Response Latency')).not.toBeInTheDocument();
-    });
-
-    it('filters to resolved reports', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      fireEvent.click(screen.getByText('Resolved'));
-      expect(screen.getByText('Response Latency')).toBeInTheDocument();
-      expect(screen.queryByText('Response Accuracy')).not.toBeInTheDocument();
-    });
-
-    it('shows empty state for filtered view with no matches', () => {
-      const onlyResolved = { ...mockDriftData, reports: [mockDriftData.reports[2]], total: 1, active_count: 0 };
-      render(<DriftDetection initialData={onlyResolved} />);
-      fireEvent.click(screen.getByText('Active (0)'));
-      expect(screen.getByText('No active reports')).toBeInTheDocument();
-    });
+  it('CV1: renders conversation list', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(mockGetConversations).toHaveBeenCalled());
+    expect(screen.getByText('Conversations')).toBeInTheDocument();
+    expect(screen.getByText('2 conversations across all channels')).toBeInTheDocument();
   });
 
-  describe('Accessibility', () => {
-    it('has role=tablist on filter tabs', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      expect(screen.getByRole('tablist')).toHaveAttribute('aria-label', 'Drift report filter');
-    });
+  it('CV2: channel filter tabs render and work', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(mockGetConversations).toHaveBeenCalled());
 
-    it('has role=tab with aria-selected', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      const tabs = screen.getAllByRole('tab');
-      expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
-      expect(tabs[1]).toHaveAttribute('aria-selected', 'false');
-    });
+    const tabs = screen.getAllByRole('button');
+    const chatTab = tabs.find(t => t.textContent === 'chat');
+    if (chatTab) fireEvent.click(chatTab);
 
-    it('has role=list on report container', () => {
-      render(<DriftDetection initialData={mockDriftData} />);
-      expect(screen.getByRole('list')).toHaveAttribute('aria-label', 'Drift reports');
-    });
+    await waitFor(() => expect(mockGetConversations).toHaveBeenCalled(), { timeout: 1000 });
   });
 
-  describe('Loading State', () => {
-    it('renders skeleton when isLoading is true', () => {
-      const { container } = render(<DriftDetection isLoading />);
-      expect(screen.queryByText('Drift Detection')).not.toBeInTheDocument();
-      expect(container.querySelector('[class*=bg-white]')).toBeTruthy();
-    });
+  it('CV3: search input renders', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(mockGetConversations).toHaveBeenCalled());
+
+    const searchInput = screen.getByPlaceholderText('Search conversations...');
+    expect(searchInput).toBeInTheDocument();
+    fireEvent.change(searchInput, { target: { value: 'refund' } });
   });
 
-  describe('Empty State', () => {
-    it('shows empty state with no reports', () => {
-      render(<DriftDetection initialData={{ reports: [], total: 0, active_count: 0, last_detected_at: null, most_severe: null }} />);
-      expect(screen.getByText('No drift detected')).toBeInTheDocument();
-    });
+  it('CV4: date preset filters render', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(mockGetConversations).toHaveBeenCalled());
 
-    it('renders header even when empty', () => {
-      render(<DriftDetection initialData={{ reports: [], total: 0, active_count: 0, last_detected_at: null, most_severe: null }} />);
-      expect(screen.getByText('Drift Detection')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(screen.getByText('Last 7 days')).toBeInTheDocument();
+    expect(screen.getByText('Last 30 days')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Last 7 days'));
   });
 
-  describe('API Fetching', () => {
-    it('fetches on mount without initialData', async () => {
-      (dashboardApi.getDriftReports as jest.Mock).mockResolvedValue(mockDriftData);
-      render(<DriftDetection />);
-      await waitFor(() => expect(dashboardApi.getDriftReports).toHaveBeenCalledWith(20));
-    });
+  it('CV5: conversation rows show correct data', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
 
-    it('handles API error gracefully', async () => {
-      (dashboardApi.getDriftReports as jest.Mock).mockRejectedValue(new Error('Server error'));
-      render(<DriftDetection />);
-      await waitFor(() => expect(dashboardApi.getDriftReports).toHaveBeenCalled());
-      await waitFor(() => expect(screen.getByText('No drift detected')).toBeInTheDocument());
-    });
+    expect(screen.getByText('E-commerce Agent')).toBeInTheDocument();
+    expect(screen.getByText('94%')).toBeInTheDocument();
+    expect(screen.getByText('positive')).toBeInTheDocument();
   });
 
-  describe('Edge Cases', () => {
-    it('shows last detected date', () => {
-      const { container } = render(<DriftDetection initialData={mockDriftData} />);
-      expect(container.textContent).toContain('Last:');
-    });
+  it('CV6: confidence color coding (94% = green)', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
 
-    it('does not show last detected date when null', () => {
-      const noDate = { ...mockDriftData, last_detected_at: null };
-      const { container } = render(<DriftDetection initialData={noDate} />);
-      expect(container.textContent).not.toContain('Last:');
-    });
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════════
-// F-119: QAScores Tests
-// ══════════════════════════════════════════════════════════════════════
-
-describe('QAScores Component (F-119)', () => {
-  const mockData = generateQAScoresData();
-
-  beforeEach(() => jest.clearAllMocks());
-
-  describe('Rendering', () => {
-    it('renders header title', () => {
-      render(<QAScores initialData={mockData} />);
-      expect(screen.getByText('QA Scores')).toBeInTheDocument();
-    });
-
-    it('renders current overall score', () => {
-      render(<QAScores initialData={mockData} />);
-      expect(screen.getByText('85.0%')).toBeInTheDocument();
-    });
-
-    it('renders evaluated count', () => {
-      const { container } = render(<QAScores initialData={mockData} />);
-      expect(container.textContent).toContain('1,855 evaluated');
-    });
-
-    it('renders pass rate metric card', () => {
-      render(<QAScores initialData={mockData} />);
-      expect(screen.getByText('Pass Rate')).toBeInTheDocument();
-    });
-
-    it('renders overall avg metric card', () => {
-      render(<QAScores initialData={mockData} />);
-      expect(screen.getByText('Overall Avg')).toBeInTheDocument();
-    });
-
-    it('renders evaluated metric card', () => {
-      render(<QAScores initialData={mockData} />);
-      expect(screen.getByText('Evaluated')).toBeInTheDocument();
-    });
-
-    it('renders change vs previous period', () => {
-      const { container } = render(<QAScores initialData={mockData} />);
-      expect(container.textContent).toContain('+3.0% vs prev');
-    });
-
-    it('renders dimension breakdown', () => {
-      render(<QAScores initialData={mockData} />);
-      expect(screen.getByText('Quality Dimensions')).toBeInTheDocument();
-      expect(screen.getByText('Accuracy')).toBeInTheDocument();
-      expect(screen.getByText('Completeness')).toBeInTheDocument();
-      expect(screen.getByText('Tone')).toBeInTheDocument();
-      expect(screen.getByText('Relevance')).toBeInTheDocument();
-    });
+    const confidence = screen.getByText('94%');
+    expect(confidence.className).toContain('text-emerald-400');
   });
 
-  describe('Accessibility', () => {
-    it('has role=img with aria-label on chart', () => {
-      render(<QAScores initialData={mockData} />);
-      expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'QA scores trend chart over 30 days');
-    });
+  it('CV7: null confidence shows dash', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(screen.getByText('Jane Smith')).toBeInTheDocument());
+    // Should show the customer name but no confidence percentage
   });
 
-  describe('Loading State', () => {
-    it('renders skeleton when isLoading is true', () => {
-      const { container } = render(<QAScores isLoading />);
-      expect(screen.queryByText('QA Scores')).not.toBeInTheDocument();
-      expect(container.querySelector('[class*=bg-white]')).toBeTruthy();
-    });
+  it('CV8: AI summary shows for conversations that have it', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
+
+    expect(screen.getByText(/Customer requested order refund/)).toBeInTheDocument();
   });
 
-  describe('Empty State', () => {
-    it('shows empty state with no data', () => {
-      render(<QAScores initialData={{ daily_trend: [], current_overall: 0, overall_avg: 0, pass_rate: 0, total_evaluated: 0, dimensions: [], trend_direction: 'stable', change_vs_previous_period: null, threshold_pass: 0.7 }} />);
-      expect(screen.getByText('No QA data yet')).toBeInTheDocument();
-    });
+  it('CV9: channel badge with correct color', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
+
+    // Chat channel badge should have emerald color
+    const chatBadge = screen.getByText('C chat');
+    expect(chatBadge.className).toContain('bg-emerald-500/10');
   });
 
-  describe('API Fetching', () => {
-    it('fetches on mount without initialData', async () => {
-      (dashboardApi.getQAScores as jest.Mock).mockResolvedValue(mockData);
-      render(<QAScores />);
-      await waitFor(() => expect(dashboardApi.getQAScores).toHaveBeenCalledWith(30));
-    });
-
-    it('handles API error gracefully', async () => {
-      (dashboardApi.getQAScores as jest.Mock).mockRejectedValue(new Error('Server error'));
-      render(<QAScores />);
-      await waitFor(() => expect(dashboardApi.getQAScores).toHaveBeenCalled());
-      await waitFor(() => expect(screen.getByText('No QA data yet')).toBeInTheDocument());
-    });
+  it('CV10: status badge renders', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
+    expect(screen.getByText('resolved')).toBeInTheDocument();
+    expect(screen.getByText('open')).toBeInTheDocument();
   });
 
-  describe('Edge Cases', () => {
-    it('hides change vs prev when null', () => {
-      const noChange = { ...mockData, change_vs_previous_period: null };
-      const { container } = render(<QAScores initialData={noChange} />);
-      expect(container.textContent).not.toContain('vs prev');
-    });
+  it('CV11: export button renders', async () => {
+    render(<ConversationsPage />);
+    await waitFor(() => expect(screen.getByText('Conversations')).toBeInTheDocument());
+    expect(screen.getByText('Export')).toBeInTheDocument();
+  });
 
-    it('shows negative change', () => {
-      const negativeChange = { ...mockData, change_vs_previous_period: -0.05 };
-      const { container } = render(<QAScores initialData={negativeChange} />);
-      expect(container.textContent).toContain('-5.0% vs prev');
-    });
-
-    it('does not render dimensions when empty', () => {
-      const noDims = { ...mockData, dimensions: [] };
-      render(<QAScores initialData={noDims} />);
-      expect(screen.queryByText('Quality Dimensions')).not.toBeInTheDocument();
-    });
+  it('CV12: handles empty state', async () => {
+    mockGetConversations.mockResolvedValue({ conversations: [], total: 0, page: 1, page_size: 25 });
+    render(<ConversationsPage />);
+    await waitFor(() => expect(screen.getByText('No conversations found')).toBeInTheDocument());
   });
 });

@@ -11,7 +11,7 @@
  * Shared types (ActivityEvent, DashboardHomeData, etc.) imported from @/types/analytics.ts
  */
 
-import { get } from '@/lib/api';
+import { get, post } from '@/lib/api';
 import type {
   DashboardHomeData,
   ActivityEvent,
@@ -348,6 +348,140 @@ export const dashboardApi = {
    */
   getROIDashboard: (months: number = 12) =>
     get<ROIDashboardResponse>(`/api/analytics/savings?months=${months}`),
+
+  // ── Day 5: Customer CRM API ───────────────────────────────────────
+  getCustomers: (params?: { page?: number; pageSize?: number; search?: string; status?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set('page', String(params.page));
+    if (params?.pageSize) sp.set('page_size', String(params.pageSize));
+    if (params?.search) sp.set('search', params.search);
+    if (params?.status) sp.set('status', params.status);
+    const qs = sp.toString();
+    return get<CustomerListResponse>(`/api/customers${qs ? `?${qs}` : ''}`);
+  },
+
+  getCustomer: (id: string) =>
+    get<Customer>(`/api/customers/${id}`),
+
+  getCustomerTickets: (id: string, params?: { page?: number; pageSize?: number; status?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set('page', String(params.page));
+    if (params?.pageSize) sp.set('page_size', String(params.pageSize));
+    if (params?.status) sp.set('status', params.status);
+    const qs = sp.toString();
+    return get<any>(`/api/customers/${id}/tickets${qs ? `?${qs}` : ''}`);
+  },
+
+  getCustomerChannels: (id: string) =>
+    get<CustomerChannel[]>(`/api/customers/${id}/channels`),
+
+  mergeCustomers: (data: CustomerMergeRequest) =>
+    post<any>('/api/customers/merge', data),
+
+  // ── Day 5: Conversations API ──────────────────────────────────────
+  getConversations: (params?: { page?: number; pageSize?: number; channel?: string; search?: string; agent?: string; dateFrom?: string; dateTo?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set('page', String(params.page));
+    if (params?.pageSize) sp.set('page_size', String(params.pageSize));
+    if (params?.channel) sp.set('channel', params.channel);
+    if (params?.search) sp.set('search', params.search);
+    if (params?.agent) sp.set('agent', params.agent);
+    if (params?.dateFrom) sp.set('date_from', params.dateFrom);
+    if (params?.dateTo) sp.set('date_to', params.dateTo);
+    const qs = sp.toString();
+    return get<ConversationListResponse>(`/api/tickets${qs ? `?${qs}` : ''}`);
+  },
+
+  getConversationMessages: (ticketId: string, params?: { page?: number; pageSize?: number }) => {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set('page', String(params.page));
+    if (params?.pageSize) sp.set('page_size', String(params.pageSize));
+    const qs = sp.toString();
+    return get<TicketMessagesResponse>(`/api/tickets/${ticketId}/messages${qs ? `?${qs}` : ''}`);
+  },
 };
+
+// ── Day 5: Customer CRM Types ──────────────────────────────────────
+
+export interface Customer {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  name: string | null;
+  external_id: string | null;
+  metadata_json: Record<string, unknown>;
+  company_id: string;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerChannel {
+  id: string;
+  customer_id: string;
+  channel_type: string;
+  external_id: string;
+  is_verified: boolean;
+  verified_at: string | null;
+  created_at: string;
+}
+
+export interface CustomerListResponse {
+  customers: Customer[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface CustomerMergeRequest {
+  primary_customer_id: string;
+  merged_customer_ids: string[];
+  reason?: string;
+}
+
+// ── Day 5: Conversation Types ──────────────────────────────────────
+
+export interface Conversation {
+  ticket_id: string;
+  customer_name: string | null;
+  customer_email: string | null;
+  channel: string;
+  agent_name: string | null;
+  subject: string | null;
+  status: string;
+  priority: string;
+  confidence: number | null;
+  sentiment: string | null;
+  created_at: string;
+  updated_at: string;
+  resolution_time_seconds: number | null;
+  message_count: number;
+  ai_summary: string | null;
+}
+
+export interface ConversationListResponse {
+  conversations: Conversation[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  role: string;
+  content: string;
+  channel: string | null;
+  is_internal: boolean;
+  ai_confidence: number | null;
+  created_at: string;
+}
+
+export interface TicketMessagesResponse {
+  messages: TicketMessage[];
+  total: number;
+  page: number;
+  page_size: number;
+}
 
 export default dashboardApi;

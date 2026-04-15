@@ -80,6 +80,8 @@ from app.api.analytics_intelligence import router as analytics_intelligence_rout
 from app.api.reports import router as reports_router  # Week 15 Day 4: Export Reports (F-045)
 from app.api.custom_integrations import router as custom_integrations_router  # Week 17: Custom Integration Builder (F-031)
 from app.api.gdpr import router as gdpr_router  # Day 3: GDPR data privacy endpoints (E3)
+from app.api.customers import router as customers_router  # Day 5: Customer CRM endpoints (C1-C10)
+from app.api.identity import router as identity_router  # Day 5: Identity resolution endpoints
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
@@ -329,6 +331,8 @@ app.include_router(analytics_intelligence_router)  # Week 15 Day 3: Growth Nudge
 app.include_router(reports_router)  # Week 15 Day 4: Export Reports (F-045)
 app.include_router(custom_integrations_router)  # Week 17: Custom Integration Builder (F-031)
 app.include_router(gdpr_router)  # Day 3: GDPR data privacy endpoints (E3)
+app.include_router(customers_router)  # Day 5: Customer CRM (C1-C10)
+app.include_router(identity_router)  # Day 5: Identity resolution
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
