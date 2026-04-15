@@ -569,6 +569,7 @@ def check_ai_activation_prerequisites(
         missing.append("work_email_verification_required")
     
     # Check integrations or KB — query actual Integration table (not stale session.integrations)
+    import json
     from database.models.integration import Integration
     integration_count = db.query(Integration).filter(
         Integration.company_id == company_id,
