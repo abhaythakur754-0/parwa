@@ -10,12 +10,13 @@
  *   - Usage stats: messages remaining, member since
  *   - Quick links: Profile, Models, Home
  *   - Account actions: Logout, Delete Account
+ *
+ * D6-7 Fix: Replaced raw fetch() calls with useAuth() + authApi.
  */
 
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   User,
@@ -30,10 +31,11 @@ import {
   Zap,
   Crown,
   Home,
-  CreditCard,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { authApi, getErrorMessage } from '@/lib/api';
 
 interface UserMenuProps {
   /** Whether to show compact version (for ChatHeader) */
@@ -43,33 +45,11 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
-  const router = useRouter();
+  const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Get user from localStorage (works with Next.js API route login)
-  const [userData, setUserData] = useState<{
-    id?: string;
-    email?: string;
-    full_name?: string | null;
-    is_verified?: boolean;
-    company_name?: string | null;
-    created_at?: string | null;
-    onboarding_completed?: boolean;
-  } | null>(null);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('parwa_user');
-      if (stored) {
-        setUserData(JSON.parse(stored));
-      }
-    } catch {
-      // ignore
-    }
-  }, [isOpen]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -99,22 +79,10 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
 
   const handleLogout = async () => {
     try {
-      const refreshToken = localStorage.getItem('parwa_refresh_token');
-      if (refreshToken) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/logout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        }).catch(() => {});
-      }
-    } catch {
-      // ignore backend errors
-    } finally {
-      localStorage.removeItem('parwa_access_token');
-      localStorage.removeItem('parwa_refresh_token');
-      localStorage.removeItem('parwa_user');
+      await logout();
       toast.success('Logged out successfully!');
-      router.push('/');
+    } catch {
+      // AuthContext.logout already handles cleanup on error
     }
   };
 
@@ -125,37 +93,20 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
     }
     setIsDeleting(true);
     try {
-      const token = localStorage.getItem('parwa_access_token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/user/delete-account`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!res.ok) throw new Error('Failed to delete account');
-      localStorage.removeItem('parwa_access_token');
-      localStorage.removeItem('parwa_refresh_token');
-      localStorage.removeItem('parwa_user');
+      await authApi.deleteAccount();
       toast.success('Account deleted successfully');
-      router.push('/');
-    } catch {
-      // Backend might not be running — clear locally anyway
-      localStorage.removeItem('parwa_access_token');
-      localStorage.removeItem('parwa_refresh_token');
-      localStorage.removeItem('parwa_user');
-      toast.success('Account removed');
-      router.push('/');
+    } catch (error) {
+      toast.error(getErrorMessage(error));
     } finally {
       setIsDeleting(false);
       setIsOpen(false);
     }
   };
 
-  const firstName = userData?.full_name?.split(' ')[0] || 'there';
-  const initials = (userData?.full_name || userData?.email || 'U').slice(0, 2).toUpperCase();
-  const memberSince = userData?.created_at
-    ? new Date(userData.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+  const firstName = user?.full_name?.split(' ')[0] || 'there';
+  const initials = (user?.full_name || user?.email || 'U').slice(0, 2).toUpperCase();
+  const memberSince = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
     : 'N/A';
 
   const handleToggle = () => {
@@ -201,11 +152,11 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">
-                  {userData?.full_name || 'User'}
+                  {user?.full_name || 'User'}
                 </p>
                 <p className="text-[11px] text-orange-200/40 truncate flex items-center gap-1">
                   <Mail className="w-3 h-3" />
-                  {userData?.email || 'No email'}
+                  {user?.email || 'No email'}
                 </p>
               </div>
               <button onClick={() => setIsOpen(false)} className="p-1 rounded-lg hover:bg-white/5 transition-colors">
@@ -221,14 +172,18 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
                 <Zap className="w-3.5 h-3.5 text-orange-400" />
                 <div>
                   <p className="text-[10px] text-white/30 uppercase tracking-wider">Plan</p>
-                  <p className="text-xs font-semibold text-orange-300">Free Trial</p>
+                  <p className="text-xs font-semibold text-orange-300">
+                    {user?.onboarding_completed ? 'Active' : 'Setup'}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5">
                 <MessageSquare className="w-3.5 h-3.5 text-orange-400" />
                 <div>
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Messages</p>
-                  <p className="text-xs font-semibold text-orange-300">20 / day</p>
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Role</p>
+                  <p className="text-xs font-semibold text-orange-300 capitalize">
+                    {user?.role || 'Admin'}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5">
@@ -236,7 +191,7 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
                 <div>
                   <p className="text-[10px] text-white/30 uppercase tracking-wider">Status</p>
                   <p className="text-xs font-semibold text-orange-300">
-                    {userData?.is_verified ? 'Verified' : 'Unverified'}
+                    {user?.is_verified ? 'Verified' : 'Unverified'}
                   </p>
                 </div>
               </div>
@@ -251,11 +206,11 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
           </div>
 
           {/* ── Company (if available) ── */}
-          {userData?.company_name && (
+          {user?.company_name && (
             <div className="px-5 py-2.5 border-b border-white/5">
               <div className="flex items-center gap-2 text-white/50">
                 <Building2 className="w-3.5 h-3.5 text-orange-400/60" />
-                <span className="text-xs">{userData.company_name}</span>
+                <span className="text-xs">{user.company_name}</span>
               </div>
             </div>
           )}

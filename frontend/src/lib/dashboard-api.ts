@@ -1,37 +1,32 @@
 /**
- * PARWA Dashboard API — Week 16 Day 1
+ * PARWA Dashboard & Analytics API
  *
- * API client for the new unified dashboard endpoints.
- * Backend endpoints at /api/dashboard/*
+ * Canonical API client for all dashboard and analytics endpoints.
+ * Backend endpoints at /api/dashboard/* and /api/analytics/*
  *
  * Uses the centralized apiClient from @/lib/api.ts
  * with JWT Bearer auth and tenant-scoped queries.
+ *
+ * D6-10 Fix: Consolidated from analytics-api.ts + dashboard-api.ts.
+ * Shared types (ActivityEvent, DashboardHomeData, etc.) imported from @/types/analytics.ts
  */
 
 import { get } from '@/lib/api';
+import type {
+  DashboardHomeData,
+  ActivityEvent,
+  ActivityFeedResponse,
+  DashboardLayoutResponse,
+} from '@/types/analytics';
 
-// ── Activity Event Types ─────────────────────────────────────────────
+// ── Re-export canonical types for convenience ─────────────────────────
 
-export interface ActivityEvent {
-  event_id: string;
-  event_type: string;
-  actor_id?: string;
-  actor_type?: string;
-  actor_name?: string;
-  description: string;
-  ticket_id?: string;
-  ticket_subject?: string;
-  metadata: Record<string, unknown>;
-  created_at: string;
-}
-
-export interface ActivityFeedResponse {
-  events: ActivityEvent[];
-  total: number;
-  page: number;
-  page_size: number;
-  has_more: boolean;
-}
+export type {
+  DashboardHomeData,
+  ActivityEvent,
+  ActivityFeedResponse,
+  DashboardLayoutResponse,
+};
 
 // ── KPI Metrics Types ────────────────────────────────────────────────
 
@@ -50,30 +45,6 @@ export interface KPIData {
 export interface MetricsResponse {
   kpis: KPIData[];
   period: string;
-  generated_at: string;
-}
-
-// ── Dashboard Home Types ─────────────────────────────────────────────
-
-export interface AnomalyItem {
-  type: string;
-  severity: string;
-  message: string;
-  detected_at: string;
-}
-
-export interface DashboardHomeResponse {
-  summary: Record<string, unknown>;
-  kpis: Record<string, unknown>;
-  sla: Record<string, unknown>;
-  trend: Array<{ timestamp: string; count: number; label: string }>;
-  by_category: Array<{ category: string; count: number; percentage: number }>;
-  activity_feed: ActivityEvent[];
-  savings: Record<string, unknown>;
-  workforce: Record<string, unknown>;
-  csat: Record<string, unknown>;
-  anomalies: AnomalyItem[];
-  layout: { layout_id: string; widgets: unknown[]; is_default: boolean };
   generated_at: string;
 }
 
@@ -99,106 +70,6 @@ export interface AdaptationTrackerResponse {
   training_runs_count: number;
   drift_reports_count: number;
 }
-
-// ── Dashboard API ────────────────────────────────────────────────────
-
-export const dashboardApi = {
-  /**
-   * Get unified dashboard home data.
-   * Returns summary, KPIs, SLA, trends, categories,
-   * activity feed, savings, workforce, CSAT, and anomalies.
-   */
-  getHome: (periodDays: number = 30) =>
-    get<DashboardHomeResponse>(`/api/dashboard/home?period_days=${periodDays}`),
-
-  /**
-   * Get paginated activity feed.
-   * Supports filtering by event_type and ticket_id.
-   */
-  getActivityFeed: (
-    page: number = 1,
-    pageSize: number = 25,
-    eventType?: string,
-    ticketId?: string
-  ) => {
-    const params = new URLSearchParams({
-      page: String(page),
-      page_size: String(pageSize),
-    });
-    if (eventType) params.set('event_type', eventType);
-    if (ticketId) params.set('ticket_id', ticketId);
-    return get<ActivityFeedResponse>(
-      `/api/dashboard/activity-feed?${params.toString()}`
-    );
-  },
-
-  /**
-   * Get KPI metrics with sparklines for a given period.
-   */
-  getMetrics: (period: string = 'last_30d') =>
-    get<MetricsResponse>(`/api/dashboard/metrics?period=${period}`),
-
-  /**
-   * Get AI adaptation tracker — 30-day AI learning progress.
-   * Returns daily AI vs human accuracy, mistake rates,
-   * training runs, and drift reports.
-   */
-  getAdaptationTracker: (days: number = 30) =>
-    get<AdaptationTrackerResponse>(`/api/analytics/adaptation?days=${days}`),
-
-  /**
-   * Get growth nudge alerts based on usage pattern analysis.
-   * Returns actionable recommendations for scaling, channels, CSAT, etc.
-   */
-  getGrowthNudges: () =>
-    get<GrowthNudgeResponse>('/api/analytics/growth-nudges'),
-
-  /**
-   * Get ticket volume forecast using predictive analytics.
-   * Returns historical + forecast data with confidence bounds.
-   */
-  getTicketForecast: (forecastDays: number = 14, historicalDays: number = 30) =>
-    get<TicketForecastResponse>(`/api/analytics/forecast?forecast_days=${forecastDays}&historical_days=${historicalDays}`),
-
-  /**
-   * Get CSAT trend analytics with daily trend, distribution,
-   * and breakdowns by agent, category, and channel.
-   */
-  getCSATTrends: (days: number = 30) =>
-    get<CSATTrendsResponse>(`/api/analytics/csat-trends?days=${days}`),
-
-  /**
-   * Get AI confidence trend — daily avg confidence scores
-   * over time with distribution buckets and thresholds.
-   * F-115
-   */
-  getConfidenceTrend: (days: number = 30) =>
-    get<ConfidenceTrendResponse>(`/api/analytics/confidence-trend?days=${days}`),
-
-  /**
-   * Get drift detection reports — model performance drift
-   * alerts with severity, metrics, and recovery status.
-   * F-116
-   */
-  getDriftReports: (limit: number = 20) =>
-    get<DriftReportsResponse>(`/api/analytics/drift-reports?limit=${limit}`),
-
-  /**
-   * Get QA scores — response quality scores with dimension
-   * breakdowns, pass rates, and trend data.
-   * F-119
-   */
-  getQAScores: (days: number = 30) =>
-    get<QAScoresResponse>(`/api/analytics/qa-scores?days=${days}`),
-
-  /**
-   * Get ROI dashboard — cost savings, AI vs human ticket comparison,
-   * monthly trend, and return on investment metrics.
-   * F-113
-   */
-  getROIDashboard: (months: number = 12) =>
-    get<ROIDashboardResponse>(`/api/analytics/savings?months=${months}`),
-};
 
 // ── F-042: Growth Nudge Types ─────────────────────────────────────────
 
@@ -386,5 +257,97 @@ export interface ROIDashboardResponse {
   avg_cost_per_ticket_human: number;
   savings_pct: number;
 }
+
+// ── Dashboard API ────────────────────────────────────────────────────
+
+export const dashboardApi = {
+  /**
+   * Get unified dashboard home data (F-036).
+   * Returns summary, KPIs, SLA, trends, categories,
+   * activity feed, savings, workforce, CSAT, and anomalies.
+   */
+  getHome: (periodDays: number = 30) =>
+    get<DashboardHomeData>(`/api/dashboard/home?period_days=${periodDays}`),
+
+  /**
+   * Get dashboard widget layout config (F-036).
+   */
+  getLayout: () =>
+    get<DashboardLayoutResponse>('/api/dashboard/layout'),
+
+  /**
+   * Get paginated activity feed (F-037).
+   * Supports filtering by event_type and ticket_id.
+   */
+  getActivityFeed: (params?: {
+    page?: number;
+    pageSize?: number;
+    eventType?: string;
+    ticketId?: string;
+  }): Promise<ActivityFeedResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.pageSize) searchParams.set('page_size', String(params.pageSize));
+    if (params?.eventType) searchParams.set('event_type', params.eventType);
+    if (params?.ticketId) searchParams.set('ticket_id', params.ticketId);
+    const qs = searchParams.toString();
+    return get<ActivityFeedResponse>(`/api/dashboard/activity-feed${qs ? `?${qs}` : ''}`);
+  },
+
+  /**
+   * Get key KPI metrics with sparkline data (F-038).
+   */
+  getMetrics: (period: string = 'last_30d') =>
+    get<MetricsResponse>(`/api/dashboard/metrics?period=${period}`),
+
+  /**
+   * Get AI adaptation tracker — 30-day AI learning progress.
+   */
+  getAdaptationTracker: (days: number = 30) =>
+    get<AdaptationTrackerResponse>(`/api/analytics/adaptation?days=${days}`),
+
+  /**
+   * Get growth nudge alerts based on usage pattern analysis.
+   */
+  getGrowthNudges: () =>
+    get<GrowthNudgeResponse>('/api/analytics/growth-nudges'),
+
+  /**
+   * Get ticket volume forecast using predictive analytics.
+   */
+  getTicketForecast: (forecastDays: number = 14, historicalDays: number = 30) =>
+    get<TicketForecastResponse>(`/api/analytics/forecast?forecast_days=${forecastDays}&historical_days=${historicalDays}`),
+
+  /**
+   * Get CSAT trend analytics with daily trend, distribution,
+   * and breakdowns by agent, category, and channel.
+   */
+  getCSATTrends: (days: number = 30) =>
+    get<CSATTrendsResponse>(`/api/analytics/csat-trends?days=${days}`),
+
+  /**
+   * Get AI confidence trend — daily avg confidence scores (F-115).
+   */
+  getConfidenceTrend: (days: number = 30) =>
+    get<ConfidenceTrendResponse>(`/api/analytics/confidence-trend?days=${days}`),
+
+  /**
+   * Get drift detection reports — model performance drift (F-116).
+   */
+  getDriftReports: (limit: number = 20) =>
+    get<DriftReportsResponse>(`/api/analytics/drift-reports?limit=${limit}`),
+
+  /**
+   * Get QA scores — response quality scores (F-119).
+   */
+  getQAScores: (days: number = 30) =>
+    get<QAScoresResponse>(`/api/analytics/qa-scores?days=${days}`),
+
+  /**
+   * Get ROI dashboard — cost savings, AI vs human comparison (F-113).
+   */
+  getROIDashboard: (months: number = 12) =>
+    get<ROIDashboardResponse>(`/api/analytics/savings?months=${months}`),
+};
 
 export default dashboardApi;

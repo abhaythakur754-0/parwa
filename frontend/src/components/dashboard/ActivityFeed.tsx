@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { dashboardApi } from '@/lib/analytics-api';
-import type { ActivityEvent, ActivityEventType } from '@/types/analytics';
+import { dashboardApi, type ActivityEvent } from '@/lib/dashboard-api';
+import type { ActivityEventType } from '@/types/analytics';
 
 // ── Props ─────────────────────────────────────────────────────────────
 

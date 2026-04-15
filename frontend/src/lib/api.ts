@@ -419,6 +419,11 @@ export const authApi = {
    */
   resetPassword: (token: string, new_password: string) => 
     post<MessageResponse>('/api/auth/reset-password', { token, new_password }),
+
+  /**
+   * Delete account and all associated data.
+   */
+  deleteAccount: () => del<MessageResponse>('/api/user/delete-account'),
 };
 
 export default apiClient;

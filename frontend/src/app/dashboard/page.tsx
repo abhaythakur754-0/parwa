@@ -9,9 +9,9 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import DashboardAlerts from '@/components/dashboard/DashboardAlerts';
 import SavingsCounter from '@/components/dashboard/SavingsCounter';
 import WorkforceAllocation from '@/components/dashboard/WorkforceAllocation';
-import { dashboardApi } from '@/lib/analytics-api';
+import { dashboardApi, type DashboardHomeData } from '@/lib/dashboard-api';
 import { getErrorMessage } from '@/lib/api';
-import type { DashboardHomeData, AnomalyAlert } from '@/types/analytics';
+import type { AnomalyAlert } from '@/types/analytics';
 
 // ── Icons (inline SVGs) ──────────────────────────────────────────────
 
@@ -280,19 +280,43 @@ export default function DashboardPage() {
         {/* ── Charts + Activity Feed Row ─────────────────────────────── */}
         {data && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
-            {/* Ticket Trend Chart (placeholder for Day 2) */}
+            {/* F-038: Ticket Trend Chart */}
             <div className="lg:col-span-2 rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
               <h3 className="text-sm font-semibold text-zinc-300 mb-1">Ticket Trends</h3>
               <p className="text-xs text-zinc-600 mb-4">Volume over time</p>
-              <div className="h-[260px] flex items-center justify-center text-zinc-600 text-sm">
-                <div className="text-center space-y-2">
-                  <svg className="w-10 h-10 mx-auto text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                  </svg>
-                  <p>Trend chart coming in Day 2</p>
-                  <p className="text-xs text-zinc-700">{trend.length} data points available</p>
+              {trend.length > 0 ? (
+                <div className="h-[260px] flex items-end gap-1.5 px-1">
+                  {trend.map((point, i) => {
+                    const maxCount = Math.max(...trend.map(p => p.count), 1);
+                    const heightPct = (point.count / maxCount) * 100;
+                    return (
+                      <div
+                        key={i}
+                        className="flex-1 flex flex-col items-center gap-1 group"
+                        title={`${point.label}: ${point.count} tickets`}
+                      >
+                        <div
+                          className="w-full rounded-t-sm bg-gradient-to-t from-[#FF7F11]/40 to-[#FF7F11]/80 transition-all duration-300 group-hover:from-[#FF7F11]/60 group-hover:to-[#FF7F11] min-h-[4px]"
+                          style={{ height: `${Math.max(heightPct, 3)}%` }}
+                        />
+                        <span className="text-[9px] text-zinc-600 group-hover:text-zinc-400 transition-colors truncate w-full text-center">
+                          {point.label || point.timestamp.slice(5, 10)}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              ) : (
+                <div className="h-[260px] flex items-center justify-center">
+                  <div className="text-center space-y-2">
+                    <svg className="w-10 h-10 mx-auto text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                    </svg>
+                    <p className="text-zinc-600 text-sm">No trend data yet</p>
+                    <p className="text-xs text-zinc-700">Charts will populate as tickets are resolved</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* F-037: Activity Feed */}
@@ -343,11 +367,18 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Agent Performance (placeholder for Day 2) */}
+            {/* Agent Performance */}
             <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
-              <h3 className="text-sm font-semibold text-zinc-300 mb-4">Quick Agent Overview</h3>
-              <div className="text-zinc-600 text-sm text-center py-6">
-                Agent performance table coming in Day 2
+              <h3 className="text-sm font-semibold text-zinc-300 mb-1">Quick Agent Overview</h3>
+              <p className="text-xs text-zinc-600 mb-4">AI vs Human agent performance</p>
+              <div className="h-[180px] flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <svg className="w-10 h-10 mx-auto text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                  </svg>
+                  <p className="text-zinc-600 text-sm">No agent metrics yet</p>
+                  <p className="text-xs text-zinc-700">Data will appear once tickets are assigned to agents</p>
+                </div>
               </div>
             </div>
           </div>

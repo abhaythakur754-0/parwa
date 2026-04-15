@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/api';
-import type { ChannelInfo, ChannelConfig, ChannelType } from '@/types/analytics';
+import { getChannelConfig, updateChannelConfig, testChannelConnection } from '@/lib/channels-api';
+import type { ChannelType } from '@/types/analytics';
 
 // ── Channel Metadata ──────────────────────────────────────────────────
 
@@ -123,23 +124,15 @@ export default function ChannelsPage() {
   async function loadChannelConfig() {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/v1/channels/config', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('parwa_access_token')}`,
-        },
+      const configs = await getChannelConfig();
+      const enabled = new Set<ChannelType>();
+      configs.forEach((ch) => {
+        if (ch.is_enabled) enabled.add(ch.channel_type as ChannelType);
       });
-      if (response.ok) {
-        const data = await response.json();
-        const enabled = new Set<ChannelType>();
-        if (Array.isArray(data)) {
-          data.forEach((ch: { channel_type: string; is_enabled: boolean }) => {
-            if (ch.is_enabled) enabled.add(ch.channel_type as ChannelType);
-          });
-        }
-        setEnabledChannels(enabled);
-      }
+      setEnabledChannels(enabled);
     } catch (error) {
       console.error('Failed to load channels:', error);
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -149,27 +142,14 @@ export default function ChannelsPage() {
 
   const handleToggle = useCallback(async (type: ChannelType, enabled: boolean) => {
     try {
-      const response = await fetch(`/api/v1/channels/config/${type}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('parwa_access_token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ is_enabled: enabled }),
+      await updateChannelConfig(type, { is_enabled: enabled });
+      setEnabledChannels((prev) => {
+        const next = new Set(prev);
+        if (enabled) next.add(type);
+        else next.delete(type);
+        return next;
       });
-
-      if (response.ok) {
-        setEnabledChannels((prev) => {
-          const next = new Set(prev);
-          if (enabled) next.add(type);
-          else next.delete(type);
-          return next;
-        });
-        toast.success(`${channelMeta.find((c) => c.type === type)?.name} ${enabled ? 'enabled' : 'disabled'}`);
-      } else {
-        const error = await response.json().catch(() => ({}));
-        toast.error(error.detail || 'Failed to update channel');
-      }
+      toast.success(`${channelMeta.find((c) => c.type === type)?.name} ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -180,18 +160,12 @@ export default function ChannelsPage() {
   const handleTest = useCallback(async (type: ChannelType) => {
     try {
       toast.loading(`Testing ${channelMeta.find((c) => c.type === type)?.name}...`, { id: 'test-channel' });
-      const response = await fetch(`/api/v1/channels/config/${type}/test`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('parwa_access_token')}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const result = await testChannelConnection(type);
 
-      if (response.ok) {
+      if (result.success) {
         toast.success(`${channelMeta.find((c) => c.type === type)?.name} connection successful`, { id: 'test-channel' });
       } else {
-        toast.error('Connection failed', { id: 'test-channel' });
+        toast.error(result.message || 'Connection failed', { id: 'test-channel' });
       }
     } catch (error) {
       toast.error(getErrorMessage(error), { id: 'test-channel' });
