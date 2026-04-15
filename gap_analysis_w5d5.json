@@ -1,0 +1,41 @@
+{
+  "found_count": "5",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Tenant isolation bypass in billing API",
+      "breaks": "One tenant can access another tenant's subscription details",
+      "scenario": "Tenant A makes request to GET /api/billing/subscription with company_id=2 and sees Tenant B's plan details, pricing, and payment information",
+      "prompt": "Write a test that attempts to access billing subscription details for different company IDs without proper authorization. Verify that each request returns 403 Forbidden when accessing company_id that doesn't match the authenticated user's company. Include test cases for both valid and invalid company_id parameters in the request."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Race condition in subscription upgrade",
+      "breaks": "Multiple simultaneous upgrade requests result in incorrect billing state",
+      "scenario": "Tenant with 2K tickets sends two concurrent upgrade requests from Starter to Growth plan. Both succeed, but they're only charged once while getting double the ticket allowance, or they're charged twice but only get the single upgrade benefit",
+      "prompt": "Write a test that simulates concurrent subscription upgrade requests. Send multiple simultaneous POST /api/billing/upgrade requests for the same tenant. Verify that only one upgrade is processed, the correct amount is charged exactly once, and the subscription state is consistent. Test with different time intervals between requests (0ms, 100ms, 500ms)."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Missing idempotency for upgrade/cancel endpoints",
+      "breaks": "Duplicate requests cause duplicate charges or multiple state changes",
+      "scenario": "Payment webhook double-fires after a successful upgrade, causing the same upgrade request to be processed twice, resulting in the customer being charged twice for the same plan change",
+      "prompt": "Write a test that sends identical POST /api/billing/upgrade and POST /api/billing/cancel requests multiple times with the same parameters. Verify that subsequent requests after the first successful one return the same result without making additional changes or charges. Test with and without proper idempotency headers."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Frontend state inconsistency after API failure",
+      "breaks": "UI shows incorrect subscription status after failed backend operation",
+      "scenario": "User clicks \"Upgrade\" button, API call fails with a 500 error, but frontend doesn't properly handle the error and still shows \"Upgrading...\" spinner or displays the upgraded plan despite the failure",
+      "prompt": "Write a test that simulates API failures for billing operations (upgrade, cancel) and verifies that the frontend properly handles these errors. Test scenarios: 500 server errors, network timeouts, and partial failures where some operations succeed but others don't. Ensure the UI shows appropriate error messages and maintains the correct state."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Missing rollback on partial upgrade failure",
+      "breaks": "Incomplete upgrade leaves system in inconsistent state",
+      "scenario": "During upgrade from Starter to Growth plan, the system successfully updates the subscription tier in the database but fails to process the payment with Paddle, leaving the tenant in a partially upgraded state with no way to access the higher tier features",
+      "prompt": "Write a test that simulates partial failures in the upgrade process. Mock scenarios where the database update succeeds but the payment processing fails, or vice versa. Verify that the system implements proper rollback mechanisms to restore the original subscription state if any part of the upgrade process fails."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 5\n\nGAP 1\nSeverity: CRITICAL\nTitle: Tenant isolation bypass in billing API\nWhat breaks: One tenant can access another tenant's subscription details\nReal scenario: Tenant A makes request to GET /api/billing/subscription with company_id=2 and sees Tenant B's plan details, pricing, and payment information\nAI agent prompt: Write a test that attempts to access billing subscription details for different company IDs without proper authorization. Verify that each request returns 403 Forbidden when accessing company_id that doesn't match the authenticated user's company. Include test cases for both valid and invalid company_id parameters in the request.\n\nGAP 2\nSeverity: CRITICAL\nTitle: Race condition in subscription upgrade\nWhat breaks: Multiple simultaneous upgrade requests result in incorrect billing state\nReal scenario: Tenant with 2K tickets sends two concurrent upgrade requests from Starter to Growth plan. Both succeed, but they're only charged once while getting double the ticket allowance, or they're charged twice but only get the single upgrade benefit\nAI agent prompt: Write a test that simulates concurrent subscription upgrade requests. Send multiple simultaneous POST /api/billing/upgrade requests for the same tenant. Verify that only one upgrade is processed, the correct amount is charged exactly once, and the subscription state is consistent. Test with different time intervals between requests (0ms, 100ms, 500ms).\n\nGAP 3\nSeverity: HIGH\nTitle: Missing idempotency for upgrade/cancel endpoints\nWhat breaks: Duplicate requests cause duplicate charges or multiple state changes\nReal scenario: Payment webhook double-fires after a successful upgrade, causing the same upgrade request to be processed twice, resulting in the customer being charged twice for the same plan change\nAI agent prompt: Write a test that sends identical POST /api/billing/upgrade and POST /api/billing/cancel requests multiple times with the same parameters. Verify that subsequent requests after the first successful one return the same result without making additional changes or charges. Test with and without proper idempotency headers.\n\nGAP 4\nSeverity: HIGH\nTitle: Frontend state inconsistency after API failure\nWhat breaks: UI shows incorrect subscription status after failed backend operation\nReal scenario: User clicks \"Upgrade\" button, API call fails with a 500 error, but frontend doesn't properly handle the error and still shows \"Upgrading...\" spinner or displays the upgraded plan despite the failure\nAI agent prompt: Write a test that simulates API failures for billing operations (upgrade, cancel) and verifies that the frontend properly handles these errors. Test scenarios: 500 server errors, network timeouts, and partial failures where some operations succeed but others don't. Ensure the UI shows appropriate error messages and maintains the correct state.\n\nGAP 5\nSeverity: MEDIUM\nTitle: Missing rollback on partial upgrade failure\nWhat breaks: Incomplete upgrade leaves system in inconsistent state\nReal scenario: During upgrade from Starter to Growth plan, the system successfully updates the subscription tier in the database but fails to process the payment with Paddle, leaving the tenant in a partially upgraded state with no way to access the higher tier features\nAI agent prompt: Write a test that simulates partial failures in the upgrade process. Mock scenarios where the database update succeeds but the payment processing fails, or vice versa. Verify that the system implements proper rollback mechanisms to restore the original subscription state if any part of the upgrade process fails."
+}

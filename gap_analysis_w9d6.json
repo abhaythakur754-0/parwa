@@ -1,0 +1,55 @@
+{
+  "found_count": "7",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Signal Extraction Race Condition",
+      "breaks": "Concurrent signal extraction requests for same ticket cause incorrect signal values",
+      "scenario": "Two support agents process the same high-value ticket simultaneously, causing the monetary value signal to be calculated incorrectly as $500 instead of $5,000",
+      "prompt": "Write a test that simulates 10 concurrent requests to the signal extraction endpoint for the same ticket ID with text containing a monetary value. Verify that only one request processes the signal extraction while others use cached value, and that all requests return the correct monetary value signal."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Tenant Isolation in Signal Cache",
+      "breaks": "Signals from one tenant leak to another due to cache key collision",
+      "scenario": "Tenant A with \"VIP customer\" text and Tenant B with \"regular customer\" text get each other's customer tier signals due to insufficient tenant isolation in Redis cache keys",
+      "prompt": "Write a test that creates two tickets from different tenants with identical text but different expected customer tier signals. Verify that the signal extraction system includes tenant_id in Redis cache keys to prevent signal leakage between tenants."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Ambiguous Intent Classification",
+      "breaks": "Multi-label classifier fails on ambiguous intent combinations",
+      "scenario": "Ticket text \"I want my money back for this broken feature that's not working\" confuses the classifier, outputting both refund and technical intents with low confidence, causing incorrect routing",
+      "prompt": "Write a test that sends 50 ambiguous ticket texts with overlapping intent categories (refund/technical, billing/complaint, etc.). Verify the classifier handles these edge cases gracefully and provides meaningful confidence scores for each intent."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Intent-Technique Mapping Failure",
+      "breaks": "Incorrect mapping of secondary intents to AI techniques",
+      "scenario": "A ticket with primary intent \"refund\" and secondary intent \"complaint\" gets mapped only to Self-Consistency technique instead of the combination of Self-Consistency + UoT+Reflexion",
+      "prompt": "Write a test that verifies the intent\u00d7technique mapping correctly handles all primary/secondary intent combinations. Include test cases for each of the 6 intents with all possible secondary intents to ensure proper technique selection."
+    },
+    {
+      "severity": "HIGH",
+      "title": "CLARA Pipeline Silent Failure",
+      "breaks": "CLARA quality gate passes invalid responses due to silent stage failures",
+      "scenario": "The Brand stage fails but doesn't trigger regeneration or human review, allowing a response with incorrect brand voice to proceed to the customer",
+      "prompt": "Write a test that simulates failures in each of the 5 CLARA pipeline stages. Verify that any stage failure triggers the appropriate fallback behavior (regeneration or human review) and that the system logs the failure reason."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Signal Cache Staleness",
+      "breaks": "Using stale signals after TTL expiration but before cache refresh",
+      "scenario": "A signal's TTL expires while the system is processing, causing the classification to use outdated signal values that don't reflect the current ticket state",
+      "prompt": "Write a test that artificially reduces the signal cache TTL to 1 second, then sends classification requests at 0.5-second intervals after TTL expiration. Verify that the system either uses the latest signals or handles the cache miss gracefully without using stale data."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Variant Weight Inconsistency",
+      "breaks": "Different signal variant weights produce identical classification results",
+      "scenario": "Two different signal variants with significantly different weights produce the same intent classification, indicating the weights are not being applied correctly",
+      "prompt": "Write a test that creates two signal variants with extreme weight differences (e.g., monetary weight 0.1 vs 0.9) for the same ticket text. Verify that the classification results differ significantly based on the variant weights applied."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 7\n\nGAP 1\nSeverity: CRITICAL\nTitle: Signal Extraction Race Condition\nWhat breaks: Concurrent signal extraction requests for same ticket cause incorrect signal values\nReal scenario: Two support agents process the same high-value ticket simultaneously, causing the monetary value signal to be calculated incorrectly as $500 instead of $5,000\nAI agent prompt: Write a test that simulates 10 concurrent requests to the signal extraction endpoint for the same ticket ID with text containing a monetary value. Verify that only one request processes the signal extraction while others use cached value, and that all requests return the correct monetary value signal.\n\nGAP 2\nSeverity: CRITICAL\nTitle: Tenant Isolation in Signal Cache\nWhat breaks: Signals from one tenant leak to another due to cache key collision\nReal scenario: Tenant A with \"VIP customer\" text and Tenant B with \"regular customer\" text get each other's customer tier signals due to insufficient tenant isolation in Redis cache keys\nAI agent prompt: Write a test that creates two tickets from different tenants with identical text but different expected customer tier signals. Verify that the signal extraction system includes tenant_id in Redis cache keys to prevent signal leakage between tenants.\n\nGAP 3\nSeverity: HIGH\nTitle: Ambiguous Intent Classification\nWhat breaks: Multi-label classifier fails on ambiguous intent combinations\nReal scenario: Ticket text \"I want my money back for this broken feature that's not working\" confuses the classifier, outputting both refund and technical intents with low confidence, causing incorrect routing\nAI agent prompt: Write a test that sends 50 ambiguous ticket texts with overlapping intent categories (refund/technical, billing/complaint, etc.). Verify the classifier handles these edge cases gracefully and provides meaningful confidence scores for each intent.\n\nGAP 4\nSeverity: HIGH\nTitle: Intent-Technique Mapping Failure\nWhat breaks: Incorrect mapping of secondary intents to AI techniques\nReal scenario: A ticket with primary intent \"refund\" and secondary intent \"complaint\" gets mapped only to Self-Consistency technique instead of the combination of Self-Consistency + UoT+Reflexion\nAI agent prompt: Write a test that verifies the intent\u00d7technique mapping correctly handles all primary/secondary intent combinations. Include test cases for each of the 6 intents with all possible secondary intents to ensure proper technique selection.\n\nGAP 5\nSeverity: HIGH\nTitle: CLARA Pipeline Silent Failure\nWhat breaks: CLARA quality gate passes invalid responses due to silent stage failures\nReal scenario: The Brand stage fails but doesn't trigger regeneration or human review, allowing a response with incorrect brand voice to proceed to the customer\nAI agent prompt: Write a test that simulates failures in each of the 5 CLARA pipeline stages. Verify that any stage failure triggers the appropriate fallback behavior (regeneration or human review) and that the system logs the failure reason.\n\nGAP 6\nSeverity: MEDIUM\nTitle: Signal Cache Staleness\nWhat breaks: Using stale signals after TTL expiration but before cache refresh\nReal scenario: A signal's TTL expires while the system is processing, causing the classification to use outdated signal values that don't reflect the current ticket state\nAI agent prompt: Write a test that artificially reduces the signal cache TTL to 1 second, then sends classification requests at 0.5-second intervals after TTL expiration. Verify that the system either uses the latest signals or handles the cache miss gracefully without using stale data.\n\nGAP 7\nSeverity: MEDIUM\nTitle: Variant Weight Inconsistency\nWhat breaks: Different signal variant weights produce identical classification results\nReal scenario: Two different signal variants with significantly different weights produce the same intent classification, indicating the weights are not being applied correctly\nAI agent prompt: Write a test that creates two signal variants with extreme weight differences (e.g., monetary weight 0.1 vs 0.9) for the same ticket text. Verify that the classification results differ significantly based on the variant weights applied."
+}

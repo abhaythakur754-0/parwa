@@ -1,0 +1,48 @@
+{
+  "found_count": "6",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Payment failure state transition race condition",
+      "breaks": "Multiple payment failure events processed simultaneously causing inconsistent subscription state",
+      "scenario": "Two payment_failed webhooks arrive at same millisecond for tenant_123's subscription. First sets state to past_due, second processes and incorrectly sets to expired due to stale state check",
+      "prompt": "Write a test that simulates concurrent payment_failed webhook events for the same subscription. Verify that only one state transition occurs and the subscription ends up in past_due state, not an inconsistent state."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Webhook replay attack vulnerability",
+      "breaks": "Identical webhook events reprocessed causing duplicate subscription state changes",
+      "scenario": "Attacker replays a subscription_created webhook for tenant_456, creating duplicate subscriptions or causing billing errors",
+      "prompt": "Write a test that simulates replaying the same Paddle webhook event multiple times. Verify the system detects and rejects duplicate events using idempotency keys and doesn't process the same event more than once."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Tenant isolation leak in webhook processing",
+      "breaks": "Webhook handler processes events for wrong tenant due to context propagation failure",
+      "scenario": "subscription_updated event for tenant_789 is processed with tenant_123 context, causing tenant_123's subscription data to be modified",
+      "prompt": "Write a test that verifies tenant isolation in webhook processing. Simulate a webhook event with one tenant ID but processed with a different tenant context. Ensure the operation fails or correctly uses the event's tenant ID."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Partial failure during subscription cancellation",
+      "breaks": "Webhook partially processed leaving subscription in inconsistent state",
+      "scenario": "subscription_canceled webhook processed, update to subscription table succeeds but update to billing_history table fails, leaving subscription in limbo",
+      "prompt": "Write a test that simulates a partial failure during subscription cancellation processing. Verify the system has proper rollback mechanisms and maintains data consistency across all related tables."
+    },
+    {
+      "severity": "HIGH",
+      "title": "State transition validation bypass",
+      "breaks": "Invalid state transitions allowed due to insufficient validation",
+      "scenario": "subscription_updated webhook attempts to transition subscription from expired directly to active, bypassing required past_due state",
+      "prompt": "Write a test that attempts various invalid state transitions (e.g., expired \u2192 active, canceled \u2192 active). Verify the system rejects these transitions with appropriate error messages."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Missing webhook event handling",
+      "breaks": "Unhandled webhook events cause silent failures",
+      "scenario": "Paddle sends a new 'subscription_paused' event that's not in the handler, causing the event to be silently ignored",
+      "prompt": "Write a test that simulates an unhandled webhook event type. Verify the system logs an appropriate error and doesn't crash, while ensuring all expected event types are properly handled."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 6\n\nGAP 1\nSeverity: CRITICAL\nTitle: Payment failure state transition race condition\nWhat breaks: Multiple payment failure events processed simultaneously causing inconsistent subscription state\nReal scenario: Two payment_failed webhooks arrive at same millisecond for tenant_123's subscription. First sets state to past_due, second processes and incorrectly sets to expired due to stale state check\nAI agent prompt: Write a test that simulates concurrent payment_failed webhook events for the same subscription. Verify that only one state transition occurs and the subscription ends up in past_due state, not an inconsistent state.\n\nGAP 2\nSeverity: CRITICAL\nTitle: Webhook replay attack vulnerability\nWhat breaks: Identical webhook events reprocessed causing duplicate subscription state changes\nReal scenario: Attacker replays a subscription_created webhook for tenant_456, creating duplicate subscriptions or causing billing errors\nAI agent prompt: Write a test that simulates replaying the same Paddle webhook event multiple times. Verify the system detects and rejects duplicate events using idempotency keys and doesn't process the same event more than once.\n\nGAP 3\nSeverity: HIGH\nTitle: Tenant isolation leak in webhook processing\nWhat breaks: Webhook handler processes events for wrong tenant due to context propagation failure\nReal scenario: subscription_updated event for tenant_789 is processed with tenant_123 context, causing tenant_123's subscription data to be modified\nAI agent prompt: Write a test that verifies tenant isolation in webhook processing. Simulate a webhook event with one tenant ID but processed with a different tenant context. Ensure the operation fails or correctly uses the event's tenant ID.\n\nGAP 4\nSeverity: HIGH\nTitle: Partial failure during subscription cancellation\nWhat breaks: Webhook partially processed leaving subscription in inconsistent state\nReal scenario: subscription_canceled webhook processed, update to subscription table succeeds but update to billing_history table fails, leaving subscription in limbo\nAI agent prompt: Write a test that simulates a partial failure during subscription cancellation processing. Verify the system has proper rollback mechanisms and maintains data consistency across all related tables.\n\nGAP 5\nSeverity: HIGH\nTitle: State transition validation bypass\nWhat breaks: Invalid state transitions allowed due to insufficient validation\nReal scenario: subscription_updated webhook attempts to transition subscription from expired directly to active, bypassing required past_due state\nAI agent prompt: Write a test that attempts various invalid state transitions (e.g., expired \u2192 active, canceled \u2192 active). Verify the system rejects these transitions with appropriate error messages.\n\nGAP 6\nSeverity: MEDIUM\nTitle: Missing webhook event handling\nWhat breaks: Unhandled webhook events cause silent failures\nReal scenario: Paddle sends a new 'subscription_paused' event that's not in the handler, causing the event to be silently ignored\nAI agent prompt: Write a test that simulates an unhandled webhook event type. Verify the system logs an appropriate error and doesn't crash, while ensuring all expected event types are properly handled."
+}

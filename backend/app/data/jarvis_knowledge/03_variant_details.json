@@ -1,0 +1,967 @@
+{
+  "knowledge_base": "PARWA Variant Workflow Details",
+  "version": "1.0.0",
+  "last_updated": "2025-01-15",
+  "description": "Deep workflow, edge case handling, integration requirements, auto-learning behavior, performance benchmarks, and escalation triggers for all 20 AI agent variants.",
+  "variants": [
+    {
+      "id": "ecom-order-management",
+      "name": "Order Management",
+      "industry": "e-commerce",
+      "workflow": [
+        "1. Receive customer inquiry and classify intent (order status, modification, cancellation, or placement help)",
+        "2. Authenticate customer by looking up order number, email, or phone number in the connected e-commerce platform",
+        "3. If order is found, fetch complete order details including items, payment status, fulfillment status, and tracking information",
+        "4. If order is not found, ask clarifying questions (alternative email addresses, different order numbers, recent purchase date range)",
+        "5. Based on intent, execute appropriate action: for status inquiries, aggregate and display real-time order timeline; for modifications, check if the order is still in a modifiable state; for cancellations, verify cancellation policy and process if eligible",
+        "6. Calculate and communicate any applicable fees, refund timelines, or policy implications",
+        "7. Execute the requested action through the e-commerce platform API and confirm with the customer",
+        "8. Send follow-up confirmation via email with updated order details or cancellation receipt"
+      ],
+      "handles_edge_cases": [
+        "Customer provides wrong order number — agent searches by email, phone, and recent purchase date range to locate the correct order",
+        "Order was placed through a third-party marketplace (Amazon, eBay) — agent identifies the fulfillment channel and redirects to the appropriate marketplace support or provides seller-side information",
+        "Order contains both in-stock and pre-order items — agent explains split shipment options and provides individual timelines for each item",
+        "Customer requests modification after shipment has occurred — agent explains that the order cannot be modified in transit and offers return/exchange alternatives",
+        "Duplicate order detected — agent identifies the duplicate, recommends cancellation of the later order, and processes the refund automatically",
+        "Order placed with expired promotional discount — agent verifies the promotion terms and explains whether retroactive discount application is possible",
+        "International order with customs hold — agent identifies the customs status, explains the customs process, and provides documentation the customer may need to provide"
+      ],
+      "integration_requirements": [
+        "E-commerce platform API (Shopify, WooCommerce, Magento, BigCommerce) for order CRUD operations and status queries",
+        "Payment gateway API (Stripe, Razorpay) for refund processing and payment status verification",
+        "Shipping carrier APIs (UPS, FedEx, USPS) for real-time tracking data and delivery estimates",
+        "Inventory management system for stock level queries and availability checks",
+        "Email service (SMTP or SendGrid) for order confirmation and status update notifications"
+      ],
+      "auto_learning": "The Order Management variant continuously learns from resolved tickets to improve accuracy. When a human agent overrides the AI response, the system logs the correction and adjusts its response patterns. It learns to recognize new product names, updated policies, and seasonal promotions by analyzing successful resolution patterns. The variant also learns customer communication preferences over time, such as which customers prefer detailed explanations versus concise updates.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 3,
+        "p95_response_time_seconds": 7,
+        "resolution_accuracy_percent": 92,
+        "first_contact_resolution_rate_percent": 88,
+        "escalation_rate_percent": 12
+      },
+      "escalation_triggers": [
+        "Order involves a disputed charge amount exceeding $500",
+        "Customer reports potential fraud or unauthorized order",
+        "Order contains hazardous materials with shipping compliance requirements",
+        "Customer requests a modification that violates company policy and expresses strong dissatisfaction",
+        "System cannot locate the order after multiple search attempts",
+        "Order involves a legal threat or attorney involvement",
+        "Customer has had 3 or more unresolved interactions about the same order"
+      ]
+    },
+    {
+      "id": "ecom-returns-refunds",
+      "name": "Returns & Refunds",
+      "industry": "e-commerce",
+      "workflow": [
+        "1. Receive return or refund request and identify the associated order and item(s)",
+        "2. Verify the customer's identity by matching the order to their account or purchase email",
+        "3. Check return eligibility by comparing the delivery date against the return policy window (e.g., 30 days from delivery)",
+        "4. Verify the item's return condition requirements (e.g., tags attached, original packaging, unused condition)",
+        "5. If eligible, generate a return shipping label and provide the customer with return instructions including drop-off locations",
+        "6. Calculate the expected refund amount considering original payment method, any restocking fees, and shipping cost deductions",
+        "7. Set return expectations: typical inspection timeline, refund processing time, and payment method refund timeframe",
+        "8. If the customer prefers an exchange, check inventory for the replacement item and initiate the exchange workflow",
+        "9. Log the return request in the system and trigger status notifications at each stage (label created, item received, inspection complete, refund issued)"
+      ],
+      "handles_edge_cases": [
+        "Item returned outside the standard return window but within an extended holiday return period — agent checks for active extended return policies and adjusts eligibility accordingly",
+        "Customer lost the original packaging — agent advises on acceptable alternative packaging and whether missing packaging affects the return",
+        "Item was a final sale or clearance purchase — agent checks the final sale terms, explains the no-return policy, and offers store credit as a goodwill gesture if company policy allows",
+        "Customer received a damaged or defective item — agent bypasses standard return process and initiates a damage claim with prepaid label and immediate replacement shipment",
+        "Gift return where the purchaser and recipient are different people — agent handles refund to original payment method or offers store credit to the recipient",
+        "Partial return from a multi-item order — agent processes the individual item return and recalculates any bundle discount implications",
+        "International return with customs implications — agent provides customs documentation and explains potential duties or import tax scenarios for the return shipment"
+      ],
+      "integration_requirements": [
+        "E-commerce platform API for order lookup, return authorization creation, and refund processing",
+        "Shipping carrier API for return label generation and tracking the return shipment",
+        "Inventory management system for exchange item availability checks and stock updates",
+        "Payment gateway API for refund issuance to the original payment method",
+        "Email service for return instructions, label delivery, and status update notifications",
+        "Warehouse management system for receiving and inspection status tracking"
+      ],
+      "auto_learning": "The Returns & Refunds variant learns to identify patterns in return reasons, which helps it suggest the right resolution more quickly. For example, if a particular product has a high return rate for sizing issues, the agent will proactively suggest size exchanges and provide detailed sizing guidance. It also learns from human agent overrides on refund calculations, adjusting its understanding of company-specific policies like restocking fee thresholds and seasonal policy exceptions.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 4,
+        "p95_response_time_seconds": 9,
+        "resolution_accuracy_percent": 88,
+        "first_contact_resolution_rate_percent": 82,
+        "escalation_rate_percent": 18
+      },
+      "escalation_triggers": [
+        "Refund amount exceeds $1,000",
+        "Customer claims item was never received but tracking shows delivered",
+        "Customer disputes the condition assessment after inspection",
+        "Return involves a suspected fraudulent claim (e.g., returning an empty box or different item)",
+        "Customer requests a refund method different from the original payment method",
+        "Return involves a recalled product with specific regulatory handling requirements",
+        "Customer has filed or threatens to file a chargeback with their bank"
+      ]
+    },
+    {
+      "id": "ecom-product-faq",
+      "name": "Product FAQ",
+      "industry": "e-commerce",
+      "workflow": [
+        "1. Receive the product inquiry and extract the product identifier (name, SKU, or description) from the customer message",
+        "2. Match the product query against the product catalog using semantic search to find the most relevant product(s)",
+        "3. If an exact match is found, retrieve full product details including specifications, availability, pricing, and related content",
+        "4. If multiple products match, present the top options and ask the customer to confirm which product they are asking about",
+        "5. Analyze the specific question type (specification, sizing, compatibility, availability, warranty, or care instructions)",
+        "6. Retrieve the relevant answer from the knowledge base, product documentation, or catalog data",
+        "7. Formulate a comprehensive response that directly answers the question and anticipates related follow-up questions",
+        "8. If the question involves availability, check real-time inventory across all warehouse locations",
+        "9. Offer relevant next steps such as viewing the product page, adding to cart, or comparing with similar products"
+      ],
+      "handles_edge_cases": [
+        "Customer asks about a discontinued product — agent confirms discontinuation, explains why, and recommends the closest available alternative with a comparison",
+        "Product inquiry mentions a competitor's product — agent provides an honest comparison with the equivalent in-house product without disparaging the competitor",
+        "Customer asks a highly technical question beyond the knowledge base — agent provides what it knows and escalates to a product specialist for the detailed answer",
+        "Product availability differs between website and warehouse — agent checks real-time warehouse inventory and communicates the most accurate availability",
+        "Customer asks about a product feature that does not exist — agent clarifies the product's actual capabilities and suggests alternative products that may have the requested feature",
+        "Product recall or safety notice exists for the item — agent proactively informs the customer about the recall and provides recall-specific instructions"
+      ],
+      "integration_requirements": [
+        "Product catalog API for real-time product data including specifications, pricing, and descriptions",
+        "Inventory management system for stock level checks across warehouse locations",
+        "PIM (Product Information Management) system for detailed product attributes and media assets",
+        "Knowledge base for product care guides, warranty terms, and FAQ articles",
+        "Review/ratings system integration for providing customer feedback context when relevant"
+      ],
+      "auto_learning": "The Product FAQ variant continuously expands its knowledge by analyzing resolved product questions. When a human agent provides a product answer not in the knowledge base, the system extracts the new information and adds it to the FAQ index. It also learns to recognize product name variations, abbreviations, and colloquial terms that customers use to refer to products. Over time, it builds a richer understanding of common product comparison patterns and customer decision factors.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 2,
+        "p95_response_time_seconds": 4,
+        "resolution_accuracy_percent": 94,
+        "first_contact_resolution_rate_percent": 90,
+        "escalation_rate_percent": 10
+      },
+      "escalation_triggers": [
+        "Question involves a safety concern or potential product liability issue",
+        "Customer reports a product defect or safety hazard",
+        "Product information is inaccurate or missing from the catalog",
+        "Customer needs a custom product configuration or bespoke order",
+        "Question requires consultation with a product engineer or manufacturer",
+        "Customer requests wholesale or bulk pricing information beyond standard product listings"
+      ]
+    },
+    {
+      "id": "ecom-shipping-inquiries",
+      "name": "Shipping Inquiries",
+      "industry": "e-commerce",
+      "workflow": [
+        "1. Receive the shipping inquiry and determine the query type (cost estimate, tracking, timeline, or policy question)",
+        "2. If tracking: extract tracking number or order number and query the carrier API for real-time status",
+        "3. If cost estimate: gather destination address, package details (or order items), and preferred shipping speed",
+        "4. Query the rate calculation engine with the gathered parameters to retrieve available shipping options and costs",
+        "5. Present all available shipping options with costs, estimated delivery dates, and carrier recommendations",
+        "6. For tracking queries: parse the carrier response into a customer-friendly timeline with milestone descriptions",
+        "7. If a delay or exception is detected, proactively explain the reason and provide the revised estimated delivery date",
+        "8. For international shipments: include customs duties estimate, documentation requirements, and potential delays",
+        "9. Offer proactive tracking notifications setup via email or SMS"
+      ],
+      "handles_edge_cases": [
+        "Package shows delivered but customer has not received it — agent checks delivery GPS coordinates, delivery photo if available, and initiates a delivery investigation with the carrier",
+        "Tracking number is invalid or not yet recognized by the carrier system — agent explains the typical 12-24 hour delay between label creation and carrier scanning and provides the expected activation timeline",
+        "Shipping address has a known delivery issue (rural route, PO Box, APO/FPO) — agent proactively identifies the limitation and suggests alternative shipping methods or address corrections",
+        "Customer needs to change delivery address after shipment — agent checks whether the shipment is still modifiable and, if not, provides carrier-held-for-pickup or redirect options",
+        "International shipment is held at customs — agent explains the customs clearance process, estimated timeline, and what documentation the customer may need to provide to customs",
+        "Multiple packages shipped from same order with different carriers — agent tracks each package individually and provides a consolidated status view"
+      ],
+      "integration_requirements": [
+        "Carrier APIs (UPS, FedEx, USPS, DHL, regional carriers) for rate quotes and tracking data",
+        "E-commerce platform API for order and shipment association",
+        "Address validation service (Google Maps, USPS Address API) for delivery address verification",
+        "Customs and duties calculation API for international shipping cost estimates",
+        "Notification service for shipping status alerts via email and SMS"
+      ],
+      "auto_learning": "The Shipping Inquiries variant learns from carrier performance data to provide increasingly accurate delivery estimates. If a particular carrier route consistently delivers later than estimated, the agent adjusts its delivery predictions for future queries on that route. It also learns common customer questions about shipping policies and proactively addresses them, such as weekend delivery availability or holiday shipping cutoff dates.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 2,
+        "p95_response_time_seconds": 5,
+        "resolution_accuracy_percent": 93,
+        "first_contact_resolution_rate_percent": 91,
+        "escalation_rate_percent": 9
+      },
+      "escalation_triggers": [
+        "Package is confirmed lost after carrier investigation",
+        "Customer reports stolen package with police report",
+        "Delivery involves a high-value item exceeding $2,000",
+        "Customer threatens legal action regarding a lost or damaged shipment",
+        "Shipping dispute involves a signature forgery allegation",
+        "Package contains regulated or dangerous goods with shipping compliance issues"
+      ]
+    },
+    {
+      "id": "ecom-payment-issues",
+      "name": "Payment Issues",
+      "industry": "e-commerce",
+      "workflow": [
+        "1. Receive the payment-related inquiry and classify the issue type (decline, duplicate charge, refund discrepancy, or payment method update)",
+        "2. For declined transactions: query the payment gateway for the specific error code and decline reason",
+        "3. Translate the technical error code into a plain-language explanation and provide actionable resolution steps",
+        "4. For duplicate charges: look up recent transactions in the payment gateway and distinguish between actual charges and authorization holds",
+        "5. If duplicate charges are confirmed, initiate a charge reversal through the payment gateway and confirm the timeline",
+        "6. For refund discrepancies: cross-reference the refund records in both the e-commerce platform and payment gateway",
+        "7. If a refund is missing or incorrect, initiate the appropriate correction (re-issue refund or correct the amount)",
+        "8. For payment method updates: verify the customer's identity and process the secure card update through the tokenized payment system",
+        "9. Provide a clear summary of what was found, what action was taken, and what the customer should expect next"
+      ],
+      "handles_edge_cases": [
+        "Payment was made with a card that has since been closed — agent explains that the refund will be issued to the original payment method and the bank will redirect it to the customer's new account on file",
+        "Customer is from a country with payment restrictions or sanctions — agent checks the compliance database and provides alternative payment methods if available",
+        "Currency conversion caused a refund amount discrepancy — agent retrieves the original exchange rate used and explains the rate difference between charge and refund",
+        "Customer claims they were charged the wrong amount due to a currency conversion error — agent compares the original charge amount in the transaction currency with the customer's local currency at the time of transaction",
+        "Recurring subscription payment failed and customer did not receive a notification — agent verifies the notification was sent, checks spam filter guidance, and retriggers the failed payment",
+        "Gift card or store credit payment needs to be applied to an existing order — agent processes the adjustment and recalculates the remaining balance"
+      ],
+      "integration_requirements": [
+        "Payment gateway API (Stripe, Razorpay) for transaction lookup, refund processing, and charge reversal",
+        "E-commerce platform API for order-to-payment association",
+        "Fraud detection system integration for suspicious activity flagging",
+        "Email service for payment confirmation and refund notification delivery",
+        "PCI-compliant tokenization system for secure card management"
+      ],
+      "auto_learning": "The Payment Issues variant learns to identify patterns in payment failures that indicate systemic issues versus one-off problems. If multiple customers report declines from a specific bank, the agent learns to proactively suggest bank-specific resolution steps. It also learns from refund processing outcomes to predict refund timelines more accurately for different banks and payment methods.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 5,
+        "p95_response_time_seconds": 12,
+        "resolution_accuracy_percent": 85,
+        "first_contact_resolution_rate_percent": 78,
+        "escalation_rate_percent": 22
+      },
+      "escalation_triggers": [
+        "Customer reports an unauthorized transaction or suspected fraud",
+        "Chargeback has been filed with the bank",
+        "Disputed amount exceeds $500",
+        "Payment issue involves a potential data security breach",
+        "Customer's bank requires a merchant-initiated dispute resolution process",
+        "Multiple failed payment attempts suggest a deeper integration or configuration problem"
+      ]
+    },
+    {
+      "id": "saas-technical-support",
+      "name": "Technical Support",
+      "industry": "saas",
+      "workflow": [
+        "1. Receive the technical support request and identify the product, feature area, and specific problem type",
+        "2. Collect diagnostic information including user's plan type, browser, operating system, and app version",
+        "3. Search the knowledge base for known issues matching the described symptoms and error codes",
+        "4. If a known issue is found, provide the documented resolution steps with clear, numbered instructions",
+        "5. If the issue is not in the knowledge base, perform systematic troubleshooting: check account configuration, recent changes, browser console errors, and network connectivity",
+        "6. Cross-reference with active incident reports to determine if the issue is part of a broader system outage or known bug",
+        "7. Provide step-by-step troubleshooting guidance, adjusting the complexity based on the user's technical proficiency (detected from their account history and plan type)",
+        "8. If resolution steps resolve the issue, confirm the fix and ask the user to verify",
+        "9. If the issue persists, escalate to the engineering team with a comprehensive diagnostic summary including reproduction steps, environment details, and troubleshooting already attempted"
+      ],
+      "handles_edge_cases": [
+        "Issue is caused by a browser extension or ad blocker — agent identifies this pattern from the symptoms and provides step-by-step instructions to test with extensions disabled",
+        "Customer is experiencing an issue during a critical business moment (e.g., live presentation, end-of-quarter reporting) — agent prioritizes the ticket and provides interim workarounds",
+        "Problem involves an interaction between two or more third-party integrations — agent maps the integration chain and identifies which connection is causing the issue",
+        "Customer is on an outdated version with a known bug that has been fixed — agent identifies the version mismatch and guides the customer through the update process",
+        "Issue is specific to the customer's custom configuration — agent analyzes the configuration and identifies the problematic setting without requiring a full reset",
+        "Multiple symptoms reported that appear unrelated — agent analyzes the combined pattern to identify the common root cause (e.g., a corrupted cache affecting multiple features)"
+      ],
+      "integration_requirements": [
+        "Internal error monitoring system (Sentry, Datadog) for real-time error pattern detection",
+        "Product knowledge base and documentation system for resolution guide access",
+        "Customer account database for plan type, feature flags, and configuration data",
+        "Incident management system (PagerDuty, Statuspage) for active outage and incident awareness",
+        "Internal engineering ticketing system (Jira, Linear) for bug report escalation",
+        "User analytics system for environment and usage pattern analysis"
+      ],
+      "auto_learning": "The Technical Support variant learns from every resolved and escalated ticket to expand its troubleshooting knowledge. When a new bug is identified and resolved by the engineering team, the agent automatically creates a knowledge base entry with the symptoms, cause, and resolution. It also learns which troubleshooting steps are most effective for specific error codes, building a prioritized resolution path that solves issues faster over time.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 4,
+        "p95_response_time_seconds": 10,
+        "resolution_accuracy_percent": 87,
+        "first_contact_resolution_rate_percent": 80,
+        "escalation_rate_percent": 20
+      },
+      "escalation_triggers": [
+        "Error is identified as a previously unknown bug requiring engineering investigation",
+        "Issue affects critical functionality with no available workaround",
+        "Customer reports a data loss or data integrity concern",
+        "Problem is reproduced consistently but has no known cause in the knowledge base",
+        "Issue involves a security vulnerability or potential exploit",
+        "Customer is a high-value enterprise account with a dedicated SLA requiring immediate engineering response"
+      ]
+    },
+    {
+      "id": "saas-billing-support",
+      "name": "Billing Support",
+      "industry": "saas",
+      "workflow": [
+        "1. Receive the billing inquiry and identify the request type (plan change, invoice question, payment failure, or cancellation)",
+        "2. Authenticate the customer and retrieve their current subscription details including plan, billing cycle, payment method, and next billing date",
+        "3. For plan changes: present available plans with a side-by-side feature comparison and prorated cost calculation",
+        "4. Process the requested plan change and confirm the prorated charge or credit with a clear breakdown",
+        "5. For invoice questions: retrieve the specific invoice and provide a line-by-line explanation of each charge",
+        "6. For payment failures: identify the failure reason from the payment gateway and guide the customer through the resolution",
+        "7. For cancellation requests: present retention offers based on the customer's usage and value tier, process the cancellation if confirmed, and collect feedback",
+        "8. Update the customer's billing records and send a confirmation email with the updated subscription details",
+        "9. For seat changes: process the addition or removal of team members and recalculate the billing amount"
+      ],
+      "handles_edge_cases": [
+        "Customer wants to downgrade but is using features only available on higher plans — agent identifies the feature dependencies and explains what will change, offering alternatives",
+        "Billing discrepancy caused by a proration calculation error — agent identifies the calculation error, corrects the invoice, and processes a credit",
+        "Customer disputes a charge from several months ago — agent retrieves historical invoices, verifies the charge, and processes a goodwill credit if appropriate",
+        "Annual plan customer wants to cancel mid-year — agent explains the annual commitment terms, calculates the early termination amount, and presents alternative options like pausing the account",
+        "Payment method update fails due to SCA (Strong Customer Authentication) requirements — agent guides through the 3D Secure verification process",
+        "Customer's company was acquired and needs to merge two accounts — agent initiates the account merger process with data consolidation"
+      ],
+      "integration_requirements": [
+        "Billing/subscription management API (Stripe, Chargebee, Recurly) for real-time subscription data",
+        "Payment gateway API for payment failure investigation and card update processing",
+        "Customer CRM (HubSpot, Salesforce) for customer value scoring and retention offer eligibility",
+        "Invoicing system for invoice retrieval and line-item detail access",
+        "Email service for billing confirmations, receipts, and retention offer communications",
+        "Analytics system for usage pattern analysis to inform plan recommendations"
+      ],
+      "auto_learning": "The Billing Support variant learns from cancellation and downgrade patterns to improve its retention approach. If customers who use a specific feature heavily tend to stay, the agent learns to highlight that feature's value during cancellation conversations. It also learns from successful retention outcomes, identifying which retention offers are most effective for different customer segments and plan types.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 3,
+        "p95_response_time_seconds": 8,
+        "resolution_accuracy_percent": 91,
+        "first_contact_resolution_rate_percent": 86,
+        "escalation_rate_percent": 14
+      },
+      "escalation_triggers": [
+        "Customer requests a refund for charges older than 6 months",
+        "Billing dispute involves a contract or enterprise agreement with custom terms",
+        "Customer reports unauthorized account creation or subscription",
+        "Cancellation involves a high-value enterprise account exceeding $50,000 annual contract value",
+        "Billing issue is caused by a confirmed system bug in the billing calculation",
+        "Customer's company requires custom invoicing or procurement documentation"
+      ]
+    },
+    {
+      "id": "saas-feature-requests",
+      "name": "Feature Requests",
+      "industry": "saas",
+      "workflow": [
+        "1. Receive the feature request and extract the core need or use case from the customer's description",
+        "2. Categorize the request by product area (e.g., reporting, collaboration, integrations, mobile, security)",
+        "3. Search the feature request database to check if the request already exists as a logged feature",
+        "4. If the feature already exists: inform the customer, add their vote, share the current status and timeline if available",
+        "5. If the feature is new: create a structured feature request entry with the use case, priority assessment, and customer segment",
+        "6. Check the public roadmap to see if a similar feature is planned or in development",
+        "7. If a similar feature is planned: inform the customer of the roadmap item and expected timeline",
+        "8. If no related feature is on the roadmap: acknowledge the request, explain the feature prioritization process, and commit to notifying the customer if the feature moves to the roadmap",
+        "9. If the customer describes a need that can be met with existing functionality: provide a workaround solution and offer to walk them through the setup"
+      ],
+      "handles_edge_cases": [
+        "Customer requests a feature that already exists but they are unaware of it — agent identifies the matching feature, provides a tutorial link, and offers to guide them through enabling or using it",
+        "Feature request is actually a bug report — agent reclassifies the ticket as a bug, collects reproduction steps, and routes it to the engineering team",
+        "Customer requests removal of an existing feature — agent acknowledges the feedback, explains the feature's user base, and logs it as a product feedback item",
+        "Request involves a major architectural change — agent sets realistic expectations about the feasibility and timeline, and escalates to the product team for assessment",
+        "Customer threatens to cancel if the feature is not built — agent triggers the retention workflow and flags the feature request as high priority based on revenue impact",
+        "Feature request conflicts with another planned feature — agent explains the trade-off and shares both features for the product team to prioritize"
+      ],
+      "integration_requirements": [
+        "Product roadmap management system (Productboard, Aha!, Jira Product Discovery) for feature status access",
+        "Feature request tracking system for logging, categorizing, and managing requests",
+        "Beta program management system for enrollment and feedback collection",
+        "Customer analytics system for request volume and demand analysis",
+        "Notification system for status update alerts when features are released",
+        "CRM integration for customer value and segment identification"
+      ],
+      "auto_learning": "The Feature Requests variant learns to recognize feature request themes and trends. If multiple customers independently request similar capabilities, the agent aggregates these into a single high-demand feature signal and flags it for the product team. It also learns which workarounds are most commonly effective for unmet needs, building a more comprehensive workaround library over time.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 3,
+        "p95_response_time_seconds": 6,
+        "resolution_accuracy_percent": 90,
+        "first_contact_resolution_rate_percent": 87,
+        "escalation_rate_percent": 13
+      },
+      "escalation_triggers": [
+        "Feature request is from an enterprise customer with contractual feature commitments",
+        "Request involves accessibility compliance (WCAG, ADA) requirements",
+        "Customer's need cannot be met with any existing workaround",
+        "Feature request is tied to a regulatory or compliance requirement with a deadline",
+        "Request has received significant customer demand (100+ upvotes) and requires product team attention",
+        "Customer provides detailed technical specifications that require engineering feasibility assessment"
+      ]
+    },
+    {
+      "id": "saas-api-support",
+      "name": "API Support",
+      "industry": "saas",
+      "workflow": [
+        "1. Receive the API-related inquiry and identify the specific area (authentication, endpoints, webhooks, SDK, or errors)",
+        "2. Validate the developer's API key and access level to ensure they have permissions for the requested functionality",
+        "3. For authentication issues: verify the API key or OAuth token, check for expiration, and guide through the re-authentication process",
+        "4. For endpoint usage questions: provide the relevant endpoint documentation with request/response examples in the developer's preferred language",
+        "5. For error code troubleshooting: look up the specific error code in the API error database and provide the cause and resolution",
+        "6. For webhook issues: verify the webhook URL configuration, check delivery logs, and provide troubleshooting steps for common webhook failures",
+        "7. For rate limiting: retrieve the developer's current usage metrics and explain the rate limit policy with reset timing",
+        "8. Provide SDK-specific guidance including version compatibility, installation commands, and code examples",
+        "9. If the issue involves unexpected API behavior, escalate to the API engineering team with full request logs and reproduction details"
+      ],
+      "handles_edge_cases": [
+        "Developer is using a deprecated API version — agent identifies the version, explains the deprecation timeline, and provides migration guide to the latest version",
+        "API response time is consistently slow for the developer's region — agent checks the CDN and regional endpoint availability, and suggests the nearest regional endpoint",
+        "Webhook deliveries are failing due to SSL certificate issues — agent explains the SSL requirements, provides certificate validation tools, and offers guidance on certificate renewal",
+        "Developer's code is causing an infinite retry loop on failed requests — agent identifies the pattern, explains exponential backoff best practices, and provides code examples",
+        "Custom API integration requires features not available in the standard API — agent documents the requirement and escalates to the API product team for evaluation",
+        "Rate limit is being hit by a background process, not the developer's primary application — agent helps identify the source of the excess requests and provides optimization guidance"
+      ],
+      "integration_requirements": [
+        "API gateway and logging system for request/response log access and debugging",
+        "Developer portal documentation system for real-time documentation reference",
+        "OAuth/identity provider for authentication troubleshooting and token management",
+        "Webhook delivery log system for delivery history and failure analysis",
+        "Usage analytics system for rate limit tracking and usage pattern analysis",
+        "SDK repository access for version management and compatibility information"
+      ],
+      "auto_learning": "The API Support variant learns from developer interaction patterns to provide increasingly relevant code examples and troubleshooting guidance. If developers using Python frequently ask about a specific endpoint, the agent learns to proactively provide Python examples for that endpoint. It also learns from resolved API issues to build a pattern recognition system that can identify common integration mistakes before they cause errors.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 5,
+        "p95_response_time_seconds": 15,
+        "resolution_accuracy_percent": 86,
+        "first_contact_resolution_rate_percent": 76,
+        "escalation_rate_percent": 24
+      },
+      "escalation_triggers": [
+        "API is returning unexpected behavior that cannot be explained by documented behavior",
+        "Developer has found a potential security vulnerability in the API",
+        "Rate limit increase request requires business-level approval",
+        "Custom API feature request requires engineering evaluation and architectural planning",
+        "API outage affecting multiple developers simultaneously",
+        "SDK bug that requires a patch release"
+      ]
+    },
+    {
+      "id": "saas-account-issues",
+      "name": "Account Issues",
+      "industry": "saas",
+      "workflow": [
+        "1. Receive the account-related inquiry and classify the issue type (login, MFA, team access, data request, or profile update)",
+        "2. For login issues: verify the customer's identity using email, account ID, or security questions before making any account changes",
+        "3. For password issues: guide through the self-service password reset, or if MFA is lost, initiate the secure account recovery process",
+        "4. For MFA issues: temporarily disable the broken MFA method after identity verification, then guide the customer through setting up a new MFA method",
+        "5. For team access issues: verify the requester has admin/owner permissions, then process the invitation, role change, or removal as requested",
+        "6. For data requests (GDPR/CCPA): verify the requester's identity, process the data export or deletion request per compliance requirements, and provide a confirmation with the expected timeline",
+        "7. For profile updates: process the email change (with verification), name update, or other profile modifications",
+        "8. Document all account changes in the audit log with the timestamp, change details, and authorization",
+        "9. Send a confirmation notification to the customer's registered email for all account changes"
+      ],
+      "handles_edge_cases": [
+        "Account is locked due to too many failed login attempts — agent verifies identity and unlocks the account, then provides guidance on preventing future lockouts",
+        "Customer has two accounts and needs them merged — agent verifies ownership of both accounts, merges the data, and consolidates billing into the primary account",
+        "Former employee still has access and the company cannot reach them — agent verifies the request comes from a current account admin and forces the access removal",
+        "Customer lost access to the email on their account — agent uses alternative identity verification (security questions, billing information) to update the email address",
+        "SSO integration is returning errors after a configuration change on the identity provider side — agent diagnoses the SAML/OIDC configuration mismatch and provides the correct settings",
+        "Data deletion request involves shared resources (shared workspaces, team projects) — agent explains what data can and cannot be deleted, and handles the partial deletion per compliance requirements"
+      ],
+      "integration_requirements": [
+        "User management and authentication system API for account operations",
+        "Identity provider integration (Okta, Auth0, Azure AD) for SSO troubleshooting",
+        "SSO/SAML configuration management for enterprise identity troubleshooting",
+        "Audit logging system for recording all account changes",
+        "GDPR/CCPA compliance management system for data request processing",
+        "Email verification service for email change confirmations"
+      ],
+      "auto_learning": "The Account Issues variant learns from common account problems to improve its first-contact resolution rate. If a specific login error message is consistently caused by a particular browser setting, the agent learns to include that diagnosis in its initial response. It also learns from identity verification patterns to detect potential social engineering attempts and apply additional verification steps when risk indicators are present.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 3,
+        "p95_response_time_seconds": 8,
+        "resolution_accuracy_percent": 89,
+        "first_contact_resolution_rate_percent": 84,
+        "escalation_rate_percent": 16
+      },
+      "escalation_triggers": [
+        "Account shows signs of unauthorized access or compromise",
+        "Identity verification fails all available methods and requires manual review",
+        "Data deletion request involves legal hold or active litigation",
+        "Account suspension is related to a terms of service violation requiring legal review",
+        "Enterprise SSO configuration issue requires coordination with the customer's IT department and PARWA engineering",
+        "GDPR/CCPA data request has a regulatory deadline requiring immediate processing"
+      ]
+    },
+    {
+      "id": "log-shipment-tracking",
+      "name": "Shipment Tracking",
+      "industry": "logistics",
+      "workflow": [
+        "1. Receive the tracking request and extract the tracking number(s) or order number from the customer message",
+        "2. Auto-detect the carrier from the tracking number format (e.g., 1Z prefix for UPS, 94 prefix for DHL)",
+        "3. Query the appropriate carrier API for the latest tracking status",
+        "4. Parse the raw carrier response into a structured, customer-friendly timeline with human-readable status descriptions",
+        "5. Check for any exceptions or delays and include explanations when present",
+        "6. Calculate and display the estimated delivery date based on current status and historical carrier performance data",
+        "7. If the customer has multiple shipments, aggregate all statuses into a unified dashboard view",
+        "8. Offer to set up proactive notifications (SMS/email) for status changes and delivery confirmation",
+        "9. Provide a link to the carrier's tracking page for the customer's own reference"
+      ],
+      "handles_edge_cases": [
+        "Tracking number is in carrier system but no scan events exist yet — agent explains the label was created but the package has not been picked up, and provides the expected first scan timeline",
+        "Shipment has multiple carriers in a relay shipment — agent tracks each leg of the journey and provides a seamless end-to-end status view",
+        "Package is in customs clearance for an international shipment — agent explains the customs process, typical clearance times, and potential scenarios",
+        "Tracking shows 'delivered' but to a different city or address — agent identifies the misdelivery, initiates a carrier investigation, and provides corrective actions",
+        "Customer provides a partial or incorrect tracking number — agent attempts fuzzy matching and correction based on known patterns, or searches by order number as a fallback",
+        "Shipment was refused by the recipient — agent identifies the refusal status, explains the return process, and provides the expected timeline for the package to return to sender"
+      ],
+      "integration_requirements": [
+        "Multi-carrier tracking APIs (UPS, FedEx, USPS, DHL, regional carriers) for real-time status data",
+        "Order management system for order-to-tracking number association",
+        "Carrier performance analytics database for delivery estimate calculations",
+        "Notification service (SMS gateway, email) for proactive status alerts",
+        "Geocoding service for delivery location verification",
+        "Customer address database for delivery address confirmation"
+      ],
+      "auto_learning": "The Shipment Tracking variant learns carrier-specific delivery patterns to improve its estimated delivery predictions. If a particular UPS route to a specific zip code consistently takes 1 day longer than the standard estimate, the agent adjusts its prediction for future shipments on that route. It also learns common customer questions at each tracking stage and proactively provides relevant information without being asked.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 2,
+        "p95_response_time_seconds": 4,
+        "resolution_accuracy_percent": 95,
+        "first_contact_resolution_rate_percent": 93,
+        "escalation_rate_percent": 7
+      },
+      "escalation_triggers": [
+        "Package is confirmed lost after carrier investigation completion",
+        "Shipment contains hazardous materials with a tracking exception",
+        "High-value shipment (exceeding $5,000) has an unresolved delivery issue",
+        "Customer reports the delivered package contained wrong items",
+        "Shipment is involved in a regulatory hold (FDA, CPSC, or customs seizure)",
+        "Multiple shipments from the same customer are simultaneously experiencing issues"
+      ]
+    },
+    {
+      "id": "log-delivery-issues",
+      "name": "Delivery Issues",
+      "industry": "logistics",
+      "workflow": [
+        "1. Receive the delivery issue report and classify the problem type (delay, damage, wrong address, missed delivery, lost, or proof of delivery dispute)",
+        "2. Retrieve the shipment details including tracking history, carrier information, delivery attempt records, and customer's delivery instructions",
+        "3. For delays: identify the delay cause from carrier data, calculate the revised ETA, and communicate the situation transparently",
+        "4. For damaged goods: guide the customer through photo evidence collection, file a carrier damage claim, and initiate a replacement or refund",
+        "5. For wrong address: check if the shipment is still in transit and submit a delivery address correction request to the carrier",
+        "6. For missed deliveries: check available delivery windows and offer rescheduling or carrier facility pickup options",
+        "7. For lost packages: initiate a formal carrier investigation, set the investigation timeline (typically 7-10 business days), and offer an immediate replacement if stock allows",
+        "8. For proof of delivery disputes: retrieve delivery photos, GPS coordinates, and signature data from the carrier",
+        "9. Document the issue, actions taken, and resolution in the customer's account for future reference"
+      ],
+      "handles_edge_cases": [
+        "Customer provided the wrong address at checkout — agent checks if rerouting is possible and charges the address correction fee if applicable, or arranges return-to-sender with reorder",
+        "Package was delivered to a neighbor or front desk without customer's knowledge — agent provides the delivery location details and offers to contact the neighbor or building management on the customer's behalf",
+        "Damage occurred to only one item in a multi-item shipment — agent processes a partial claim and replacement for the damaged item only",
+        "Delivery was attempted but the customer was home and did not hear the doorbell — agent schedules a redelivery with specific delivery instructions and a call-ahead request",
+        "Package shows delivered but the customer's area experienced a wave of package thefts — agent files a stolen package report with the carrier, initiates a police report recommendation, and processes a replacement with signature-required delivery",
+        "International delivery issue involves customs detainment — agent provides customs broker referral, explains the documentation needed, and coordinates with the customs agent"
+      ],
+      "integration_requirements": [
+        "Carrier claims management APIs for damage claims, lost package investigations, and address corrections",
+        "Order management system for replacement shipment processing and order lookup",
+        "Warehouse/inventory system for replacement stock verification and fulfillment",
+        "Carrier delivery API for proof of delivery data, GPS coordinates, and delivery photos",
+        "Customer notification service for status updates on issue resolution",
+        "Photo/document storage system for damage evidence collection and claims documentation"
+      ],
+      "auto_learning": "The Delivery Issues variant learns from claim resolution patterns to streamline future handling. If a specific carrier consistently damages packages of a certain size, the agent learns to proactively recommend additional packaging. It also learns from successful customer communication patterns during delivery crises, refining its empathy and urgency adaptation to match the severity of the issue.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 5,
+        "p95_response_time_seconds": 12,
+        "resolution_accuracy_percent": 83,
+        "first_contact_resolution_rate_percent": 74,
+        "escalation_rate_percent": 26
+      },
+      "escalation_triggers": [
+        "Damaged shipment value exceeds $2,000",
+        "Customer threatens legal action over a delivery issue",
+        "Lost package investigation has exceeded 10 business days without resolution",
+        "Delivery issue involves a controlled substance, pharmaceutical, or regulated product",
+        "Customer files a formal complaint with a regulatory agency",
+        "Pattern of delivery failures on the same route suggests a systemic carrier issue"
+      ]
+    },
+    {
+      "id": "log-warehouse-queries",
+      "name": "Warehouse Queries",
+      "industry": "logistics",
+      "workflow": [
+        "1. Receive the warehouse inquiry and identify the query type (inventory, location, hours, pickup, fees, or transfer)",
+        "2. For inventory queries: connect to the warehouse management system (WMS) and query real-time stock levels for the requested SKU(s)",
+        "3. Present inventory data across all warehouse locations with the customer's nearest warehouse highlighted",
+        "4. For warehouse location queries: provide address, hours of operation, contact information, driving directions, and special instructions",
+        "5. For pickup scheduling: check item availability, schedule the pickup time, generate a pickup confirmation with required documents list",
+        "6. For transfer requests: check source and destination warehouse availability, calculate estimated transfer time, and submit the transfer order",
+        "7. For fee inquiries: calculate storage, handling, or special service fees based on item type, dimensions, weight, and duration",
+        "8. Provide any relevant compliance or safety requirements (e.g., PPE requirements for warehouse entry, appointment-only access)",
+        "9. Send a confirmation with all details to the customer via their preferred communication channel"
+      ],
+      "handles_edge_cases": [
+        "Inventory shows available but is actually allocated to another order — agent checks both available and allocated inventory to provide accurate availability",
+        "Customer needs an item urgently but the nearest warehouse is out of stock — agent checks alternative warehouses, calculates shipping times, and may recommend cross-docking from a farther location",
+        "Warehouse is temporarily closed for inventory count or holiday — agent proactively informs the customer and offers the next available date or alternative warehouse",
+        "Will-call pickup requires special documentation (business license, customs paperwork) — agent identifies the documentation requirements based on the item type and customer profile",
+        "Customer requests to inspect items before pickup — agent schedules an inspection window and explains the inspection process and any fees",
+        "Temperature-sensitive items require cold chain verification — agent confirms the cold storage conditions and provides chain of custody documentation"
+      ],
+      "integration_requirements": [
+        "Warehouse management system (WMS) API for real-time inventory and warehouse data",
+        "Inventory management system for cross-warehouse stock lookup and transfer processing",
+        "Geolocation service for nearest warehouse calculation based on customer address",
+        "Appointment scheduling system for will-call pickup and warehouse visit booking",
+        "Fee calculation engine for storage and handling cost computations",
+        "Notification service for pickup confirmations and warehouse status alerts"
+      ],
+      "auto_learning": "The Warehouse Queries variant learns seasonal inventory patterns to provide better availability predictions. If a particular SKU consistently runs low during Q4, the agent learns to proactively warn customers about limited availability. It also learns common customer navigation patterns within warehouse facilities to provide better pickup instructions and reduce customer confusion.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 4,
+        "p95_response_time_seconds": 8,
+        "resolution_accuracy_percent": 91,
+        "first_contact_resolution_rate_percent": 86,
+        "escalation_rate_percent": 14
+      },
+      "escalation_triggers": [
+        "Inventory discrepancy detected between WMS and physical count",
+        "Customer requests access to a restricted or high-security warehouse zone",
+        "Storage fee dispute exceeds $500",
+        "Warehouse safety incident or compliance issue requires management attention",
+        "Customer needs same-day emergency inventory release with executive approval",
+        "Cross-warehouse transfer requires expedited handling outside standard SLAs"
+      ]
+    },
+    {
+      "id": "log-fleet-management",
+      "name": "Fleet Management",
+      "industry": "logistics",
+      "workflow": [
+        "1. Receive the fleet inquiry and determine the information type (location, schedule, fuel, maintenance, or compliance)",
+        "2. Authenticate the requester and verify their access level (driver, dispatcher, fleet manager, or executive)",
+        "3. For vehicle location requests: query the GPS telematics system for real-time vehicle positions and route status",
+        "4. For schedule inquiries: retrieve driver shift schedules, break compliance status, and upcoming assignments",
+        "5. For fuel reports: pull fuel card transaction data and calculate consumption trends, cost per mile, and efficiency metrics",
+        "6. For maintenance alerts: check the vehicle maintenance schedule and flag any overdue or upcoming service requirements",
+        "7. For compliance documentation: retrieve insurance status, registration renewal dates, inspection records, and driver license expiration",
+        "8. Aggregate the requested data into a clear, structured report or summary",
+        "9. Offer to set up automated alerts for the monitored metrics (low fuel, maintenance due, inspection expiration)"
+      ],
+      "handles_edge_cases": [
+        "GPS signal is lost for a vehicle — agent checks the last known location, signal strength history, and provides alternative tracking methods (cell tower triangulation or driver check-in protocol)",
+        "Driver is approaching Hours of Service (HOS) violation — agent proactively alerts the dispatcher, calculates remaining drive time, and identifies the nearest rest stop",
+        "Vehicle breaks down en route — agent identifies the nearest repair facility, coordinates towing if needed, and reroutes affected deliveries",
+        "Fuel card is declined at a station — agent verifies the card status, checks for fraud alerts, and provides an alternative payment method or backup card",
+        "Maintenance alert is triggered for a vehicle currently on a delivery run — agent assesses the severity, determines if the vehicle can complete its route safely, and schedules maintenance upon return",
+        "Fleet compliance document is expiring within 30 days — agent proactively alerts the fleet manager with the renewal deadline and required documentation"
+      ],
+      "integration_requirements": [
+        "Fleet telematics and GPS tracking system (Samsara, Geotab, Fleetio) for vehicle data",
+        "Fuel card management system (Comdata, Fleetcor) for fuel transaction data",
+        "Workforce management system for driver scheduling and HOS compliance",
+        "Vehicle maintenance management system for service schedules and alerts",
+        "Compliance document management system for registration, insurance, and inspection tracking",
+        "Route optimization system for delivery route planning and ETA calculations"
+      ],
+      "auto_learning": "The Fleet Management variant learns vehicle performance patterns to predict maintenance needs more accurately. If a specific truck model consistently shows declining fuel efficiency at 60,000 miles, the agent learns to flag that milestone preemptively. It also learns route-specific patterns, such as routes with frequent traffic delays, and can suggest scheduling adjustments to optimize driver productivity.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 4,
+        "p95_response_time_seconds": 9,
+        "resolution_accuracy_percent": 88,
+        "first_contact_resolution_rate_percent": 82,
+        "escalation_rate_percent": 18
+      },
+      "escalation_triggers": [
+        "Vehicle is involved in or reports an accident",
+        "Driver reports a safety concern or hazardous road condition",
+        "GPS data shows a vehicle in an unauthorized location",
+        "Fuel card fraud is detected",
+        "Vehicle compliance document has already expired",
+        "Fleet-wide system outage affecting tracking or dispatch"
+      ]
+    },
+    {
+      "id": "log-customs-compliance",
+      "name": "Customs & Compliance",
+      "industry": "logistics",
+      "workflow": [
+        "1. Receive the customs or compliance inquiry and identify the topic (documentation, HS codes, duties, restricted items, or regulations)",
+        "2. For HS code lookup: match the product description against the HS code database and provide the correct classification with tariff rate",
+        "3. For documentation requirements: determine the origin country, destination country, commodity type, and shipment value to generate a comprehensive document checklist",
+        "4. For duty estimation: calculate customs duties using the HS code tariff rate, declared value, applicable trade agreements, and additional taxes",
+        "5. For restricted items: screen the product against the restricted and prohibited goods database for both origin and destination countries",
+        "6. For compliance verification: check the shipment against denied party lists, trade sanctions, and export control regulations",
+        "7. Provide Incoterms guidance and recommend the most appropriate terms based on the trade scenario",
+        "8. If the inquiry involves complex or ambiguous classification, provide the best available guidance and recommend consulting a licensed customs broker",
+        "9. Document the inquiry and response for audit trail and compliance record-keeping"
+      ],
+      "handles_edge_cases": [
+        "Product has multiple possible HS code classifications — agent provides all possible classifications with the recommended primary code and explains the tariff implications of each",
+        "Trade sanctions or embargoes apply to the destination country — agent identifies the restriction, explains the legal implications, and advises against proceeding with the shipment",
+        "Product is subject to anti-dumping duties — agent identifies the ADD applicability, calculates the additional duty, and explains the investigation process",
+        "Customer is shipping dual-use items that may require export licenses — agent flags the potential export control requirement and recommends consulting the relevant government agency",
+        "Free Trade Agreement qualification is uncertain — agent walks through the FTA qualification criteria, identifies potential disqualifying factors, and recommends obtaining a formal ruling",
+        "Shipment was already flagged by customs and the customer needs urgent assistance — agent provides priority guidance, recommended customs broker contacts, and documentation to resolve the hold"
+      ],
+      "integration_requirements": [
+        "HS code and tariff database (maintained by PARWA, updated with government tariff schedules)",
+        "Restricted party screening service for denied party and sanctions list checks",
+        "Trade agreement database for FTA qualification rules and preferential tariff rates",
+        "Customs documentation template library for commercial invoices, certificates of origin, and packing lists",
+        "Duty and tax calculation engine with current rates for major trading countries",
+        "Regulatory update feed for real-time changes in trade policies and sanctions"
+      ],
+      "auto_learning": "The Customs & Compliance variant continuously updates its knowledge base as trade regulations change. When a regulatory update is detected in the system, the agent learns the new rules and applies them to future inquiries. It also learns from the outcomes of customs clearance events — if a particular document format is consistently accepted by a specific country's customs, the agent learns to prioritize that format for similar shipments.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 6,
+        "p95_response_time_seconds": 15,
+        "resolution_accuracy_percent": 85,
+        "first_contact_resolution_rate_percent": 75,
+        "escalation_rate_percent": 25
+      },
+      "escalation_triggers": [
+        "Inquiry involves goods on a denied parties or sanctions list",
+        "Customer is shipping controlled substances, weapons, or military-grade equipment",
+        "Customs valuation dispute exceeds $50,000",
+        "Shipment involves a formal customs investigation or penalty assessment",
+        "Product classification requires a binding ruling from customs authorities",
+        "Trade compliance inquiry has legal implications requiring attorney review"
+      ]
+    },
+    {
+      "id": "hc-appointment-scheduling",
+      "name": "Appointment Scheduling",
+      "industry": "healthcare",
+      "workflow": [
+        "1. Receive the scheduling request and identify the patient (name, date of birth, or patient ID)",
+        "2. Retrieve the patient's record from the EHR system and verify their demographics and insurance information",
+        "3. Determine the appointment type needed (new visit, follow-up, consultation, procedure, or annual exam)",
+        "4. Match the patient's needs with appropriate providers based on specialty, availability, insurance network, and patient preferences",
+        "5. Query the scheduling system for available time slots matching the patient's preferred dates and times",
+        "6. Present available options and allow the patient to select their preferred time slot",
+        "7. Book the appointment in the scheduling system and send a confirmation with date, time, provider, location, and preparation instructions",
+        "8. If the patient needs to cancel or reschedule, process the change and release the original slot back to availability",
+        "9. Configure reminder preferences (SMS, email, voice call) and schedule automated reminders at 48 hours and 2 hours before the appointment"
+      ],
+      "handles_edge_cases": [
+        "Patient needs an urgent same-day or next-day appointment — agent checks for cancellation openings and urgent care slots, and provides the earliest available option",
+        "Patient's preferred provider is on vacation or has a full schedule — agent offers alternative providers with similar specialties and patient satisfaction ratings",
+        "Patient needs a multi-specialty appointment on the same day — agent coordinates scheduling across providers to minimize patient visits and travel",
+        "Patient has insurance that requires a referral or pre-authorization — agent checks the referral status and initiates the pre-authorization process before confirming the appointment",
+        "Patient is a new patient with incomplete registration — agent initiates the new patient intake process, collects required demographics and insurance information, and completes registration before booking",
+        "Patient has a no-show history — agent applies the no-show policy, may require a deposit for booking, and provides enhanced reminder notifications"
+      ],
+      "integration_requirements": [
+        "Electronic health record (EHR) system API (Epic, Cerner, Athenahealth) for patient data and scheduling",
+        "Practice management system for provider schedules and appointment slot management",
+        "Insurance verification system for real-time eligibility and referral checking",
+        "SMS/email notification service for appointment reminders and confirmations",
+        "Patient portal integration for self-service scheduling and online check-in",
+        "Pre-authorization system for insurance approval workflow automation"
+      ],
+      "auto_learning": "The Appointment Scheduling variant learns patient scheduling preferences over time. If a patient consistently books morning appointments, the agent learns to prioritize morning slots in future scheduling conversations. It also learns seasonal patterns, such as increased sick visit demand during flu season, and can proactively suggest earlier appointments when available during high-demand periods.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 4,
+        "p95_response_time_seconds": 10,
+        "resolution_accuracy_percent": 93,
+        "first_contact_resolution_rate_percent": 88,
+        "escalation_rate_percent": 12
+      },
+      "escalation_triggers": [
+        "Appointment request involves a medical emergency requiring immediate clinical triage",
+        "Patient needs a specialty procedure that requires surgical scheduling coordination",
+        "Insurance pre-authorization is denied and requires clinical appeal",
+        "Patient expresses suicidal ideation or mental health crisis — agent immediately provides crisis hotline information",
+        "Appointment involves a controlled substance evaluation with regulatory requirements",
+        "Complex scheduling conflict requires manual coordinator intervention"
+      ]
+    },
+    {
+      "id": "hc-insurance-claims",
+      "name": "Insurance Claims",
+      "industry": "healthcare",
+      "workflow": [
+        "1. Receive the insurance-related inquiry and identify the request type (verification, claim status, coverage, pre-authorization, or EOB explanation)",
+        "2. Verify the patient's identity and retrieve their insurance information from the practice management system",
+        "3. For eligibility verification: connect to the insurance payer's real-time eligibility API and retrieve current benefits including deductible, copay, coinsurance, and out-of-pocket maximum",
+        "4. For claim status: query the claims management system for the specific claim and provide the current processing stage and expected timeline",
+        "5. For coverage inquiries: check the specific procedure or service against the patient's plan benefits and provide coverage determination with cost estimates",
+        "6. For pre-authorization: initiate the pre-authorization request through the payer's portal with clinical justification, and monitor the approval status",
+        "7. For EOB questions: parse the Explanation of Benefits document and explain each line item in plain, understandable language",
+        "8. Calculate the patient's estimated out-of-pocket cost based on their current deductible status and plan benefits",
+        "9. Provide clear next steps and timelines for any pending actions"
+      ],
+      "handles_edge_cases": [
+        "Insurance information is outdated or the plan has changed — agent identifies the mismatch, asks for updated insurance details, and re-verifies eligibility",
+        "Claim was denied and the patient needs to understand the reason — agent retrieves the denial reason code, explains it in plain language, and outlines the appeal process with required documentation",
+        "Pre-authorization is taking longer than expected — agent checks the status with the payer, provides the current timeline, and escalates if the delay exceeds the payer's standard processing time",
+        "Patient has dual insurance coverage — agent determines the primary and secondary payer, explains coordination of benefits, and calculates the combined coverage",
+        "Out-of-network provider situation — agent explains the out-of-network benefits, cost implications, and potential for a single-case agreement with the payer",
+        "Patient's insurance does not cover a recommended procedure — agent provides cost estimate for self-pay, payment plan options, financial assistance program information, and appeal guidance"
+      ],
+      "integration_requirements": [
+        "Practice management system API for patient insurance records and claims data",
+        "Insurance clearinghouse API (Availity, Trizetto) for real-time eligibility verification",
+        "Claims management system for claim status tracking and appeal processing",
+        "Payer portals for pre-authorization submission and status monitoring",
+        "EOB document parsing engine for automated Explanation of Benefits interpretation",
+        "Financial assistance program database for charity care and payment plan information"
+      ],
+      "auto_learning": "The Insurance Claims variant learns from claim outcomes to improve its coverage predictions. If a specific procedure is consistently denied by a particular payer for a specific diagnosis code, the agent learns to flag this during pre-authorization conversations and suggest alternative billing codes that are more likely to be approved. It also learns from EOB interpretation patterns to provide clearer explanations of common billing scenarios.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 6,
+        "p95_response_time_seconds": 15,
+        "resolution_accuracy_percent": 84,
+        "first_contact_resolution_rate_percent": 72,
+        "escalation_rate_percent": 28
+      },
+      "escalation_triggers": [
+        "Claim denial involves a potential medical necessity dispute requiring clinical documentation",
+        "Patient's out-of-pocket responsibility exceeds $2,000 and they request financial hardship assistance",
+        "Pre-authorization is denied for a time-sensitive procedure",
+        "Insurance fraud is suspected on either the patient or provider side",
+        "Patient is uninsured or underinsured and needs emergency financial assistance",
+        "Appeal requires a peer-to-peer review between the treating physician and the insurance medical director"
+      ]
+    },
+    {
+      "id": "hc-prescription-refills",
+      "name": "Prescription Refills",
+      "industry": "healthcare",
+      "workflow": [
+        "1. Receive the refill request and identify the patient and medication (name, dosage, and frequency)",
+        "2. Verify the patient's identity using name and date of birth, and retrieve their medication history from the EHR",
+        "3. Check the prescription for refill eligibility: remaining refills, fill date, days supply, and prescriber authorization",
+        "4. If refill is eligible: submit the refill request to the prescriber's office through the e-prescribing system",
+        "5. Check medication availability at the patient's preferred pharmacy through the pharmacy network",
+        "6. If the medication is out of stock at the preferred pharmacy, check nearby alternative pharmacies",
+        "7. Notify the patient of the refill status, expected approval timeline, and pharmacy availability",
+        "8. Once prescriber approves: confirm the refill is ready at the pharmacy and provide pickup details or delivery options",
+        "9. Update the patient's medication record and set a reminder for the next refill date"
+      ],
+      "handles_edge_cases": [
+        "Patient has no remaining refills on the prescription — agent contacts the prescriber's office for a new prescription and informs the patient of the expected timeline",
+        "Medication requires prior authorization from insurance — agent initiates the prior authorization process and communicates the timeline to the patient",
+        "Patient's medication has been recalled — agent immediately alerts the patient, provides recall details, and coordinates with the prescriber for an alternative medication",
+        "Patient asks about a medication interaction with a new over-the-counter drug — agent performs a drug interaction check and provides safety guidance, recommending they consult their pharmacist",
+        "Pharmacy is closed or does not have the medication due to a supply chain shortage — agent identifies alternative pharmacies with stock and offers to transfer the prescription",
+        "Patient is traveling and needs the refill at a different location — agent helps locate a network pharmacy near the patient's travel destination and processes an emergency supply or vacation override"
+      ],
+      "integration_requirements": [
+        "Electronic prescribing (eRx) system (Surescripts) for refill request submission and prescription data",
+        "EHR system for patient medication history and prescriber information",
+        "Pharmacy network API for medication availability and pharmacy location lookup",
+        "Drug interaction database for medication safety screening",
+        "Insurance prior authorization system for medications requiring pre-approval",
+        "FDA drug recall notification feed for real-time recall alerts"
+      ],
+      "auto_learning": "The Prescription Refills variant learns patient refill patterns to provide proactive refill management. If a patient consistently refills a medication on the same day each month, the agent learns to send the refill reminder a few days earlier and may suggest automatic refill enrollment. It also learns medication shortage patterns and can proactively suggest alternative medications when supply issues are detected.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 3,
+        "p95_response_time_seconds": 7,
+        "resolution_accuracy_percent": 92,
+        "first_contact_resolution_rate_percent": 90,
+        "escalation_rate_percent": 10
+      },
+      "escalation_triggers": [
+        "Patient reports an adverse drug reaction or allergic response to a medication",
+        "Refill request is for a controlled substance requiring additional verification",
+        "Patient is requesting an early refill that may indicate medication misuse",
+        "Medication interaction check reveals a potentially dangerous combination",
+        "Prescriber has deactivated or is no longer available to authorize refills",
+        "Patient needs a new prescription for a medication that has been discontinued by the manufacturer"
+      ]
+    },
+    {
+      "id": "hc-patient-inquiries",
+      "name": "Patient Inquiries",
+      "industry": "healthcare",
+      "workflow": [
+        "1. Receive the patient inquiry and classify the topic (facility info, insurance, registration, records, providers, billing, or general)",
+        "2. For facility information: provide office hours, address, parking details, directions, and accessibility information",
+        "3. For insurance questions: verify insurance plan acceptance and provide network participation status",
+        "4. For new patient registration: guide through the registration process, provide the required documents checklist, and send the registration forms",
+        "5. For medical records requests: verify the patient's identity, provide the release of information form, and explain the processing timeline per HIPAA requirements",
+        "6. For provider inquiries: search the provider directory by specialty, availability, language, or preference and present matching options",
+        "7. For billing questions: provide payment options, payment plan information, and financial assistance program details",
+        "8. For telehealth inquiries: explain available virtual visit services, technology requirements, and scheduling options",
+        "9. Offer to take next steps such as scheduling an appointment, sending forms, or connecting with a specific department"
+      ],
+      "handles_edge_cases": [
+        "Patient needs medical records urgently for an upcoming specialist appointment — agent expedites the records request through the urgent processing queue and provides the records directly to the requesting specialist via secure transfer",
+        "Patient speaks a language not supported by automated translation — agent identifies the need, provides information about interpreter services, and schedules an interpreter-assisted call",
+        "New patient has complex medical history requiring records transfer from multiple providers — agent provides a comprehensive records transfer authorization form and coordinates the collection process",
+        "Patient needs to verify if a specific procedure is covered before scheduling — agent initiates a pre-service coverage check with the insurance company and provides the determination",
+        "Patient is experiencing a medical emergency through the inquiry channel — agent immediately provides emergency instructions (call 911, go to nearest ER) and stays on the line until help is confirmed",
+        "Patient is uninsured and inquiring about costs — agent provides self-pay rates, payment plan options, sliding scale fee information, and financial assistance program details"
+      ],
+      "integration_requirements": [
+        "Practice management system for provider directory and scheduling information",
+        "Insurance verification system for plan acceptance and network participation",
+        "Medical records management system for release of information processing",
+        "Patient portal for online registration and self-service tools",
+        "Facility management system for office hours, locations, and services",
+        "Interpreter services scheduling system for multilingual support coordination"
+      ],
+      "auto_learning": "The Patient Inquiries variant learns from common patient questions to build a more comprehensive FAQ knowledge base. If many patients ask about wheelchair accessibility at a specific location, the agent learns to proactively include accessibility information in its standard facility overview. It also learns to recognize seasonal patterns, such as increased flu shot inquiries during fall, and adjusts its proactive information accordingly.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 3,
+        "p95_response_time_seconds": 7,
+        "resolution_accuracy_percent": 94,
+        "first_contact_resolution_rate_percent": 91,
+        "escalation_rate_percent": 9
+      },
+      "escalation_triggers": [
+        "Patient inquiry reveals a potential medical emergency requiring clinical triage",
+        "Patient requests psychiatric or mental health crisis support",
+        "Medical records request involves legal proceedings or subpoena",
+        "Patient has a complaint about clinical care quality or provider behavior",
+        "Inquiry involves a HIPAA privacy concern or potential breach",
+        "Patient is requesting information about experimental treatments or clinical trials"
+      ]
+    },
+    {
+      "id": "hc-telehealth-support",
+      "name": "Telehealth Support",
+      "industry": "healthcare",
+      "workflow": [
+        "1. Receive the telehealth inquiry and classify the issue type (setup help, connection problem, scheduling, or general telehealth question)",
+        "2. For new patient setup: guide through the app download, account creation, profile completion, and system compatibility check",
+        "3. For connection issues: run through the diagnostic checklist — internet speed, camera permission, microphone permission, browser compatibility, and firewall settings",
+        "4. If a specific technical error is identified: provide the targeted fix (e.g., enable camera in browser settings, switch from Safari to Chrome, disable VPN)",
+        "5. For scheduling: check telehealth appointment availability with the requested provider and book the virtual visit",
+        "6. For virtual waiting room issues: verify the appointment is active, check the provider's status, and ensure the patient is in the correct virtual waiting room",
+        "7. Walk the patient through the platform features they will use during the visit (chat, screen sharing, document upload, video controls)",
+        "8. Confirm the patient is ready and provide the direct link to join their scheduled visit",
+        "9. After the visit: provide information on how to access visit summaries, follow-up instructions, and any prescriptions that were sent electronically"
+      ],
+      "handles_edge_cases": [
+        "Patient has very low internet bandwidth preventing video — agent helps switch to audio-only mode and provides tips for improving connection quality",
+        "Patient is elderly and unfamiliar with technology — agent provides simplified step-by-step instructions with screenshots, offers to do a test call before the actual appointment, and suggests a family member assist",
+        "Device does not meet minimum system requirements — agent identifies the limitation, suggests alternative devices, and offers to reschedule if needed",
+        "Firewall or corporate network blocks the telehealth connection — agent provides specific firewall configuration instructions for the IT department and suggests using a mobile hotspot as a workaround",
+        "Provider is running late for the virtual visit — agent keeps the patient informed of the delay, provides an updated wait time, and offers to reschedule if the wait exceeds 15 minutes",
+        "Patient is in a different time zone and the appointment time is incorrect — agent identifies the time zone discrepancy, corrects the appointment time, and sends a confirmation in the patient's local time zone"
+      ],
+      "integration_requirements": [
+        "Telehealth platform API for appointment management and virtual room access",
+        "Device and browser compatibility database for system requirement validation",
+        "Network diagnostics tool for connection speed and quality testing",
+        "EHR system for patient demographics and appointment association",
+        "Notification service for appointment reminders with direct join links",
+        "Telehealth analytics dashboard for connection success rates and common failure patterns"
+      ],
+      "auto_learning": "The Telehealth Support variant learns from common connection failure patterns to diagnose issues faster. If a specific browser version consistently causes camera permission problems, the agent learns to proactively suggest using a different browser. It also learns from patient demographics to adapt its communication style — providing more detailed step-by-step guidance for patients who have previously needed extra help with technology.",
+      "performance_benchmarks": {
+        "average_response_time_seconds": 4,
+        "p95_response_time_seconds": 10,
+        "resolution_accuracy_percent": 90,
+        "first_contact_resolution_rate_percent": 85,
+        "escalation_rate_percent": 15
+      },
+      "escalation_triggers": [
+        "Patient cannot connect after exhausting all troubleshooting steps",
+        "Technical issue affects multiple patients simultaneously indicating a platform-wide problem",
+        "Patient reports a HIPAA concern about the security of the telehealth platform",
+        "Provider cannot connect to the telehealth platform for a scheduled group session",
+        "Patient needs assistive technology (closed captioning, sign language interpreter) that requires special arrangement",
+        "Telehealth visit involves a psychiatric emergency requiring immediate clinical intervention"
+      ]
+    }
+  ]
+}

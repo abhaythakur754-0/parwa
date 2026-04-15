@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block body %}
+<h2 style="margin:0 0 20px;color:#2e7d32">Payment Confirmed</h2>
+
+<p>Hi {{ user_name }},</p>
+
+<p>Thank you for your payment! Your subscription has been successfully processed.</p>
+
+<div style="background:#e8f5e9;padding:20px;border-radius:6px;margin:20px 0">
+    <p style="margin:0 0 10px"><strong>Plan:</strong> {{ plan_name }}</p>
+    <p style="margin:0 0 10px"><strong>Amount:</strong> ${{ amount }}</p>
+    <p style="margin:0"><strong>Status:</strong> <span style="color:#2e7d32;font-weight:600">Active</span></p>
+</div>
+
+<p>Your account is now active and you have full access to all features included in your plan. You can manage your subscription and billing details from your dashboard.</p>
+
+<p style="text-align:center;margin:30px 0">
+    <a href="{{ dashboard_url }}" class="btn" style="background:#2e7d32">Go to Dashboard</a>
+</p>
+
+<p>If you have any questions about your subscription or need assistance, please don't hesitate to contact our support team.</p>
+
+<p>Thank you for choosing PARWA!</p>
+
+<p>Best regards,<br>
+PARWA Billing Team</p>
+{% endblock %}

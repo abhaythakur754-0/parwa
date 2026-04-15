@@ -1,0 +1,48 @@
+{
+  "found_count": "6",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Tenant isolation leak in monitoring metrics",
+      "breaks": "One company's metrics can be accessed by another company through concurrent metric storage access",
+      "scenario": "Company A's metrics are being updated while Company B queries the dashboard snapshot API, resulting in Company B seeing Company A's metrics mixed in with their own",
+      "prompt": "Write a test that simulates concurrent metric updates from different companies and verifies that company_id isolation is maintained in the monitoring service's in-memory storage. Test should use multiple threads updating and querying metrics simultaneously for different companies."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Race condition in self-healing state transitions",
+      "breaks": "Concurrent healing actions can lead to inconsistent provider states and potential deadlocks",
+      "scenario": "Two background jobs simultaneously detect errors for the same provider, causing one to set state to \"disabled\" while the other tries to transition through recovery stages, resulting in undefined behavior",
+      "prompt": "Write a test that simulates concurrent self-healing triggers for the same provider and verifies proper state transitions using RLock. Test should check for deadlocks, inconsistent states, and ensure only one healing action completes successfully."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Cooldown period bypass in error rate detection",
+      "breaks": "Error rate spike detection can be manipulated by rapid consecutive requests, bypassing intended cooldown periods",
+      "scenario": "An attacker floods the API with rapid error requests to trigger false alerts and potentially disable healthy providers, causing service disruption",
+      "prompt": "Write a test that verifies error rate spike detection properly respects cooldown periods by sending rapid consecutive error requests and checking that the cooldown period is enforced before allowing another spike detection."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Incomplete rollback after failed healing action",
+      "breaks": "When a healing action fails midway, the system may leave providers in an intermediate state without proper rollback",
+      "scenario": "During recovery from \"disabled\" to \"recovering_10%\", if the system crashes after updating state but before updating metrics, the provider remains in an undefined state when restarted",
+      "prompt": "Write a test that simulates a healing action failure midway through the process and verifies that the system properly rolls back to the previous state or enters a safe fallback state."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Alert false positives from metric pruning edge cases",
+      "breaks": "The rolling window analytics may incorrectly calculate metrics when pruning old data points, causing false alerts",
+      "scenario": "When the monitoring service is at its 50-data-point limit and a new metric arrives exactly at a time boundary, the pruning logic might incorrectly remove recent data instead of old data, skewing error rate calculations",
+      "prompt": "Write a test that verifies the metric pruning logic works correctly at the 50-data-point limit, especially when new metrics arrive at time boundaries. Test should check that error rate calculations remain accurate after pruning."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Silent failure in confidence threshold auto-adjustment",
+      "breaks": "When confidence threshold adjustment fails, the error is silently ignored and continues with default values",
+      "scenario": "During high load, the confidence threshold adjustment for a variant encounters an exception but doesn't surface the error, leading to continued use of default thresholds that may be inappropriate for that variant",
+      "prompt": "Write a test that verifies confidence threshold adjustment failures are properly logged and surfaced rather than silently ignored. Test should check that the system maintains appropriate fallback behavior when adjustments fail."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 6\n\nGAP 1\nSeverity: CRITICAL\nTitle: Tenant isolation leak in monitoring metrics\nWhat breaks: One company's metrics can be accessed by another company through concurrent metric storage access\nReal scenario: Company A's metrics are being updated while Company B queries the dashboard snapshot API, resulting in Company B seeing Company A's metrics mixed in with their own\nAI agent prompt: Write a test that simulates concurrent metric updates from different companies and verifies that company_id isolation is maintained in the monitoring service's in-memory storage. Test should use multiple threads updating and querying metrics simultaneously for different companies.\n\nGAP 2\nSeverity: HIGH\nTitle: Race condition in self-healing state transitions\nWhat breaks: Concurrent healing actions can lead to inconsistent provider states and potential deadlocks\nReal scenario: Two background jobs simultaneously detect errors for the same provider, causing one to set state to \"disabled\" while the other tries to transition through recovery stages, resulting in undefined behavior\nAI agent prompt: Write a test that simulates concurrent self-healing triggers for the same provider and verifies proper state transitions using RLock. Test should check for deadlocks, inconsistent states, and ensure only one healing action completes successfully.\n\nGAP 3\nSeverity: HIGH\nTitle: Cooldown period bypass in error rate detection\nWhat breaks: Error rate spike detection can be manipulated by rapid consecutive requests, bypassing intended cooldown periods\nReal scenario: An attacker floods the API with rapid error requests to trigger false alerts and potentially disable healthy providers, causing service disruption\nAI agent prompt: Write a test that verifies error rate spike detection properly respects cooldown periods by sending rapid consecutive error requests and checking that the cooldown period is enforced before allowing another spike detection.\n\nGAP 4\nSeverity: MEDIUM\nTitle: Incomplete rollback after failed healing action\nWhat breaks: When a healing action fails midway, the system may leave providers in an intermediate state without proper rollback\nReal scenario: During recovery from \"disabled\" to \"recovering_10%\", if the system crashes after updating state but before updating metrics, the provider remains in an undefined state when restarted\nAI agent prompt: Write a test that simulates a healing action failure midway through the process and verifies that the system properly rolls back to the previous state or enters a safe fallback state.\n\nGAP 5\nSeverity: HIGH\nTitle: Alert false positives from metric pruning edge cases\nWhat breaks: The rolling window analytics may incorrectly calculate metrics when pruning old data points, causing false alerts\nReal scenario: When the monitoring service is at its 50-data-point limit and a new metric arrives exactly at a time boundary, the pruning logic might incorrectly remove recent data instead of old data, skewing error rate calculations\nAI agent prompt: Write a test that verifies the metric pruning logic works correctly at the 50-data-point limit, especially when new metrics arrive at time boundaries. Test should check that error rate calculations remain accurate after pruning.\n\nGAP 6\nSeverity: MEDIUM\nTitle: Silent failure in confidence threshold auto-adjustment\nWhat breaks: When confidence threshold adjustment fails, the error is silently ignored and continues with default values\nReal scenario: During high load, the confidence threshold adjustment for a variant encounters an exception but doesn't surface the error, leading to continued use of default thresholds that may be inappropriate for that variant\nAI agent prompt: Write a test that verifies confidence threshold adjustment failures are properly logged and surfaced rather than silently ignored. Test should check that the system maintains appropriate fallback behavior when adjustments fail."
+}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>Session Revoked</h2>
+<p>Hi {{ user_name }},</p>
+<p>A session on your PARWA account has been revoked. If you made
+this change, no further action is needed. You can sign in again
+to create a new session.</p>
+<p><strong>Session details:</strong></p>
+<ul>
+<li>Device: {{ device_info }}</li>
+<li>IP Address: {{ ip_address }}</li>
+<li>Revoked at: {{ timestamp }}</li>
+</ul>
+<p>If you did not request this change, your account may have been
+compromised. Please take the following steps immediately:</p>
+<ul>
+<li>Change your password</li>
+<li>Enable MFA if not already active</li>
+<li>Contact PARWA support</li>
+</ul>
+<p style="text-align:center">
+<a href="{{ security_url }}" class="btn">
+Review Account Security
+</a>
+</p>
+{% endblock %}

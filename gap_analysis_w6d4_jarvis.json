@@ -1,0 +1,5 @@
+{
+  "found_count": 0,
+  "gaps": [],
+  "raw_response": "Error calling AI: Failed to make API request: Error: API request failed with status 401: {\"error\":\"missing X-Token header\"}\n    at ZAI.createChatCompletion (file:///home/z/.bun/install/global/node_modules/z-ai-web-dev-sdk/dist/index.js:100:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/z/my-project/parwa/tmp2vx_oxxy.cjs:7:24)\nError: API request failed with status 401: {\"error\":\"missing X-Token header\"}\n"
+}

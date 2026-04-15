@@ -1,0 +1,48 @@
+{
+  "found_count": "6",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Cache Invalidation Race Condition",
+      "breaks": "Stale cached responses returned after model updates due to timing issues",
+      "scenario": "When updating a model configuration while concurrent requests are hitting the cache, some requests get the old cached response instead of the new one",
+      "prompt": "Write a test that simulates concurrent cache writes and reads with model updates. Verify that after a model configuration change, no stale responses are returned. Use Redis transactions and check for race conditions."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Cost Calculation Inconsistency",
+      "breaks": "Incorrect cost tracking when cached responses are served multiple times",
+      "scenario": "A cached response is served 10 times but costs are only calculated once, leading to underreported costs and potential budget limit bypass",
+      "prompt": "Write a test that verifies cost tracking is accurate for both fresh requests and cached responses. Ensure costs are properly tracked each time a cached response is served and that budget limits are enforced correctly."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Memory Leak with Large Responses",
+      "breaks": "Redis memory exhaustion when large responses exceed TTL cleanup",
+      "scenario": "A tenant with very large AI responses (e.g., 10MB each) fills Redis memory before TTL cleanup can occur, causing system-wide performance degradation",
+      "prompt": "Write a test that simulates serving large responses repeatedly and monitors Redis memory usage. Implement and test a solution that prevents memory exhaustion while maintaining cache functionality."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Tenant Isolation in Cache",
+      "breaks": "Cross-tenant data leakage in shared Redis cache",
+      "scenario": "Due to improper key naming, tenant A's cached response is returned to tenant B when they request the same prompt",
+      "prompt": "Write a test that verifies tenant isolation in the Redis cache. Ensure all cache keys include proper tenant identifiers and that responses are never shared between tenants."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Cache Stampede Effect",
+      "breaks": "Multiple simultaneous requests for same uncached key causing database overload",
+      "scenario": "When a popular cache key expires and multiple concurrent requests hit the system simultaneously, all bypass the cache and hit the database, causing cascading failures",
+      "prompt": "Write a test that simulates cache stampede conditions. Implement and test a solution that prevents multiple concurrent requests for the same uncached key from all hitting the database."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Cost Tracking Precision Loss",
+      "breaks": "Rounding errors in cost calculation lead to budget limit bypass",
+      "scenario": "Multiple small token requests accumulate costs that fall between integer boundaries, allowing a tenant to exceed their budget limit without being stopped",
+      "prompt": "Write a test that verifies cost calculation precision across multiple small requests. Ensure that accumulated costs are properly tracked and that budget limits are enforced with appropriate precision."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 6\n\nGAP 1\nSeverity: CRITICAL\nTitle: Cache Invalidation Race Condition\nWhat breaks: Stale cached responses returned after model updates due to timing issues\nReal scenario: When updating a model configuration while concurrent requests are hitting the cache, some requests get the old cached response instead of the new one\nAI agent prompt: Write a test that simulates concurrent cache writes and reads with model updates. Verify that after a model configuration change, no stale responses are returned. Use Redis transactions and check for race conditions.\n\nGAP 2\nSeverity: CRITICAL\nTitle: Cost Calculation Inconsistency\nWhat breaks: Incorrect cost tracking when cached responses are served multiple times\nReal scenario: A cached response is served 10 times but costs are only calculated once, leading to underreported costs and potential budget limit bypass\nAI agent prompt: Write a test that verifies cost tracking is accurate for both fresh requests and cached responses. Ensure costs are properly tracked each time a cached response is served and that budget limits are enforced correctly.\n\nGAP 3\nSeverity: HIGH\nTitle: Memory Leak with Large Responses\nWhat breaks: Redis memory exhaustion when large responses exceed TTL cleanup\nReal scenario: A tenant with very large AI responses (e.g., 10MB each) fills Redis memory before TTL cleanup can occur, causing system-wide performance degradation\nAI agent prompt: Write a test that simulates serving large responses repeatedly and monitors Redis memory usage. Implement and test a solution that prevents memory exhaustion while maintaining cache functionality.\n\nGAP 4\nSeverity: HIGH\nTitle: Tenant Isolation in Cache\nWhat breaks: Cross-tenant data leakage in shared Redis cache\nReal scenario: Due to improper key naming, tenant A's cached response is returned to tenant B when they request the same prompt\nAI agent prompt: Write a test that verifies tenant isolation in the Redis cache. Ensure all cache keys include proper tenant identifiers and that responses are never shared between tenants.\n\nGAP 5\nSeverity: HIGH\nTitle: Cache Stampede Effect\nWhat breaks: Multiple simultaneous requests for same uncached key causing database overload\nReal scenario: When a popular cache key expires and multiple concurrent requests hit the system simultaneously, all bypass the cache and hit the database, causing cascading failures\nAI agent prompt: Write a test that simulates cache stampede conditions. Implement and test a solution that prevents multiple concurrent requests for the same uncached key from all hitting the database.\n\nGAP 6\nSeverity: MEDIUM\nTitle: Cost Tracking Precision Loss\nWhat breaks: Rounding errors in cost calculation lead to budget limit bypass\nReal scenario: Multiple small token requests accumulate costs that fall between integer boundaries, allowing a tenant to exceed their budget limit without being stopped\nAI agent prompt: Write a test that verifies cost calculation precision across multiple small requests. Ensure that accumulated costs are properly tracked and that budget limits are enforced with appropriate precision."
+}
