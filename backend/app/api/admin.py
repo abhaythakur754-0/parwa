@@ -4,12 +4,16 @@ PARWA Admin API Router (F06)
 Platform admin endpoints for managing clients (companies),
 subscriptions, API providers, and system health.
 
-SECURITY NOTE: Admin endpoints use require_roles("owner") as a
-temporary gate. A dedicated is_platform_admin flag should be
-added in a future day to prevent cross-tenant admin access.
-Currently, these endpoints are scoped so that data is read
-from all companies (by design for platform admins) but write
-operations are gated by owner role.
+SECURITY NOTE (A7): All admin endpoints now require platform admin
+access via ``require_platform_admin`` dependency. This checks
+``PLATFORM_ADMIN_EMAILS`` env var first, then falls back to
+``role="owner"`` for backward compatibility.
+
+TODO (Alembic Migration): Add an ``is_platform_admin`` boolean column
+to the User model. Once the migration is created and applied, the
+guard should check ``user.is_platform_admin`` directly instead of
+relying on the env-var email allowlist or role fallback.
+See: ``alembic revision --autogenerate -m "add is_platform_admin to user"``
 
 All responses use structured JSON (BC-012).
 """
@@ -43,9 +47,11 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 # A7: Platform admin email allowlist.
-# TODO: Add an is_platform_admin boolean column to the User model
-#       and use that for the guard once a DB migration is available.
-#       For now, we check against a comma-separated env var.
+# NOTE: This requires an Alembic migration to add `is_platform_admin`
+#       boolean column to the User model. Once available, prefer
+#       checking `user.is_platform_admin` over the env-var approach.
+#       Migration command:
+#         alembic revision --autogenerate -m "add is_platform_admin to user"
 def require_platform_admin(
     user: User = Depends(get_current_user),
 ) -> User:

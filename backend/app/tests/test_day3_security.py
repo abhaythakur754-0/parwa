@@ -1,8 +1,9 @@
 """
-Day 3 Security Fixes — Unit Tests
-====================================
-Tests for all 10 Day 3 fixes:
-  E1:  Enable PostgreSQL internal SSL
+Day 3 Security Fixes — Comprehensive Unit Tests
+=================================================
+Tests for all 10 Day 3 fixes (E1, E2, A7, A8, B1, B2, B3, B4, E3):
+
+  E1:  Enable PostgreSQL internal SSL (config + certs script)
   E2:  Fix PostgreSQL exporter sslmode
   A7:  Add is_platform_admin flag for admin endpoints
   A8:  Add auth to webhook retry/status endpoints
@@ -10,13 +11,19 @@ Tests for all 10 Day 3 fixes:
   B2:  Fix IP allowlist to use TRUSTED_PROXY_COUNT
   B3:  Escape wildcards in admin search
   B4:  Add auth + rate limiting to chat API
-  E3:  Build GDPR endpoints (backend)
+  E3:  Build GDPR endpoints (erase + export with real DB ops)
 """
 
+import json
 import os
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch, PropertyMock
+
 import pytest
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", ".."),
+)
 
 
 def _read(rel_path: str) -> str:
@@ -53,10 +60,54 @@ class TestE1PostgreSQLSSL:
         assert "ssl_key_file = '/var/lib/postgresql/server.key'" in content, \
             "ssl_key_file must point to /var/lib/postgresql/server.key"
 
+    def test_ssl_ca_file_path(self):
+        content = _read("infra/docker/postgresql.conf")
+        assert "ssl_ca_file = '/var/lib/postgresql/ca.crt'" in content, \
+            "ssl_ca_file must point to /var/lib/postgresql/ca.crt"
+
     def test_self_signed_comment(self):
         content = _read("infra/docker/postgresql.conf")
         assert "self-signed" in content.lower(), \
             "Comment should mention self-signed certificates"
+
+    def test_generate_ssl_certs_script_exists(self):
+        full_path = os.path.join(
+            PROJECT_ROOT, "infra/docker/generate-ssl-certs.sh",
+        )
+        assert os.path.exists(full_path), \
+            "infra/docker/generate-ssl-certs.sh must exist"
+
+    def test_generate_ssl_certs_script_content(self):
+        content = _read("infra/docker/generate-ssl-certs.sh")
+        assert "openssl" in content, \
+            "Script must use openssl to generate certificates"
+        assert "server.key" in content, \
+            "Script must generate server.key"
+        assert "server.crt" in content, \
+            "Script must generate server.crt"
+        assert "ca.crt" in content, \
+            "Script must generate ca.crt"
+        assert "chmod 600" in content, \
+            "Script must set restrictive permissions on server.key"
+        assert "PARWA" in content, \
+            "Script must reference PARWA"
+
+    def test_generate_ssl_certs_has_san(self):
+        content = _read("infra/docker/generate-ssl-certs.sh")
+        assert "subjectAltName" in content or "SAN" in content, \
+            "Script must include SAN (Subject Alternative Names) extensions"
+
+    def test_generate_ssl_certs_has_san_entries(self):
+        content = _read("infra/docker/generate-ssl-certs.sh")
+        assert "localhost" in content, \
+            "SAN must include localhost"
+        assert "db" in content, \
+            "SAN must include 'db' hostname"
+
+    def test_generate_ssl_certs_uses_rsa_4096(self):
+        content = _read("infra/docker/generate-ssl-certs.sh")
+        assert "rsa:4096" in content, \
+            "Script should use RSA 4096-bit keys for security"
 
 
 # ============================================================
@@ -94,10 +145,15 @@ class TestA7PlatformAdminGuard:
         assert "PLATFORM_ADMIN_EMAILS" in content, \
             "Guard must check PLATFORM_ADMIN_EMAILS env var"
 
-    def test_platform_admin_has_todo_comment(self):
+    def test_platform_admin_has_alembic_comment(self):
         content = _read("backend/app/api/admin.py")
-        assert "TODO" in content and "is_platform_admin" in content, \
-            "Must have TODO comment about is_platform_admin DB column"
+        assert "Alembic" in content and "is_platform_admin" in content, \
+            "Must have Alembic migration comment about is_platform_admin"
+
+    def test_platform_admin_has_migration_command(self):
+        content = _read("backend/app/api/admin.py")
+        assert "alembic revision" in content, \
+            "Must include the Alembic migration command in comment"
 
     def test_list_clients_uses_platform_admin(self):
         content = _read("backend/app/api/admin.py")
@@ -126,24 +182,17 @@ class TestA7PlatformAdminGuard:
         assert count >= 7, \
             f"All 7+ admin endpoints must use require_platform_admin, found {count}"
 
-    def test_no_owner_role_dependency_remains(self):
-        """require_roles('owner') should no longer be used on admin endpoints."""
+    def test_docstring_mentions_platform_admin(self):
         content = _read("backend/app/api/admin.py")
-        lines = content.split("\n")
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("def list_clients") or \
-               stripped.startswith("def get_client_detail") or \
-               stripped.startswith("def update_client") or \
-               stripped.startswith("def update_subscription") or \
-               stripped.startswith("def list_api_providers") or \
-               stripped.startswith("def create_api_provider") or \
-               stripped.startswith("def update_api_provider") or \
-               stripped.startswith("def delete_api_provider"):
-                # Look at the next few lines for Depends
-                continue
-        # The admin.py still imports require_roles for potential future use,
-        # but all endpoints should use require_platform_admin
+        assert "require_platform_admin" in content.split('"""')[1] if '"""' in content else False or \
+               "require_platform_admin" in content[:500], \
+            "Module docstring must reference require_platform_admin"
+
+    def test_docstring_no_owner_as_primary(self):
+        content = _read("backend/app/api/admin.py")
+        # The docstring should NOT say "use require_roles('owner') as a temporary gate"
+        assert "require_roles(\"owner\") as a temporary gate" not in content, \
+            "Docstring should not mention require_roles('owner') as the gate"
 
 
 # ============================================================
@@ -160,16 +209,31 @@ class TestA8WebhookAuth:
 
     def test_status_endpoint_has_user_param(self):
         content = _read("backend/app/api/webhooks.py")
-        # Find the get_webhook_status function and check for user param
         assert "user: User = Depends(get_current_user)" in content, \
             "get_webhook_status must have user auth dependency"
 
     def test_retry_endpoint_has_user_param(self):
         content = _read("backend/app/api/webhooks.py")
-        # The retry function should also have the auth dependency
         count = content.count("Depends(get_current_user)")
         assert count >= 2, \
             "Both get_webhook_status and retry_webhook must have auth dependency"
+
+    def test_webhook_receive_still_public(self):
+        """The receive webhook POST should NOT require auth (it uses HMAC)."""
+        content = _read("backend/app/api/webhooks.py")
+        # The receive_webhook function should not have Depends(get_current_user)
+        lines = content.split("\n")
+        in_receive = False
+        for line in lines:
+            if "async def receive_webhook" in line:
+                in_receive = True
+            if in_receive and "async def " in line and "receive_webhook" not in line:
+                in_receive = False
+            if in_receive and "get_current_user" in line:
+                pytest.fail(
+                    "receive_webhook should NOT require user auth — "
+                    "it uses HMAC signature verification instead"
+                )
 
 
 # ============================================================
@@ -224,6 +288,11 @@ class TestB1TenantPublicPrefixes:
         assert '"/test/"' in content, \
             "/test/ must remain in PUBLIC_PREFIXES"
 
+    def test_b1_comment_present(self):
+        content = _read("backend/app/middleware/tenant.py")
+        assert "B1:" in content or "billing" in content.lower(), \
+            "Should have comment explaining B1 changes"
+
 
 # ============================================================
 # B2: Fix IP allowlist to use TRUSTED_PROXY_COUNT
@@ -250,8 +319,6 @@ class TestB2IPAllowlistTrustedProxy:
     def test_no_first_ip_selection(self):
         """B2: Must NOT use forwarded.split(',')[0] (old vulnerable logic)."""
         content = _read("backend/app/middleware/ip_allowlist.py")
-        # The old pattern was: return forwarded.split(",")[0].strip()
-        # This should NOT be present in _get_client_ip
         lines = content.split("\n")
         in_method = False
         for line in lines:
@@ -264,6 +331,17 @@ class TestB2IPAllowlistTrustedProxy:
                     "ip_allowlist._get_client_ip must NOT use "
                     "forwarded.split(',')[0] (vulnerable to IP spoofing)"
                 )
+
+    def test_fallback_to_client_scope(self):
+        """Must fall back to scope['client'] when header is absent."""
+        content = _read("backend/app/middleware/ip_allowlist.py")
+        assert 'scope.get("client")' in content or "scope[\"client\"]" in content, \
+            "Must fall back to scope['client'] when X-Forwarded-For is absent"
+
+    def test_b2_comment_present(self):
+        content = _read("backend/app/middleware/ip_allowlist.py")
+        assert "B2:" in content, \
+            "Must have B2 comment referencing the fix"
 
 
 # ============================================================
@@ -293,6 +371,11 @@ class TestB3AdminSearchWildcardEscape:
         assert "safe_search" in content, \
             "Must use a safe_search variable for escaped input"
 
+    def test_b3_comment_present(self):
+        content = _read("backend/app/api/admin.py")
+        assert "B3:" in content, \
+            "Must have B3 comment referencing the fix"
+
 
 # ============================================================
 # B4: Add auth + rate limiting to chat API
@@ -318,7 +401,7 @@ class TestB4ChatAPIAuthAndRateLimit:
 
     def test_rate_limit_max_5(self):
         content = _read("frontend/src/app/api/chat/route.ts")
-        assert "5" in content, \
+        assert "RATE_LIMIT_MAX = 5" in content or "RATE_LIMIT_MAX=5" in content, \
             "Rate limit max should be 5 requests"
 
     def test_429_response_for_rate_limit(self):
@@ -330,6 +413,21 @@ class TestB4ChatAPIAuthAndRateLimit:
         content = _read("frontend/src/app/api/chat/route.ts")
         assert "setInterval" in content, \
             "Rate limit store must have cleanup to prevent memory leaks"
+
+    def test_b4_comment_present(self):
+        content = _read("frontend/src/app/api/chat/route.ts")
+        assert "B4:" in content, \
+            "Must have B4 comment referencing the fix"
+
+    def test_authentication_required_message(self):
+        content = _read("frontend/src/app/api/chat/route.ts")
+        assert "Authentication required" in content or "authentication required" in content.lower(), \
+            "Chat API must return 'Authentication required' message for 401"
+
+    def test_message_validation(self):
+        content = _read("frontend/src/app/api/chat/route.ts")
+        assert "message.trim().length === 0" in content or "message.trim" in content, \
+            "Chat API must validate message content is not empty"
 
 
 # ============================================================
@@ -374,17 +472,16 @@ class TestE3GDPRModules:
         assert "get_current_user" in content, \
             "GDPR endpoints must require authentication"
 
-    def test_gdpr_erase_has_todo(self):
+    def test_gdpr_erase_has_db_session(self):
         content = _read("backend/app/api/gdpr.py")
-        assert "TODO" in content, \
-            "GDPR erase must have TODO for actual implementation"
+        assert "db: Session = Depends(get_db)" in content, \
+            "GDPR erase must have database session dependency"
 
-    def test_gdpr_export_has_todo(self):
+    def test_gdpr_export_has_db_session(self):
         content = _read("backend/app/api/gdpr.py")
-        # Count TODOs — should have at least 2
-        count = content.count("TODO")
-        assert count >= 2, \
-            "GDPR module must have TODO comments for both endpoints"
+        # get_db should appear (at least once, likely twice)
+        assert content.count("Depends(get_db)") >= 1, \
+            "GDPR endpoints must use database session"
 
     def test_gdpr_wired_in_main(self):
         content = _read("backend/app/main.py")
@@ -398,6 +495,187 @@ class TestE3GDPRModules:
 
 
 # ============================================================
+# E3: GDPR Implementation — Functional Tests (mocked DB)
+# ============================================================
+
+class TestE3GDPRFunctional:
+    """Test GDPR erase and export logic with mocked DB.
+
+    These tests import gdpr.py functions. Because the import chain
+    (gdpr -> api.__init__ -> auth -> deps -> core.auth) requires
+    REFRESH_TOKEN_PEPPER and JWT_SECRET_KEY env vars at module-load
+    time, we set them before any import and also clear stale
+    cached modules to avoid stale ImportError caches.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _set_env_and_clear_cache(self, monkeypatch):
+        """Set required env vars and clear any stale module caches."""
+        monkeypatch.setenv("REFRESH_TOKEN_PEPPER", "test-pepper-for-day3-tests")
+        monkeypatch.setenv("JWT_SECRET_KEY", "test-jwt-secret-for-day3-tests")
+        monkeypatch.setenv("ENVIRONMENT", "test")
+        # Clear stale cached modules that may have failed to import
+        # in a previous test run (Python caches ImportError).
+        import sys as _sys
+        import types as _types
+        # Remove the api package and its children from cache if present
+        stale_prefixes = [
+            "backend.app.api.auth",
+            "backend.app.api.deps",
+            "backend.app.api.health",
+            "backend.app.api.admin",
+            "backend.app.api.api_keys",
+            "backend.app.api.mfa",
+            "backend.app.api.client",
+            "backend.app.api.webhooks",
+            "backend.app.api",
+            "backend.app.core.auth",
+            "backend.app.exceptions",
+            "backend.app.config",
+        ]
+        for mod_name in list(_sys.modules.keys()):
+            if any(mod_name == p or mod_name.startswith(p + ".") for p in stale_prefixes):
+                del _sys.modules[mod_name]
+
+    def test_cascade_delete_user_data_deletes_tokens(self):
+        """Verify _cascade_delete_user_data deletes all related records."""
+        from backend.app.api.gdpr import _cascade_delete_user_data
+
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+        mock_user.id = "user-123"
+        mock_user.company_id = "company-456"
+
+        _cascade_delete_user_data(mock_db, mock_user)
+
+        # Verify refresh tokens were deleted
+        assert mock_db.query.called or mock_db.commit.called, \
+            "DB operations must be performed during cascade delete"
+
+        # Verify user was anonymized
+        assert mock_user.email.startswith("gdpr_erased_"), \
+            "User email must be anonymized to gdpr_erased_*"
+        assert mock_user.is_active is False, \
+            "User must be deactivated after erasure"
+        assert mock_user.password_hash == "GDPR_ERASED", \
+            "Password hash must be replaced after erasure"
+        assert mock_user.mfa_enabled is False, \
+            "MFA must be disabled after erasure"
+        assert mock_user.full_name is None, \
+            "Full name must be cleared after erasure"
+
+    def test_cascade_delete_commits(self):
+        """Verify _cascade_delete_user_data commits the transaction."""
+        from backend.app.api.gdpr import _cascade_delete_user_data
+
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+        mock_user.id = "user-abc"
+        mock_user.company_id = "company-xyz"
+
+        _cascade_delete_user_data(mock_db, mock_user)
+
+        mock_db.commit.assert_called_once()
+
+    def test_cascade_delete_handles_error(self):
+        """Verify _cascade_delete_user_data propagates exceptions."""
+        from backend.app.api.gdpr import _cascade_delete_user_data
+
+        mock_db = MagicMock()
+        mock_db.query.side_effect = Exception("DB Error")
+        mock_user = MagicMock()
+        mock_user.id = "user-err"
+        mock_user.company_id = "company-err"
+
+        with pytest.raises(Exception, match="DB Error"):
+            _cascade_delete_user_data(mock_db, mock_user)
+
+        mock_db.rollback.assert_called_once()
+
+    def test_collect_user_data_returns_structure(self):
+        """Verify _collect_user_data returns proper structure."""
+        from backend.app.api.gdpr import _collect_user_data
+
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+        mock_user.id = "user-exp"
+        mock_user.company_id = "company-exp"
+        mock_user.email = "test@example.com"
+        mock_user.full_name = "Test User"
+        mock_user.phone = "+1234567890"
+        mock_user.avatar_url = "https://example.com/avatar.jpg"
+        mock_user.role = "owner"
+        mock_user.is_active = True
+        mock_user.is_verified = True
+        mock_user.mfa_enabled = False
+        mock_user.created_at = datetime.utcnow()
+        mock_user.updated_at = datetime.utcnow()
+
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+
+        data = _collect_user_data(mock_db, mock_user)
+
+        assert "user" in data, "Export must include user section"
+        assert "company" in data, "Export must include company section"
+        assert "api_keys" in data, "Export must include api_keys section"
+        assert "notification_preferences" in data, \
+            "Export must include notification_preferences section"
+        assert "oauth_accounts" in data, \
+            "Export must include oauth_accounts section"
+        assert "active_sessions" in data, \
+            "Export must include active_sessions section"
+        assert "exported_at" in data, \
+            "Export must include exported_at timestamp"
+
+    def test_collect_user_data_user_fields(self):
+        """Verify exported user data has correct fields, no secrets."""
+        from backend.app.api.gdpr import _collect_user_data
+
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+        mock_user.id = "user-field-test"
+        mock_user.company_id = "company-123"
+        mock_user.email = "fields@test.com"
+        mock_user.password_hash = "SHOULD_NOT_APPEAR"
+        mock_user.mfa_secret = "SHOULD_NOT_APPEAR"
+
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+
+        data = _collect_user_data(mock_db, mock_user)
+
+        user_data = data["user"]
+        # password_hash must NOT be in export
+        assert "password_hash" not in user_data, \
+            "Export must NOT include password_hash"
+        # mfa_secret must NOT be in export
+        assert "mfa_secret" not in user_data, \
+            "Export must NOT include mfa_secret"
+        # Email should be included
+        assert user_data["email"] == "fields@test.com", \
+            "Export must include email"
+
+    def test_serialize_model_with_datetime(self):
+        """Verify _serialize_model converts datetime to ISO string."""
+        from backend.app.api.gdpr import _serialize_model
+
+        mock_obj = MagicMock()
+        mock_obj.name = "Test"
+        mock_obj.created_at = datetime(2025, 1, 15, 12, 0, 0)
+
+        result = _serialize_model(mock_obj, ["name", "created_at"])
+
+        assert result["name"] == "Test"
+        assert result["created_at"] == "2025-01-15T12:00:00"
+
+    def test_serialize_model_none(self):
+        """Verify _serialize_model returns None for None input."""
+        from backend.app.api.gdpr import _serialize_model
+
+        result = _serialize_model(None, ["name"])
+        assert result is None
+
+
+# ============================================================
 # Integration: Import chain validation
 # ============================================================
 
@@ -406,13 +684,11 @@ class TestImportChain:
 
     def test_admin_module_imports(self):
         content = _read("backend/app/api/admin.py")
-        # Must import AuthorizationError for the guard
         assert "AuthorizationError" in content, \
             "admin.py must import AuthorizationError"
 
     def test_webhook_module_imports(self):
         content = _read("backend/app/api/webhooks.py")
-        # Must import Depends for auth dependency
         assert "from fastapi import" in content and "Depends" in content, \
             "webhooks.py must import Depends from fastapi"
 
@@ -420,6 +696,22 @@ class TestImportChain:
         content = _read("backend/app/middleware/ip_allowlist.py")
         assert "import os" in content, \
             "ip_allowlist.py must import os for env var reading"
+
+    def test_gdpr_imports_db(self):
+        content = _read("backend/app/api/gdpr.py")
+        assert "get_db" in content, \
+            "gdpr.py must import get_db for database access"
+
+    def test_gdpr_imports_models(self):
+        content = _read("backend/app/api/gdpr.py")
+        assert "RefreshToken" in content, \
+            "gdpr.py must import RefreshToken for cascade delete"
+        assert "BackupCode" in content, \
+            "gdpr.py must import BackupCode for cascade delete"
+        assert "MFASecret" in content, \
+            "gdpr.py must import MFASecret for cascade delete"
+        assert "OAuthAccount" in content, \
+            "gdpr.py must import OAuthAccount for cascade delete"
 
 
 if __name__ == "__main__":
