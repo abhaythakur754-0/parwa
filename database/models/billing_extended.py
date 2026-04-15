@@ -222,6 +222,38 @@ class ProrationAudit(Base):
     company = relationship("Company", back_populates="proration_audits")
 
 
+# ── Data Export Model (Day 4: C5) ───────────────────────────────────
+
+class DataExport(Base):
+    """
+    Data export records for canceled subscriptions.
+
+    C5: Tracks async data export jobs. When a customer cancels,
+    they can export all company data as a ZIP file (JSON + CSV).
+    """
+    __tablename__ = "data_exports"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    status = Column(String(20), nullable=False, default="processing")  # processing/completed/failed/expired
+    format = Column(String(20), default="zip")
+    file_size_bytes = Column(Integer, nullable=True)
+    export_data_json = Column(Text, nullable=True)  # Temporary storage for export data
+    error_message = Column(Text, nullable=True)
+    requested_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+    # Relationships
+    company = relationship("Company", back_populates="data_exports")
+
+
 # ── Payment Failure Model ───────────────────────────────────────────────────
 
 class PaymentFailure(Base):

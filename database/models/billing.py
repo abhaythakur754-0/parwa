@@ -56,6 +56,22 @@ class Subscription(Base):
     # P5: metadata_json for extensibility
     metadata_json = Column(Text, nullable=True)
 
+    # ── Day 4 additions ─────────────────────────────────────────────
+    # C3/C4: service_stopped_at — when service was actually stopped
+    service_stopped_at = Column(DateTime, nullable=True)
+
+    # C7: data_hard_deleted — whether non-billing data was purged
+    data_hard_deleted = Column(Boolean, default=False)
+
+    # C7: data_deleted_at — when data was permanently deleted
+    data_deleted_at = Column(DateTime, nullable=True)
+
+    # C1: cancel_feedback — "Why are you leaving?" free text
+    cancel_feedback = Column(Text, nullable=True)
+
+    # C1: save_offer_accepted — whether the 20% save offer was accepted
+    save_offer_accepted = Column(Boolean, default=False)
+
 
 class Invoice(Base):
     __tablename__ = "invoices"

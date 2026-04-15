@@ -1,15 +1,16 @@
 """
-Subscription Service (F-021, F-025, F-026) — Day 2 Enhanced
+Subscription Service (F-021, F-025, F-026) — Day 4 Enhanced
 
 Handles subscription lifecycle management:
 - Create subscription (new company signup)
 - Get subscription details
 - Upgrade subscription (immediate with proration)
 - Downgrade subscription (effective at next billing cycle)
-- Cancel subscription (access until period end)
+- Cancel subscription (access until period end) with Netflix-style confirmation flow
 - Yearly billing support (Y1-Y7)
 - Exact 30-day billing periods (P1-P5)
 - Period-end downgrade execution (D1-D6)
+- Day 4: Cancel confirmation flow (C1), Period-end service stop (C3), Re-subscription (R1-R3)
 
 BC-001: All operations validate company_id
 BC-002: All money calculations use Decimal

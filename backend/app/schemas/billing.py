@@ -482,6 +482,107 @@ class EffectiveLimitsInfo(BaseModel):
     active_addons: List[str]
 
 
+# ── Day 4 Schemas: Cancel Confirmation, Data Retention, Re-subscription ──
+
+class CancelFeedbackRequest(BaseModel):
+    """C1: Step 1 of cancel confirmation flow — feedback form."""
+    reason: Optional[str] = Field(None, max_length=500, description="Why are you leaving?")
+    feedback: Optional[str] = Field(None, max_length=1000, description="Additional feedback")
+
+
+class SaveOfferResponse(BaseModel):
+    """C1: Save offer — 20% off next 3 months."""
+    discount_percentage: int = 20
+    discount_months: int = 3
+    message: str = (
+        "Stay with us! Get 20% off your next 3 months. "
+        "Your discount will be applied to your next 3 invoices."
+    )
+    original_price: Optional[Decimal] = None
+    discounted_price: Optional[Decimal] = None
+
+
+class CancelConfirmRequest(BaseModel):
+    """C1: Final cancel confirmation."""
+    effective_immediately: bool = False
+    accept_data_retention: bool = Field(
+        False,
+        description="Confirm understanding that data will be retained for 30 days after service stop.",
+    )
+
+
+class RetentionStatusResponse(BaseModel):
+    """C4: Data retention status for a company."""
+    status: str  # active, in_retention, retention_expired, no_subscription
+    service_stopped_at: Optional[str] = None
+    deletion_date: Optional[str] = None
+    days_remaining: Optional[int] = None
+    retention_period_days: int = 30
+    message: Optional[str] = None
+
+
+class DataExportRequestResponse(BaseModel):
+    """C5: Data export request response."""
+    export_id: Optional[str] = None
+    status: str  # processing, completed, failed
+    requested_at: Optional[str] = None
+    message: str
+
+
+class DataExportDownloadResponse(BaseModel):
+    """C5: Data export download info."""
+    export_id: str
+    status: str
+    file_size_bytes: Optional[int] = None
+    format: str = "zip"
+    expires_at: Optional[str] = None
+
+
+class ResubscriptionRequest(BaseModel):
+    """R1/R3: Re-subscription request."""
+    variant: VariantType
+    payment_method_id: Optional[str] = None
+    billing_frequency: BillingFrequency = BillingFrequency.MONTHLY
+    restore_data: bool = Field(
+        True,
+        description="Whether to restore archived data (only within retention period).",
+    )
+
+
+class ResubscriptionResponse(BaseModel):
+    """R1/R2/R3: Re-subscription response."""
+    subscription: SubscriptionInfo
+    data_restored: bool
+    message: str
+    retention_status: Optional[str] = None  # "within_retention" or "after_retention"
+
+
+class PaymentMethodUpdateRequest(BaseModel):
+    """G4: Payment method update request."""
+    return_url: Optional[str] = Field(
+        None,
+        description="URL to redirect to after payment method update in Paddle portal.",
+    )
+
+
+class PaymentMethodUpdateResponse(BaseModel):
+    """G4: Payment method update response."""
+    paddle_portal_url: Optional[str] = None
+    message: str
+
+
+class PaymentFailureStatusResponse(BaseModel):
+    """G1/G2: Payment failure status with 7-day window info."""
+    has_active_failure: bool
+    failure_id: Optional[str] = None
+    failure_reason: Optional[str] = None
+    service_stopped_at: Optional[str] = None
+    days_since_failure: Optional[int] = None
+    days_remaining_window: Optional[int] = None
+    window_expires_at: Optional[str] = None
+    message: str
+
+
 # ── Common Response Schemas ────────────────────────────────────────────────
 
 class MessageResponse(BaseModel):
