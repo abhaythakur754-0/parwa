@@ -339,10 +339,10 @@ export default function DashboardPage() {
         {/* ── Savings + Workforce Row (F-040 + F-041) ─────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SavingsCounter
-            initialData={data?.savings ? { ...data.savings } : undefined}
+            initialData={data?.savings as any}
           />
           <WorkforceAllocation
-            initialData={data?.workforce ? { ...data.workforce } : undefined}
+            initialData={data?.workforce as any}
           />
         </div>
 

@@ -106,6 +106,9 @@ export interface JarvisContext {
   total_price?: number;
   otp?: OtpContextData;
   bill_shown?: boolean;
+  variant?: string;
+  variant_id?: string;
+  selected_plan?: string;
 }
 
 export interface OtpContextData {

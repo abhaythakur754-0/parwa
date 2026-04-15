@@ -26,6 +26,7 @@ import type {
   JarvisSession,
   JarvisMessage,
   JarvisContext,
+  EntrySource,
   JarvisHistoryResponse,
   JarvisSessionCreateRequest,
   JarvisMessageSendRequest,
@@ -329,7 +330,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
             }
             // Bridge entry_source so the backend knows the user's journey origin
             if (bridgedContext.entry_source) {
-              contextPatch.entry_source = bridgedContext.entry_source as string;
+              contextPatch.entry_source = bridgedContext.entry_source as EntrySource;
             }
             // Push context to backend
             const hasPatch = Object.keys(contextPatch).length > 0;
