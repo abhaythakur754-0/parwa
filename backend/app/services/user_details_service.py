@@ -34,7 +34,7 @@ from app.schemas.onboarding import (
 )
 from database.models.core import User, Company
 from database.models.user_details import UserDetails
-from database.models.onboarding import OnboardingSession
+from database.models.onboarding import OnboardingSession, KnowledgeDocument
 from app.services.email_service import send_verification_email
 from app.config import get_settings
 
