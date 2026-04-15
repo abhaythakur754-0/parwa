@@ -46,6 +46,16 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       .finally(() => setLoading(false));
   }, [initialState]);
 
+  // Redirect to dashboard if first victory is done — must be before any early returns (Rules of Hooks)
+  useEffect(() => {
+    if (onboardingState?.first_victory_completed || onboardingState?.status === 'completed') {
+      // Check if first victory API has been called
+      if (onboardingState.first_victory_completed) {
+        router.replace('/dashboard');
+      }
+    }
+  }, [onboardingState?.first_victory_completed, onboardingState?.status, router]);
+
   const completeStep = async (step: number) => {
     setCompletedSteps((prev) => [...prev.filter((s) => s !== step), step]);
 
@@ -84,16 +94,6 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   if (onboardingState?.status === 'completed' && !onboardingState.first_victory_completed) {
     return <FirstVictory aiName={aiName} aiGreeting={aiGreeting} />;
   }
-
-  // Redirect to dashboard if first victory is done
-  useEffect(() => {
-    if (onboardingState?.first_victory_completed || onboardingState?.status === 'completed') {
-      // Check if first victory API has been called
-      if (onboardingState.first_victory_completed) {
-        router.replace('/dashboard');
-      }
-    }
-  }, [onboardingState?.first_victory_completed, onboardingState?.status, router]);
 
   if (onboardingState?.first_victory_completed) {
     return (

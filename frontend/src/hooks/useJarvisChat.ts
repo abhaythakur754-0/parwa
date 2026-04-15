@@ -667,6 +667,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
         return false;
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- otpState.attempts accessed via updater fn (prev.attempts), not directly
     [otpState.email],
   );
 
