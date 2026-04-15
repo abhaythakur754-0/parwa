@@ -69,6 +69,23 @@ class Company(Base):
         "PaymentFailure", back_populates="company",
         cascade="all, delete-orphan",
     )
+    # Day 5: Chargeback, CreditBalance, SpendingCap, RefundAudit
+    chargebacks = relationship(
+        "Chargeback", back_populates="company",
+        cascade="all, delete-orphan",
+    )
+    credit_balances = relationship(
+        "CreditBalance", back_populates="company",
+        cascade="all, delete-orphan",
+    )
+    spending_caps = relationship(
+        "SpendingCap", back_populates="company",
+        cascade="all, delete-orphan",
+    )
+    refund_audits = relationship(
+        "RefundAudit", back_populates="company",
+        cascade="all, delete-orphan",
+    )
 
 
 # ── Users ──────────────────────────────────────────────────────────

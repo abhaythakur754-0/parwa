@@ -66,7 +66,10 @@ _fake_onboarding_models.__all__ = []
 
 # User and Company are imported from database.models.core by deps.py
 _MockUser = type("User", (), {"id": None, "company_id": None, "role": None, "is_active": True})
-_MockCompany = type("Company", (), {"id": None})
+_MockCompany = type("Company", (), {
+    "id": None, "name": None, "industry": None,
+    "subscription_tier": None, "subscription_status": "active",
+})
 setattr(_fake_core_models, "User", _MockUser)
 setattr(_fake_core_models, "Company", _MockCompany)
 setattr(_fake_core_models, "RefreshToken", MagicMock(name="RefreshToken"))
@@ -121,6 +124,12 @@ class _AttrChainer:
         return self  # Support .contains() for JSON column queries
     def __bool__(self):
         return True
+    def __or__(self, other):
+        return self  # Support | (SQLAlchemy OR) for filter expressions
+    def __and__(self, other):
+        return self  # Support & (SQLAlchemy AND) for filter expressions
+    def nulls_last(self):
+        return self  # Support .nulls_last() for order_by() calls
 
 # ── Common mock model helpers (used across multiple model modules) ──
 def _mock_model_init(self, **kwargs):
@@ -213,6 +222,175 @@ setattr(_fake_billing_models, "CancellationRequest", _MockCancellationRequest)
 setattr(_fake_billing_extended, "PaymentMethod", _MockPaymentMethod)
 setattr(_fake_billing_extended, "ProrationAudit", _MockProrationAudit)
 setattr(_fake_billing_extended, "CompanyVariant", _MockCompanyVariant)
+
+# ── Day 5 models: chargeback, credit_balance, spending_cap, etc. ──
+_MockChargeback = type("Chargeback", (object,), {
+    "__tablename__": "chargebacks",
+    "id": None, "company_id": None,
+    "paddle_transaction_id": None, "paddle_chargeback_id": None,
+    "amount": None, "currency": "USD", "reason": None,
+    "status": "received",
+    "service_stopped_at": None, "notification_sent_at": None,
+    "resolved_at": None, "resolution_notes": None,
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockCreditBalance = type("CreditBalance", (object,), {
+    "__tablename__": "credit_balances",
+    "id": None, "company_id": None,
+    "amount": _AttrChainer(), "currency": "USD",
+    "source": None, "description": None,
+    "expires_at": _AttrChainer(), "applied_to_invoice_id": None,
+    "applied_at": None, "status": _AttrChainer(),
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockSpendingCap = type("SpendingCap", (object,), {
+    "__tablename__": "spending_caps",
+    "id": None, "company_id": None,
+    "max_overage_amount": None,
+    "alert_thresholds": None,
+    "soft_cap_alerts_sent": None,
+    "is_active": _AttrChainer(), "acknowledged_warning": False,
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockDeadLetterWebhook = type("DeadLetterWebhook", (object,), {
+    "__tablename__": "dead_letter_webhooks",
+    "id": None, "company_id": None,
+    "provider": "paddle", "event_id": None,
+    "event_type": None, "payload": None,
+    "error_message": None, "status": _AttrChainer(),
+    "retry_count": 0, "max_retries": 3,
+    "next_retry_at": None, "last_error": None,
+    "processed_at": None, "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockWebhookHealthStat = type("WebhookHealthStat", (object,), {
+    "__tablename__": "webhook_health_stats",
+    "id": None, "provider": "paddle",
+    "date": None, "events_received": 0,
+    "events_processed": 0, "events_failed": 0,
+    "avg_processing_time_ms": None, "failure_rate": None,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockRefundAudit = type("RefundAudit", (object,), {
+    "__tablename__": "refund_audits",
+    "id": None, "company_id": None,
+    "refund_type": None, "original_amount": None,
+    "refund_amount": None, "reason": None,
+    "approver_id": None, "approver_name": None,
+    "second_approver_id": None, "second_approver_name": None,
+    "paddle_refund_id": None, "credit_balance_id": None,
+    "status": "pending", "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockWebhookSequence = type("WebhookSequence", (object,), {
+    "__tablename__": "webhook_sequences",
+    "id": None, "company_id": None,
+    "paddle_event_id": None, "event_type": None,
+    "occurred_at": _AttrChainer(), "processed_at": None,
+    "processing_order": None, "status": _AttrChainer(),
+    "error_message": None, "retry_count": 0,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockUsageRecord = type("UsageRecord", (object,), {
+    "__tablename__": "usage_records",
+    "id": None, "company_id": None,
+    "record_date": None, "record_month": None,
+    "tickets_used": 0, "ai_agents_used": 0,
+    "voice_minutes_used": None,
+    "overage_tickets": 0, "overage_charges": None,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockClientRefund = type("ClientRefund", (object,), {
+    "__tablename__": "client_refunds",
+    "id": None, "company_id": None,
+    "ticket_id": None, "amount": None,
+    "currency": "USD", "reason": None,
+    "status": "pending", "external_ref": None,
+    "processed_at": None,
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockIdempotencyKey = type("IdempotencyKey", (object,), {
+    "__tablename__": "idempotency_keys",
+    "id": None, "company_id": None,
+    "idempotency_key": None, "resource_type": None,
+    "resource_id": None, "request_body_hash": None,
+    "response_status": None, "response_body": None,
+    "created_at": _AttrChainer(), "expires_at": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockVariantLimit = type("VariantLimit", (object,), {
+    "__tablename__": "variant_limits",
+    "id": None, "variant_name": None,
+    "monthly_tickets": None, "ai_agents": None,
+    "team_members": None, "voice_slots": None,
+    "kb_docs": None, "price_monthly": None,
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockPaymentFailure = type("PaymentFailure", (object,), {
+    "__tablename__": "payment_failures",
+    "id": None, "company_id": None,
+    "paddle_subscription_id": None,
+    "paddle_transaction_id": None,
+    "failure_code": None, "failure_reason": None,
+    "amount_attempted": None, "currency": "USD",
+    "service_stopped_at": None, "service_resumed_at": None,
+    "notification_sent": False, "resolved": False,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+# Day 5: Add all models to fake billing_extended
+for _name, _cls in [
+    ("Chargeback", _MockChargeback),
+    ("CreditBalance", _MockCreditBalance),
+    ("SpendingCap", _MockSpendingCap),
+    ("DeadLetterWebhook", _MockDeadLetterWebhook),
+    ("WebhookHealthStat", _MockWebhookHealthStat),
+    ("RefundAudit", _MockRefundAudit),
+    ("WebhookSequence", _MockWebhookSequence),
+    ("UsageRecord", _MockUsageRecord),
+    ("ClientRefund", _MockClientRefund),
+    ("IdempotencyKey", _MockIdempotencyKey),
+    ("VariantLimit", _MockVariantLimit),
+    ("PaymentFailure", _MockPaymentFailure),
+]:
+    setattr(_fake_billing_extended, _name, _cls)
+
+# Also add Transaction to billing models (used by refund_service)
+_MockTransaction = type("Transaction", (object,), {
+    "__tablename__": "transactions",
+    "id": None, "company_id": None,
+    "paddle_transaction_id": None,
+    "amount": None, "currency": "USD",
+    "status": "completed", "kind": "payment",
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+setattr(_fake_billing_models, "Transaction", _MockTransaction)
+
+# ── database.models.webhook_event (used by webhook_health_service) ──
+_fake_webhook_event = types.ModuleType("database.models.webhook_event")
+_MockWebhookEvent = type("WebhookEvent", (object,), {
+    "__tablename__": "webhook_events",
+    "id": None, "company_id": None,
+    "provider": "paddle", "event_id": None,
+    "event_type": None, "payload": None,
+    "status": "pending",
+    "processing_started_at": None, "completed_at": None,
+    "error_message": None, "processing_attempts": 0,
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+setattr(_fake_webhook_event, "WebhookEvent", _MockWebhookEvent)
+sys.modules.setdefault("database.models.webhook_event", _fake_webhook_event)
 
 # Also add Agent to core models (used by resource cleanup)
 setattr(_fake_core_models, "Agent", type("Agent", (object,), {
@@ -625,6 +803,20 @@ sys.modules.setdefault("database.models.jarvis", _fake_jarvis_models)
 sys.modules.setdefault("database.models.core", _fake_core_models)
 sys.modules.setdefault("database.models.onboarding", _fake_onboarding_models)
 sys.modules.setdefault("database.models.billing", _fake_billing_models)
+# ── Add get_variant_limits helper (used by refund_service cooling-off) ──
+from decimal import Decimal as _Decimal
+
+def _get_variant_limits(variant_name: str):
+    """Mock version of get_variant_limits from billing_extended."""
+    _LIMITS = {
+        "starter": {"price_monthly": _Decimal("999.00")},
+        "growth": {"price_monthly": _Decimal("2499.00")},
+        "enterprise": {"price_monthly": _Decimal("3999.00")},
+    }
+    return _LIMITS.get(variant_name)
+
+setattr(_fake_billing_extended, "get_variant_limits", _get_variant_limits)
+
 sys.modules.setdefault("database.models.billing_extended", _fake_billing_extended)
 
 # ── shared layer (exists on disk but imports database.models.onboarding) ──

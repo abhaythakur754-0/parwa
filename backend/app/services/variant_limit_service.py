@@ -266,12 +266,67 @@ class VariantLimitService:
         )
         return {"company_id": company_id_str, "variant": variant, **limits}
 
+    def _get_addon_tickets(self, company_id: str, db: Session) -> int:
+        """V6: Get stacked addon ticket allocations for a company.
+
+        Queries active and inactive (but not archived) CompanyVariant
+        records and sums their tickets_added. This is added to the base
+        plan ticket limit for effective enforcement.
+        """
+        from database.models.billing_extended import CompanyVariant
+
+        try:
+            addons = (
+                db.query(func.sum(CompanyVariant.tickets_added))
+                .filter(
+                    CompanyVariant.company_id == company_id,
+                    CompanyVariant.status.in_(["active", "inactive"]),
+                )
+                .scalar()
+            )
+            return int(addons) if addons else 0
+        except Exception as exc:
+            logger.warning(
+                "addon_tickets_query_failed company_id=%s error=%s",
+                company_id, str(exc),
+            )
+            return 0
+
+    def _get_addon_kb_docs(self, company_id: str, db: Session) -> int:
+        """V6: Get stacked addon KB doc allocations for a company.
+
+        Queries active and inactive (but not archived) CompanyVariant
+        records and sums their kb_docs_added. This is added to the base
+        plan KB doc limit for effective enforcement.
+        """
+        from database.models.billing_extended import CompanyVariant
+
+        try:
+            addons = (
+                db.query(func.sum(CompanyVariant.kb_docs_added))
+                .filter(
+                    CompanyVariant.company_id == company_id,
+                    CompanyVariant.status.in_(["active", "inactive"]),
+                )
+                .scalar()
+            )
+            return int(addons) if addons else 0
+        except Exception as exc:
+            logger.warning(
+                "addon_kb_docs_query_failed company_id=%s error=%s",
+                company_id, str(exc),
+            )
+            return 0
+
     def check_ticket_limit(
         self,
         company_id: Any,
         current_count: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Check if a company can create more tickets this month.
+
+        V6: Includes variant addon ticket stacking.
+        effective_ticket_limit = base_plan_tickets + sum(addon tickets)
 
         If ``current_count`` is ``None``, queries ``UsageRecord`` to
         sum tickets_used for the current month.
@@ -284,7 +339,11 @@ class VariantLimitService:
         with SessionLocal() as db:
             variant = self._get_company_variant(db, company_id_str)
             limits = self.get_variant_limits(variant)
-            ticket_limit = limits.get("monthly_tickets", 2000)
+            base_ticket_limit = limits.get("monthly_tickets", 2000)
+
+            # V6: Stack addon tickets
+            addon_tickets = self._get_addon_tickets(company_id_str, db)
+            ticket_limit = base_ticket_limit + addon_tickets
 
             if current_count is not None:
                 usage = int(current_count)
@@ -312,21 +371,24 @@ class VariantLimitService:
             "limit": ticket_limit,
             "remaining": remaining,
             "variant": variant,
+            "addon_tickets": addon_tickets,
+            "base_limit": base_ticket_limit,
             "message": (
-                f"{usage}/{ticket_limit} tickets used this month. "
+                f"{usage}/{ticket_limit} tickets used this month "
+                f"(base: {base_ticket_limit} + addons: {addon_tickets}). "
                 f"{remaining} remaining."
             )
             if allowed
             else (
                 f"Ticket limit exceeded: {usage}/{ticket_limit}. "
-                f"Upgrade your plan for more capacity."
+                f"Upgrade your plan or remove add-ons to adjust capacity."
             ),
         }
 
         logger.info(
             "ticket_limit_checked company_id=%s variant=%s "
-            "usage=%s limit=%s allowed=%s",
-            company_id_str, variant, usage, ticket_limit, allowed,
+            "usage=%s limit=%s addon_tickets=%s allowed=%s",
+            company_id_str, variant, usage, ticket_limit, addon_tickets, allowed,
         )
         return result
 
@@ -409,6 +471,9 @@ class VariantLimitService:
     def get_all_limit_checks(self, company_id: Any) -> Dict[str, Any]:
         """Run all five limit checks for a company in a single call.
 
+        V6: Tickets and KB docs include addon stacking.
+        Agents, team, voice do NOT stack.
+
         Tickets usage is computed from ``UsageRecord`` for the current
         month. Other counts are queried from their respective tables.
 
@@ -421,11 +486,18 @@ class VariantLimitService:
             variant = self._get_company_variant(db, company_id_str)
             limits = self.get_variant_limits(variant)
 
+            # V6: Get addon allocations for stacking
+            addon_tickets = self._get_addon_tickets(company_id_str, db)
+            addon_kb_docs = self._get_addon_kb_docs(company_id_str, db)
+
         ticket_check = self.check_ticket_limit(company_id_str)
         team_count = self._query_resource_count(company_id_str, "team_members")
         ai_count = self._query_resource_count(company_id_str, "ai_agents")
         voice_count = self._query_resource_count(company_id_str, "voice_slots")
         kb_count = self._query_resource_count(company_id_str, "kb_docs")
+
+        base_kb_limit = limits.get("kb_docs", 100)
+        effective_kb_limit = base_kb_limit + addon_kb_docs
 
         checks: Dict[str, Dict[str, Any]] = {
             "tickets": ticket_check,
@@ -439,7 +511,7 @@ class VariantLimitService:
                 "voice_slots", voice_count, limits.get("voice_slots", 0)
             ),
             "kb_docs": self._build_check_result(
-                "kb_docs", kb_count, limits.get("kb_docs", 100)
+                "kb_docs", kb_count, effective_kb_limit
             ),
         }
 
@@ -462,7 +534,11 @@ class VariantLimitService:
     def _check_count_limit(
         self, company_id: Any, limit_type: str, current_count: int,
     ) -> Dict[str, Any]:
-        """Generic count-based limit check for non-ticket resources."""
+        """Generic count-based limit check for non-ticket resources.
+
+        V6: For kb_docs, includes addon KB doc stacking.
+        Agents, team, voice do NOT stack with addons.
+        """
         company_id_str = self._validate_company_id(company_id)
         lt = self._validate_limit_type(limit_type)
 
@@ -470,7 +546,15 @@ class VariantLimitService:
             variant = self._get_company_variant(db, company_id_str)
             limits = self.get_variant_limits(variant)
 
-        plan_limit = limits.get(_LIMIT_KEY_MAP[lt], 0)
+            base_limit = limits.get(_LIMIT_KEY_MAP[lt], 0)
+
+            # V6: KB docs stack with addon allocations
+            addon_amount = 0
+            if lt == "kb_docs":
+                addon_amount = self._get_addon_kb_docs(company_id_str, db)
+
+            plan_limit = base_limit + addon_amount
+
         usage = int(current_count)
         remaining = max(0, plan_limit - usage)
         allowed = usage < plan_limit
@@ -483,8 +567,11 @@ class VariantLimitService:
             "limit": plan_limit,
             "remaining": remaining,
             "variant": variant,
+            "base_limit": base_limit,
+            "addon_amount": addon_amount,
             "message": (
                 f"{usage}/{plan_limit} {label} in use. {remaining} remaining."
+                + (f" (base: {base_limit} + addons: {addon_amount})" if addon_amount else "")
             ) if allowed else (
                 f"{label.title()} limit exceeded: {usage}/{plan_limit}. "
                 f"Upgrade your plan to add more {label}."
@@ -493,8 +580,8 @@ class VariantLimitService:
 
         logger.info(
             "count_limit_checked company_id=%s variant=%s "
-            "limit_type=%s usage=%s limit=%s allowed=%s",
-            company_id_str, variant, lt, usage, plan_limit, allowed,
+            "limit_type=%s usage=%s limit=%s base=%s addon=%s allowed=%s",
+            company_id_str, variant, lt, usage, plan_limit, base_limit, addon_amount, allowed,
         )
         return result
 

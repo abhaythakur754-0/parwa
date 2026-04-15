@@ -10,6 +10,7 @@ Handles ALL Paddle webhook events (25+ events) for subscription and payment life
 - Credit Events (3): created, updated, deleted
 - Adjustment Events (2): created, updated
 - Report Events (2): created, updated
+- Chargeback Events (1): created
 
 All handlers:
 - Validate required fields in payload
@@ -66,6 +67,8 @@ REQUIRED_FIELDS = {
     # Report events
     "report.created": ["report_id"],
     "report.updated": ["report_id"],
+    # Chargeback events
+    "payment.chargeback.created": ["transaction_id"],
 }
 
 
@@ -220,6 +223,25 @@ def _extract_report_data(payload: dict) -> dict:
         "filters": report.get("filters"),
         "created_at": report.get("created_at"),
         "updated_at": report.get("updated_at"),
+    }
+
+
+def _extract_chargeback_data(payload: dict) -> dict:
+    """Extract chargeback data from Paddle payload.
+
+    Normalizes field names between Paddle Classic and Paddle Billing.
+    Supports both payment.chargeback.created and
+    subscription.chargeback.created event shapes.
+    """
+    data = payload.get("data", {})
+    chargeback = data.get("chargeback", data) or {}
+    return {
+        "transaction_id": chargeback.get("transaction_id") or chargeback.get("id"),
+        "amount": chargeback.get("amount"),
+        "currency": chargeback.get("currency_code", "USD"),
+        "reason": chargeback.get("reason"),
+        "status": chargeback.get("status", "received"),
+        "created_at": chargeback.get("created_at"),
     }
 
 
@@ -1034,6 +1056,40 @@ def handle_report_updated(event: dict) -> dict:
     }
 
 
+# ── Chargeback Event Handlers (1 handler) ───────────────────────────────────
+
+def handle_payment_chargeback_created(event: dict) -> dict:
+    """Handle payment.chargeback.created event.
+
+    Chargebacks are critical financial events — logged at warning level.
+    """
+    payload = event.get("payload", {})
+    cb_data = _extract_chargeback_data(payload)
+
+    error = _validate_required_fields("payment.chargeback.created", cb_data)
+    if error:
+        return {"status": "validation_error", "error": error}
+
+    logger.warning(
+        "paddle_chargeback_created transaction_id=%s amount=%s %s reason=%s",
+        cb_data["transaction_id"],
+        cb_data.get("amount"),
+        cb_data.get("currency", "USD"),
+        cb_data.get("reason", "unknown"),
+        extra={
+            "company_id": event.get("company_id"),
+            "event_id": event.get("event_id"),
+        },
+    )
+
+    return {
+        "status": "processed",
+        "action": "chargeback_created",
+        "data": cb_data,
+        "occurred_at": _parse_occurred_at(event).isoformat(),
+    }
+
+
 # ── Handler Registry (25+ handlers) ────────────────────────────────────────
 
 _PADDLE_HANDLERS = {
@@ -1073,12 +1129,15 @@ _PADDLE_HANDLERS = {
     # Report events (2)
     "report.created": handle_report_created,
     "report.updated": handle_report_updated,
+    # Chargeback events (1)
+    "payment.chargeback.created": handle_payment_chargeback_created,
 }
 
 # Backward compatibility aliases
 _PADDLE_HANDLERS["subscription.cancelled"] = handle_subscription_canceled
 _PADDLE_HANDLERS["payment.succeeded"] = handle_transaction_paid
 _PADDLE_HANDLERS["payment.failed"] = handle_transaction_payment_failed
+_PADDLE_HANDLERS["subscription.chargeback.created"] = handle_payment_chargeback_created
 
 
 def get_supported_event_types() -> list:

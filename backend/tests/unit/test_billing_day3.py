@@ -971,8 +971,183 @@ class TestPeriodEndVariantArchival:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# V8: Variant Restore Tests
+# V6-GAP: Variant Limit Service Stacking Integration Tests
 # ═══════════════════════════════════════════════════════════════════════
+
+
+class TestVariantLimitServiceStacking:
+    """V6 Gap Fix: variant_limit_service should stack addon tickets + KB docs."""
+
+    def test_check_ticket_limit_stacks_addons(self):
+        """V6: check_ticket_limit should include addon tickets in limit."""
+        from app.services.variant_limit_service import VariantLimitService
+
+        service = VariantLimitService()
+        company_id = str(uuid.uuid4())
+
+        mock_sub = MagicMock()
+        mock_sub.tier = "growth"  # 5000 base
+
+        mock_db = MagicMock()
+        # First call: _get_company_variant
+        mock_db.query.return_value.filter.return_value \
+            .order_by.return_value.first.return_value = mock_sub
+        # Second call (for addon_tickets): scalar returns 500
+        mock_db.query.return_value.filter.return_value \
+            .scalar.return_value = 500
+        mock_db.__enter__ = MagicMock(return_value=mock_db)
+        mock_db.__exit__ = MagicMock(return_value=False)
+
+        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+            result = service.check_ticket_limit(company_id, current_count=100)
+
+        # 5000 base + 500 addon = 5500 limit
+        assert result["limit"] == 5500
+        assert result["base_limit"] == 5000
+        assert result["addon_tickets"] == 500
+        assert result["allowed"] is True
+        assert result["remaining"] == 5400
+
+    def test_check_ticket_limit_no_addons(self):
+        """V6: check_ticket_limit with no addons returns base limit only."""
+        from app.services.variant_limit_service import VariantLimitService
+
+        service = VariantLimitService()
+        company_id = str(uuid.uuid4())
+
+        mock_sub = MagicMock()
+        mock_sub.tier = "starter"  # 2000 base
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value \
+            .order_by.return_value.first.return_value = mock_sub
+        # No addon tickets
+        mock_db.query.return_value.filter.return_value \
+            .scalar.return_value = None
+        mock_db.__enter__ = MagicMock(return_value=mock_db)
+        mock_db.__exit__ MagicMock(return_value=False)
+
+        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+            result = service.check_ticket_limit(company_id, current_count=500)
+
+        assert result["limit"] == 2000
+        assert result["addon_tickets"] == 0
+
+    def test_check_kb_doc_limit_stacks_addons(self):
+        """V6: check_kb_doc_limit should include addon KB docs in limit."""
+        from app.services.variant_limit_service import VariantLimitService
+
+        service = VariantLimitService()
+        company_id = str(uuid.uuid4())
+
+        mock_sub = MagicMock()
+        mock_sub.tier = "growth"  # 500 base KB docs
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value \
+            .order_by.return_value.first.return_value = mock_sub
+        # _get_addon_kb_docs returns 50
+        mock_db.query.return_value.filter.return_value \
+            .scalar.return_value = 50
+        mock_db.__enter__ = MagicMock(return_value=mock_db)
+        mock_db.__exit__ MagicMock(return_value=False)
+
+        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+            result = service.check_kb_doc_limit(company_id, current_count=300)
+
+        # 500 base + 50 addon = 550 limit
+        assert result["limit"] == 550
+        assert result["addon_amount"] == 50
+
+    def test_check_kb_doc_limit_no_addons(self):
+        """V6: check_kb_doc_limit with no addons returns base limit only."""
+        from app.services.variant_limit_service import VariantLimitService
+
+        service = VariantLimitService()
+        company_id = str(uuid.uuid4())
+
+        mock_sub = MagicMock()
+        mock_sub.tier = "starter"  # 100 base KB docs
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value \
+            .order_by.return_value.first.return_value = mock_sub
+        mock_db.query.return_value.filter.return_value \
+            .scalar.return_value = None
+        mock_db.__enter__ = MagicMock(return_value=mock_db)
+        mock_db.__exit__ MagicMock(return_value=False)
+
+        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+            result = service.check_kb_doc_limit(company_id, current_count=50)
+
+        assert result["limit"] == 100
+        assert result["addon_amount"] == 0
+
+    def test_agents_not_affected_by_addons(self):
+        """V6: Agent limit should NOT stack addons."""
+        from app.services.variant_limit_service import VariantLimitService
+
+        service = VariantLimitService()
+        company_id = str(uuid.uuid4())
+
+        mock_sub = MagicMock()
+        mock_sub.tier = "growth"  # 3 agents base
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value \
+            .order_by.return_value.first.return_value = mock_sub
+        mock_db.__enter__ = MagicMock(return_value=mock_db)
+        mock_db.__exit__ MagicMock(return_value=False)
+
+        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+            result = service.check_ai_agent_limit(company_id, current_count=2)
+
+        assert result["limit"] == 3  # Base only, no addon
+        assert result["addon_amount"] == 0
+
+    def test_team_not_affected_by_addons(self):
+        """V6: Team limit should NOT stack addons."""
+        from app.services.variant_limit_service import VariantLimitService
+
+        service = VariantLimitService()
+        company_id = str(uuid.uuid.uuid4())
+
+        mock_sub = MagicMock()
+        mock_sub.tier = "growth"  # 10 team base
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value \
+            .order_by.return_value.first.return_value = mock_sub
+        mock_db.__enter__ = MagicMock(return_value=mock_db)
+        mock_db.__exit__ MagicMock(return_value=False)
+
+        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+            result = service.check_team_member_limit(company_id, current_count=8)
+
+        assert result["limit"] == 10  # Base only, no addon
+        assert result["addon_amount"] == 0
+
+    def test_voice_not_affected_by_addons(self):
+        """V6: Voice limit should NOT stack addons."""
+        from app.services.variant_limit_service import VariantLimitService
+
+        service = VariantLimitService()
+        company_id = str(uuid.uuid4())
+
+        mock_sub = MagicMock()
+        mock_sub.tier = "growth"  # 2 voice base
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value \
+            .order_by.return_value.first.return_value = mock_sub
+        mock_db.__enter__ = MagicMock(return_value=mock_db)
+        mock_db.__exit__ MagicMock(return_value=False)
+
+        with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
+            result = service.check_voice_slot_limit(company_id, current_count=1)
+
+        assert result["limit"] == 2  # Base only, no addon
+        assert result["addon_amount"] == 0
 
 
 class TestVariantRestore:

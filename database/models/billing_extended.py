@@ -21,7 +21,7 @@ from typing import Optional
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Integer, Numeric, String, Text, ForeignKey, Index
+    Boolean, Column, Date, DateTime, Integer, JSON, Numeric, String, Text, ForeignKey, Index
 )
 from sqlalchemy.orm import relationship
 
@@ -312,6 +312,180 @@ class CompanyVariant(Base):
     deactivated_at = Column(DateTime, nullable=True)
     paddle_subscription_item_id = Column(String(255), nullable=True)
     metadata_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+# ── Chargeback Model (Day 5) ──────────────────────────────────────────────────
+
+class Chargeback(Base):
+    """Track chargebacks from payment processor.
+
+    Status lifecycle: received → under_review → won/lost
+    """
+    __tablename__ = "chargebacks"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    paddle_transaction_id = Column(String(255), nullable=True)
+    paddle_chargeback_id = Column(String(255), nullable=True)
+    amount = Column(Numeric(10, 2), nullable=False)  # BC-002
+    currency = Column(String(3), default="USD")
+    reason = Column(String(100), nullable=True)
+    status = Column(String(20), default="received")  # received/under_review/won/lost
+    service_stopped_at = Column(DateTime, nullable=True)
+    notification_sent_at = Column(DateTime, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+    resolution_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.utcnow(),
+        onupdate=lambda: datetime.utcnow(),
+    )
+
+
+# ── Credit Balance Model (Day 5: RF3) ────────────────────────────────────────
+
+class CreditBalance(Base):
+    """Customer credit balance system.
+
+    Sources: refund, promo, goodwill, cooling_off
+    Status lifecycle: available → partially_used → fully_used/expired
+    """
+    __tablename__ = "credit_balances"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    amount = Column(Numeric(10, 2), default=Decimal("0.00"))  # BC-002
+    currency = Column(String(3), default="USD")
+    source = Column(String(30), nullable=False)  # refund/promo/goodwill/cooling_off
+    description = Column(Text, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    applied_to_invoice_id = Column(String(36), nullable=True)
+    applied_at = Column(DateTime, nullable=True)
+    status = Column(String(20), default="available")  # available/partially_used/fully_used/expired
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.utcnow(),
+        onupdate=lambda: datetime.utcnow(),
+    )
+
+
+# ── Spending Cap Model (Day 5: SC1) ──────────────────────────────────────────
+
+class SpendingCap(Base):
+    """Customer-configurable overage spending caps.
+
+    NULL max_overage_amount means no cap (default).
+    Alert thresholds stored as JSON string, e.g. '[50,75,90]'.
+    """
+    __tablename__ = "spending_caps"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    max_overage_amount = Column(Numeric(10, 2), nullable=True)  # NULL=no cap (BC-002)
+    alert_thresholds = Column(Text, nullable=True)  # JSON: '[50,75,90]'
+    soft_cap_alerts_sent = Column(Text, nullable=True)  # JSON: tracking sent alerts
+    is_active = Column(Boolean, default=False)
+    acknowledged_warning = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.utcnow(),
+        onupdate=lambda: datetime.utcnow(),
+    )
+
+
+# ── Dead Letter Webhook Model (Day 5: WH3) ───────────────────────────────────
+
+class DeadLetterWebhook(Base):
+    """Failed webhook processing queue.
+
+    Stores webhooks that failed processing for later retry or manual inspection.
+    Status lifecycle: pending → retrying → processed/discarded
+    """
+    __tablename__ = "dead_letter_webhooks"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(String(36), nullable=True, index=True)
+    provider = Column(String(50), default="paddle")
+    event_id = Column(String(255), nullable=True)
+    event_type = Column(String(100), nullable=True)
+    payload = Column(JSON, nullable=True)
+    error_message = Column(Text, nullable=True)
+    status = Column(String(20), default="pending")  # pending/retrying/processed/discarded
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=3)
+    next_retry_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    processed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+# ── Webhook Health Stat Model (Day 5: WH2) ──────────────────────────────────
+
+class WebhookHealthStat(Base):
+    """Webhook health monitoring.
+
+    Daily aggregation of webhook processing metrics per provider.
+    """
+    __tablename__ = "webhook_health_stats"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    provider = Column(String(50), default="paddle")
+    date = Column(Date, nullable=True)
+    events_received = Column(Integer, default=0)
+    events_processed = Column(Integer, default=0)
+    events_failed = Column(Integer, default=0)
+    avg_processing_time_ms = Column(Numeric(10, 2), default=Decimal("0.00"))
+    failure_rate = Column(Numeric(5, 4), default=Decimal("0.0000"))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+# ── Refund Audit Model (Day 5: RF5) ──────────────────────────────────────────
+
+class RefundAudit(Base):
+    """Refund audit trail.
+
+    Tracks all refund requests with dual-approval for amounts > $500.
+    Status lifecycle: pending → approved/rejected → processed/failed
+    """
+    __tablename__ = "refund_audits"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    refund_type = Column(String(20), nullable=False)  # full/partial/credit/cooling_off
+    original_amount = Column(Numeric(10, 2), nullable=False)  # BC-002
+    refund_amount = Column(Numeric(10, 2), nullable=False)  # BC-002
+    reason = Column(Text, nullable=False)
+    approver_id = Column(String(36), nullable=True)
+    approver_name = Column(String(255), nullable=True)
+    second_approver_id = Column(String(36), nullable=True)  # for amounts > $500
+    second_approver_name = Column(String(255), nullable=True)
+    paddle_refund_id = Column(String(255), nullable=True)
+    credit_balance_id = Column(String(36), nullable=True)
+    status = Column(String(20), default="pending")  # pending/approved/rejected/processed/failed
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
