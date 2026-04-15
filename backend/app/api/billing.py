@@ -22,7 +22,7 @@ BC-012: Structured JSON error responses
 """
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -44,6 +44,18 @@ from app.schemas.billing import (
     CompanyVariantList,
     CompanyVariantInfo,
     EffectiveLimitsInfo,
+    CancelFeedbackRequest,
+    SaveOfferResponse,
+    CancelConfirmRequest,
+    ResubscriptionRequest,
+    ResubscriptionResponse,
+    RetentionStatusResponse,
+    DataExportRequestResponse,
+    DataExportDownloadResponse,
+    PaymentMethodUpdateRequest,
+    PaymentMethodUpdateResponse,
+    PaymentFailureStatusResponse,
+    MessageResponse,
 )
 from app.services.subscription_service import (
     SubscriptionService,
@@ -81,6 +93,13 @@ from app.services.variant_addon_service import (
     VariantAddonError,
     get_variant_addon_service,
 )
+from app.services.data_retention_service import (
+    DataRetentionService,
+    DataExportNotFoundError,
+    DataRetentionExpiredError,
+    DataExportInProgressError,
+)
+from database.base import SessionLocal
 
 logger = logging.getLogger("parwa.api.billing")
 
@@ -1101,3 +1120,577 @@ async def get_variant_catalog(
         "total": len(catalog),
         "active_count": len(active_ids),
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Day 4 Endpoints: Cancel Flow, Re-subscription, Data Export, Payment
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ── C1: Cancel Confirmation Flow ────────────────────────────────────
+
+@router.post("/cancel/feedback")
+async def save_cancel_feedback(
+    request: Request,
+    data: CancelFeedbackRequest,
+    company_id: UUID = Depends(get_company_id),
+) -> Dict[str, Any]:
+    """
+    C1: Step 1 — Save cancel feedback/reason.
+
+    Part of the Netflix-style cancel confirmation flow. Collects
+    the user's reason for leaving before showing the save offer.
+
+    Args:
+        data: CancelFeedbackRequest with reason and feedback
+
+    Returns:
+        Feedback saved confirmation
+    """
+    service = get_subscription_service()
+
+    try:
+        result = service.save_cancel_feedback(
+            company_id=company_id,
+            reason=data.reason,
+            feedback=data.feedback,
+        )
+        return result
+    except SubscriptionError as e:
+        logger.error(
+            "cancel_feedback_failed company_id=%s error=%s", company_id, e
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "cancel_feedback_error",
+                "message": "Failed to save feedback",
+            },
+        )
+
+
+@router.post("/cancel/save-offer", response_model=SaveOfferResponse)
+async def apply_save_offer(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+) -> SaveOfferResponse:
+    """
+    C1: Step 2 — Apply save offer (20% off next 3 months).
+
+    When the user accepts the save offer, apply a 20% discount
+    to the next 3 billing periods.
+
+    Returns:
+        SaveOfferResponse with discount details and pricing
+    """
+    service = get_subscription_service()
+
+    try:
+        result = service.apply_save_offer(company_id)
+        return SaveOfferResponse(
+            discount_percentage=result["discount_percentage"],
+            discount_months=result["discount_months"],
+            original_price=result.get("original_price"),
+            discounted_price=result.get("discounted_price"),
+            message=result["message"],
+        )
+    except SubscriptionNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "subscription_not_found",
+                "message": str(e),
+            },
+        )
+    except SubscriptionError as e:
+        logger.error(
+            "save_offer_failed company_id=%s error=%s", company_id, e
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "save_offer_error",
+                "message": "Failed to apply save offer",
+            },
+        )
+
+
+@router.delete("/subscription", response_model=CancelResponse)
+async def cancel_subscription(
+    request: Request,
+    data: SubscriptionCancel,
+    company_id: UUID = Depends(get_company_id),
+    user_id: Optional[UUID] = Depends(get_user_id),
+) -> CancelResponse:
+    """
+    Cancel subscription.
+
+    Netflix-style cancellation:
+    - Default: Access continues until end of billing period
+    - effective_immediately=true: Stop now (no refund)
+
+    Args:
+        data: SubscriptionCancel with reason and effective_immediately flag
+
+    Returns:
+        Cancellation details with access_until date
+    """
+    service = get_subscription_service()
+
+    try:
+        result = await service.cancel_subscription(
+            company_id=company_id,
+            reason=data.reason,
+            effective_immediately=data.effective_immediately,
+            user_id=user_id,
+        )
+
+        return CancelResponse(
+            subscription=result["subscription"],
+            cancellation=result["cancellation"],
+            message=result["message"],
+        )
+
+    except SubscriptionNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "subscription_not_found",
+                "message": str(e),
+            },
+        )
+    except SubscriptionError as e:
+        logger.error("subscription_cancel_failed company_id=%s error=%s", company_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "subscription_error",
+                "message": "Failed to cancel subscription",
+            },
+        )
+
+
+@router.post("/cancel/confirm")
+async def cancel_confirm(
+    request: Request,
+    data: CancelConfirmRequest,
+    company_id: UUID = Depends(get_company_id),
+    user_id: Optional[UUID] = Depends(get_user_id),
+) -> Dict[str, Any]:
+    """
+    C1: Step 3 — Final cancel confirmation.
+
+    Executes the actual cancellation after the user confirms through
+    the multi-step cancel flow. If accept_data_retention is False,
+    still cancels but warns about data retention.
+
+    Args:
+        data: CancelConfirmRequest with effective_immediately and accept_data_retention
+
+    Returns:
+        CancelResponse with cancellation details
+    """
+    service = get_subscription_service()
+
+    try:
+        result = await service.cancel_subscription(
+            company_id=company_id,
+            reason="Cancel confirmation flow",
+            effective_immediately=data.effective_immediately,
+            user_id=user_id,
+        )
+
+        message = result["message"]
+        if not data.accept_data_retention:
+            message += (
+                " Note: Your data will be retained for 30 days after "
+                "service stops per our data retention policy."
+            )
+
+        return {
+            "subscription": result["subscription"],
+            "cancellation": result["cancellation"],
+            "message": message,
+            "data_retention_accepted": data.accept_data_retention,
+        }
+
+    except SubscriptionNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "subscription_not_found",
+                "message": str(e),
+            },
+        )
+    except SubscriptionError as e:
+        logger.error(
+            "cancel_confirm_failed company_id=%s error=%s", company_id, e
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "cancel_error",
+                "message": "Failed to cancel subscription",
+            },
+        )
+
+
+# ── R1-R3: Re-subscription ──────────────────────────────────────────
+
+@router.post(
+    "/resubscribe",
+    response_model=ResubscriptionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def resubscribe(
+    request: Request,
+    data: ResubscriptionRequest,
+    company_id: UUID = Depends(get_company_id),
+) -> ResubscriptionResponse:
+    """
+    R1/R2/R3: Re-subscription after cancellation.
+
+    Creates a new subscription for a previously canceled company.
+    If within 30-day retention and restore_data=True, restores
+    archived agents, team members, and channels.
+
+    Args:
+        data: ResubscriptionRequest with variant, frequency, restore_data
+
+    Returns:
+        ResubscriptionResponse with new subscription and retention status
+    """
+    service = get_subscription_service()
+
+    try:
+        result = await service.resubscribe(
+            company_id=company_id,
+            variant=data.variant.value,
+            billing_frequency=data.billing_frequency.value,
+            restore_data=data.restore_data,
+            payment_method_id=data.payment_method_id,
+        )
+
+        return ResubscriptionResponse(
+            subscription=result["subscription"],
+            data_restored=result["data_restored"],
+            message=result["message"],
+            retention_status=result.get("retention_status"),
+        )
+
+    except SubscriptionAlreadyExistsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "subscription_exists",
+                "message": str(e),
+            },
+        )
+    except InvalidVariantError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "invalid_variant",
+                "message": str(e),
+            },
+        )
+    except SubscriptionError as e:
+        logger.error(
+            "resubscribe_failed company_id=%s error=%s", company_id, e
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "resubscribe_error",
+                "message": "Failed to re-subscribe",
+            },
+        )
+
+
+# ── C4: Retention Status ────────────────────────────────────────────
+
+@router.get("/retention-status", response_model=RetentionStatusResponse)
+async def get_retention_status(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+) -> RetentionStatusResponse:
+    """
+    C4: Get data retention status for the company.
+
+    Shows countdown until permanent deletion after cancellation.
+    Returns active/in_retention/retention_expired status.
+
+    Returns:
+        RetentionStatusResponse with countdown and status info
+    """
+    service = DataRetentionService()
+    result = service.get_retention_status(company_id)
+
+    return RetentionStatusResponse(
+        status=result.get("status", "no_subscription"),
+        service_stopped_at=result.get("service_stopped_at"),
+        deletion_date=result.get("deletion_date"),
+        days_remaining=result.get("days_remaining"),
+        retention_period_days=30,
+        message=result.get("message"),
+    )
+
+
+# ── C5: Data Export ─────────────────────────────────────────────────
+
+@router.post(
+    "/data-export",
+    response_model=DataExportRequestResponse,
+)
+async def request_data_export(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+) -> DataExportRequestResponse:
+    """
+    C5: Request a full company data export.
+
+    Creates an async export job that packages all company data
+    (tickets, customers, conversations, KB docs, settings) into
+    a downloadable ZIP file.
+
+    Returns:
+        DataExportRequestResponse with export job info
+    """
+    service = DataRetentionService()
+
+    try:
+        result = await service.request_data_export(company_id)
+
+        return DataExportRequestResponse(
+            export_id=str(result.get("export_id", "")) if result.get("export_id") else None,
+            status=result.get("status", "processing"),
+            requested_at=result.get("requested_at"),
+            message=result.get("message", "Export requested."),
+        )
+
+    except DataExportInProgressError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "export_in_progress",
+                "message": str(e),
+            },
+        )
+    except DataRetentionExpiredError as e:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail={
+                "code": "retention_expired",
+                "message": str(e),
+            },
+        )
+    except Exception as e:
+        logger.error(
+            "data_export_failed company_id=%s error=%s", company_id, e
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "export_error",
+                "message": "Failed to request data export",
+            },
+        )
+
+
+@router.get(
+    "/data-export/{export_id}/download",
+)
+async def download_data_export(
+    request: Request,
+    export_id: str,
+    company_id: UUID = Depends(get_company_id),
+) -> Response:
+    """
+    C5: Download a completed data export.
+
+    Returns the ZIP file for a previously completed export.
+
+    Args:
+        export_id: Export record UUID
+
+    Returns:
+        ZIP file download
+    """
+    service = DataRetentionService()
+
+    try:
+        zip_bytes = service.get_export_download(
+            company_id=company_id,
+            export_id=export_id,
+        )
+
+        return Response(
+            content=zip_bytes,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": (
+                    f"attachment; filename=parwa_export_{export_id}.zip"
+                )
+            },
+        )
+
+    except DataExportNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "export_not_found",
+                "message": str(e),
+            },
+        )
+    except DataRetentionExpiredError as e:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail={
+                "code": "export_expired",
+                "message": str(e),
+            },
+        )
+    except Exception as e:
+        logger.error(
+            "data_export_download_failed company_id=%s export_id=%s error=%s",
+            company_id,
+            export_id,
+            e,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "download_error",
+                "message": "Failed to download export",
+            },
+        )
+
+
+# ── G1: Payment Failure Status ──────────────────────────────────────
+
+@router.get("/payment-failure-status", response_model=PaymentFailureStatusResponse)
+async def get_payment_failure_status(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+) -> PaymentFailureStatusResponse:
+    """
+    G1/G2: Get payment failure status with 7-day window info.
+
+    Returns the current payment failure status for the company's
+    subscription, including days remaining in the 7-day retry window.
+
+    Returns:
+        PaymentFailureStatusResponse with failure info and countdown
+    """
+    from datetime import datetime, timezone
+
+    service = get_subscription_service()
+    sub_info = await service.get_subscription(company_id)
+
+    if not sub_info or sub_info.status.value != "payment_failed":
+        return PaymentFailureStatusResponse(
+            has_active_failure=False,
+            message="No active payment failure.",
+        )
+
+    # Calculate days since failure
+    now = datetime.now(timezone.utc)
+
+    with SessionLocal() as db:
+        from database.models.billing import Subscription
+        sub = db.query(Subscription).filter(
+            Subscription.company_id == str(company_id),
+            Subscription.status == "payment_failed",
+        ).order_by(Subscription.created_at.desc()).first()
+
+        if not sub:
+            return PaymentFailureStatusResponse(
+                has_active_failure=False,
+                message="No active payment failure.",
+            )
+
+        payment_failed_at = getattr(sub, "payment_failed_at", None)
+        if not payment_failed_at:
+            payment_failed_at = sub.updated_at or sub.created_at
+
+        if payment_failed_at and payment_failed_at.tzinfo is None:
+            payment_failed_at = payment_failed_at.replace(tzinfo=timezone.utc)
+
+        days_since_failure = (
+            (now - payment_failed_at).days if payment_failed_at else 0
+        )
+        days_remaining = max(0, 7 - days_since_failure)
+        window_expires_at = (
+            (payment_failed_at + timedelta(days=7)).isoformat()
+            if payment_failed_at
+            else None
+        )
+
+        return PaymentFailureStatusResponse(
+            has_active_failure=True,
+            failure_id=str(sub.id),
+            failure_reason=None,
+            service_stopped_at=(
+                payment_failed_at.isoformat() if payment_failed_at else None
+            ),
+            days_since_failure=days_since_failure,
+            days_remaining_window=days_remaining,
+            window_expires_at=window_expires_at,
+            message=(
+                f"Payment failed {days_since_failure} days ago. "
+                f"You have {days_remaining} days to update your payment method "
+                "before your subscription is canceled."
+            ),
+        )
+
+
+# ── G4: Payment Method Update ───────────────────────────────────────
+
+@router.post(
+    "/payment-method",
+    response_model=PaymentMethodUpdateResponse,
+)
+async def update_payment_method(
+    request: Request,
+    data: PaymentMethodUpdateRequest,
+    company_id: UUID = Depends(get_company_id),
+) -> PaymentMethodUpdateResponse:
+    """
+    G4: Generate Paddle portal URL for payment method update.
+
+    Generates a one-time Paddle Billing Portal URL where the customer
+    can securely update their payment method. After update, auto-retry
+    any failed payment.
+
+    Args:
+        data: PaymentMethodUpdateRequest with optional return_url
+
+    Returns:
+        PaymentMethodUpdateResponse with portal URL
+    """
+    service = get_subscription_service()
+
+    try:
+        result = await service.generate_payment_method_update_url(
+            company_id=company_id,
+            return_url=data.return_url,
+        )
+
+        return PaymentMethodUpdateResponse(
+            paddle_portal_url=result.get("paddle_portal_url"),
+            message=result.get("message", ""),
+        )
+
+    except SubscriptionError as e:
+        logger.error(
+            "payment_method_update_failed company_id=%s error=%s",
+            company_id,
+            e,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "payment_method_error",
+                "message": "Failed to generate payment update URL",
+            },
+        )

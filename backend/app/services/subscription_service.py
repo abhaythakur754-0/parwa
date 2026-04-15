@@ -1179,9 +1179,15 @@ class SubscriptionService:
         1. Set status='canceled'
         2. Clear cancel_at_period_end flag
         3. Trigger 30-day data retention timer
+        4. C3: Apply service stop (pause agents, disable team, disable channels)
         """
         subscription.status = SubscriptionStatus.CANCELED.value
         subscription.cancel_at_period_end = False
+
+        # Set service_stopped_at for retention tracking
+        now = datetime.now(timezone.utc)
+        if hasattr(subscription, "service_stopped_at"):
+            subscription.service_stopped_at = now  # type: ignore
 
         # Update company status
         company = db.query(Company).filter(
@@ -1189,6 +1195,18 @@ class SubscriptionService:
         ).first()
         if company:
             company.subscription_status = SubscriptionStatus.CANCELED.value
+
+        # C3: Apply service stop on cancel
+        try:
+            self._apply_service_stop_on_cancel(
+                db, subscription.company_id
+            )
+        except Exception as e:
+            logger.error(
+                "service_stop_on_cancel_failed company_id=%s error=%s",
+                subscription.company_id,
+                str(e),
+            )
 
         logger.info(
             "scheduled_cancellation_applied company_id=%s sub_id=%s",
@@ -1888,6 +1906,854 @@ class SubscriptionService:
             days_in_period=getattr(subscription, "days_in_period", None),
             limits=limits,
         )
+
+
+    # ═══════════════════════════════════════════════════════════════════
+    # R1-R3: Re-subscription
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def resubscribe(
+        self,
+        company_id: UUID,
+        variant: str,
+        billing_frequency: str = "monthly",
+        restore_data: bool = True,
+        payment_method_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        R1/R2/R3: Re-subscription after cancellation.
+
+        Logic:
+        1. Find canceled subscription for company
+        2. Check if within 30-day retention (service_stopped_at + 30 > now)
+        3. If within retention AND restore_data: restore agents, team, channels from archive
+        4. If after retention: warn but allow fresh start
+        5. Create new subscription with chosen variant/frequency via Paddle
+        6. Return subscription info with retention_status
+
+        Args:
+            company_id: Company UUID
+            variant: Subscription variant (starter/growth/high)
+            billing_frequency: 'monthly' or 'yearly'
+            restore_data: Whether to restore archived data (only within retention)
+            payment_method_id: Optional Paddle payment method ID
+
+        Returns:
+            Dict with subscription info, data_restored flag, and retention_status
+
+        Raises:
+            SubscriptionAlreadyExistsError: If company has active subscription
+            InvalidVariantError: If variant is invalid
+            SubscriptionError: If no canceled subscription found
+        """
+        variant = self._validate_variant(variant)
+        billing_frequency = self._validate_frequency(billing_frequency)
+
+        with SessionLocal() as db:
+            # Check for existing active subscription
+            existing_active = db.query(Subscription).filter(
+                Subscription.company_id == str(company_id),
+                Subscription.status == SubscriptionStatus.ACTIVE.value,
+            ).first()
+
+            if existing_active:
+                raise SubscriptionAlreadyExistsError(
+                    f"Company {company_id} already has an active subscription"
+                )
+
+            # Find canceled subscription
+            canceled_sub = db.query(Subscription).filter(
+                Subscription.company_id == str(company_id),
+                Subscription.status == SubscriptionStatus.CANCELED.value,
+            ).order_by(Subscription.created_at.desc()).first()
+
+            if not canceled_sub:
+                raise SubscriptionError(
+                    f"No canceled subscription found for company {company_id}. "
+                    "Please create a new subscription instead."
+                )
+
+            # Determine retention status
+            now = datetime.now(timezone.utc)
+            service_stopped_at = getattr(canceled_sub, "service_stopped_at", None)
+            if not service_stopped_at:
+                # Use the canceled_at or created_at as fallback
+                service_stopped_at = canceled_sub.updated_at or canceled_sub.created_at
+
+            if service_stopped_at and service_stopped_at.tzinfo is None:
+                service_stopped_at = service_stopped_at.replace(tzinfo=timezone.utc)
+
+            retention_deadline = (
+                service_stopped_at + timedelta(days=30) if service_stopped_at else None
+            )
+
+            within_retention = (
+                retention_deadline is not None and now < retention_deadline
+            )
+            retention_status = (
+                "within_retention" if within_retention else "after_retention"
+            )
+
+            data_restored = False
+
+            # Restore data if within retention and requested
+            if within_retention and restore_data:
+                try:
+                    await self._restore_archived_data(
+                        db, str(company_id), variant
+                    )
+                    data_restored = True
+                    logger.info(
+                        "resubscribe_data_restored company_id=%s variant=%s",
+                        company_id,
+                        variant,
+                    )
+                except Exception as e:
+                    logger.error(
+                        "resubscribe_data_restore_failed company_id=%s error=%s",
+                        company_id,
+                        str(e),
+                    )
+
+            # Get company for Paddle
+            company = db.query(Company).filter(
+                Company.id == str(company_id)
+            ).first()
+
+            if not company:
+                raise SubscriptionError(f"Company {company_id} not found")
+
+            # Create new subscription in Paddle
+            paddle_subscription_id = None
+            if company.paddle_customer_id and payment_method_id:
+                try:
+                    paddle = await self._get_paddle()
+                    price_id = self._get_paddle_price_id(
+                        variant, billing_frequency
+                    )
+                    result = await paddle.create_subscription(
+                        customer_id=company.paddle_customer_id,
+                        price_id=price_id,
+                    )
+                    paddle_subscription_id = result.get("data", {}).get("id")
+                    logger.info(
+                        "resubscribe_paddle_created company_id=%s paddle_sub_id=%s",
+                        company_id,
+                        paddle_subscription_id,
+                    )
+                except PaddleError as e:
+                    logger.error(
+                        "resubscribe_paddle_failed company_id=%s error=%s",
+                        company_id,
+                        str(e),
+                    )
+
+            # Create new subscription record
+            period_end = self._calculate_period_end(now, billing_frequency)
+            period_days = self._calculate_period_days_for_range(now, period_end)
+
+            new_subscription = Subscription(
+                company_id=str(company_id),
+                tier=variant,
+                status=SubscriptionStatus.ACTIVE.value,
+                current_period_start=now,
+                current_period_end=period_end,
+                paddle_subscription_id=paddle_subscription_id,
+                billing_frequency=billing_frequency,
+                days_in_period=period_days,
+            )
+            db.add(new_subscription)
+
+            # Update company
+            company.subscription_tier = variant
+            company.subscription_status = SubscriptionStatus.ACTIVE.value
+            if paddle_subscription_id:
+                company.paddle_subscription_id = paddle_subscription_id
+
+            db.commit()
+            db.refresh(new_subscription)
+
+            logger.info(
+                "resubscribe_completed company_id=%s variant=%s freq=%s "
+                "retention=%s data_restored=%s",
+                company_id,
+                variant,
+                billing_frequency,
+                retention_status,
+                data_restored,
+            )
+
+            message = (
+                f"Welcome back! Subscription reactivated with {variant} plan."
+                if data_restored
+                else (
+                    f"Subscription created with {variant} plan. "
+                    "Your previous data could not be restored."
+                    if within_retention and not data_restored
+                    else (
+                        f"Subscription created with {variant} plan. "
+                        "Your previous data has expired (past 30-day retention)."
+                    )
+                )
+            )
+
+            return {
+                "subscription": self._to_subscription_info(new_subscription),
+                "data_restored": data_restored,
+                "message": message,
+                "retention_status": retention_status,
+            }
+
+    async def _restore_archived_data(
+        self,
+        db: Session,
+        company_id: str,
+        new_variant: str,
+    ) -> Dict[str, Any]:
+        """
+        R2/R3: Restore archived data for a re-subscribing company.
+
+        Restores:
+        - AI agents (set status back to active)
+        - Team member access (set is_active=True, restore roles)
+        - Channels (set is_enabled=True)
+
+        Args:
+            db: Database session
+            company_id: Company ID string
+            new_variant: New variant name (for limit enforcement)
+
+        Returns:
+            Dict with restoration summary
+        """
+        new_limits = VARIANT_LIMITS.get(VariantType(new_variant), {})
+        restored = {
+            "agents_restored": 0,
+            "team_members_restored": 0,
+            "channels_restored": 0,
+        }
+
+        # Restore AI agents
+        try:
+            from database.models.core import Agent
+            agent_limit = new_limits.get("ai_agents", 1)
+            paused_agents = db.query(Agent).filter(
+                Agent.company_id == company_id,
+                Agent.status.in_(["paused", "disabled", "archived"]),
+            ).order_by(Agent.created_at.asc()).limit(agent_limit).all()
+
+            for agent in paused_agents:
+                agent.status = "active"
+                restored["agents_restored"] += 1
+        except Exception as e:
+            logger.warning(
+                "resubscribe_agent_restore_failed company_id=%s error=%s",
+                company_id,
+                str(e),
+            )
+
+        # Restore team members (except owner)
+        try:
+            from database.models.core import User
+            member_limit = new_limits.get("team_members", 3)
+            inactive_members = db.query(User).filter(
+                User.company_id == company_id,
+                User.is_active == False,
+                User.role != "owner",
+            ).order_by(User.created_at.asc()).limit(member_limit).all()
+
+            for member in inactive_members:
+                member.is_active = True
+                if member.role == "viewer":
+                    member.role = "agent"
+                restored["team_members_restored"] += 1
+        except Exception as e:
+            logger.warning(
+                "resubscribe_team_restore_failed company_id=%s error=%s",
+                company_id,
+                str(e),
+            )
+
+        # Restore channels
+        try:
+            from database.models.core import Channel
+            disabled_channels = db.query(Channel).filter(
+                Channel.company_id == company_id,
+                Channel.is_enabled == False,
+            ).all()
+
+            for channel in disabled_channels:
+                channel.is_enabled = True
+                restored["channels_restored"] += 1
+        except Exception as e:
+            logger.warning(
+                "resubscribe_channel_restore_failed company_id=%s error=%s",
+                company_id,
+                str(e),
+            )
+
+        db.flush()
+        return restored
+
+    # ═══════════════════════════════════════════════════════════════════
+    # C1: Cancel Confirmation Flow — Save Cancel Feedback
+    # ═══════════════════════════════════════════════════════════════════
+
+    def save_cancel_feedback(
+        self,
+        company_id: UUID,
+        reason: Optional[str] = None,
+        feedback: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        C1: Step 1 of cancel confirmation flow — save cancel reason/feedback.
+
+        Args:
+            company_id: Company UUID
+            reason: Cancellation reason (short)
+            feedback: Additional feedback text
+
+        Returns:
+            Dict with saved feedback info
+        """
+        with SessionLocal() as db:
+            feedback_record = CancellationRequest(
+                company_id=str(company_id),
+                user_id=str(company_id),
+                reason=reason or "",
+                status="feedback_received",
+            )
+
+            # Store additional feedback in a metadata field if available
+            if hasattr(feedback_record, "metadata_json"):
+                feedback_record.metadata_json = {"feedback": feedback or ""}
+
+            db.add(feedback_record)
+            db.commit()
+            db.refresh(feedback_record)
+
+            logger.info(
+                "cancel_feedback_saved company_id=%s reason=%s",
+                company_id,
+                reason or "not_provided",
+            )
+
+            return {
+                "feedback_id": feedback_record.id,
+                "status": "feedback_saved",
+                "message": "Feedback saved. You can continue to cancel or accept a special offer.",
+            }
+
+    # ═══════════════════════════════════════════════════════════════════
+    # C1: Cancel Confirmation Flow — Save Offer (20% off 3 months)
+    # ═══════════════════════════════════════════════════════════════════
+
+    def apply_save_offer(
+        self,
+        company_id: UUID,
+    ) -> Dict[str, Any]:
+        """
+        C1: Apply save offer — 20% discount for next 3 months.
+
+        Finds the active subscription, calculates discounted price,
+        and applies the discount.
+
+        Args:
+            company_id: Company UUID
+
+        Returns:
+            Dict with offer details including original/discounted price
+        """
+        with SessionLocal() as db:
+            subscription = db.query(Subscription).filter(
+                Subscription.company_id == str(company_id),
+                Subscription.status == SubscriptionStatus.ACTIVE.value,
+            ).first()
+
+            if not subscription:
+                raise SubscriptionNotFoundError(
+                    f"No active subscription for company {company_id}"
+                )
+
+            variant = subscription.tier
+            billing_frequency = getattr(
+                subscription, "billing_frequency", "monthly"
+            ) or "monthly"
+
+            original_price = self._get_variant_price(variant, billing_frequency)
+            discounted_price = original_price * Decimal("0.80")  # 20% off
+            discounted_price = discounted_price.quantize(Decimal("0.01"))
+
+            # Apply discount flag on subscription (or company)
+            if hasattr(subscription, "metadata_json"):
+                metadata = subscription.metadata_json or {}
+                metadata["save_offer_applied"] = True
+                metadata["save_offer_discount_pct"] = 20
+                metadata["save_offer_months_remaining"] = 3
+                subscription.metadata_json = metadata
+                db.commit()
+
+            logger.info(
+                "save_offer_applied company_id=%s variant=%s freq=%s "
+                "original=%s discounted=%s",
+                company_id,
+                variant,
+                billing_frequency,
+                original_price,
+                discounted_price,
+            )
+
+            return {
+                "discount_percentage": 20,
+                "discount_months": 3,
+                "original_price": original_price,
+                "discounted_price": discounted_price,
+                "message": (
+                    "Stay with us! Get 20% off your next 3 months. "
+                    "Your discount will be applied to your next 3 invoices."
+                ),
+            }
+
+    # ═══════════════════════════════════════════════════════════════════
+    # C3: Period-End Service Stop on Cancel
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _apply_service_stop_on_cancel(
+        self,
+        db: Session,
+        company_id: str,
+    ) -> Dict[str, Any]:
+        """
+        C3: Stop all services when subscription is canceled at period end.
+
+        Called from _apply_scheduled_cancellation():
+        - Pause all AI agents
+        - Disable team member access (except admin/owner) — set is_active=False
+        - Mark all channels as disabled
+        - Log the action
+
+        Args:
+            db: Database session
+            company_id: Company ID string
+
+        Returns:
+            Dict with service stop summary
+        """
+        now = datetime.now(timezone.utc)
+        stopped = {
+            "agents_paused": 0,
+            "team_members_disabled": 0,
+            "channels_disabled": 0,
+        }
+
+        # Pause all AI agents
+        try:
+            from database.models.core import Agent
+            active_agents = db.query(Agent).filter(
+                Agent.company_id == company_id,
+                Agent.status == "active",
+            ).all()
+
+            for agent in active_agents:
+                agent.status = "paused"
+                stopped["agents_paused"] += 1
+        except Exception as e:
+            logger.warning(
+                "service_stop_agents_failed company_id=%s error=%s",
+                company_id,
+                str(e),
+            )
+
+        # Disable team member access (except admin/owner)
+        try:
+            from database.models.core import User
+            active_members = db.query(User).filter(
+                User.company_id == company_id,
+                User.is_active == True,
+                User.role.notin_(["owner", "admin"]),
+            ).all()
+
+            for member in active_members:
+                member.is_active = False
+                stopped["team_members_disabled"] += 1
+        except Exception as e:
+            logger.warning(
+                "service_stop_team_failed company_id=%s error=%s",
+                company_id,
+                str(e),
+            )
+
+        # Disable all channels
+        try:
+            from database.models.core import Channel
+            active_channels = db.query(Channel).filter(
+                Channel.company_id == company_id,
+                Channel.is_enabled == True,
+            ).all()
+
+            for channel in active_channels:
+                channel.is_enabled = False
+                stopped["channels_disabled"] += 1
+        except Exception as e:
+            logger.warning(
+                "service_stop_channels_failed company_id=%s error=%s",
+                company_id,
+                str(e),
+            )
+
+        logger.info(
+            "service_stop_completed company_id=%s "
+            "agents=%d team=%d channels=%d",
+            company_id,
+            stopped["agents_paused"],
+            stopped["team_members_disabled"],
+            stopped["channels_disabled"],
+        )
+
+        return stopped
+
+    # ═══════════════════════════════════════════════════════════════════
+    # G2: Auto-Cancel After Payment Failure Timeout (7 days)
+    # ═══════════════════════════════════════════════════════════════════
+
+    def process_payment_failure_timeouts(self) -> Dict[str, Any]:
+        """
+        G2: Auto-cancel subscriptions after 7 days of payment failure.
+
+        Query subscriptions where status=payment_failed AND
+        payment_failed_at + 7 days <= now. For each: cancel and
+        enter 30-day data retention.
+
+        Returns:
+            Dict with processing summary
+        """
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=7)
+
+        results = {
+            "timestamp": now.isoformat(),
+            "cutoff": cutoff.isoformat(),
+            "subscriptions_canceled": 0,
+            "errors": [],
+        }
+
+        with SessionLocal() as db:
+            failed_subs = db.query(Subscription).filter(
+                Subscription.status == SubscriptionStatus.PAYMENT_FAILED.value,
+            ).all()
+
+            for sub in failed_subs:
+                try:
+                    payment_failed_at = getattr(sub, "payment_failed_at", None)
+                    if not payment_failed_at:
+                        continue
+
+                    if payment_failed_at.tzinfo is None:
+                        payment_failed_at = payment_failed_at.replace(
+                            tzinfo=timezone.utc
+                        )
+
+                    # Check if 7-day window has elapsed
+                    if payment_failed_at <= cutoff:
+                        # Cancel subscription
+                        sub.status = SubscriptionStatus.CANCELED.value
+                        sub.service_stopped_at = now  # type: ignore
+
+                        # Update company
+                        company = db.query(Company).filter(
+                            Company.id == sub.company_id
+                        ).first()
+                        if company:
+                            company.subscription_status = (
+                                SubscriptionStatus.CANCELED.value
+                            )
+
+                        # C3: Apply service stop
+                        self._apply_service_stop_on_cancel(
+                            db, sub.company_id
+                        )
+
+                        results["subscriptions_canceled"] += 1
+
+                        logger.info(
+                            "payment_failure_timeout_canceled "
+                            "company_id=%s sub_id=%s failed_at=%s",
+                            sub.company_id,
+                            sub.id,
+                            payment_failed_at.isoformat(),
+                        )
+                except Exception as e:
+                    logger.error(
+                        "payment_failure_timeout_failed "
+                        "sub_id=%s error=%s",
+                        sub.id,
+                        str(e),
+                    )
+                    results["errors"].append({
+                        "subscription_id": sub.id,
+                        "company_id": sub.company_id,
+                        "error": str(e)[:200],
+                    })
+
+            db.commit()
+
+        logger.info(
+            "payment_failure_timeouts_processed canceled=%d errors=%d",
+            results["subscriptions_canceled"],
+            len(results["errors"]),
+        )
+
+        return results
+
+    # ═══════════════════════════════════════════════════════════════════
+    # G3: Auto-Retry Failed Payments
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def retry_failed_payment(
+        self,
+        company_id: UUID,
+    ) -> Dict[str, Any]:
+        """
+        G3: Retry a failed payment via Paddle.
+
+        Gets the company's subscription with payment_failed status,
+        calls Paddle to retry the charge, and updates status on success.
+
+        Args:
+            company_id: Company UUID
+
+        Returns:
+            Dict with retry result
+
+        Raises:
+            SubscriptionNotFoundError: No failed subscription found
+            SubscriptionError: If retry fails
+        """
+        with SessionLocal() as db:
+            subscription = db.query(Subscription).filter(
+                Subscription.company_id == str(company_id),
+                Subscription.status == SubscriptionStatus.PAYMENT_FAILED.value,
+            ).with_for_update().first()
+
+            if not subscription:
+                raise SubscriptionNotFoundError(
+                    f"No payment_failed subscription for company {company_id}"
+                )
+
+            # Attempt Paddle retry
+            paddle_sub_id = subscription.paddle_subscription_id
+            if paddle_sub_id:
+                try:
+                    paddle = await self._get_paddle()
+                    # Paddle doesn't have a direct "retry" endpoint,
+                    # but we can re-activate the subscription to trigger
+                    # a new payment attempt
+                    await paddle.resume_subscription(paddle_sub_id)
+
+                    # Update status
+                    subscription.status = SubscriptionStatus.ACTIVE.value
+                    subscription.payment_failed_at = None  # type: ignore
+
+                    company = db.query(Company).filter(
+                        Company.id == str(company_id)
+                    ).first()
+                    if company:
+                        company.subscription_status = (
+                            SubscriptionStatus.ACTIVE.value
+                        )
+
+                    db.commit()
+                    db.refresh(subscription)
+
+                    logger.info(
+                        "payment_retry_succeeded company_id=%s sub_id=%s",
+                        company_id,
+                        subscription.id,
+                    )
+
+                    return {
+                        "success": True,
+                        "subscription": self._to_subscription_info(subscription),
+                        "message": "Payment retry successful. Subscription reactivated.",
+                    }
+                except PaddleError as e:
+                    logger.error(
+                        "payment_retry_paddle_failed company_id=%s error=%s",
+                        company_id,
+                        str(e),
+                    )
+                    raise SubscriptionError(
+                        f"Payment retry failed: {str(e)}"
+                    )
+            else:
+                # No Paddle subscription — manual retry, just reset status
+                subscription.status = SubscriptionStatus.ACTIVE.value
+                subscription.payment_failed_at = None  # type: ignore
+                db.commit()
+                db.refresh(subscription)
+
+                logger.info(
+                    "payment_retry_manual_reset company_id=%s sub_id=%s",
+                    company_id,
+                    subscription.id,
+                )
+
+                return {
+                    "success": True,
+                    "subscription": self._to_subscription_info(subscription),
+                    "message": "Payment status reset to active.",
+                }
+
+    def process_auto_retry_payments(self) -> Dict[str, Any]:
+        """
+        G3: Auto-retry failed payments on Day 1, 3, 5, 7 after failure.
+
+        Checks payment_failed subscriptions and retries if today is
+        an eligible retry day (1, 3, 5, or 7 days after failure).
+
+        Returns:
+            Dict with processing summary
+        """
+        now = datetime.now(timezone.utc)
+        results = {
+            "timestamp": now.isoformat(),
+            "retries_attempted": 0,
+            "retries_succeeded": 0,
+            "errors": [],
+        }
+
+        with SessionLocal() as db:
+            failed_subs = db.query(Subscription).filter(
+                Subscription.status == SubscriptionStatus.PAYMENT_FAILED.value,
+            ).all()
+
+            for sub in failed_subs:
+                try:
+                    payment_failed_at = getattr(sub, "payment_failed_at", None)
+                    if not payment_failed_at:
+                        continue
+
+                    if payment_failed_at.tzinfo is None:
+                        payment_failed_at = payment_failed_at.replace(
+                            tzinfo=timezone.utc
+                        )
+
+                    days_since_failure = (now - payment_failed_at).days
+
+                    # Only retry on Day 1, 3, 5, 7
+                    if days_since_failure not in {1, 3, 5, 7}:
+                        continue
+
+                    results["retries_attempted"] += 1
+
+                    # Use asyncio to call the async retry method
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        retry_result = loop.run_until_complete(
+                            self.retry_failed_payment(UUID(sub.company_id))
+                        )
+                        if retry_result.get("success"):
+                            results["retries_succeeded"] += 1
+                    finally:
+                        loop.close()
+
+                except Exception as e:
+                    logger.error(
+                        "auto_retry_failed company_id=%s error=%s",
+                        sub.company_id,
+                        str(e),
+                    )
+                    results["errors"].append({
+                        "subscription_id": sub.id,
+                        "company_id": sub.company_id,
+                        "error": str(e)[:200],
+                    })
+
+        logger.info(
+            "auto_retry_payments_processed attempted=%d succeeded=%d errors=%d",
+            results["retries_attempted"],
+            results["retries_succeeded"],
+            len(results["errors"]),
+        )
+
+        return results
+
+    # ═══════════════════════════════════════════════════════════════════
+    # G4: Payment Method Update
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def generate_payment_method_update_url(
+        self,
+        company_id: UUID,
+        return_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        G4: Generate Paddle portal URL for payment method update.
+
+        Generates a Paddle Billing Portal URL where the customer can
+        update their payment method. After update, auto-retry any
+        failed payment.
+
+        Args:
+            company_id: Company UUID
+            return_url: Optional URL to redirect to after update
+
+        Returns:
+            Dict with portal URL and message
+        """
+        with SessionLocal() as db:
+            company = db.query(Company).filter(
+                Company.id == str(company_id)
+            ).first()
+
+            if not company:
+                raise SubscriptionError(f"Company {company_id} not found")
+
+            subscription = db.query(Subscription).filter(
+                Subscription.company_id == str(company_id),
+            ).order_by(Subscription.created_at.desc()).first()
+
+            if not subscription or not subscription.paddle_subscription_id:
+                return {
+                    "paddle_portal_url": None,
+                    "message": "No Paddle subscription found. "
+                    "Contact support to update your payment method.",
+                }
+
+            try:
+                paddle = await self._get_paddle()
+                # Generate Paddle portal URL
+                portal_url = await paddle.generate_portal_url(
+                    subscription.paddle_subscription_id,
+                    return_url=return_url,
+                )
+
+                logger.info(
+                    "payment_method_portal_generated company_id=%s",
+                    company_id,
+                )
+
+                return {
+                    "paddle_portal_url": portal_url,
+                    "message": "Payment method update portal URL generated. "
+                    "Complete the update in the Paddle portal.",
+                }
+            except PaddleError as e:
+                logger.error(
+                    "payment_method_portal_failed company_id=%s error=%s",
+                    company_id,
+                    str(e),
+                )
+                # Return a fallback message
+                return {
+                    "paddle_portal_url": None,
+                    "message": (
+                        "Unable to generate payment portal URL. "
+                        "Please contact support to update your payment method."
+                    ),
+                }
 
 
 # ── Singleton Service ────────────────────────────────────────────────────

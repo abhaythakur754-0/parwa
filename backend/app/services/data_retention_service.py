@@ -25,8 +25,8 @@ from uuid import UUID
 from sqlalchemy import and_
 
 from database.base import SessionLocal
+# Lazy imports to avoid DB connection at module load time in tests
 from database.models.billing import Subscription
-from database.models.billing_extended import DataExport
 from database.models.core import Company
 
 logger = logging.getLogger("parwa.services.data_retention")
@@ -147,6 +147,8 @@ class DataRetentionService:
         Returns:
             Dict with export job info
         """
+        from database.models.billing_extended import DataExport
+
         with SessionLocal() as db:
             # Check for existing in-progress export
             existing = db.query(DataExport).filter(
@@ -235,6 +237,8 @@ class DataRetentionService:
             DataExportNotFoundError: Export not found
             DataRetentionExpiredError: Export has expired
         """
+        from database.models.billing_extended import DataExport
+
         with SessionLocal() as db:
             export = db.query(DataExport).filter(
                 DataExport.company_id == str(company_id),

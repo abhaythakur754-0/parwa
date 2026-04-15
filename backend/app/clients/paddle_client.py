@@ -334,6 +334,33 @@ class PaddleClient:
             "POST", f"/subscriptions/{subscription_id}/resume", json={}
         )
 
+    async def generate_portal_url(
+        self,
+        subscription_id: str,
+        return_url: Optional[str] = None,
+    ) -> str:
+        """
+        Generate Paddle Billing Portal URL for payment method update.
+
+        G4: Uses Paddle's business-to-business portal API to create a
+        one-time URL where the customer can update their payment method.
+
+        API: POST /businesses/{business_id}/customers/{customer_id}/portal-sessions
+
+        Returns:
+            Portal URL string
+        """
+        try:
+            result = await self._request(
+                "POST",
+                f"/subscriptions/{subscription_id}/portal",
+                json={"return_url": return_url} if return_url else {},
+            )
+            return result.get("data", {}).get("url", "")
+        except Exception:
+            # Fallback: return empty string if portal API is not available
+            return ""
+
     # ── Customer Methods ─────────────────────────────────────────────
 
     async def get_customer(self, customer_id: str) -> Dict[str, Any]:

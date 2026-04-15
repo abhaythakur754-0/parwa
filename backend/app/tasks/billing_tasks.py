@@ -713,3 +713,153 @@ def process_renewals(self) -> dict:
             },
         )
         raise
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Day 4 Tasks: Retention Cron, Payment Failure Timeout, Auto-Retry
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="billing.process_retention_cron",
+    max_retries=2,
+    soft_time_limit=300,
+    time_limit=600,
+)
+def process_retention_cron(self) -> dict:
+    """
+    C6: Daily data retention policy cron.
+
+    Runs daily to process canceled subscriptions past the 30-day
+    retention period. Executes GDPR-compliant data cleanup:
+    - Soft-delete tickets
+    - Anonymize customer PII
+    - Archive KB docs
+    - RETAIN billing records (7-year financial compliance)
+
+    Returns:
+        Dict with processing summary
+    """
+    try:
+        from app.services.data_retention_service import DataRetentionService
+        service = DataRetentionService()
+        result = service.process_retention_cron()
+
+        logger.info(
+            "process_retention_cron_completed",
+            extra={
+                "task": self.name,
+                "companies_processed": result["companies_processed"],
+                "errors": len(result["errors"]),
+            },
+        )
+
+        return result
+
+    except Exception as exc:
+        logger.error(
+            "process_retention_cron_failed",
+            extra={
+                "task": self.name,
+                "error": str(exc)[:200],
+            },
+        )
+        raise
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="billing.process_payment_failure_timeout",
+    max_retries=2,
+    soft_time_limit=300,
+    time_limit=600,
+)
+def process_payment_failure_timeout(self) -> dict:
+    """
+    G2: Auto-cancel subscriptions after 7 days of payment failure.
+
+    Queries all subscriptions with status=payment_failed where
+    payment_failed_at + 7 days <= now. For each: cancel the
+    subscription and enter 30-day data retention.
+
+    Returns:
+        Dict with processing summary
+    """
+    try:
+        from app.services.subscription_service import get_subscription_service
+        service = get_subscription_service()
+        result = service.process_payment_failure_timeouts()
+
+        logger.info(
+            "payment_failure_timeout_completed",
+            extra={
+                "task": self.name,
+                "canceled": result["subscriptions_canceled"],
+                "errors": len(result["errors"]),
+            },
+        )
+
+        return result
+
+    except Exception as exc:
+        logger.error(
+            "payment_failure_timeout_failed",
+            extra={
+                "task": self.name,
+                "error": str(exc)[:200],
+            },
+        )
+        raise
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="billing.auto_retry_payments",
+    max_retries=2,
+    soft_time_limit=300,
+    time_limit=600,
+)
+def auto_retry_payments(self) -> dict:
+    """
+    G3: Auto-retry failed payments on Day 1, 3, 5, 7 after failure.
+
+    Checks all payment_failed subscriptions and retries if today
+    is an eligible retry day (1, 3, 5, or 7 days after failure).
+    Uses Paddle resume_subscription to trigger a new payment attempt.
+
+    Returns:
+        Dict with processing summary
+    """
+    try:
+        from app.services.subscription_service import get_subscription_service
+        service = get_subscription_service()
+        result = service.process_auto_retry_payments()
+
+        logger.info(
+            "auto_retry_payments_completed",
+            extra={
+                "task": self.name,
+                "attempted": result["retries_attempted"],
+                "succeeded": result["retries_succeeded"],
+                "errors": len(result["errors"]),
+            },
+        )
+
+        return result
+
+    except Exception as exc:
+        logger.error(
+            "auto_retry_payments_failed",
+            extra={
+                "task": self.name,
+                "error": str(exc)[:200],
+            },
+        )
+        raise
