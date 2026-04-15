@@ -109,9 +109,9 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
 
     // D9-P2: Handle 401 — attempt token refresh before giving up
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !(originalRequest as any)._retry) {
       if (typeof window !== 'undefined') {
-        originalRequest._retry = true;
+        (originalRequest as any)._retry = true;
         try {
           // FIX A2: Refresh uses httpOnly cookie, no localStorage needed
           const { data } = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {}, {

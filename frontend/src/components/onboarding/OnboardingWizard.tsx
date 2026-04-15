@@ -10,7 +10,7 @@ import { KnowledgeUpload } from './KnowledgeUpload';
 import { AIConfig } from './AIConfig';
 import { FirstVictory } from './FirstVictory';
 import { Loader2 } from 'lucide-react';
-import type { OnboardingState } from '@/types/onboarding';
+import type { OnboardingState, AITone, AIResponseStyle } from '@/types/onboarding';
 
 interface OnboardingWizardProps {
   initialState?: OnboardingState;
@@ -74,8 +74,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       setOnboardingState((prev) => prev ? {
         ...prev,
         ...(extraData.ai_name ? { ai_name: String(extraData.ai_name) } : {}),
-        ...(extraData.ai_tone ? { ai_tone: String(extraData.ai_tone) } : {}),
-        ...(extraData.ai_response_style ? { ai_response_style: String(extraData.ai_response_style) } : {}),
+        ...(extraData.ai_tone ? { ai_tone: extraData.ai_tone as AITone } : {}),
+        ...(extraData.ai_response_style ? { ai_response_style: extraData.ai_response_style as AIResponseStyle } : {}),
         ...(extraData.ai_greeting !== undefined ? { ai_greeting: extraData.ai_greeting as string | null } : {}),
       } : prev);
     }

@@ -162,7 +162,7 @@ export interface KnowledgeUsedItem {
 // ── Flow State Types ──────────────────────────────────────────────
 
 export interface OtpState {
-  status: 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
+  status: 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error' | 'locked';
   email: string;
   attempts: number;
   expires_at: string | null;

@@ -50,7 +50,6 @@ import type {
   JarvisDemoCallInitiateResponse,
   JarvisHandoffStatusResponse,
   VariantSelection,
-  EntrySource,
 } from '@/types/jarvis';
 
 // ── Constants ─────────────────────────────────────────────────────
