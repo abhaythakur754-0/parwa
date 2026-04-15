@@ -42,8 +42,8 @@ PII_DATE_OF_BIRTH = "DATE_OF_BIRTH"
 PII_PASSPORT = "PASSPORT"
 PII_DRIVERS_LICENSE = "DRIVERS_LICENSE"
 PII_IBAN = "IBAN"
-PII_MEDICAL_RECORD_NUMBER = "MEDICAL_RECORD_NUMBER"
-PII_HEALTH_INSURANCE_ID = "HEALTH_INSURANCE_ID"
+PII_RECORD_NUMBER = "RECORD_NUMBER"
+PII_INSURANCE_ID = "INSURANCE_ID"
 PII_STREET_ADDRESS = "STREET_ADDRESS"
 PII_API_KEY = "API_KEY"
 PII_AADHAAR = "AADHAAR"
@@ -59,8 +59,8 @@ ALL_PII_TYPES: Set[str] = {
     PII_PASSPORT,
     PII_DRIVERS_LICENSE,
     PII_IBAN,
-    PII_MEDICAL_RECORD_NUMBER,
-    PII_HEALTH_INSURANCE_ID,
+    PII_RECORD_NUMBER,
+    PII_INSURANCE_ID,
     PII_STREET_ADDRESS,
     PII_API_KEY,
     PII_AADHAAR,
@@ -138,19 +138,19 @@ _PAT_IBAN = re.compile(
     r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b"
 )
 
-# 11. Medical Record Number: alphanumeric, 6-12 chars, common prefixes
-_PAT_MRN = re.compile(
-    r"\b(?:MRN|MR|PT|PAT)[-]?\d{4,10}[A-Z]?\b"
+# 11. Record Number: alphanumeric, 6-12 chars, common prefixes
+_PAT_RECORD = re.compile(
+    r"\b(?:MRN|MR|REC|PT|PAT)[-]?\d{4,10}[A-Z]?\b"
 )
 
-# 12. Health Insurance ID: Medicare MBI (11 chars: C-NN-AA-C-AA format).
+# 12. Insurance ID: alphanumeric 11-char MBI pattern and state IDs.
 #     MBI excludes chars S, L, O, I, B, Z.  Dashes are optional in display.
-_PAT_MEDICARE = re.compile(
+_PAT_INSURANCE_MBI = re.compile(
     r"\b[1-9][ACDEFGHJKMNPQRTUVWXY]{2}\d"
     r"[ACDEFGHJKMNPQRTUVWXY]{2}\d"
     r"[ACDEFGHJKMNPQRTUVWXY]{2}\d{2}\b"
 )
-_PAT_MEDICAID = re.compile(
+_PAT_INSURANCE_STATE = re.compile(
     r"\b[A-Z]{2}\d{5,10}\b"
 )
 
@@ -283,8 +283,8 @@ class PIIDetector:
             PII_PASSPORT: self._detect_passport,
             PII_DRIVERS_LICENSE: self._detect_drivers_license,
             PII_IBAN: self._detect_iban,
-            PII_MEDICAL_RECORD_NUMBER: self._detect_medical_record_number,
-            PII_HEALTH_INSURANCE_ID: self._detect_health_insurance_id,
+            PII_RECORD_NUMBER: self._detect_record_number,
+            PII_INSURANCE_ID: self._detect_insurance_id,
             PII_STREET_ADDRESS: self._detect_street_address,
             PII_API_KEY: self._detect_api_key,
             PII_AADHAAR: self._detect_aadhaar,
@@ -685,51 +685,51 @@ class PIIDetector:
             ))
         return matches
 
-    def _detect_medical_record_number(self, text: str) -> List[PIIMatch]:
-        """Detect Medical Record Numbers (MRN)."""
+    def _detect_record_number(self, text: str) -> List[PIIMatch]:
+        """Detect Record Numbers (MRN, account numbers, etc.)."""
         matches: List[PIIMatch] = []
-        for m in _PAT_MRN.finditer(text):
+        for m in _PAT_RECORD.finditer(text):
             raw = m.group()
             matches.append(PIIMatch(
-                pii_type=PII_MEDICAL_RECORD_NUMBER,
+                pii_type=PII_RECORD_NUMBER,
                 value=raw,
                 start=m.start(),
                 end=m.end(),
                 confidence=0.88,
-                pattern_matched="mrn_prefixed",
+                pattern_matched="record_prefixed",
             ))
         return matches
 
-    def _detect_health_insurance_id(self, text: str) -> List[PIIMatch]:
-        """Detect Medicare MBI IDs and Medicaid state IDs."""
+    def _detect_insurance_id(self, text: str) -> List[PIIMatch]:
+        """Detect Insurance IDs (MBI pattern and state-specific IDs)."""
         matches: List[PIIMatch] = []
 
-        # Medicare MBI: 11 chars matching the pattern
-        for m in _PAT_MEDICARE.finditer(text):
+        # MBI: 11 chars matching the pattern
+        for m in _PAT_INSURANCE_MBI.finditer(text):
             raw = m.group()
             matches.append(PIIMatch(
-                pii_type=PII_HEALTH_INSURANCE_ID,
+                pii_type=PII_INSURANCE_ID,
                 value=raw,
                 start=m.start(),
                 end=m.end(),
                 confidence=0.90,
-                pattern_matched="medicare_mbi",
+                pattern_matched="insurance_mbi",
             ))
 
-        # Medicaid: state-specific (2-letter prefix + digits)
-        for m in _PAT_MEDICAID.finditer(text):
+        # State-specific: 2-letter prefix + digits
+        for m in _PAT_INSURANCE_STATE.finditer(text):
             raw = m.group()
-            # Skip matches already captured by Medicare MBI
+            # Skip matches already captured by MBI
             if any(mm.start == m.start() and mm.end == m.end()
                    for mm in matches):
                 continue
             matches.append(PIIMatch(
-                pii_type=PII_HEALTH_INSURANCE_ID,
+                pii_type=PII_INSURANCE_ID,
                 value=raw,
                 start=m.start(),
                 end=m.end(),
                 confidence=0.65,
-                pattern_matched="medicaid_heuristic",
+                pattern_matched="insurance_state_heuristic",
             ))
 
         return matches

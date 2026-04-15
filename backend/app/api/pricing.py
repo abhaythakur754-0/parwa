@@ -95,7 +95,7 @@ INDUSTRY_INFO = {
     },
     "others": {
         "name": "Others",
-        "description": "Healthcare, Finance, Education, etc.",
+        "description": "Finance, Education, Legal, and other industries",
         "color": "purple",
     },
 }

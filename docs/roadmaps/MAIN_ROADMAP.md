@@ -68,10 +68,12 @@ Each part is ordered by: (1) launch-blocking severity, (2) dependency chain, (3)
 - Expand prompt injection: add SQL injection, XSS, command injection, role-play attack patterns
 - Validate guardrails on REAL LLM outputs (not mock data in tests)
 - Build GDPR right-to-erasure endpoint
-- Build HIPAA mode for healthcare industry
+- Add training data isolation between tenants (tenant-scoped vector search, KB access)
+- Add information leakage prevention (block revealing LLM strategy, model names, internal workflows)
+- Add Docker security hardening (Redis auth, non-root containers, network isolation)
 - Validate all 8 guardrail layers run on actual outputs
 
-**Target:** PII 90%+, Prompt Injection 95%+, GDPR endpoint live
+**Target:** PII 90%+, Prompt Injection 95%+, GDPR endpoint live, 100% tenant data isolation
 
 **Dependencies:** None (can start immediately)
 
@@ -321,10 +323,9 @@ Each part is ordered by: (1) launch-blocking severity, (2) dependency chain, (3)
 **Current:** ~15% complete — almost nothing built
 
 **What needs to be done:**
-- Create industry_configs/ directory (ecommerce.py, saas.py, logistics.py, healthcare.py)
+- Create industry_configs/ directory (ecommerce.py, saas.py, logistics.py, others.py)
 - Each config: system prompts, blocked topics, allowed integrations, default KB structure
 - Wire industry selection to AI pipeline
-- Build HIPAA mode in guardrails for healthcare
 - Build industry-specific onboarding step
 - Build industry-specific integrations per variant
 - Build industry-specific KB templates

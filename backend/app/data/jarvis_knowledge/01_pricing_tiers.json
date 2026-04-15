@@ -19,11 +19,15 @@
     },
     "overage_pricing": {
       "description": "If you exceed your monthly ticket limit, additional tickets are billed at a per-ticket rate depending on your tier",
-      "starter_overage_rate_per_ticket": 0.50,
+      "starter_overage_rate_per_ticket": 0.5,
       "growth_overage_rate_per_ticket": 0.35,
-      "high_overage_rate_per_ticket": 0.20
+      "high_overage_rate_per_ticket": 0.2
     },
-    "payment_methods": ["Credit Card (Visa, MasterCard, American Express)", "Wire Transfer", "ACH"],
+    "payment_methods": [
+      "Credit Card (Visa, MasterCard, American Express)",
+      "Wire Transfer",
+      "ACH"
+    ],
     "enterprise_billing": "Custom invoicing and procurement support available for High tier and Enterprise customers"
   },
   "tiers": [
@@ -49,13 +53,20 @@
       "response_quality": "Standard",
       "support_level": "Business hours email support (Mon-Fri, 9AM-6PM EST)",
       "integrations": {
-        "included": ["Email (SMTP)", "REST API"],
+        "included": [
+          "Email (SMTP)",
+          "REST API"
+        ],
         "custom": false
       },
       "analytics": {
         "included": true,
         "type": "Basic",
-        "features": ["Ticket volume tracking", "Response time metrics", "Resolution rate overview"]
+        "features": [
+          "Ticket volume tracking",
+          "Response time metrics",
+          "Resolution rate overview"
+        ]
       },
       "features": [
         "Up to 3 AI agent variants",
@@ -111,7 +122,14 @@
       "response_quality": "Enhanced",
       "support_level": "Priority support (Mon-Sat, 8AM-10PM EST) with 4-hour response time SLA",
       "integrations": {
-        "included": ["Email (SMTP)", "REST API", "Webhooks", "Shopify", "Slack", "Stripe"],
+        "included": [
+          "Email (SMTP)",
+          "REST API",
+          "Webhooks",
+          "Shopify",
+          "Slack",
+          "Stripe"
+        ],
         "custom": true,
         "custom_description": "Up to 3 custom integrations included; additional integrations available for a setup fee"
       },
@@ -156,7 +174,6 @@
         "Mid-size e-commerce brands processing 500+ orders daily",
         "SaaS companies with 1,000+ active users",
         "Logistics companies managing 200+ shipments daily",
-        "Healthcare clinics with multi-provider scheduling needs",
         "Businesses currently spending 30+ hours/week on customer support"
       ]
     },
@@ -196,10 +213,21 @@
       "support_level": "24/7 priority support with 1-hour response time SLA and dedicated account manager",
       "integrations": {
         "included": [
-          "Email (SMTP)", "REST API", "Webhooks",
-          "Shopify", "WooCommerce", "Magento", "BigCommerce",
-          "Zendesk", "Freshdesk", "Intercom", "Help Scout",
-          "Slack", "Stripe", "Razorpay", "WhatsApp Business"
+          "Email (SMTP)",
+          "REST API",
+          "Webhooks",
+          "Shopify",
+          "WooCommerce",
+          "Magento",
+          "BigCommerce",
+          "Zendesk",
+          "Freshdesk",
+          "Intercom",
+          "Help Scout",
+          "Slack",
+          "Stripe",
+          "Razorpay",
+          "WhatsApp Business"
         ],
         "custom": true,
         "custom_description": "Unlimited custom integrations with full engineering support from PARWA team"
@@ -257,21 +285,47 @@
         "Large e-commerce enterprises with 5,000+ daily orders",
         "Enterprise SaaS platforms with 10,000+ users",
         "National or international logistics companies",
-        "Hospital systems or multi-location healthcare providers",
         "Businesses currently operating 24/7 support teams",
-        "Companies spending $50,000+/month on customer support operations",
-        "Organizations requiring HIPAA-compliant AI interactions"
+        "Companies spending $50,000+/month on customer support operations"
       ]
     }
   ],
   "tier_comparison": {
-    "agents": { "starter": "3", "growth": "7", "high": "Unlimited" },
-    "tickets_per_month": { "starter": "1,000", "growth": "5,000", "high": "20,000" },
-    "channels": { "starter": "Email", "growth": "Email + Chat", "high": "Email + Chat + Phone + Social" },
-    "knowledge_base": { "starter": "Basic (50 articles)", "growth": "Advanced (500 articles) + Auto-Learning", "high": "Advanced (Unlimited) + Auto-Learning" },
-    "support": { "starter": "Business hours", "growth": "Priority (Mon-Sat)", "high": "24/7 + Dedicated AM" },
-    "analytics": { "starter": "Basic", "growth": "Advanced", "high": "Advanced + Predictive" },
-    "overage_per_ticket": { "starter": "$0.50", "growth": "$0.35", "high": "$0.20" }
+    "agents": {
+      "starter": "3",
+      "growth": "7",
+      "high": "Unlimited"
+    },
+    "tickets_per_month": {
+      "starter": "1,000",
+      "growth": "5,000",
+      "high": "20,000"
+    },
+    "channels": {
+      "starter": "Email",
+      "growth": "Email + Chat",
+      "high": "Email + Chat + Phone + Social"
+    },
+    "knowledge_base": {
+      "starter": "Basic (50 articles)",
+      "growth": "Advanced (500 articles) + Auto-Learning",
+      "high": "Advanced (Unlimited) + Auto-Learning"
+    },
+    "support": {
+      "starter": "Business hours",
+      "growth": "Priority (Mon-Sat)",
+      "high": "24/7 + Dedicated AM"
+    },
+    "analytics": {
+      "starter": "Basic",
+      "growth": "Advanced",
+      "high": "Advanced + Predictive"
+    },
+    "overage_per_ticket": {
+      "starter": "$0.50",
+      "growth": "$0.35",
+      "high": "$0.20"
+    }
   },
   "variant_pricing": {
     "description": "AI agent variants are add-on specialized agents beyond your tier's included agent count. Each variant is purpose-built for a specific support function within your industry.",
@@ -427,57 +481,6 @@
             "currency": "USD",
             "billing_period": "monthly",
             "description": "Provides customs documentation guidance, import/export regulation information, tariff classification, HS code lookups, and compliance requirement checks"
-          }
-        ]
-      },
-      "healthcare": {
-        "display_name": "Healthcare",
-        "description": "Specialized variants for healthcare organizations covering appointment management, insurance claims, prescriptions, patient inquiries, and telehealth support",
-        "variants": [
-          {
-            "id": "hc-appointment-scheduling",
-            "name": "Appointment Scheduling",
-            "price_per_unit": 99,
-            "tickets_per_month": 400,
-            "currency": "USD",
-            "billing_period": "monthly",
-            "description": "Manages appointment booking, rescheduling, cancellations, provider availability lookups, waitlist management, and appointment reminders"
-          },
-          {
-            "id": "hc-insurance-claims",
-            "name": "Insurance Claims",
-            "price_per_unit": 89,
-            "tickets_per_month": 250,
-            "currency": "USD",
-            "billing_period": "monthly",
-            "description": "Assists with insurance verification, claim status tracking, coverage inquiries, pre-authorization requests, and explanation of benefits (EOB) questions"
-          },
-          {
-            "id": "hc-prescription-refills",
-            "name": "Prescription Refills",
-            "price_per_unit": 49,
-            "tickets_per_month": 350,
-            "currency": "USD",
-            "billing_period": "monthly",
-            "description": "Processes prescription refill requests, pharmacy location lookups, medication availability checks, refill timeline information, and transfer requests"
-          },
-          {
-            "id": "hc-patient-inquiries",
-            "name": "Patient Inquiries",
-            "price_per_unit": 59,
-            "tickets_per_month": 300,
-            "currency": "USD",
-            "billing_period": "monthly",
-            "description": "Answers general patient questions about services, facility hours, parking information, accepted insurance plans, new patient registration, and medical records"
-          },
-          {
-            "id": "hc-telehealth-support",
-            "name": "Telehealth Support",
-            "price_per_unit": 79,
-            "tickets_per_month": 200,
-            "currency": "USD",
-            "billing_period": "monthly",
-            "description": "Guides patients through telehealth platform setup, troubleshoots video/audio connection issues, reschedules virtual visits, and answers telehealth service questions"
           }
         ]
       }

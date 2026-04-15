@@ -39,7 +39,7 @@ const detailsFormSchema = z.object({
     .optional()
     .or(z.literal('')),
   industry: z.enum([
-    'saas', 'ecommerce', 'healthcare', 'finance', 'education',
+    'saas', 'ecommerce', 'finance', 'education',
     'real_estate', 'manufacturing', 'consulting', 'agency',
     'nonprofit', 'logistics', 'hospitality', 'retail', 'other'
   ] as const),

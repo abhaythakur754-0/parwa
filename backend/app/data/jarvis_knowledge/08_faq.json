@@ -2,371 +2,593 @@
   "version": "1.0.0",
   "last_updated": "2025-01-15",
   "description": "Frequently Asked Questions for PARWA Jarvis chatbot. Comprehensive FAQ covering all aspects of the PARWA platform.",
-  "total_faqs": 55,
+  "total_faqs": 49,
   "faqs": [
     {
       "id": "faq-gen-001",
       "q": "What is PARWA?",
       "a": "PARWA is an AI-powered customer support platform that uses advanced large language models to automate customer conversations across multiple channels. Unlike traditional chatbots that rely on rigid decision trees, PARWA understands natural language, maintains conversation context, and resolves complex customer inquiries autonomously. It integrates seamlessly with your existing helpdesk (Zendesk, Intercom, Freshdesk, and 50+ other platforms), CRM, and e-commerce systems to provide instant, accurate responses 24/7. PARWA is designed to handle 60-70% of routine support tickets without human intervention, freeing your team to focus on high-value interactions.",
       "category": "general",
-      "tags": ["overview", "what is parwa", "platform", "introduction"]
+      "tags": [
+        "overview",
+        "what is parwa",
+        "platform",
+        "introduction"
+      ]
     },
     {
       "id": "faq-gen-002",
       "q": "How does PARWA work?",
       "a": "PARWA works through a three-step process: First, it connects to your existing systems (helpdesk, knowledge base, CRM, e-commerce platform) to ingest your product information, policies, and customer data. Second, it uses Retrieval-Augmented Generation (RAG) — when a customer sends a message, PARWA retrieves relevant information from your knowledge base and uses a large language model to generate a natural, contextual response. Third, it continuously learns and improves from every interaction, agent feedback, and customer response. PARWA operates across web chat, email, WhatsApp, Facebook Messenger, Instagram, Twitter/X, SMS, and API channels. The entire process happens in under 2 seconds, providing customers with instant, accurate support around the clock.",
       "category": "general",
-      "tags": ["how it works", "process", "technology", "architecture"]
+      "tags": [
+        "how it works",
+        "process",
+        "technology",
+        "architecture"
+      ]
     },
     {
       "id": "faq-gen-003",
       "q": "Who is PARWA for?",
-      "a": "PARWA is built for businesses of all sizes that handle customer support at scale. Our primary customers fall into four industries: E-commerce (retailers, DTC brands, marketplaces), SaaS (B2B and B2C software companies), Logistics (freight forwarders, warehouses, delivery companies), and Healthcare (clinics, hospitals, telehealth providers, pharmacies). Within these industries, PARWA serves companies from 200 monthly support tickets to millions. Whether you're a growing startup looking to scale support without adding headcount, or an enterprise seeking to reduce costs and improve customer satisfaction, PARWA has a plan that fits your needs.",
+      "a": "PARWA is built for businesses of all sizes that handle customer support at scale. Our primary customers fall into three industries: E-commerce (retailers, DTC brands, marketplaces), SaaS (B2B and B2C software companies), Logistics (freight forwarders, warehouses, delivery companies). Within these industries, PARWA serves companies from 200 monthly support tickets to millions. Whether you're a growing startup looking to scale support without adding headcount, or an enterprise seeking to reduce costs and improve customer satisfaction, PARWA has a plan that fits your needs.",
       "category": "general",
-      "tags": ["target audience", "industries", "who is it for", "use cases"]
+      "tags": [
+        "target audience",
+        "industries",
+        "who is it for",
+        "use cases"
+      ]
     },
     {
       "id": "faq-gen-004",
       "q": "What makes PARWA different from other AI chatbots?",
-      "a": "PARWA stands apart in four key ways: First, AI-native architecture — we were built from the ground up using large language models, not retrofitted from rule-based systems. This means PARWA truly understands language, context, and nuance rather than matching keywords. Second, industry specialization — we offer 20 pre-trained AI agent variants for specific use cases across e-commerce, SaaS, logistics, and healthcare, so you get domain expertise out of the box. Third, all-inclusive pricing — no per-conversation fees, no hidden add-on costs, and no per-seat charges. Everything is included in your monthly plan. Fourth, speed to value — our customers are fully deployed and seeing results in 10-14 days, compared to 4-8 weeks with most competitors. The combination of these factors results in 35% higher auto-resolution rates and 30-50% lower total cost of ownership compared to alternatives.",
+      "a": "PARWA stands apart in four key ways: First, AI-native architecture — we were built from the ground up using large language models, not retrofitted from rule-based systems. This means PARWA truly understands language, context, and nuance rather than matching keywords. Second, industry specialization — we offer 20 pre-trained AI agent variants for specific use cases across e-commerce, SaaS, and logistics, so you get domain expertise out of the box. Third, all-inclusive pricing — no per-conversation fees, no hidden add-on costs, and no per-seat charges. Everything is included in your monthly plan. Fourth, speed to value — our customers are fully deployed and seeing results in 10-14 days, compared to 4-8 weeks with most competitors. The combination of these factors results in 35% higher auto-resolution rates and 30-50% lower total cost of ownership compared to alternatives.",
       "category": "general",
-      "tags": ["differentiation", "competitive advantage", "unique features"]
+      "tags": [
+        "differentiation",
+        "competitive advantage",
+        "unique features"
+      ]
     },
     {
       "id": "faq-gen-005",
       "q": "What channels does PARWA support?",
       "a": "PARWA provides omnichannel support across all major customer communication channels: Web Chat (embeddable widget with full customization), Email (Gmail, Outlook, and custom SMTP), WhatsApp Business API, Facebook Messenger, Instagram Direct Messages, Twitter/X Direct Messages, SMS (via Twilio or custom providers), Slack (for internal support teams), API (for custom integrations into your own application), and Voice (coming Q2 2025). All channels are managed from a single unified dashboard, and PARWA maintains conversation context even when a customer switches channels mid-conversation. Each channel can be individually configured with custom branding, greeting messages, and escalation rules.",
       "category": "general",
-      "tags": ["channels", "omnichannel", "messaging", "communication"]
+      "tags": [
+        "channels",
+        "omnichannel",
+        "messaging",
+        "communication"
+      ]
     },
     {
       "id": "faq-gen-006",
       "q": "How accurate is PARWA's AI?",
       "a": "PARWA achieves a 95%+ intent classification accuracy and an auto-resolution rate of 60-70% across all industries. For the responses it generates, our customers report a customer satisfaction (CSAT) score of 4.5 out of 5 stars for AI-resolved conversations, compared to 4.2 for human agents on the same types of queries. Accuracy improves over time through our continuous learning system: agent feedback, customer satisfaction signals, and conversation outcomes all feed back into the model. After the initial 2-week tuning period, incorrect response rates drop below 2%. Every response includes a confidence score, and low-confidence responses are automatically escalated to human agents rather than risk providing wrong information.",
       "category": "general",
-      "tags": ["accuracy", "performance", "quality", "metrics"]
+      "tags": [
+        "accuracy",
+        "performance",
+        "quality",
+        "metrics"
+      ]
     },
     {
       "id": "faq-gen-007",
       "q": "Can PARWA learn from my company's specific data?",
       "a": "Absolutely. PARWA is designed to become an expert on your specific business. During onboarding, we import your knowledge base (help articles, FAQs, product documentation, policies, and procedures) which serves as the foundation for PARWA's responses. Beyond that, PARWA continuously learns from: resolved support tickets and their outcomes, agent corrections and approved responses, customer feedback and satisfaction ratings, and conversation patterns unique to your customers. All learning happens within your isolated tenant environment — your data never influences other customers' AI models. You have full control over the learning process with configurable parameters for how aggressively the AI adopts new patterns.",
       "category": "general",
-      "tags": ["learning", "training", "customization", "data"]
+      "tags": [
+        "learning",
+        "training",
+        "customization",
+        "data"
+      ]
     },
     {
       "id": "faq-gen-008",
       "q": "What is the uptime guarantee?",
       "a": "PARWA guarantees 99.9% uptime on all plans, backed by a Service Level Agreement (SLA). In practice, our actual uptime over the past 12 months has been 99.97%. Our infrastructure runs on AWS and Azure with multi-region redundancy, automatic failover, and real-time monitoring. We maintain status monitoring at status.parwa.ai where you can see real-time system health. In the event of a service interruption, our incident response team is engaged within 5 minutes, and we provide post-incident reports for any downtime exceeding 5 minutes. Our High plan customers receive a 99.99% uptime SLA with additional redundancy and priority incident response.",
       "category": "general",
-      "tags": ["uptime", "sla", "reliability", "availability"]
+      "tags": [
+        "uptime",
+        "sla",
+        "reliability",
+        "availability"
+      ]
     },
     {
       "id": "faq-gen-009",
       "q": "Do I need technical expertise to use PARWA?",
       "a": "No technical expertise is required to use PARWA. Our platform is designed for non-technical users with an intuitive dashboard for configuration, monitoring, and management. The initial setup is handled entirely by our onboarding team — no coding required on your end. Day-to-day management involves updating your knowledge base articles (as simple as editing a document), reviewing analytics dashboards, and configuring settings through a visual interface. For technically inclined users, we do provide a comprehensive REST API, webhook system, and developer documentation for custom integrations. But these are entirely optional — most of our customers manage PARWA successfully without writing a single line of code.",
       "category": "general",
-      "tags": ["technical requirements", "ease of use", "no-code", "usability"]
+      "tags": [
+        "technical requirements",
+        "ease of use",
+        "no-code",
+        "usability"
+      ]
     },
     {
       "id": "faq-gen-010",
       "q": "What kind of support does PARWA offer during implementation?",
       "a": "Every PARWA customer receives a dedicated onboarding experience that includes: a dedicated Customer Success Manager assigned to your account, a technical onboarding specialist who handles all integrations and configurations, a kick-off call to understand your specific requirements and workflows, weekly check-ins during the initial deployment period (typically 2-3 weeks), access to our onboarding knowledge base with step-by-step guides and video tutorials, and a post-launch optimization review at day 30 to ensure everything is performing as expected. Growth and High plan customers additionally receive priority onboarding (same-day integration start), custom workflow design consultation, and a dedicated Slack channel for real-time support during deployment.",
       "category": "general",
-      "tags": ["implementation support", "onboarding", "customer success"]
+      "tags": [
+        "implementation support",
+        "onboarding",
+        "customer success"
+      ]
     },
     {
       "id": "faq-gen-011",
       "q": "What languages does PARWA support?",
       "a": "PARWA supports 50+ languages including English, Spanish (Latin America and Castilian), French, German, Portuguese (Brazil and European), Italian, Dutch, Chinese (Simplified and Traditional), Japanese, Korean, Arabic, Hindi, Bengali, Turkish, Thai, Vietnamese, Indonesian, Polish, Swedish, Danish, Norwegian, Finnish, Russian, Czech, Romanian, Hungarian, Greek, Ukrainian, Malay, Filipino, and many more. PARWA automatically detects the customer's language from their first message and responds in the same language. Translation quality is maintained through culturally aware language models that preserve your brand voice across all languages. Coverage spans 95% of global internet users.",
       "category": "general",
-      "tags": ["languages", "multilingual", "translation", "international"]
+      "tags": [
+        "languages",
+        "multilingual",
+        "translation",
+        "international"
+      ]
     },
     {
       "id": "faq-price-001",
       "q": "How much does PARWA cost?",
       "a": "PARWA offers three pricing tiers: Starter at $999/month, Growth at $2,499/month, and High at $3,999/month. All plans include unlimited conversations — there are no per-message or per-resolution fees. The Starter plan supports up to 2,000 automated resolutions per month, 5 channels, and 3 AI agent variants. The Growth plan supports up to 10,000 automated resolutions, 15 channels, 10 AI agent variants, and includes advanced analytics and priority support. The High plan offers unlimited resolutions, all 20 AI agent variants, custom AI training, dedicated infrastructure, and a 99.99% uptime SLA. Annual billing is available with a 20% discount (Starter: $799/mo, Growth: $1,999/mo, High: $3,199/mo). Custom Enterprise plans are available for organizations with specialized requirements.",
       "category": "pricing",
-      "tags": ["pricing", "cost", "plans", "tiers"]
+      "tags": [
+        "pricing",
+        "cost",
+        "plans",
+        "tiers"
+      ]
     },
     {
       "id": "faq-price-002",
       "q": "What's included in the Starter plan ($999/month)?",
       "a": "The Starter plan includes: up to 2,000 automated resolutions per month, 5 communication channels (web chat, email, WhatsApp, Messenger, and one additional channel), 3 AI agent variants (e.g., one for general support, one for sales, one for billing), knowledge base integration (up to 500 articles), standard analytics dashboard, email support with 24-hour response time, core integrations (Zendesk, Intercom, Shopify, Salesforce, Stripe), multi-language support (all 50+ languages), and basic customization (brand colors, welcome messages, response tone). The Starter plan is ideal for businesses handling up to 5,000 total monthly conversations and looking to automate routine inquiries.",
       "category": "pricing",
-      "tags": ["starter plan", "features", "basic plan", "$999"]
+      "tags": [
+        "starter plan",
+        "features",
+        "basic plan",
+        "$999"
+      ]
     },
     {
       "id": "faq-price-003",
       "q": "What's included in the Growth plan ($2,499/month)?",
       "a": "The Growth plan builds on everything in Starter with these additional capabilities: up to 10,000 automated resolutions per month, 15 communication channels (all standard channels plus SMS, Instagram, Twitter/X, Slack, and custom), 10 AI agent variants across all four industries, knowledge base integration (up to 5,000 articles), advanced analytics with custom reports, conversation AI insights, and trend analysis, priority support with 4-hour response time and dedicated Slack channel, advanced integrations including custom API access, webhooks, and Zapier, A/B testing for responses, custom escalation workflows, team management with role-based access control, and CSAT/NPS survey integration. The Growth plan is our most popular tier and is designed for scaling businesses handling 5,000-30,000 monthly conversations.",
       "category": "pricing",
-      "tags": ["growth plan", "features", "popular plan", "$2499"]
+      "tags": [
+        "growth plan",
+        "features",
+        "popular plan",
+        "$2499"
+      ]
     },
     {
       "id": "faq-price-004",
       "q": "What's included in the High plan ($3,999/month)?",
       "a": "The High plan is our enterprise-grade offering with everything in Growth plus: unlimited automated resolutions, all 20 AI agent variants, unlimited knowledge base articles, all communication channels including Voice (when available), custom AI model fine-tuning on your specific data, dedicated infrastructure with isolated compute resources, 99.99% uptime SLA, 24/7 premium support with 1-hour response time and dedicated Slack channel, advanced security features (SSO/SAML, IP whitelisting, audit logs), multi-brand and multi-region support, custom API rate limits, priority AI training and optimization, quarterly business reviews with Customer Success, and access to beta features. The High plan is designed for enterprises and high-volume businesses that require maximum performance, customization, and reliability.",
       "category": "pricing",
-      "tags": ["high plan", "enterprise", "features", "$3999"]
+      "tags": [
+        "high plan",
+        "enterprise",
+        "features",
+        "$3999"
+      ]
     },
     {
       "id": "faq-price-005",
       "q": "Is there a discount for annual billing?",
       "a": "Yes, all PARWA plans offer a 20% discount when billed annually. Annual pricing is: Starter at $799/month (billed as $9,588/year, saving $2,400 vs. monthly), Growth at $1,999/month (billed as $23,988/year, saving $6,000 vs. monthly), and High at $3,199/month (billed as $38,388/year, saving $9,600 vs. monthly). Annual plans are paid upfront and include all the same features as monthly plans. You can switch from monthly to annual at any time, and we'll prorate the remaining balance. Annual customers also receive priority access to new features and beta programs.",
       "category": "pricing",
-      "tags": ["annual discount", "yearly billing", "savings", "20% off"]
+      "tags": [
+        "annual discount",
+        "yearly billing",
+        "savings",
+        "20% off"
+      ]
     },
     {
       "id": "faq-price-006",
       "q": "Can I cancel my plan at any time?",
       "a": "Yes, you can cancel your PARWA subscription at any time. For monthly plans, cancellation takes effect at the end of your current billing period — you'll have full access until then with no partial charges. For annual plans, we offer a prorated refund for unused months if you cancel within the first 6 months. After 6 months on an annual plan, you can cancel at the end of the annual term. Upon cancellation, you'll have 30 days to export your data (conversations, analytics, knowledge base content) through our data export tool. We also offer a 30-day money-back guarantee on all new subscriptions — if PARWA doesn't meet your expectations in the first 30 days, you receive a full refund, no questions asked.",
       "category": "pricing",
-      "tags": ["cancellation", "refund", "money-back", "terms"]
+      "tags": [
+        "cancellation",
+        "refund",
+        "money-back",
+        "terms"
+      ]
     },
     {
       "id": "faq-price-007",
       "q": "Are there any hidden fees or additional charges?",
       "a": "No, PARWA has no hidden fees. Your monthly or annual plan price includes everything listed for that tier: unlimited conversations, all included channels, AI agent variants, knowledge base storage, analytics, and support. There are no per-message fees, per-resolution charges, seat licenses, or add-on costs for core features. The only potential additional costs are: if you exceed your plan's resolution limit (Starter: 2,000, Growth: 10,000), overage resolutions are billed at $0.10 each; and if you require custom integrations that fall outside our standard API, our Professional Services team can build them at a quoted rate. But 95% of our customers never incur any charges beyond their plan price.",
       "category": "pricing",
-      "tags": ["hidden fees", "additional costs", "overage", "transparent pricing"]
+      "tags": [
+        "hidden fees",
+        "additional costs",
+        "overage",
+        "transparent pricing"
+      ]
     },
     {
       "id": "faq-price-008",
       "q": "Do you offer a free trial or pilot program?",
       "a": "Yes, we offer two options for prospective customers. First, a 14-day free trial on any plan with full feature access and up to 500 automated resolutions. No credit card required to start. Second, for qualified businesses handling 5,000+ monthly conversations, we offer a 30-day pilot program that includes full deployment, custom AI training on your data, dedicated onboarding support, and a comprehensive ROI report at the end. The pilot program requires a commitment to proceed at the plan rate if satisfied, but includes our 30-day money-back guarantee. Over 85% of pilot participants become long-term customers. Contact our sales team to discuss which option is best for your situation.",
       "category": "pricing",
-      "tags": ["free trial", "pilot program", "demo", "evaluation"]
+      "tags": [
+        "free trial",
+        "pilot program",
+        "demo",
+        "evaluation"
+      ]
     },
     {
       "id": "faq-price-009",
       "q": "What payment methods do you accept?",
       "a": "We accept all major credit and debit cards (Visa, Mastercard, American Express, Discover), ACH/bank transfers for US customers, wire transfers for international customers, and purchase orders for Enterprise plans (net 30 terms). All payments are processed securely through Stripe, and you can manage your billing details, download invoices, and update payment methods from your account dashboard. For annual plans over $25,000, we also support custom invoicing with net 30 or net 60 payment terms.",
       "category": "pricing",
-      "tags": ["payment", "billing", "credit card", "invoicing"]
+      "tags": [
+        "payment",
+        "billing",
+        "credit card",
+        "invoicing"
+      ]
     },
     {
       "id": "faq-ind-001",
       "q": "Which industries does PARWA support?",
-      "a": "PARWA has deep specialization in four industries: E-commerce (online retail, DTC brands, marketplaces, multi-channel sellers), SaaS (B2B software, B2C applications, platforms, developer tools), Logistics (freight forwarding, warehousing, last-mile delivery, supply chain management), and Healthcare (hospitals, clinics, telehealth providers, pharmacies, health tech companies). Within each industry, we offer pre-trained AI agent variants that understand industry-specific terminology, workflows, regulations, and customer expectations. While PARWA can serve businesses outside these four industries, our specialized knowledge base and pre-built integrations deliver the fastest time-to-value within these core verticals.",
+      "a": "PARWA has deep specialization in three industries: E-commerce (online retail, DTC brands, marketplaces, multi-channel sellers), SaaS (B2B software, B2C applications, platforms, developer tools), Logistics (freight forwarding, warehousing, last-mile delivery, supply chain management). Within each industry, we offer pre-trained AI agent variants that understand industry-specific terminology, workflows, regulations, and customer expectations. While PARWA can serve businesses outside these three industries, our specialized knowledge base and pre-built integrations deliver the fastest time-to-value within these core verticals.",
       "category": "industries",
-      "tags": ["industries", "verticals", "sectors", "specialization"]
+      "tags": [
+        "industries",
+        "verticals",
+        "sectors",
+        "specialization"
+      ]
     },
     {
       "id": "faq-ind-002",
       "q": "How does PARWA help e-commerce businesses?",
       "a": "PARWA addresses the unique challenges of e-commerce support with specialized AI agents for: Order Management — tracking, modifications, cancellations, and returns. Product Questions — sizing, compatibility, availability, and recommendations from your catalog. Payment Issues — troubleshooting declined cards, explaining charges, and processing refunds. Shipping & Delivery — real-time tracking, estimated delivery dates, and carrier communication. WISMO (Where Is My Order) — the highest-volume e-commerce inquiry, handled autonomously with carrier integration. PARWA integrates with Shopify, WooCommerce, Magento, BigCommerce, and 20+ other e-commerce platforms to provide real-time data. E-commerce customers typically see a 60-70% auto-resolution rate and a 12% increase in conversion from chat interactions.",
       "category": "industries",
-      "tags": ["ecommerce", "retail", "online shopping", "DTC"]
+      "tags": [
+        "ecommerce",
+        "retail",
+        "online shopping",
+        "DTC"
+      ]
     },
     {
       "id": "faq-ind-003",
       "q": "How does PARWA help SaaS companies?",
       "a": "PARWA is purpose-built for SaaS support with AI agents trained on common SaaS workflows: Technical Troubleshooting — error resolution, configuration help, and bug reporting with full context capture. Billing & Subscription — plan changes, upgrade/downgrade, invoice questions, and payment issues. Feature Guidance — how-to questions, feature discovery, and best practice recommendations. Account Management — password resets, user provisioning, permission changes, and data export. API Support — error code explanation, rate limit issues, webhook troubleshooting, and integration guidance. PARWA integrates with tools like Stripe, Chargebee, Jira, GitHub, and all major helpdesks. SaaS customers typically reduce their average first response time from hours to under 30 seconds and lower their cost per resolution by 65%.",
       "category": "industries",
-      "tags": ["saas", "software", "tech support", "subscription"]
+      "tags": [
+        "saas",
+        "software",
+        "tech support",
+        "subscription"
+      ]
     },
     {
       "id": "faq-ind-004",
       "q": "How does PARWA help logistics companies?",
       "a": "PARWA addresses logistics-specific support challenges with specialized capabilities: Shipment Tracking — real-time multi-carrier tracking with proactive delay alerts and predictive ETAs. Claims & Damage — guided claim filing, photo documentation collection, and carrier claim status tracking. Inventory & Warehousing — stock level inquiries, warehouse availability, and restock timelines. Route & Delivery — delivery scheduling, fleet status, and proof of delivery retrieval. Customs & Compliance — documentation requirements, duty estimation, and trade regulation guidance. PARWA integrates with carrier APIs (FedEx, UPS, DHL, USPS, and 50+ regional carriers), WMS systems, and TMS platforms. Logistics customers typically reduce tracking-related inquiries by 60% and claims processing time by 50%.",
       "category": "industries",
-      "tags": ["logistics", "shipping", "freight", "supply chain"]
-    },
-    {
-      "id": "faq-ind-005",
-      "q": "How does PARWA help healthcare organizations?",
-      "a": "PARWA provides HIPAA-compliant AI support specifically designed for healthcare: Appointment Management — scheduling, rescheduling, cancellations, and reminders integrated with EHR systems (Epic, Cerner, Athenahealth). Insurance Verification — real-time eligibility checks, coverage confirmation, copay estimation, and pre-authorization status. Prescription Support — refill requests, pharmacy coordination, and medication information (non-clinical). Telehealth — technical setup guidance, visit preparation, and post-visit follow-up. Patient Inquiries — general information, facility details, provider directories, and billing questions. PARWA is HIPAA compliant with Business Associate Agreements, full audit logging, and PHI-aware data handling. Healthcare customers typically reduce front-desk call volume by 40% and patient wait time for appointment scheduling by 65%.",
-      "category": "industries",
-      "tags": ["healthcare", "hipaa", "medical", "patient support"]
+      "tags": [
+        "logistics",
+        "shipping",
+        "freight",
+        "supply chain"
+      ]
     },
     {
       "id": "faq-ind-006",
       "q": "Can PARWA handle B2B and B2C support?",
       "a": "Yes, PARWA handles both B2B and B2C support effectively, and can even manage both simultaneously for businesses that serve both segments. For B2C, PARWA excels at high-volume, fast-paced interactions with quick resolution expectations. For B2B, PARWA supports longer, more complex conversations with account-level context, multi-stakeholder communication, and detailed technical troubleshooting. You can configure different AI agent variants, escalation paths, and response styles for B2B vs. B2C channels. For example, your web chat might use a friendly, concise style for consumers, while your email support uses a more detailed, formal approach for business clients. All interactions maintain full context and customer history regardless of the segment.",
       "category": "industries",
-      "tags": ["b2b", "b2c", "business segments", "configuration"]
+      "tags": [
+        "b2b",
+        "b2c",
+        "business segments",
+        "configuration"
+      ]
     },
     {
       "id": "faq-ind-007",
       "q": "Can I use PARWA for internal employee support (IT helpdesk, HR)?",
       "a": "Yes, PARWA is increasingly popular for internal support use cases. Many customers deploy PARWA as an internal IT helpdesk that handles password resets, software access requests, hardware troubleshooting, VPN issues, and IT policy questions. HR teams use PARWA for benefits inquiries, PTO requests, company policy questions, onboarding guidance, and document requests. Internal deployments use the same AI technology but connect to internal knowledge bases (Confluence, Notion, SharePoint) and systems (Active Directory, Okta, ServiceNow). Internal support typically achieves even higher auto-resolution rates (75-85%) because internal queries tend to be more structured and well-documented. Internal deployments are available on all plans and use the same resolution limits as external support.",
       "category": "industries",
-      "tags": ["internal support", "IT helpdesk", "HR", "employee support"]
+      "tags": [
+        "internal support",
+        "IT helpdesk",
+        "HR",
+        "employee support"
+      ]
     },
     {
       "id": "faq-ind-008",
       "q": "Does PARWA work for small businesses or is it only for enterprises?",
       "a": "PARWA serves businesses of all sizes. Our Starter plan at $999/month is specifically designed for small and growing businesses handling up to 5,000 monthly conversations. Many of our most enthusiastic customers are teams of 5-20 people who use PARWA to punch above their weight in customer support quality. Small businesses benefit enormously from PARWA because it effectively gives them 24/7 support coverage without needing to hire night or weekend staff. The time savings are also proportionally larger — a 3-person support team that automates 60% of their workload effectively gains the capacity of nearly 2 additional full-time employees. We also offer a Pay-Per-Resolution model for businesses with very low or unpredictable volumes.",
       "category": "industries",
-      "tags": ["small business", "smb", "startup", "enterprise"]
+      "tags": [
+        "small business",
+        "smb",
+        "startup",
+        "enterprise"
+      ]
     },
     {
       "id": "faq-feat-001",
       "q": "What AI technology does PARWA use?",
       "a": "PARWA uses a sophisticated AI stack built on enterprise-grade large language models (LLMs). Our core technology includes: a Retrieval-Augmented Generation (RAG) architecture that grounds every response in your verified knowledge base, preventing hallucination; a multi-model ensemble approach that routes different types of queries to the most appropriate model for optimal quality and speed; custom fine-tuning on industry-specific datasets and your company's data for domain expertise; an intent classification engine with 95%+ accuracy for proper routing and escalation; a sentiment analysis module that detects customer frustration and triggers proactive escalation; and a continuous learning system that improves response quality by 15% month-over-month based on agent feedback and customer outcomes. Our AI infrastructure runs on dedicated enterprise GPU clusters with sub-2-second response times.",
       "category": "features",
-      "tags": ["ai technology", "llm", "machine learning", "architecture"]
+      "tags": [
+        "ai technology",
+        "llm",
+        "machine learning",
+        "architecture"
+      ]
     },
     {
       "id": "faq-feat-002",
       "q": "How does the knowledge base work?",
       "a": "PARWA's knowledge base is the foundation of accurate AI responses. It works by ingesting your existing content — help articles, FAQs, product documentation, policies, procedures, and any text-based resources. During onboarding, we import your content from sources like Zendesk Guide, Confluence, Notion, Google Docs, PDFs, web URLs, and CSV files. PARWA indexes this content using semantic search, which means it understands meaning and context rather than just matching keywords. When a customer asks a question, PARWA retrieves the most relevant knowledge base entries and uses them to generate a response. Key features: automatic content syncing keeps your knowledge base up-to-date, content gap detection identifies topics not covered in your documentation, and analytics show which knowledge base articles are most referenced so you can prioritize documentation improvements. You maintain your knowledge base through a simple content management interface — just add, edit, or remove articles as your products and policies evolve.",
       "category": "features",
-      "tags": ["knowledge base", "content", "documentation", "rag"]
+      "tags": [
+        "knowledge base",
+        "content",
+        "documentation",
+        "rag"
+      ]
     },
     {
       "id": "faq-feat-003",
       "q": "What integrations does PARWA support?",
-      "a": "PARWA offers 100+ native integrations organized by category: Helpdesk & Ticketing — Zendesk, Intercom, Freshdesk, Help Scout, Kayako, and 10+ others. E-commerce — Shopify, WooCommerce, Magento, BigCommerce, Salesforce Commerce, and 15+ others. CRM — Salesforce, HubSpot, Pipedrive, Zoho CRM, and 10+ others. Payment — Stripe, PayPal, Braintree, Adyen, and 10+ others. Communication — Slack, Microsoft Teams, Twilio, and email providers. Analytics — Google Analytics, Mixpanel, Segment, and others. Developer Tools — Jira, GitHub, GitLab, PagerDuty. Healthcare — Epic, Cerner, Athenahealth (via HL7/FHIR). Logistics — carrier APIs (FedEx, UPS, DHL, USPS), WMS systems, and TMS platforms. For anything not covered by native integrations, our REST API and webhook system enable custom connections. Zapier integration is available on Growth and High plans for no-code connectivity to 5,000+ apps.",
+      "a": "PARWA offers 100+ native integrations organized by category: Helpdesk & Ticketing — Zendesk, Intercom, Freshdesk, Help Scout, Kayako, and 10+ others. E-commerce — Shopify, WooCommerce, Magento, BigCommerce, Salesforce Commerce, and 15+ others. CRM — Salesforce, HubSpot, Pipedrive, Zoho CRM, and 10+ others. Payment — Stripe, PayPal, Braintree, Adyen, and 10+ others. Communication — Slack, Microsoft Teams, Twilio, and email providers. Analytics — Google Analytics, Mixpanel, Segment, and others. Developer Tools — Jira, GitHub, GitLab, PagerDuty.. Logistics — carrier APIs (FedEx, UPS, DHL, USPS), WMS systems, and TMS platforms. For anything not covered by native integrations, our REST API and webhook system enable custom connections. Zapier integration is available on Growth and High plans for no-code connectivity to 5,000+ apps.",
       "category": "features",
-      "tags": ["integrations", "api", "connectors", "third-party"]
+      "tags": [
+        "integrations",
+        "api",
+        "connectors",
+        "third-party"
+      ]
     },
     {
       "id": "faq-feat-004",
       "q": "Can PARWA transfer conversations to human agents?",
       "a": "Yes, seamless human handoff is a core feature of PARWA. The AI transfers to a human agent in several scenarios: when confidence in the response falls below your threshold (default 85%), when the customer explicitly requests to speak to a human, when sentiment analysis detects high frustration or anger, when the query falls outside PARWA's scope, or based on custom rules you define (e.g., always escalate refund requests over $500). During handoff, PARWA provides the human agent with a complete conversation summary, customer profile, relevant account data, and suggested responses based on the conversation history. This context transfer reduces the customer having to repeat themselves and cuts agent ramp-up time by 80%. Transfers can be routed to specific teams or individuals based on the issue type, and you can configure queue prioritization rules.",
       "category": "features",
-      "tags": ["handoff", "escalation", "human agent", "transfer"]
+      "tags": [
+        "handoff",
+        "escalation",
+        "human agent",
+        "transfer"
+      ]
     },
     {
       "id": "faq-feat-005",
       "q": "Can I customize PARWA's brand voice and personality?",
       "a": "Absolutely. PARWA offers comprehensive brand voice customization across multiple dimensions: Tone (professional, friendly, casual, witty, empathetic — or any custom combination), Formality level (suitable for enterprise clients vs. consumer brands), Industry terminology and jargon handling, Greeting and sign-off messages for each channel, Response length preferences (concise vs. detailed), Brand-specific language (how you refer to products, features, and processes), Prohibited language (words or phrases to avoid), and Emoji usage rules. You can create multiple brand voice profiles for different channels or customer segments. For example, your WhatsApp channel might use a friendly, emoji-rich style while your email support uses a more formal approach. All voice profiles are applied consistently through our prompt engineering layer and can be adjusted anytime without technical assistance.",
       "category": "features",
-      "tags": ["brand voice", "personality", "customization", "tone"]
+      "tags": [
+        "brand voice",
+        "personality",
+        "customization",
+        "tone"
+      ]
     },
     {
       "id": "faq-feat-006",
       "q": "What analytics and reporting does PARWA provide?",
       "a": "PARWA provides comprehensive analytics through a real-time dashboard: Conversation Metrics — total conversations, auto-resolved vs. escalated, resolution rate, average response time, and conversation length. Customer Satisfaction — CSAT scores, NPS trends, and sentiment analysis over time. Performance Analytics — AI confidence scores, accuracy rates, and escalation patterns. Business Insights — trending topics, knowledge base gaps, peak volume patterns, and channel performance comparison. Agent Performance — resolution rates, average handle time, customer feedback, and escalation quality. Financial Impact — cost savings calculations, ROI tracking, and efficiency gains. Custom Reports — on Growth and High plans, build custom reports with drag-and-drop filters, schedule automated email delivery, and export to CSV/PDF. All data is available via API for integration with your existing BI tools (Tableau, Looker, Power BI).",
       "category": "features",
-      "tags": ["analytics", "reporting", "dashboard", "metrics"]
+      "tags": [
+        "analytics",
+        "reporting",
+        "dashboard",
+        "metrics"
+      ]
     },
     {
       "id": "faq-feat-007",
       "q": "What are AI agent variants?",
-      "a": "AI agent variants are specialized versions of the PARWA AI, each trained for a specific function or industry use case. Think of them as expert agents within your team. PARWA offers 20 pre-built variants across our four industries: E-commerce (Order Support Agent, Product Expert Agent, Returns & Refunds Agent, Payment Support Agent, Shipping & Tracking Agent), SaaS (Technical Support Agent, Billing & Subscription Agent, Onboarding Agent, Feature Guide Agent, API Support Agent), Logistics (Shipment Tracking Agent, Claims & Damage Agent, Warehouse Operations Agent, Fleet Management Agent, Customs & Compliance Agent), and Healthcare (Appointment Scheduling Agent, Insurance Verification Agent, Prescription Support Agent, Telehealth Agent, Patient Inquiry Agent). Each variant has specialized knowledge, conversation flows, and escalation protocols for its domain. On the Starter plan you get 3 variants, Growth gives 10, and High includes all 20. You can also create custom variants tailored to your specific needs.",
+      "a": "AI agent variants are specialized versions of the PARWA AI, each trained for a specific function or industry use case. Think of them as expert agents within your team. PARWA offers 20 pre-built variants across our three industries: E-commerce (Order Support Agent, Product Expert Agent, Returns & Refunds Agent, Payment Support Agent, Shipping & Tracking Agent), SaaS (Technical Support Agent, Billing & Subscription Agent, Onboarding Agent, Feature Guide Agent, API Support Agent), Logistics (Shipment Tracking Agent, Claims & Damage Agent, Warehouse Operations Agent, Fleet Management Agent, Customs & Compliance Agent). Each variant has specialized knowledge, conversation flows, and escalation protocols for its domain. On the Starter plan you get 3 variants, Growth gives 10, and High includes all 20. You can also create custom variants tailored to your specific needs.",
       "category": "features",
-      "tags": ["ai agents", "variants", "specialization", "agents"]
+      "tags": [
+        "ai agents",
+        "variants",
+        "specialization",
+        "agents"
+      ]
     },
     {
       "id": "faq-feat-008",
       "q": "Does PARWA support proactive messaging and campaigns?",
       "a": "Yes, PARWA includes proactive outreach capabilities on Growth and High plans. You can configure proactive messages that trigger based on: Customer behavior (abandoned cart, browsing a pricing page for 3+ minutes, repeated visits to the same product), Time-based triggers (order status update, delivery window reminder, subscription renewal approaching), Lifecycle events (onboarding sequence, re-engagement after inactivity, satisfaction survey after ticket resolution), and Segmentation (target specific customer segments by plan type, geography, purchase history, or behavior). Proactive messages can be sent via web chat (as a non-intrusive bubble), email, SMS, or WhatsApp. All proactive campaigns include A/B testing, open/engagement tracking, and conversion analytics. Proactive messaging has shown to increase customer engagement by 40% and drive 15% additional revenue from upsell opportunities.",
       "category": "features",
-      "tags": ["proactive messaging", "campaigns", "outreach", "automation"]
+      "tags": [
+        "proactive messaging",
+        "campaigns",
+        "outreach",
+        "automation"
+      ]
     },
     {
       "id": "faq-setup-001",
       "q": "How long does it take to set up PARWA?",
       "a": "PARWA's typical deployment timeline is 10-14 business days from contract signing to full production launch. Here's the breakdown: Days 1-2: Account provisioning, workspace setup, and initial integration connections. Days 3-5: Knowledge base import, indexing, and AI training on your content. Days 6-7: Custom configuration (brand voice, escalation rules, workflow setup, channel configuration). Days 8-10: Soft launch with 10-20% of traffic for quality monitoring and fine-tuning. Days 11-14: Full production rollout with ongoing optimization. The process is fully managed by our onboarding team — your involvement is typically limited to a 1-hour kick-off call, providing access to your systems, and reviewing the initial configuration. No technical work is required from your side. For simple deployments (single channel, standard integrations), some customers go live in as few as 5 business days.",
       "category": "setup",
-      "tags": ["setup time", "deployment", "timeline", "implementation"]
+      "tags": [
+        "setup time",
+        "deployment",
+        "timeline",
+        "implementation"
+      ]
     },
     {
       "id": "faq-setup-002",
       "q": "Do you help with data migration from our current system?",
       "a": "Yes, our onboarding team handles data migration as part of the setup process at no additional cost. We migrate: Knowledge base content from your current helpdesk (Zendesk Guide, Intercom Articles, Freshdesk Solutions, Confluence, Notion, or any structured format), Historical ticket data for AI training (anonymized conversation logs that help the AI learn your common issues and resolutions), Customer data mappings for integration with your CRM, and Configuration data from your current chatbot (if applicable) including greeting messages, escalation rules, and workflow definitions. Our team provides a data migration checklist specific to your current systems and handles the technical work. You simply need to export the data or provide API credentials, and we take care of the rest. The migration process typically takes 2-3 business days and runs in parallel with other setup activities.",
       "category": "setup",
-      "tags": ["data migration", "import", "transfer", "onboarding"]
+      "tags": [
+        "data migration",
+        "import",
+        "transfer",
+        "onboarding"
+      ]
     },
     {
       "id": "faq-setup-003",
       "q": "What do I need to provide to get started?",
-      "a": "To get started with PARWA, you need to provide: Access credentials for your helpdesk platform (Zendesk, Intercom, etc.) for integration, Your knowledge base content (help articles, FAQs, policies) — either as an export file or access to your documentation system, Brand guidelines (tone of voice, messaging style, prohibited language), Escalation rules (which issues should always go to humans, team assignments), and Channel-specific configurations (WhatsApp Business account, social media page access). That's it. Our onboarding team handles everything else — technical integration, knowledge base structuring, AI training, and testing. You don't need to provide any code, API development, or technical implementation. For more complex setups involving custom integrations or healthcare compliance, additional information may be needed, which your dedicated onboarding specialist will outline.",
+      "a": "To get started with PARWA, you need to provide: Access credentials for your helpdesk platform (Zendesk, Intercom, etc.) for integration, Your knowledge base content (help articles, FAQs, policies) — either as an export file or access to your documentation system, Brand guidelines (tone of voice, messaging style, prohibited language), Escalation rules (which issues should always go to humans, team assignments), and Channel-specific configurations (WhatsApp Business account, social media page access). That's it. Our onboarding team handles everything else — technical integration, knowledge base structuring, AI training, and testing. You don't need to provide any code, API development, or technical implementation. For more complex setups involving custom integrations, additional information may be needed, which your dedicated onboarding specialist will outline.",
       "category": "setup",
-      "tags": ["getting started", "requirements", "checklist", "onboarding"]
+      "tags": [
+        "getting started",
+        "requirements",
+        "checklist",
+        "onboarding"
+      ]
     },
     {
       "id": "faq-setup-004",
       "q": "How do I train PARWA on my specific products and policies?",
       "a": "PARWA trains on your content automatically through our knowledge base ingestion process. Here's how it works: You provide your product documentation, help articles, FAQs, policy documents, and any other relevant content in any common format (PDF, Word, HTML, Markdown, plain text, or direct URL). Our system indexes this content using semantic search technology, making it retrievable by the AI. The AI then uses this content as its knowledge foundation — it generates responses based on your documentation, not from general internet knowledge. There's no manual training process, no example Q&A pairs to create, and no prompt engineering required. As your products and policies change, simply update your knowledge base articles and PARWA adapts automatically within minutes. On the High plan, we also offer custom AI fine-tuning where the model is specifically trained on your conversation history for even more domain-specific accuracy.",
       "category": "setup",
-      "tags": ["training", "knowledge base", "product content", "AI training"]
+      "tags": [
+        "training",
+        "knowledge base",
+        "product content",
+        "AI training"
+      ]
     },
     {
       "id": "faq-setup-005",
       "q": "Can I test PARWA before deploying to real customers?",
       "a": "Yes, we encourage thorough testing before going live. PARWA provides a testing environment that mirrors your production configuration exactly. You can: Run simulated conversations to test how PARWA handles specific scenarios, Invite internal team members to interact with the test instance and provide feedback, Review AI-generated responses and adjust knowledge base content if needed, Test escalation workflows and human handoff processes, Verify integration data accuracy (order lookups, account information, etc.), and Compare multiple brand voice configurations side-by-side. The testing environment is available throughout the onboarding period and remains accessible after launch for testing new configurations. Our team also provides a testing checklist based on your industry with 50+ test scenarios. We recommend at least 3-5 days of testing before the soft launch phase.",
       "category": "setup",
-      "tags": ["testing", "sandbox", " qa", "pre-launch"]
+      "tags": [
+        "testing",
+        "sandbox",
+        " qa",
+        "pre-launch"
+      ]
     },
     {
       "id": "faq-setup-006",
       "q": "What happens during the soft launch phase?",
       "a": "The soft launch (days 8-10 of deployment) is a controlled rollout where PARWA handles a small percentage of real traffic (typically 10-20%) while we monitor performance closely. During this phase, our team monitors: AI response accuracy and relevance, Customer satisfaction scores for AI-handled conversations, Escalation rates and escalation quality, False positive and false negative rates for auto-resolution, Response time and uptime performance. We collect data, identify any edge cases or knowledge gaps, and make real-time adjustments. This is also when agent feedback is most valuable — your team can review AI responses, correct them, and those corrections immediately improve the model. The soft launch gives you confidence that PARWA is performing well before going to 100% traffic. Most customers expand from 10% to 100% within 2-3 days once they're satisfied with the quality.",
       "category": "setup",
-      "tags": ["soft launch", "phased rollout", "monitoring", "quality assurance"]
-    },
-    {
-      "id": "faq-sec-001",
-      "q": "How does PARWA protect customer data?",
-      "a": "PARWA employs enterprise-grade security measures to protect all customer data: Encryption — all data is encrypted at rest using AES-256 and in transit using TLS 1.3. Data Isolation — each customer's data is fully isolated in dedicated tenant environments with no cross-tenant access. Access Control — role-based access control (RBAC) with SSO/SAML integration on Growth and High plans. Audit Logging — comprehensive audit logs track all data access, modifications, and API calls. Infrastructure — hosted on AWS and Azure with SOC 2 Type II certified infrastructure. Data Retention — configurable data retention policies; you control how long conversation data is stored. Data Portability — full data export capability at any time. Penetration Testing — quarterly penetration testing by independent security firms. Vulnerability Management — continuous scanning with automated remediation. Incident Response — documented incident response plan with 5-minute engagement SLA for security events. Your data is never used to train models for other customers.",
-      "category": "security",
-      "tags": ["data protection", "encryption", "privacy", "security"]
+      "tags": [
+        "soft launch",
+        "phased rollout",
+        "monitoring",
+        "quality assurance"
+      ]
     },
     {
       "id": "faq-sec-002",
       "q": "Is PARWA GDPR compliant?",
       "a": "Yes, PARWA is fully GDPR compliant. We provide: Data Processing Agreements (DPAs) available upon request for all customers, Legal basis for processing mapped to each data processing activity, Right to Access — customers can export all their data at any time, Right to Erasure — customers can request complete deletion of their data, Right to Rectification — customers can correct any inaccurate data, Data Portability — exports available in standard formats (JSON, CSV), Privacy by Design — data minimization, purpose limitation, and storage limitation built into our architecture, Cookie and tracking consent management for the web chat widget, Sub-processor disclosure — full list of sub-processors available upon request, Data Protection Officer (DPO) contact available for data subject inquiries, and Regular GDPR compliance audits by external legal counsel. EU customers can choose EU-only data residency to ensure their data never leaves European data centers.",
       "category": "security",
-      "tags": ["gdpr", "compliance", "eu", "data protection"]
-    },
-    {
-      "id": "faq-sec-003",
-      "q": "Is PARWA HIPAA compliant for healthcare customers?",
-      "a": "Yes, PARWA is HIPAA compliant for healthcare organizations. Our healthcare-specific compliance measures include: Business Associate Agreements (BAAs) available for all healthcare customers, PHI-aware data handling — the AI is configured to identify and handle Protected Health Information appropriately, Access logging with full audit trails for all PHI access, Role-based access controls ensuring only authorized personnel access PHI, Encryption of PHI at rest (AES-256) and in transit (TLS 1.3), Minimum necessary standard — PARWA only accesses the minimum PHI needed for each interaction, De-identification capabilities for analytics and AI training, Breach notification procedures compliant with HIPAA requirements, Regular HIPAA security risk assessments by qualified external assessors, and Healthcare-specific AI agent variants designed with clinical safety boundaries (never provides medical advice or diagnoses). Our compliance documentation, including our security risk assessment and BAAs, is available under NDA during the evaluation process.",
-      "category": "security",
-      "tags": ["hipaa", "healthcare", "phi", "compliance"]
+      "tags": [
+        "gdpr",
+        "compliance",
+        "eu",
+        "data protection"
+      ]
     },
     {
       "id": "faq-sec-004",
       "q": "Where is my data stored and do I have data residency options?",
       "a": "PARWA stores data in AWS and Azure data centers with geographic options: United States (default) — AWS US-East and US-West regions, European Union — AWS EU (Frankfurt, Ireland) for GDPR data residency requirements, Asia Pacific — AWS AP (Singapore, Tokyo, Sydney) for customers requiring regional data storage. You can select your preferred data residency region during account setup, and data will never be processed or stored outside your chosen region. All regions maintain the same security standards, encryption levels, and compliance certifications. High plan and Enterprise customers can also configure multi-region replication for disaster recovery purposes. Our data center locations and compliance certifications are documented in our SOC 2 Type II report, available upon request under NDA.",
       "category": "security",
-      "tags": ["data residency", "data center", "storage location", "geography"]
+      "tags": [
+        "data residency",
+        "data center",
+        "storage location",
+        "geography"
+      ]
     },
     {
       "id": "faq-sec-005",
       "q": "Is my data used to train AI models for other customers?",
       "a": "No, absolutely not. PARWA maintains strict data isolation between all customers. Your data — including conversations, knowledge base content, customer information, and any other data processed through PARWA — is never used to train or improve AI models for any other customer. Each customer has a fully isolated tenant environment with separate data stores, model instances, and processing pipelines. The AI learns and improves only from your own data, within your own environment. This isolation is enforced at the infrastructure level through dedicated compute resources and cryptographic separation. This policy is documented in our Data Processing Agreement and audited as part of our SOC 2 Type II certification. You retain full ownership of all data processed through PARWA.",
       "category": "security",
-      "tags": ["data isolation", "tenant isolation", "model training", "data ownership"]
+      "tags": [
+        "data isolation",
+        "tenant isolation",
+        "model training",
+        "data ownership"
+      ]
     },
     {
       "id": "faq-sec-006",
       "q": "What security certifications does PARWA have?",
-      "a": "PARWA holds and maintains the following security certifications and compliance standards: SOC 2 Type II — audited annually by an independent CPA firm, covering security, availability, processing integrity, confidentiality, and privacy. GDPR — full compliance with EU General Data Protection Regulation. HIPAA — compliance with US Health Insurance Portability and Accountability Act (for healthcare customers). PCI DSS Level 1 — compliance with Payment Card Industry Data Security Standard for handling payment-related data. ISO 27001 — certification for our information security management system (in progress, expected Q2 2025). CSA STAR — Cloud Security Alliance certification for cloud security practices. Our compliance documentation, including audit reports and certificates, is available upon request under NDA. We also undergo quarterly penetration testing by independent security firms (including HackerOne bug bounty program) and maintain a responsible disclosure program.",
+      "a": "PARWA holds and maintains the following security certifications and compliance standards: SOC 2 Type II — audited annually by an independent CPA firm, covering security, availability, processing integrity, confidentiality, and privacy. GDPR — full compliance with EU General Data Protection Regulation. PCI DSS Level 1 — compliance with Payment Card Industry Data Security Standard for handling payment-related data. ISO 27001 — certification for our information security management system (in progress, expected Q2 2025). CSA STAR — Cloud Security Alliance certification for cloud security practices. Our compliance documentation, including audit reports and certificates, is available upon request under NDA. We also undergo quarterly penetration testing by independent security firms (including HackerOne bug bounty program) and maintain a responsible disclosure program.",
       "category": "security",
-      "tags": ["certifications", "soc2", "pci", "compliance"]
+      "tags": [
+        "certifications",
+        "soc2",
+        "pci",
+        "compliance"
+      ]
     },
     {
       "id": "faq-sup-001",
       "q": "What customer support does PARWA provide?",
       "a": "PARWA offers tiered customer support across our plans: Starter Plan — email support with 24-hour response time, access to our help center with 500+ articles, community forum, and standard onboarding. Growth Plan — priority email and chat support with 4-hour response time, dedicated Slack channel for real-time communication, access to a named Customer Success Manager, priority onboarding with same-day integration start, and monthly check-in calls. High Plan — 24/7 premium support via email, chat, and phone with 1-hour response time, dedicated Slack channel with guaranteed 15-minute response during business hours, named Customer Success Manager and Technical Account Manager, quarterly business reviews, custom training sessions, and access to our engineering team for complex technical needs. All customers also have access to our status page (status.parwa.ai) for real-time system health monitoring.",
       "category": "support",
-      "tags": ["customer support", "help", "response time", "contact"]
+      "tags": [
+        "customer support",
+        "help",
+        "response time",
+        "contact"
+      ]
     },
     {
       "id": "faq-sup-002",
       "q": "What are the support response times?",
       "a": "Our support response time SLAs are: Starter Plan — 24 hours for email support (business days). Growth Plan — 4 hours for email and chat support, with a dedicated Slack channel for real-time questions. High Plan — 1 hour for all channels (email, chat, phone), 15 minutes on the dedicated Slack channel during business hours, and 1-hour emergency response for critical issues. Critical issues (service outage, data breach, complete functionality loss) receive immediate escalation regardless of plan, with a 5-minute initial response SLA. All response times are measured during business hours (Monday-Friday, 9 AM - 6 PM in your timezone) unless you're on the High plan with 24/7 support. Our actual performance consistently exceeds these SLAs — our average first response time across all plans is under 2 hours.",
       "category": "support",
-      "tags": ["response time", "sla", "support hours", "availability"]
+      "tags": [
+        "response time",
+        "sla",
+        "support hours",
+        "availability"
+      ]
     },
     {
       "id": "faq-sup-003",
       "q": "How do I contact PARWA support?",
       "a": "You can reach PARWA support through multiple channels: In-App — use the support widget in your PARWA dashboard for the fastest routing based on your plan tier. Email — support@parwa.ai for general inquiries, with your account ID in the subject line for faster service. Dedicated Slack Channel — available for Growth and High plan customers, providing real-time communication with our team. Phone — available for High plan customers, with the direct number provided by your Customer Success Manager. Help Center — visit help.parwa.ai for self-service access to 500+ articles, video tutorials, API documentation, and troubleshooting guides. Community Forum — community.parwa.ai for peer discussions, feature requests, and best practice sharing. For sales inquiries, contact sales@parwa.ai or schedule a call directly through our website.",
       "category": "support",
-      "tags": ["contact", "support channels", "help center", "phone"]
+      "tags": [
+        "contact",
+        "support channels",
+        "help center",
+        "phone"
+      ]
     },
     {
       "id": "faq-sup-004",
       "q": "Is there a knowledge base or documentation I can access?",
       "a": "Yes, PARWA provides comprehensive self-service resources: Help Center (help.parwa.ai) — 500+ articles covering setup, configuration, best practices, troubleshooting, and advanced features, organized by topic and difficulty level. API Documentation (docs.parwa.ai) — complete REST API reference with interactive examples, authentication guides, and integration tutorials. Video Library — 100+ video tutorials covering everything from basic setup to advanced configuration. Blog (parwa.ai/blog) — product updates, industry insights, customer success stories, and best practice guides. Webinars — monthly live webinars on feature deep-dives, industry-specific use cases, and customer panels. Release Notes — detailed changelog updated with every product release. All documentation is searchable and regularly updated. Growth and High plan customers also have access to a private knowledge base with advanced implementation guides and configuration blueprints.",
       "category": "support",
-      "tags": ["documentation", "help center", "knowledge base", "tutorials"]
+      "tags": [
+        "documentation",
+        "help center",
+        "knowledge base",
+        "tutorials"
+      ]
     }
   ]
 }

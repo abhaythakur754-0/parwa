@@ -43,7 +43,7 @@ VALID_APOLOGY_STYLES = {"formal", "empathetic", "solution-focused"}
 VALID_ESCALATION_TONES = {"urgent", "calm", "reassuring"}
 
 VALID_INDUSTRIES = {
-    "tech", "ecommerce", "healthcare", "finance",
+    "tech", "ecommerce", "finance",
     "education", "legal", "hospitality",
 }
 
@@ -197,24 +197,6 @@ _INDUSTRY_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "custom_instructions": (
             "Focus on order status, returns, and product info. "
             "Be warm and approachable."
-        ),
-    },
-    "healthcare": {
-        "tone": "empathetic",
-        "formality_level": 0.8,
-        "response_length_preference": "detailed",
-        "greeting_template": "Thank you for contacting us.",
-        "closing_template": "We are here to support your health needs.",
-        "emoji_usage": "none",
-        "apology_style": "empathetic",
-        "escalation_tone": "calm",
-        "prohibited_words": [
-            "cure", "guarantee", "100%", "miracle", "instant results",
-        ],
-        "custom_instructions": (
-            "Always include appropriate disclaimers. "
-            "Never provide medical diagnoses. "
-            "Encourage users to consult healthcare professionals."
         ),
     },
     "finance": {

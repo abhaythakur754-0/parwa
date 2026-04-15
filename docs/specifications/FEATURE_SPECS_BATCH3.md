@@ -842,7 +842,7 @@ LLM Response Generated
     ├── Layer 4: Policy Compliance Check
     │   ├── Check for unauthorized promises (refund guarantees, SLA commitments)
     │   ├── Check for competitor mentions or disparagement
-    │   ├── Check for legal/medical/financial advice
+    │   ├── Check for legal/financial advice
     │   └── Pass → Layer 5
     │
     ├── Layer 5: Brand Voice Check

@@ -975,9 +975,9 @@ class TestBrandVoiceCRUD:
         from backend.app.services.brand_voice_service import BrandVoiceService
 
         svc = BrandVoiceService(redis_client=mock_redis)
-        config = await svc.get_default_config("healthcare")
-        assert config.industry == "healthcare"
-        assert config.formality_level == 0.8
+        config = await svc.get_default_config("finance")
+        assert config.industry == "finance"
+        assert config.formality_level == 0.9
 
 
 class TestBrandVoiceProhibitedWordsGAP021:
@@ -1060,7 +1060,7 @@ class TestBrandVoiceProhibitedWordsGAP021:
 
 
 class TestBrandVoiceIndustryDefaults:
-    """Test all 7 industry defaults."""
+    """Test all 6 industry defaults."""
 
     @pytest.mark.asyncio
     async def test_tech_defaults(self):
@@ -1077,14 +1077,6 @@ class TestBrandVoiceIndustryDefaults:
         config = await svc.get_default_config("ecommerce")
         assert config.tone == "friendly"
         assert config.formality_level == 0.4
-
-    @pytest.mark.asyncio
-    async def test_healthcare_defaults(self):
-        from backend.app.services.brand_voice_service import BrandVoiceService
-        svc = BrandVoiceService()
-        config = await svc.get_default_config("healthcare")
-        assert config.tone == "empathetic"
-        assert config.formality_level == 0.8
 
     @pytest.mark.asyncio
     async def test_finance_defaults(self):

@@ -10,7 +10,7 @@ interface BookDemoModalProps {
   preSelectedIndustry?: string;
 }
 
-const INDUSTRIES = ['E-commerce', 'SaaS', 'Logistics', 'Healthcare', 'Other'];
+const INDUSTRIES = ['E-commerce', 'SaaS', 'Logistics', 'Other'];
 
 const TIME_SLOTS = [
   '9:00 AM - 10:00 AM',

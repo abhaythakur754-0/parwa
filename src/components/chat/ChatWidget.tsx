@@ -29,8 +29,6 @@ function detectContextFromMessages(messages: Message[]): { industry: string | nu
     detectedIndustry = 'saas';
   } else if (allText.includes('logistics') || allText.includes('shipping') || allText.includes('warehouse') || allText.includes('freight')) {
     detectedIndustry = 'logistics';
-  } else if (allText.includes('health') || allText.includes('medical') || allText.includes('hospital') || allText.includes('clinic') || allText.includes('hipaa')) {
-    detectedIndustry = 'healthcare';
   }
 
   // Interest detection
@@ -38,7 +36,7 @@ function detectContextFromMessages(messages: Message[]): { industry: string | nu
   if (allText.includes('demo') || allText.includes('try') || allText.includes('see it')) interests.push('demo');
   if (allText.includes('roi') || allText.includes('save') || allText.includes('saving')) interests.push('roi');
   if (allText.includes('integrat') || allText.includes('connect') || allText.includes('shopify')) interests.push('integrations');
-  if (allText.includes('security') || allText.includes('gdpr') || allText.includes('hipaa')) interests.push('security');
+  if (allText.includes('security') || allText.includes('gdpr') || allText.includes('compliance')) interests.push('security');
 
   return { industry: detectedIndustry, interests };
 }

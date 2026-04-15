@@ -65,12 +65,12 @@ const INTENT_PATTERNS: Record<string, { keywords: string[]; phrases: string[]; w
   industry_ecommerce: { keywords: ['ecommerce', 'e-commerce', 'online store', 'shop', 'retail', 'amazon', 'shopify', 'woocommerce', 'magento', 'bigcommerce', 'product catalog', 'cart'], phrases: ['online store', 'e commerce', 'retail business', 'selling online'], weight: 1.2 },
   industry_saas: { keywords: ['saas', 'software', 'app company', 'platform', 'b2b software', 'subscription business', 'tech startup'], phrases: ['saas company', 'software business', 'my app'], weight: 1.2 },
   industry_logistics: { keywords: ['logistics', 'shipping', 'warehouse', 'delivery', 'freight', 'supply chain', 'courier', 'fleet', 'transportation', 'tms', 'wms', 'cargo'], phrases: ['logistics company', 'shipping business', 'supply chain'], weight: 1.2 },
-  industry_healthcare: { keywords: ['healthcare', 'medical', 'hospital', 'clinic', 'pharma', 'health', 'patient', 'doctor', 'telehealth', 'ehr', 'hipaa', 'therapy'], phrases: ['healthcare company', 'medical practice', 'patient care'], weight: 1.2 },
+  industry_logistics: { keywords: ['logistics', 'shipping', 'warehouse', 'delivery', 'freight', 'supply chain', 'courier', 'fleet', 'transportation', 'tms', 'wms', 'cargo'], phrases: ['logistics company', 'shipping business', 'supply chain'], weight: 1.2 },
   features: { keywords: ['feature', 'features', 'capability', 'capabilities', 'what can you do', 'what does parwa do', 'functionality', 'offer'], phrases: ['what can', 'what does parwa', 'tell me about', 'what do you offer', 'your features'], weight: 0.9 },
   integrations: { keywords: ['integration', 'integrate', 'connect', 'shopify', 'zendesk', 'slack', 'freshdesk', 'intercom', 'salesforce', 'hubspot', 'stripe', 'api', 'webhook'], phrases: ['integrates with', 'connect to', 'works with', 'compatible with'], weight: 1.0 },
   demo: { keywords: ['demo', 'try', 'show me', 'test', 'experience', 'see it', 'live demo', 'sample', 'example', 'roleplay'], phrases: ['show me how', 'can i try', 'give me a demo', 'let me see', 'walk me through'], weight: 1.1 },
   roi: { keywords: ['roi', 'save', 'savings', 'comparison', 'compare', 'worth', 'return', 'investment', 'value', 'benefit'], phrases: ['return on investment', 'cost savings', 'how much save', 'is it worth', 'money back'], weight: 1.0 },
-  security: { keywords: ['security', 'gdpr', 'hipaa', 'data', 'privacy', 'safe', 'compliance', 'encrypt', 'soc', 'audit', 'breach', 'protection'], phrases: ['data security', 'is it safe', 'gdpr compliant', 'hipaa compliant', 'data protection'], weight: 1.0 },
+  security: { keywords: ['security', 'gdpr', 'data', 'privacy', 'safe', 'compliance', 'encrypt', 'soc', 'audit', 'breach', 'protection'], phrases: ['data security', 'is it safe', 'gdpr compliant', 'data protection'], weight: 1.0 },
   competitors: { keywords: ['intercom', 'zendesk', 'freshdesk', 'crisp', 'tidio', 'drift', 'ada', 'chatbase', 'kommunicate', 'competitor', 'vs'], phrases: ['compared to', 'vs intercom', 'vs zendesk', 'better than', 'alternative to', 'how do you compare'], weight: 1.2 },
   how_it_works: { keywords: ['how does it work', 'how do you', 'technology', 'ai engine', 'under the hood', 'architecture', 'approach', 'methodology', 'process'], phrases: ['how does parwa work', 'how do you handle', 'how are you different', 'what technology'], weight: 0.9 },
   buy_signup: { keywords: ['buy', 'signup', 'get started', 'subscribe', 'checkout', 'sign up', 'purchase', 'order', 'onboard'], phrases: ['i want to buy', 'how to sign up', 'get started', 'ready to purchase'], weight: 1.0 },
@@ -87,7 +87,7 @@ const INTENT_PATTERNS: Record<string, { keywords: string[]; phrases: string[]; w
   variant_faq: { keywords: ['product question', 'faq', 'specification', 'how to use', 'product detail', 'manual'], phrases: ['product question', 'how does this product work', 'specifications'], weight: 1.4 },
   goodbye: { keywords: ['thanks', 'bye', 'goodbye', 'that is all', 'done', 'see you', 'later', 'take care'], phrases: ['thank you', 'goodbye', 'that is all', 'im done'], weight: 1.0 },
   edge_legal: { keywords: ['legal advice', 'sue', 'lawsuit', 'attorney', 'contract', 'liability', 'legal'], phrases: ['legal advice', 'can you help with legal'], weight: 1.5 },
-  edge_medical: { keywords: ['medical advice', 'diagnosis', 'treatment', 'symptoms', 'prescription', 'medication', 'doctor advice'], phrases: ['medical advice', 'can you diagnose', 'what treatment'], weight: 1.5 },
+  edge_professional: { keywords: ['professional advice', 'expert advice', 'consultation', 'specialist', 'recommendation'], phrases: ['professional advice', 'can you advise', 'expert opinion'], weight: 1.5 },
 };
 
 // ── JarvisAIEngine ────────────────────────────────────────────────
@@ -164,9 +164,9 @@ export class JarvisAIEngine {
 
     let response: string | null = null;
 
-    // ── Edge cases first (legal, medical, etc.) ──
-    if (intent.primary === 'edge_legal' || intent.primary === 'edge_medical') {
-      response = this.buildEdgeCaseResponse(intent.primary === 'edge_legal' ? 'legal' : 'medical');
+    // ── Edge cases first (legal, professional, etc.) ──
+    if (intent.primary === 'edge_legal' || intent.primary === 'edge_professional') {
+      response = this.buildEdgeCaseResponse(intent.primary === 'edge_legal' ? 'legal' : 'professional');
       return this.avoidRepetition(response, session);
     }
 
@@ -335,7 +335,7 @@ export class JarvisAIEngine {
       'ecommerce': 'e-commerce', 'e-commerce': 'e-commerce', 'online store': 'e-commerce', 'retail': 'e-commerce',
       'saas': 'saas', 'software': 'saas',
       'logistics': 'logistics', 'shipping': 'logistics', 'warehouse': 'logistics', 'freight': 'logistics',
-      'healthcare': 'healthcare', 'medical': 'healthcare', 'hospital': 'healthcare', 'clinic': 'healthcare',
+      'logistics': 'logistics', 'shipping': 'logistics', 'warehouse': 'logistics', 'freight': 'logistics',
     };
     for (const [keyword, entity] of Object.entries(industryMap)) {
       if (msg.includes(keyword)) entities.push(entity);
@@ -482,7 +482,7 @@ export class JarvisAIEngine {
       return `Thanks for chatting! Quick recap: you were looking at ${ctx.selected_variants.length} variant(s) for your ${ctx.industry ? this.formatIndustry(ctx.industry) : 'business'}.\n\nFeel free to come back anytime — I'll remember our conversation. You can also:\n- Ask me more questions about features or pricing\n- Try a demo scenario to see PARWA in action\n- Get started with a plan when you're ready\n\nHave a great day!`;
     }
 
-    return `Thanks for chatting with me! Here's a quick summary:\n\n- **3 plans**: Starter ($999/mo), Growth ($2,499/mo), High ($3,999/mo)\n- **4 industries**: E-commerce, SaaS, Logistics, Healthcare\n- **20 AI agent variants** to choose from\n- **85-92% cost savings** vs hiring human agents\n\nCome back anytime — I'll be here! Have a great day!`;
+    return `Thanks for chatting with me! Here's a quick summary:\n\n- **3 plans**: Starter ($999/mo), Growth ($2,499/mo), High ($3,999/mo)\n- **3 industries**: E-commerce, SaaS, Logistics\n- **20 AI agent variants** to choose from\n- **85-92% cost savings** vs hiring human agents\n\nCome back anytime — I'll be here! Have a great day!`;
   }
 
   private buildPricingResponse(session: SessionLike): string {
@@ -522,7 +522,7 @@ export class JarvisAIEngine {
     const industryKey = industry === 'ecommerce' ? 'ecommerce' :
                         industry === 'saas' ? 'saas' :
                         industry === 'logistics' ? 'logistics' :
-                        industry === 'healthcare' ? 'healthcare' : null;
+                        industry === 'logistics' ? 'logistics' : null;
 
     if (!industryKey || !industries[industryKey]) {
       // Try to find by partial match
@@ -531,7 +531,7 @@ export class JarvisAIEngine {
           return this.formatIndustryResponse(group, session);
         }
       }
-      return `PARWA supports 4 industries: **E-commerce, SaaS, Logistics, and Healthcare**. Each has 5 specialized AI agent variants. Which industry are you in? I'll show you the perfect setup.`;
+      return `PARWA supports 3 industries: **E-commerce, SaaS, and Logistics**. Each has 5 specialized AI agent variants. Which industry are you in? I'll show you the perfect setup.`;
     }
 
     return this.formatIndustryResponse(industries[industryKey], session);
@@ -573,9 +573,7 @@ export class JarvisAIEngine {
       customs: ['customs', 'import', 'export', 'compliance'],
       appointment: ['appointment', 'scheduling', 'booking'],
       insurance: ['insurance', 'claim', 'coverage'],
-      prescription: ['prescription', 'refill', 'medication'],
-      patient: ['patient', 'medical record', 'test result'],
-      telehealth: ['telehealth', 'video call', 'virtual'],
+
     };
 
     const searchKey = Object.keys(variantKeywords).find(k =>
@@ -665,7 +663,7 @@ export class JarvisAIEngine {
   }
 
   private buildSecurityResponse(): string {
-    return "Data security is PARWA's top priority:\n\n- **Encryption**: AES-256 at rest, TLS 1.3 in transit\n- **Compliance**: GDPR, SOC 2 Type II, HIPAA ready, PCI DSS\n- **Data isolation**: Per-tenant isolation at app, DB, and infrastructure layers\n- **Audit trail**: Comprehensive logs with 24-month retention\n- **Access control**: RBAC with 2FA enforcement\n- **Vulnerability management**: Continuous monitoring with SLA-backed response times\n- **Data residency**: US, EU, and APAC options\n\nYour customer data is never used to train models for other clients. Every tenant is completely isolated. Want details on any specific security area?";
+    return "Data security is PARWA's top priority:\n\n- **Encryption**: AES-256 at rest, TLS 1.3 in transit\n- **Compliance**: GDPR, SOC 2 Type II, PCI DSS\n- **Data isolation**: Per-tenant isolation at app, DB, and infrastructure layers\n- **Audit trail**: Comprehensive logs with 24-month retention\n- **Access control**: RBAC with 2FA enforcement\n- **Vulnerability management**: Continuous monitoring with SLA-backed response times\n- **Data residency**: US, EU, and APAC options\n\nYour customer data is never used to train models for other clients. Every tenant is completely isolated. Want details on any specific security area?";
   }
 
   private buildROIResponse(session: SessionLike): string {
@@ -770,8 +768,10 @@ export class JarvisAIEngine {
     if (type === 'legal') {
       return "I appreciate the question, but I'm not able to provide legal advice. For legal matters, I'd recommend consulting with a qualified attorney.\n\nWhat I *can* help with is showing you how PARWA's AI can streamline your customer support operations. Would you like to explore that?";
     }
-    if (type === 'medical') {
-      return "I'm not able to provide medical advice — that should always come from a qualified healthcare professional.\n\nHowever, if you're in the **healthcare industry**, PARWA offers HIPAA-compliant AI agents that handle appointment scheduling, insurance verification, prescription refills, and patient inquiries. Want to learn more?";
+    if (type === 'professional') {
+      return "I'm not able to provide professional advice — that should always come from a qualified professional.
+
+What I *can* help with is showing you how PARWA's AI can streamline your customer support operations. Would you like to explore that?";
     }
     return "That's outside my area of expertise, but I'd love to help you with anything related to PARWA's AI customer support platform! What would you like to know?";
   }
@@ -795,7 +795,7 @@ export class JarvisAIEngine {
     const stage = session.detected_stage || ctx.detected_stage || 'discovery';
 
     if (stage === 'welcome' || stage === 'discovery') {
-      return `I'd love to help! To give you the most relevant answer, could you tell me:\n\n1. **What industry** is your business in?\n2. **How many support tickets** do you handle per day?\n3. **What's the biggest pain point** with your current support?\n\nPARWA works across **E-commerce, SaaS, Logistics, and Healthcare** — each with specialized AI agents tailored to that industry.`;
+      return `I'd love to help! To give you the most relevant answer, could you tell me:\n\n1. **What industry** is your business in?\n2. **How many support tickets** do you handle per day?\n3. **What's the biggest pain point** with your current support?\n\nPARWA works across **E-commerce, SaaS, and Logistics** — each with specialized AI agents tailored to that industry.`;
     }
 
     if (stage === 'pricing') {
@@ -819,9 +819,7 @@ export class JarvisAIEngine {
 
   private formatIndustry(ind: string): string {
     const map: Record<string, string> = {
-      ecommerce: 'E-commerce', saas: 'SaaS', logistics: 'Logistics', healthcare: 'Healthcare',
-      'e_commerce': 'E-commerce', 'e-commerce': 'E-commerce',
-    };
+      ecommerce: 'E-commerce', e_commerce: 'E-commerce',
     return map[ind] || ind.charAt(0).toUpperCase() + ind.slice(1);
   }
 

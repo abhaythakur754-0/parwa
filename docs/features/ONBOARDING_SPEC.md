@@ -818,7 +818,7 @@ After successful payment, collect business details that were NOT collected durin
 │  │ [Select Industry ▼]                              │   │
 │  │   - E-commerce                                   │   │
 │  │   - SaaS                                         │   │
-│  │   - Healthcare                                   │   │
+│  │   - Logistics                                    │   │
 │  │   - Finance                                      │   │
 │  │   - Education                                    │   │
 │  │   - Other                                        │   │
@@ -1293,7 +1293,7 @@ ALTER TABLE companies ADD COLUMN website VARCHAR(255);
 [
   "E-commerce",
   "SaaS / Technology",
-  "Healthcare",
+  "Logistics",
   "Finance & Banking",
   "Education",
   "Real Estate",

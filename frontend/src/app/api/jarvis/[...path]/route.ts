@@ -441,7 +441,7 @@ PLAN CAPABILITIES:
 
 ROI: Starter saves ~$168K/yr. Growth saves ~$216K/yr. High saves ~$336K/yr. 85-92% vs hiring.
 
-SECURITY: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
+SECURITY: GDPR, SOC 2. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
 
 vs COMPETITORS:
 - vs Intercom: PARWA fully resolves, Intercom only triages
@@ -452,7 +452,7 @@ vs COMPETITORS:
 OBJECTIONS (handle naturally):
 - "Too expensive" → "A single agent costs $4-6K/mo. PARWA Starter at $999 does the work of 3 — 85% savings from day one."
 - "AI can't handle complex" → "Growth and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
-- "Data security?" → "GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
+- "Data security?" → "GDPR, SOC 2. AES-256, TLS 1.3. Your data never trains other models."
 - "Setup time?" → "Under an hour. Connect channels, upload KB, configure. Day 1 live."
 - "Wrong answers?" → "High has peer review — Junior asks Senior before escalating. You set confidence thresholds."
 - "We use Intercom/Zendesk" → "PARWA integrates WITH them. Keep your tools + add auto-resolution before tickets reach humans."
@@ -739,7 +739,7 @@ const VARIANT_PRICES: Record<string, number> = {
   'order_management': 99, 'returns_refunds': 49, 'product_faq': 79, 'shipping_inquiries': 59, 'payment_issues': 69,
   'technical_support': 99, 'billing_support_saas': 69, 'feature_requests': 59, 'api_support': 79, 'account_issues': 49,
   'shipment_tracking': 79, 'delivery_issues': 69, 'warehouse_queries': 59, 'fleet_management': 99, 'customs': 89,
-  'appointment_scheduling': 79, 'insurance_verification': 89, 'medical_records': 69, 'prescription_management': 59, 'billing_support_healthcare': 49,
+  'appointment_scheduling': 79, 'insurance_verification': 89, 'billing_support_general': 49,
 };
 
 const PLAN_PRICES: Record<string, number> = {
@@ -905,10 +905,6 @@ function getKeywordResponse(message: string, session: any): string {
       `🚛 Logistics is a perfect fit for PARWA!\n\n- Shipment tracking, driver coordination, delivery updates & customs\n- Integrates with TMS, WMS & GPS systems\n\nCompanies usually go PARWA High ($3,999/mo) for voice support. Want the cost breakdown?`,
       `📦 PARWA is built for logistics complexity.\n\n⚡ Real-time tracking across all carriers\n📡 Automated updates to customers\n🚚 Fleet coordination connected to your systems\n\nWant to see a delivery delay scenario?`,
     ],
-    healthcare: [
-      `🏥 Healthcare support with PARWA is HIPAA-compliant by design.\n\n- Appointments, insurance verification, records & clinical escalation\n- Integrates with Epic EHR & FHIR\n\nMost healthcare orgs start with PARWA Growth ($2,499/mo). Want to discuss compliance?`,
-      `✅ PARWA meets healthcare's strictest requirements.\n\n🛡️ HIPAA compliant with full audit trails\n🔐 AES-256 encryption at rest & in transit\n🩺 Smart clinical escalation built in\n\nWant to see a patient scheduling scenario?`,
-    ],
     pricing: [
       `💰 Here's the lineup:\n\n• 🟠 PARWA Starter — $999/mo — 3 agents, 1K tickets/mo\n• 🟠 PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo\n• 🟠 PARWA High — $3,999/mo — 15 agents, 15K tickets/mo\n\nAll with zero AI markup, cancel anytime. Which one fits your needs?`,
     ],
@@ -941,8 +937,8 @@ function getKeywordResponse(message: string, session: any): string {
       `💪 PARWA works WITH your tools, not against them.\n\n🔗 Integrates with Zendesk, Intercom, Freshdesk & more\n⚡ Auto-resolves tickets before humans see them\n💰 Cuts your support costs by 85-92%\n\nWant to hear about specific integrations?`,
     ],
     security: [
-      `🔒 Security is baked in:\n\n- GDPR, SOC 2, HIPAA compliant\n- AES-256 encryption, TLS 1.3\n- Full audit trail & PII redaction\n- Your data never trains other clients' models\n\nWant more details on any area?`,
-      `🛡️ Your data is safe with PARWA.\n\n📜 GDPR + SOC 2 + HIPAA certified\n🔐 Encrypted at rest & in transit\n🏢 Full isolation between clients\n\nAny specific compliance question?`,
+      `🔒 Security is baked in:\n\n- GDPR, SOC 2 compliant\n- AES-256 encryption, TLS 1.3\n- Full audit trail & PII redaction\n- Your data never trains other clients' models\n\nWant more details on any area?`,
+      `🛡️ Your data is safe with PARWA.\n\n📜 GDPR + SOC 2 certified\n🔐 Encrypted at rest & in transit\n🏢 Full isolation between clients\n\nAny specific compliance question?`,
     ],
     integrations: [
       `🔗 PARWA plugs into your existing stack:\n\n- E-commerce: Shopify, WooCommerce, Magento\n- Support: Zendesk, Intercom, Freshdesk\n- Comms: Slack, WhatsApp, Email\n- CRM: Salesforce, HubSpot\n\n~5 minutes per integration. Which tools are you using?`,
@@ -984,10 +980,6 @@ function getKeywordResponse(message: string, session: any): string {
     return pick('logistics') || responses.logistics[0];
   }
 
-  if (lower.includes('health') || lower.includes('medical') || lower.includes('hospital') || lower.includes('clinic') || lower.includes('pharma')) {
-    return pick('healthcare') || responses.healthcare[0];
-  }
-
   // Business patterns
   if (lower.includes('price') || lower.includes('pricing') || lower.includes('cost') || lower.includes('plan') || lower.includes('how much')) {
     return pick('pricing') || responses.pricing[0];
@@ -1026,7 +1018,7 @@ function getKeywordResponse(message: string, session: any): string {
     return pick('competitors') || responses.competitors[0];
   }
 
-  if (lower.includes('security') || lower.includes('data') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe') || lower.includes('privacy')) {
+  if (lower.includes('security') || lower.includes('data') || lower.includes('gdpr') || lower.includes('safe') || lower.includes('privacy')) {
     return pick('security') || responses.security[0];
   }
 
@@ -1103,7 +1095,7 @@ function detectStage(message: string, session: any): string {
   if (lower.includes('demo') || lower.includes('try') || lower.includes('see it') || lower.includes('show me') || lower.includes('experience')) return 'demo';
 
   // Discovery — learning about industry
-  if (!ctx.industry && (lower.includes('ecommerce') || lower.includes('e-commerce') || lower.includes('saas') || lower.includes('logistics') || lower.includes('healthcare') || lower.includes('retail') || lower.includes('industry'))) return 'discovery';
+  if (!ctx.industry && (lower.includes('ecommerce') || lower.includes('e-commerce') || lower.includes('saas') || lower.includes('logistics') || lower.includes('retail') || lower.includes('industry'))) return 'discovery';
 
   // Default: maintain previous stage unless it was welcome (which we should advance from)
   if (prevStage === 'welcome') return 'discovery';

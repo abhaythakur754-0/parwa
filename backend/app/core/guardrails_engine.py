@@ -126,7 +126,7 @@ _RE_LEGAL_ADVICE = re.compile(
     re.IGNORECASE,
 )
 
-_RE_MEDICAL_ADVICE = re.compile(
+_RE_PROFESSIONAL_ADVICE = re.compile(
     r"\b(you should take|I recommend you take|you need medication|"
     r"stop taking.*medication|diagnosis is|you likely have|"
     r"medical condition.*is|prescription for|dosage of|"
@@ -854,7 +854,7 @@ class HallucinationCheckGuard:
 class PolicyComplianceGuard:
     """Blocks responses that violate business policy rules.
 
-    Detects: pricing guarantees, legal advice, medical advice,
+    Detects: pricing guarantees, legal advice, professional advice,
     SLA promises, refund promises, and financial claims.
 
     All patterns are configurable per tenant via custom_rules.
@@ -868,8 +868,8 @@ class PolicyComplianceGuard:
          "pricing_guarantee", "Pricing guarantee detected"),
         (_RE_LEGAL_ADVICE, SeverityLevel.HIGH.value,
          "legal_advice", "Legal advice detected"),
-        (_RE_MEDICAL_ADVICE, SeverityLevel.HIGH.value,
-         "medical_advice", "Medical advice detected"),
+        (_RE_PROFESSIONAL_ADVICE, SeverityLevel.HIGH.value,
+         "professional_advice", "Professional advice detected"),
         (_RE_SLA_PROMISES, SeverityLevel.HIGH.value,
          "sla_promise", "SLA promise detected"),
         (_RE_REFUND_PROMISES, SeverityLevel.HIGH.value,

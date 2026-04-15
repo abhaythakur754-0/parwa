@@ -179,7 +179,7 @@ class BrandVoiceConfigSchema(BaseModel):
     brand_name: str = Field(default="PARWA")
     industry: str = Field(
         default="tech",
-        description="tech | ecommerce | healthcare | finance | education | legal | hospitality",
+        description="tech | ecommerce | finance | education | legal | hospitality",
     )
     custom_instructions: Optional[str] = Field(None)
 

@@ -55,11 +55,6 @@
           "competitor": false
         },
         {
-          "feature": "HIPAA Compliance",
-          "parwa": true,
-          "competitor": false
-        },
-        {
           "feature": "Custom AI Fine-Tuning",
           "parwa": true,
           "competitor": false
@@ -139,11 +134,6 @@
           "competitor": true
         },
         {
-          "feature": "Healthcare HIPAA",
-          "parwa": true,
-          "competitor": true
-        },
-        {
           "feature": "Managed Onboarding",
           "parwa": true,
           "competitor": false
@@ -216,11 +206,6 @@
           "feature": "Helpdesk Included",
           "parwa": false,
           "competitor": true
-        },
-        {
-          "feature": "HIPAA Compliance",
-          "parwa": true,
-          "competitor": false
         }
       ],
       "when_customer_chooses_them": "Freshdesk is a good fit for very small teams on a tight budget who need basic ticket automation and a simple helpdesk, and who can tolerate lower AI quality. It works well for businesses with fewer than 1,000 monthly tickets that don't need advanced conversational AI.",
@@ -316,12 +301,12 @@
         },
         {
           "feature": "Industry Breadth",
-          "parwa": "E-commerce, SaaS, logistics, healthcare — 20 specialized agents",
+          "parwa": "E-commerce, SaaS, logistics — 20 specialized agents",
           "competitor": "E-commerce only with basic FAQ support"
         },
         {
           "feature": "Enterprise Readiness",
-          "parwa": "SOC 2, HIPAA, PCI DSS compliant; enterprise SLAs available",
+          "parwa": "SOC 2, PCI DSS compliant; enterprise SLAs available",
           "competitor": "No enterprise security certifications; limited SLA guarantees"
         }
       ],
@@ -438,11 +423,6 @@
           "feature": "Multi-Industry Support",
           "parwa": true,
           "competitor": "B2B focused only"
-        },
-        {
-          "feature": "Healthcare Compliance",
-          "parwa": true,
-          "competitor": false
         }
       ],
       "when_customer_chooses_them": "Drift is the right choice if the primary goal is conversational marketing and sales acceleration — lead generation, meeting booking, ABM campaigns, and pipeline growth. Drift is not suitable as a customer support platform.",
@@ -454,8 +434,8 @@
       "key_differentiators": [
         {
           "feature": "Industry Coverage",
-          "parwa": "E-commerce, SaaS, logistics, healthcare — 20 specialized AI agents",
-          "competitor": "Primarily e-commerce and travel; limited SaaS, logistics, and no healthcare/HIPAA"
+          "parwa": "E-commerce, SaaS, logistics — 20 specialized AI agents",
+          "competitor": "Primarily e-commerce and travel; limited SaaS, logistics,"
         },
         {
           "feature": "Pricing Accessibility",
@@ -494,11 +474,6 @@
           "competitor": true
         },
         {
-          "feature": "Healthcare/HIPAA",
-          "parwa": true,
-          "competitor": false
-        },
-        {
           "feature": "Logistics Support",
           "parwa": true,
           "competitor": false
@@ -520,7 +495,7 @@
         }
       ],
       "when_customer_chooses_them": "Ada is a strong choice for large enterprise e-commerce and travel companies that need a proven AI platform with extensive language support and can justify the $5,000+/month investment. Ada also has particularly strong multi-language capabilities if language breadth is the top priority.",
-      "winning_argument": "PARWA delivers comparable AI quality to Ada at 60-80% lower cost with broader industry coverage including healthcare, logistics, and SaaS. For companies that want enterprise AI without enterprise pricing, PARWA is the clear choice."
+      "winning_argument": "PARWA delivers comparable AI quality to Ada at 60-80% lower cost with broader industry coverage including logistics, and SaaS. For companies that want enterprise AI without enterprise pricing, PARWA is the clear choice."
     },
     {
       "competitor_name": "Kommunicate",
@@ -589,7 +564,7 @@
         },
         {
           "feature": "Enterprise Security",
-          "parwa": "SOC 2, HIPAA, PCI DSS",
+          "parwa": "SOC 2, PCI DSS",
           "competitor": "SOC 2"
         }
       ],
@@ -612,7 +587,7 @@
         },
         {
           "feature": "Enterprise Features",
-          "parwa": "SOC 2, HIPAA, PCI DSS, SSO, audit logs, SLA guarantees",
+          "parwa": "SOC 2, PCI DSS, SSO, audit logs, SLA guarantees",
           "competitor": "Basic security; no enterprise compliance certifications"
         },
         {

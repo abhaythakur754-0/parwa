@@ -266,9 +266,9 @@
       "recommendation": "Review the integrations catalog to connect your essential tools, or use the REST API for custom system integration."
     },
     {
-      "limitation": "Cannot Provide Medical, Legal, or Financial Advice",
-      "description": "While PARWA has healthcare-specific variants, the AI agents cannot provide medical diagnoses, treatment recommendations, legal counsel, or financial investment advice. The system can handle administrative aspects of healthcare (appointments, insurance, prescriptions), logistics (tracking, compliance), and billing, but it cannot replace licensed professionals for professional advice.",
-      "recommendation": "Healthcare variants should be configured to escalate any clinical questions to qualified medical professionals."
+      "limitation": "Cannot Provide Professional Advice",
+      "description": "PARWA AI agents cannot provide legal counsel, financial investment advice, or any form of licensed professional advice. The system handles customer support tasks — answering product questions, processing orders, managing returns, tracking shipments, and similar operational tasks — but cannot replace licensed professionals. Any questions requiring professional expertise should be escalated to qualified human agents.",
+      "recommendation": "Configure escalation triggers to detect questions requiring professional expertise and route them to the appropriate human team."
     },
     {
       "limitation": "Cannot Handle Physical World Tasks",
@@ -334,10 +334,10 @@
       "scope": "All user access to the PARWA dashboard, API, and data"
     },
     {
-      "id": "hipaa",
-      "name": "HIPAA Readiness (Healthcare Customers)",
-      "description": "For healthcare customers, PARWA offers a HIPAA-compliant configuration option that includes Business Associate Agreements (BAAs), enhanced access controls, PHI (Protected Health Information) handling protocols, and additional audit logging. Healthcare variants are designed with privacy-first architecture, ensuring patient data is handled in compliance with HIPAA Privacy and Security Rules.",
-      "scope": "Healthcare tier customers processing PHI through PARWA's healthcare AI agent variants"
+      "id": "data_isolation",
+      "name": "Multi-Tenant Data Isolation",
+      "description": "PARWA enforces strict data isolation between all tenants. Each tenant's data — including knowledge base, training data, conversation logs, and configurations — is completely separated from every other tenant. No tenant can ever access another tenant's data through any interface, API, or AI interaction. This is enforced at the database query level, the application middleware level, and the Redis caching level.",
+      "scope": "All tenant data across the PARWA platform"
     },
     {
       "id": "vulnerability_management",

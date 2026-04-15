@@ -129,7 +129,7 @@ backend/
 |---|---|---|
 | Approval Service | approval_service.py | Manages approval workflows for AI actions |
 | Billing Service | billing_service.py | Subscription and payment management (Paddle) |
-| Compliance Service | compliance_service.py | GDPR, HIPAA compliance enforcement |
+| Compliance Service | compliance_service.py | GDPR, SOC 2 compliance enforcement |
 | SLA Service | sla_service.py | SLA tracking and breach detection |
 | Onboarding Service | onboarding_service.py | Client onboarding (duration varies by complexity) |
 | Notification Service | notification_service.py | Multi-channel notifications (10 HTML templates via Brevo) |
@@ -285,7 +285,7 @@ Database migrations are managed through **Alembic** (D39), providing version-con
 | 001_initial_schema.py | Core tables: tenants, users, customers, sessions |
 | 002_agent_lightning.py | Training tables and human corrections |
 | 003_audit_trail.py | Audit logging infrastructure |
-| 004_compliance.py | GDPR/HIPAA compliance tables |
+| 004_compliance.py | GDPR/SOC 2 compliance tables |
 | 005_feature_flags.py | Feature flag system |
 | 006_multi_region.py | Multi-region data residency |
 | 007_sessions_interactions.py | Session and interaction enhancements |
@@ -483,7 +483,7 @@ Brevo handles all transactional email sending as well as **inbound email process
 | GitHub | github_client.py | Issue tracking and repository access |
 | Zendesk | zendesk_client.py | Ticket system integration |
 | AfterShip | aftership_client.py | Shipment tracking |
-| Epic EHR | epic_ehr_client.py | Healthcare records (HIPAA) |
+| Salesforce | salesforce_client.py | CRM and customer data sync |
 
 *Table 7.4: Additional Integrations*
 
@@ -552,7 +552,7 @@ Prometheus is configured to scrape metrics from all PARWA components, including 
 | main-dashboard.json | System-wide overview and health |
 | multi_client_dashboard.json | Multi-tenant client metrics |
 | performance_dashboard.json | Performance and latency metrics |
-| compliance-dashboard.json | GDPR/HIPAA compliance status |
+| compliance-dashboard.json | GDPR/SOC 2 compliance status |
 | sla-dashboard.json | SLA tracking and breach alerts |
 | quality.json | AI response quality metrics |
 | mcp-dashboard.json | MCP server health and performance |

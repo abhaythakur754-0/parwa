@@ -438,7 +438,7 @@ INDUSTRY DETAILS:
 
 ROI: Starter saves ~$156K/yr net (replaces $168K/yr in human costs). Growth saves ~$186K/yr net. High saves ~$288K/yr net. 85-92% vs hiring human agents at $4-6K/mo each.
 
-SECURITY: GDPR, SOC 2 Type II, HIPAA. AES-256 at rest, TLS 1.3 in transit, full audit trail, PII redaction, per-tenant data isolation. Customer data never trains other clients' models.
+SECURITY: GDPR, SOC 2 Type II. AES-256 at rest, TLS 1.3 in transit, full audit trail, PII redaction, per-tenant data isolation. Customer data never trains other clients' models.
 
 vs COMPETITORS:
 - vs Intercom: PARWA fully resolves tickets. Intercom only triages and routes to humans.
@@ -449,7 +449,7 @@ vs COMPETITORS:
 OBJECTIONS (handle conversationally — empathize first, then counter with specifics):
 - "Too expensive" → A single human support agent costs $4-6K/month. PARWA Starter at $999 does the work of 3 agents — that's 85% savings from day one.
 - "AI can't handle complex issues" → Growth and High plans use smart routing. Simple tickets auto-resolve instantly. Complex ones get flagged with recommendations for human review. You always stay in control.
-- "Data security?" → GDPR, SOC 2, HIPAA compliant. AES-256 encryption, TLS 1.3. Your data is isolated per-tenant and never trains other clients' models.
+- "Data security?" → GDPR, SOC 2 compliant. AES-256 encryption, TLS 1.3. Your data is isolated per-tenant and never trains other clients' models.
 - "Setup time?" → Under an hour. Connect your channels, upload your knowledge base, configure your preferences. Live on Day 1.
 - "What about wrong answers?" → High plan has peer review — Junior agents consult Senior agents before escalating. You set confidence thresholds, so uncertain responses always get human oversight.
 - "We already use Intercom/Zendesk" → PARWA integrates with them directly. You keep your existing tools and add automatic resolution before tickets ever reach your human team.
@@ -687,7 +687,6 @@ const VARIANT_PRICES: Record<string, number> = {
   'order_management': 99, 'returns_refunds': 49, 'product_faq': 79, 'shipping_inquiries': 59, 'payment_issues': 69,
   'technical_support': 99, 'billing_support_saas': 69, 'feature_requests': 59, 'api_support': 79, 'account_issues': 49,
   'shipment_tracking': 79, 'delivery_issues': 69, 'warehouse_queries': 59, 'fleet_management': 99, 'customs': 89,
-  'appointment_scheduling': 79, 'insurance_verification': 89, 'medical_records': 69, 'prescription_management': 59, 'billing_support_healthcare': 49,
 };
 
 const PLAN_PRICES: Record<string, number> = {
@@ -855,9 +854,6 @@ function getKeywordResponse(message: string, session: any): string {
     logistics: [
       "Logistics is a great fit for PARWA. We automate shipment tracking, delivery updates, driver coordination, warehouse queries, and customs documentation. Our integrations connect to TMS, WMS, and GPS systems directly. Companies handling high-volume logistics typically go with the High plan at $3,999/mo since it includes voice support for driver calls. Want me to walk through a delivery delay scenario?",
     ],
-    healthcare: [
-      "PARWA is HIPAA-compliant by design for healthcare organizations. We handle appointment scheduling, insurance verification, medical records requests, and prescription management with full audit trails and AES-256 encryption. We integrate with Epic EHR and FHIR standards. Most healthcare organizations start with the Growth plan at $2,499/mo. What compliance requirements are most important to you?",
-    ],
     pricing: [
       "PARWA has three plans. Starter is $999/mo with 3 agents and 1,000 tickets — great for email and chat support. Growth is $2,499/mo with 8 agents and 5,000 tickets, adding SMS and voice capabilities along with smart analytics. High is $3,999/mo with 15 agents and 15,000 tickets, including social media, video support, and full decision-making autonomy. All plans come with 15% off for annual billing and you can cancel anytime. Which plan sounds like it might fit?",
     ],
@@ -883,7 +879,7 @@ function getKeywordResponse(message: string, session: any): string {
       "The main difference is that PARWA actually resolves tickets, while most competitors just organize them for humans to handle. Intercom triages and routes to your team. Zendesk AI still pushes most tickets to human agents. Custom chatbots are limited to simple FAQ matching. PARWA's agents handle the full resolution — checking systems, processing requests, updating records — across all your channels. The best part is we integrate with those existing tools rather than replacing them. Want a detailed comparison on any specific competitor?",
     ],
     security: [
-      "Security is foundational to PARWA, not an add-on. We're GDPR, SOC 2 Type II, and HIPAA compliant. All data is encrypted with AES-256 at rest and TLS 1.3 in transit. Every tenant's data is fully isolated — your data never trains models used by other clients. We maintain full audit trails with 24-month retention and support data residency in US, EU, and APAC. Is there a specific compliance area you'd like to dig into?",
+      "Security is foundational to PARWA, not an add-on. We're GDPR and SOC 2 Type II compliant. All data is encrypted with AES-256 at rest and TLS 1.3 in transit. Every tenant's data is fully isolated — your data never trains models used by other clients. We maintain full audit trails with 24-month retention and support data residency in US, EU, and APAC. Is there a specific compliance area you'd like to dig into?",
     ],
     integrations: [
       "PARWA integrates with over 20 tools out of the box. For e-commerce we have Shopify, WooCommerce, and Magento. For helpdesks there's Zendesk, Intercom, and Freshdesk. For communications we support Slack, WhatsApp, and standard email. Plus Salesforce and HubSpot for CRM. Most integrations take under 5 minutes via API key or OAuth. We also support custom REST APIs and webhooks for anything else. Which tools are in your current stack?",
@@ -919,9 +915,6 @@ function getKeywordResponse(message: string, session: any): string {
   if (lower.includes('logistics') || lower.includes('shipping') || lower.includes('warehouse') || lower.includes('delivery') || lower.includes('freight')) {
     return pick('logistics') || responses.logistics[0];
   }
-  if (lower.includes('health') || lower.includes('medical') || lower.includes('hospital') || lower.includes('clinic') || lower.includes('pharma')) {
-    return pick('healthcare') || responses.healthcare[0];
-  }
 
   // Business patterns
   if (lower.includes('price') || lower.includes('pricing') || lower.includes('cost') || lower.includes('plan') || lower.includes('how much')) {
@@ -955,7 +948,7 @@ function getKeywordResponse(message: string, session: any): string {
   if (lower.includes('competitor') || lower.includes('intercom') || lower.includes('zendesk') || lower.includes('freshdesk')) {
     return pick('competitors') || responses.competitors[0];
   }
-  if (lower.includes('security') || lower.includes('data') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe') || lower.includes('privacy')) {
+  if (lower.includes('security') || lower.includes('data') || lower.includes('gdpr') || lower.includes('safe') || lower.includes('privacy')) {
     return pick('security') || responses.security[0];
   }
 
@@ -1026,7 +1019,7 @@ function detectStage(message: string, session: any): string {
   if (lower.includes('demo') || lower.includes('try') || lower.includes('see it') || lower.includes('show me') || lower.includes('experience')) return 'demo';
 
   // Discovery — learning about industry
-  if (!ctx.industry && (lower.includes('ecommerce') || lower.includes('e-commerce') || lower.includes('saas') || lower.includes('logistics') || lower.includes('healthcare') || lower.includes('retail') || lower.includes('industry'))) return 'discovery';
+  if (!ctx.industry && (lower.includes('ecommerce') || lower.includes('e-commerce') || lower.includes('saas') || lower.includes('logistics') || lower.includes('retail') || lower.includes('industry'))) return 'discovery';
 
   // Default: maintain previous stage unless it was welcome (which we should advance from)
   if (prevStage === 'welcome') return 'discovery';

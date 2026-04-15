@@ -197,10 +197,9 @@ INDUSTRIES:
 • E-commerce (Shopify, WooCommerce, Magento)
 • SaaS (GitHub, Jira, Slack, Intercom)
 • Logistics (TMS, WMS, GPS systems)
-• Healthcare (Epic EHR, HIPAA compliant)
 
 BILLING: Monthly, cancel anytime. 15% off annual. $0.10 overage/ticket. $1 Demo Pack.
-SECURITY: GDPR, SOC 2, HIPAA, AES-256, TLS 1.3, audit trail, PII redaction.
+SECURITY: GDPR, SOC 2, AES-256, TLS 1.3, audit trail, PII redaction.
 vs COMPETITORS: 85-92% savings vs Intercom, Zendesk AI, or hiring agents.
 
 ═══════════════════════════════════════════════

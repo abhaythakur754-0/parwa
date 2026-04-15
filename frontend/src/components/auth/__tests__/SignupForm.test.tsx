@@ -56,7 +56,7 @@ describe('SignupForm', () => {
     expect(screen.getByRole('option', { name: /select your industry/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /e-commerce/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /saas/i })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /healthcare/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /other/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /other/i })).toBeInTheDocument();
   });
 

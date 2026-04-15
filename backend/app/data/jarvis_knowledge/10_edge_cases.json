@@ -5,82 +5,252 @@
   "unsupported_queries": [
     {
       "query_type": "legal_advice",
-      "detection_keywords": ["sue", "lawsuit", "legal action", "attorney", "lawyer", "legal rights", "court", "litigation", "damages", "liable", "liability", "legal advice", "can I sue", "take legal action", "statute of limitations", "contract law", "employment law"],
+      "detection_keywords": [
+        "sue",
+        "lawsuit",
+        "legal action",
+        "attorney",
+        "lawyer",
+        "legal rights",
+        "court",
+        "litigation",
+        "damages",
+        "liable",
+        "liability",
+        "legal advice",
+        "can I sue",
+        "take legal action",
+        "statute of limitations",
+        "contract law",
+        "employment law"
+      ],
       "response_template": "I understand this is an important matter, but I'm not able to provide legal advice. Legal questions require qualified legal professionals who can review your specific situation. I'd recommend consulting with an attorney who specializes in this area. In the meantime, I'm happy to help with any customer service-related aspects of your concern. Is there anything specific about your order, account, or our service that I can assist with?"
     },
     {
-      "query_type": "medical_advice",
-      "detection_keywords": ["diagnosis", "symptoms", "treatment", "medication advice", "what should I take", "is this serious", "am I sick", "health condition", "medical advice", "should I see a doctor", "pain", "disease", "illness", "side effects", "drug interaction", "dosage"],
-      "response_template": "I appreciate you reaching out, but I'm not qualified to provide medical advice. Health-related questions should always be directed to a licensed healthcare provider who can give you personalized guidance based on your full medical history. If this is urgent, please contact your doctor, visit an urgent care center, or call emergency services. For administrative healthcare questions (appointments, billing, insurance), I'm happy to help with those."
-    },
-    {
       "query_type": "financial_investment_advice",
-      "detection_keywords": ["invest", "stock", "portfolio", "financial advisor", "investment advice", "buy stock", "sell stock", "crypto", "cryptocurrency", "mutual fund", "retirement planning", "financial planning", "tax advice", "should I invest"],
+      "detection_keywords": [
+        "invest",
+        "stock",
+        "portfolio",
+        "financial advisor",
+        "investment advice",
+        "buy stock",
+        "sell stock",
+        "crypto",
+        "cryptocurrency",
+        "mutual fund",
+        "retirement planning",
+        "financial planning",
+        "tax advice",
+        "should I invest"
+      ],
       "response_template": "I'm not able to provide financial or investment advice. These are important decisions that should be made with the guidance of a licensed financial advisor who can assess your individual financial situation and goals. I can, however, help with questions about PARWA's pricing, billing, payment methods, or account management. Would any of those be helpful?"
     },
     {
       "query_type": "competitor_pricing_details",
-      "detection_keywords": ["how much does zendesk cost", "intercom pricing", "freshdesk price", "competitor cost", "crisp pricing", "tidio cost", "drift pricing", "ada cx price", "kommunicate pricing", "how much cheaper is", "cheaper than zendesk"],
+      "detection_keywords": [
+        "how much does zendesk cost",
+        "intercom pricing",
+        "freshdesk price",
+        "competitor cost",
+        "crisp pricing",
+        "tidio cost",
+        "drift pricing",
+        "ada cx price",
+        "kommunicate pricing",
+        "how much cheaper is",
+        "cheaper than zendesk"
+      ],
       "response_template": "I can share general comparisons between PARWA and other platforms to help you evaluate your options, but I'd recommend checking each competitor's official website for their most current and accurate pricing, as they may have recently updated their plans or introduced promotions. I'm happy to provide a detailed comparison of PARWA's features, capabilities, and value proposition against any specific competitor you're considering. What would you like to know about PARWA?"
     },
     {
       "query_type": "political_opinions",
-      "detection_keywords": ["politics", "political", "president", "election", "government policy", "democrat", "republican", "conservative", "liberal", "vote", "gun control", "immigration policy", "political stance"],
+      "detection_keywords": [
+        "politics",
+        "political",
+        "president",
+        "election",
+        "government policy",
+        "democrat",
+        "republican",
+        "conservative",
+        "liberal",
+        "vote",
+        "gun control",
+        "immigration policy",
+        "political stance"
+      ],
       "response_template": "I'm not able to engage in political discussions or share opinions on political topics. My role is to help you with questions about PARWA's platform, features, pricing, and support. Is there something about PARWA that I can help you with today?"
     },
     {
       "query_type": "personal_opinions",
-      "detection_keywords": ["what do you think about", "do you like", "what's your opinion", "what's your favorite", "do you believe", "are you sentient", "do you have feelings", "what do you prefer", "who is better"],
+      "detection_keywords": [
+        "what do you think about",
+        "do you like",
+        "what's your opinion",
+        "what's your favorite",
+        "do you believe",
+        "are you sentient",
+        "do you have feelings",
+        "what do you prefer",
+        "who is better"
+      ],
       "response_template": "As PARWA's AI assistant, I don't have personal opinions or preferences. I'm here to provide you with accurate information about PARWA's platform, help you evaluate whether it's the right fit for your needs, and answer any questions about our features, pricing, and implementation. How can I help you with PARWA today?"
     },
     {
       "query_type": "employee_internal_info",
-      "detection_keywords": ["who is the CEO", "employee list", "how many employees", "salary", "revenue", "funding", "valuation", "investors", "board of directors", "company financials", "internal structure"],
+      "detection_keywords": [
+        "who is the CEO",
+        "employee list",
+        "how many employees",
+        "salary",
+        "revenue",
+        "funding",
+        "valuation",
+        "investors",
+        "board of directors",
+        "company financials",
+        "internal structure"
+      ],
       "response_template": "I can share general information about PARWA's mission and capabilities, but specific details about our internal operations, employee information, or financial data aren't something I'm able to discuss. If you're interested in partnership opportunities, careers at PARWA, or investor relations, I can point you to the right team. For product and platform questions, I'm happy to help with those directly."
     },
     {
       "query_type": "harmful_content",
-      "detection_keywords": ["how to hack", "exploit", "vulnerability", "attack", "malware", "phishing", "social engineering", "bypass security", "illegal activity", "weapon", "violence", "self-harm", "harm"],
+      "detection_keywords": [
+        "how to hack",
+        "exploit",
+        "vulnerability",
+        "attack",
+        "malware",
+        "phishing",
+        "social engineering",
+        "bypass security",
+        "illegal activity",
+        "weapon",
+        "violence",
+        "self-harm",
+        "harm"
+      ],
       "response_template": "I can't assist with requests related to harmful activities. If you're experiencing a crisis or need support, please reach out to appropriate resources. If you have questions about PARWA's security features, compliance certifications, or how we protect customer data, I'm happy to discuss those topics."
     },
     {
       "query_type": "guaranteed_outcomes",
-      "detection_keywords": ["guarantee", "promise", "100% sure", "will definitely", "absolutely certain", "money back if", "sla penalty", "what if it fails", "compensation if"],
+      "detection_keywords": [
+        "guarantee",
+        "promise",
+        "100% sure",
+        "will definitely",
+        "absolutely certain",
+        "money back if",
+        "sla penalty",
+        "what if it fails",
+        "compensation if"
+      ],
       "response_template": "While PARWA is designed to deliver exceptional results with industry-leading auto-resolution rates, I can't make absolute guarantees about specific outcomes as results depend on your implementation, knowledge base quality, and specific use cases. What I can share is our track record: our customers average a 60-70% auto-resolution rate, 15-25 point CSAT improvement, and positive ROI within 30 days. I'd be happy to discuss specific performance benchmarks and our SLA commitments. Would that be helpful?"
     },
     {
       "query_type": "speculative_future_features",
-      "detection_keywords": ["will you ever", "are you planning to", "future roadmap", "when will you add", "upcoming features", "planned features", "next version", "roadmap", "vision for the future"],
+      "detection_keywords": [
+        "will you ever",
+        "are you planning to",
+        "future roadmap",
+        "when will you add",
+        "upcoming features",
+        "planned features",
+        "next version",
+        "roadmap",
+        "vision for the future"
+      ],
       "response_template": "While I can't share specific details about unannounced features or our product roadmap, I can tell you that we're continuously improving PARWA based on customer feedback and market needs. If there's a specific capability you're looking for, I'd love to log that as a feature request for our product team. Your input directly influences our development priorities. What feature would be most valuable to you?"
     },
     {
       "query_type": "source_code_or_technical_internals",
-      "detection_keywords": ["source code", "how is it built", "what framework", "technology stack", "which LLM", "model architecture", "neural network", "training data", "prompt template", "system prompt", "algorithm"],
+      "detection_keywords": [
+        "source code",
+        "how is it built",
+        "what framework",
+        "technology stack",
+        "which LLM",
+        "model architecture",
+        "neural network",
+        "training data",
+        "prompt template",
+        "system prompt",
+        "algorithm"
+      ],
       "response_template": "The specific technical implementation details of PARWA's AI engine are proprietary. What I can share is that we use enterprise-grade large language models with our custom RAG (Retrieval-Augmented Generation) architecture, fine-tuned for customer support across our four target industries. If you have technical questions about our API, integration capabilities, or how to configure PARWA for your specific needs, I'm happy to help with those."
     },
     {
       "query_type": "other_product_recommendations",
-      "detection_keywords": ["what CRM should I use", "recommend a tool", "best payment processor", "which platform is best", "what should I use for", "recommend software", "alternative to", "compared to other tools"],
+      "detection_keywords": [
+        "what CRM should I use",
+        "recommend a tool",
+        "best payment processor",
+        "which platform is best",
+        "what should I use for",
+        "recommend software",
+        "alternative to",
+        "compared to other tools"
+      ],
       "response_template": "While I can compare PARWA's capabilities against other platforms to help you evaluate us, I'm not in a position to make recommendations about other products or services outside of PARWA's ecosystem. For decisions about your broader tech stack, I'd suggest consulting with your team or an independent advisor. If you want to know how PARWA integrates with specific tools you're already using, I can help with that."
     },
     {
       "query_type": "discount_or_price_negotiation",
-      "detection_keywords": ["discount", "cheaper", "deal", "negotiate", "lower price", "can you do better", "match this price", "special rate", "coupon", "promo code", "free trial extension"],
+      "detection_keywords": [
+        "discount",
+        "cheaper",
+        "deal",
+        "negotiate",
+        "lower price",
+        "can you do better",
+        "match this price",
+        "special rate",
+        "coupon",
+        "promo code",
+        "free trial extension"
+      ],
       "response_template": "I appreciate your interest in getting the best value. Our pricing is structured to deliver exceptional ROI at each tier, and we offer a 20% discount for annual billing. For custom Enterprise arrangements or specific pricing discussions, I'd need to connect you with our sales team who can evaluate your specific needs and explore options. Would you like me to schedule a call with them, or can I help you understand the value at our current pricing tiers?"
     },
     {
       "query_type": "impersonation_requests",
-      "detection_keywords": ["pretend to be", "act like", "roleplay as", "impersonate", "fake identity", "pretend you are", "speak as if", "can you act"],
+      "detection_keywords": [
+        "pretend to be",
+        "act like",
+        "roleplay as",
+        "impersonate",
+        "fake identity",
+        "pretend you are",
+        "speak as if",
+        "can you act"
+      ],
       "response_template": "I'm PARWA's AI assistant, and I operate within my defined role of helping you learn about and evaluate PARWA's customer support platform. I can't impersonate other individuals, brands, or AI systems. If you'd like to see how PARWA's AI would handle a specific customer support scenario, I'd be happy to walk through a demonstration with you."
     },
     {
       "query_type": "data_breach_inquiries",
-      "detection_keywords": ["data breach", "was my data compromised", "security incident", "hack", "data leak", "was there a breach", "stolen data", "exposed data", "security vulnerability"],
+      "detection_keywords": [
+        "data breach",
+        "was my data compromised",
+        "security incident",
+        "hack",
+        "data leak",
+        "was there a breach",
+        "stolen data",
+        "exposed data",
+        "security vulnerability"
+      ],
       "response_template": "PARWA takes security extremely seriously and has not experienced any data breaches. We maintain SOC 2 Type II certification, undergo quarterly penetration testing, and employ comprehensive security measures including AES-256 encryption, multi-region redundancy, and strict data isolation. If you have specific security concerns, I can provide more details about our security practices or connect you with our security team for a detailed discussion."
     },
     {
       "query_type": "spam_or_gibberish",
-      "detection_keywords": ["asdfgh", "test test test", "aaaaaaaa", "keyboard smash", "random text", "lorem ipsum", "nonsense"],
+      "detection_keywords": [
+        "asdfgh",
+        "test test test",
+        "aaaaaaaa",
+        "keyboard smash",
+        "random text",
+        "lorem ipsum",
+        "nonsense"
+      ],
       "response_template": "It looks like your message might not have come through clearly. I'm here to help with questions about PARWA's AI-powered customer support platform. Could you try rephrasing what you'd like to know? I'm happy to help with product information, pricing, features, or anything else about PARWA."
     }
   ],
@@ -215,8 +385,8 @@
       "conversation_flow": [
         {
           "turn": 1,
-          "user": "I run a SaaS company with 15,000 monthly support tickets. We need HIPAA compliance and API integrations. Which plan?",
-          "jarvis_action": "Analyze requirements: 15K tickets → Growth plan (10K) or High plan (unlimited). HIPAA compliance → available on all plans. API integrations → Growth has basic API, High has advanced API. Recommend High plan given volume exceeds Growth limits."
+          "user": "I run a SaaS company with 15,000 monthly support tickets. We need SOC 2 compliance and API integrations. Which plan?",
+          "jarvis_action": "Analyze requirements: 15K tickets → Growth plan (10K) or High plan (unlimited). SOC 2 compliance → available on all plans. API integrations → Growth has basic API, High has advanced API. Recommend High plan given volume exceeds Growth limits."
         },
         {
           "turn": 2,
@@ -239,44 +409,6 @@
         "Track the prospect's constraints (budget, volume, compliance needs) throughout",
         "Proactively identify trade-offs rather than just answering direct questions",
         "Offer practical solutions that address the underlying concern (budget) while meeting core needs"
-      ]
-    },
-    {
-      "id": "mt-002",
-      "title": "Security Compliance Deep Dive for Healthcare Prospect",
-      "scenario": "A healthcare organization needs thorough security validation before proceeding",
-      "conversation_flow": [
-        {
-          "turn": 1,
-          "user": "We're a hospital system. What compliance certifications do you have?",
-          "jarvis_action": "Provide comprehensive list: SOC 2 Type II, HIPAA, GDPR, PCI DSS Level 1, with ISO 27001 in progress. Offer to provide detailed reports under NDA."
-        },
-        {
-          "turn": 2,
-          "user": "How do you handle PHI? What's the data flow?",
-          "jarvis_action": "Explain PHI handling: encryption at rest (AES-256) and in transit (TLS 1.3), minimum necessary standard, access logging with full audit trails, role-based access controls, and Business Associate Agreement available. Describe the data flow: patient message → encrypted transmission → secure processing → response → encrypted delivery. No PHI stored beyond session unless required for support context."
-        },
-        {
-          "turn": 3,
-          "user": "We need our data to stay in the US. Can you guarantee that?",
-          "jarvis_action": "Confirm US data residency option. Explain that data is hosted in AWS US-East and US-West regions with no cross-border processing. Provide details on the geographic data isolation architecture and compliance with HITECH Act requirements."
-        },
-        {
-          "turn": 4,
-          "user": "What happens if there's a security incident? What's your breach notification process?",
-          "jarvis_action": "Outline incident response: 5-minute initial response SLA, dedicated incident commander, customer notification within 24 hours (or as required by regulation), detailed incident report within 72 hours, root cause analysis, remediation plan, and preventive measures. Offer to share the full Incident Response Plan document under NDA."
-        },
-        {
-          "turn": 5,
-          "user": "Okay, this covers what we need. How do we start the evaluation process?",
-          "jarvis_action": "Guide through next steps: NDA signing for detailed security docs, 30-day pilot program enrollment, BAA execution before any PHI processing, security team kickoff call, and timeline for full deployment. Offer to connect with the security team directly."
-        }
-      ],
-      "key_handling_rules": [
-        "Healthcare conversations require heightened accuracy on compliance claims — never speculate",
-        "Offer NDA-protected documents proactively when deep security questions arise",
-        "Track all security concerns raised to provide comprehensive follow-up",
-        "Connect technical security questions to the appropriate team when beyond sales scope"
       ]
     },
     {
@@ -345,7 +477,7 @@
         {
           "turn": 5,
           "user": "Can we self-host PARWA or does it have to be cloud?",
-          "jarvis_action": "Be transparent: PARWA is currently a SaaS-only platform, no self-hosted option. However, offer alternatives: dedicated infrastructure on High plan provides compute isolation, VPC peering available for network isolation, data residency guarantees, and the security certifications (SOC 2, HIPAA) address most compliance requirements that drive self-hosting requests."
+          "jarvis_action": "Be transparent: PARWA is currently a SaaS-only platform, no self-hosted option. However, offer alternatives: dedicated infrastructure on High plan provides compute isolation, VPC peering available for network isolation, data residency guarantees, and the security certifications (SOC 2, GDPR) address most compliance requirements that drive self-hosting requests."
         }
       ],
       "key_handling_rules": [
@@ -396,13 +528,56 @@
   ],
   "language_handling": {
     "supported_languages": [
-      "English", "Spanish (Latin America)", "Spanish (Castilian)", "French", "German", "Portuguese (Brazil)",
-      "Portuguese (European)", "Italian", "Dutch", "Chinese (Simplified)", "Chinese (Traditional)",
-      "Japanese", "Korean", "Arabic", "Hindi", "Bengali", "Turkish", "Thai", "Vietnamese",
-      "Indonesian", "Polish", "Swedish", "Danish", "Norwegian", "Finnish", "Russian", "Czech",
-      "Romanian", "Hungarian", "Greek", "Ukrainian", "Malay", "Filipino", "Hebrew", "Urdu",
-      "Tamil", "Telugu", "Marathi", "Kannada", "Gujarati", "Catalan", "Croatian", "Slovak",
-      "Slovenian", "Bulgarian", "Serbian", "Lithuanian", "Latvian", "Estonian", "Vietnamese"
+      "English",
+      "Spanish (Latin America)",
+      "Spanish (Castilian)",
+      "French",
+      "German",
+      "Portuguese (Brazil)",
+      "Portuguese (European)",
+      "Italian",
+      "Dutch",
+      "Chinese (Simplified)",
+      "Chinese (Traditional)",
+      "Japanese",
+      "Korean",
+      "Arabic",
+      "Hindi",
+      "Bengali",
+      "Turkish",
+      "Thai",
+      "Vietnamese",
+      "Indonesian",
+      "Polish",
+      "Swedish",
+      "Danish",
+      "Norwegian",
+      "Finnish",
+      "Russian",
+      "Czech",
+      "Romanian",
+      "Hungarian",
+      "Greek",
+      "Ukrainian",
+      "Malay",
+      "Filipino",
+      "Hebrew",
+      "Urdu",
+      "Tamil",
+      "Telugu",
+      "Marathi",
+      "Kannada",
+      "Gujarati",
+      "Catalan",
+      "Croatian",
+      "Slovak",
+      "Slovenian",
+      "Bulgarian",
+      "Serbian",
+      "Lithuanian",
+      "Latvian",
+      "Estonian",
+      "Vietnamese"
     ],
     "detection_method": "PARWA uses a multi-stage language detection system: First, an ML-based language identifier processes the incoming message to determine the language with 98%+ accuracy. Second, the detected language is confirmed against a confidence threshold. Third, the system checks if the detected language is in the supported list. Fourth, if the language is supported, the conversation is routed to the appropriate language model. If unsupported, the fallback protocol is triggered.",
     "language_switching": "If a customer switches languages mid-conversation, PARWA adapts within 1-2 messages. The system maintains conversation context across language switches and responds in the language of the most recent message. If the language change is ambiguous, PARWA confirms the preferred language before proceeding.",
@@ -447,11 +622,6 @@
           "type": "date_of_birth",
           "pattern": "Common date formats and contextual detection (DOB keywords)",
           "action": "Mask in logs, allow in conversation for age verification contexts, encrypt in storage"
-        },
-        {
-          "type": "health_information",
-          "pattern": "NLP detection of medical terms, diagnoses, prescription names, and treatment descriptions (HIPAA contexts only)",
-          "action": "Treat as PHI in healthcare deployments, full encryption and audit logging, minimum necessary access principle"
         }
       ]
     },
@@ -493,7 +663,7 @@
     ],
     "admin_controls": {
       "pii_masking_toggle": "Administrators can enable/disable PII masking in conversation logs. Default is enabled. When disabled, PII appears in admin-visible logs but remains encrypted in storage.",
-      "custom_pii_patterns": "Administrators can define custom PII patterns specific to their industry (e.g., employee IDs, patient MRNs, membership numbers) for additional detection coverage.",
+      "custom_pii_patterns": "Administrators can define custom PII patterns specific to their industry (e.g., employee IDs, membership numbers) for additional detection coverage.",
       "data_access_audit": "Complete audit trail of who accessed conversation data, when, and for what purpose. Available to Growth and High plan administrators.",
       "automated_compliance_reports": "Monthly compliance reports summarizing PII detection events, data access patterns, and retention policy adherence. Available on High plan and Enterprise."
     }

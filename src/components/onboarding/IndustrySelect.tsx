@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils';
 const INDUSTRY_OPTIONS: { value: Industry; label: string; icon: string }[] = [
   { value: 'saas', label: 'SaaS / Software', icon: '💻' },
   { value: 'ecommerce', label: 'E-commerce', icon: '🛒' },
-  { value: 'healthcare', label: 'Healthcare', icon: '🏥' },
   { value: 'finance', label: 'Finance / Banking', icon: '🏦' },
   { value: 'education', label: 'Education', icon: '🎓' },
   { value: 'real_estate', label: 'Real Estate', icon: '🏠' },

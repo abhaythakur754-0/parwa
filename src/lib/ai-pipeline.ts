@@ -154,7 +154,7 @@ const INTENT_PATTERNS: Record<string, RegExp[]> = {
     /(?:simulate|pretend you(?:'re| are) a|act as a)/i,
   ],
   industry: [
-    /(?:e-commerce|ecommerce|saas|logistics|healthcare|retail|industry|vertical|market)/i,
+    /(?:e-commerce|ecommerce|saas|logistics|retail|industry|vertical|market)/i,
     /(?:variant|order management|returns|shipping|shipment|appointment|insurance|billing support|api support)/i,
   ],
   objection: [
@@ -164,7 +164,7 @@ const INTENT_PATTERNS: Record<string, RegExp[]> = {
   ],
   technical: [
     /(?:api|integration|webhook|technical|setup|install|deploy|configure|implementation)/i,
-    /(?:error|bug|ssl|tls|encrypt|gdpr|hipaa|soc 2|compliance|security)/i,
+    /(?:error|bug|ssl|tls|encrypt|gdpr|soc2|soc 2|compliance|security)/i,
     /(?:zendesk|intercom|shopify|slack|salesforce|hubspot|stripe|woo?commerce)/i,
   ],
   comparison: [
@@ -202,7 +202,6 @@ const ENTITY_PATTERNS: { pattern: RegExp; label: string }[] = [
   { pattern: /\b(?:e-commerce|ecommerce|online store|retail)\b/i, label: 'e-commerce' },
   { pattern: /\b(?:saas|software|platform)\b/i, label: 'saas' },
   { pattern: /\b(?:logistics|shipping|freight|warehouse)\b/i, label: 'logistics' },
-  { pattern: /\b(?:healthcare|hospital|clinic|medical)\b/i, label: 'healthcare' },
   { pattern: /\b(?:zendesk|intercom|freshdesk|helpscout)\b/i, label: 'competitor' },
   { pattern: /\b(?:shopify|woo?commerce|magento|bigcommerce)\b/i, label: 'ecommerce_platform' },
   { pattern: /\b(?:mini parwa|parwa high|starter|growth tier)\b/i, label: 'plan_name' },
@@ -351,23 +350,23 @@ const KNOWLEDGE_INDEX: KnowledgeIndex[] = [
   },
   // Industry
   {
-    keywords: ['ecommerce', 'e-commerce', 'saas', 'logistics', 'healthcare', 'industry', 'variant'],
+    keywords: ['ecommerce', 'e-commerce', 'saas', 'logistics', 'industry', 'variant'],
     source: '02_industry_variants',
-    content: `4 Industries with 5 variants each: E-commerce (Order Mgmt $99, Returns $49, Product FAQ $79, Shipping $59, Payment $69), SaaS (Tech Support $99, Billing $69, Features $59, API $79, Account $49), Logistics (Tracking $79, Delivery $69, Warehouse $59, Fleet $99, Customs $89), Healthcare (Appointments $79, Insurance $89, Records $69, Prescriptions $59, Billing $49).`,
+    content: `3 Industries with 5 variants each: E-commerce (Order Mgmt $99, Returns $49, Product FAQ $79, Shipping $59, Payment $69), SaaS (Tech Support $99, Billing $69, Features $59, API $79, Account $49), Logistics (Tracking $79, Delivery $69, Warehouse $59, Fleet $99, Customs $89).`,
     relevance: 0.9,
   },
   // Variant Details
   {
     keywords: ['variant', 'order management', 'returns', 'refund', 'shipment tracking', 'appointment', 'technical support', 'billing'],
     source: '03_variant_details',
-    content: `Each variant is a specialized AI agent for a specific support function. Variants handle 150-500 tickets/month. They integrate with industry-specific tools (Shopify, Epic EHR, TMS/WMS). Auto-learns from resolved tickets to improve over time.`,
+    content: `Each variant is a specialized AI agent for a specific support function. Variants handle 150-500 tickets/month. They integrate with industry-specific tools (Shopify, TMS/WMS). Auto-learns from resolved tickets to improve over time.`,
     relevance: 0.85,
   },
   // Integrations
   {
     keywords: ['integration', 'integrate', 'connect', 'shopify', 'zendesk', 'slack', 'salesforce', 'hubspot', 'api', 'webhook'],
     source: '04_integrations',
-    content: `Integrations: E-commerce (Shopify, WooCommerce, Magento, BigCommerce), Support (Zendesk, Freshdesk, Intercom, Help Scout), Communication (Slack, WhatsApp, Email), CRM (Salesforce, HubSpot), Healthcare (Epic EHR, FHIR), Custom (REST API, GraphQL, Webhooks). Setup takes ~5 minutes per integration.`,
+    content: `Integrations: E-commerce (Shopify, WooCommerce, Magento, BigCommerce), Support (Zendesk, Freshdesk, Intercom, Help Scout), Communication (Slack, WhatsApp, Email), CRM (Salesforce, HubSpot), Custom (REST API, GraphQL, Webhooks). Setup takes ~5 minutes per integration.`,
     relevance: 0.8,
   },
   // Capabilities
@@ -381,14 +380,14 @@ const KNOWLEDGE_INDEX: KnowledgeIndex[] = [
   {
     keywords: ['demo', 'try', 'see it', 'show me', 'roleplay', 'example', 'simulate', 'act as'],
     source: '06_demo_scenarios',
-    content: `Demo approach: Offer to roleplay as a customer care agent. Best scenarios: "Where's my order?" (ecommerce), "How do I reset my API key?" (SaaS), "Track my shipment" (logistics), "Schedule appointment" (healthcare). Show specific capabilities in action.`,
+    content: `Demo approach: Offer to roleplay as a customer care agent. Best scenarios: "Where's my order?" (ecommerce), "How do I reset my API key?" (SaaS), "Track my shipment" (logistics). Show specific capabilities in action.`,
     relevance: 0.85,
   },
   // Objection Handling
   {
     keywords: ['too expensive', 'not sure', 'concern', 'worried', 'risk', 'trust', 'reliable', 'already use', 'happy with', 'competitor'],
     source: '07_objection_handling',
-    content: `Key objection strategies: Cost → ROI reframing ($156K-$288K/year saved, 85-92% reduction). Complexity → 10-14 day setup, zero downtime. Security → SOC 2, GDPR, HIPAA, AES-256. "Already use X" → PARWA enhances, doesn't replace. AI quality → 60-70% auto-resolution, <2% error rate after tuning.`,
+    content: `Key objection strategies: Cost → ROI reframing ($156K-$288K/year saved, 85-92% reduction). Complexity → 10-14 day setup, zero downtime. Security → SOC 2, GDPR, AES-256. "Already use X" → PARWA enhances, doesn't replace. AI quality → 60-70% auto-resolution, <2% error rate after tuning.`,
     relevance: 0.9,
   },
   // FAQ
@@ -409,7 +408,7 @@ const KNOWLEDGE_INDEX: KnowledgeIndex[] = [
   {
     keywords: ['edge', 'what if', 'edge case', 'special case', 'unusual', 'complex scenario'],
     source: '10_edge_cases',
-    content: `Edge case handling: Low confidence → auto-escalate. Multi-language detection. Peak load auto-scaling. Brand voice consistency across channels. Compliance workflows (GDPR, HIPAA). Graceful degradation when AI providers are down.`,
+    content: `Edge case handling: Low confidence → auto-escalate. Multi-language detection. Peak load auto-scaling. Brand voice consistency across channels. Compliance workflows (GDPR, SOC 2). Graceful degradation when AI providers are down.`,
     relevance: 0.65,
   },
 ];

@@ -2368,7 +2368,7 @@ SLAs
 custom_sla_uptime_percentage DECIMAL(5,2) DEFAULT 99.5, custom_sla_credit_percentage INT
 DEFAULT
 10, -- Industry Specifics compliance_framework VARCHAR(50) DEFAULT 'GDPR', -- GDPR,
-HIPAA,
+SOC 2,
 PCI-DSS audit_log_retention_years INT DEFAULT 5, timestamps created_at TIMESTAMP DEFAULT
 NOW(),
 updated_at TIMESTAMP DEFAULT NOW() Logic to Check Waivers: backend/services/payment.py
@@ -2381,9 +2381,9 @@ waived per contract."} Apply Standard Cap Logic liability_result =
 calculate_liability_cap(client_id,
 refund_amount) if liability_result['status'] == "partial_covered": return {"status":
 "denied", "reason": "Exceeds
-Liability Cap."} if config.compliance_framework == "HIPAA": if not
-is_phi_compliant(refund_amount): return
-{"status": "denied", "reason": "Not HIPAA compliant."} return {"status": "authorized"}
+Liability Cap."} if config.compliance_framework == "SOC2": if not
+is_soc2_compliant(refund_amount): return
+{"status": "denied", "reason": "Not SOC 2 compliant."} return {"status": "authorized"}
 D. Automated
 Compliance Checks (KYC/AML) For Fintech clients, we automate legal checks. KYC Check
 (Know Your
@@ -3978,7 +3978,7 @@ Acknowledgment │ ├───────────────────�
 acknowledge to activate: │ │ │ │ [Industry] Financial Authorization Limits │ │ AI will not process [industry] transactions >
 $50 │ │ without approval [Configure limits] │ │ │ │ [Industry] Liability Cap │ │ PARWA liability limited to 1x monthly fees │ │
 [View Full [Industry] Terms] │ │ │ │ No
-[Industry] HIPAA/PCI-DSS Guarantee │ │ For [industry-specific] data: [Contact Sales] │ │
+[Industry] PCI-DSS Guarantee │ │ For [industry-specific] data: [Contact Sales] │ │
 │ │ [Industry]
 Emergency Escalation Protocol │ │ Human takeover available 24/7 via dashboard │ │ │ │
 [Activate [Industry]
@@ -4404,7 +4404,7 @@ will affect X future tickets, no past actions changed\' - Rule Change Log: All r
 changes logged with
 before/after state - Confirmation Required: Two-step confirmation for any rule
 modification 3.7 Issue #12:
-\'Other\' Industry Is a Dead End Solution - Added Healthcare as 4th industry with HIPAA-
+\'Other\' Industry Is a Dead End Solution - Added Logistics as 4th industry with industry-
 aware compliance \'Custom Industry\' flow for all other industries with generic but
 complete onboarding - Industry templates for
 Legal, Finance, Real Estate in development roadmap 3.8 Issue #13: ROI Claims Are
@@ -4546,11 +4546,7 @@ Compliance: Standard e-commerce regulations, PCI DSS for payments Color Theme: D
 troubleshooting, API support, subscription management - Compliance: SOC 2 considerations, security incident handling -
 Color Theme: Deep navy (#0A1A2E) with silver accents (#C0C0C0) 8.3 Logistics - Integrations: TMS, WMS, carrier APIs
 (FedEx, UPS, DHL) - Specialized Skills: Delivery tracking, route optimization, carrier coordination - Compliance: Shipping
-regulations, hazardous materials protocols - Color Theme: Deep charcoal (#1A1A1A) with orange accents (#FF7F11) 8.4
-Healthcare (NEW) - Integrations: EHR systems, Epic, scheduling platforms - Specialized Skills: Appointment scheduling,
-prescription status, insurance verification - Compliance: HIPAA, HITECH, state healthcare regulations - Color Theme:
-Medical green (#0D5C4D) with white accents - Special Restrictions: No PHI in AI training data, additional audit requirements
-Part 9: Implementation Roadmap **This section outlines the phased approach to building and deploying the PARWA
+regulations, hazardous materials protocols - Color Theme: Deep charcoal (#1A1A1A) with orange accents (#FF7F11) Part 9: Implementation Roadmap **This section outlines the phased approach to building and deploying the PARWA
 platform.** 9.1 Phase 1: Core Infrastructure (Weeks 1-4) 3. Build Custom GSD State Engine 9.2 Phase 2: Core Features
 (Weeks 5-8) 9.3 Phase 3: Compliance & Security (Weeks 9-12) 9.4 Phase 4: Industry Specialization (Weeks 13-16) 9.5 Phase
 5: Polish & Launch (Weeks 17-20) Part 10: Summary & Next Steps **This document represents the complete, production-
@@ -4748,11 +4744,7 @@ prediction, technical
 Zendesk, Slack, troubleshooting, API Discord error handling Logistics TMS/WMS, carrier
 GPS tracking, driver
 Shipping APIs (AfterShip, coordination, proof of regulations 17Track) delivery, hazmat
-protocols Healthcare
-Epic EHR, Appointments, HIPAA/HITECH + scheduling prescriptions, insurance BAA required
-portals,
-insurance verification, billing. portals NO PHI in training.
-Core) doesn\'t change. Only integrations, guardrails, and workflows change. Approval
+protocols Core) doesn\'t change. Only integrations, guardrails, and workflows change. Approval
 requirements don\'t change
 We have moved away from restrictive frameworks like CrewAI in favor of a high-control,
 low-cost, modular
@@ -5188,7 +5180,7 @@ foundation (#0A3D2E) with gold accents (#D4AF37). - SaaS: Deep navy foundation (
 - Logistics: Deep charcoal foundation (#1A1A1A) with orange
 
 === PAGE 93 ===
-accents (#FF7F11). - Healthcare: Medical green foundation (#1B5E40) with white accents (#FFFFFF). Industry-Aware Live AI
+accents (#FF7F11). - Logistics: Deep charcoal foundation (#1A1A1A) with orange accents (#FF7F11). Industry-Aware Live AI
 Demo Widget: Persistent chat widget in bottom-right corner. Message: \'Ask our \[Industry\] AI anything about PARWA.\' -
 Onboarding CTA (Pre-Signup): \'Start Onboarding (No Credit Card)\' -> Redirects to Onboarding Wizard. - Industry-Specific
 \'Dogfooding\' Banner: \'Our \[Industry\] support is powered by PARWA AI. Try it yourself.\' 12.3 Phase 1.5: ROI Calculator
@@ -5602,19 +5594,17 @@ new_amount) \> 150: return {\'action\': \'BLOCK\', \'reason\':
 \'cumulative_limit_exceeded\'} if same_day_count
 \>= 3: return {\'action\': \'BLOCK\', \'reason\': \'velocity_fraud_detected\'} return
 {\'action\': \'ALLOW\'}
-AI gives a customer incorrect medical, legal, or financial advice, PARWA could be held
+AI gives a customer incorrect legal or financial advice, PARWA could be held
 liable. Original docs had
 no clear liability framework. The Fix: Mandatory Disclaimer System + Knowledge Boundary
 Detection Every AI
 response is scanned for high-risk topic categories. If detected, a mandatory disclaimer
 is appended: >
-HIGH_RISK_TOPIC_PATTERNS = { \'medical\': \[\'medication\', \'dosage\', \'symptoms\',
-\'diagnosis\'\],
+HIGH_RISK_TOPIC_PATTERNS = {
 \'legal\': \[\'lawsuit\', \'contract\', \'liability\', \'warranty\'\], \'financial\':
 \[\'investment\', \'tax\', \'accounting\'\] } def
 append_disclaimer_if_needed(response: str, topic: str) -\> str: disclaimers = {
-\'medical\': \'\\n\\n\[Disclaimer:
-This is general info, not medical advice. Consult a doctor.\]\', \'legal\':
+\'legal\':
 \'\\n\\n\[Disclaimer: This is not legal advice.
 Please consult a licensed attorney.\]\', \'financial\': \'\\n\\n\[Disclaimer: This is
 not financial advice. Consult a
@@ -6326,42 +6316,7 @@ specialist. Never provides hazmat handling advice autonomously. - Freight Damage
 flow. Integrates with carrier claims portal. Generates claim reference number. Compliance Requirements: - DOT
 Regulations: No autonomous decisions on hazmat routing. Human required for regulated goods. - Carrier Liability: Clear
 limits on claims processing. SLA for claim initiation vs resolution. - Data Retention: Proof of delivery records retained for 7
-years per commercial standards. 16.4 Healthcare Epic EHR FHIR API Appointment Check appointment (read-only) schedules,
-general availability, provide facility info only facility info Scheduling REST API Appointment slots, Book, reschedule, or Portal
-provider cancel appointments availability Insurance REST API Coverage Verify coverage type, not Portal (limited) verification
-(no specific benefits Billing Portal REST API Invoice status, Check balance, explain (limited)
-1. No Phi In
-TRAINING: Patient health information is NEVER used as AI training data. 2. NO MEDICAL
-ADVICE: AI
-never provides diagnosis, treatment, or medication guidance. 3. NO CLINICAL DECISIONS:
-All clinical matters
-routed to human staff immediately. 4. BAA REQUIRED: Business Associate Agreement must be
-signed before
-deployment. 5. HIPAA LOGS: All interactions involving health topics logged with HIPAA-
-compliant audit trail.
-What Healthcare AI CAN Do: - Appointment scheduling and reminders. - General facility
-information (hours,
-knowledge base only.
-What Healthcare AI CANNOT Do: - Provide any medical advice, diagnosis, or treatment
-recommendations. Interpret lab results or imaging. - Access or discuss specific patient
-records. - Make clinical decisions of any kind.
-- Provide medication dosing information. - Handle mental health crisis situations
-autonomously (immediate
-human escalation + crisis resources). HIPAA Compliance Implementation: >
-HIPAA_RESTRICTED_KEYWORDS = \[ \'diagnosis\', \'prescription\', \'medication\',
-\'dosage\', \'treatment\',
-\'test results\', \'lab\', \'imaging\', \'surgery\', \'procedure\' \] def
-healthcare_safety_check(message: str) -\> dict: for
-keyword in HIPAA_RESTRICTED_KEYWORDS: if keyword.lower() in message.lower(): return {
-\'action\':
-\'ESCALATE_IMMEDIATELY\', \'reason\': f\'Clinical topic detected: {keyword}\',
-\'customer_message\': \'For
-medical questions, please speak with one of our healthcare providers.\', \'route_to\':
-\'clinical_staff\' } return
-{\'action\': \'PROCEED\'} BAA (Business Associate Agreement) Requirements: - Required
-BEFORE any
-anonymized data only), Vercel (frontend) + GCP VM (backend) (hosting). - Data processed: ONLY scheduling,
-billing info, general
+years per commercial standards.
 SECTION 17: 5-PHASE IMPLEMENTATION ROADMAP (20 Weeks) Overview The complete 20-week plan
 to build PARWA from zero to production-ready, organized into 5 distinct phases. Each
 phase has clear
@@ -6403,9 +6358,7 @@ Objective: Build all four industry modules with real integrations. E-Commerce: O
 in \<2s. Shopify/Stripe HMAC verification. Refund workflow end-to-end Circuit breaker tested. pattern. EXIF stripping. 14
 SaaS: OAuth for GitHub. Churn prediction triggering at GitHub/Stripe/Zendesk Stripe subscription correct signals. Tech API.
 Zendesk ticket troubleshoot flow working. 15 Logistics: AfterShip webhook. Real-time tracking updates. TMS/WMS/Carriers
-Google Maps ETA. Hazmat routing to human working. Carrier API fallbacks. 16 Healthcare: FHIR API read-only. PHI never
-stored or trained on. Epic/Scheduling/HIPAA HIPAA keyword Clinical escalation instant.
-BAA detection. BAA flow complete. workflow. Clinical escalation. UI fully functional with Accessibility (WCAG swipe. 18 Load
+Google Maps ETA. Hazmat routing to human working. Carrier API fallbacks. 17 Load
 Testing k6 load tests. System handles 10K concurrent 10,000 concurrent users. No degradation. Query users simulation.
 indexes verified. Database query optimization. 19 Security Audit Penetration Zero critical vulnerabilities. testing. OWASP
 Top All OWASP items addressed. Clean 10 review. scan report. Dependency vulnerability scan. 20 Beta Launch 10-client
@@ -6900,9 +6853,8 @@ considerations, Zendesk, Intercom, drops, technical security incident Slack, Dis
 troubleshooting handling
 Logistics TMS, WMS, carrier GPS tracking Shipping APIs (FedEx, UPS, integration, driver
 regulations, DHL)
-coordination, proof of hazardous
-scheduling prescription status, no PHI in AI platforms, insurance verification training
-data insurance portals
+coordination, proof of
+delivery verification
 Autonomy is earned based on demonstrated performance, not on the passage of calendar
 time. This ensures that
 the AI truly deserves the trust placed in it before sensitive tasks are handed over. 7.2
@@ -7372,10 +7324,10 @@ Something Goes Wrong?\' Link: Links to a dedicated page explaining error handlin
 limits. Industry Selection Hero Section Headline: \'Replace Your 24/7 Support Team for 80% Less. Industry-specific AI that
 understands your business challenges.\' ┌──────────────────────────────────────────────────────────┐ │ Select
 Your Industry │ ├──────────────────────────────────────────────────────────┤ │ \[E-commerce\] \[SaaS\]
-\[Logistics\] \[Healthcare\] │ │ Each with unique icon, hover description, │ │ and industry-specific color preview │
+[Logistics] [Finance] │ │ Each with unique icon, hover description, │ │ and industry-specific color preview │
 └──────────────────────────────────────────────────────────┘ Silver Technical precision and (#0A1A2E)
 (#C0C0C0) enterprise reliability Logistics Deep charcoal Orange Industrial strength (#1A1A1A) (#FF7F11) with urgency and
-energy Healthcare Medical green White accents Pre-Signup Onboarding CTA Instead of a standard \'Sign Up\' button,
+energy Finance Navy blue Silver accents Pre-Signup Onboarding CTA Instead of a standard \'Sign Up\' button,
 visitors see: \'Start Onboarding (No Credit Card)\' -> Redirects directly to Onboarding Wizard. This removes the primary
 friction point in the conversion funnel. 15.3 The Industry-Aware Live AI Demo Widget A persistent chat widget fixed in the
 bottom-right corner of every page. Message: \'Ask our \[Industry\] AI anything about PARWA.\' This widget is powered by
@@ -7533,9 +7485,7 @@ Shopify, Magento, Camera upload option for BigCommerce, WooCommerce photographin
 documents
 SaaS GitHub, GitLab, Zendesk, API key input with security Intercom, Slack, Discord
 guidance Logistics TMS,
-WMS, FedEx, UPS, DHL GPS integration APIs verification flow Healthcare Epic EHR,
-scheduling Extra
-compliance systems, insurance portals confirmation steps; HIPAA acknowledgment required
+WMS, FedEx, UPS, DHL GPS integration APIs verification flow
 Non-technical prompt: \'Upload your \[industry-specific\] guides, policies, and FAQs so
 your AI speaks your
 industry\'s language.\' Drag-and-Drop Area: Large, industry-colored bordered zone with a
@@ -7792,8 +7742,8 @@ already-approved transactions,
 ones. Preview shown: \'This will affect X future tickets. No past actions will be
 changed.\' Two-step confirmation
 required for any rule modification. Issue #12: \'Other\' Industry Is a Dead End Problem: The \'Other\' industry selector led
-to a generic, unsatisfying onboarding experience. Solution: Added Healthcare as a full 4th industry with HIPAA-aware
-compliance. \'Custom Industry\' flow for unlisted industries with generic but complete onboarding. Industry templates for
+to a generic, unsatisfying onboarding experience. Solution: Added Logistics as a full 4th industry with industry-
+aware compliance. \'Custom Industry\' flow for unlisted industries with generic but complete onboarding. Industry templates for
 Legal, Finance, and Real Estate in the development roadmap. Issue #13: ROI Claims Are Unverifiable at Sign-Up Problem:
 ROI numbers shown during signup had with transparent methodology. Real customer case studies gated behind email sign-
 up. Interactive ROI Calculator (trivya.com/calculator) lets clients input their own numbers for personalized estimates. Third-
@@ -7901,13 +7851,8 @@ requests, billing disputes, technical onboarding
 tracking systems Specialized Skills GPS tracking API integration, driver coordination workflows, proof of delivery
 automation, hazmat protocol handling Compliance Shipping regulations, hazardous materials protocols, carrier liability
 requirements Color Theme Deep charcoal (#1A1A1A) foundation with orange (#FF7F11) accents Agent Workflows Package
-location, delivery rescheduling, address correction, lost package claims, carrier Healthcare configuration has additional
-strict requirements beyond other industries: No PHI (Protected Health Information) may be included in AI training data.
-Additional audit requirements. All data processing documented for HIPAA compliance. BAA (Business Associate Agreement)
-required before activation. portals Specialized Skills Appointment scheduling and rescheduling, prescription status inquiries,
-insurance verification, billing questions Compliance HIPAA, HITECH, state healthcare regulations, BAA required Color
-Theme Medical green (#0D5C4D) foundation with white accents Special No PHI in any AI training data, additional audit
-Restrictions logging requirements, separate data residency used within the PARWA platform. These are production-ready
+location, delivery rescheduling, address correction, lost package claims, carrier
+used within the PARWA platform. These are production-ready
 implementations requiring zero GPU and deployable immediately on standard cloud infrastructure.
 Collective Intelligence Network, Smart Router, Batch Approval Intelligence Reasoning Chain of Thought (CoT), Tree of
 Thoughts (ToT), Frameworks ReAct, Reverse Thinking, Universe of Thoughts (UoT), Graph of Thoughts (GST) RAG
@@ -8102,7 +8047,7 @@ infrastructure routing 69. Create sub-processor management system with 30-day no
 tier incident response automation 71. Build knowledge base verification system with 90-day auto-flagging 72. Deploy PII
 redaction layer before all LLM API calls 32.4 Phase 4: Industry Specialization (Weeks 13--16) 73. Build E-commerce
 integrations: Shopify, Magento, BigCommerce 74. Build SaaS integrations: GitHub, Zendesk, Stripe, Intercom 75. Build
-Logistics integrations: TMS, WMS, carrier APIs 76. Build Healthcare integrations with HIPAA compliance layer 77. Create
+Logistics integrations: TMS, WMS, carrier APIs 76. Build Finance integrations with SOC 2 compliance layer 77. Create
 industry-specific onboarding wizards for all 4 verticals 78. Implement industry-specific color themes and UI customizations
 32.5 Phase 5: Polish & Launch (Weeks 17--20) 79. Complete UI/UX refinement based on beta client feedback 80. Load
 
@@ -8162,7 +8107,7 @@ Execution Layer ensures atomic operations with rollback capabilities and complet
 Without MAKER: Error rate 3-5%, escalation rate 8-12%, resolution accuracy 94%. With MAKER: Error rate 0.3-0.8%,
 escalation rate 2-4%, resolution accuracy 99.2%. This represents a 6-16x improvement in error rates for complex multi-step
 tasks. MAKER Configuration Options PARWA offers three MAKER configurations: Conservative Mode (K=7, 75% threshold)
-for healthcare and finance; Balanced Mode (K=3-5, 60% threshold) for e-commerce and SaaS; and Efficiency Mode (K=3,
+for finance and high-risk domains; Balanced Mode (K=3-5, 60% threshold) for e-commerce and SaaS; and Efficiency Mode (K=3,
 50% threshold) for high-volume low-risk queries.
 3-Tier Hybrid Ai Technique Optimization Framework Overview The 3-Tier Hybrid Architecture represents PARWA's strategic
 approach to balancing AI capability utilization with operational efficiency. Rather than applying all 25+ AI techniques
@@ -9375,8 +9320,8 @@ assurance. How can I help you today?"*
 
   ☑️
 │                                     │
-│      No HIPAA/PCI-DSS Guarantee                       │
-│ For healthcare/payment data: [Contact Sales]           │
+│      No PCI-DSS Guarantee                       │
+│ For payment/sensitive data: [Contact Sales]           │
 
   ☑️
 │                                     │

@@ -11,7 +11,6 @@ export type Industry =
   | 'saas'
   | 'ecommerce'
   | 'logistics'
-  | 'healthcare'
   | 'finance'
   | 'education'
   | 'real_estate'

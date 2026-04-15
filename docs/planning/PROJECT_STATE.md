@@ -7,8 +7,10 @@
 
 - **Name:** PARWA AI Workforce
 - **Stack:** FastAPI + Next.js 15 + PostgreSQL + Redis + Celery + Socket.io + Paddle + Brevo + Twilio
-- **Repo:** https://github.com/abhaythakur754-0/parwa.git
+- **Industries:** E-commerce, SaaS, Logistics (NO healthcare — removed April 2026)
+- **Deployment:** Docker (docker-compose for dev, docker-compose.prod.yml for production)
 - **Current Phase:** Production Readiness — 18-part systematic plan
+- **Currently Building:** Part 18 (Safety & Compliance) — 5-day plan, 63 safety items
 
 ## Current Status
 

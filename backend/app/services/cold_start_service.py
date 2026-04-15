@@ -34,7 +34,6 @@ logger = logging.getLogger("parwa.cold_start")
 # Industries with pre-built templates
 INDUSTRY_ECOMMERCE = "ecommerce"
 INDUSTRY_SAAS = "saas"
-INDUSTRY_HEALTHCARE = "healthcare"
 INDUSTRY_FINANCE = "finance"
 INDUSTRY_EDUCATION = "education"
 INDUSTRY_TRAVEL = "travel"
@@ -119,32 +118,6 @@ INDUSTRY_TEMPLATES = {
             "billing_management", "integrations", "troubleshooting"
         ],
         "escalation_triggers": ["data_breach", "service_outage", "enterprise_inquiry"],
-    },
-    INDUSTRY_HEALTHCARE: {
-        "name": "Healthcare",
-        "description": "Healthcare and medical services",
-        "common_queries": [
-            {"query": "How do I schedule an appointment?", "category": "scheduling"},
-            {"query": "What insurance do you accept?", "category": "billing"},
-            {"query": "I need to reschedule my appointment", "category": "scheduling"},
-            {"query": "How do I access my test results?", "category": "records"},
-            {"query": "I need a prescription refill", "category": "pharmacy"},
-            {"query": "What are your hours?", "category": "general"},
-            {"query": "How do I get my medical records?", "category": "records"},
-            {"query": "I have a billing question", "category": "billing"},
-        ],
-        "responses": {
-            "scheduling": "I can help you schedule an appointment. Please note that for urgent medical concerns, you should call our emergency line or visit the nearest emergency room.",
-            "billing": "I can assist with billing questions. Our billing team can help with insurance claims, payment plans, and cost estimates for procedures.",
-            "records": "I can help you access your medical records. For your privacy and security, I'll need to verify your identity first.",
-            "general": "Our clinic hours are Monday-Friday 8am-6pm and Saturday 9am-2pm. We're closed on Sundays and major holidays.",
-        },
-        "knowledge_topics": [
-            "appointment_scheduling", "insurance_coverage", "patient_portal",
-            "medical_records", "prescription_services", "emergency_protocols"
-        ],
-        "escalation_triggers": ["medical_emergency", "privacy_concern", "complaint"],
-        "disclaimer": "This assistant cannot provide medical advice. For medical emergencies, please call emergency services immediately.",
     },
     INDUSTRY_FINANCE: {
         "name": "Finance / Banking",

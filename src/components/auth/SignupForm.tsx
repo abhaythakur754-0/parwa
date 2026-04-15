@@ -52,7 +52,6 @@ interface FormErrors {
 const INDUSTRIES = [
   { value: 'ecommerce', label: 'E-commerce' },
   { value: 'saas', label: 'SaaS' },
-  { value: 'healthcare', label: 'Healthcare' },
   { value: 'finance', label: 'Finance' },
   { value: 'education', label: 'Education' },
   { value: 'real_estate', label: 'Real Estate' },

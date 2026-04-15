@@ -38,7 +38,6 @@ def _validate_email(email: str) -> str:
 INDUSTRY_OPTIONS = [
     "saas",
     "ecommerce",
-    "healthcare",
     "finance",
     "education",
     "real_estate",
