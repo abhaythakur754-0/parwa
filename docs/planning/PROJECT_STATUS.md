@@ -36,6 +36,32 @@ Each day, log what was done under the current Part being worked on. When a Part 
 
 ---
 
+### Day 4 — April 16, 2026 (continued)
+
+**Billing & Revenue deep audit complete. 6-day build plan created. 43 issues found (5 critical, 5 high, 17 medium, 6 low) + 10 bugs.**
+
+| Time | Activity | Notes |
+|------|----------|-------|
+| — | Deep audit of 15 billing files | Read every billing service, API, schema, model, task, webhook handler |
+| — | Found 5 critical architectural bugs | Downgrades never execute, usage not metered, variants disconnected, enforcement broken, period mismatch |
+| — | Found 8 additional code bugs | Email contradiction, missing Paddle method, double-counting, agents not stopped, status lost, fake IDs, wrong names, HMAC inconsistency |
+| — | Mapped all user billing scenarios | Yearly+variant, 30-day periods, Netflix cancel, daily overage, variant add/remove, downgrade cleanup |
+| — | Created PART15_BILLING_ROADMAP.md | 105 items across 6 days with complete scenario coverage |
+| — | Updated MAIN_ROADMAP.md | Expanded Part 15 with all 43 issues, 6-day plan summary |
+
+**Billing audit findings (43 issues):**
+- 5 critical: downgrades never execute, usage not metered, variants disconnected, entitlement enforcement broken, calendar/billing period mismatch
+- 5 high: no refunds, enforcement only for tickets, no voice/SMS metering, no chargeback handling, middleware fail-open
+- 17 medium: no yearly billing, no 30-day periods, no trial, no pause, no data export, no retention policy, no corporate invoicing, and more
+- 6 low: spending analytics, budget alerts, idempotency, plan names, HMAC, env switching
+- 10 bugs: email text wrong, create_transaction missing, double-counting, agents not stopped, ticket status lost, fake variant IDs, wrong plan names, HMAC inconsistency, in-memory idempotency, shared_task inconsistency
+
+**Parts completed today:** 0
+**Parts in progress:** Part 18 (Safety, 5-day plan) + Part 12 (Dashboard, 8-day plan) + Part 15 (Billing, 6-day plan)
+**Next:** Execute any part — all 3 have complete plans ready to build
+
+---
+
 ### Day 3 — April 16, 2026 (continued)
 
 **Dashboard gap analysis complete. 8-day build plan created. 155 items identified across 13 dashboard pages.**
@@ -95,8 +121,8 @@ Each day, log what was done under the current Part being worked on. When a Part 
 | # | Part | Started | Completed | Days Spent | Key Issues Found |
 |---|------|---------|-----------|------------|-----------------|
 | 18 | Safety & Compliance | April 16 | — | — | 63 items: PII 40%, Injection 15%, GDPR missing, data isolation partial, info leakage 0% |
+| 15 | Billing & Revenue | — | — | — | 43 issues: 5 critical (downgrades, metering, variants, enforcement, period mismatch), 5 high, 17 medium, 6 low + 10 bugs |
 | 12 | Dashboard System | — | — | — | 155 items: 7 missing pages, 4 pages 404, 8 orphaned components, no Socket.io client, no header items |
-| 15 | Billing & Revenue | — | — | — | No yearly billing, no cancel UI, reconciliation is stub |
 | 1 | Infrastructure | — | — | — | No K8s, no SSL, no DB backup |
 | 11 | Shadow Mode | — | — | — | Zero code exists |
 | 14 | Communication Channels | — | — | — | Email partial, SMS/Voice/Social not built |
@@ -120,4 +146,5 @@ Each day, log what was done under the current Part being worked on. When a Part 
 | Date | Commit | Description |
 |------|--------|-------------|
 | April 16, 2026 | — | Roadmap v2.0 reset — replaced MAIN_ROADMAP, reset PROJECT_STATUS, reset PROJECT_STATE |
-| April 16, 2026 | — | Dashboard deep audit — 155 items, 8-day plan created, PART12_DASHBOARD_8DAY_PLAN.md, updated architecture & roadmap |
+| April 16, 2026 | — | Dashboard deep audit — 155 items, 8-day plan, PART12_DASHBOARD_8DAY_PLAN.md, updated architecture & roadmap |
+| April 16, 2026 | — | Billing deep audit — 43 issues, 10 bugs, 6-day plan, PART15_BILLING_ROADMAP.md, updated roadmap |

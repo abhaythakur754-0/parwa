@@ -113,25 +113,37 @@ Each part is ordered by: (1) launch-blocking severity, (2) dependency chain, (3)
 
 ### PART 15 — Billing & Revenue [THIRD — parallel with Part 18 + Part 12]
 
-**Priority:** P0 — Revenue engine
-**Current:** ~50% complete
+**Priority:** P0 — Revenue engine. Clients pay $999-$3,999/month. Must be bulletproof.
+**Current:** ~50% complete (core flows exist, but 5 critical architectural bugs + 33 gaps found)
+**6-Day Plan:** See `PART15_BILLING_ROADMAP.md` — 105 items across 6 days
 
 **What exists:**
-- Paddle checkout (monthly only)
-- Subscription webhooks (5 of 25+ events handled)
-- Invoice history API (no UI)
-- Cancellation API (no UI)
-- Overage billing task (Paddle charge is stub)
+- Monthly subscription creation via Paddle
+- Mid-month upgrades with proration
+- Cancel with Netflix-style grace period (access until period end)
+- Overage calculation ($0.10/ticket, daily cron) — but usage never auto-incremented
+- Invoice sync and PDF download
+- Webhook processing (18 endpoints, 25+ handlers — most log-only)
+- Usage tracking model (but NOT hooked to ticket lifecycle)
 
-**What needs to be done:**
-- Build yearly billing (20% discount) — zero code exists
-- Build cancel subscription UI button
-- Build upgrade/downgrade UI
-- Wire Paddle reconciliation to real API (currently returns hardcoded defaults)
-- Fix payment failure to actually stop service (currently TODO)
-- Handle remaining 20+ Paddle webhook events
-- Build billing context injection into Jarvis (plan, usage, renewal)
-- Build Smart Bundle Visualizer (F-005)
+**Critical bugs found (5):**
+1. Downgrades scheduled but NEVER executed — no cron job applies pending downgrades
+2. Usage metering NOT hooked to ticket lifecycle — tickets_used never auto-incremented
+3. Industry variants DISCONNECTED from billing — purchases are cosmetic, never affect limits
+4. Entitlement enforcement only works for tickets — agents, team, KB, voice have NO limits
+5. Calendar month vs billing period misalignment — usage resets on 1st, billing on anniversary
+
+**Additional bugs (8):** email says 48hr but code stops immediately, create_transaction() missing on PaddleClient, double-counting in overage, agents not stopped on payment failure, ticket status lost on resume, fake variant price IDs, wrong plan names in ReAct tool, HMAC inconsistency
+
+**What needs to be done (105 items across 6 days):**
+- **Day 1 — Critical Fixes:** Fix all 8 bugs, hook usage metering to ticket lifecycle, fix billing period alignment, fix entitlement enforcement for ALL resources (agents/team/KB/voice/tickets), connect variant ticket stacking, change middleware from fail-open to fail-closed
+- **Day 2 — Core Engine:** Downgrade execution cron (period-end), resource cleanup on downgrade (pause agents, downgrade team, archive docs, disable voice), yearly billing cycle (365-day periods, monthly↔yearly switching), exact 30-day billing periods everywhere
+- **Day 3 — Variant Add-Ons:** Add/remove industry variants API, mid-year variant purchase with proration, variant entitlement stacking (tickets + KB), variant knowledge archive/restore on removal, Paddle subscription items for variants
+- **Day 4 — Cancel/Data Lifecycle:** Netflix cancel improvements (feedback, save offer, consequences), 30-day data retention after cancel, data export ZIP endpoint, GDPR cleanup cron, re-subscription flow (within 30 days = restore data), payment failure: immediate stop + 7-day fix window, auto-retry failed payments
+- **Day 5 — Financial Safety:** Chargeback handling (webhook + service stop + admin alert), admin refund system with Paddle integration, credit balance system, 24-hour cooling-off refund, customer spending cap (hard/soft), webhook backfill mechanism, dead letter queue, global overage max ($500/mo), anomaly detection, invoice audit
+- **Day 6 — Features + Testing + Prep:** Trial period, subscription pause/resume, promo codes, multi-currency prep, company timezone, corporate/B2B invoicing, invoice amendments, spending analytics, budget alerts, voice/SMS tracking, 8 test suites, 5 dashboard-ready API endpoints
+
+**All 43 issues mapped to specific day/item IDs in PART15_BILLING_ROADMAP.md**
 
 **Dependencies:** None for billing logic. Dashboard UI for billing pages needs Part 12.
 

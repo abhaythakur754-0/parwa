@@ -10,7 +10,7 @@
 - **Industries:** E-commerce, SaaS, Logistics (NO healthcare — removed April 2026)
 - **Deployment:** Docker (docker-compose for dev, docker-compose.prod.yml for production)
 - **Current Phase:** Production Readiness — 18-part systematic plan
-- **Currently Building:** Part 18 (Safety & Compliance) — 5-day plan, 63 safety items + Part 12 (Dashboard) — 8-day plan, 155 items
+- **Currently Building:** Part 18 (Safety — 5-day plan, 63 items) + Part 12 (Dashboard — 8-day plan, 155 items) + Part 15 (Billing — 6-day plan, 105 items, 43 issues found)
 
 ## Current Status
 
@@ -71,6 +71,13 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 - Per-agent individual views missing (client requirement: what each agent is doing)
 - Call recording playback missing (client requirement: listen to conversations)
 - ROI comparison, First Victory, confidence display, logout, emergency pause all missing from dashboard
+
+## Critical Findings (Billing Audit — April 16)
+
+- 5 critical architectural bugs: downgrades never execute, usage not metered, variants disconnected from billing, entitlement enforcement broken (only tickets), calendar month vs billing period mismatch
+- 8 code bugs: email says 48hr but code stops immediately, create_transaction() missing on PaddleClient, double-counting in overage, AI agents not stopped on payment failure, ticket status lost on resume, fake variant price IDs, wrong plan names in ReAct tool, HMAC inconsistency
+- 33 missing features: no yearly billing, no 30-day periods, no variant add-on management, no resource cleanup on downgrade, no refund system, no chargeback handling, no spending cap, no data export, no retention policy, no trial, no pause, no promo codes, no corporate invoicing, and 21 more
+- 10 additional bugs in Celery tasks, reconciliation, and webhook handling
 - Shadow mode has zero code
 - No yearly billing logic
 - Email channel AI loop incomplete
@@ -78,7 +85,7 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 ## Execution Plan
 
 Parallel streams with no dependencies:
-- Wave 1: Part 18 (Safety) + Part 12 (Dashboard — 8 days, 155 items) + Part 15 (Billing) + Part 1 (Infrastructure)
+- Wave 1: Part 18 (Safety — 5 days) + Part 12 (Dashboard — 8 days, 155 items) + Part 15 (Billing — 6 days, 105 items)
 - Wave 2: Part 11 (Shadow Mode) + Part 14 (Channels) + Part 3 (Variants)
 - Wave 3: Part 10 (Jarvis) + Part 8 (Context) + Part 13 (Tickets) + Part 9 (AI Techniques)
 - Wave 4: Part 4 (Industry) + Part 5 (Orchestration) + Part 6 (Training) + Part 16 (Analytics) + Part 17 (Integrations)
@@ -88,4 +95,5 @@ Parallel streams with no dependencies:
 
 - Execute Part 18 Day 1 — PII & Prompt Injection fixes
 - OR execute Part 12 Day 1 — Dashboard foundation (header, sidebar, Socket.io)
+- OR execute Part 15 Day 1 — Critical billing fixes (usage metering, enforcement, bugs)
 - Update PROJECT_STATUS.md daily with progress
