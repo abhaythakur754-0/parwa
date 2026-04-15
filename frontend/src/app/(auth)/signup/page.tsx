@@ -110,11 +110,8 @@ export default function SignupPage() {
 
   const handleCheckEmail = async (email: string): Promise<boolean> => {
     try {
-      const res = await fetch('/api/auth/check-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      // D10-7: Backend changed to GET in D6-11 — must use GET, not POST
+      const res = await fetch(`/api/auth/check-email?email=${encodeURIComponent(email)}`);
       const data = await res.json();
       return !data.exists;
     } catch {

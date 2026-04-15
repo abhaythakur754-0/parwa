@@ -401,24 +401,12 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
 
   return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
 
-═══════ CRITICAL FORMATTING RULE #1 ═══════
-EVERY response you write MUST use bullet points. This is non-negotiable.
-- NEVER write paragraphs. NEVER write blocks of text.
-- ALWAYS format as: short opener line (1 sentence) + blank line + 2-5 bullet points with emojis + blank line + 1 closing question.
-- Each bullet = 1 point. Short, punchy, specific.
-- Blank lines between sections. Never more than 2 sentences per line.
-
-CORRECT format:
-"Absolutely! Here's what PARWA does:
-
-🤖 Automates 80% of support tickets instantly
-💰 Saves $168K/year vs hiring agents
-📡 Works across email, chat, phone & SMS
-
-What industry are you in?"
-
-WRONG format (NEVER do this):
-"Absolutely! PARWA is an AI-powered customer support platform that automates your support tickets. It works across multiple channels and saves you money compared to hiring agents. What industry are you in?"
+═══════ FORMATTING GUIDELINES ═══════
+- Use natural paragraphs for explanations. Use bullets only when listing, comparing, or enumerating options.
+- Be conversational: warm consultant, not marketing brochure. Talk like a knowledgeable friend.
+- Keep responses focused and helpful. Don't over-explain, but don't be terse either.
+- When listing features, plans, or comparisons, bullet points with emojis are appropriate.
+- When explaining concepts or telling stories, use natural paragraphs.
 ═══════════════════════════════════════
 
 YOU ARE NOT A CHATBOT. You are a product consultant who happens to communicate through chat. Talk like a human — warm, direct, confident, specific. Never robotic. Never generic.
@@ -437,7 +425,7 @@ THREE PLANS:
 - PARWA Starter — $999/mo — 3 agents, 1K tickets/mo — Email, Chat — "The 24/7 Trainee"
 - PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo — +SMS, Voice — "The Junior Agent"
 - PARWA High — $3,999/mo — 15 agents, 15K tickets/mo — +Social, Video — "The Senior Agent"
-- Annual: 15% off. Cancel anytime. $0.10 overage/ticket.
+- Annual: 20% off. Cancel anytime. $0.10 overage/ticket.
 - $1 Demo Pack: 500 messages + 3-min AI voice call.
 
 INDUSTRY DETAILS:
@@ -487,7 +475,8 @@ NEVER repeat yourself. Acknowledge and move forward.
 TALK LIKE A HUMAN:
 - Warm, direct, confident consultant who types fast
 - Start naturally: "Great question", "Here's the thing", "Absolutely"
-- ALWAYS use bullet points with emojis (see RULE #1 above)
+- Use bullets with emojis when listing or comparing (plans, features, steps)
+- Use natural paragraphs when explaining or storytelling
 - End with ONE specific question
 - BE SPECIFIC — real numbers, real features, real scenarios
 - OWN THE CONVERSATION — answer + suggest next step
@@ -633,48 +622,48 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
 
   const welcomes: Record<string, string> = {
     direct: (
-      "Control Center active. I am Jarvis, your strategic partner for PARWA. " +
-      "I have established a secure link to your support ecosystem. " +
-      "How shall we begin your transformation today?"
+      "Hey there! I'm Jarvis, your PARWA guide. " +
+      "I can walk you through our plans, run a live demo, or help you figure out the best setup for your team. " +
+      "What brings you in today?"
     ),
     pricing: (
-      `Strategizing for ${industry}. I see you've been reviewing our premium architecture. ` +
-      "I can help you optimize your deployment to maximize every dollar of ROI. " +
-      "Shall we dive into the specific capabilities of our agents?"
+      `Great to see you exploring our plans for ${industry}. ` +
+      "I can break down exactly what each tier includes and help you figure out which one fits your needs and budget. " +
+      "Want to dive into the details?"
     ),
     roi: roi ? (
-      `Mission Objective: Efficiency. I've finished auditing your calculations for ${industry}. ` +
-      `With an estimate of ${savingsStr || 'staggering'} in annual recaptured revenue, ` +
-      "your operation is poised for a significant upgrade. Ready to see the blueprint?"
+      `Nice — I see you've been running the numbers for ${industry}. ` +
+      `With potential savings of ${savingsStr || 'a significant amount'} annually, ` +
+      "it's worth looking at how that translates to real daily impact. Ready to explore?"
     ) : (
-      "Welcome. I've been auditing your ROI calculations. " +
-      "The numbers suggest massive untapped potential in your current workflow. " +
-      "Shall I demonstrate how we convert those savings into operational reality?"
+      "Welcome! I see you've been checking out the ROI calculator. " +
+      "The numbers tend to be pretty eye-opening — most teams see 85-92% savings compared to hiring. " +
+      "Want me to walk you through a specific scenario?"
     ),
     demo: (
-      "System check complete. Ready for high-fidelity simulation. " +
-      "For just $1, I can open 500 tactical channels and a 3-minute professional voice demonstration. " +
-      "It is the optimal way to experience my full strategic range. Shall we initiate?"
+      "Hey! Want to try PARWA hands-on? For just $1 you get 500 messages plus a 3-minute AI voice call — " +
+      "it's the best way to see what Jarvis can actually do for your support team. " +
+      "Want to jump in?"
     ),
     features: (
-      `Mapping ${industry} requirements to our 700+ feature landscape. ` +
-      "I've identified several high-impact nodes that would solve your current bottlenecks. " +
-      "What is the single most critical operational friction point we should address first?"
+      `Thanks for checking out our features for ${industry}! ` +
+      "We cover the full support stack — from automated FAQ handling to smart escalation and analytics. " +
+      "What area matters most to you right now?"
     ),
     models_page: (
-      `I see you've been analyzing our specialized agents for ${industry}. ` +
-      "A precise choice. Those specific architectures are engineered for your vertical's unique logic demands. " +
-      "Shall we run a 3-minute live simulation for $1 so you can witness the performance firsthand?"
+      `Welcome! I see you've been looking at our specialized agents for ${industry}. ` +
+      "Each one is tuned for different needs and scales. Want me to compare them side by side, " +
+      "or would you rather try a live demo with one of them?"
     ),
   };
 
   // Variant-specific overrides (Demo Mode)
   if (variant && source === 'models_page') {
     return (
-      `Greetings. I noticed your interest in the ${variant} agent. ` +
-      "It is one of my most sophisticated variants, optimized for high-precision operations. " +
-      "As your control center, I can demonstrate its logic right here, " +
-      "or we can initiate a voice simulation for $1. What is your command?"
+      `Hey! I noticed you're interested in the ${variant} agent. ` +
+      "Great choice — that's one of our most popular configurations. " +
+      "I can give you a quick rundown of what it does, or if you're feeling adventurous, " +
+      "we can kick off a live demo for $1. What do you think?"
     );
   }
 
@@ -718,7 +707,7 @@ const VARIANT_PRICES: Record<string, number> = {
 };
 
 const PLAN_PRICES: Record<string, number> = {
-  'starter': 49, 'growth': 149, 'high': 399,
+  'starter': 999, 'growth': 2499, 'high': 3999,
 };
 
 function calculateBillSummary(session: any) {
@@ -829,148 +818,14 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
   // 3. Call AI with smart routing (z-ai SDK → Google → Cerebras → Groq → keyword fallback)
   let aiReply = await callAI(messages);
   
-  // 4. Post-process: Force bullet-point format if AI returned paragraphs
+  // 4. Return AI reply as-is (natural formatting, no bullet forcing)
   if (aiReply) {
-    aiReply = forceBulletFormat(aiReply);
     return aiReply;
   }
 
-  // 5. Keyword fallback (always works) — also enforce bullet format
+  // 5. Keyword fallback (always works)
   const fallbackReply = getKeywordResponse(userMessage, session);
-  return forceBulletFormat(fallbackReply);
-}
-
-// ── Bullet-Point Format Enforcer ────────────────────────────────
-// If the AI returns paragraph blocks instead of bullets, convert them.
-
-const BULLET_EMOJIS = ['🤖', '💰', '📡', '🛒', '💻', '🚛', '🏥', '🔒', '🚀', '✅', '🎯', '📊', '⚡', '💡', '🔧', '🔗', '📦', '📈', '⭐', '🎯', '🧠', '💬', '📁', '🔑', '🎉', '✨', '🔔', '💪', '🥊', '🛡️'];
-
-function isEmojiChar(ch: string): boolean {
-  // Must use codePointAt for emoji (surrogate pairs in JS)
-  const code = ch.codePointAt(0) || 0;
-  return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
-}
-
-function forceBulletFormat(text: string): string {
-  const lines = text.split('\n');
-  if (lines.length === 0) return text;
-
-  // Check if text already has proper bullet formatting
-  const nonEmpty = lines.filter(l => l.trim());
-  if (nonEmpty.length === 0) return text;
-
-  // Count bullet-formatted lines (lines starting with bullet markers or emojis)
-  const bulletCount = nonEmpty.filter(l => {
-    const t = l.trim();
-    return /^[\u2022\-*•]\s/.test(t) || /^[0-9]+[.)]\s/.test(t) || isEmojiChar(t);
-  }).length;
-
-  // If 40%+ lines are already bullets, return as-is
-  if (nonEmpty.length > 2 && bulletCount / nonEmpty.length >= 0.4) return text;
-
-  // If only 1-2 non-empty lines total AND none are long paragraphs, keep as-is
-  if (nonEmpty.length <= 2) {
-    const hasLongLine = nonEmpty.some(l => l.trim().length > 150);
-    if (!hasLongLine) return text;
-  }
-
-  // Convert paragraph text into bullet-point format
-  const result: string[] = [];
-  let openerUsed = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      result.push('');
-      continue;
-    }
-
-    // Already a bullet or numbered list item — keep
-    if (/^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed)) {
-      result.push(trimmed);
-      continue;
-    }
-
-    // Starts with emoji — keep
-    if (isEmojiChar(trimmed)) {
-      result.push(trimmed);
-      continue;
-    }
-
-    // Very short line (< 50 chars) — treat as opener or question
-    if (trimmed.length < 50) {
-      if (!openerUsed) {
-        result.push(trimmed);
-        openerUsed = true;
-      } else {
-        // Subsequent short lines get bullet treatment
-        const emoji = pickEmoji(trimmed);
-        result.push(`${emoji} ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`);
-      }
-      continue;
-    }
-
-    // Long line: split into sentences and convert to bullets
-    const sentences = trimmed.match(/[^.!?]*[.!?]+/g) || [trimmed];
-
-    if (sentences.length === 1 && trimmed.length < 80) {
-      // Single short sentence — keep as is
-      result.push(trimmed);
-      continue;
-    }
-
-    if (sentences.length === 1) {
-      // Single long sentence — break on commas if possible
-      const parts = trimmed.split(/,/g).map(s => s.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        // First part as opener
-        result.push(parts[0]);
-        result.push('');
-        for (let i = 1; i < parts.length; i++) {
-          const p = parts[i].trim();
-          if (!p) continue;
-          const emoji = pickEmoji(p);
-          result.push(`${emoji} ${p.charAt(0).toUpperCase() + p.slice(1)}`);
-        }
-      } else {
-        const emoji = pickEmoji(trimmed);
-        result.push(`${emoji} ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`);
-      }
-      continue;
-    }
-
-    // Multiple sentences — first as opener, rest as bullets
-    if (!openerUsed) {
-      result.push(sentences[0].trim());
-      result.push('');
-      openerUsed = true;
-    }
-
-    for (let i = 1; i < sentences.length; i++) {
-      const s = sentences[i].trim();
-      if (!s) continue;
-      const emoji = pickEmoji(s);
-      result.push(`${emoji} ${s.charAt(0).toUpperCase() + s.slice(1)}`);
-    }
-  }
-
-  return result.join('\n');
-}
-
-function pickEmoji(text: string): string {
-  const lower = text.toLowerCase();
-  if (lower.includes('save') || lower.includes('cost') || lower.includes('price') || lower.includes('$') || lower.includes('cheap') || lower.includes('afford')) return '💰';
-  if (lower.includes('automat') || lower.includes('ai') || lower.includes('robot') || lower.includes('handle') || lower.includes('resolv')) return '🤖';
-  if (lower.includes('channel') || lower.includes('email') || lower.includes('chat') || lower.includes('phone') || lower.includes('sms')) return '📡';
-  if (lower.includes('integrat') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack')) return '🔗';
-  if (lower.includes('secur') || lower.includes('encrypt') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe')) return '🔒';
-  if (lower.includes('speed') || lower.includes('fast') || lower.includes('instant') || lower.includes('quick') || lower.includes('setup')) return '⚡';
-  if (lower.includes('analyt') || lower.includes('data') || lower.includes('metric') || lower.includes('report') || lower.includes('roi')) return '📊';
-  if (lower.includes('feature') || lower.includes('capab') || lower.includes('support') || lower.includes('help')) return '🎯';
-  if (lower.includes('start') || lower.includes('begin') || lower.includes('get')) return '🚀';
-  if (lower.includes('check') || lower.includes('yes') || lower.includes('sure') || lower.includes('done')) return '✅';
-  if (lower.includes('think') || lower.includes('smart') || lower.includes('predict') || lower.includes('brain')) return '🧠';
-  return '💡';
+  return fallbackReply;
 }
 
 // ── Keyword Fallback (Offline Safety Net) ────────────────────────
@@ -1022,7 +877,7 @@ function getKeywordResponse(message: string, session: any): string {
       `💰 Here's the lineup:\n\n• 🟠 PARWA Starter — $999/mo — 3 agents, 1K tickets/mo\n• 🟠 PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo\n• 🟠 PARWA High — $3,999/mo — 15 agents, 15K tickets/mo\n\nAll with zero AI markup, cancel anytime. Which one fits your needs?`,
     ],
     roi: [
-      `📊 Here's the math:\n\n• PARWA Starter → saves ~$156K/yr (vs 3 agents)\n• PARWA Growth → saves ~$186K/yr (vs 4 juniors)\n• PARWA High → saves ~$288K/yr (vs 5 seniors)\n\nThat's 85-92% savings with 24/7 coverage. Want me to calculate yours?`,
+      `📊 Here's the math:\n\n• PARWA Starter → saves ~$168K/yr (vs 3 agents)\n• PARWA Growth → saves ~$216K/yr (vs 4 juniors)\n• PARWA High → saves ~$336K/yr (vs 5 seniors)\n\nThat's 85-92% savings with 24/7 coverage. Want me to calculate yours?`,
       `💡 Bottom line — PARWA saves 85-92% vs hiring agents.\n\n⏰ 24/7 coverage from Day 1\n📈 Zero training time needed\n⚡ Instant scaling during peak periods\n\nWant the exact number for your business?`,
     ],
     demo: [

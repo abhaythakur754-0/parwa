@@ -1,3 +1,6 @@
+// D10-9: Server-only module — must never be imported on client side
+"use server";
+
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@parwa.io";

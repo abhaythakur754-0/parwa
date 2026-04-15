@@ -121,12 +121,11 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
         }),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || data?.error?.message || 'Activation failed');
-      }
-
       const responseData = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(responseData?.detail || responseData?.error?.message || 'Activation failed');
+      }
       setActivated(true);
       // D8-4: Pass server-validated config back to wizard
       onComplete({

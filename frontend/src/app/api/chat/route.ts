@@ -189,9 +189,9 @@ WHAT IS PARWA:
 AI-powered customer support platform. Businesses deploy AI agents that handle tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries.
 
 THREE PLANS:
-🟠 PARWA Starter — $999/mo — 3 agents, 1K tickets/mo, Email+Chat — Saves $156K/yr
-🟠 PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr
-🟠 PARWA High — $3,999/mo — 15 agents, 15K tickets/mo, all channels — Saves $288K/yr
+🟠 PARWA Starter — $999/mo — 3 agents, 1K tickets/mo, Email+Chat — Saves $168K/yr
+🟠 PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo, +SMS+Voice — Saves $216K/yr
+🟠 PARWA High — $3,999/mo — 15 agents, 15K tickets/mo, all channels — Saves $336K/yr
 
 INDUSTRIES:
 • E-commerce (Shopify, WooCommerce, Magento)
@@ -199,7 +199,7 @@ INDUSTRIES:
 • Logistics (TMS, WMS, GPS systems)
 • Healthcare (Epic EHR, HIPAA compliant)
 
-BILLING: Monthly, cancel anytime. 15% off annual. $0.10 overage/ticket. $1 Demo Pack.
+BILLING: Monthly, cancel anytime. 20% off annual. $0.10 overage/ticket. $1 Demo Pack.
 SECURITY: GDPR, SOC 2, HIPAA, AES-256, TLS 1.3, audit trail, PII redaction.
 vs COMPETITORS: 85-92% savings vs Intercom, Zendesk AI, or hiring agents.
 

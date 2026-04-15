@@ -51,7 +51,7 @@ const tiers: PricingTier[] = [
     ctaLink: '/signup',
     features: [
       '1,000 tickets per month',
-      '1 AI Agent',
+      '3 AI Agents',
       'Basic RAG (Knowledge Base)',
       'Email Support',
       'Standard Response Time',
@@ -74,7 +74,7 @@ const tiers: PricingTier[] = [
     ctaLink: '/signup',
     features: [
       '5,000 tickets per month',
-      '5 AI Agents',
+      '8 AI Agents',
       'Advanced RAG + All Techniques',
       'Priority Support',
       'Faster Response Time',
@@ -89,7 +89,7 @@ const tiers: PricingTier[] = [
   },
   {
     id: 'high',
-    name: 'Enterprise',
+    name: 'PARWA High',
     icon: <Crown className="w-6 h-6" />,
     monthlyPrice: 3999,
     description:
@@ -98,7 +98,7 @@ const tiers: PricingTier[] = [
     ctaLink: '/contact',
     features: [
       '15,000 tickets per month',
-      'Unlimited AI Agents',
+      '15 AI Agents',
       'Full AI Pipeline (All Techniques)',
       'Dedicated Support Manager',
       'Fastest Response Time',
@@ -118,7 +118,7 @@ const tiers: PricingTier[] = [
 // Feature comparison matrix
 const comparisonFeatures: PricingFeature[] = [
   { name: 'Tickets / Month', starter: '1,000', growth: '5,000', high: '15,000' },
-  { name: 'AI Agents', starter: '1', growth: '5', high: 'Unlimited' },
+  { name: 'AI Agents', starter: '3', growth: '8', high: '15' },
   { name: 'RAG (Knowledge Base)', starter: 'Basic', growth: 'Advanced + All Techniques', high: 'Full AI Pipeline' },
   { name: 'Communication Channels', starter: '2 (Email, Chat)', growth: 'All 11 Channels', high: 'All 11 + Custom' },
   { name: 'Knowledge Base Documents', starter: '5', growth: 'Unlimited', high: 'Unlimited' },
@@ -433,7 +433,7 @@ export default function PricingPage() {
               </div>
               <div className="p-4 sm:p-5 text-center">
                 <span className="text-sm font-semibold text-gray-300">
-                  Enterprise
+                  PARWA High
                 </span>
               </div>
             </div>
