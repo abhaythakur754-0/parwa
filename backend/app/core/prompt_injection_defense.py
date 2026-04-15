@@ -1129,6 +1129,16 @@ _SYSTEM_COMMAND_RULES: List[Dict[str, Any]] = [
         "confidence": 0.95,
         "description": "Command injection - sensitive file access attempt",
     },
+    {
+        "pattern": re.compile(
+            r"\bcat\b\s+\/etc\/",
+            re.IGNORECASE,
+        ),
+        "rule_id": "CMDI-007",
+        "severity": "critical",
+        "confidence": 0.98,
+        "description": "Command injection - cat of sensitive system file",
+    },
 ]
 
 # Consolidated rule list for fast iteration

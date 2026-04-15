@@ -15,6 +15,23 @@ Guardrail Layers:
 7. PII_LEAK_PREVENTION -- Blocks responses leaking PII
 8. CONFIDENCE_GATE -- Blocks low-confidence responses
 
+Day 4 additions (security audit):
+9. INFO_LEAK_PREVENTION -- Blocks internal system disclosure (see info_leak_guard.py)
+10. PROMPT_INJECTION_OUTPUT -- Scans LLM output for prompt injection remnants
+11. PII_OUTPUT_SCAN -- Ensures PII check runs on LLM OUTPUT (not just input)
+
+TODO(Day4): Wire the following Day 4 guardrails into the live AI pipeline:
+  - app.core.info_leak_guard.InfoLeakGuard.scan() should be called AFTER
+    the LLM generates a response, BEFORE it reaches the customer.
+  - app.core.pii_redaction_engine.PIIDetector.detect() should be called
+    on LLM OUTPUT to catch any PII the model regurgitates.
+  - app.core.prompt_injection_defense.PromptInjectionDetector.scan() should
+    be called on LLM OUTPUT to catch injection patterns that may have
+    slipped through to the generated text.
+  Integration point: the smart_router / ai_pipeline should invoke these
+  guards in sequence: PII redaction → prompt injection check → info leak guard →
+  guardrails_engine full scan → deliver to customer.
+
 BC-001: All checks scoped by company_id.
 BC-007: All AI through Smart Router.
 BC-009: Approval workflow for blocked responses.

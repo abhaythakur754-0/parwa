@@ -9,6 +9,15 @@ Orchestrates the full training lifecycle:
 5. Result aggregation
 6. Auto-deployment trigger
 
+# TODO (Day 6 — I5): Training data operations MUST enforce tenant isolation.
+# While all SQL queries in this service filter by company_id, the Celery
+# training task (execute_training_run) runs in a background worker and must
+# re-validate company_id before accessing any training data.  Ensure the
+# training worker picks up company_id from the Celery task context and
+# passes it to every DB query.  Training datasets should NEVER be shared
+# across companies without explicit shared-variant scoping (see
+# TrainingDataIsolationService in services/training_data_isolation.py).
+
 Building Codes:
 - BC-001: Multi-tenant isolation (all queries scoped by company_id)
 - BC-004: Background Jobs (Celery tasks for long-running training)

@@ -4,6 +4,12 @@ Fallback Training Service — F-106 Bi-Weekly Scheduled Retraining
 Provides automatic scheduled retraining for agents to maintain model freshness
 and adapt to evolving patterns in customer interactions.
 
+# TODO (Day 6 — I5): Add stricter tenant scoping to training data access.
+# The dataset preparation and training runs below are already scoped by
+# company_id in the SQL queries, but the DatasetPreparationService and
+# training workers should validate company_id on every operation to
+# prevent cross-tenant data leakage during batch processing.
+
 Features:
 - Bi-weekly (every 14 days) scheduled retraining
 - Smart scheduling based on last training date

@@ -2,6 +2,13 @@
 PARWA Train from Error Service (F-092) — Error-to-Training Pipeline
 
 Converts error entries into training data points for AI model improvement.
+
+# TODO (Day 6 — I5): Ensure training data access is tenant-isolated.
+# All database queries in this file already filter by company_id (BC-001),
+# but batch operations (e.g., creating training points from errors across
+# companies) should add explicit tenant validation at the service layer.
+# Review DatasetPreparationService and Celery training workers for
+# cross-tenant access prevention.
 Provides a one-click workflow for operators to flag errors as learning
 opportunities and submit corrected responses.
 

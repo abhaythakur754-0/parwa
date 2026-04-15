@@ -109,12 +109,12 @@ _PAT_PHONE = re.compile(
 )
 # 4b. Partial phone: masked/partial patterns like XXX-XXX-1234
 _PAT_PHONE_PARTIAL = re.compile(
-    r"\b(?:[Xx*]{3}[-.\s]?[Xx*]{3}[-.\s]?\d{4}"
-    r"|(?:\(?[Xx*]{3}\)?[-.\s]?[Xx*]{3}[-.\s]?\d{4})"
-    r"|(?:ext(?:ension)?[-.\s]?\d{3,5})"
-    r"|(?:(?:last|final)\s+\d{4})"
-    r"|(?:\b\d{3}[-.\s]\d{4}\b))"
-    r"|(?:phone.*?\d{4}|tel.*?\d{4})",
+    r"\b[Xx*]{3}[-.\s]?[Xx*]{3}[-.\s]?\d{4}\b"
+    r"|\(?[Xx*]{3}\)?[-.\s]?[Xx*]{3}[-.\s]?\d{4}"
+    r"|\bext(?:ension)?[-.\s]?\d{3,5}\b"
+    r"|(?:last|final)\s+(?:four|4)\b.*?\b\d{4}\b"
+    r"|\b\d{3}[-.\s]\d{4}\b"
+    r"|(?:phone|tel)[\s:]*\d{4}\b",
     re.IGNORECASE,
 )
 
