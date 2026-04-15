@@ -79,13 +79,15 @@ export async function POST(request: NextRequest) {
       where: { email: normalizedEmail },
     });
 
+    // FIX A6: Use ambiguous response to prevent email enumeration.
+    // Do NOT reveal whether an account with this email exists.
     if (existingUser) {
       return NextResponse.json(
         {
-          status: "error",
-          message: "An account with this email already exists.",
+          status: "success",
+          message: "If this email is available, your account has been created. Please check your email to verify.",
         },
-        { status: 409 }
+        { status: 200 }
       );
     }
 
@@ -93,7 +95,8 @@ export async function POST(request: NextRequest) {
     const salt = await bcrypt.genSalt(12);
     const password_hash = await bcrypt.hash(password, salt);
 
-    // Create user (auto-verified for immediate login)
+    // FIX A5: Create user with is_verified: false.
+    // Email verification is required before login.
     const user = await db.user.create({
       data: {
         email: normalizedEmail,
@@ -101,13 +104,16 @@ export async function POST(request: NextRequest) {
         full_name: fullName || null,
         company_name: companyName || null,
         industry: industry || null,
-        is_verified: true,
+        is_verified: false,
       },
     });
 
+    // TODO: Send verification email with OTP/token
+    // When verified, set is_verified = true
+
     return NextResponse.json({
       status: "success",
-      message: "Account created successfully!",
+      message: "Account created! Please check your email to verify your account before logging in.",
     });
   } catch (error: unknown) {
     const message =

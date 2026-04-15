@@ -99,11 +99,15 @@ export async function POST(request: NextRequest) {
       where: { email: normalizedEmail },
     });
 
-    // If user doesn't exist, return a clear error
+    // FIX A6: Use ambiguous response to prevent email enumeration.
+    // Do NOT reveal whether an account with this email exists.
     if (!user) {
       return NextResponse.json(
-        { status: "error", message: "No account found with this email address." },
-        { status: 400 }
+        {
+          status: "success",
+          message: "If an account with this email exists, an OTP has been sent.",
+        },
+        { status: 200 }
       );
     }
 

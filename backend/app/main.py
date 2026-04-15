@@ -46,6 +46,7 @@ from app.middleware.ip_allowlist import (
 from app.middleware.ai_entitlement import (
     AIEntitlementMiddleware,
 )
+from app.middleware.csrf import CSRFMiddleware  # FIX A3: CSRF protection
 from app.api.auth import router as auth_router
 from app.api.mfa import router as mfa_router
 from app.api.api_keys import router as api_keys_router
@@ -254,16 +255,34 @@ app.add_middleware(IPAllowlistMiddleware)
 # 8. AI Entitlement — Week 8: feature gating for /api/ai/ paths
 app.add_middleware(AIEntitlementMiddleware)
 
+# 8.5 CSRF protection — FIX A3: double-submit cookie pattern
+app.add_middleware(CSRFMiddleware)
+
 # 9. CORS middleware (frontend cross-origin access)
+# FIX D1: Never fall back to wildcard when credentials are enabled.
+# If CORS_ORIGINS is empty or settings fail, use an explicit allowlist
+# or deny all — never allow every origin with cookies.
 try:
     _settings = get_settings()
-    _cors_origins = (
-        [o.strip() for o in _settings.CORS_ORIGINS.split(",")]
-        if _settings.CORS_ORIGINS
-        else ["*"]
-    )
+    if _settings.CORS_ORIGINS:
+        _cors_origins = [
+            o.strip() for o in _settings.CORS_ORIGINS.split(",")
+            if o.strip()
+        ]
+    else:
+        # No explicit origins configured — deny cross-origin in production
+        import logging
+        logging.getLogger("parwa.cors").warning(
+            "CORS_ORIGINS not configured — cross-origin requests will be denied. "
+            "Set CORS_ORIGINS env var to allow specific origins."
+        )
+        _cors_origins = []
 except Exception:
-    _cors_origins = ["*"]
+    import logging
+    logging.getLogger("parwa.cors").warning(
+        "Failed to load CORS settings — cross-origin requests will be denied."
+    )
+    _cors_origins = []
 
 app.add_middleware(
     CORSMiddleware,

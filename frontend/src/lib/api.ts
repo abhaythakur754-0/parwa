@@ -3,7 +3,9 @@
  * 
  * Centralized API client for making requests to the backend.
  * 
- * Security Features (GAP-002 Fix):
+ * Security Features:
+ * - FIX A2: No tokens stored in localStorage — uses httpOnly cookies exclusively
+ * - FIX A3: CSRF token attached to all mutating requests (double-submit cookie pattern)
  * - Safe JSON parsing for malformed responses
  * - Proper error handling for all HTTP status codes
  * - Timeout handling with retry support
@@ -27,7 +29,39 @@ import {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 /**
+ * FIX A3: Generate a CSRF token for double-submit cookie pattern.
+ * On first load, generate a random token and store in cookie.
+ * On every mutating request, read from cookie and send in header.
+ * Server compares cookie value with header value.
+ */
+function getOrCreateCsrfToken(): string {
+  const CSRF_COOKIE = 'parwa_csrf';
+  const cookies = document.cookie.split(';');
+  let csrfToken = '';
+
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === CSRF_COOKIE) {
+      csrfToken = value;
+      break;
+    }
+  }
+
+  if (!csrfToken) {
+    // Generate a new CSRF token
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    csrfToken = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    // Store in cookie (not httpOnly — JS needs to read it)
+    document.cookie = `${CSRF_COOKIE}=${csrfToken};path=/;SameSite=Strict;Secure`;
+  }
+
+  return csrfToken;
+}
+
+/**
  * Create axios instance with default configuration.
+ * FIX A2: withCredentials: true sends httpOnly cookies with every request.
  */
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -35,21 +69,24 @@ const apiClient: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Include cookies for session auth
+  withCredentials: true, // Include httpOnly cookies for session auth
 });
 
 /**
- * Request interceptor for adding auth token.
+ * FIX A2: Request interceptor — NO localStorage token injection.
+ * Auth is handled entirely via httpOnly cookies (parwa_session).
+ * 
+ * FIX A3: CSRF token attached to mutating requests only.
  */
 apiClient.interceptors.request.use(
   (config) => {
-    // Add auth token if available
-    const token = typeof window !== 'undefined' 
-      ? localStorage.getItem('parwa_access_token') 
-      : null;
-    
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // FIX A3: Attach CSRF token to all state-changing requests
+    const method = (config.method || 'get').toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      const csrfToken = getOrCreateCsrfToken();
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken;
+      }
     }
     
     return config;
@@ -61,11 +98,10 @@ apiClient.interceptors.request.use(
 
 /**
  * Response interceptor for handling errors.
- * GAP-002: Handle malformed responses gracefully.
  * D9-P11 FIX: On 401, dispatch custom event instead of hard redirect.
- *   This lets AuthContext handle logout consistently (soft router.push
- *   instead of window.location.href which kills all React state).
  * D9-P2 FIX: Attempt token refresh before giving up on 401.
+ * 
+ * FIX A2: Token refresh uses httpOnly cookies, not localStorage.
  */
 apiClient.interceptors.response.use(
   (response) => response,
@@ -75,33 +111,19 @@ apiClient.interceptors.response.use(
     // D9-P2: Handle 401 — attempt token refresh before giving up
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (typeof window !== 'undefined') {
-        const refreshToken = localStorage.getItem('parwa_refresh_token');
-        if (refreshToken) {
-          originalRequest._retry = true;
-          try {
-            const { data } = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {
-              refresh_token: refreshToken,
-            });
-            // Store new tokens
-            if (data.access_token) {
-              localStorage.setItem('parwa_access_token', data.access_token);
-            }
-            if (data.refresh_token) {
-              localStorage.setItem('parwa_refresh_token', data.refresh_token);
-            }
-            // Retry original request with new token
-            originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
-            return apiClient(originalRequest);
-          } catch {
-            // Refresh failed — proceed to logout
-          }
+        originalRequest._retry = true;
+        try {
+          // FIX A2: Refresh uses httpOnly cookie, no localStorage needed
+          const { data } = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {}, {
+            withCredentials: true,
+          });
+          // Retry original request — new cookie is set automatically
+          return apiClient(originalRequest);
+        } catch {
+          // Refresh failed — proceed to logout
         }
-        // D9-P11: Clear tokens and dispatch event for AuthContext to handle
-        localStorage.removeItem('parwa_access_token');
-        localStorage.removeItem('parwa_refresh_token');
+        // D9-P11: Clear user data and dispatch event for AuthContext
         localStorage.removeItem('parwa_user');
-        // Dispatch custom event instead of hard redirect
-        // AuthContext listens for this and does a clean router.push('/login')
         window.dispatchEvent(new CustomEvent('parwa:session-expired'));
       }
     }
@@ -127,7 +149,6 @@ apiClient.interceptors.response.use(
  * Safely parse response data, handling malformed JSON.
  */
 function safeParseResponse<T>(response: AxiosResponse): T {
-  // If response is already parsed by axios, return it
   if (response.data !== undefined) {
     return response.data as T;
   }
@@ -139,7 +160,6 @@ function safeParseResponse<T>(response: AxiosResponse): T {
  */
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    // Network error (no response)
     if (!error.response) {
       if (error.code === 'ECONNABORTED') {
         return 'Request timed out. Please try again.';
@@ -147,7 +167,6 @@ export function getErrorMessage(error: unknown): string {
       return 'Network error. Please check your connection.';
     }
     
-    // Server responded with error
     const status = error.response.status;
     const detail = error.response?.data?.detail;
     
@@ -168,7 +187,6 @@ export function getErrorMessage(error: unknown): string {
       return 'Access denied.';
     }
     
-    // Return server's error message if available
     if (detail) {
       return detail;
     }
@@ -246,55 +264,21 @@ export async function del<T>(url: string, config?: AxiosRequestConfig): Promise<
 // ── Onboarding API Endpoints ───────────────────────────────────────────
 
 export const onboardingApi = {
-  /**
-   * Get current onboarding state.
-   */
   getState: () => get<OnboardingState>('/api/onboarding/state'),
-  
-  /**
-   * Start onboarding wizard.
-   */
   start: () => post<OnboardingState>('/api/onboarding/start'),
-  
-  /**
-   * Complete a step.
-   */
   completeStep: (step: number) => post<OnboardingState>(`/api/onboarding/step/${step}`),
-  
-  /**
-   * Submit legal consents.
-   */
   submitLegal: (consents: { terms: boolean; privacy: boolean; ai_data: boolean }) => 
     post<OnboardingState>('/api/onboarding/legal-consent', consents),
-  
-  /**
-   * Activate AI assistant.
-   */
   activateAI: (config?: { ai_name?: string; ai_tone?: string; ai_response_style?: string }) => 
     post<OnboardingState>('/api/onboarding/activate', config),
-  
-  /**
-   * Get first victory status.
-   */
   getVictory: () => get('/api/onboarding/first-victory'),
-  
-  /**
-   * Mark first victory complete.
-   */
   completeVictory: () => post('/api/onboarding/first-victory'),
 };
 
 // ── User Details API Endpoints ────────────────────────────────────────
 
 export const userDetailsApi = {
-  /**
-   * Get current user details.
-   */
   get: () => get<UserDetails>('/api/user/details'),
-  
-  /**
-   * Create user details.
-   */
   create: (data: {
     full_name: string;
     company_name: string;
@@ -303,10 +287,6 @@ export const userDetailsApi = {
     company_size?: string;
     website?: string;
   }) => post<UserDetails>('/api/user/details', data),
-  
-  /**
-   * Update user details.
-   */
   update: (data: Partial<{
     full_name: string;
     company_name: string;
@@ -315,16 +295,8 @@ export const userDetailsApi = {
     company_size: string;
     website: string;
   }>) => patch<UserDetails>('/api/user/details', data),
-  
-  /**
-   * Send work email verification.
-   */
   sendVerification: (work_email: string) => 
     post('/api/user/verify-work-email', { work_email }),
-  
-  /**
-   * Confirm work email verification.
-   */
   confirmVerification: (token: string) => 
     post('/api/user/verify-work-email/confirm', { token }),
 };
@@ -332,39 +304,17 @@ export const userDetailsApi = {
 // ── Integration API Endpoints ──────────────────────────────────────────
 
 export const integrationsApi = {
-  /**
-   * Get available integrations.
-   */
   getAvailable: () => get('/api/integrations/available'),
-  
-  /**
-   * Get user's integrations.
-   */
   list: () => get('/api/integrations'),
-  
-  /**
-   * Create integration.
-   */
   create: (data: { type: string; name: string; config: Record<string, unknown> }) => 
     post('/api/integrations', data),
-  
-  /**
-   * Test integration connection.
-   */
   test: (id: string) => post(`/api/integrations/${id}/test`),
-  
-  /**
-   * Delete integration.
-   */
   delete: (id: string) => del(`/api/integrations/${id}`),
 };
 
 // ── Knowledge Base API Endpoints ───────────────────────────────────────
 
 export const knowledgeApi = {
-  /**
-   * Upload document.
-   */
   upload: async (file: File, onProgress?: (progress: number) => void) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -383,85 +333,26 @@ export const knowledgeApi = {
     
     return response.data;
   },
-  
-  /**
-   * List documents.
-   */
   list: () => get('/api/kb/documents'),
-  
-  /**
-   * Get document status.
-   */
   getStatus: (id: string) => get(`/api/kb/documents/${id}`),
-  
-  /**
-   * Delete document.
-   */
   delete: (id: string) => del(`/api/kb/documents/${id}`),
 };
 
 // ── Auth API Endpoints ──────────────────────────────────────────────────
 
 export const authApi = {
-  /**
-   * Register a new user.
-   */
   register: (data: RegisterRequest) => post<AuthResponse>('/api/auth/register', data),
-  
-  /**
-   * Login with email and password.
-   */
   login: (data: LoginRequest) => post<AuthResponse>('/api/auth/login', data),
-  
-  /**
-   * Login with Google OAuth.
-   */
   googleAuth: (data: GoogleAuthRequest) => post<AuthResponse>('/api/auth/google', data),
-  
-  /**
-   * Logout user.
-   */
   logout: (data: RefreshRequest) => post<MessageResponse>('/api/auth/logout', data),
-  
-  /**
-   * Refresh tokens.
-   */
   refresh: (data: RefreshRequest) => post<TokenResponse>('/api/auth/refresh', data),
-  
-  /**
-   * Get current user profile.
-   */
   getMe: () => get<User>('/api/auth/me'),
-  
-  /**
-   * Check email availability.
-   */
   checkEmail: (email: string) => get<EmailCheckResponse>(`/api/auth/check-email?email=${encodeURIComponent(email)}`),
-  
-  /**
-   * Verify email with token.
-   */
   verifyEmail: (token: string) => get<MessageResponse>(`/api/auth/verify?token=${encodeURIComponent(token)}`),
-  
-  /**
-   * Resend verification email.
-   */
   resendVerification: (email: string) => post<MessageResponse>('/api/auth/resend-verification', { email }),
-  
-  /**
-   * Request password reset.
-   */
   forgotPassword: (email: string) => post<MessageResponse>('/api/auth/forgot-password', { email }),
-  
-  /**
-   * Reset password with token.
-   */
   resetPassword: (token: string, new_password: string) => 
     post<MessageResponse>('/api/auth/reset-password', { token, new_password }),
-
-  /**
-   * Delete account and all associated data.
-   */
   deleteAccount: () => del<MessageResponse>('/api/user/delete-account'),
 };
 

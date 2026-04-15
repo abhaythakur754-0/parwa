@@ -24,11 +24,15 @@ from app.exceptions import AuthenticationError
 JWT_ALGORITHM = "HS256"
 
 # H3 fix: pepper for refresh-token hashing — prevents rainbow-table
-# attacks even if the DB is leaked.  MUST be overridden in production
-# via the REFRESH_TOKEN_PEPPER env-var.
-_REFRESH_TOKEN_PEPPER = os.getenv(
-    "REFRESH_TOKEN_PEPPER", "parwa-refresh-pepper-change-in-prod"
-)
+# attacks even if the DB is leaked.  MUST be set via the REFRESH_TOKEN_PEPPER
+# env-var.  No default is provided — startup will fail if missing.
+_REFRESH_TOKEN_PEPPER = os.getenv("REFRESH_TOKEN_PEPPER")
+
+if not _REFRESH_TOKEN_PEPPER:
+    raise RuntimeError(
+        "REFRESH_TOKEN_PEPPER environment variable is required. "
+        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+    )
 
 
 def create_access_token(
@@ -133,6 +137,7 @@ def hash_refresh_token(token: str) -> str:
     Returns:
         SHA-256 hex digest (peppered).
     """
+    assert _REFRESH_TOKEN_PEPPER is not None  # guaranteed by startup check
     return hashlib.sha256(
         f"{_REFRESH_TOKEN_PEPPER}:{token}".encode("utf-8")
     ).hexdigest()

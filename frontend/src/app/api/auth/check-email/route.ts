@@ -15,14 +15,11 @@ export async function GET(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    const user = await db.user.findUnique({
-      where: { email: normalizedEmail },
-      select: { id: true },
-    });
-
+    // FIX A6: Always return available: true to prevent email enumeration.
+    // The signup form will discover duplicates only on actual registration attempt.
     return NextResponse.json({
       email: normalizedEmail,
-      available: !user,
+      available: true,
     });
   } catch (error: unknown) {
     const message =
