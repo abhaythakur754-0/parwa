@@ -306,6 +306,7 @@ def test_custom_integration(
         integration_id=integration_id,
         company_id=user.company_id,
         test_payload=body.test_payload,
+        is_manual_test=True,  # D12-P5: User-initiated tests should not trigger auto-disable
     )
     return TestResponse(**result)
 

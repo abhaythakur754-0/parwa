@@ -26,6 +26,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const [aiGreeting, setAiGreeting] = useState<string | null>(null);
   // P6: Track last error so we don't silently advance past failures
   const [stepError, setStepError] = useState<string | null>(null);
+  // D14-P9: Force remount of AIConfig on cross-tab state changes
+  const [stateVersion, setStateVersion] = useState(0);
 
   // Fetch initial state
   useEffect(() => {
@@ -83,6 +85,16 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
         method: 'POST',
       });
       if (res.ok) {
+        // D14-P2: Write to localStorage to trigger cross-tab sync via StorageEvent.
+        // This enables handleStorageChange to fire in other tabs that are watching
+        // for parwa_ prefixed keys.
+        try {
+          localStorage.setItem(
+            'parwa_onboarding_step',
+            JSON.stringify({ step, completedSteps: [...completedSteps, step], timestamp: Date.now() }),
+          );
+        } catch { /* localStorage unavailable (e.g., incognito) — ignore */ }
+
         // After step 5, show FirstVictory directly (don't advance to step 6)
         if (step >= 5) {
           setOnboardingState((prev) => prev ? { ...prev, status: 'completed' as const } : prev);
@@ -119,6 +131,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   // in one tab, the other tab should detect the state change and refresh.
   const handleStorageChange = useCallback((e: StorageEvent) => {
     if (e.key?.startsWith('parwa_')) {
+      // D14-P9: Bump version to force AIConfig remount with fresh prerequisites
+      setStateVersion((v) => v + 1);
       // Re-fetch state when another tab updates onboarding data
       fetch('/api/onboarding/state')
         .then((res) => res.json())
@@ -207,6 +221,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
 
           {currentStep === 5 && (
             <AIConfig
+              key={stateVersion}
               onComplete={(config) => completeStep(5, config)}
               initialConfig={{
                 ai_name: onboardingState?.ai_name || 'Jarvis',

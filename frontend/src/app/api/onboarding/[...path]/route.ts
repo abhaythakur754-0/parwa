@@ -273,6 +273,20 @@ export async function POST(
     }
 
     case 'activate': {
+      // D14-P5: Idempotency guard — if already activated, return success immediately
+      // instead of processing again. This prevents double-activation race conditions
+      // when two POST requests arrive nearly simultaneously.
+      if (state.status === 'completed' || state.completed_steps.includes(5)) {
+        return NextResponse.json({
+          ai_name: state.ai_name,
+          ai_tone: state.ai_tone,
+          ai_response_style: state.ai_response_style,
+          ai_greeting: state.ai_greeting,
+          already_activated: true,
+          message: 'AI already activated',
+        });
+      }
+
       // D7-6: Validate prerequisites in local fallback too.
       const missing: string[] = [];
       if (!state.legal_consents) missing.push('Legal consents not accepted');

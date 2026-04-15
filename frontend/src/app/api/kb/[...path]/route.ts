@@ -19,6 +19,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// ── Auth Guard ──────────────────────────────────────────────────
+function checkAuth(request: NextRequest): boolean {
+  const sessionCookie = request.cookies.get('parwa_session');
+  if (sessionCookie?.value) return true;
+  const authHeader = request.headers.get('authorization');
+  if (authHeader) return true;
+  return false;
+}
+
 // ── Backend Proxy Configuration ─────────────────────────────────
 const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
@@ -31,17 +40,15 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
   try {
-    const body = ['POST', 'PATCH', 'PUT'].includes(request.method)
-      ? await request.clone().arrayBuffer()
-      : undefined;
-
     const headers = new Headers(request.headers);
     headers.delete('host');
 
     const response = await fetch(fullUrl, {
       method: request.method,
       headers,
-      body,
+      body: ['POST', 'PATCH', 'PUT'].includes(request.method)
+        ? request.body
+        : undefined,
       signal: AbortSignal.timeout(30000),
     });
 
@@ -80,18 +87,37 @@ function loadDocuments(): StoredDocument[] {
   return [];
 }
 
-function saveDocuments(docs: StoredDocument[]): void {
-  try {
-    fs.writeFileSync(KB_STORE_PATH, JSON.stringify(docs, null, 2), 'utf-8');
-  } catch { /* ignore */ }
+// Write queue to prevent race conditions under concurrent requests
+let writePromise: Promise<void> = Promise.resolve();
+
+function saveDocuments(docs: StoredDocument[]): Promise<void> {
+  writePromise = writePromise
+    .then(() => fs.promises.writeFile(KB_STORE_PATH, JSON.stringify(docs, null, 2), 'utf-8'))
+    .catch((err) => {
+      console.error('Failed to save KB documents:', err);
+    });
+  return writePromise;
 }
 
+// D13-P18: Use crypto.randomUUID() to eliminate collision risk
 function generateId(): string {
-  return `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return crypto.randomUUID();
 }
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.doc', '.txt', '.csv', '.md', '.json'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+const LOCAL_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB for local fallback
+
+// ── Filename Sanitization ───────────────────────────────────────
+function sanitizeFilename(name: string): string {
+  // Replace backslashes with forward slashes, take basename, remove null bytes
+  let safe = name.replace(/\\/g, '/');
+  const segments = safe.split('/');
+  safe = segments[segments.length - 1] || '';
+  safe = safe.replace(/\0/g, '');
+  if (safe.length > 255) safe = safe.slice(0, 255);
+  return safe || 'unnamed_file';
+}
 
 // ── Route Handlers ─────────────────────────────────────────────
 
@@ -99,6 +125,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
+  if (!checkAuth(request)) {
+    return NextResponse.json({ detail: 'Authentication required.' }, { status: 401 });
+  }
+
   const { path: segments } = await params;
   const pathKey = segments.join('/');
 
@@ -142,12 +172,27 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
+  if (!checkAuth(request)) {
+    return NextResponse.json({ detail: 'Authentication required.' }, { status: 401 });
+  }
+
   const { path: segments } = await params;
   const pathKey = segments.join('/');
 
   // Try backend proxy first (especially important for file uploads)
   const proxied = await proxyToBackend(request, segments);
   if (proxied) return proxied;
+
+  // D13-P8: In production, don't silently fall back to local for uploads
+  if (pathKey === 'upload' && process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { detail: 'Backend service unavailable. Please try again later.' },
+      { status: 503 },
+    );
+  }
+  if (proxied === null && process.env.NODE_ENV !== 'production') {
+    console.warn('KB backend unreachable, falling back to local storage (dev only)');
+  }
 
   // Local fallback
   const docs = loadDocuments();
@@ -163,7 +208,7 @@ export async function POST(
       }
 
       // Validate extension
-      const filename = file.name || 'unknown.txt';
+      const filename = sanitizeFilename(file.name || 'unknown.txt');
       const dotIdx = filename.lastIndexOf('.');
       const ext = dotIdx >= 0 ? filename.slice(dotIdx).toLowerCase() : '';
       if (!ALLOWED_EXTENSIONS.includes(ext)) {
@@ -173,10 +218,18 @@ export async function POST(
         );
       }
 
-      // Validate size
+      // Validate size (backend limit)
       if (file.size > MAX_FILE_SIZE) {
         return NextResponse.json(
           { detail: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)} MB.` },
+          { status: 400 }
+        );
+      }
+
+      // D13-P21: In local fallback mode, reject files larger than 10MB
+      if (file.size > LOCAL_MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { detail: `File too large for local storage. Maximum is ${LOCAL_MAX_FILE_SIZE / (1024 * 1024)} MB in local mode.` },
           { status: 400 }
         );
       }
@@ -194,7 +247,7 @@ export async function POST(
       };
 
       docs.push(newDoc);
-      saveDocuments(docs);
+      await saveDocuments(docs);
 
       return NextResponse.json(
         {
@@ -216,7 +269,7 @@ export async function POST(
           retried += 1;
         }
       }
-      saveDocuments(docs);
+      await saveDocuments(docs);
       return NextResponse.json({ message: `Retrying ${retried} failed document(s).` });
     }
 
@@ -238,21 +291,11 @@ export async function POST(
               { status: 400 }
             );
           }
-          doc.status = 'processing';
+          doc.status = 'completed';
           doc.retry_count += 1;
           doc.error_message = null;
-          saveDocuments(docs);
-
-          // Simulate processing completing after a brief moment
-          setTimeout(() => {
-            const currentDocs = loadDocuments();
-            const target = currentDocs.find((d) => d.id === docId);
-            if (target && target.status === 'processing') {
-              target.status = 'completed';
-              target.chunk_count = Math.max(1, Math.floor((target.file_size || 1000) / 500));
-              saveDocuments(currentDocs);
-            }
-          }, 2000);
+          doc.chunk_count = Math.max(1, Math.floor((doc.file_size || 1000) / 500));
+          await saveDocuments(docs);
 
           return NextResponse.json({
             id: doc.id,
@@ -264,7 +307,7 @@ export async function POST(
 
         if (action === 'reindex') {
           doc.status = 'processing';
-          saveDocuments(docs);
+          await saveDocuments(docs);
 
           return NextResponse.json({
             message: `Document re-indexing initiated.`,
@@ -281,6 +324,10 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
+  if (!checkAuth(request)) {
+    return NextResponse.json({ detail: 'Authentication required.' }, { status: 401 });
+  }
+
   const { path: segments } = await params;
   const pathKey = segments.join('/');
 
@@ -301,7 +348,7 @@ export async function DELETE(
   }
 
   docs.splice(idx, 1);
-  saveDocuments(docs);
+  await saveDocuments(docs);
 
   return NextResponse.json({ message: 'Document deleted successfully.' });
 }

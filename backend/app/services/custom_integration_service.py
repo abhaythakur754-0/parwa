@@ -20,11 +20,14 @@ Building Codes:
 """
 
 import hashlib
+import hmac
 import ipaddress
 import json
+import os
+import re
 import secrets
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import httpx
@@ -36,6 +39,50 @@ from app.logger import get_logger
 from database.models.integration import CustomIntegration
 
 logger = get_logger("custom_integration_service")
+
+# ── Encryption Key Validation (D12-P2) ────────────────────────────
+
+_DEV_FALLBACK_KEY = "parwa-dev-key-do-not-use-in-prod!"
+_CLOUD_METADATA_HOSTNAMES = frozenset({
+    "169.254.169.254",
+    "metadata.google.internal",
+    "metadata",
+    "100.100.100.200",
+    "fd00:ec2::254",
+})
+
+
+def validate_encryption_key() -> None:
+    """Validate the PARWA_ENCRYPTION_KEY at startup.
+
+    Call this during application startup to fail fast if the key is
+    not properly configured. In development, log a warning instead of
+    raising an error.
+    """
+    key = os.environ.get("PARWA_ENCRYPTION_KEY", "")
+    if not key:
+        raise RuntimeError(
+            "PARWA_ENCRYPTION_KEY environment variable is not set. "
+            "This is required in production. Set a strong, unique key "
+            "(at least 32 characters)."
+        )
+    if key == _DEV_FALLBACK_KEY:
+        logger.warning(
+            "encryption_key_using_dev_fallback",
+            message="Using hardcoded development encryption key. "
+                   "Set PARWA_ENCRYPTION_KEY to a strong, unique value in production.",
+        )
+    elif len(key) < 32:
+        logger.warning(
+            "encryption_key_too_short",
+            message=f"PARWA_ENCRYPTION_KEY is only {len(key)} chars. "
+                   f"Recommend at least 32 characters for security.",
+        )
+    else:
+        logger.info(
+            "encryption_key_validated",
+            message="PARWA_ENCRYPTION_KEY is configured.",
+        )
 
 # ── Constants ───────────────────────────────────────────────────────
 
@@ -73,22 +120,39 @@ REQUIRED_CONFIG_FIELDS: Dict[str, List[str]] = {
 # ── Credential Helpers ──────────────────────────────────────────────
 
 
+def _get_encryption_key() -> Tuple[bytes, str]:
+    """Return (derived_key, key_source) — logs WARNING if using dev fallback (D12-P2)."""
+    key_str = os.environ.get("PARWA_ENCRYPTION_KEY", _DEV_FALLBACK_KEY)
+    if key_str == _DEV_FALLBACK_KEY:
+        logger.warning(
+            "encrypt_using_dev_key",
+            message="Encryption is using the hardcoded dev fallback key. "
+                   "Data will NOT be readable with a different key.",
+        )
+    return hashlib.sha256(key_str.encode()).digest(), key_str
+
+
+def _compute_hmac(key: bytes, plaintext: bytes) -> bytes:
+    """Compute HMAC-SHA256 for integrity verification (D12-P2)."""
+    return hmac.new(key, plaintext, hashlib.sha256).digest()
+
+
 def _encrypt_config(config: Dict[str, Any]) -> str:
     """Encrypt config JSON for storage.
 
     Uses AES-256-CBC with a deterministic key derived from the
     PARWA_ENCRYPTION_KEY env var (or a dev fallback).
+    Prepends an HMAC of the plaintext for integrity verification.
 
     BC-011: Credentials encrypted at rest.
     """
-    import os
     import base64
 
-    key_str = os.environ.get("PARWA_ENCRYPTION_KEY", "parwa-dev-key-do-not-use-in-prod!")
-    # Derive a 32-byte key from the config string using SHA-256
-    key = hashlib.sha256(key_str.encode()).digest()
-
+    key, _key_str = _get_encryption_key()
     plaintext = json.dumps(config, sort_keys=True).encode()
+
+    # Compute HMAC of the plaintext before encryption
+    integrity_hmac = _compute_hmac(key, plaintext)
 
     # AES-256-CBC with PKCS7 padding
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -102,28 +166,31 @@ def _encrypt_config(config: Dict[str, Any]) -> str:
     encryptor = cipher.encryptor()
     ciphertext = encryptor.update(padded) + encryptor.finalize()
 
-    # Store as base64(iv + ciphertext)
-    return base64.b64encode(iv + ciphertext).decode()
+    # Store as base64(hmac + iv + ciphertext)
+    return base64.b64encode(integrity_hmac + iv + ciphertext).decode()
 
 
 def _decrypt_config(encrypted: str) -> Dict[str, Any]:
     """Decrypt config JSON from storage.
 
+    Verifies HMAC integrity before returning decrypted data.
+    Logs CRITICAL if HMAC mismatch detected (possible key change).
+
     BC-011: Decrypt credentials from storage.
     """
-    import os
     import base64
 
     if not encrypted:
         return {}
 
     try:
-        key_str = os.environ.get("PARWA_ENCRYPTION_KEY", "parwa-dev-key-do-not-use-in-prod!")
-        key = hashlib.sha256(key_str.encode()).digest()
+        key, _key_str = _get_encryption_key()
 
         raw = base64.b64decode(encrypted)
-        iv = raw[:16]
-        ciphertext = raw[16:]
+        # Layout: hmac(32) + iv(16) + ciphertext
+        stored_hmac = raw[:32]
+        iv = raw[32:48]
+        ciphertext = raw[48:]
 
         from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
         from cryptography.hazmat.primitives import padding
@@ -134,6 +201,17 @@ def _decrypt_config(encrypted: str) -> Dict[str, Any]:
 
         unpadder = padding.PKCS7(128).unpadder()
         plaintext = unpadder.update(padded) + unpadder.finalize()
+
+        # Verify HMAC integrity (D12-P2)
+        expected_hmac = _compute_hmac(key, plaintext)
+        if not hmac.compare_digest(stored_hmac, expected_hmac):
+            logger.critical(
+                "config_decryption_hmac_mismatch",
+                message="HMAC integrity check FAILED on decrypted config. "
+                       "This likely means the encryption key has changed "
+                       "and existing encrypted data cannot be recovered.",
+            )
+            return {}
 
         return json.loads(plaintext.decode())
     except Exception:
@@ -184,17 +262,26 @@ _PRIVATE_CIDRS = [
 ]
 
 
-def _validate_url(url: str) -> None:
-    """Validate URL is not pointing to private/internal IPs (SSRF prevention)."""
+def _validate_url(url: str) -> Optional[str]:
+    """Validate URL is not pointing to private/internal IPs (SSRF prevention).
+
+    Returns the resolved IP address string for DNS-rebinding prevention,
+    or None if the URL is empty or cannot be resolved.
+
+    Raises:
+        ValidationError: If URL points to a blocked hostname or private IP.
+    """
     if not url:
-        return
+        return None
+    import socket
+
     try:
         parsed = urlparse(url)
         hostname = parsed.hostname
         if not hostname:
-            return
-        # Block localhost variants
-        if hostname in ("localhost", "metadata.google.internal", "metadata"):
+            return None
+        # Block localhost variants and cloud metadata hostnames
+        if hostname in _CLOUD_METADATA_HOSTNAMES or hostname == "localhost":
             raise ValidationError(
                 message="URL hostname is not allowed",
                 details={"hostname": hostname, "reason": "blocked_hostname"},
@@ -206,6 +293,68 @@ def _validate_url(url: str) -> None:
                 details={"hostname": hostname},
             )
         # Resolve and check against private ranges
+        addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        resolved_ip: Optional[str] = None
+        for family, _, _, _, sockaddr in addr_infos:
+            ip = ipaddress.ip_address(sockaddr[0])
+            resolved_ip = sockaddr[0]
+            for cidr in _PRIVATE_CIDRS:
+                if ip in cidr:
+                    raise ValidationError(
+                        message="URL points to a private/internal IP address",
+                        details={"hostname": hostname, "ip": str(ip)},
+                    )
+        return resolved_ip
+    except ValidationError:
+        raise
+    except socket.gaierror:
+        return None  # DNS resolution failed — not a private IP
+    except Exception:
+        return None  # Other errors — don't block on validation failure
+
+
+def _validate_connection_string(conn_str: str) -> None:
+    """Validate database connection string is not pointing to private/internal IPs (D12-P3).
+
+    Parses connection strings for postgresql://, mysql://, mongodb://, sqlite://
+    and extracts hostnames to validate against SSRF rules.
+    """
+    if not conn_str:
+        return
+
+    # SQLite is file-based, no network SSRF risk
+    if conn_str.startswith("sqlite"):
+        # Block attempts to use SQLite with special file paths
+        if "://" in conn_str:
+            parsed = urlparse(conn_str)
+            if parsed.hostname and parsed.hostname in _CLOUD_METADATA_HOSTNAMES:
+                raise ValidationError(
+                    message="Database connection hostname is not allowed",
+                    details={"hostname": parsed.hostname, "reason": "blocked_hostname"},
+                )
+        return
+
+    try:
+        parsed = urlparse(conn_str)
+        hostname = parsed.hostname
+        if not hostname:
+            return
+
+        # Block cloud metadata hostnames
+        if hostname in _CLOUD_METADATA_HOSTNAMES or hostname == "localhost":
+            raise ValidationError(
+                message="Database connection hostname is not allowed",
+                details={"hostname": hostname, "reason": "blocked_hostname"},
+            )
+
+        # Block link-local IPv6
+        if hostname.startswith("fe80:"):
+            raise ValidationError(
+                message="Database connection points to a link-local address",
+                details={"hostname": hostname},
+            )
+
+        # Resolve DNS and check against private ranges
         import socket
         addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
         for family, _, _, _, sockaddr in addr_infos:
@@ -213,15 +362,13 @@ def _validate_url(url: str) -> None:
             for cidr in _PRIVATE_CIDRS:
                 if ip in cidr:
                     raise ValidationError(
-                        message="URL points to a private/internal IP address",
+                        message="Database connection string points to a private/internal IP address",
                         details={"hostname": hostname, "ip": str(ip)},
                     )
     except ValidationError:
         raise
-    except socket.gaierror:
-        pass  # DNS resolution failed — not a private IP
-    except Exception:
-        pass  # Other errors — don't block on validation failure
+    except (ValueError, socket.gaierror):
+        pass  # Parse or DNS failure — don't block
 
 
 # ── Service ─────────────────────────────────────────────────────────
@@ -298,15 +445,24 @@ class CustomIntegrationService:
         if integration_type in ("rest", "graphql", "webhook_out"):
             _validate_url(config.get("url", ""))
 
+        # Validate database connection strings (SSRF prevention — D12-P3)
+        if integration_type == "database":
+            _validate_connection_string(config.get("connection_string", ""))
+
         # Check plan limits
         self._check_plan_limit(company_id)
 
-        # Generate webhook_id and secret for webhook_in
+        # Generate webhook_id and secret for webhook_in (D12-P4: respect user-provided secret)
         webhook_id = None
         webhook_secret = None
         if integration_type == "webhook_in":
             webhook_id = str(secrets.token_urlsafe(32))
-            webhook_secret = secrets.token_urlsafe(48)
+            # Use user-provided secret if present; otherwise generate one
+            user_secret = config.get("secret")
+            if user_secret and isinstance(user_secret, str) and user_secret.strip():
+                webhook_secret = user_secret.strip()
+            else:
+                webhook_secret = secrets.token_urlsafe(48)
             config["secret"] = webhook_secret
 
         now = datetime.now(timezone.utc)
@@ -336,7 +492,14 @@ class CustomIntegrationService:
             name=name,
         )
 
-        return self._to_dict(integration, mask_credentials=True)
+        result = self._to_dict(integration, mask_credentials=True)
+
+        # D12-P4: Include unmasked webhook_secret in creation response so
+        # the user can configure their external system before it gets masked
+        if integration_type == "webhook_in" and webhook_secret:
+            result["webhook_secret"] = webhook_secret
+
+        return result
 
     def get(self, integration_id: str, company_id: str) -> Optional[Dict[str, Any]]:
         """Get a single custom integration, scoped to company."""
@@ -537,6 +700,7 @@ class CustomIntegrationService:
         integration_id: str,
         company_id: str,
         test_payload: Optional[Dict[str, Any]] = None,
+        is_manual_test: bool = False,
     ) -> Dict[str, Any]:
         """Test connectivity for a custom integration.
 
@@ -547,6 +711,8 @@ class CustomIntegrationService:
             integration_id: Integration UUID.
             company_id: Tenant ID.
             test_payload: Optional test payload for webhook_out.
+            is_manual_test: If True, do NOT increment consecutive_error_count
+                or auto-disable on failure (D12-P5).
 
         Returns:
             Dict with success, message, latency_ms, tested_at.
@@ -595,7 +761,8 @@ class CustomIntegrationService:
         if result["success"]:
             integration.consecutive_error_count = 0
             integration.last_error_message = None
-        else:
+        elif not is_manual_test:
+            # D12-P5: Only increment error count for automated tests, not manual ones
             integration.consecutive_error_count += 1
             integration.last_error_message = result["message"]
             # Auto-disable at 3 consecutive errors
@@ -608,6 +775,9 @@ class CustomIntegrationService:
                     company_id=company_id,
                     error_count=integration.consecutive_error_count,
                 )
+        else:
+            # Manual test failure — record the error message but don't increment
+            integration.last_error_message = result["message"]
 
         self.db.flush()
 
@@ -689,7 +859,7 @@ class CustomIntegrationService:
     # ── Test Methods ──────────────────────────────────────────────
 
     def _test_rest(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Test REST connector connectivity."""
+        """Test REST connector connectivity (D12-P9: DNS-rebinding safe)."""
         import time
 
         url = config.get("url", "")
@@ -699,18 +869,34 @@ class CustomIntegrationService:
         if not url:
             return {"success": False, "message": "URL is required"}
 
-        _validate_url(url)
+        # D12-P9: Validate URL and get resolved IP for DNS-rebinding prevention
+        resolved_ip = _validate_url(url)
 
         # Build auth headers
         auth_headers = self._build_auth_headers(config)
         headers = {**headers, **auth_headers}
 
+        # D12-P9: If we resolved an IP, rewrite the URL to use it directly
+        request_url = url
+        if resolved_ip:
+            try:
+                parsed = urlparse(url)
+                netloc = resolved_ip
+                if parsed.port:
+                    netloc = f"{resolved_ip}:{parsed.port}"
+                request_url = parsed._replace(netloc=netloc).geturl()
+                # Set Host header to original hostname
+                headers["Host"] = parsed.hostname
+            except Exception:
+                request_url = url
+
         start = time.monotonic()
         try:
-            with httpx.Client(timeout=REST_TIMEOUT_SECONDS) as client:
+            # D12-P9: Disable redirect following to prevent redirect-based SSRF
+            with httpx.Client(timeout=REST_TIMEOUT_SECONDS, follow_redirects=False) as client:
                 response = client.request(
                     method=method,
-                    url=url,
+                    url=request_url,
                     headers=headers,
                 )
                 latency = round((time.monotonic() - start) * 1000)
@@ -740,7 +926,7 @@ class CustomIntegrationService:
             }
 
     def _test_graphql(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Test GraphQL connector connectivity."""
+        """Test GraphQL connector connectivity (D12-P9: DNS-rebinding safe)."""
         import time
 
         url = config.get("url", "")
@@ -749,12 +935,26 @@ class CustomIntegrationService:
         if not url:
             return {"success": False, "message": "URL is required"}
 
-        _validate_url(url)
+        # D12-P9: Validate URL and get resolved IP for DNS-rebinding prevention
+        resolved_ip = _validate_url(url)
 
         # Build auth headers
         auth_headers = self._build_auth_headers(config)
         headers = {**headers, **auth_headers}
         headers["Content-Type"] = "application/json"
+
+        # D12-P9: If we resolved an IP, rewrite the URL to use it directly
+        request_url = url
+        if resolved_ip:
+            try:
+                parsed = urlparse(url)
+                netloc = resolved_ip
+                if parsed.port:
+                    netloc = f"{resolved_ip}:{parsed.port}"
+                request_url = parsed._replace(netloc=netloc).geturl()
+                headers["Host"] = parsed.hostname
+            except Exception:
+                request_url = url
 
         # Send introspection query
         query = config.get("query_template") or "{ __typename }"
@@ -762,8 +962,9 @@ class CustomIntegrationService:
 
         start = time.monotonic()
         try:
-            with httpx.Client(timeout=REST_TIMEOUT_SECONDS) as client:
-                response = client.post(url, json=payload, headers=headers)
+            # D12-P9: Disable redirect following to prevent redirect-based SSRF
+            with httpx.Client(timeout=REST_TIMEOUT_SECONDS, follow_redirects=False) as client:
+                response = client.post(request_url, json=payload, headers=headers)
                 latency = round((time.monotonic() - start) * 1000)
 
                 if response.status_code < 400:
@@ -887,6 +1088,9 @@ class CustomIntegrationService:
 
         if db_type not in ("postgresql", "mysql", "sqlite", "mongodb"):
             return {"success": False, "message": f"Unsupported db_type: {db_type}"}
+
+        # D12-P3: Validate connection string for SSRF before connecting
+        _validate_connection_string(connection_string)
 
         if db_type == "mongodb":
             # MongoDB doesn't use SQLAlchemy

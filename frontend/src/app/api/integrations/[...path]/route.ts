@@ -16,11 +16,47 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// ── Idempotency Tracking (D12-P1) ─────────────────────────────────
+// In-memory store for processed idempotency keys (prevents duplicates
+// when backend processed but 15s timeout expired).
+const _processedIdempotencyKeys = new Map<string, { timestamp: number; result: Response }>();
+const IDEMPOTENCY_TTL_MS = 60_000; // Keys expire after 60s
+
+function checkIdempotency(key: string): Response | null {
+  const entry = _processedIdempotencyKeys.get(key);
+  if (entry && Date.now() - entry.timestamp < IDEMPOTENCY_TTL_MS) {
+    // Clean expired entries opportunistically
+    return entry.result;
+  }
+  if (entry) {
+    _processedIdempotencyKeys.delete(key);
+  }
+  return null;
+}
+
+function recordIdempotency(key: string, result: Response): void {
+  _processedIdempotencyKeys.set(key, { timestamp: Date.now(), result });
+  // Evict old entries to prevent unbounded growth
+  for (const [k, v] of _processedIdempotencyKeys) {
+    if (Date.now() - v.timestamp >= IDEMPOTENCY_TTL_MS) {
+      _processedIdempotencyKeys.delete(k);
+    }
+  }
+}
+
 // ── Backend Proxy Configuration ─────────────────────────────────
 const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 async function proxyToBackend(request: NextRequest, pathSegments: string[]): Promise<Response | null> {
   if (!BACKEND_URL) return null;
+
+  // D12-P1: Check idempotency key before proxying — if we already have a
+  // recorded response for this key, return it immediately.
+  const idempotencyKey = request.headers.get('x-idempotency-key');
+  if (idempotencyKey) {
+    const cached = checkIdempotency(idempotencyKey);
+    if (cached) return cached;
+  }
 
   const backendPath = `${BACKEND_URL}/api/integrations/${pathSegments.join('/')}`;
   const url = new URL(request.url);
@@ -32,8 +68,14 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
       ? await request.clone().arrayBuffer()
       : undefined;
 
-    const headers = new Headers(request.headers);
-    headers.delete('host');
+    // D12-P15: Only forward an allowlist of safe headers — never blindly
+    // copy all client headers (which can include cookies, etc.).
+    const ALLOWLISTED_FORWARD_HEADERS = ['content-type', 'authorization', 'x-request-id'];
+    const headers = new Headers();
+    for (const name of ALLOWLISTED_FORWARD_HEADERS) {
+      const value = request.headers.get(name);
+      if (value) headers.set(name, value);
+    }
 
     const response = await fetch(fullUrl, {
       method: request.method,
@@ -76,9 +118,33 @@ function loadIntegrations(): StoredIntegration[] {
   return [];
 }
 
+// D12-P8: Patterns for keys that should be masked in the local JSON store.
+// This is defense-in-depth — the local fallback should be disabled in production.
+const _SENSITIVE_KEY_PATTERNS = /password|token|secret|api_key|credential|private_key|auth_token|connection_string/i;
+
+function maskSensitiveFields(config: Record<string, string>): Record<string, string> {
+  const masked: Record<string, string> = {};
+  for (const [key, value] of Object.entries(config)) {
+    if (_SENSITIVE_KEY_PATTERNS.test(key) && typeof value === 'string' && value.length > 0) {
+      masked[key] = value.length > 4 ? value.slice(0, 4) + '****' : '****';
+    } else {
+      masked[key] = value;
+    }
+  }
+  return masked;
+}
+
+// NOTE: This local JSON fallback should be disabled in production.
+// It stores state in a plaintext file on the filesystem and is only
+// intended for development / demo environments.
 function saveIntegrations(integrations: StoredIntegration[]): void {
   try {
-    fs.writeFileSync(INTEGRATIONS_STORE_PATH, JSON.stringify(integrations, null, 2), 'utf-8');
+    // D12-P8: Mask sensitive fields before writing to disk
+    const sanitized = integrations.map((int) => ({
+      ...int,
+      config: maskSensitiveFields(int.config),
+    }));
+    fs.writeFileSync(INTEGRATIONS_STORE_PATH, JSON.stringify(sanitized, null, 2), 'utf-8');
   } catch { /* ignore */ }
 }
 
@@ -184,6 +250,28 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const { integration_type, name, config, validate } = body;
 
+    // D12-P1: If backend is unreachable and integration_type is 'custom',
+    // return a clear 502 error instead of silently falling through to the
+    // local handler which doesn't support custom integrations.
+    if (integration_type === 'custom') {
+      return NextResponse.json(
+        {
+          detail: 'Backend service unavailable. Custom integrations require the backend API.',
+        },
+        { status: 502 }
+      );
+    }
+
+    // D12-P1: Idempotency check — if the request was already processed,
+    // return the previously recorded response to prevent duplicates.
+    const idempotencyKey = request.headers.get('x-idempotency-key');
+    if (idempotencyKey) {
+      const previousResult = checkIdempotency(idempotencyKey);
+      if (previousResult) {
+        return previousResult;
+      }
+    }
+
     if (!integration_type || !INTEGRATION_TYPES[integration_type]) {
       return NextResponse.json(
         { detail: `Invalid integration type: ${integration_type}` },
@@ -212,7 +300,7 @@ export async function POST(
     integrations.push(newIntegration);
     saveIntegrations(integrations);
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         id: newIntegration.id,
         company_id: 'local',
@@ -226,6 +314,14 @@ export async function POST(
       },
       { status: 201 }
     );
+
+    // D12-P1: Record the response under the idempotency key so a retry
+    // with the same key returns the same result (prevents duplicates).
+    if (idempotencyKey) {
+      recordIdempotency(idempotencyKey, response);
+    }
+
+    return response;
   }
 
   // POST /api/integrations/{id}/test — test integration
