@@ -1,5 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// ── B4: Auth + Rate Limiting ──────────────────────────────────────
+
+// Simple in-memory rate limiter: 5 requests per minute per IP
+const _rateLimitStore = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = _rateLimitStore.get(ip);
+
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    _rateLimitStore.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+
+  entry.count++;
+  return entry.count <= RATE_LIMIT_MAX;
+}
+
+// Clean up stale entries every 5 minutes to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of _rateLimitStore.entries()) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+      _rateLimitStore.delete(key);
+    }
+  }
+}, 300_000);
+
 // ── z-ai-web-dev-sdk — Primary AI Provider ───────────────────────
 
 let ZAI: any = null;
@@ -168,6 +198,24 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
 
 export async function POST(req: NextRequest) {
   try {
+    // B4: Check for session/auth cookie
+    const sessionCookie = req.cookies.get('session') || req.cookies.get('__Secure-next-auth.session-token') || req.cookies.get('next-auth.session-token');
+    if (!sessionCookie) {
+      return NextResponse.json(
+        { status: 'error', message: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // B4: Rate limit by client IP (5 req/min)
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+    if (!checkRateLimit(clientIp)) {
+      return NextResponse.json(
+        { status: 'error', message: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const { message, industry, variant } = await req.json();
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {

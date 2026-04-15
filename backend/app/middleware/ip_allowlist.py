@@ -148,15 +148,27 @@ class IPAllowlistMiddleware:
     def _get_client_ip(self, scope: dict) -> str:
         """Extract client IP from ASGI scope.
 
-        Checks X-Forwarded-For header first (behind proxy),
-        then falls back to client address.
+        B2: Uses TRUSTED_PROXY_COUNT to select the correct IP from
+        X-Forwarded-For. Mirrors the logic in rate_limit.py — reads
+        the rightmost trusted address based on proxy count to prevent
+        IP spoofing via forged X-Forwarded-For headers.
+
+        Falls back to ``scope["client"]`` when header is absent.
+        Defaults TRUSTED_PROXY_COUNT to 1 when env var is not set.
         """
         headers = dict(scope.get("headers", []))
         forwarded = headers.get(
             b"x-forwarded-for", b"",
         ).decode("utf-8", errors="ignore")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
+
+        trusted_proxy_count = int(
+            os.environ.get("TRUSTED_PROXY_COUNT", "1"),
+        )
+
+        if forwarded and trusted_proxy_count > 0:
+            ips = [ip.strip() for ip in forwarded.split(",")]
+            if len(ips) >= trusted_proxy_count:
+                return ips[-trusted_proxy_count]
 
         client = scope.get("client")
         if client:

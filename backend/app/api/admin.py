@@ -16,6 +16,7 @@ All responses use structured JSON (BC-012).
 
 import json
 import math
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -23,8 +24,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import (
     require_roles,
+    get_current_user,
 )
-from app.exceptions import NotFoundError
+from app.exceptions import AuthorizationError, NotFoundError
 from app.schemas.admin import (
     AdminClientUpdate,
     APIProviderCreate,
@@ -38,6 +40,42 @@ from database.models.ai_pipeline import APIProvider
 from database.models.core import Company, User
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+# A7: Platform admin email allowlist.
+# TODO: Add an is_platform_admin boolean column to the User model
+#       and use that for the guard once a DB migration is available.
+#       For now, we check against a comma-separated env var.
+def require_platform_admin(
+    user: User = Depends(get_current_user),
+) -> User:
+    """Verify the authenticated user is a platform admin.
+
+    A7: Checks the user's email against PLATFORM_ADMIN_EMAILS.
+    Falls back to role="owner" check when the env var is not set,
+    preserving backward compatibility.
+    """
+    admin_emails_raw = os.environ.get("PLATFORM_ADMIN_EMAILS", "")
+    if admin_emails_raw:
+        admin_emails = {
+            e.strip().lower()
+            for e in admin_emails_raw.split(",")
+            if e.strip()
+        }
+        if user.email and user.email.lower() in admin_emails:
+            return user
+        raise AuthorizationError(
+            message="Platform admin access required",
+            details={"user_email": user.email},
+        )
+    # Fallback: when PLATFORM_ADMIN_EMAILS is not configured,
+    # require the owner role (existing behaviour).
+    if user.role == "owner":
+        return user
+    raise AuthorizationError(
+        message="Platform admin access required",
+        details={"user_role": user.role},
+    )
 
 
 def _serialize_company_with_count(company) -> dict:
@@ -102,7 +140,7 @@ def _serialize_provider(provider) -> dict:
 
 @router.get("/clients")
 def list_clients(
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
@@ -115,8 +153,10 @@ def list_clients(
     query = db.query(Company)
 
     if search:
+        # B3: Escape LIKE wildcards to prevent injection
+        safe_search = search.replace("%", r"\%").replace("_", r"\_")
         query = query.filter(
-            Company.name.ilike(f"%{search}%"),
+            Company.name.ilike(f"%{safe_search}%", escape="\\"),
         )
 
     total = query.count()
@@ -153,7 +193,7 @@ def list_clients(
 @router.get("/clients/{company_id}")
 def get_client_detail(
     company_id: str,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Get single client detail."""
@@ -180,7 +220,7 @@ def get_client_detail(
 def update_client(
     company_id: str,
     body: AdminClientUpdate,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Update client details."""
@@ -228,7 +268,7 @@ def update_client(
 def update_subscription(
     company_id: str,
     body: SubscriptionUpdateRequest,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Change subscription tier/status."""
@@ -289,7 +329,7 @@ def admin_health() -> dict:
 
 @router.get("/api-providers")
 def list_api_providers(
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """List all API providers (global)."""
@@ -304,7 +344,7 @@ def list_api_providers(
 @router.post("/api-providers")
 def create_api_provider(
     body: APIProviderCreate,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Create a new API provider."""
@@ -345,7 +385,7 @@ def create_api_provider(
 def update_api_provider(
     provider_id: str,
     body: APIProviderUpdate,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> dict:
     """Update an API provider."""
@@ -388,7 +428,7 @@ def update_api_provider(
 @router.delete("/api-providers/{provider_id}")
 def delete_api_provider(
     provider_id: str,
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
     """Soft-delete an API provider (set is_active=False)."""

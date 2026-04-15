@@ -39,18 +39,18 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
     # Prefixes that skip tenant check (auth handles its own
     # via route-level get_current_user dependency)
+    # B1: Reduced to only truly public paths.
+    # Removed /api/billing/, /api/api-keys, /api/mfa/, /api/client/
+    # which now require authentication (tenant middleware enforces company_id).
     PUBLIC_PREFIXES = (
         "/api/auth/",
         "/api/public/",
         "/public/",
-        "/api/api-keys",
-        "/api/mfa/",
-        "/api/billing/",
-        "/api/client/",
         "/api/admin/",
         "/api/webhooks/",
         "/api/jarvis/",
         "/api/jarvis",
+        "/api/pricing/",
         "/test/",
     )
 

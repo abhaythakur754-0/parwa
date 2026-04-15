@@ -18,13 +18,15 @@ All endpoints:
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 
+from app.api.deps import get_current_user
 from app.schemas.webhook import (
     WebhookResponse,
 )
 from app.services import webhook_service
+from database.models.core import User
 
 logger = logging.getLogger("parwa.webhook_api")
 
@@ -438,7 +440,10 @@ async def receive_webhook(
 @router.get(
     "/status/{event_db_id}",
 )
-async def get_webhook_status(event_db_id: str):
+async def get_webhook_status(
+    event_db_id: str,
+    user: User = Depends(get_current_user),
+):
     """Check the processing status of a webhook event.
 
     Args:
@@ -469,7 +474,10 @@ async def get_webhook_status(event_db_id: str):
     "/retry/{event_db_id}",
     response_model=WebhookResponse,
 )
-async def retry_webhook(event_db_id: str):
+async def retry_webhook(
+    event_db_id: str,
+    user: User = Depends(get_current_user),
+):
     """Retry a failed webhook event.
 
     Resets the event to 'pending' and re-dispatches
