@@ -1025,7 +1025,7 @@ class TestVariantLimitServiceStacking:
         mock_db.query.return_value.filter.return_value \
             .scalar.return_value = None
         mock_db.__enter__ = MagicMock(return_value=mock_db)
-        mock_db.__exit__ MagicMock(return_value=False)
+        mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
             result = service.check_ticket_limit(company_id, current_count=500)
@@ -1050,7 +1050,7 @@ class TestVariantLimitServiceStacking:
         mock_db.query.return_value.filter.return_value \
             .scalar.return_value = 50
         mock_db.__enter__ = MagicMock(return_value=mock_db)
-        mock_db.__exit__ MagicMock(return_value=False)
+        mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
             result = service.check_kb_doc_limit(company_id, current_count=300)
@@ -1075,7 +1075,7 @@ class TestVariantLimitServiceStacking:
         mock_db.query.return_value.filter.return_value \
             .scalar.return_value = None
         mock_db.__enter__ = MagicMock(return_value=mock_db)
-        mock_db.__exit__ MagicMock(return_value=False)
+        mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
             result = service.check_kb_doc_limit(company_id, current_count=50)
@@ -1097,7 +1097,7 @@ class TestVariantLimitServiceStacking:
         mock_db.query.return_value.filter.return_value \
             .order_by.return_value.first.return_value = mock_sub
         mock_db.__enter__ = MagicMock(return_value=mock_db)
-        mock_db.__exit__ MagicMock(return_value=False)
+        mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
             result = service.check_ai_agent_limit(company_id, current_count=2)
@@ -1119,7 +1119,7 @@ class TestVariantLimitServiceStacking:
         mock_db.query.return_value.filter.return_value \
             .order_by.return_value.first.return_value = mock_sub
         mock_db.__enter__ = MagicMock(return_value=mock_db)
-        mock_db.__exit__ MagicMock(return_value=False)
+        mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
             result = service.check_team_member_limit(company_id, current_count=8)
@@ -1141,7 +1141,7 @@ class TestVariantLimitServiceStacking:
         mock_db.query.return_value.filter.return_value \
             .order_by.return_value.first.return_value = mock_sub
         mock_db.__enter__ = MagicMock(return_value=mock_db)
-        mock_db.__exit__ MagicMock(return_value=False)
+        mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.variant_limit_service.SessionLocal", return_value=mock_db):
             result = service.check_voice_slot_limit(company_id, current_count=1)
