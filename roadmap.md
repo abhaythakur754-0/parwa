@@ -1,6 +1,6 @@
 # PARWA Execution Roadmap
 
-> **Last Updated:** Week 17 Day 4 COMPLETE (F-102, F-103) → Moving to Week 17 Day 5
+> **Last Updated:** Week 17 Day 5 COMPLETE (F-104, F-105) → Moving to Week 17 Day 6
 > **Current Phase:** Week 17 - Integrations + Settings (F-031, F-097 to F-108)
 
 ---
@@ -24,7 +24,7 @@
 | **Week 13** | Channels — Phase 4 | ✅ COMPLETE | Communication Channels (F-120 to F-130) |
 | **Week 14** | Jarvis Command Center | ✅ COMPLETE | F-087 to F-096 (10 features, 93 tests) |
 | **Week 15** | Dashboard + Analytics | ✅ COMPLETE | F-036 to F-045 (10 features, 35 tests) |
-| **Week 17** | Integrations + Settings | 🔵 IN PROGRESS | F-031, F-097 to F-108 (Day 4 complete: F-100-F-103) |
+| **Week 17** | Integrations + Settings | 🔵 IN PROGRESS | F-031, F-097 to F-108 (Day 5 complete: F-100-F-105) |
 | **Week 18-21** | Public Facing + Training + Polish | ⬜ UPCOMING | Phase 5 |
 
 ---
@@ -763,10 +763,18 @@ Week 17 builds Integrations + Settings — Custom Integration Builder (F-031), A
 | Quality Scoring System | — | ✅ Done | Integrated in dataset_preparation_service.py |
 | F-102/F-103 tests | — | ✅ Done | `backend/app/tests/test_w17_day4_training.py` |
 
-#### Day 5 — Model Validation + Deployment (F-104, F-105)
-- Evaluation suite
-- Auto-rollback deployment
-- Canary release logic
+#### Day 5 — Model Validation + Deployment (F-104, F-105) ✅ COMPLETE
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Model Validation Evaluation Suite | F-104 | ✅ Done | `backend/app/services/model_validation_service.py` |
+| Quality Gate Enforcement | F-104 | ✅ Done | Integrated in model_validation_service.py |
+| Regression Testing | F-104 | ✅ Done | Integrated in model_validation_service.py |
+| Canary Release System | F-105 | ✅ Done | `backend/app/services/model_deployment_service.py` |
+| Auto-Rollback on Failure | F-105 | ✅ Done | Integrated in model_deployment_service.py |
+| Blue-Green Deployment Support | F-105 | ✅ Done | Integrated in model_deployment_service.py |
+| Deployment Monitoring | F-105 | ✅ Done | Integrated in model_deployment_service.py |
+| F-104/F-105 tests | — | ✅ Done | `backend/app/tests/test_w17_day5_validation_deployment.py` |
 
 #### Day 6 — Fallback Training + Cold Start (F-106, F-107)
 - Bi-weekly scheduled retraining
@@ -785,7 +793,7 @@ Week 17 builds Integrations + Settings — Custom Integration Builder (F-031), A
 | **Day 2** | Agent Dashboard + Metrics | F-097, F-098 |
 | **Day 3** | Training Loop + Mistake Threshold | F-100, F-101 ✅ |
 | **Day 4** | Training Execution + Dataset | F-102, F-103 ✅ |
-| **Day 5** | Model Validation + Deployment | F-104, F-105 |
+| **Day 5** | Model Validation + Deployment | F-104, F-105 ✅ |
 | **Day 6** | Fallback Training + Cold Start | F-106, F-107 |
 | **Day 7** | Peer Review + Integration | F-108 |
 
