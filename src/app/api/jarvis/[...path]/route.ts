@@ -295,7 +295,6 @@ async function callAI(messages: Array<{role: string, content: string}>): Promise
 
 // ── PARWA System Prompt — Iron Man's Jarvis = Control Room ──────────
 // Per JARVIS_SPECIFICATION.md v3.0: NO internal details, only what clients can see
-// Jarvis is NOT a chatbot. Jarvis IS the product. Jarvis is the control room.
 
 function buildSystemPrompt(session: any): string {
   const ctx = session.context;
@@ -437,7 +436,7 @@ INDUSTRY DETAILS:
 - Logistics: TMS, WMS, GPS, Carrier APIs. Shipment tracking, delivery issues, driver coordination, fleet management, hazmat.
 - Others: Custom integrations, CRM, Helpdesk. General inquiries, billing, multi-department routing.
 
-ROI: Starter saves ~$168K/yr. Growth saves ~$216K/yr. High saves ~$336K/yr. 85-92% vs hiring human agents at $4-6K/mo each.
+ROI: Starter saves ~$156K/yr net (replaces $168K/yr in human costs). Growth saves ~$186K/yr net. High saves ~$288K/yr net. 85-92% vs hiring human agents at $4-6K/mo each.
 
 SECURITY: GDPR, SOC 2 Type II, HIPAA. AES-256 at rest, TLS 1.3 in transit, full audit trail, PII redaction, per-tenant data isolation. Customer data never trains other clients' models.
 
@@ -607,48 +606,48 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
 
   const welcomes: Record<string, string> = {
     direct: (
-      "Control Center active. I am Jarvis, your strategic partner for PARWA. " +
-      "I have established a secure link to your support ecosystem. " +
-      "How shall we begin your transformation today?"
+      "Hey! I'm Jarvis from PARWA. I help businesses find the right AI support setup " +
+      "-- plans, pricing, demos, the works. What brings you in today?"
     ),
     pricing: (
-      `Strategizing for ${industry}. I see you've been reviewing our premium architecture. ` +
-      "I can help you optimize your deployment to maximize every dollar of ROI. " +
-      "Shall we dive into the specific capabilities of our agents?"
+      `I see you've been looking at pricing for ${industry}. Good thinking -- picking the right plan " +
+      "matters a lot. Want me to walk you through what each tier includes and help you figure out " +
+      "which one fits your volume?"
     ),
     roi: roi ? (
-      `Mission Objective: Efficiency. I've finished auditing your calculations for ${industry}. ` +
-      `With an estimate of ${savingsStr || 'staggering'} in annual recaptured revenue, ` +
-      "your operation is poised for a significant upgrade. Ready to see the blueprint?"
+      `So you've been running the numbers for ${industry}. Based on your calculations, ` +
+      `you're looking at roughly ${savingsStr || 'significant'} in annual savings with PARWA. ` +
+      "Want to see exactly how that works in practice?"
     ) : (
-      "Welcome. I've been auditing your ROI calculations. " +
-      "The numbers suggest massive untapped potential in your current workflow. " +
-      "Shall I demonstrate how we convert those savings into operational reality?"
+      "I see you've been checking out our ROI calculator. The numbers usually surprise people " +
+      "-- in a good way. Want to walk through what PARWA would look like for your team?"
     ),
     demo: (
-      "System check complete. Ready for high-fidelity simulation. " +
-      "For just $1, I can open 500 tactical channels and a 3-minute professional voice demonstration. " +
-      "It is the optimal way to experience my full strategic range. Shall we initiate?"
+      "You're in the right place -- this chat IS the demo. Ask me anything your customers would ask " +
+      "and I'll respond exactly how a deployed PARWA agent would. If you want the full experience, " +
+      "our $1 Demo Pack gives you 500 messages plus a 3-minute AI voice call. Want to try it?"
     ),
     features: (
-      `Mapping ${industry} requirements to our 700+ feature landscape. ` +
-      "I've identified several high-impact nodes that would solve your current bottlenecks. " +
-      "What is the single most critical operational friction point we should address first?"
+      `I see you've been exploring our features for ${industry}. PARWA covers the full support lifecycle ` +
+      "-- from automated ticket resolution to smart analytics and escalation workflows. What's the " +
+      "single most important thing you need solved right now?"
     ),
     models_page: (
-      `I see you've been analyzing our specialized agents for ${industry}. ` +
-      "A precise choice. Those specific architectures are engineered for your vertical's unique logic demands. " +
-      "Shall we run a 3-minute live simulation for $1 so you can witness the performance firsthand?"
+      `I see you've been checking out our plans for ${industry}. Each tier is designed for a different ` +
+      "scale of operation. Want me to break down which one makes the most sense for your ticket volume and channels?"
+    ),
+    handoff: (
+      "Welcome to the next step! I have all the context from your earlier conversation, " +
+      "so we can jump right in. What would you like to tackle first?"
     ),
   };
 
   // Variant-specific overrides (Demo Mode)
   if (variant && source === 'models_page') {
     return (
-      `Greetings. I noticed your interest in the ${variant} agent. ` +
-      "It is one of my most sophisticated variants, optimized for high-precision operations. " +
-      "As your control center, I can demonstrate its logic right here, " +
-      "or we can initiate a voice simulation for $1. What is your command?"
+      `I see you're interested in the ${variant} plan. Great choice for ${industry}. ` +
+      "I can show you exactly what that tier looks like in action -- just ask me anything your customers would ask. " +
+      "Or if you want the full experience, we can do a live simulation for $1. What would you prefer?"
     );
   }
 
@@ -914,7 +913,7 @@ function getKeywordResponse(message: string, session: any): string {
   if (lower.includes('ecommerce') || lower.includes('e-commerce') || lower.includes('online store') || lower.includes('shop') || lower.includes('retail')) {
     return pick('ecommerce') || responses.ecommerce[0];
   }
-  if (lower.includes('saas') || lower.includes('software') || lower.includes('app') || lower.includes('platform')) {
+  if (lower.includes('saas') || lower.includes('software')) {
     return pick('saas') || responses.saas[0];
   }
   if (lower.includes('logistics') || lower.includes('shipping') || lower.includes('warehouse') || lower.includes('delivery') || lower.includes('freight')) {
@@ -940,6 +939,10 @@ function getKeywordResponse(message: string, session: any): string {
   if (lower.includes('ai') || (lower.includes('how') && lower.includes('work')) || lower.includes('gemini') || lower.includes('cerebras') || lower.includes('groq') || lower.includes('llm')) {
     return pick('how_works') || responses.how_works[0];
   }
+  // Integration patterns (D4-11: before support/features to avoid "support Shopify" misrouting)
+  if (lower.includes('integrate') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack') || lower.includes('api')) {
+    return pick('integrations') || responses.integrations[0];
+  }
   if (lower.includes('support') || lower.includes('feature') || lower.includes('what can') || lower.includes('capabilities')) {
     return pick('features') || responses.features[0];
   }
@@ -954,9 +957,6 @@ function getKeywordResponse(message: string, session: any): string {
   }
   if (lower.includes('security') || lower.includes('data') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe') || lower.includes('privacy')) {
     return pick('security') || responses.security[0];
-  }
-  if (lower.includes('integrate') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack') || lower.includes('api')) {
-    return pick('integrations') || responses.integrations[0];
   }
 
   // Context-aware fallback — use industry info if we have it
@@ -1670,7 +1670,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const session = sessions.get(sessionId)!;
-      return NextResponse.json({ pack_type: session.pack_type, remaining_today: session.remaining_today, total_allowed: session.pack_type === 'demo' ? 50 : 20, pack_expiry: session.pack_type === 'demo' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null, demo_call_remaining: !session.context.demo_call_used });
+      return NextResponse.json({ pack_type: session.pack_type, remaining_today: session.remaining_today, total_allowed: session.pack_type === 'demo' ? 500 : 20, pack_expiry: session.pack_type === 'demo' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null, demo_call_remaining: !session.context.demo_call_used });
     }
 
     // ── GET /payment/status — Payment Status Check ───────────────

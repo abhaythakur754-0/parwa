@@ -142,12 +142,9 @@ function ErrorMessage({
 }
 
 // ── Inline Content Renderer (bullet-point aware, XSS-safe) ──────────
-
-function isEmojiChar(ch: string): boolean {
-  // Must use codePointAt for emoji (surrogate pairs in JS)
-  const code = ch.codePointAt(0) || 0;
-  return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
-}
+// Day 4 fix (D4-5): Removed isEmojiChar() from bullet detection.
+// Only explicit bullet markers (•, -, *, numbered) trigger bullet rendering.
+// Emoji-started lines render as normal text paragraphs.
 
 function renderInlineContent(content: string) {
   // Pre-process: if a single line contains multiple bullet markers (•, -, *) split them into separate lines
@@ -164,17 +161,13 @@ function renderInlineContent(content: string) {
   });
 
   const lines = preprocessed;
-  let openerUsed = false;
 
   return lines.map((line, index) => {
     const trimmed = line.trim();
     if (!trimmed) return <div key={index} className="h-2" />;
 
-    // Bullet point lines (•, -, *, or emoji prefix)
-    const firstChar = trimmed.charCodeAt(0);
-    const isEmoji = isEmojiChar(trimmed);
-    const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed) || isEmoji;
-    const isOpener = !openerUsed && !isBullet && trimmed.length < 80;
+    // Bullet point lines (•, -, *, or numbered list)
+    const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed);
 
     if (isBullet) {
       // Strip leading bullet markers but keep emoji + text
@@ -189,14 +182,7 @@ function renderInlineContent(content: string) {
       );
     }
 
-    if (isOpener) {
-      openerUsed = true;
-      return (
-        <p key={index} className="text-white font-medium text-sm leading-relaxed">
-          {trimmed}
-        </p>
-      );
-    }
+
 
     return (
       <p key={index} className="text-white/80 text-sm leading-relaxed">
