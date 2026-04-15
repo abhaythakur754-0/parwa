@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSocket } from '@/lib/socket';
 
 // ── Navigation Items ──────────────────────────────────────────────────
 
@@ -12,7 +13,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
-  badge?: string;
+  badge?: string | number;
 }
 
 // ── Sidebar Props ─────────────────────────────────────────────────────
@@ -83,13 +84,14 @@ const Icons = {
 export default function DashboardSidebar({ collapsed, onToggle }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { badgeCounts } = useSocket();
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: Icons.dashboard },
-    { label: 'Tickets', href: '/dashboard/tickets', icon: Icons.tickets },
+    { label: 'Tickets', href: '/dashboard/tickets', icon: Icons.tickets, badge: badgeCounts.tickets || undefined },
     { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels },
     { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents },
-    { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals },
+    { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals, badge: badgeCounts.approvals || undefined },
     { label: 'Jarvis AI', href: '/jarvis', icon: Icons.jarvis },
   ];
 
@@ -138,7 +140,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+                'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                 isActive(item.href)
                   ? 'bg-orange-500/10 text-orange-400 shadow-sm shadow-orange-500/5'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
@@ -152,6 +154,16 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
                 {item.icon}
               </span>
               {!collapsed && <span>{item.label}</span>}
+              {!collapsed && item.badge !== undefined && Number(item.badge) > 0 && (
+                <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-orange-500/15 text-orange-400 text-[11px] font-bold flex items-center justify-center">
+                  {Number(item.badge) > 99 ? '99+' : item.badge}
+                </span>
+              )}
+              {collapsed && item.badge !== undefined && Number(item.badge) > 0 && (
+                <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {Number(item.badge) > 99 ? '99+' : item.badge}
+                </span>
+              )}
             </Link>
           ))}
         </div>

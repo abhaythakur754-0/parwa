@@ -7,6 +7,7 @@
  */
 
 export { DashboardLayout } from './DashboardLayout';
+export { default as DashboardHeaderBar } from './DashboardHeaderBar';
 export { WelcomeCard } from './WelcomeCard';
 export { default as KPICard } from './KPICard';
 export { default as DashboardHeader } from './DashboardHeader';

@@ -2,15 +2,19 @@
  * PARWA DashboardLayout (Phase 4 — Day 1)
  *
  * Main layout shell for the dashboard.
+ * Wraps children with SocketProvider for real-time events.
  * Uses DashboardSidebar component with collapse/expand on desktop,
  * hamburger overlay on mobile.
+ * Includes DashboardHeaderBar for global top bar.
  */
 
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { SocketProvider } from '@/lib/socket';
 import DashboardSidebar from './DashboardSidebar';
+import DashboardHeaderBar from './DashboardHeaderBar';
 import toast from 'react-hot-toast';
 
 interface DashboardLayoutProps {
@@ -44,9 +48,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // On mobile, we show a hamburger menu + overlay sidebar
   // On desktop, we show the persistent sidebar with collapse toggle
   return (
-    <div className="min-h-screen bg-[#1A1A1A] flex">
-      {/* Mobile overlay */}
-      {isMobileOpen && (
+    <SocketProvider>
+      <div className="min-h-screen bg-[#1A1A1A] flex">
+        {/* Mobile overlay */}
+        {isMobileOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setIsMobileOpen(false)}
@@ -75,8 +80,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         className="flex-1 flex flex-col min-w-0 transition-all duration-300"
         style={{ marginLeft: isMobile ? 0 : sidebarCollapsed ? '68px' : '260px' }}
       >
-        {/* Top bar (mobile) */}
-        <header className="sticky top-0 z-30 h-14 bg-[#1A1A1A]/90 backdrop-blur-xl border-b border-white/[0.06] flex items-center px-4 lg:hidden">
+        {/* Global Header Bar (Day 1) */}
+        <DashboardHeaderBar />
+
+        {/* Top bar (mobile - hamburger) */}
+        <header className="sticky top-14 z-30 h-14 bg-[#1A1A1A]/90 backdrop-blur-xl border-b border-white/[0.06] flex items-center px-4 lg:hidden">
           <button
             onClick={() => setIsMobileOpen(true)}
             className="p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05] transition-colors"
@@ -95,5 +103,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </main>
       </div>
     </div>
+    </SocketProvider>
   );
 }
