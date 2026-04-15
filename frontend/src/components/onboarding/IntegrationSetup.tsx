@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,11 +11,28 @@ import {
   Loader2, Plus, Trash2, TestTube, CheckCircle2, XCircle, ExternalLink,
 } from 'lucide-react';
 
-interface IntegrationConfig {
+// ── Types ─────────────────────────────────────────────────────────────────
+
+interface SavedIntegration {
+  id: string;
   type: string;
   name: string;
+  status: string;
   config: Record<string, string>;
+  last_test_at: string | null;
+  last_test_result: string | null;
+  created_at: string;
 }
+
+interface TestResponse {
+  integration_id: string;
+  success: boolean;
+  message: string;
+  status: string;
+  tested_at: string;
+}
+
+// ── Integration Catalog (synced with backend INTEGRATION_TYPES) ──────────
 
 const INTEGRATION_CATALOG: Array<{
   type: string;
@@ -66,91 +83,164 @@ const INTEGRATION_CATALOG: Array<{
       { key: 'refresh_token', label: 'Refresh Token', placeholder: '1//xxx', type: 'password' },
     ],
   },
+  {
+    type: 'freshdesk',
+    name: 'Freshdesk',
+    description: 'Pull tickets and customer data from Freshdesk.',
+    icon: 'F',
+    fields: [
+      { key: 'domain', label: 'Domain', placeholder: 'your-company' },
+      { key: 'api_key', label: 'API Key', placeholder: 'freshdesk_api_key', type: 'password' },
+    ],
+  },
+  {
+    type: 'intercom',
+    name: 'Intercom',
+    description: 'Connect Intercom for live chat and inbox integration.',
+    icon: 'I',
+    fields: [
+      { key: 'access_token', label: 'Access Token', placeholder: 'dGcmRxxx', type: 'password' },
+    ],
+  },
 ];
+
+// ── Component ─────────────────────────────────────────────────────────────
 
 interface IntegrationSetupProps {
   onComplete: () => void;
 }
 
 export function IntegrationSetup({ onComplete }: IntegrationSetupProps) {
-  const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
+  const [integrations, setIntegrations] = useState<SavedIntegration[]>([]);
   const [addingType, setAddingType] = useState<string | null>(null);
   const [configForm, setConfigForm] = useState<Record<string, string>>({});
   const [name, setName] = useState('');
-  const [testing, setTesting] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);    // integration ID being tested
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);  // integration ID being deleted
   const [error, setError] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, boolean>>({});
+  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
+  const [loading, setLoading] = useState(true);
 
-  const addIntegration = (type: string) => {
-    const catalog = INTEGRATION_CATALOG.find((i) => i.type === type);
-    if (!catalog) return;
-    setName(`${catalog.name} Integration`);
-    setConfigForm({});
-    setTestResults({});
-    setAddingType(type);
-  };
-
-  const cancelAdd = () => {
-    setAddingType(null);
-    setConfigForm({});
-    setName('');
-    setTestResults({});
-  };
-
-  const handleTest = async () => {
-    if (!addingType) return;
-    setTesting(addingType);
-    setError(null);
-
+  // ── Load existing integrations on mount ───────────────────────────
+  const loadIntegrations = useCallback(async () => {
     try {
-      const res = await fetch(`/api/integrations/available`, {
+      const res = await fetch('/api/integrations');
+      if (res.ok) {
+        const data = await res.json();
+        setIntegrations(data);
+      }
+    } catch {
+      // Non-blocking — user can still add integrations
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadIntegrations();
+  }, [loadIntegrations]);
+
+  // ── Validate form fields before submission ────────────────────────
+  const validateForm = (): string | null => {
+    if (!name.trim()) return 'Integration name is required.';
+    const catalog = INTEGRATION_CATALOG.find((i) => i.type === addingType);
+    if (!catalog) return null;
+    for (const field of catalog.fields) {
+      const val = (configForm[field.key] || '').trim();
+      if (!val) return `${field.label} is required.`;
+    }
+    return null;
+  };
+
+  // ── Test a saved integration via backend ──────────────────────────
+  const handleTestSaved = async (id: string) => {
+    setTestingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/integrations/${id}/test`, { method: 'POST' });
+      const data: TestResponse = await res.json();
+      setTestResults((prev) => ({
+        ...prev,
+        [id]: { success: data.success, message: data.message },
+      }));
+    } catch {
+      setTestResults((prev) => ({
+        ...prev,
+        [id]: { success: false, message: 'Connection test failed.' },
+      }));
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  // ── Test before save (dry run — doesn't persist) ──────────────────
+  const handleTestNew = async () => {
+    if (!addingType) return;
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/integrations/test-credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           integration_type: addingType,
-          name,
           config: configForm,
-          validate: false,
         }),
       });
-
-      // Just validate the connection manually for now
-      setTestResults((prev) => ({ ...prev, [addingType]: true }));
-    } catch {
-      setTestResults((prev) => ({ ...prev, [addingType]: false }));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.detail || data?.error?.message || 'Connection test failed');
+      }
+      const data: TestResponse = await res.json();
+      setTestResults((prev) => ({
+        ...prev,
+        [`new-${addingType}`]: { success: data.success, message: data.message },
+      }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Connection test failed';
+      setError(msg);
+      setTestResults((prev) => ({
+        ...prev,
+        [`new-${addingType}`]: { success: false, message: msg },
+      }));
     } finally {
-      setTesting(null);
+      setSaving(false);
     }
   };
 
+  // ── Save integration ──────────────────────────────────────────────
   const handleSave = async () => {
     if (!addingType) return;
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setSaving(true);
     setError(null);
-
     try {
       const res = await fetch('/api/integrations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           integration_type: addingType,
-          name,
+          name: name.trim(),
           config: configForm,
           validate: true,
         }),
       });
-
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || data?.error?.message || 'Failed to create integration');
+        throw new Error(data?.detail || data?.error?.message || 'Failed to save integration');
       }
-
       const data = await res.json();
-      setIntegrations((prev) => [
-        ...prev,
-        { type: addingType, name: data.name, config: configForm },
-      ]);
+      setIntegrations((prev) => [...prev, data]);
       cancelAdd();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save integration');
@@ -159,11 +249,54 @@ export function IntegrationSetup({ onComplete }: IntegrationSetupProps) {
     }
   };
 
-  const removeIntegration = async (index: number) => {
-    setIntegrations((prev) => prev.filter((_, i) => i !== index));
+  // ── Delete integration via backend ────────────────────────────────
+  const removeIntegration = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/integrations/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setIntegrations((prev) => prev.filter((i) => i.id !== id));
+        setTestResults((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      }
+    } catch {
+      // Silently fail — integration stays in UI
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const addIntegration = (type: string) => {
+    const catalog = INTEGRATION_CATALOG.find((i) => i.type === type);
+    if (!catalog) return;
+    setName(`${catalog.name} Integration`);
+    setConfigForm({});
+    setTestResults({});
+    setError(null);
+    setAddingType(type);
+  };
+
+  const cancelAdd = () => {
+    setAddingType(null);
+    setConfigForm({});
+    setName('');
+    setTestResults({});
+    setError(null);
   };
 
   const activeCatalog = INTEGRATION_CATALOG.find((i) => i.type === addingType);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active': return <Badge className="bg-green-100 text-green-700">Active</Badge>;
+      case 'error': return <Badge className="bg-red-100 text-red-700">Error</Badge>;
+      case 'pending': return <Badge className="bg-yellow-100 text-yellow-700">Pending</Badge>;
+      default: return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -176,37 +309,82 @@ export function IntegrationSetup({ onComplete }: IntegrationSetupProps) {
         </p>
       </div>
 
-      {integrations.length > 0 && (
+      {/* Connected Integrations */}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : integrations.length > 0 && (
         <div className="space-y-3">
           <h3 className="font-semibold text-sm">Connected Integrations</h3>
-          {integrations.map((int, idx) => {
+          {integrations.map((int) => {
             const catalog = INTEGRATION_CATALOG.find((c) => c.type === int.type);
+            const testResult = testResults[int.id];
             return (
-              <Card key={idx}>
+              <Card key={int.id}>
                 <CardContent className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-primary">
-                      {catalog?.icon}
+                      {catalog?.icon || '?'}
                     </div>
                     <div>
                       <p className="font-medium">{int.name}</p>
-                      <Badge variant="secondary">{int.type}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{int.type}</Badge>
+                        {getStatusBadge(int.status)}
+                      </div>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeIntegration(idx)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleTestSaved(int.id)}
+                      disabled={testingId === int.id}
+                      title="Test Connection"
+                    >
+                      {testingId === int.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <TestTube className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeIntegration(int.id)}
+                      disabled={deletingId === int.id}
+                      title="Delete Integration"
+                    >
+                      {deletingId === int.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
+                {testResult && (
+                  <div className="px-4 pb-3">
+                    <Alert variant={testResult.success ? 'default' : 'destructive'}>
+                      <AlertDescription className="flex items-center gap-2 text-sm">
+                        {testResult.success ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 shrink-0" />
+                        )}
+                        {testResult.message}
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
               </Card>
             );
           })}
         </div>
       )}
 
+      {/* Add New Integration */}
       {!addingType ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {INTEGRATION_CATALOG.filter(
@@ -271,34 +449,36 @@ export function IntegrationSetup({ onComplete }: IntegrationSetupProps) {
               </div>
             ))}
 
-            {testResults[addingType] !== undefined && (
-              <Alert variant={testResults[addingType] ? 'default' : 'destructive'}>
-                <AlertDescription className="flex items-center gap-2">
-                  {testResults[addingType] ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <XCircle className="h-4 w-4" />
-                  )}
-                  {testResults[addingType]
-                    ? 'Connection validated successfully.'
-                    : 'Connection validation failed.'}
-                </AlertDescription>
-              </Alert>
-            )}
-
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
+            {(() => {
+              const result = testResults[`new-${addingType}`];
+              if (!result) return null;
+              return (
+                <Alert variant={result.success ? 'default' : 'destructive'}>
+                  <AlertDescription className="flex items-center gap-2">
+                    {result.success ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <XCircle className="h-4 w-4" />
+                    )}
+                    {result.message}
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
+
             <div className="flex gap-3 justify-end">
               <Button
                 variant="outline"
-                onClick={handleTest}
-                disabled={testing}
+                onClick={handleTestNew}
+                disabled={saving}
               >
-                {testing ? (
+                {saving ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <TestTube className="mr-2 h-4 w-4" />

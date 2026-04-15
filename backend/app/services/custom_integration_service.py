@@ -623,7 +623,7 @@ class CustomIntegrationService:
                 )
                 latency = round((time.monotonic() - start) * 1000)
 
-                if response.status_code < 500:
+                if response.status_code < 400:
                     return {
                         "success": True,
                         "message": f"Connected successfully (HTTP {response.status_code})",
@@ -632,7 +632,7 @@ class CustomIntegrationService:
                 else:
                     return {
                         "success": False,
-                        "message": f"Server returned HTTP {response.status_code}",
+                        "message": f"Client error HTTP {response.status_code}: authentication or configuration issue",
                         "latency_ms": latency,
                     }
         except httpx.TimeoutException:
@@ -672,7 +672,7 @@ class CustomIntegrationService:
                 response = client.post(url, json=payload, headers=headers)
                 latency = round((time.monotonic() - start) * 1000)
 
-                if response.status_code < 500:
+                if response.status_code < 400:
                     try:
                         data = response.json()
                         if "errors" in data:
@@ -691,7 +691,7 @@ class CustomIntegrationService:
                 else:
                     return {
                         "success": False,
-                        "message": f"Server returned HTTP {response.status_code}",
+                        "message": f"Client error HTTP {response.status_code}: authentication or configuration issue",
                         "latency_ms": latency,
                     }
         except httpx.TimeoutException:

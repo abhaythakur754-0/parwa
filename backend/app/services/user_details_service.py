@@ -568,14 +568,15 @@ def check_ai_activation_prerequisites(
     if details and details.work_email and not details.work_email_verified:
         missing.append("work_email_verification_required")
     
-    # Check integrations or KB
-    import json
-    try:
-        integrations = json.loads(session.integrations or "{}")
-        has_integrations = any(integrations.values()) if integrations else False
-    except json.JSONDecodeError:
-        has_integrations = False
+    # Check integrations or KB — query actual Integration table (not stale session.integrations)
+    from database.models.integration import Integration
+    integration_count = db.query(Integration).filter(
+        Integration.company_id == company_id,
+        Integration.status.in_(["active", "pending"]),
+    ).count()
+    has_integrations = integration_count > 0
     
+    # KB check still uses session JSON field (KB upload flow writes there)
     try:
         kb_files = json.loads(session.knowledge_base_files or "[]")
         has_kb = len(kb_files) > 0

@@ -88,7 +88,7 @@ export interface OnboardingState {
 // ── AI Configuration ───────────────────────────────────────────────────
 
 export type AITone = 'professional' | 'friendly' | 'casual';
-export type AIResponseStyle = 'concise' | 'detailed' | 'balanced';
+export type AIResponseStyle = 'concise' | 'detailed';
 
 export interface AIConfig {
   ai_name: string;
@@ -99,17 +99,18 @@ export interface AIConfig {
 
 // ── Integration Types ──────────────────────────────────────────────────
 
-export type IntegrationType = 
+// Synced with backend INTEGRATION_TYPES (integration_service.py)
+export type IntegrationType =
   | 'zendesk'
-  | 'intercom'
+  | 'shopify'
+  | 'slack'
+  | 'gmail'
   | 'freshdesk'
-  | 'helpscout'
-  | 'custom_api'
-  | 'email'
-  | 'whatsapp'
-  | 'slack';
+  | 'intercom'
+  | 'custom';
 
-export type IntegrationStatus = 'pending' | 'active' | 'error';
+// Synced with backend STATUS_* constants
+export type IntegrationStatus = 'pending' | 'active' | 'error' | 'disconnected';
 
 export interface Integration {
   id: string;

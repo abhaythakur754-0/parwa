@@ -100,6 +100,37 @@ def list_available_integrations() -> List[Dict[str, Any]]:
     return result
 
 
+class TestCredentialsRequest(BaseModel):
+    """Request to test credentials without saving."""
+
+    integration_type: str = Field(..., description="Type: zendesk, shopify, slack, gmail, freshdesk, intercom")
+    config: Dict[str, Any] = Field(..., description="Integration config with credentials")
+
+
+@router.post(
+    "/test-credentials",
+    response_model=TestIntegrationResponse,
+)
+def api_test_credentials(
+    body: TestCredentialsRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TestIntegrationResponse:
+    """Test integration credentials without creating a record.
+
+    Dry-run endpoint: validates credentials by making a real API call
+    to the integration's service, but does NOT persist anything to the DB.
+
+    BC-001: Authenticated endpoint.
+    """
+    service = IntegrationService(db)
+    result = service.test_credentials_only(
+        integration_type=body.integration_type,
+        config=body.config,
+    )
+    return TestIntegrationResponse(**result)
+
+
 @router.post(
     "",
     response_model=IntegrationResponse,

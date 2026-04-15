@@ -18,7 +18,6 @@ const TONE_OPTIONS: Array<{ value: AITone; label: string; description: string }>
 
 const STYLE_OPTIONS: Array<{ value: AIResponseStyle; label: string; description: string }> = [
   { value: 'concise', label: 'Concise', description: 'Short, direct answers' },
-  { value: 'balanced', label: 'Balanced', description: 'Mix of brevity and detail' },
   { value: 'detailed', label: 'Detailed', description: 'Comprehensive, thorough explanations' },
 ];
 

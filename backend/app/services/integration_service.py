@@ -26,6 +26,8 @@ import httpx
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
+from app.services.custom_integration_service import _encrypt_config, _decrypt_config
+
 from app.exceptions import ValidationError
 from app.logger import get_logger
 from database.models.integration import Integration
@@ -120,7 +122,7 @@ class IntegrationService:
             integration_type=integration_type,
             name=name,
             status=status,
-            credentials_encrypted=json.dumps(config),
+            credentials_encrypted=_encrypt_config(config),
             settings="{}",
             error_message=test_result.get("message") if test_result and not test_result.get("success") else None,
             created_at=datetime.now(timezone.utc),
@@ -198,7 +200,7 @@ class IntegrationService:
                 details={"integration_id": integration_id},
             )
 
-        config = self._parse_json(integration.credentials_encrypted) or {}
+        config = _decrypt_config(integration.credentials_encrypted) or {}
         result = self._test_credentials(integration.integration_type, config)
 
         # Update status on the integration record
@@ -247,7 +249,7 @@ class IntegrationService:
         for field, value in updates.items():
             if field in allowed_fields:
                 if field == "credentials_encrypted" and isinstance(value, dict):
-                    value = json.dumps(value)
+                    value = _encrypt_config(value)
                 if field == "settings" and isinstance(value, dict):
                     value = json.dumps(value)
                 setattr(integration, field, value)
@@ -256,6 +258,43 @@ class IntegrationService:
         self.db.flush()
 
         return self._to_dict(integration, mask_credentials=True)
+
+    def test_credentials_only(
+        self,
+        integration_type: str,
+        config: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Test integration credentials without creating or saving a record.
+
+        Dry-run: validates the type and required fields, then makes a real
+        API call to the integration's service. Returns test result only.
+        """
+        if integration_type not in INTEGRATION_TYPES:
+            raise ValidationError(
+                message=f"Invalid integration type: {integration_type}",
+                details={"valid_types": list(INTEGRATION_TYPES.keys())},
+            )
+
+        type_config = INTEGRATION_TYPES[integration_type]
+        required_fields = type_config["required_fields"]
+
+        # Validate required fields
+        missing_fields = [f for f in required_fields if not config.get(f)]
+        if missing_fields:
+            raise ValidationError(
+                message=f"Missing required fields: {', '.join(missing_fields)}",
+                details={"missing_fields": missing_fields},
+            )
+
+        result = self._test_credentials(integration_type, config)
+
+        return {
+            "integration_id": "dry-run",
+            "success": result.get("success", False),
+            "message": result.get("message", "Test not performed"),
+            "status": STATUS_ACTIVE if result.get("success") else STATUS_ERROR,
+            "tested_at": datetime.now(timezone.utc).isoformat(),
+        }
 
     def delete_integration(
         self,
@@ -411,12 +450,44 @@ class IntegrationService:
             return {"success": False, "message": f"Slack connection failed: {str(e)}"}
 
     def _test_gmail(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Test Gmail API connectivity."""
-        access_token = config.get("access_token") or config.get("refresh_token")
+        """Test Gmail API connectivity.
+
+        Exchanges the stored refresh_token for a short-lived access_token
+        via Google's OAuth2 token endpoint, then tests the Gmail profile API.
+        """
+        client_id = config.get("client_id")
+        client_secret = config.get("client_secret")
+        refresh_token = config.get("refresh_token")
+
+        if not all([client_id, client_secret, refresh_token]):
+            return {"success": False, "message": "Missing required fields: client_id, client_secret, refresh_token"}
+
+        # Step 1: Exchange refresh_token for access_token
+        access_token = None
+        try:
+            with httpx.Client(timeout=10) as client:
+                token_resp = client.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "grant_type": "refresh_token",
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "refresh_token": refresh_token,
+                    },
+                )
+                if token_resp.status_code == 200:
+                    access_token = token_resp.json().get("access_token")
+                else:
+                    error_data = token_resp.json() if token_resp.headers.get("content-type", "").startswith("application/json") else {}
+                    error_desc = error_data.get("error_description", error_data.get("error", f"HTTP {token_resp.status_code}"))
+                    return {"success": False, "message": f"Gmail OAuth token exchange failed: {error_desc}"}
+        except Exception as e:
+            return {"success": False, "message": f"Gmail OAuth request failed: {str(e)}"}
 
         if not access_token:
-            return {"success": False, "message": "Missing required field: access_token or refresh_token"}
+            return {"success": False, "message": "Gmail OAuth returned no access_token"}
 
+        # Step 2: Test the Gmail profile API with the access_token
         url = "https://www.googleapis.com/gmail/v1/users/me/profile"
         headers = {"Authorization": f"Bearer {access_token}"}
 
@@ -497,7 +568,7 @@ class IntegrationService:
 
     def _to_dict(self, integration: Integration, mask_credentials: bool = False) -> Dict[str, Any]:
         """Convert Integration ORM object to dict."""
-        config = self._parse_json(integration.credentials_encrypted) or {}
+        config = _decrypt_config(integration.credentials_encrypted) or {}
         settings = self._parse_json(integration.settings) or {}
 
         if mask_credentials and config:

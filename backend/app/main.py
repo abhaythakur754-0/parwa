@@ -77,6 +77,7 @@ from app.api.dashboard import router as dashboard_router  # Week 15 Day 1: Dashb
 from app.api.analytics_advanced import router as analytics_advanced_router  # Week 15 Day 2: Adaptation (F-039), Savings (F-040), Workforce (F-041)
 from app.api.analytics_intelligence import router as analytics_intelligence_router  # Week 15 Day 3: Growth Nudge (F-042), Forecast (F-043), CSAT Trends (F-044)
 from app.api.reports import router as reports_router  # Week 15 Day 4: Export Reports (F-045)
+from app.api.custom_integrations import router as custom_integrations_router  # Week 17: Custom Integration Builder (F-031)
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
@@ -306,6 +307,7 @@ app.include_router(dashboard_router)  # Week 15 Day 1: Dashboard Home (F-036), A
 app.include_router(analytics_advanced_router)  # Week 15 Day 2: Adaptation (F-039), Savings (F-040), Workforce (F-041)
 app.include_router(analytics_intelligence_router)  # Week 15 Day 3: Growth Nudge (F-042), Forecast (F-043), CSAT Trends (F-044)
 app.include_router(reports_router)  # Week 15 Day 4: Export Reports (F-045)
+app.include_router(custom_integrations_router)  # Week 17: Custom Integration Builder (F-031)
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
