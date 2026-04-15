@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, Lock, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { post } from '@/lib/api';
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -39,16 +40,16 @@ function ResetPasswordContent() {
     setError(null);
     setIsLoading(true);
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/auth/reset-password`, {
+      const response = await post<{ status: string }>('/api/auth/reset-password', {
         token: token, new_password: newPassword, confirm_password: confirmPassword,
       });
-      if (response.data?.status === 'success') {
+      if (response?.status === 'success') {
         setSuccess(true);
         toast.success('Password reset successfully!');
         setTimeout(() => { router.push('/login'); }, 3000);
       }
     } catch (err: any) {
-      const message = err.response?.data?.detail || err.response?.data?.message || 'Failed to reset password. The link may have expired.';
+      const message = err?.detail || err?.message || err?.response?.data?.detail || 'Failed to reset password. The link may have expired.';
       setError(message);
       toast.error(message);
     } finally { setIsLoading(false); }
