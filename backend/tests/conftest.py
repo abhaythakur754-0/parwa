@@ -103,6 +103,10 @@ class _AttrChainer:
         return True  # Always pass for mock filter comparisons
     def __le__(self, other):
         return True
+    def __gt__(self, other):
+        return True  # Support > comparisons
+    def __lt__(self, other):
+        return False  # Support < comparisons (for expires_at < now etc.)
     def __eq__(self, other):
         return True  # Filters always match in mocks
     def __ne__(self, other):
@@ -469,6 +473,58 @@ _MockInstructionSet = type("InstructionSet", (object,), {
 setattr(_fake_agent_models, "Agent", _MockAgent)
 setattr(_fake_agent_models, "InstructionSet", _MockInstructionSet)
 sys.modules.setdefault("database.models.agent", _fake_agent_models)
+
+# ── database.models.agent_metrics (Week 17 Day 2 — F-098) ────
+_fake_agent_metrics_models = types.ModuleType("database.models.agent_metrics")
+
+_MockAgentMetricsDaily = type("AgentMetricsDaily", (object,), {
+    "__tablename__": "agent_metrics_daily",
+    "id": None, "company_id": _AttrChainer(), "agent_id": _AttrChainer(),
+    "date": _AttrChainer(), "resolution_rate": None, "avg_confidence": None,
+    "avg_csat": None, "escalation_rate": None,
+    "avg_handle_time_seconds": None, "tickets_handled": 0,
+    "resolved_count": 0, "escalated_count": 0,
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockAgentMetricThreshold = type("AgentMetricThreshold", (object,), {
+    "__tablename__": "agent_metric_thresholds",
+    "id": None, "company_id": _AttrChainer(), "agent_id": _AttrChainer(),
+    "resolution_rate_min": 70.0, "confidence_min": 65.0,
+    "csat_min": 3.5, "escalation_max_pct": 15.0,
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockAgentPerformanceAlert = type("AgentPerformanceAlert", (object,), {
+    "__tablename__": "agent_performance_alerts",
+    "id": None, "company_id": _AttrChainer(), "agent_id": _AttrChainer(),
+    "metric_name": None, "current_value": None, "threshold_value": None,
+    "consecutive_days_below": 0, "status": "active",
+    "resolved_at": None,
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+setattr(_fake_agent_metrics_models, "AgentMetricsDaily", _MockAgentMetricsDaily)
+setattr(_fake_agent_metrics_models, "AgentMetricThreshold", _MockAgentMetricThreshold)
+setattr(_fake_agent_metrics_models, "AgentPerformanceAlert", _MockAgentPerformanceAlert)
+sys.modules.setdefault("database.models.agent_metrics", _fake_agent_metrics_models)
+
+# ── database.models.provisioning (Week 17 Day 2 — F-099) ──
+_fake_provisioning_models = types.ModuleType("database.models.provisioning")
+
+_MockPendingAgent = type("PendingAgent", (object,), {
+    "__tablename__": "pending_agents",
+    "id": _AttrChainer(), "company_id": _AttrChainer(),
+    "agent_name": None, "specialty": None, "channels": None,
+    "payment_status": "pending", "provisioning_status": "awaiting_payment",
+    "paddle_event_id": None, "paddle_checkout_id": None,
+    "paddle_transaction_id": None,
+    "created_at": _AttrChainer(), "expires_at": _AttrChainer(),
+    "provisioned_at": None, "error_message": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+setattr(_fake_provisioning_models, "PendingAgent", _MockPendingAgent)
+sys.modules.setdefault("database.models.provisioning", _fake_provisioning_models)
 
 sys.modules.setdefault("database", _fake_database)
 sys.modules.setdefault("database.base", _fake_base)
