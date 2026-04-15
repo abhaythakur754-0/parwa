@@ -73,10 +73,10 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       if (extraData.ai_greeting !== undefined) setAiGreeting(extraData.ai_greeting as string | null);
       setOnboardingState((prev) => prev ? {
         ...prev,
-        ...(extraData.ai_name && { ai_name: extraData.ai_name as string }),
-        ...(extraData.ai_tone && { ai_tone: extraData.ai_tone as string }),
-        ...(extraData.ai_response_style && { ai_response_style: extraData.ai_response_style as string }),
-        ...(extraData.ai_greeting !== undefined && { ai_greeting: extraData.ai_greeting as string | null }),
+        ...(extraData.ai_name ? { ai_name: String(extraData.ai_name) } : {}),
+        ...(extraData.ai_tone ? { ai_tone: String(extraData.ai_tone) } : {}),
+        ...(extraData.ai_response_style ? { ai_response_style: String(extraData.ai_response_style) } : {}),
+        ...(extraData.ai_greeting !== undefined ? { ai_greeting: extraData.ai_greeting as string | null } : {}),
       } : prev);
     }
 
