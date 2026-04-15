@@ -64,7 +64,7 @@ export function BillSummary({ metadata, onConfirm, onChangePlan }: BillSummaryPr
             <div className="space-y-1">
               {variants.map((v, i) => (
                 <div key={i} className="flex items-center justify-between text-xs bg-white/60 rounded-lg px-3 py-2 border border-gray-100">
-                  <span className="text-gray-700 font-medium">{v.name ?? 'Unknown'}</span>
+                  <span className="text-gray-700 font-medium">{String(v.name ?? 'Unknown')}</span>
                   <span className="text-gray-500">
                     {(typeof v.quantity === 'number' ? v.quantity : 0)}x &middot; {(typeof v.ticketsPerMonth === 'number' ? v.ticketsPerMonth : 0).toLocaleString()} tickets
                   </span>
