@@ -7,11 +7,12 @@ Tests for:
 - P1-P5: 30-day periods, proration divisor, usage alignment, leap year handling
 """
 
+import asyncio
 import calendar
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch, PropertyMock, AsyncMock
 
 import pytest
 
@@ -272,9 +273,13 @@ class TestPeriodEndTransitions:
         mock_company.subscription_tier = "growth"
 
         mock_db = MagicMock()
-        mock_db.query.return_value.first.return_value = mock_company
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_company
 
-        service._apply_pending_downgrade(mock_db, mock_sub)
+        with patch.object(service, "_cleanup_resources_on_downgrade", return_value={
+            "agents_paused": 0, "team_members_downgraded": 0,
+            "kb_docs_archived": 0, "voice_channels_disabled": 0,
+        }):
+            service._apply_pending_downgrade(mock_db, mock_sub)
 
         assert mock_sub.tier == "starter"
         assert mock_sub.pending_downgrade_tier is None
@@ -319,26 +324,44 @@ class TestResourceCleanup:
 
         service = SubscriptionService()
 
-        # Mock the DB queries for agents, users, docs
         mock_db = MagicMock()
 
-        # Mock Agent query: 5 active agents, downgrade to starter (1 agent limit)
-        mock_agent1 = MagicMock()
-        mock_agent2 = MagicMock()
-        mock_agent3 = MagicMock()
-        mock_agent4 = MagicMock()
-        mock_agent5 = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.all.side_effect = [
-                [mock_agent1, mock_agent2, mock_agent3, mock_agent4, mock_agent5],
-                [MagicMock(), MagicMock(), MagicMock(), MagicMock()],
-                [MagicMock(), MagicMock()],
-                [],
+        mock_agents = [MagicMock() for _ in range(5)]
+        mock_members = [MagicMock() for _ in range(7)]
+        mock_docs = [MagicMock() for _ in range(102)]
+
+        # Patch the model imports inside the service to avoid actual DB model issues.
+        # Since database.models.provisioning may not have KnowledgeBaseDocument,
+        # we install mock modules in sys.modules before patching.
+        import sys
+        mock_provisioning = MagicMock()
+        mock_provisioning.KnowledgeBaseDocument = MagicMock()
+        mock_core = MagicMock()
+        mock_core.Agent = MagicMock()
+        mock_core.User = MagicMock()
+        with patch.dict(sys.modules, {
+            "database.models.provisioning": mock_provisioning,
+            "database.models.core": mock_core,
+        }):
+            mock_query_agents = MagicMock()
+            mock_query_agents.filter.return_value.order_by.return_value.all.return_value = mock_agents
+            mock_query_members = MagicMock()
+            mock_query_members.filter.return_value.order_by.return_value.all.return_value = mock_members
+            mock_query_docs = MagicMock()
+            mock_query_docs.filter.return_value.order_by.return_value.all.return_value = mock_docs
+            mock_query_voice = MagicMock()
+            mock_query_voice.filter.return_value.all.return_value = []
+
+            mock_db.query.side_effect = [
+                mock_query_agents,
+                mock_query_members,
+                mock_query_docs,
+                mock_query_voice,
             ]
 
-        result = service._cleanup_resources_on_downgrade(
-            mock_db, "company-1", "high", "starter"
-        )
+            result = service._cleanup_resources_on_downgrade(
+                mock_db, "company-1", "high", "starter"
+            )
 
         # Starter limits: 1 agent, 3 members, 100 docs, 0 voice
         assert result["agents_paused"] == 4  # 5 - 1
@@ -353,14 +376,20 @@ class TestResourceCleanup:
         service = SubscriptionService()
 
         mock_db = MagicMock()
-        agent1 = MagicMock()
-        agent2 = MagicMock()
 
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.all.side_effect = [
-                [agent1],  # Only 1 active, starter limit is 1
-                [], [], [],
-            ]
+        mock_query_agents = MagicMock()
+        mock_query_agents.filter.return_value.order_by.return_value.all.return_value = [MagicMock()]
+        mock_query_members = MagicMock()
+        mock_query_members.filter.return_value.order_by.return_value.all.return_value = []
+        mock_query_docs = MagicMock()
+        mock_query_docs.filter.return_value.order_by.return_value.all.return_value = []
+        mock_query_voice = MagicMock()
+        mock_query_voice.filter.return_value.all.return_value = []
+
+        mock_db.query.side_effect = [
+            mock_query_agents, mock_query_members,
+            mock_query_docs, mock_query_voice,
+        ]
 
         result = service._cleanup_resources_on_downgrade(
             mock_db, "company-1", "starter", "starter"
@@ -392,23 +421,31 @@ class TestPreDowngradeWarning:
         )
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .count.side_effect = [3, 8, 120]
-        mock_db.query.return_value.order_by.return_value \
-            .all.side_effect = [
-            [MagicMock()],
-            [MagicMock()],
-            [MagicMock()],
-            [MagicMock()],
-        ]
 
-        with patch(
-            "app.services.subscription_service.emit_billing_event",
-            new_callable=MagicMock,
-        ):
-            # Suppress async event emission
-            with patch("app.services.subscription_service.asyncio"):
-                data = service._build_downgrade_warning_data(mock_db, mock_sub)
+        # Each resource query returns its own chain
+        mock_q_agents = MagicMock()
+        mock_q_agents.filter.return_value.count.return_value = 3
+        mock_q_members = MagicMock()
+        mock_q_members.filter.return_value.count.return_value = 8
+        mock_q_docs = MagicMock()
+        mock_q_docs.filter.return_value.count.return_value = 120
+
+        # Patch model imports to avoid DB dependency issues
+        import sys as _sys
+        _mock_prov = MagicMock()
+        _mock_prov.KnowledgeBaseDocument = MagicMock()
+        _mock_core = MagicMock()
+        _mock_core.Agent = MagicMock()
+        _mock_core.User = MagicMock()
+
+        with patch.dict(_sys.modules, {
+            "database.models.provisioning": _mock_prov,
+            "database.models.core": _mock_core,
+        }):
+            mock_db.query.side_effect = [
+                mock_q_agents, mock_q_members, mock_q_docs
+            ]
+            data = service._build_downgrade_warning_data(mock_db, mock_sub)
 
         assert data["current_tier"] == "growth"
         assert data["new_tier"] == "starter"
@@ -436,24 +473,43 @@ class TestDowngradeUndo:
 
         service = SubscriptionService()
 
+        test_id = uuid.uuid4()
         mock_sub = MagicMock()
         mock_sub.tier = "starter"
         mock_sub.previous_tier = "growth"
         mock_sub.downgrade_executed_at = (
             datetime.now(timezone.utc) - timedelta(hours=12)
         )  # 12 hours ago — within window
+        mock_sub.billing_frequency = "monthly"
+        mock_sub.id = str(test_id)
+        mock_sub.company_id = str(test_id)
+        mock_sub.status = "active"
+        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
+        mock_sub.cancel_at_period_end = False
+        mock_sub.paddle_subscription_id = None
+        mock_sub.created_at = datetime.now(timezone.utc) - timedelta(days=30)
+        mock_sub.pending_downgrade_tier = None
+        mock_sub.previous_tier = "growth"
+        mock_sub.days_in_period = 30
 
         mock_company = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .with_for_update.return_value.first.return_value = mock_sub
-        mock_db.query.return_value.filter.return_value \
-            .first.return_value = mock_company
+        # First query: subscription with for_update
+        mock_q_sub = MagicMock()
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        # Second query: company
+        mock_q_company = MagicMock()
+        mock_q_company.filter.return_value.first.return_value = mock_company
 
-        with patch.object(service, "_restore_resources_after_undo") as mock_restore:
+        mock_db.query.side_effect = [mock_q_sub, mock_q_company]
+        mock_db.__enter__ = MagicMock(return_value=mock_db)
+        mock_db.__exit__ = MagicMock(return_value=False)
+
+        with patch.object(service, "_restore_resources_after_undo", new_callable=AsyncMock) as mock_restore:
             with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-                result = service.undo_downgrade(uuid.uuid4())
+                result = asyncio.run(service.undo_downgrade(uuid.uuid4()))
 
         assert mock_sub.tier == "growth"
         assert mock_sub.previous_tier is None
@@ -477,12 +533,15 @@ class TestDowngradeUndo:
         )  # 25 hours ago — expired
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub = MagicMock()
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_db.query.side_effect = [mock_q_sub]
+        mock_db.__enter__ = MagicMock(return_value=mock_db)
+        mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
             with pytest.raises(DowngradeUndoExpiredError):
-                service.undo_downgrade(uuid.uuid4())
+                asyncio.run(service.undo_downgrade(uuid.uuid4()))
 
     def test_undo_no_downgrade_raises_error(self):
         """D6: Undo when no downgrade was executed should raise error."""
@@ -497,12 +556,15 @@ class TestDowngradeUndo:
         mock_sub.downgrade_executed_at = None
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .with_for_update.return_value.first.return_value = mock_sub
+        mock_q_sub = MagicMock()
+        mock_q_sub.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_db.query.side_effect = [mock_q_sub]
+        mock_db.__enter__ = MagicMock(return_value=mock_db)
+        mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
             with pytest.raises(SubscriptionError):
-                service.undo_downgrade(uuid.uuid4())
+                asyncio.run(service.undo_downgrade(uuid.uuid4()))
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -598,8 +660,15 @@ class TestYearlyPricing:
 
         service = SubscriptionService()
 
-        monthly_id = service._get_paddle_price_id("starter", "monthly")
-        yearly_id = service._get_paddle_price_id("starter", "yearly")
+        mock_settings = MagicMock()
+        mock_settings.PADDLE_PRICE_STARTER = "pri_starter"
+        mock_settings.PADDLE_PRICE_GROWTH = "pri_growth"
+        mock_settings.PADDLE_PRICE_HIGH = "pri_high"
+        mock_settings.PADDLE_YEARLY_PRICE_IDS = ""
+
+        with patch("app.config.get_settings", return_value=mock_settings):
+            monthly_id = service._get_paddle_price_id("starter", "monthly")
+            yearly_id = service._get_paddle_price_id("starter", "yearly")
 
         assert monthly_id != yearly_id
         assert "yearly" in yearly_id.lower() or "_yearly" in yearly_id.lower()
@@ -619,26 +688,33 @@ class TestFrequencySwitch:
 
         service = SubscriptionService()
 
+        test_company_id = uuid.uuid4()
         mock_sub = MagicMock()
         mock_sub.tier = "growth"
         mock_sub.billing_frequency = "monthly"
-        mock_sub.company_id = "company-1"
+        mock_sub.company_id = str(test_company_id)
         mock_sub.paddle_subscription_id = None
         mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
         mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
         mock_sub.days_in_period = 30
+        mock_sub.id = str(uuid.uuid4())
+        mock_sub.status = "active"
+        mock_sub.cancel_at_period_end = False
+        mock_sub.pending_downgrade_tier = None
+        mock_sub.previous_tier = None
+        mock_sub.created_at = datetime.now(timezone.utc) - timedelta(days=30)
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .with_for_update.return_value.first.return_value = mock_sub
+        mock_q = MagicMock()
+        mock_q.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_db.query.side_effect = [mock_q]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 service.switch_billing_frequency(
-                    company_id=uuid.uuid4(),
+                    company_id=test_company_id,
                     new_frequency="yearly",
                 )
             )
@@ -653,20 +729,32 @@ class TestFrequencySwitch:
 
         service = SubscriptionService()
 
+        test_company_id = uuid.uuid4()
         mock_sub = MagicMock()
         mock_sub.billing_frequency = "yearly"
+        mock_sub.tier = "growth"
+        mock_sub.company_id = str(test_company_id)
+        mock_sub.id = str(uuid.uuid4())
+        mock_sub.status = "active"
+        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
+        mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
+        mock_sub.cancel_at_period_end = False
+        mock_sub.pending_downgrade_tier = None
+        mock_sub.previous_tier = None
+        mock_sub.paddle_subscription_id = None
+        mock_sub.created_at = datetime.now(timezone.utc) - timedelta(days=30)
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .with_for_update.return_value.first.return_value = mock_sub
+        mock_q = MagicMock()
+        mock_q.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_db.query.side_effect = [mock_q]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 service.switch_billing_frequency(
-                    company_id=uuid.uuid4(),
+                    company_id=test_company_id,
                     new_frequency="yearly",
                 )
             )
@@ -746,26 +834,35 @@ class TestYearlyUpgradeDowngrade:
 
         service = SubscriptionService()
 
+        test_company_id = uuid.uuid4()
         mock_sub = MagicMock()
         mock_sub.tier = "growth"
         mock_sub.status = "active"
         mock_sub.billing_frequency = "yearly"
-        mock_sub.company_id = "company-1"
+        mock_sub.company_id = str(test_company_id)
+        mock_sub.id = str(uuid.uuid4())
         mock_sub.current_period_end = (
             datetime.now(timezone.utc) + timedelta(days=30)
         )
+        mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
+        mock_sub.cancel_at_period_end = False
+        mock_sub.pending_downgrade_tier = None
+        mock_sub.previous_tier = None
+        mock_sub.paddle_subscription_id = None
+        mock_sub.created_at = datetime.now(timezone.utc) - timedelta(days=30)
+        mock_sub.days_in_period = 365
 
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value \
-            .with_for_update.return_value.first.return_value = mock_sub
+        mock_q = MagicMock()
+        mock_q.filter.return_value.with_for_update.return_value.first.return_value = mock_sub
+        mock_db.query.side_effect = [mock_q]
         mock_db.__enter__ = MagicMock(return_value=mock_db)
         mock_db.__exit__ = MagicMock(return_value=False)
 
         with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
-            import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 service.downgrade_subscription(
-                    company_id=uuid.uuid4(),
+                    company_id=test_company_id,
                     new_variant="starter",
                 )
             )

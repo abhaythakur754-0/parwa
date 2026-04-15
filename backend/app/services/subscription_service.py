@@ -185,19 +185,19 @@ class SubscriptionService:
             # If the period crosses Feb 29 of a leap year, it's 366 days.
             end = start + timedelta(days=YEARLY_PERIOD_DAYS)
             end_candidate_366 = start + timedelta(days=366)
-            # Try to compute "same date next year" using replace
-            try:
-                one_year_later = start.replace(year=start.year + 1)
-            except ValueError:
-                # Feb 29 in non-leap year → Feb 28
-                one_year_later = start.replace(
-                    year=start.year + 1, day=28
-                )
-            # If the 365-day end is BEFORE one_year_later,
-            # it means we crossed a leap day → use 366 days
-            if end < one_year_later:
-                return end_candidate_366
-            return end
+            # Check if any leap day falls within the period by examining
+            # whether the next calendar year is a leap year and the period
+            # crosses into it, or the start year is leap and start is before Feb 29
+            start_year = start.year
+            next_year = start_year + 1
+            use_366 = False
+            # Case 1: Start year is leap and start is before Feb 29
+            if calendar.isleap(start_year) and (start.month < 2 or (start.month == 2 and start.day <= 29)):
+                use_366 = True
+            # Case 2: Next year is leap (period crosses into a leap year)
+            if calendar.isleap(next_year):
+                use_366 = True
+            return end_candidate_366 if use_366 else end
         else:
             # P1: Monthly = exactly 30 days
             return start + timedelta(days=BILLING_PERIOD_DAYS)
