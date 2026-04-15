@@ -86,6 +86,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             )
         except Exception:
             # BC-011: Fail-open on rate limiter failure
+            # TODO(B5): For authentication-critical endpoints (login, register,
+            # password-reset, OTP), consider fail-closed behavior: if the rate
+            # limiter cannot check Redis, reject the request with 429 instead
+            # of allowing it through. This prevents brute-force attacks when
+            # Redis is down. Implement by checking path category here:
+            #   if category in ("auth", "otp"):
+            #       return build_error_response(status_code=429, ...)
             return await call_next(request)
 
         if not result.allowed:

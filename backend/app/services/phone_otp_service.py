@@ -49,7 +49,7 @@ def send_otp(
     from database.models.phone_otp import PhoneOTP
 
     # Generate 6-digit OTP
-    code = secrets.token_hex(3)[:6].upper()
+    code = str(secrets.randbelow(1000000)).zfill(6)
 
     # Hash the code for storage
     code_hash = _hash_code(code)

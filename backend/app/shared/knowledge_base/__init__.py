@@ -18,7 +18,9 @@ from app.shared.knowledge_base.retriever import KnowledgeRetriever
 from shared.knowledge_base.vector_search import (
     EMBEDDING_DIMENSION,
     VectorStore,
-    MockVectorStore,
+    InMemoryVectorStore,
+    MockVectorStore,  # backwards-compat alias for InMemoryVectorStore
+    PgVectorStore,
     get_vector_store,
 )
 from shared.knowledge_base.reindexing import (
@@ -33,7 +35,9 @@ __all__ = [
     "KnowledgeRetriever",
     "EMBEDDING_DIMENSION",
     "VectorStore",
-    "MockVectorStore",
+    "InMemoryVectorStore",
+    "MockVectorStore",  # backwards-compat alias
+    "PgVectorStore",
     "get_vector_store",
     "ReindexJob",
     "ReindexingManager",

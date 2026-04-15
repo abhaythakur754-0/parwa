@@ -2,6 +2,13 @@
 F-200: LangGraph Workflow Engine (Week 10 Day 12)
 
 # TODO: Integrate LangGraph for workflow persistence
+# TODO(Day6 — I4): LangGraph is planned but not yet fully integrated into the
+# production pipeline.  The `from langgraph.graph import StateGraph, END` import
+# inside _build_langgraph_stategraph() is the only real usage; when the
+# ``langgraph`` pip package is missing the engine falls back to sequential
+# simulation.  Once LangGraph is installed and configured, replace the
+# simulation path with the compiled graph's ainvoke() for persistent,
+# checkpointable workflow execution.
 # NOTE: This module implements a custom StateGraph-based workflow that
 # behaves LIKE LangGraph but does NOT currently depend on the langgraph
 # pip package for core execution.  When the real langgraph package is

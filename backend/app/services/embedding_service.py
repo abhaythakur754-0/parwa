@@ -265,10 +265,12 @@ class EmbeddingService:
             )
 
         # LiteLLM fallback
-        # TODO: LiteLLM integration is planned but this fallback path uses
+        # TODO(Day6 — I4): LiteLLM integration is planned but this fallback path uses
         # litellm.embedding() directly.  In production, ensure the LiteLLM
         # API key is configured (LITELLM_API_KEY) and that the model name
-        # maps to a real embedding provider.
+        # maps to a real embedding provider.  The litellm library is NOT
+        # yet a core production dependency — it is imported at runtime and
+        # failures fall through to the deterministic pseudo-embedding (BC-008).
         try:
             import litellm
             response = litellm.embedding(model="text-embedding-3-small", input=[text])

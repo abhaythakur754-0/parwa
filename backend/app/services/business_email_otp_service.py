@@ -162,7 +162,7 @@ def send_business_email_otp(
     
     sent = send_email(
         to=email,
-        subject=f"Your PARWA Verification Code: {otp_code}",
+        subject="Your PARWA Verification Code",
         html_content=html_content,
     )
     

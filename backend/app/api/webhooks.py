@@ -318,12 +318,17 @@ async def receive_webhook(
     try:
         payload = await request.json()
     except Exception:
-        # FIX L29: Log invalid JSON instead of silently ignoring
-        logger.warning(
-            "webhook_invalid_json provider=%s",
-            provider,
+        # E5: Return 400 for invalid JSON instead of silently defaulting to {}
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "code": "INVALID_JSON",
+                    "message": "Request body is not valid JSON",
+                    "details": None,
+                }
+            },
         )
-        payload = {}
 
     # Verify signature (BC-011, BC-003)
     if not _verify_provider_signature(

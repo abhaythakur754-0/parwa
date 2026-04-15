@@ -203,13 +203,10 @@ def authenticate_user(
             locked_until = locked_until.replace(tzinfo=tz.utc)
         now = datetime.now(timezone.utc)
         if locked_until > now:
-            remaining = int(
-                (locked_until - now).total_seconds()
-            )
             raise AuthenticationError(
                 message="Account temporarily locked. "
-                        f"Try again in {remaining} seconds.",
-                details={"locked_until": remaining},
+                        "Try again later.",
+                details={"locked": True},
             )
         # Lockout expired — reset
         user.failed_login_count = 0
@@ -245,15 +242,10 @@ def authenticate_user(
             raise AuthenticationError(
                 message=(
                     "Account temporarily locked. "
-                    f"Try again in "
-                    f"{_LOCKOUT_DURATION_MINUTES * 60} "
-                    f"seconds."
+                    "Try again later."
                 ),
                 details={
                     "locked": True,
-                    "duration_seconds": (
-                        _LOCKOUT_DURATION_MINUTES * 60
-                    ),
                 },
             )
 
@@ -709,6 +701,11 @@ def _verify_google_token(id_token: str) -> dict:
         AuthenticationError: If verification fails.
     """
     try:
+        # TODO(E6): Google recommends using POST to
+        # https://oauth2.googleapis.com/tokeninfo with the id_token
+        # in the request body instead of GET with query param.
+        # GET can leak the token in access logs, proxies, and Referer
+        # headers. Migrate to POST when Google fully supports it.
         url = (
             "https://oauth2.googleapis.com/tokeninfo"
             f"?id_token={id_token}"

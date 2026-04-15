@@ -247,7 +247,11 @@ def revoke_others_endpoint(
     """
     refresh_token = request.cookies.get("parwa_refresh")
     if not refresh_token:
-        raise Exception("No refresh token found")
+        from app.exceptions import AuthenticationError
+        raise AuthenticationError(
+            message="No refresh token found. "
+                    "Please re-authenticate.",
+        )
 
     current_hash = hash_refresh_token(refresh_token)
 

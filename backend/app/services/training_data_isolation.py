@@ -9,6 +9,15 @@ Variants mini_parwa / parwa / parwa_high cannot access each
 other's training data. Shared datasets at the ``shared``
 variant_type are accessible by all variants within a tenant.
 
+# TODO(Day6 — I5): Tenant isolation in this service is enforced via Redis
+# key-prefix partitioning (training_data:{company_id}:{variant}:{id}) and
+# explicit company_id validation on every public method (BC-001).  However,
+# the Celery training workers that consume this data (see
+# agent_training_service.py and fallback_training_service.py) must also
+# re-validate company_id before accessing any records to prevent cross-tenant
+# leakage in background job contexts.  Review training_tasks.py for worker-side
+# tenant scoping.
+
 BC-001: All operations scoped by company_id.
 BC-008: Graceful degradation on Redis failures.
 GAP-024: Validate variant_type on every operation.

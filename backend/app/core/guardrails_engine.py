@@ -32,6 +32,20 @@ TODO(Day4): Wire the following Day 4 guardrails into the live AI pipeline:
   guards in sequence: PII redaction → prompt injection check → info leak guard →
   guardrails_engine full scan → deliver to customer.
 
+TODO(Day6 — I3): Wire the full GuardrailsEngine to the production AI pipeline.
+  Currently guardrails_engine.run_full_scan() is called from test code and
+  the blocked_response_manager, but NOT from the live request path
+  (smart_router → ai_pipeline → customer).  The integration point is
+  app.core.ai_pipeline.AI._stage_response_generation() and
+  app.core.smart_router.SmartRouter.process_query().  Add a post-generation
+  guardrail step that:
+    1. Runs GuardrailsEngine.run_full_scan() on the LLM output
+    2. If overall_action == "block", returns a safe fallback response
+    3. If overall_action == "flag_for_review", logs and delivers with a
+       review flag in the response metadata
+  See also: app.core.blocked_response_manager for the blocked-response
+  handling flow and BC-009 approval workflow.
+
 BC-001: All checks scoped by company_id.
 BC-007: All AI through Smart Router.
 BC-009: Approval workflow for blocked responses.

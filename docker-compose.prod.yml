@@ -2,6 +2,20 @@
 # PARWA — Production Docker Compose
 # All services with health checks, network isolation, and security
 # ════════════════════════════════════════════════════════════════
+#
+# F14: Images that should be pinned by digest in production:
+#   - postgres:15-alpine
+#   - redis:7-alpine
+#   - prom/prometheus:v2.45.0
+#   - grafana/grafana:10.0.0
+#   - prom/alertmanager:v0.26.0
+#   - oliver006/redis_exporter:v1.55.0-alpine
+#   - prometheuscommunity/postgres-exporter:v0.15.0
+#   - prom/node-exporter:v1.6.1
+#   - nginx:1.25-alpine
+# NOTE: Fetch digests with:
+#   docker pull <image> && docker inspect --format='{{index .RepoDigests 0}}' <image>
+#   Then use: image: <image>@sha256:<digest>
 version: "3.9"
 
 services:
@@ -74,6 +88,12 @@ services:
     image: parwa/backend:${VERSION:-latest}
     container_name: parwa_prod_backend
     restart: always
+    read_only: true  # F15: Immutable filesystem
+    tmpfs:
+      - /tmp
+      - /app/state_data
+    cap_drop:
+      - ALL  # F16: Drop all Linux capabilities
     # No port exposure — accessed via nginx on frontend_network
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -128,6 +148,12 @@ services:
     image: parwa/worker:${VERSION:-latest}
     container_name: parwa_prod_worker
     restart: always
+    read_only: true  # F15: Immutable filesystem
+    tmpfs:
+      - /tmp
+      - /app/state_data
+    cap_drop:
+      - ALL  # F16: Drop all Linux capabilities
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
@@ -409,7 +435,15 @@ services:
     container_name: parwa_prod_node_exporter
     restart: always
     user: "65534:65534"  # nobody user
-    # Internal only — no port exposure
+    # F17: SECURITY — node-exporter mounts host rootfs.
+    # The /:/host:ro,rslave mount exposes the entire host filesystem
+    # (read-only) to the container. To further restrict access:
+    #   1. Use --path.rootfs with a dedicated empty directory
+    #   2. Replace /:/host:ro,rslave with specific paths only
+    #   3. Enable '--collector.filesystem.ignored-mount-points'
+    #      to exclude sensitive mount points like /etc/shadow
+    #   4. Consider running node-exporter directly on the host
+    #      via systemd instead of Docker to avoid mount exposure
     command:
       - '--path.rootfs=/host'
       - '--path.procfs=/host/proc'

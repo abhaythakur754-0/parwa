@@ -159,6 +159,12 @@ def _register_handlers() -> None:
         BC-011: Authentication is required. No anonymous connections.
         S02: JWT token from query params is verified.
         Backward compat: socketio_auth dict still supported for tests.
+
+        TODO(B6): Consider re-validating the JWT on every incoming
+        event (not just on connect) by checking token expiry in each
+        handler. A long-lived WebSocket connection could have its JWT
+        expire mid-session. Implement a periodic token re-validation
+        or check expiry in high-security event handlers.
         """
         company_id = None
         user_id = None

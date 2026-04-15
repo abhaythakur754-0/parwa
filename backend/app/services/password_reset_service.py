@@ -132,8 +132,14 @@ def initiate_password_reset(
     db.commit()
 
     # Send reset email
+    import os
+
+    # E7: Use FRONTEND_URL env var instead of hardcoded URL
+    frontend_url = os.environ.get(
+        "FRONTEND_URL", "https://parwa.ai"
+    )
     reset_url = (
-        f"https://parwa.ai/reset-password?"
+        f"{frontend_url}/reset-password?"
         f"token={raw_token}"
     )
     sent = send_password_reset_email(
