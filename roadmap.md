@@ -1,6 +1,6 @@
 # PARWA Execution Roadmap
 
-> **Last Updated:** Week 15 COMPLETE (Dashboard + Analytics) → Moving to Week 17 (Integrations + Settings)
+> **Last Updated:** Week 17 Day 3 COMPLETE (F-100, F-101) → Moving to Week 17 Day 4
 > **Current Phase:** Week 17 - Integrations + Settings (F-031, F-097 to F-108)
 
 ---
@@ -24,7 +24,7 @@
 | **Week 13** | Channels — Phase 4 | ✅ COMPLETE | Communication Channels (F-120 to F-130) |
 | **Week 14** | Jarvis Command Center | ✅ COMPLETE | F-087 to F-096 (10 features, 93 tests) |
 | **Week 15** | Dashboard + Analytics | ✅ COMPLETE | F-036 to F-045 (10 features, 35 tests) |
-| **Week 17** | Integrations + Settings | ⬜ UPCOMING | F-031, F-097 to F-108 |
+| **Week 17** | Integrations + Settings | 🔵 IN PROGRESS | F-031, F-097 to F-108 (Day 3 complete: F-100, F-101) |
 | **Week 18-21** | Public Facing + Training + Polish | ⬜ UPCOMING | Phase 5 |
 
 ---
@@ -719,22 +719,70 @@ Week 15 builds the Dashboard + Analytics layer — the visual brain of PARWA. Op
 
 ## 🔵 CURRENT WEEK: Week 17 - Integrations + Settings
 
-| Feature | Description |
-|---------|-------------|
-| F-036 | Dashboard home data — unified widget data |
-| F-037 | Activity feed — real-time event stream |
-| F-038 | Key metrics aggregation — KPIs |
-| F-039 | Adaptation tracker — 30-day AI learning progress |
-| F-040 | Running savings counter — AI vs human cost comparison |
-| F-041 | Workforce allocation — AI vs human distribution |
-| F-042 | Growth nudge alert — usage pattern analysis |
+### Scope
+Week 17 builds Integrations + Settings — Custom Integration Builder (F-031), Agent Dashboard (F-097), Agent Performance Metrics (F-098), and the Agent Training Pipeline (F-100 to F-108).
 
----
+### Daily Breakdown
 
-## ⬜ UPCOMING: Week 17 - Integrations + Settings
+#### Day 1 — Custom Integration Builder (F-031)
+- REST API connector builder
+- OAuth2 flow setup
+- Request/response mapping
+- Test connectivity validation
 
-- Custom Integration Builder (F-031)
-- Integration settings (F-097 to F-108)
+#### Day 2 — Agent Dashboard + Performance Metrics (F-097, F-098)
+- Card-based dashboard for all AI agents
+- Status indicators (active, training, paused)
+- Per-agent analytics (resolution rate, avg confidence, CSAT)
+- Quick-action buttons
+
+#### Day 3 — Agent Lightning Training Loop + 50-Mistake Threshold (F-100, F-101) ✅ COMPLETE
+
+| Task | ID | Status | File |
+|------|----|--------|------|
+| Training Run orchestration | F-100 | ✅ Done | `backend/app/services/agent_training_service.py` |
+| Training Run database model | — | ✅ Done | `database/models/training.py` |
+| Training Run migration | — | ✅ Done | `database/alembic/versions/023_training_runs.py` |
+| 50-Mistake Threshold Trigger (LOCKED) | F-101 | ✅ Done | `backend/app/services/mistake_threshold_service.py` |
+| Mistake tracking model | — | ✅ Done | `database/models/training.py` |
+| Training Celery tasks | — | ✅ Done | `backend/app/tasks/training_tasks.py` |
+| Training Pydantic schemas | — | ✅ Done | `backend/app/schemas/training.py` |
+| Training API endpoints | — | ✅ Done | `backend/app/api/training.py` |
+| F-100/F-101 tests | — | ✅ Done | `backend/app/tests/test_w17_day3_training.py` |
+
+**BC-007 Rule 10**: The mistake threshold is **LOCKED at 50** and cannot be changed by any admin or configuration.
+
+#### Day 4 — Training Run Execution + Dataset Preparation (F-102, F-103)
+- GPU provider integration (Colab/RunPod)
+- Dataset preparation pipeline
+- Checkpoint management
+- Quality scoring
+
+#### Day 5 — Model Validation + Deployment (F-104, F-105)
+- Evaluation suite
+- Auto-rollback deployment
+- Canary release logic
+
+#### Day 6 — Fallback Training + Cold Start (F-106, F-107)
+- Bi-weekly scheduled retraining
+- New agent cold start handling
+- Industry template injection
+
+#### Day 7 — Peer Review + Integration Testing (F-108)
+- Junior-to-senior escalation
+- Full training pipeline integration test
+
+### Week 17 Summary (In Progress)
+
+| Day | Focus | Features |
+|-----|-------|----------|
+| **Day 1** | Custom Integration Builder | F-031 |
+| **Day 2** | Agent Dashboard + Metrics | F-097, F-098 |
+| **Day 3** | Training Loop + Mistake Threshold | F-100, F-101 ✅ |
+| **Day 4** | Training Execution + Dataset | F-102, F-103 |
+| **Day 5** | Model Validation + Deployment | F-104, F-105 |
+| **Day 6** | Fallback Training + Cold Start | F-106, F-107 |
+| **Day 7** | Peer Review + Integration | F-108 |
 
 ---
 

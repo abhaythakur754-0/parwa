@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+.env.prod
 # .env.prod template (with CHANGE_ME placeholders) is safe to commit
 # Only block real production secrets:
 # .env.prod.real
