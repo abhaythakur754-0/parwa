@@ -169,7 +169,7 @@ class SubscriptionService:
         """
         Calculate billing period end.
 
-        P1: Always use timedelta(days=30) for monthly (NOT relativedelta).
+        P1: Always use timedelta(days=30) for monthly (NOT variable month lengths).
         Y4: For yearly, use 365 days (366 for leap year).
         P5: Leap year check for yearly plans.
 
@@ -181,23 +181,22 @@ class SubscriptionService:
             Period end datetime
         """
         if billing_frequency == "yearly":
-            # P5: Check if the period includes Feb 29 of a leap year
+            # P5: Yearly period = same date next year.
+            # If the period crosses Feb 29 of a leap year, it's 366 days.
             end = start + timedelta(days=YEARLY_PERIOD_DAYS)
-            # If start year is a leap year and start is before Feb 29,
-            # or end year is a leap year and period crosses Feb 29,
-            # add 366 days instead.
-            start_year = start.year
             end_candidate_366 = start + timedelta(days=366)
-            # Check if the 365-day period misses a Feb 29 that falls within it
-            if calendar.isleap(start_year) and start.month <= 2 and start.day <= 29:
-                # Start is in a leap year before/on Feb 29
+            # Try to compute "same date next year" using replace
+            try:
+                one_year_later = start.replace(year=start.year + 1)
+            except ValueError:
+                # Feb 29 in non-leap year → Feb 28
+                one_year_later = start.replace(
+                    year=start.year + 1, day=28
+                )
+            # If the 365-day end is BEFORE one_year_later,
+            # it means we crossed a leap day → use 366 days
+            if end < one_year_later:
                 return end_candidate_366
-            # Also check if the year after start is leap
-            next_year = start_year + 1
-            if calendar.isleap(next_year):
-                feb29 = datetime(next_year, 2, 29, tzinfo=start.tzinfo)
-                if start < feb29 <= end_candidate_366:
-                    return end_candidate_366
             return end
         else:
             # P1: Monthly = exactly 30 days
@@ -1768,8 +1767,14 @@ class SubscriptionService:
         if billing_frequency == "monthly":
             days_in_period = BILLING_PERIOD_DAYS
         else:
-            # Y5: For yearly, use actual period days
-            days_in_period = max(total_period.days, 1)
+            # Y5: For yearly, detect leap year from cycle start
+            # and use 366 if the cycle spans a Feb 29
+            period_end_calc = self._calculate_period_end(
+                billing_cycle_start, "yearly"
+            )
+            days_in_period = (period_end_calc - billing_cycle_start).days
+            if days_in_period < 1:
+                days_in_period = max(total_period.days, 1)
 
         days_remaining = max(remaining.days, 0)
 
