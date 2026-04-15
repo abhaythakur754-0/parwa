@@ -24,5 +24,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose Redis port
 EXPOSE 6379
 
-# Run with custom config
+# Run with custom config as non-root user
+USER redis
 CMD ["redis-server", "/usr/local/etc/redis/redis.conf"]

@@ -35,5 +35,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose ports
 EXPOSE 80 443
 
-# Run nginx in foreground
+# Run nginx in foreground as non-root user
+USER nginx
 CMD ["nginx", "-g", "daemon off;"]

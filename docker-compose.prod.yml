@@ -157,6 +157,12 @@ services:
       replicas: 2
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'backend.worker' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # ───────────────────────────────────────────────────────────────
   # MCP Server (Production)
@@ -206,8 +212,6 @@ services:
     image: parwa/frontend:${VERSION:-latest}
     container_name: parwa_prod_frontend
     restart: always
-    ports:
-      - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://parwa.ai}
       - NEXT_PUBLIC_ENV=production
@@ -257,7 +261,6 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--storage.tsdb.retention.time=30d'
-      - '--web.enable-lifecycle'
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
       interval: 30s
@@ -291,7 +294,7 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana_dashboards:/var/lib/grafana/dashboards:ro
     environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER required}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=https://monitoring.parwa.ai
@@ -355,7 +358,7 @@ services:
     restart: always
     # Internal only — no port exposure
     environment:
-      - REDIS_ADDR=redis://redis:6379
+      - REDIS_ADDR=redis://:${REDIS_PASSWORD}@redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_EXPORTER_LOG_FORMAT=json
     depends_on:

@@ -30,5 +30,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # Expose PostgreSQL port
 EXPOSE 5432
 
-# Run with custom config
+# Run with custom config as non-root user
+USER postgres
 CMD ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
