@@ -840,7 +840,7 @@ class TestValidationEdgeCases:
 
     def test_validate_frequency_rejects_invalid(self):
         """Should reject invalid frequency."""
-        from app.services.subscription_service import SubscriptionService
+        from app.services.subscription_service import SubscriptionService, SubscriptionError
 
         service = SubscriptionService()
         with pytest.raises(SubscriptionError):
