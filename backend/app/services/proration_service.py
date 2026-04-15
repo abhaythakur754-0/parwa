@@ -79,6 +79,9 @@ class ProrationService:
     def __init__(self):
         pass
 
+    # P3: Always use 30-day divisor for monthly proration
+    BILLING_PERIOD_DAYS = 30
+
     async def calculate_upgrade_proration(
         self,
         company_id: UUID,
@@ -87,9 +90,13 @@ class ProrationService:
         billing_cycle_start: date,
         billing_cycle_end: date,
         reference_date: Optional[date] = None,
+        billing_frequency: str = "monthly",
     ) -> ProrationResult:
         """
         Calculate proration for upgrading subscription.
+
+        P3: daily_rate = price / 30 always (30-day divisor) for monthly.
+        For yearly, use the actual period days (365/366).
 
         Args:
             company_id: Company UUID
@@ -98,6 +105,7 @@ class ProrationService:
             billing_cycle_start: Start of current billing period
             billing_cycle_end: End of current billing period
             reference_date: Date to calculate from (default: today)
+            billing_frequency: 'monthly' or 'yearly'
 
         Returns:
             ProrationResult with all calculation details
@@ -123,12 +131,16 @@ class ProrationService:
         if reference_date is None:
             reference_date = datetime.now(timezone.utc).date()
 
-        # Get prices
-        old_price = self._get_variant_price(old_variant)
-        new_price = self._get_variant_price(new_variant)
+        # Get prices (frequency-aware)
+        old_price = self._get_variant_price(old_variant, billing_frequency)
+        new_price = self._get_variant_price(new_variant, billing_frequency)
 
-        # Calculate days
-        days_in_period = (billing_cycle_end - billing_cycle_start).days
+        # P3: For monthly, ALWAYS use 30-day divisor
+        if billing_frequency == "monthly":
+            days_in_period = self.BILLING_PERIOD_DAYS
+        else:
+            days_in_period = (billing_cycle_end - billing_cycle_start).days
+
         days_elapsed = (reference_date - billing_cycle_start).days
         days_remaining = max(days_in_period - days_elapsed, 0)
 
@@ -431,19 +443,22 @@ class ProrationService:
         billing_cycle_start: date,
         billing_cycle_end: date,
     ) -> None:
-        """Validate billing period dates."""
+        """Validate billing period dates.
+
+        P1: Allows 1-400 days to accommodate yearly plans.
+        """
         if billing_cycle_end <= billing_cycle_start:
             raise InvalidProrationPeriodError(
                 f"billing_cycle_end ({billing_cycle_end}) must be after "
                 f"billing_cycle_start ({billing_cycle_start})"
             )
 
-        # Check for reasonable period length (1-60 days)
+        # Check for reasonable period length (1-400 days for yearly)
         period_days = (billing_cycle_end - billing_cycle_start).days
-        if period_days < 1 or period_days > 60:
+        if period_days < 1 or period_days > 400:
             raise InvalidProrationPeriodError(
                 f"Unusual billing period length: {period_days} days. "
-                "Expected 1-60 days."
+                "Expected 1-400 days."
             )
 
     def _is_upgrade(self, old_variant: str, new_variant: str) -> bool:
@@ -451,10 +466,15 @@ class ProrationService:
         tier_order = {"starter": 1, "growth": 2, "high": 3}
         return tier_order.get(new_variant, 0) > tier_order.get(old_variant, 0)
 
-    def _get_variant_price(self, variant: str) -> Decimal:
-        """Get monthly price for a variant."""
+    def _get_variant_price(
+        self, variant: str, billing_frequency: str = "monthly"
+    ) -> Decimal:
+        """Get price for a variant based on billing frequency."""
         variant_type = VariantType(variant)
-        return VARIANT_LIMITS[variant_type]["price"]
+        limits = VARIANT_LIMITS[variant_type]
+        if billing_frequency == "yearly":
+            return limits.get("yearly_price", limits["price"] * 12)
+        return limits["price"]
 
     def _round(self, amount: Decimal) -> Decimal:
         """Round to currency precision (2 decimal places)."""

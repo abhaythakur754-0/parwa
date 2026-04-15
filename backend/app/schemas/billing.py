@@ -51,6 +51,12 @@ class PaymentMethodType(str, Enum):
 
 # ── Variant Limits ────────────────────────────────────────────────────────
 
+class BillingFrequency(str, Enum):
+    """Billing frequency."""
+    MONTHLY = "monthly"
+    YEARLY = "yearly"
+
+
 VARIANT_LIMITS = {
     VariantType.STARTER: {
         "monthly_tickets": 2000,
@@ -59,6 +65,7 @@ VARIANT_LIMITS = {
         "voice_slots": 0,
         "kb_docs": 100,
         "price": Decimal("999.00"),
+        "yearly_price": Decimal("9990.00"),
     },
     VariantType.GROWTH: {
         "monthly_tickets": 5000,
@@ -67,6 +74,7 @@ VARIANT_LIMITS = {
         "voice_slots": 2,
         "kb_docs": 500,
         "price": Decimal("2499.00"),
+        "yearly_price": Decimal("24990.00"),
     },
     VariantType.HIGH: {
         "monthly_tickets": 15000,
@@ -75,6 +83,7 @@ VARIANT_LIMITS = {
         "voice_slots": 5,
         "kb_docs": 2000,
         "price": Decimal("3999.00"),
+        "yearly_price": Decimal("39990.00"),
     },
 }
 
@@ -125,6 +134,12 @@ class SubscriptionInfo(BaseModel):
     cancel_at_period_end: bool = False
     paddle_subscription_id: Optional[str] = None
     created_at: datetime
+
+    # Day 2 additions
+    billing_frequency: BillingFrequency = BillingFrequency.MONTHLY
+    pending_downgrade_tier: Optional[str] = None
+    previous_tier: Optional[str] = None
+    days_in_period: Optional[int] = None
 
     # Computed limits for this variant
     limits: Optional[VariantLimits] = None

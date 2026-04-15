@@ -202,6 +202,27 @@ def _build_config() -> dict:
                 "schedule": 7200.0,  # Every 2 hours
                 "kwargs": {},
             },
+            # Day 2: Period-end transitions (midnight UTC)
+            "process-period-end-transitions-midnight": {
+                "task": ("app.tasks.billing"
+                          ".period_end_transitions"),
+                "schedule": {"hour": 0, "minute": 0},
+                "kwargs": {},
+            },
+            # Day 2: Pre-downgrade warnings (check daily)
+            "pre-downgrade-warnings-daily": {
+                "task": ("app.tasks.billing"
+                          ".pre_downgrade_warnings"),
+                "schedule": {"hour": 0, "minute": 5},
+                "kwargs": {},
+            },
+            # Day 2: Process renewals (midnight UTC, after transitions)
+            "process-renewals-midnight": {
+                "task": ("app.tasks.billing"
+                          ".process_renewals"),
+                "schedule": {"hour": 0, "minute": 10},
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,

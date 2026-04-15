@@ -565,3 +565,151 @@ def check_all_usage_warnings(self, threshold: float = 80.0) -> dict:
             },
         )
         raise
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Day 2 Tasks: Period-End Transitions, Pre-Downgrade Warnings, Renewals
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="app.tasks.billing.process_period_end_transitions",
+    max_retries=3,
+    soft_time_limit=300,
+    time_limit=600,
+    retry_backoff=True,
+)
+def period_end_transitions(self) -> dict:
+    """
+    D1: Period-end automation cron task.
+
+    Runs daily at midnight UTC. Processes:
+    - D2: Apply pending downgrades where period_end <= today
+    - D3: Apply scheduled cancellations where period_end <= today
+
+    Returns:
+        Dict with processing summary
+    """
+    try:
+        from app.services.subscription_service import get_subscription_service
+        service = get_subscription_service()
+        result = service.process_period_end_transitions()
+
+        logger.info(
+            "period_end_transitions_completed",
+            extra={
+                "task": self.name,
+                "downgrades_applied": result["downgrades_applied"],
+                "cancellations_applied": result["cancellations_applied"],
+                "errors": len(result["errors"]),
+            },
+        )
+
+        return result
+
+    except Exception as exc:
+        logger.error(
+            "period_end_transitions_failed",
+            extra={
+                "task": self.name,
+                "error": str(exc)[:200],
+            },
+        )
+        raise
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="app.tasks.billing.pre_downgrade_warnings",
+    max_retries=2,
+    soft_time_limit=120,
+    time_limit=300,
+)
+def pre_downgrade_warnings(self) -> dict:
+    """
+    D5: Pre-downgrade warning task.
+
+    7 days before period end with pending downgrade, send email + notification
+    warning about what resources will be affected.
+
+    Returns:
+        Dict with warning summary
+    """
+    try:
+        from app.services.subscription_service import get_subscription_service
+        service = get_subscription_service()
+        result = service.check_pre_downgrade_warnings()
+
+        logger.info(
+            "pre_downgrade_warnings_completed",
+            extra={
+                "task": self.name,
+                "warnings_sent": result["warnings_sent"],
+                "errors": len(result["errors"]),
+            },
+        )
+
+        return result
+
+    except Exception as exc:
+        logger.error(
+            "pre_downgrade_warnings_failed",
+            extra={
+                "task": self.name,
+                "error": str(exc)[:200],
+            },
+        )
+        raise
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="app.tasks.billing.process_renewals",
+    max_retries=3,
+    soft_time_limit=300,
+    time_limit=600,
+    retry_backoff=True,
+)
+def process_renewals(self) -> dict:
+    """
+    Y6: Process subscription renewals.
+
+    At period end for active subscriptions (not canceled, not pending
+    downgrade), renew the billing period.
+    Send renewal reminder 30 days before.
+
+    Returns:
+        Dict with renewal summary
+    """
+    try:
+        from app.services.subscription_service import get_subscription_service
+        service = get_subscription_service()
+        result = service.process_renewals()
+
+        logger.info(
+            "process_renewals_completed",
+            extra={
+                "task": self.name,
+                "renewed": result["renewed"],
+                "errors": len(result["errors"]),
+            },
+        )
+
+        return result
+
+    except Exception as exc:
+        logger.error(
+            "process_renewals_failed",
+            extra={
+                "task": self.name,
+                "error": str(exc)[:200],
+            },
+        )
+        raise

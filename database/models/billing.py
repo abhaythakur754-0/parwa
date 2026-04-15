@@ -38,6 +38,24 @@ class Subscription(Base):
     paddle_subscription_id = Column(String(255))
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
+    # ── Day 2 additions ─────────────────────────────────────────────
+    # Y1: billing_frequency — monthly or yearly
+    billing_frequency = Column(String(20), nullable=False, default="monthly")
+
+    # D2: pending_downgrade_tier — target tier at period end
+    pending_downgrade_tier = Column(String(50), nullable=True)
+
+    # D5/D6: downgrade scheduling timestamps
+    pending_downgrade_at = Column(DateTime, nullable=True)
+    downgrade_executed_at = Column(DateTime, nullable=True)
+    previous_tier = Column(String(50), nullable=True)  # for undo (D6)
+
+    # Y4: days_in_period — stored for audit
+    days_in_period = Column(Integer, nullable=True)
+
+    # P5: metadata_json for extensibility
+    metadata_json = Column(Text, nullable=True)
+
 
 class Invoice(Base):
     __tablename__ = "invoices"

@@ -128,6 +128,68 @@ def _mock_model_init(self, **kwargs):
 def _mock_model_to_dict(self):
     return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
+# ── database.models.billing and billing_extended (Day 1/2 billing) ──
+_fake_billing_models = types.ModuleType("database.models.billing")
+_fake_billing_extended = types.ModuleType("database.models.billing_extended")
+
+_MockSubscription = type("Subscription", (object,), {
+    "__tablename__": "subscriptions",
+    "id": None, "company_id": None, "tier": None,
+    "status": "active", "paddle_subscription_id": None,
+    "current_period_start": None, "current_period_end": None,
+    "cancel_at_period_end": False,
+    "billing_frequency": "monthly",
+    "pending_downgrade_tier": None,
+    "pending_downgrade_at": None,
+    "downgrade_executed_at": None,
+    "previous_tier": None,
+    "days_in_period": 30,
+    "metadata_json": None,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init,
+})
+_MockInvoice = type("Invoice", (object,), {
+    "__tablename__": "invoices",
+    "id": None, "company_id": None, "paddle_invoice_id": None,
+    "amount": None, "currency": "USD", "status": "draft",
+    "invoice_date": None, "paid_at": None,
+    "__init__": _mock_model_init,
+})
+_MockCancellationRequest = type("CancellationRequest", (object,), {
+    "__tablename__": "cancellation_requests",
+    "id": None, "company_id": None, "user_id": None,
+    "reason": None, "status": "scheduled",
+    "__init__": _mock_model_init,
+})
+_MockPaymentMethod = type("PaymentMethod", (object,), {
+    "__tablename__": "payment_methods",
+    "id": None, "company_id": None,
+    "__init__": _mock_model_init,
+})
+_MockProrationAudit = type("ProrationAudit", (object,), {
+    "__tablename__": "proration_audits",
+    "id": None, "company_id": None,
+    "old_variant": None, "new_variant": None,
+    "old_price": None, "new_price": None,
+    "days_remaining": None, "days_in_period": None,
+    "unused_amount": None, "proration_amount": None,
+    "credit_applied": None, "charge_applied": None,
+    "billing_cycle_start": None, "billing_cycle_end": None,
+    "calculated_at": _AttrChainer(),
+    "__init__": _mock_model_init,
+})
+setattr(_fake_billing_models, "Subscription", _MockSubscription)
+setattr(_fake_billing_models, "Invoice", _MockInvoice)
+setattr(_fake_billing_models, "CancellationRequest", _MockCancellationRequest)
+setattr(_fake_billing_extended, "PaymentMethod", _MockPaymentMethod)
+setattr(_fake_billing_extended, "ProrationAudit", _MockProrationAudit)
+
+# Also add Agent to core models (used by resource cleanup)
+setattr(_fake_core_models, "Agent", type("Agent", (object,), {
+    "id": None, "company_id": _AttrChainer(), "status": "active",
+    "created_at": _AttrChainer(), "__init__": _mock_model_init,
+}))
+
 # ── database.models.email_channel and outbound_email (Week 13) ────
 _fake_email_channel = types.ModuleType("database.models.email_channel")
 _fake_outbound_email = types.ModuleType("database.models.outbound_email")
@@ -532,9 +594,16 @@ sys.modules.setdefault("database.models", _fake_models)
 sys.modules.setdefault("database.models.jarvis", _fake_jarvis_models)
 sys.modules.setdefault("database.models.core", _fake_core_models)
 sys.modules.setdefault("database.models.onboarding", _fake_onboarding_models)
+sys.modules.setdefault("database.models.billing", _fake_billing_models)
+sys.modules.setdefault("database.models.billing_extended", _fake_billing_extended)
 
 # ── shared layer (exists on disk but imports database.models.onboarding) ──
 _FAKE_SHARED = types.ModuleType("shared")
+_FAKE_SHARED_UTILS = types.ModuleType("shared.utils")
+_FAKE_SHARED_UTILS_PAGINATION = types.ModuleType("shared.utils.pagination")
+_FAKE_SHARED_UTILS_PAGINATION.DEFAULT_PAGE_SIZE = 20
+_FAKE_SHARED_UTILS_PAGINATION.MAX_PAGE_SIZE = 100
+_FAKE_SHARED_UTILS_PAGINATION.MAX_OFFSET = 10000
 _FAKE_KB = types.ModuleType("shared.knowledge_base")
 _FAKE_KB_MANAGER = types.ModuleType("shared.knowledge_base.manager")
 _FAKE_KB_RETRIEVER = types.ModuleType("shared.knowledge_base.retriever")
@@ -548,7 +617,8 @@ _FAKE_KB_VECTOR.VectorStore = MagicMock()
 _FAKE_KB_VECTOR.get_vector_store = MagicMock()
 _FAKE_KB_VECTOR.add_documents = MagicMock()
 
-for mod in [_FAKE_SHARED, _FAKE_KB, _FAKE_KB_MANAGER, _FAKE_KB_RETRIEVER,
+for mod in [_FAKE_SHARED, _FAKE_SHARED_UTILS, _FAKE_SHARED_UTILS_PAGINATION,
+            _FAKE_KB, _FAKE_KB_MANAGER, _FAKE_KB_RETRIEVER,
             _FAKE_KB_VECTOR, _FAKE_KB_CHUNKER, _FAKE_KB_REINDEX]:
     sys.modules.setdefault(mod.__name__, mod)
 
