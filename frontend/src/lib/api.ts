@@ -261,6 +261,26 @@ export async function del<T>(url: string, config?: AxiosRequestConfig): Promise<
   }
 }
 
+/**
+ * Generic fetch-style wrapper for training-api.ts compatibility.
+ * Uses the authenticated apiClient internally with httpOnly cookie support.
+ */
+export async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+  const method = (options?.method || 'GET').toUpperCase();
+  const config: AxiosRequestConfig = {
+    method,
+    url,
+    headers: options?.headers as Record<string, string> | undefined,
+    data: options?.body ? JSON.parse(options.body as string) : undefined,
+  };
+  try {
+    const response = await apiClient.request<T>(config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
+
 // ── Onboarding API Endpoints ───────────────────────────────────────────
 
 export const onboardingApi = {

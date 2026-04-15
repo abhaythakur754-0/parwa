@@ -12,9 +12,8 @@ import {
   ShieldCheck,
   Plug,
   Building2,
-  CircleCheck,
-  CircleX,
   ArrowRight,
+  XCircle,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -546,9 +545,9 @@ export function ActivationButton({
                   {state === 'checking_prereqs' ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
                   ) : met ? (
-                    <CircleCheck className="h-4 w-4 text-green-600 shrink-0" aria-hidden="true" />
+                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" aria-hidden="true" />
                   ) : (
-                    <CircleX className="h-4 w-4 text-destructive shrink-0" aria-hidden="true" />
+                    <XCircle className="h-4 w-4 text-destructive shrink-0" aria-hidden="true" />
                   )}
                   <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
                   <span className={met ? 'text-foreground' : 'text-muted-foreground'}>
