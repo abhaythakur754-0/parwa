@@ -70,7 +70,7 @@ export default function NewTrainingPage() {
         trigger: 'manual',
         base_model: baseModel || undefined,
         epochs,
-        learning_rate,
+        learning_rate: learningRate,
         batch_size: batchSize,
       });
 
