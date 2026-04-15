@@ -25,43 +25,65 @@ from typing import List, Dict, Any, Optional
 # Import vector_search.py by manipulating sys.path so that
 # "app.shared.knowledge_base.vector_search" resolves to the file
 # directly, bypassing __init__.py which pulls in sqlalchemy.
+#
+# IMPORTANT: We must NOT poison the "app" top-level namespace.
+# If a real `app` module already exists in sys.modules, reuse it.
+# Otherwise create a stub that still points to the real app dir
+# so that other submodules (app.core, app.middleware, etc.) remain
+# importable for sibling test files.
+
+import types as _types
+
 _kb_dir = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "shared", "knowledge_base"),
 )
-_parent_dir = os.path.normpath(os.path.join(_kb_dir, "..", ".."))
-
-# Create a synthetic "app.shared.knowledge_base" package that is empty
-# so we can import vector_search without triggering __init__.py.
-import types as _types
-_pkg_app = _types.ModuleType("app")
-_pkg_app.__path__ = []
-_pkg_app.__package__ = "app"
-sys.modules.setdefault("app", _pkg_app)
-
-_pkg_shared = _types.ModuleType("app.shared")
-_pkg_shared.__path__ = []
-_pkg_shared.__package__ = "app.shared"
-_pkg_shared.__spec__ = importlib.util.spec_from_file_location(
-    "app.shared", os.path.join(_parent_dir, "shared", "__init__.py"),
+_app_dir = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), ".."),
 )
-sys.modules.setdefault("app.shared", _pkg_shared)
+_shared_dir = os.path.join(_app_dir, "shared")
 
-_pkg_kb = _types.ModuleType("app.shared.knowledge_base")
-_pkg_kb.__path__ = [_kb_dir]
-_pkg_kb.__package__ = "app.shared.knowledge_base"
-sys.modules.setdefault("app.shared.knowledge_base", _pkg_kb)
+# Ensure the top-level "app" module exists with the REAL __path__
+if "app" in sys.modules and hasattr(sys.modules["app"], "__path__"):
+    _pkg_app = sys.modules["app"]
+else:
+    _pkg_app = _types.ModuleType("app")
+    _pkg_app.__path__ = [_app_dir]
+    _pkg_app.__package__ = "app"
+    sys.modules["app"] = _pkg_app
+
+# Ensure "app.shared" exists
+if "app.shared" in sys.modules and hasattr(sys.modules["app.shared"], "__path__"):
+    _pkg_shared = sys.modules["app.shared"]
+else:
+    _pkg_shared = _types.ModuleType("app.shared")
+    _pkg_shared.__path__ = [_shared_dir]
+    _pkg_shared.__package__ = "app.shared"
+    sys.modules["app.shared"] = _pkg_shared
+
+# Ensure "app.shared.knowledge_base" exists (empty package to
+# bypass __init__.py which imports sqlalchemy)
+if "app.shared.knowledge_base" in sys.modules and hasattr(sys.modules["app.shared.knowledge_base"], "__path__"):
+    _pkg_kb = sys.modules["app.shared.knowledge_base"]
+else:
+    _pkg_kb = _types.ModuleType("app.shared.knowledge_base")
+    _pkg_kb.__path__ = [_kb_dir]
+    _pkg_kb.__package__ = "app.shared.knowledge_base"
+    sys.modules["app.shared.knowledge_base"] = _pkg_kb
 
 # Register a spec so import machinery finds our module
 _vs_path = os.path.join(_kb_dir, "vector_search.py")
-_spec = importlib.util.spec_from_file_location(
-    "app.shared.knowledge_base.vector_search", _vs_path,
-)
-assert _spec is not None and _spec.loader is not None
-_vs_mod = importlib.util.module_from_spec(_spec)
-_vs_mod.__package__ = "app.shared.knowledge_base"
-_vs_mod.__file__ = _vs_path
-sys.modules["app.shared.knowledge_base.vector_search"] = _vs_mod
-_spec.loader.exec_module(_vs_mod)
+if "app.shared.knowledge_base.vector_search" not in sys.modules:
+    _spec = importlib.util.spec_from_file_location(
+        "app.shared.knowledge_base.vector_search", _vs_path,
+    )
+    assert _spec is not None and _spec.loader is not None
+    _vs_mod = importlib.util.module_from_spec(_spec)
+    _vs_mod.__package__ = "app.shared.knowledge_base"
+    _vs_mod.__file__ = _vs_path
+    sys.modules["app.shared.knowledge_base.vector_search"] = _vs_mod
+    _spec.loader.exec_module(_vs_mod)
+else:
+    _vs_mod = sys.modules["app.shared.knowledge_base.vector_search"]
 
 InMemoryVectorStore = _vs_mod.InMemoryVectorStore
 MockVectorStore = _vs_mod.MockVectorStore
