@@ -1,8 +1,9 @@
 # Part 12: Dashboard System — Complete Architecture
 
-> **Status:** Planning — Not started yet
+> **Status:** 8-Day Build Plan Ready — See PART12_DASHBOARD_8DAY_PLAN.md
 > **Priority:** P1 — Core product UI
-> **Current:** ~30% complete (3 of 7 pages work, 8 components orphaned)
+> **Current:** ~30% complete (3 of 7 pages work, 8 components orphaned, 7 backend modules have ZERO frontend)
+> **Total Items:** 155 items across 8 days
 > **Dependencies:** None (can run parallel with Part 18 + Part 15)
 
 ---
@@ -20,6 +21,16 @@ The dashboard is NOT just 4 missing pages. It's the **entire client experience**
 - No **per-agent view** (what is each agent doing right now?)
 - No **call records / conversation logs** view
 - Jarvis is **not accessible from the dashboard sidebar**
+- **Customers (CRM) page missing** — 5 backend services built, 0 frontend
+- **Conversations / Call Records page missing** — 5 backend services built, 0 frontend
+- **Knowledge Base page missing** — 6+ backend services built, 0 frontend
+- **Billing page missing** — 10+ backend services built, 0 frontend
+- **Integrations page missing** — 12+ backend services built, 0 frontend
+- **Notifications center missing** — 5 backend services built, 0 frontend
+- **Audit log viewer missing** — 3 backend services built, 0 frontend
+- **Per-agent individual views missing** (client specifically asked: what is each agent doing)
+- **Call recording playback missing** (client specifically asked: listen to conversations)
+- **Document management missing** (client specifically asked: see their documents)
 
 ---
 
@@ -38,10 +49,14 @@ The dashboard is NOT just 4 missing pages. It's the **entire client experience**
 │  Overview  │   (changes based on sidebar selection)              │
 │  Tickets   │                                                     │
 │  Agents    │                                                     │
+│  Customers │   ← NEW: CRM, leads, profiles                        │
+│  Conversations│ ← NEW: Call records, transcripts, playback          │
 │  Approvals │                                                     │
-│  Analytics │                                                     │
+│  Analytics │   ← NEW: 8 orphaned components                       │
+│  Knowledge │   ← NEW: Documents, upload, RAG                     │
 │  Channels  │                                                     │
-│  Training  │                                                     │
+│  Billing   │   ← NEW: Plan, invoices, upgrade/downgrade          │
+│  Integrations│ ← NEW: Connected apps, webhooks                     │
 │  Settings  │                                                     │
 │  ──────    │                                                     │
 │  Jarvis 💬 │                                                     │
@@ -87,14 +102,18 @@ The dashboard is NOT just 4 missing pages. It's the **entire client experience**
 ┌──────────────────────┐
 │   📊 Overview        │  ← Home dashboard
 │   🎫 Tickets         │  ← All support tickets
-│   🤖 Agents          │  ← AI workforce management
+│   🤖 Agents          │  ← AI workforce + per-agent views
+│   👥 Customers       │  ← CRM, profiles, leads (NEW)
+│   💬 Conversations   │  ← Call records, transcripts (NEW)
 │   ✅ Approvals       │  ← AI action approvals
 │   📈 Analytics       │  ← Charts, ROI, trends (NEW)
+│   📄 Knowledge Base  │  ← Documents, upload, RAG (NEW)
 │   📡 Channels        │  ← Email, SMS, Chat, Voice
-│   🧠 Training        │  ← AI training management
-│   ⚙️ Settings        │  ← Account, billing, team
+│   💰 Billing         │  ← Plan, invoices, upgrade (NEW)
+│   🔗 Integrations    │  ← Connected apps, webhooks (NEW)
+│   ⚙️ Settings        │  ← Account, team, security
 │   ─────────────────  │
-│   🤖 Jarvis          │  ← Opens chat side panel OR /jarvis
+│   🤖 Jarvis          │  ← Opens chat side panel
 └──────────────────────┘
 ```
 
@@ -105,12 +124,16 @@ The dashboard is NOT just 4 missing pages. It's the **entire client experience**
 | S1 | `/dashboard` | Overview | ✅ Exists |
 | S2 | `/dashboard/tickets` | Tickets | ❌ 404 |
 | S3 | `/dashboard/agents` | Agents | ❌ 404 |
-| S4 | `/dashboard/approvals` | Approvals | ❌ 404 |
-| S5 | `/dashboard/analytics` | Analytics | ❌ Doesn't exist |
-| S6 | `/dashboard/channels` | Channels | ✅ Exists |
-| S7 | `/dashboard/training` | Training | ✅ Exists (not in sidebar) |
-| S8 | `/dashboard/settings` | Settings | ❌ 404 |
-| S9 | `/jarvis` or side-panel | Jarvis | ✅ Page exists, not in sidebar |
+| S4 | `/dashboard/customers` | Customers (CRM) | ❌ DOES NOT EXIST |
+| S5 | `/dashboard/conversations` | Conversations | ❌ DOES NOT EXIST |
+| S6 | `/dashboard/approvals` | Approvals | ❌ 404 |
+| S7 | `/dashboard/analytics` | Analytics | ❌ DOES NOT EXIST |
+| S8 | `/dashboard/knowledge-base` | Knowledge Base | ❌ DOES NOT EXIST |
+| S9 | `/dashboard/channels` | Channels | ✅ Exists |
+| S10 | `/dashboard/billing` | Billing | ❌ DOES NOT EXIST |
+| S11 | `/dashboard/integrations` | Integrations | ❌ DOES NOT EXIST |
+| S12 | `/dashboard/settings` | Settings | ❌ 404 |
+| S13 | Side panel | Jarvis | ⚠️ Page exists, not in sidebar |
 
 ---
 
@@ -546,38 +569,58 @@ Currently the dashboard polls APIs. Need to wire Socket.io for live updates.
 | Section | Items | New Build | Wire Existing | Status |
 |---------|-------|-----------|---------------|--------|
 | Header Bar | 8 items | 5 new | 3 wire | Most missing |
-| Sidebar | 9 links | 0 new | 3 add (Analytics, Training, Jarvis) | Partial |
-| Overview Page | 12 widgets | 6 new | 2 wire (orphaned) | 50% done |
-| Tickets Page | 12 features | 12 new | 0 | 0% — 404 |
-| Agents Page | 10 features | 10 new | 0 | 0% — 404 |
+| Sidebar | 13 links | 0 new | 10 add | Partial |
+| Overview Page | 10 widgets | 6 new | 2 wire (orphaned) | 50% done |
+| Tickets Page | 20 features | 20 new | 0 | 0% — 404 |
+| Agents Page | 15 features | 15 new | 0 | 0% — 404 |
+| Customers (CRM) | 10 features | 10 new | 0 | 0% — doesn't exist |
+| Conversations | 12 features | 12 new | 0 | 0% — doesn't exist |
 | Approvals Page | 5 features | 5 new | 0 | 0% — 404 |
-| Analytics Page | 8 sections | 0 new | 8 wire (all orphaned!) | 0% — doesn't exist |
-| Settings Page | 6 tabs + 6 flows | 12 new | 0 | 0% — 404 |
-| Jarvis in Sidebar | 1 feature | 1 new | 0 wire | Separate page only |
-| Socket.io Client | 8 events | 1 new (client lib) | 8 wire | 0% — no client |
-| **TOTAL** | **89 items** | **52 new builds** | **30 wire existing** | **~30% overall** |
+| Analytics Page | 10 sections | 2 new | 8 wire (all orphaned!) | 0% — doesn't exist |
+| Knowledge Base | 8 features | 8 new | 0 | 0% — doesn't exist |
+| Billing Page | 10 features | 10 new | 0 | 0% — doesn't exist |
+| Integrations Page | 7 features | 7 new | 0 | 0% — doesn't exist |
+| Notifications Center | 7 features | 7 new | 0 | 0% — doesn't exist |
+| Settings Page | 5 tabs + 4 audit items | 9 new | 0 | 0% — 404 |
+| Jarvis Sidebar | 5 features | 5 new | 0 | Separate page only |
+| Socket.io Client | 6 events | 1 new (client lib) | 6 wire | 0% — no client |
+| System Status API | 1 endpoint | 1 new | 0 | Backend exists, no endpoint |
+| Polish | 7 items | 7 new | 0 | N/A |
+| **TOTAL** | **155 items** | **130 new builds** | **19 wire existing** | **~30% overall** |
 
 ---
 
 ## BUILD PRIORITY (If we have limited time)
 
 ### Must Have (Clients can't use product without these):
-1. Header bar (user menu, logout, plan badge)
+1. Header bar (user menu, logout, plan badge, notification bell)
 2. Tickets page (list + detail + conversation view)
 3. Agents page (cards + per-agent view + call records)
-4. Settings — Billing tab (upgrade/downgrade/cancel)
-5. Socket.io client (real-time ticket + notification updates)
+4. Customers / CRM page (customer profiles, search, ticket history)
+5. Conversations page (transcripts, call recordings, summaries)
+6. Billing page (plan, usage, upgrade/downgrade/cancel, invoices)
+7. Socket.io client (real-time ticket + notification updates)
 
 ### Should Have (Important for value demonstration):
-6. Approvals page
-7. Analytics page (wire 8 orphaned components)
-8. Emergency pause button
-9. Jarvis in sidebar (side panel)
-10. First Victory banner on dashboard
+8. Approvals page
+9. Analytics page (wire 8 orphaned components + ROI comparison)
+10. Knowledge Base page (document management, upload, search)
+11. Integrations page (connected apps, webhooks)
+12. Notifications center
+13. Emergency pause button
+14. Jarvis in sidebar (side panel)
+15. First Victory banner on dashboard
 
 ### Nice to Have:
-11. Settings — Team tab
-12. Settings — Notifications tab
-13. Settings — Integrations tab
-14. Settings — API Keys tab
-15. Mode selector (Shadow/Supervised/Graduated) — depends on Part 11
+16. Settings — Team tab (invite, roles)
+17. Settings — Security tab (MFA, sessions, API keys)
+18. Settings — Notifications tab
+19. Audit log viewer
+20. Mode selector (Shadow/Supervised/Graduated) — depends on Part 11
+21. Polish (responsive, loading states, empty states, shortcuts)
+
+---
+
+## 8-DAY BUILD PLAN
+
+Full day-by-day breakdown with 155 items: **[PART12_DASHBOARD_8DAY_PLAN.md](./PART12_DASHBOARD_8DAY_PLAN.md)**

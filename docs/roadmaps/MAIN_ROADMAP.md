@@ -83,26 +83,29 @@ Each part is ordered by: (1) launch-blocking severity, (2) dependency chain, (3)
 
 **Priority:** P1 — Core product UI
 **Current:** ~30% complete
-**Why Second:** 4 of 7 dashboard pages are 404. Users see broken sidebar links.
+**Why Second:** 4 of 7 dashboard pages are 404. 7 backend modules have ZERO frontend. Clients pay $999-$3,999/month and can't see their data.
+**8-Day Plan:** See `PART12_DASHBOARD_8DAY_PLAN.md` — 155 items across 8 days
 
 **What exists:**
-- Dashboard home (/dashboard) — KPI cards, analytics
+- Dashboard home (/dashboard) — KPI cards, analytics, activity feed
 - Channels page (/dashboard/channels) — channel cards
+- Training page (/dashboard/training) — not in sidebar
+- 8 orphaned chart components (ConfidenceTrend, AdaptationTracker, ROIDashboard, CSATTrends, QAScores, DriftDetection, GrowthNudge, TicketForecast)
+- Backend APIs for: CRM, documents, billing, notifications, integrations, analytics, audit — ALL with no frontend
 
-**What needs to be done:**
-- Build Tickets page (/dashboard/tickets) — view, search, manage, filter tickets
-- Build Agents page (/dashboard/agents) — manage AI agents
-- Build Approvals page (/dashboard/approvals) — approve/reject AI actions
-- Build Settings page (/dashboard/settings) — account, billing, notifications
-- Build Activity feed (F-037) — real-time Socket.io event stream
-- Build Running savings counter (F-040)
-- Build Workforce allocation chart (F-041)
-- Build Adaptation tracker (F-039)
-- Build Emergency pause button
-- Build Mode selector (Shadow/Supervised/Graduated)
-- Build Invoice history page
-- Build Billing management page (cancel/upgrade/downgrade)
-- Build Notification preferences UI
+**What needs to be done (155 items):**
+- **Day 1 — Foundation:** Header bar (8 items: plan badge, notification bell, system status, emergency pause, mode selector, user menu, logout), Sidebar restructure (13 nav items), Socket.io client (6 event types), System status API endpoint
+- **Day 2 — Overview:** ROI comparison card (PROMINENT), First Victory banner, savings counter enhancement, active agents summary, growth nudge, system health strip, real-time activity feed
+- **Day 3 — Tickets:** Full ticket list (search, filters, sort, pagination, bulk actions), ticket detail (conversation transcript, AI confidence, sentiment, GSD state, technique display, internal notes, reply box, export)
+- **Day 4 — Agents:** Agent cards grid, per-agent LIVE activity view (what each agent is doing NOW), per-agent call records, call recording playback, agent metrics, train-from-errors flow, agent comparison
+- **Day 5 — CRM + Conversations:** Customers page (CRM list, detail, ticket history, interaction timeline, lead pipeline, merge/dedup), Conversations page (all channels unified, call recording playback, chat transcripts, AI summaries, export)
+- **Day 6 — Knowledge Base + Analytics:** Document management (upload, search, reindex, RAG test), Analytics page (wire all 8 orphaned components: ROI, confidence, adaptation, CSAT, forecast, drift, QA, growth nudge), report export (CSV/PDF, 7 types)
+- **Day 7 — Billing + Integrations + Notifications:** Billing page (plan, usage meters, upgrade/downgrade/cancel, invoices, overage, buy agent/variant), Integrations page (6+ services, webhooks, channels), Notifications center (real-time, preferences, quick actions)
+- **Day 8 — Settings + Approvals + Jarvis + Polish:** Settings tabs (Account, Team, Security, Notifications, API), Approvals page (queue, rules, analytics), Jarvis sidebar panel, Audit log viewer, responsive design, loading/empty/error states
+
+**New pages to build:** Customers (CRM), Conversations, Analytics, Knowledge Base, Billing, Integrations, Notifications
+**Existing pages to fix:** Tickets (404), Agents (404), Approvals (404), Settings (404)
+**Backend APIs already built:** 33+ endpoints need frontend consumers
 
 **Dependencies:** None for frontend pages. Mode selector needs Part 11 (Shadow Mode).
 

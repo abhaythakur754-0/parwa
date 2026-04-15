@@ -10,7 +10,7 @@
 - **Industries:** E-commerce, SaaS, Logistics (NO healthcare — removed April 2026)
 - **Deployment:** Docker (docker-compose for dev, docker-compose.prod.yml for production)
 - **Current Phase:** Production Readiness — 18-part systematic plan
-- **Currently Building:** Part 18 (Safety & Compliance) — 5-day plan, 63 safety items
+- **Currently Building:** Part 18 (Safety & Compliance) — 5-day plan, 63 safety items + Part 12 (Dashboard) — 8-day plan, 155 items
 
 ## Current Status
 
@@ -64,7 +64,13 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 - PII redaction only 40% accurate (target 90%+)
 - Prompt injection detection only 15% (target 95%+)
 - 4 dashboard pages completely missing (tickets, agents, approvals, settings)
-- No cancel/upgrade/downgrade UI
+- 7 dashboard pages have NO frontend despite backend being fully built (CRM, conversations, knowledge base, billing, integrations, notifications, audit)
+- 8 orphaned React components built but never rendered on any page
+- Socket.io server has 22 events, frontend has ZERO socket client
+- system_status_service.py (867 lines) has no API endpoint or frontend
+- Per-agent individual views missing (client requirement: what each agent is doing)
+- Call recording playback missing (client requirement: listen to conversations)
+- ROI comparison, First Victory, confidence display, logout, emergency pause all missing from dashboard
 - Shadow mode has zero code
 - No yearly billing logic
 - Email channel AI loop incomplete
@@ -72,7 +78,7 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 ## Execution Plan
 
 Parallel streams with no dependencies:
-- Wave 1: Part 18 (Safety) + Part 12 (Dashboard) + Part 15 (Billing) + Part 1 (Infrastructure)
+- Wave 1: Part 18 (Safety) + Part 12 (Dashboard — 8 days, 155 items) + Part 15 (Billing) + Part 1 (Infrastructure)
 - Wave 2: Part 11 (Shadow Mode) + Part 14 (Channels) + Part 3 (Variants)
 - Wave 3: Part 10 (Jarvis) + Part 8 (Context) + Part 13 (Tickets) + Part 9 (AI Techniques)
 - Wave 4: Part 4 (Industry) + Part 5 (Orchestration) + Part 6 (Training) + Part 16 (Analytics) + Part 17 (Integrations)
@@ -80,6 +86,6 @@ Parallel streams with no dependencies:
 
 ## Next Steps
 
-- Decide which part(s) to start building first
-- Build each part completely before moving to the next
+- Execute Part 18 Day 1 — PII & Prompt Injection fixes
+- OR execute Part 12 Day 1 — Dashboard foundation (header, sidebar, Socket.io)
 - Update PROJECT_STATUS.md daily with progress
