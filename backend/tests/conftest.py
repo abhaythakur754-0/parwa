@@ -115,6 +115,8 @@ class _AttrChainer:
         return self  # Support .in_() for filter expressions
     def isnot(self, *args):
         return self  # Support .isnot() for filter expressions
+    def is_(self, *args):
+        return self  # Support .is_(None) for filter expressions
     def contains(self, *args):
         return self  # Support .contains() for JSON column queries
     def __bool__(self):
@@ -135,12 +137,12 @@ _fake_billing_extended = types.ModuleType("database.models.billing_extended")
 _MockSubscription = type("Subscription", (object,), {
     "__tablename__": "subscriptions",
     "id": None, "company_id": None, "tier": None,
-    "status": "active", "paddle_subscription_id": None,
-    "current_period_start": None, "current_period_end": None,
-    "cancel_at_period_end": False,
+    "status": _AttrChainer(), "paddle_subscription_id": None,
+    "current_period_start": _AttrChainer(), "current_period_end": _AttrChainer(),
+    "cancel_at_period_end": _AttrChainer(),
     "billing_frequency": "monthly",
-    "pending_downgrade_tier": None,
-    "pending_downgrade_at": None,
+    "pending_downgrade_tier": _AttrChainer(),
+    "pending_downgrade_at": _AttrChainer(),
     "downgrade_executed_at": None,
     "previous_tier": None,
     "days_in_period": 30,
@@ -178,6 +180,21 @@ _MockProrationAudit = type("ProrationAudit", (object,), {
     "calculated_at": _AttrChainer(),
     "__init__": _mock_model_init,
 })
+def _company_variant_init(self, **kwargs):
+    """CompanyVariant init that sets proper defaults for AttrChainer fields."""
+    import uuid as _uuid
+    _mock_model_init(self, **kwargs)
+    # Set defaults for fields that use _AttrChainer on the class
+    # so instances get proper Python types (not _AttrChainer) for Pydantic validation
+    if "id" not in kwargs:
+        self.id = str(_uuid.uuid4())
+    if "deactivated_at" not in kwargs:
+        self.deactivated_at = None
+    if "activated_at" not in kwargs:
+        self.activated_at = None
+    if "created_at" not in kwargs:
+        self.created_at = None
+
 _MockCompanyVariant = type("CompanyVariant", (object,), {
     "__tablename__": "company_variants",
     "id": None, "company_id": None,
@@ -185,10 +202,10 @@ _MockCompanyVariant = type("CompanyVariant", (object,), {
     "status": _AttrChainer(),
     "price_per_month": None, "tickets_added": 0,
     "kb_docs_added": 0,
-    "activated_at": None, "deactivated_at": None,
+    "activated_at": _AttrChainer(), "deactivated_at": _AttrChainer(),
     "paddle_subscription_item_id": None,
     "metadata_json": None, "created_at": _AttrChainer(),
-    "__init__": _mock_model_init,
+    "__init__": _company_variant_init,
 })
 setattr(_fake_billing_models, "Subscription", _MockSubscription)
 setattr(_fake_billing_models, "Invoice", _MockInvoice)

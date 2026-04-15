@@ -463,7 +463,7 @@ class VariantAddonService:
                                 f"Paddle removal failed for {variant.variant_id}: {e}"
                             )
 
-                    # Archive variant KB documents
+                    # V8: Archive variant-specific KB documents (tag-based)
                     try:
                         from database.models.onboarding import KnowledgeDocument
                         kb_docs = (
@@ -475,7 +475,28 @@ class VariantAddonService:
                             .all()
                         )
                         for doc in kb_docs:
-                            doc.is_archived = True
+                            # V8 Fix: Only archive variant-specific docs
+                            # Check if doc has variant tag or metadata matching this variant
+                            doc_tags = getattr(doc, "tags", None) or []
+                            doc_metadata = getattr(doc, "metadata_json", None)
+                            is_variant_doc = False
+
+                            # Check tags for variant reference
+                            if isinstance(doc_tags, list):
+                                tag_str = " ".join(str(t) for t in doc_tags).lower()
+                                if variant.variant_id in tag_str or "addon" in tag_str:
+                                    is_variant_doc = True
+
+                            # Check metadata for variant reference
+                            if doc_metadata and isinstance(doc_metadata, str):
+                                if variant.variant_id in doc_metadata.lower():
+                                    is_variant_doc = True
+                            elif doc_metadata and isinstance(doc_metadata, dict):
+                                if doc_metadata.get("variant_id") == variant.variant_id:
+                                    is_variant_doc = True
+
+                            if is_variant_doc:
+                                doc.is_archived = True
                     except Exception as e:
                         logger.warning(
                             "variant_archive_kb_error variant_id=%s error=%s",
@@ -486,6 +507,34 @@ class VariantAddonService:
                         )
 
                     archived_count += 1
+
+                    # V7: Send notification about variant archival
+                    try:
+                        from app.core.event_emitter import emit_billing_event
+                        import asyncio
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        try:
+                            loop.run_until_complete(
+                                emit_billing_event(
+                                    company_id=variant.company_id,
+                                    event_type="variant_archived",
+                                    data={
+                                        "variant_id": variant.variant_id,
+                                        "display_name": variant.display_name,
+                                        "archived_at": now.isoformat(),
+                                        "tickets_removed": variant.tickets_added,
+                                        "kb_docs_removed": variant.kb_docs_added,
+                                    },
+                                )
+                            )
+                        finally:
+                            loop.close()
+                    except Exception as notify_err:
+                        logger.warning(
+                            "variant_archive_notification_failed variant_id=%s error=%s",
+                            variant.id, str(notify_err),
+                        )
 
                 except Exception as e:
                     errors.append(

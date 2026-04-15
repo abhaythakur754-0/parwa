@@ -1051,3 +1051,53 @@ async def get_effective_limits(
     """Get effective limits including stacked variant add-ons."""
     service = get_variant_addon_service()
     return service.get_effective_limits(company_id=company_id)
+
+
+# ── Variant Catalog Endpoint (Day 3: V9 partial) ───────────────────
+
+@router.get("/variants/catalog")
+async def get_variant_catalog(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+) -> Dict[str, Any]:
+    """
+    Get all available industry variant add-ons with pricing.
+
+    Returns catalog of all variants the customer can add to their
+    subscription. Includes pricing for both monthly and yearly,
+    ticket allocations, KB doc additions, and which variants
+    are already active for this company.
+
+    V9: Backend API for variant catalog (frontend UI in Part 12).
+    """
+    from app.schemas.billing import INDUSTRY_ADD_ONS
+
+    service = get_variant_addon_service()
+    active_variants = service.list_variants(company_id=company_id)
+    active_ids = {v.variant_id for v in active_variants if v.status.value == "active"}
+
+    catalog = []
+    for variant_id, config in INDUSTRY_ADD_ONS.items():
+        catalog.append({
+            "variant_id": variant_id,
+            "display_name": config["display_name"],
+            "description": config.get("description", ""),
+            "price_monthly": str(config["price_monthly"]),
+            "price_yearly": str(config["yearly_price"]),
+            "tickets_added": config["tickets_added"],
+            "kb_docs_added": config["kb_docs_added"],
+            "is_active": variant_id in active_ids,
+            "stacking_rules": {
+                "tickets_stack": True,
+                "kb_docs_stack": True,
+                "agents_stack": False,
+                "team_stack": False,
+                "voice_stack": False,
+            },
+        })
+
+    return {
+        "catalog": catalog,
+        "total": len(catalog),
+        "active_count": len(active_ids),
+    }

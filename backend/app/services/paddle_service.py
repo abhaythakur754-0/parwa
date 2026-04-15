@@ -54,6 +54,15 @@ _DEFAULT_PRICE_IDS: Dict[str, str] = {
     "warehouse_queries": "pri_warehouse_01",
     "fleet_management": "pri_fleet_01",
     "customs": "pri_customs_01",
+    # Industry Add-On price IDs (Day 3: V2-V10)
+    "addon_ecommerce_monthly": "pri_addon_ecommerce_mo",
+    "addon_ecommerce_yearly": "pri_addon_ecommerce_yr",
+    "addon_saas_monthly": "pri_addon_saas_mo",
+    "addon_saas_yearly": "pri_addon_saas_yr",
+    "addon_logistics_monthly": "pri_addon_logistics_mo",
+    "addon_logistics_yearly": "pri_addon_logistics_yr",
+    "addon_others_monthly": "pri_addon_others_mo",
+    "addon_others_yearly": "pri_addon_others_yr",
     # Healthcare variants
     "appointment_scheduling": "pri_appt_sched_01",
     "insurance_verification": "pri_insurance_01",
