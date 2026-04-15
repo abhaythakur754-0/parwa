@@ -40,6 +40,10 @@ from app.schemas.billing import (
     VariantType,
     ProrationResult,
     ProrationAudit,
+    CompanyVariantCreate,
+    CompanyVariantList,
+    CompanyVariantInfo,
+    EffectiveLimitsInfo,
 )
 from app.services.subscription_service import (
     SubscriptionService,
@@ -71,6 +75,11 @@ from app.services.client_refund_service import (
 from app.services.overage_service import (
     OverageService,
     get_overage_service,
+)
+from app.services.variant_addon_service import (
+    VariantAddonService,
+    VariantAddonError,
+    get_variant_addon_service,
 )
 
 logger = logging.getLogger("parwa.api.billing")
@@ -964,3 +973,81 @@ async def get_client_refund_stats(
     """
     service = get_client_refund_service()
     return service.get_refund_stats(company_id)
+
+
+# ── Variant Add-On Endpoints (Day 3: V2-V4) ─────────────────────────
+
+@router.post(
+    "/variants",
+    response_model=CompanyVariantInfo,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_variant(
+    request: Request,
+    data: CompanyVariantCreate,
+    company_id: UUID = Depends(get_company_id),
+) -> CompanyVariantInfo:
+    """Add an industry variant add-on to the subscription."""
+    service = get_variant_addon_service()
+    try:
+        return service.add_variant(company_id=company_id, variant_id=data.variant_id)
+    except VariantAddonError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": e.code or "variant_error", "message": str(e)},
+        )
+
+
+@router.delete("/variants/{variant_id}")
+async def remove_variant(
+    request: Request,
+    variant_id: str,
+    company_id: UUID = Depends(get_company_id),
+) -> Dict[str, Any]:
+    """Schedule removal of an industry variant add-on at period end."""
+    service = get_variant_addon_service()
+    try:
+        return service.remove_variant(company_id=company_id, variant_id=variant_id)
+    except VariantAddonError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": e.code or "variant_error", "message": str(e)},
+        )
+
+
+@router.get("/variants", response_model=CompanyVariantList)
+async def list_variants(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+) -> CompanyVariantList:
+    """List all variant add-ons for the company."""
+    service = get_variant_addon_service()
+    variants = service.list_variants(company_id=company_id)
+    return CompanyVariantList(variants=variants, total=len(variants))
+
+
+@router.post("/variants/{variant_id}/restore")
+async def restore_variant(
+    request: Request,
+    variant_id: str,
+    company_id: UUID = Depends(get_company_id),
+) -> Dict[str, Any]:
+    """Restore an archived variant add-on."""
+    service = get_variant_addon_service()
+    try:
+        return service.restore_variant(company_id=company_id, variant_id=variant_id)
+    except VariantAddonError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": e.code or "variant_error", "message": str(e)},
+        )
+
+
+@router.get("/variants/effective-limits", response_model=EffectiveLimitsInfo)
+async def get_effective_limits(
+    request: Request,
+    company_id: UUID = Depends(get_company_id),
+) -> EffectiveLimitsInfo:
+    """Get effective limits including stacked variant add-ons."""
+    service = get_variant_addon_service()
+    return service.get_effective_limits(company_id=company_id)

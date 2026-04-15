@@ -33,6 +33,7 @@ from app.schemas.billing import (
     UsageInfo,
     VariantType,
     VARIANT_LIMITS,
+    INDUSTRY_ADD_ONS,
 )
 from app.clients.paddle_client import (
     PaddleClient,
@@ -41,7 +42,7 @@ from app.clients.paddle_client import (
 )
 from database.base import SessionLocal
 from database.models.billing import Subscription, OverageCharge
-from database.models.billing_extended import UsageRecord, get_variant_limits
+from database.models.billing_extended import UsageRecord, CompanyVariant, get_variant_limits
 from database.models.core import Company
 
 import os
@@ -143,13 +144,21 @@ class OverageService:
                     "date": target_date.isoformat(),
                 }
 
-            # Get plan limits
+            # Get plan limits (V6: include variant addon tickets)
             variant = subscription.tier
             limits = get_variant_limits(variant)
             if not limits:
                 limits = VARIANT_LIMITS.get(VariantType(variant), {})
 
             ticket_limit = limits.get("monthly_tickets", 2000)
+
+            # V6: Add variant addon tickets for effective limit
+            active_addons = db.query(CompanyVariant).filter(
+                CompanyVariant.company_id == str(company_id),
+                CompanyVariant.status.in_("active", "inactive"),
+            ).all()
+            addon_tickets = sum(v.tickets_added for v in active_addons)
+            ticket_limit += addon_tickets
 
             # Get or create usage record for the date
             usage_record = db.query(UsageRecord).filter(
@@ -487,7 +496,7 @@ class OverageService:
                     limit_exceeded=False,
                 )
 
-            # Get plan limits
+            # Get plan limits (V6: include variant addon tickets)
             limits = get_variant_limits(subscription.tier)
             if not limits:
                 limits = VARIANT_LIMITS.get(
@@ -495,6 +504,14 @@ class OverageService:
                 )
 
             ticket_limit = limits.get("monthly_tickets", 2000)
+
+            # V6: Add variant addon tickets for effective limit
+            active_addons = db.query(CompanyVariant).filter(
+                CompanyVariant.company_id == str(company_id),
+                CompanyVariant.status.in_("active", "inactive"),
+            ).all()
+            addon_tickets = sum(v.tickets_added for v in active_addons)
+            ticket_limit += addon_tickets
 
             # Get month usage
             month_usage = db.query(
@@ -633,6 +650,84 @@ class OverageService:
             "tickets_remaining": max(0, usage.ticket_limit - usage.tickets_used),
             "threshold": threshold,
         }
+
+
+    async def get_ticket_limit(
+        self,
+        company_id: UUID,
+    ) -> Dict[str, Any]:
+        """
+        Get effective ticket limit for a company including variant addon stacking.
+
+        Day 3 V6: Returns the base plan ticket limit plus any active/inactive
+        variant addon ticket allocations. Archived addons are excluded.
+
+        Args:
+            company_id: Company UUID
+
+        Returns:
+            Dict with 'limit' (int) and 'addon_tickets' (int).
+        """
+        with SessionLocal() as db:
+            subscription = db.query(Subscription).filter(
+                Subscription.company_id == str(company_id),
+                Subscription.status == "active",
+            ).first()
+
+            if not subscription:
+                return {"limit": 0, "addon_tickets": 0}
+
+            limits = get_variant_limits(subscription.tier)
+            if not limits:
+                limits = VARIANT_LIMITS.get(
+                    VariantType(subscription.tier), {}
+                )
+
+            base_limit = limits.get("monthly_tickets", 2000)
+
+            # V6: Add variant addon tickets
+            active_addons = db.query(CompanyVariant).filter(
+                CompanyVariant.company_id == str(company_id),
+                CompanyVariant.status.in_("active", "inactive"),
+            ).all()
+            addon_tickets = sum(v.tickets_added for v in active_addons)
+
+            return {
+                "limit": base_limit + addon_tickets,
+                "base_limit": base_limit,
+                "addon_tickets": addon_tickets,
+            }
+
+    async def get_current_usage(
+        self,
+        company_id: UUID,
+        record_month: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get current month usage for a company.
+
+        Args:
+            company_id: Company UUID
+            record_month: Month in YYYY-MM format (default: current month)
+
+        Returns:
+            Dict with 'tickets_used', 'month', and other usage info.
+        """
+        if record_month is None:
+            record_month = datetime.now(timezone.utc).strftime("%Y-%m")
+
+        with SessionLocal() as db:
+            month_usage = db.query(
+                func.sum(UsageRecord.tickets_used).label("total_tickets"),
+            ).filter(
+                UsageRecord.company_id == str(company_id),
+                UsageRecord.record_month == record_month,
+            ).scalar() or 0
+
+            return {
+                "tickets_used": int(month_usage),
+                "month": record_month,
+            }
 
 
 # ── Singleton Service ────────────────────────────────────────────────────

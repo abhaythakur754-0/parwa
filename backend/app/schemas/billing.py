@@ -88,6 +88,92 @@ VARIANT_LIMITS = {
 }
 
 
+# ── Industry Add-Ons (Day 3: V1-V10) ───────────────────────────────
+
+INDUSTRY_ADD_ONS = {
+    "ecommerce": {
+        "display_name": "E-commerce",
+        "price_monthly": Decimal("79.00"),
+        "yearly_price": Decimal("790.00"),
+        "tickets_added": 500,
+        "kb_docs_added": 50,
+        "description": "Order tracking, refund handling, product FAQ",
+    },
+    "saas": {
+        "display_name": "SaaS",
+        "price_monthly": Decimal("59.00"),
+        "yearly_price": Decimal("590.00"),
+        "tickets_added": 300,
+        "kb_docs_added": 30,
+        "description": "Technical support, bug triage, feature requests",
+    },
+    "logistics": {
+        "display_name": "Logistics",
+        "price_monthly": Decimal("69.00"),
+        "yearly_price": Decimal("690.00"),
+        "tickets_added": 400,
+        "kb_docs_added": 40,
+        "description": "Shipment tracking, delivery updates, returns",
+    },
+    "others": {
+        "display_name": "Others",
+        "price_monthly": Decimal("39.00"),
+        "yearly_price": Decimal("390.00"),
+        "tickets_added": 200,
+        "kb_docs_added": 20,
+        "description": "General support, FAQ, escalation",
+    },
+}
+
+
+class IndustryAddOnStatus(str, Enum):
+    """Status of a company's industry add-on."""
+    ACTIVE = "active"
+    INACTIVE = "inactive"      # Scheduled for removal at period end
+    ARCHIVED = "archived"      # Previously removed, data archived
+
+
+class CompanyVariantInfo(BaseModel):
+    """Company variant add-on information (Day 3: V4)."""
+    id: UUID
+    company_id: UUID
+    variant_id: str  # ecommerce, saas, logistics, others
+    display_name: str
+    status: IndustryAddOnStatus = IndustryAddOnStatus.ACTIVE
+    price_per_month: Decimal
+    tickets_added: int
+    kb_docs_added: int
+    activated_at: Optional[datetime] = None
+    deactivated_at: Optional[datetime] = None
+    paddle_subscription_item_id: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CompanyVariantCreate(BaseModel):
+    """Request to add an industry variant add-on (Day 3: V2)."""
+    variant_id: str
+
+    @field_validator("variant_id")
+    @classmethod
+    def validate_variant_id(cls, v: str) -> str:
+        v_lower = v.lower().strip()
+        valid = {"ecommerce", "saas", "logistics", "others"}
+        if v_lower not in valid:
+            raise ValueError(
+                f"Invalid variant_id '{v}'. Must be one of: {', '.join(sorted(valid))}"
+            )
+        return v_lower
+
+
+class CompanyVariantList(BaseModel):
+    """List of company variant add-ons."""
+    variants: List[CompanyVariantInfo]
+    total: int
+
+
 class VariantLimits(BaseModel):
     """Feature limits for a variant."""
     variant: VariantType
@@ -372,6 +458,28 @@ class WebhookSequenceInfo(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Effective Limits (Day 3: V6 - with stacking) ────────────────────
+
+class EffectiveLimitsInfo(BaseModel):
+    """Effective limits after stacking base plan + active add-ons."""
+    base_monthly_tickets: int
+    addon_tickets: int
+    effective_monthly_tickets: int
+    base_ai_agents: int
+    addon_ai_agents: int  # Always 0 (agents don't stack)
+    effective_ai_agents: int
+    base_team_members: int
+    addon_team_members: int  # Always 0 (team don't stack)
+    effective_team_members: int
+    base_voice_slots: int
+    addon_voice_slots: int  # Always 0 (voice doesn't stack)
+    effective_voice_slots: int
+    base_kb_docs: int
+    addon_kb_docs: int
+    effective_kb_docs: int
+    active_addons: List[str]
 
 
 # ── Common Response Schemas ────────────────────────────────────────────────

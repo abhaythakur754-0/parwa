@@ -178,11 +178,24 @@ _MockProrationAudit = type("ProrationAudit", (object,), {
     "calculated_at": _AttrChainer(),
     "__init__": _mock_model_init,
 })
+_MockCompanyVariant = type("CompanyVariant", (object,), {
+    "__tablename__": "company_variants",
+    "id": None, "company_id": None,
+    "variant_id": None, "display_name": None,
+    "status": _AttrChainer(),
+    "price_per_month": None, "tickets_added": 0,
+    "kb_docs_added": 0,
+    "activated_at": None, "deactivated_at": None,
+    "paddle_subscription_item_id": None,
+    "metadata_json": None, "created_at": _AttrChainer(),
+    "__init__": _mock_model_init,
+})
 setattr(_fake_billing_models, "Subscription", _MockSubscription)
 setattr(_fake_billing_models, "Invoice", _MockInvoice)
 setattr(_fake_billing_models, "CancellationRequest", _MockCancellationRequest)
 setattr(_fake_billing_extended, "PaymentMethod", _MockPaymentMethod)
 setattr(_fake_billing_extended, "ProrationAudit", _MockProrationAudit)
+setattr(_fake_billing_extended, "CompanyVariant", _MockCompanyVariant)
 
 # Also add Agent to core models (used by resource cleanup)
 setattr(_fake_core_models, "Agent", type("Agent", (object,), {

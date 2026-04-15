@@ -251,6 +251,38 @@ class PaymentFailure(Base):
     company = relationship("Company", back_populates="payment_failures")
 
 
+# ── Company Variant Add-On Model (Day 3: V1) ──────────────────────────
+
+class CompanyVariant(Base):
+    """Industry variant add-on for a company.
+
+    Day 3 V1: Tracks which industry add-ons (E-commerce, SaaS, Logistics, Others)
+    a company has purchased. Each add-on adds ticket and KB doc allocations
+    to the base plan. Agents, team members, and voice slots do NOT stack.
+
+    Lifecycle:
+    - Add: Immediate activation, prorated charge for remaining period
+    - Remove: Takes effect at next period end (status='inactive')
+    - Archive: At period end cron, KB data archived (not deleted)
+    - Restore: Re-add from archived, creates new Paddle item
+    """
+    __tablename__ = "company_variants"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(String(36), nullable=False, index=True)
+    variant_id = Column(String(50), nullable=False)  # ecommerce, saas, logistics, others
+    display_name = Column(String(100), nullable=False)
+    status = Column(String(20), nullable=False, default="active")  # active, inactive, archived
+    price_per_month = Column(Numeric(10, 2), nullable=False)
+    tickets_added = Column(Integer, nullable=False, default=0)
+    kb_docs_added = Column(Integer, nullable=False, default=0)
+    activated_at = Column(DateTime, nullable=True)
+    deactivated_at = Column(DateTime, nullable=True)
+    paddle_subscription_item_id = Column(String(255), nullable=True)
+    metadata_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
 # ── Convenience Functions ───────────────────────────────────────────────────
 
 def get_variant_limits(variant_name: str) -> Optional[dict]:

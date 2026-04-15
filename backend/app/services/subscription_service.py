@@ -1014,6 +1014,7 @@ class SubscriptionService:
             "timestamp": now.isoformat(),
             "downgrades_applied": 0,
             "cancellations_applied": 0,
+            "variants_archived": 0,
             "errors": [],
         }
 
@@ -1067,11 +1068,30 @@ class SubscriptionService:
 
             db.commit()
 
+            # V7: Process variant removals at period end
+            try:
+                from app.services.variant_addon_service import get_variant_addon_service
+                addon_service = get_variant_addon_service()
+                variant_results = addon_service.process_variant_period_end()
+                results["variants_archived"] = variant_results.get("archived_count", 0)
+                if variant_results.get("errors"):
+                    results["errors"].extend([
+                        {"type": "variant_archival", "error": e}
+                        for e in variant_results["errors"]
+                    ])
+            except Exception as e:
+                logger.error("variant_period_end_failed error=%s", str(e))
+                results["errors"].append({
+                    "type": "variant_period_end",
+                    "error": str(e)[:200],
+                })
+
         logger.info(
             "period_end_transitions_processed "
-            "downgrades=%d cancellations=%d errors=%d",
+            "downgrades=%d cancellations=%d variants_archived=%d errors=%d",
             results["downgrades_applied"],
             results["cancellations_applied"],
+            results["variants_archived"],
             len(results["errors"]),
         )
 
