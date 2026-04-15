@@ -610,13 +610,13 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
       "-- plans, pricing, demos, the works. What brings you in today?"
     ),
     pricing: (
-      `I see you've been looking at pricing for ${industry}. Good thinking -- picking the right plan " +
+      "I see you've been looking at pricing for " + industry + ". Good thinking -- picking the right plan " +
       "matters a lot. Want me to walk you through what each tier includes and help you figure out " +
       "which one fits your volume?"
     ),
     roi: roi ? (
-      `So you've been running the numbers for ${industry}. Based on your calculations, ` +
-      `you're looking at roughly ${savingsStr || 'significant'} in annual savings with PARWA. ` +
+      "So you've been running the numbers for " + industry + ". Based on your calculations, " +
+      "you're looking at roughly " + (savingsStr || 'significant') + " in annual savings with PARWA. " +
       "Want to see exactly how that works in practice?"
     ) : (
       "I see you've been checking out our ROI calculator. The numbers usually surprise people " +
@@ -628,12 +628,12 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
       "our $1 Demo Pack gives you 500 messages plus a 3-minute AI voice call. Want to try it?"
     ),
     features: (
-      `I see you've been exploring our features for ${industry}. PARWA covers the full support lifecycle ` +
+      "I see you've been exploring our features for " + industry + ". PARWA covers the full support lifecycle " +
       "-- from automated ticket resolution to smart analytics and escalation workflows. What's the " +
       "single most important thing you need solved right now?"
     ),
     models_page: (
-      `I see you've been checking out our plans for ${industry}. Each tier is designed for a different ` +
+      "I see you've been checking out our plans for " + industry + ". Each tier is designed for a different " +
       "scale of operation. Want me to break down which one makes the most sense for your ticket volume and channels?"
     ),
     handoff: (
@@ -645,7 +645,7 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
   // Variant-specific overrides (Demo Mode)
   if (variant && source === 'models_page') {
     return (
-      `I see you're interested in the ${variant} plan. Great choice for ${industry}. ` +
+      "I see you're interested in the " + variant + " plan. Great choice for " + industry + ". " +
       "I can show you exactly what that tier looks like in action -- just ask me anything your customers would ask. " +
       "Or if you want the full experience, we can do a live simulation for $1. What would you prefer?"
     );

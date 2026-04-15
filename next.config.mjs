@@ -6,6 +6,9 @@ const nextConfig = {
   },
   reactStrictMode: false,
   allowedDevOrigins: ["*.space.z.ai"],
+  turbopack: {
+    root: "/home/z/my-project/parwa",
+  },
 };
 
 export default nextConfig;

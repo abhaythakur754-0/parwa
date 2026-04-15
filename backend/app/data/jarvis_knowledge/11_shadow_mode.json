@@ -1,0 +1,132 @@
+{
+  "shadow_mode": {
+    "overview": "PARWA's Shadow Mode is a 3-tier safety system that controls how Jarvis executes actions on behalf of clients. It exists to ensure AI actions are safe, transparent, and controllable. The system uses a 4-layer decision architecture to determine the appropriate mode for every individual action.",
+    "modes": {
+      "shadow": {
+        "name": "Shadow Mode",
+        "description": "Jarvis shows what it would do, but nothing is actually executed. The client sees the full recommendation including risk assessment, and must manually approve before any action is taken.",
+        "when_used": "New clients during onboarding, low-confidence actions, actions Jarvis has never performed before, or when the client explicitly requests shadow mode for a category.",
+        "visual": "Orange badge in dashboard header",
+        "example": "Jarvis wants to process a $500 refund. Risk score is 0.8 (high). System puts it in shadow mode. Client sees: 'Jarvis recommends refunding $500 to customer X for order #12345. Risk: High. Reason: Amount exceeds typical refund pattern.' Client clicks Approve or Reject."
+      },
+      "supervised": {
+        "name": "Supervised Mode",
+        "description": "Jarvis executes low-confidence actions in shadow (preview mode) and asks for approval on medium-to-high risk actions. Low-risk actions may auto-execute with an undo option.",
+        "when_used": "Clients who have been using shadow mode for a while and Jarvis has built confidence, but the client still wants oversight on important actions.",
+        "visual": "Yellow badge in dashboard header",
+        "example": "Jarvis auto-sends a simple order status reply (risk 0.1, low) but shows a refund recommendation (risk 0.6, medium) for approval. Client can see both in the approvals queue."
+      },
+      "graduated": {
+        "name": "Graduated Mode",
+        "description": "Jarvis auto-executes low-risk actions and shows them in the undo queue. High-risk actions still go to shadow/approval. Auto-approved actions can be undone within a configurable time window.",
+        "when_used": "Experienced clients where Jarvis has learned their patterns well and has high confidence scores.",
+        "visual": "Green badge in dashboard header",
+        "example": "Jarvis auto-processes a $15 refund (risk 0.05, low). It appears in the undo queue with a 30-minute countdown. Client can click 'Undo' within that window, or let it stand."
+      }
+    },
+    "four_layer_decision_system": {
+      "layer_1_jarvis_ai_risk_assessment": {
+        "name": "Jarvis AI Risk Assessment",
+        "description": "Jarvis evaluates every action before execution. It considers: confidence in the response, financial impact, data sensitivity, customer impact, and whether it has seen similar actions succeed before.",
+        "output": "A risk score from 0.0 (no risk) to 1.0 (maximum risk), plus a mode recommendation.",
+        "rules": "If risk >= 0.7 → always shadow. If risk 0.3-0.7 → shadow or supervised based on client preference. If risk < 0.3 → auto-execute (in supervised/graduated mode)."
+      },
+      "layer_2_client_preferences": {
+        "name": "Client Preferences",
+        "description": "The client can set preferences per action category. These can be set two ways: through the Dashboard Settings UI, or by talking to Jarvis in chat. Both methods sync to the same database table (shadow_preferences).",
+        "examples": [
+          "'Jarvis, always put refunds in shadow mode' → shadow_preferences updated for 'refund' category",
+          "'Always ask me before sending SMS' → shadow_preferences updated for 'sms' category",
+          "UI toggle: set 'email_reply' to 'graduated' → shadow_preferences updated",
+          "These preferences OVERRIDE Jarvis's risk assessment if set"
+        ],
+        "sync": "Changes made in UI appear in Jarvis context within seconds via WebSocket. Changes made via Jarvis chat update the UI in real-time."
+      },
+      "layer_3_learned_behavior": {
+        "name": "Learned Behavior",
+        "description": "Over time, Jarvis learns client patterns. If a client consistently rejects auto-approved refunds above $200, Jarvis will start putting those in shadow mode proactively, even if the risk score is low.",
+        "mechanism": "Jarvis tracks approval/rejection patterns per action category and adjusts its behavior. This layer does NOT override Layer 2 (client preferences) or Layer 4 (hard safety floor).",
+        "examples": [
+          "Client rejects 5 out of 5 auto-approved refunds > $200 → Jarvis learns to shadow those",
+          "Client always approves low-risk order status replies → Jarvis auto-executes those confidently"
+        ]
+      },
+      "layer_4_hard_safety_floor": {
+        "name": "Hard Safety Floor",
+        "description": "Certain actions ALWAYS require human approval, regardless of mode, client preference, or Jarvis confidence. This layer cannot be overridden by anyone — not even Jarvis, not even the client, not even in Graduated mode.",
+        "actions": [
+          "Account deletion (any account)",
+          "Bulk data export (more than 100 records)",
+          "Permanent data removal / hard delete",
+          "Payment or refund above configurable threshold",
+          "API key creation or revocation",
+          "Integration connection or disconnection",
+          "Subscription plan changes (upgrade/downgrade/cancel)",
+          "Any action affecting multiple customers simultaneously"
+        ],
+        "rule": "These actions go directly to the approvals queue in shadow mode, regardless of the current system mode."
+      }
+    },
+    "dual_control": {
+      "concept": "Clients can control shadow mode two ways: (1) Dashboard Settings UI page, (2) Talking to Jarvis in chat. Both methods are equally important — neither is secondary.",
+      "how_it_works": "Both UI and Jarvis write to the same shadow_preferences database table. When one interface makes a change, the other is notified via WebSocket and updates in real-time.",
+      "jarvis_commands": [
+        "put [action type] in shadow mode",
+        "put [action type] in supervised mode",
+        "put [action type] in graduated mode",
+        "show me pending approvals",
+        "approve the last [action type]",
+        "reject the last [action type]",
+        "always ask me before [action type]",
+        "switch to [shadow/supervised/graduated] mode",
+        "undo the last [action type]",
+        "what is my current shadow mode?",
+        "why was this action put in shadow mode?",
+        "show me the undo queue"
+      ]
+    },
+    "undo_system": {
+      "description": "In Supervised and Graduated modes, auto-approved actions have an undo window. Clients can undo recent actions within this window.",
+      "how_it_works": "When Jarvis auto-executes an action, it is logged in the undo_log table with a timestamp. The client has a configurable time window (default: 30 minutes) to undo it. The undo reverses the action if possible, or flags it for manual review.",
+      "ui_access": "Dashboard shows a list of recent auto-approved actions with 'Undo' buttons and countdown timers.",
+      "jarvis_access": "Client can say 'undo the last refund' or 'undo action #123' in chat.",
+      "limitations": "Some actions cannot be undone after execution (e.g., SMS already sent, email already delivered). These show a warning before auto-approval."
+    },
+    "dashboard_ui_components": {
+      "mode_badge": "Small colored badge in dashboard header showing current global mode. Orange = Shadow, Yellow = Supervised, Green = Graduated. Clicking opens mode selector or links to settings.",
+      "approvals_queue": "Page at /dashboard/approvals listing all pending shadow actions. Each item shows: action type, AI recommendation, risk score, timestamp. Manager can Approve/Reject/Modify/View Details. Batch approve available.",
+      "undo_interface": "Shows recent auto-approved actions still within undo window. Each has Undo button with countdown timer.",
+      "shadow_log": "Audit trail at /dashboard/shadow-log. Full history of all shadow mode actions. Filterable by date, type, mode, outcome. Export to CSV available.",
+      "settings_panel": "Per-action-category mode configuration. Syncs with Jarvis. Set default mode for each action type.",
+      "what_if_simulator": "Preview what mode Jarvis would assign to a hypothetical action. Enter action details → see predicted risk score and mode."
+    },
+    "database_tables": {
+      "shadow_log": "Records every action that went through shadow mode. Fields: id, company_id, action_type, action_payload (JSONB), jarvis_risk_score, mode, manager_decision, manager_note, resolved_at, created_at.",
+      "undo_log": "Records actions that were auto-approved but then undone. Fields: id, shadow_log_id, company_id, original_action (JSONB), undo_reason, undo_window_used, created_at.",
+      "shadow_preferences": "Client-set preferences synced between UI and Jarvis. Fields: id, company_id, action_category, preferred_mode, set_via (ui/jarvis), updated_at. Unique on (company_id, action_category)."
+    },
+    "api_endpoints": {
+      "GET": [
+        "/api/shadow/preferences — Get client shadow mode preferences",
+        "/api/shadow/log — Get shadow log / audit trail (paginated, filterable)",
+        "/api/shadow/pending — Get pending approvals count and list"
+      ],
+      "POST": [
+        "/api/shadow/evaluate — Jarvis evaluates an action's risk score",
+        "/api/shadow/approve/:id — Manager approves a shadow action",
+        "/api/shadow/reject/:id — Manager rejects a shadow action",
+        "/api/shadow/undo/:id — Undo an auto-approved action"
+      ],
+      "PATCH": [
+        "/api/shadow/preferences — Update preferences (from UI or Jarvis)"
+      ]
+    },
+    "migration_notes": [
+      "shadow_preferences table needs to be created before dual control works",
+      "undo_log table references shadow_log, so shadow_log must exist first",
+      "shadow_preferences.set_via field tracks whether change came from 'ui' or 'jarvis'",
+      "Risk score threshold (0.7 for forced shadow, 0.3 for auto-execute) should be configurable per company",
+      "Undo window duration should be configurable per company (default 30 minutes)"
+    ]
+  }
+}

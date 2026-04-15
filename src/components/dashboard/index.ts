@@ -47,3 +47,22 @@ export { default as ActiveAgentsSummary } from './ActiveAgentsSummary';
 export { default as FirstVictoryBanner } from './FirstVictoryBanner';
 export { default as RecentApprovals } from './RecentApprovals';
 export { default as SavingsCounter } from './SavingsCounter';
+
+// Day 3 — Tickets Page
+export {
+  TicketList,
+  TicketDetail,
+  TicketRow,
+  TicketSearch,
+  TicketFiltersBar,
+  TicketQuickView,
+  BulkActions,
+  ConversationView,
+  TicketMetadata,
+  ConfidenceBar,
+  GSDStateIndicator,
+  CustomerInfoCard,
+  InternalNotes,
+  TimelineView,
+  ReplyBox,
+} from './tickets';

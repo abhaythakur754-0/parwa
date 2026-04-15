@@ -769,9 +769,7 @@ export class JarvisAIEngine {
       return "I appreciate the question, but I'm not able to provide legal advice. For legal matters, I'd recommend consulting with a qualified attorney.\n\nWhat I *can* help with is showing you how PARWA's AI can streamline your customer support operations. Would you like to explore that?";
     }
     if (type === 'professional') {
-      return "I'm not able to provide professional advice — that should always come from a qualified professional.
-
-What I *can* help with is showing you how PARWA's AI can streamline your customer support operations. Would you like to explore that?";
+      return "I'm not able to provide professional advice — that should always come from a qualified professional.\n\nWhat I *can* help with is showing you how PARWA's AI can streamline your customer support operations. Would you like to explore that?";
     }
     return "That's outside my area of expertise, but I'd love to help you with anything related to PARWA's AI customer support platform! What would you like to know?";
   }
@@ -820,6 +818,8 @@ What I *can* help with is showing you how PARWA's AI can streamline your custome
   private formatIndustry(ind: string): string {
     const map: Record<string, string> = {
       ecommerce: 'E-commerce', e_commerce: 'E-commerce',
+      saas: 'SaaS', logistics: 'Logistics', others: 'Other',
+    };
     return map[ind] || ind.charAt(0).toUpperCase() + ind.slice(1);
   }
 
