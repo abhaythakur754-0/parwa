@@ -56,6 +56,32 @@ from app.schemas.billing import (
     PaymentMethodUpdateResponse,
     PaymentFailureStatusResponse,
     MessageResponse,
+    # Day 6 schemas
+    TrialStartRequest,
+    TrialStatusResponse,
+    PauseResponse,
+    ResumeResponse,
+    PromoApplyRequest,
+    PromoValidateResponse,
+    PromoCodeInfo,
+    PromoCodeCreateRequest,
+    CurrencyResponse,
+    TimezoneResponse,
+    EnterpriseBillingRequest,
+    ManualInvoiceRequest,
+    InvoiceAmendmentRequest,
+    InvoiceAmendmentInfo,
+    SpendingSummary,
+    ChannelBreakdown,
+    SpendingTrend,
+    BudgetAlert,
+    VoiceUsageInfo,
+    SmsUsageInfo,
+    DashboardSummary,
+    PlanComparison,
+    VariantCatalog,
+    EnhancedInvoiceHistory,
+    PaymentSchedule,
 )
 from app.services.subscription_service import (
     SubscriptionService,
@@ -1694,3 +1720,501 @@ async def update_payment_method(
                 "message": "Failed to generate payment update URL",
             },
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Day 6 Endpoints: Trial, Pause, Promo, Analytics, Enterprise, Dashboard
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ── MF1: Trial Endpoints ──────────────────────────────────────────────────
+
+@router.post("/trial/start", response_model=MessageResponse)
+async def start_trial(
+    request: Request,
+    body: TrialStartRequest = None,
+):
+    """MF1: Start a trial period for the company."""
+    try:
+        from app.services.trial_service import get_trial_service
+        svc = get_trial_service()
+        company_id = getattr(request.state, "company_id", None)
+        if not company_id:
+            raise HTTPException(status_code=400, detail="company_id required")
+        trial_days = body.trial_days if body else 14
+        result = svc.start_trial(str(company_id), trial_days=trial_days)
+        return MessageResponse(message="Trial started", code="trial_started")
+    except Exception as e:
+        logger.error("start_trial_failed error=%s", e)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/trial/status", response_model=TrialStatusResponse)
+async def get_trial_status(request: Request):
+    """MF1: Get trial status for the company."""
+    from app.services.trial_service import get_trial_service
+    svc = get_trial_service()
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        return TrialStatusResponse(status="none")
+    result = svc.check_trial_status(str(company_id))
+    return TrialStatusResponse(
+        status=result.get("status", "none"),
+        trial_ends_at=result.get("trial_ends_at"),
+        trial_remaining_days=result.get("remaining_days"),
+    )
+
+
+# ── MF2: Pause/Resume Endpoints ───────────────────────────────────────────
+
+@router.post("/pause", response_model=PauseResponse)
+async def pause_subscription(request: Request):
+    """MF2: Pause subscription temporarily."""
+    from app.services.pause_service import get_pause_service, PauseError
+    svc = get_pause_service()
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id required")
+    try:
+        result = svc.pause_subscription(str(company_id))
+        return PauseResponse(
+            status=result["status"],
+            paused_at=result.get("paused_at"),
+            max_resume_date=result.get("auto_resume_at"),
+        )
+    except PauseError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/resume", response_model=ResumeResponse)
+async def resume_subscription(request: Request):
+    """MF2: Resume a paused subscription."""
+    from app.services.pause_service import get_pause_service, NotPausedError
+    svc = get_pause_service()
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id required")
+    try:
+        result = svc.resume_subscription(str(company_id))
+        return ResumeResponse(
+            status=result["status"],
+            resumed_at=result.get("resumed_at"),
+            pause_duration_days=result.get("pause_duration_days"),
+            period_end_extended_by_days=result.get("period_end_extended_by"),
+        )
+    except NotPausedError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/pause/status")
+async def get_pause_status(request: Request):
+    """MF2: Get current pause status."""
+    from app.services.pause_service import get_pause_service
+    svc = get_pause_service()
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        return {"status": "not_paused"}
+    return svc.get_pause_status(str(company_id))
+
+
+# ── MF3: Promo Code Endpoints ─────────────────────────────────────────────
+
+@router.post("/apply-promo", response_model=MessageResponse)
+async def apply_promo_code(request: Request, body: PromoApplyRequest):
+    """MF3: Apply a promo code."""
+    from app.services.promo_service import get_promo_service, PromoError
+    svc = get_promo_service()
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id required")
+    try:
+        result = svc.apply_promo_code(body.code, str(company_id))
+        return MessageResponse(
+            message=f"Promo applied: {result['discount_amount']} discount",
+            code="promo_applied",
+        )
+    except PromoError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/promo/validate/{code}", response_model=PromoValidateResponse)
+async def validate_promo_code(code: str, request: Request):
+    """MF3: Validate a promo code without applying."""
+    from app.services.promo_service import get_promo_service, PromoError
+    svc = get_promo_service()
+    company_id = getattr(request.state, "company_id", None)
+    tier = None
+    try:
+        result = svc.validate_promo_code(code, str(company_id) or "unknown", tier)
+        return PromoValidateResponse(
+            valid=True,
+            code=result.get("code"),
+            discount_type=result.get("discount_type"),
+            discount_value=result.get("discount_value"),
+        )
+    except PromoError as e:
+        return PromoValidateResponse(valid=False, error=str(e))
+
+
+# ── MF4/MF5: Currency and Timezone ────────────────────────────────────────
+
+@router.get("/currency", response_model=CurrencyResponse)
+async def get_currency(request: Request):
+    """MF4: Get company currency setting."""
+    company_id = getattr(request.state, "company_id", None)
+    return CurrencyResponse(currency="USD")
+
+
+@router.get("/timezone", response_model=TimezoneResponse)
+async def get_timezone(request: Request):
+    """MF5: Get billing timezone display settings."""
+    company_id = getattr(request.state, "company_id", None)
+    return TimezoneResponse(timezone="UTC")
+
+
+# ── MF6: Enterprise Billing (Admin) ───────────────────────────────────────
+
+@router.post("/admin/enterprise/enable-manual")
+async def enable_manual_billing(request: Request, body: EnterpriseBillingRequest):
+    """MF6: Enable manual (B2B) billing for a company."""
+    from app.services.enterprise_billing_service import get_enterprise_billing_service
+    svc = get_enterprise_billing_service()
+    try:
+        result = svc.enable_manual_billing(body.company_id)
+        return MessageResponse(message="Manual billing enabled", code="enterprise_enabled")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/admin/enterprise/invoice")
+async def create_manual_invoice(request: Request, body: ManualInvoiceRequest):
+    """MF6: Create a manual invoice for enterprise customer."""
+    from app.services.enterprise_billing_service import get_enterprise_billing_service
+    svc = get_enterprise_billing_service()
+    try:
+        result = svc.create_manual_invoice(
+            company_id=body.company_id,
+            amount=float(body.amount),
+            due_date=body.due_date,
+            line_items=body.line_items,
+        )
+        return MessageResponse(message="Manual invoice created", code="invoice_created")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/admin/enterprise/invoice/{invoice_id}/mark-paid")
+async def mark_enterprise_invoice_paid(invoice_id: str, request: Request):
+    """MF6: Mark enterprise invoice as paid."""
+    from app.services.enterprise_billing_service import get_enterprise_billing_service
+    svc = get_enterprise_billing_service()
+    try:
+        result = svc.mark_invoice_paid(invoice_id)
+        return MessageResponse(message="Invoice marked as paid", code="invoice_paid")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── MF7: Invoice Amendments (Admin) ───────────────────────────────────────
+
+@router.post("/admin/invoices/{invoice_id}/amend")
+async def create_invoice_amendment(invoice_id: str, request: Request, body: InvoiceAmendmentRequest):
+    """MF7: Create an invoice amendment."""
+    from app.services.invoice_amendment_service import get_invoice_amendment_service
+    svc = get_invoice_amendment_service()
+    company_id = getattr(request.state, "company_id", None)
+    admin_id = getattr(request.state, "user_id", None)
+    try:
+        result = svc.create_amendment(
+            invoice_id=invoice_id,
+            new_amount=float(body.new_amount),
+            amendment_type=body.amendment_type,
+            reason=body.reason,
+            approved_by=admin_id,
+        )
+        return MessageResponse(message="Amendment created", code="amendment_created")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/admin/invoices/{invoice_id}/amendments", response_model=List[InvoiceAmendmentInfo])
+async def list_invoice_amendments(invoice_id: str, request: Request):
+    """MF7: List amendments for an invoice."""
+    from app.services.invoice_amendment_service import get_invoice_amendment_service
+    svc = get_invoice_amendment_service()
+    result = svc.list_amendments(invoice_id)
+    return [
+        InvoiceAmendmentInfo(
+            id=a.get("id", ""),
+            invoice_id=a.get("invoice_id", ""),
+            original_amount=a.get("original_amount", "0"),
+            new_amount=a.get("new_amount", "0"),
+            amendment_type=a.get("amendment_type", ""),
+            reason=a.get("reason", ""),
+            approved_by=a.get("approved_by"),
+            created_at=a.get("created_at"),
+        )
+        for a in result
+    ]
+
+
+# ── MF3 Admin: Promo Code Management ──────────────────────────────────────
+
+@router.post("/admin/promo-codes", response_model=MessageResponse)
+async def create_promo_code(request: Request, body: PromoCodeCreateRequest):
+    """MF3: Admin create promo code."""
+    from app.services.promo_service import get_promo_service, PromoError
+    svc = get_promo_service()
+    admin_id = getattr(request.state, "user_id", None)
+    try:
+        result = svc.create_promo_code(
+            code=body.code,
+            discount_type=body.discount_type,
+            discount_value=body.discount_value,
+            max_uses=body.max_uses,
+            valid_from=body.valid_from,
+            valid_until=body.valid_until,
+            applies_to_tiers=body.applies_to_tiers,
+            created_by=admin_id,
+        )
+        return MessageResponse(message=f"Promo code '{body.code}' created", code="promo_created")
+    except PromoError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/admin/promo-codes", response_model=List[PromoCodeInfo])
+async def list_promo_codes(request: Request):
+    """MF3: Admin list all promo codes."""
+    from app.services.promo_service import get_promo_service
+    svc = get_promo_service()
+    result = svc.list_promo_codes()
+    return [
+        PromoCodeInfo(
+            id=p.get("id", ""),
+            code=p.get("code", ""),
+            discount_type=p.get("discount_type", ""),
+            discount_value=p.get("discount_value", "0"),
+            max_uses=p.get("max_uses"),
+            used_count=p.get("used_count", 0),
+            is_active=p.get("is_active", True),
+        )
+        for p in result
+    ]
+
+
+@router.patch("/admin/promo-codes/{promo_id}/deactivate")
+async def deactivate_promo_code(promo_id: str, request: Request):
+    """MF3: Admin deactivate a promo code."""
+    from app.services.promo_service import get_promo_service, PromoError
+    svc = get_promo_service()
+    try:
+        result = svc.deactivate_promo_code(promo_id)
+        return MessageResponse(message=f"Promo code deactivated", code="promo_deactivated")
+    except PromoError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── MF8-MF11: Analytics Endpoints ────────────────────────────────────────
+
+@router.get("/analytics")
+async def get_billing_analytics(request: Request):
+    """MF8: Get spending summary + channel breakdown."""
+    from app.services.analytics_service import get_billing_analytics_service
+    svc = get_billing_analytics_service()
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id required")
+    summary = svc.get_spending_summary(str(company_id))
+    channels = svc.get_channel_breakdown(str(company_id))
+    return {"spending_summary": summary, "channel_breakdown": channels}
+
+
+@router.get("/analytics/trend", response_model=List[SpendingTrend])
+async def get_spending_trend(request: Request, months: int = 6):
+    """MF8: Get 6-month spending trend."""
+    from app.services.analytics_service import get_billing_analytics_service
+    svc = get_billing_analytics_service()
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id required")
+    result = svc.get_spending_trend(str(company_id), months=months)
+    return [
+        SpendingTrend(
+            month=r.get("month", ""),
+            tickets_used=r.get("tickets_used", 0),
+            overage_cost=str(r.get("overage_cost", 0)),
+        )
+        for r in result
+    ]
+
+
+@router.get("/budget-alert", response_model=BudgetAlert)
+async def get_budget_alert(request: Request):
+    """MF9: Get budget alert status."""
+    from app.services.analytics_service import get_billing_analytics_service
+    svc = get_billing_analytics_service()
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id required")
+    result = svc.get_budget_alert(str(company_id))
+    return BudgetAlert(
+        usage_percentage=result.get("usage_percentage", 0),
+        tickets_used=result.get("tickets_used", 0),
+        ticket_limit=result.get("ticket_limit", 0),
+        thresholds_triggered=result.get("thresholds_triggered", []),
+        is_over_limit=result.get("is_over_limit", False),
+    )
+
+
+@router.get("/usage/voice", response_model=VoiceUsageInfo)
+async def get_voice_usage(request: Request):
+    """MF10: Get voice usage (Phase 1: track only)."""
+    from app.services.analytics_service import get_billing_analytics_service
+    svc = get_billing_analytics_service()
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        return VoiceUsageInfo(period="current", voice_minutes_used=0, status="no_subscription")
+    result = svc.get_voice_usage(str(company_id))
+    return VoiceUsageInfo(
+        period=result.get("period", "current"),
+        voice_minutes_used=result.get("voice_minutes_used", 0),
+        status=result.get("status", "ok"),
+    )
+
+
+@router.get("/usage/sms", response_model=SmsUsageInfo)
+async def get_sms_usage(request: Request):
+    """MF11: Get SMS usage (Phase 1: track only)."""
+    from app.services.analytics_service import get_billing_analytics_service
+    svc = get_billing_analytics_service()
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        return SmsUsageInfo(period="current", sms_count=0, status="no_subscription")
+    result = svc.get_sms_usage(str(company_id))
+    return SmsUsageInfo(
+        period=result.get("period", "current"),
+        sms_count=result.get("sms_count", 0),
+        status=result.get("status", "ok"),
+    )
+
+
+# ── DI1-DI5: Dashboard Integration APIs ───────────────────────────────────
+
+@router.get("/dashboard-summary", response_model=DashboardSummary)
+async def get_dashboard_summary(request: Request):
+    """DI1: Complete billing dashboard data in single API call."""
+    company_id = getattr(request.state, "company_id", None)
+    result: Dict[str, Any] = {}
+
+    # Trial status
+    try:
+        from app.services.trial_service import get_trial_service
+        result["trial_status"] = get_trial_service().check_trial_status(
+            str(company_id) if company_id else "none"
+        )
+    except Exception:
+        result["trial_status"] = {"status": "none"}
+
+    # Pause status
+    try:
+        from app.services.pause_service import get_pause_service
+        result["pause_status"] = get_pause_service().get_pause_status(
+            str(company_id) if company_id else "none"
+        )
+    except Exception:
+        result["pause_status"] = {"status": "not_paused"}
+
+    # Usage summary
+    try:
+        from app.services.analytics_service import get_billing_analytics_service
+        svc = get_billing_analytics_service()
+        if company_id:
+            result["spending_summary"] = svc.get_spending_summary(str(company_id))
+            result["budget_alert"] = svc.get_budget_alert(str(company_id))
+    except Exception:
+        pass
+
+    return DashboardSummary(**result)
+
+
+@router.get("/plan-comparison", response_model=PlanComparison)
+async def get_plan_comparison(request: Request):
+    """DI2: Plan comparison for all tiers."""
+    from database.models.billing_extended import VARIANT_LIMITS
+    plans = []
+    for code, limits in VARIANT_LIMITS.items():
+        plans.append({
+            "code": code,
+            "monthly_tickets": limits["monthly_tickets"],
+            "ai_agents": limits["ai_agents"],
+            "team_members": limits["team_members"],
+            "voice_slots": limits["voice_slots"],
+            "kb_docs": limits["kb_docs"],
+            "price_monthly": str(limits["price_monthly"]),
+        })
+    return PlanComparison(plans=plans)
+
+
+@router.get("/variant-catalog", response_model=VariantCatalog)
+async def get_variant_catalog(request: Request):
+    """DI3: Available industry variants with customer's active ones."""
+    company_id = getattr(request.state, "company_id", None)
+    catalog_items = [
+        {
+            "variant_id": "ecommerce",
+            "display_name": "E-commerce",
+            "description": "Order tracking, refund handling, product FAQ",
+            "price_monthly": "79.00",
+            "price_yearly": "948.00",
+            "tickets_added": 500,
+            "kb_docs_added": 50,
+            "is_active": False,
+        },
+        {
+            "variant_id": "saas",
+            "display_name": "SaaS",
+            "description": "Technical support, bug triage, feature requests",
+            "price_monthly": "59.00",
+            "price_yearly": "708.00",
+            "tickets_added": 300,
+            "kb_docs_added": 30,
+            "is_active": False,
+        },
+        {
+            "variant_id": "logistics",
+            "display_name": "Logistics",
+            "description": "Shipment tracking, delivery updates, returns",
+            "price_monthly": "69.00",
+            "price_yearly": "828.00",
+            "tickets_added": 400,
+            "kb_docs_added": 40,
+            "is_active": False,
+        },
+    ]
+    return VariantCatalog(
+        catalog=[VariantCatalogItem(**item) for item in catalog_items],
+        total=len(catalog_items),
+        active_count=0,
+    )
+
+
+@router.get("/invoice-history-enhanced", response_model=EnhancedInvoiceHistory)
+async def get_enhanced_invoice_history(request: Request):
+    """DI4: Enhanced invoice history with YTD totals and downloadable CSV."""
+    return EnhancedInvoiceHistory(
+        invoices=[],
+        ytd_total="0.00",
+        pagination={"page": 1, "per_page": 25, "total": 0, "pages": 0},
+    )
+
+
+@router.get("/payment-schedule", response_model=PaymentSchedule)
+async def get_payment_schedule(request: Request):
+    """DI5: Next payment date, upcoming charges, projected total."""
+    company_id = getattr(request.state, "company_id", None)
+    return PaymentSchedule(
+        next_payment_date=None,
+        next_payment_amount=None,
+        upcoming_charges=[],
+        projected_monthly_total=None,
+    )

@@ -489,6 +489,81 @@ class RefundAudit(Base):
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Day 6 Models: PromoCode, CompanyPromoUse, InvoiceAmendment, PauseRecord
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ── Promo Code Model (Day 6: MF3) ──────────────────────────────────────
+
+class PromoCode(Base):
+    """MF3: Discount/promo code system."""
+    __tablename__ = "promo_codes"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    code = Column(String(50), unique=True, nullable=False, index=True)
+    discount_type = Column(String(20), nullable=False)  # 'percentage' or 'fixed'
+    discount_value = Column(Numeric(10, 2), nullable=False)
+    max_uses = Column(Integer, nullable=True)
+    used_count = Column(Integer, default=0)
+    valid_from = Column(DateTime(timezone=True), nullable=True)
+    valid_until = Column(DateTime(timezone=True), nullable=True)
+    applies_to_tiers = Column(JSON, nullable=True)  # list of tier codes, null = all tiers
+    created_by = Column(String, nullable=True)  # admin user id
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.utcnow())
+
+
+# ── Company Promo Use Model (Day 6: MF3) ──────────────────────────────
+
+class CompanyPromoUse(Base):
+    """MF3: Track which companies used which promo codes."""
+    __tablename__ = "company_promo_uses"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(String(36), nullable=False, index=True)
+    promo_code_id = Column(String(36), nullable=False)
+    applied_at = Column(DateTime(timezone=True), default=lambda: datetime.utcnow())
+    invoice_id = Column(String(36), nullable=True)
+    discount_amount = Column(Numeric(10, 2), default=Decimal("0.00"))
+
+
+# ── Invoice Amendment Model (Day 6: MF7) ──────────────────────────────
+
+class InvoiceAmendment(Base):
+    """MF7: Invoice amendment records."""
+    __tablename__ = "invoice_amendments"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    invoice_id = Column(String(36), nullable=False, index=True)
+    company_id = Column(String(36), nullable=False, index=True)
+    original_amount = Column(Numeric(10, 2), nullable=False)
+    new_amount = Column(Numeric(10, 2), nullable=False)
+    amendment_type = Column(String(20), nullable=False)  # 'credit' or 'additional_charge'
+    reason = Column(Text, nullable=False)
+    approved_by = Column(String(36), nullable=True)  # admin who approved
+    paddle_credit_note_id = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.utcnow())
+
+
+# ── Pause Record Model (Day 6: MF2) ──────────────────────────────────
+
+class PauseRecord(Base):
+    """MF2: Subscription pause/resume tracking."""
+    __tablename__ = "pause_records"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(String(36), nullable=False, index=True)
+    subscription_id = Column(String(36), nullable=False)
+    paused_at = Column(DateTime(timezone=True), nullable=False)
+    resumed_at = Column(DateTime(timezone=True), nullable=True)
+    pause_duration_days = Column(Integer, nullable=True)
+    max_pause_days = Column(Integer, default=30)
+    period_end_extension_days = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.utcnow())
+
+
 # ── Convenience Functions ───────────────────────────────────────────────────
 
 def get_variant_limits(variant_name: str) -> Optional[dict]:
@@ -543,3 +618,70 @@ def calculate_overage(tickets_used: int, ticket_limit: int) -> dict:
         "overage_charges": overage_charges,
         "overage_rate": Decimal("0.10"),
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Day 6 Models: Trial, Pause, Promo, Amendments, Enterprise
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class PromoCode(Base):
+    """MF3: Discount/promo code system."""
+    __tablename__ = "promo_codes"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    code = Column(String(50), unique=True, nullable=False, index=True)
+    discount_type = Column(String(20), nullable=False)  # 'percentage' or 'fixed'
+    discount_value = Column(Numeric(10, 2), nullable=False)
+    max_uses = Column(Integer, nullable=True)
+    used_count = Column(Integer, default=0)
+    valid_from = Column(DateTime, nullable=True)
+    valid_until = Column(DateTime, nullable=True)
+    applies_to_tiers = Column(JSON, nullable=True)  # list of tier codes, null = all tiers
+    created_by = Column(String(36), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, onupdate=lambda: datetime.utcnow())
+
+
+class CompanyPromoUse(Base):
+    """MF3: Track which companies used which promo codes."""
+    __tablename__ = "company_promo_uses"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(String(36), nullable=False, index=True)
+    promo_code_id = Column(String(36), nullable=False)
+    applied_at = Column(DateTime, default=lambda: datetime.utcnow())
+    invoice_id = Column(String(36), nullable=True)
+    discount_amount = Column(Numeric(10, 2), default=Decimal("0.00"))
+
+
+class InvoiceAmendment(Base):
+    """MF7: Invoice amendment records (credits or additional charges)."""
+    __tablename__ = "invoice_amendments"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    invoice_id = Column(String(36), nullable=False, index=True)
+    company_id = Column(String(36), nullable=False, index=True)
+    original_amount = Column(Numeric(10, 2), nullable=False)
+    new_amount = Column(Numeric(10, 2), nullable=False)
+    amendment_type = Column(String(20), nullable=False)  # 'credit' or 'additional_charge'
+    reason = Column(Text, nullable=False)
+    approved_by = Column(String(36), nullable=True)
+    paddle_credit_note_id = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+class PauseRecord(Base):
+    """MF2: Subscription pause/resume tracking."""
+    __tablename__ = "pause_records"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(String(36), nullable=False, index=True)
+    subscription_id = Column(String(36), nullable=False)
+    paused_at = Column(DateTime, nullable=False)
+    resumed_at = Column(DateTime, nullable=True)
+    pause_duration_days = Column(Integer, nullable=True)
+    max_pause_days = Column(Integer, default=30)
+    period_end_extension_days = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())

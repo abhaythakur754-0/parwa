@@ -589,3 +589,231 @@ class MessageResponse(BaseModel):
     """Generic message response."""
     message: str
     code: Optional[str] = None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Day 6 Schemas: Trial, Pause, Promo, Analytics, Amendments, Enterprise,
+#                Dashboard (DI1-DI5)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ── MF1: Trial Schemas ────────────────────────────────────────────────────
+
+class TrialStartRequest(BaseModel):
+    """MF1: Request to start a trial."""
+    trial_days: int = Field(default=14, ge=1, le=60)
+
+
+class TrialStatusResponse(BaseModel):
+    """MF1: Trial status response."""
+    status: str  # none, not_started, active, expired
+    trial_ends_at: Optional[str] = None
+    trial_remaining_days: Optional[int] = None
+
+
+# ── MF2: Pause/Resume Schemas ─────────────────────────────────────────────
+
+class PauseResponse(BaseModel):
+    """MF2: Pause response."""
+    status: str
+    paused_at: Optional[str] = None
+    max_resume_date: Optional[str] = None
+
+
+class ResumeResponse(BaseModel):
+    """MF2: Resume response."""
+    status: str
+    resumed_at: Optional[str] = None
+    pause_duration_days: Optional[int] = None
+    period_end_extended_by_days: Optional[int] = None
+
+
+# ── MF3: Promo Code Schemas ───────────────────────────────────────────────
+
+class PromoApplyRequest(BaseModel):
+    """MF3: Request to apply a promo code."""
+    code: str
+    tier: Optional[str] = None
+
+
+class PromoValidateResponse(BaseModel):
+    """MF3: Promo code validation response."""
+    valid: bool
+    code: Optional[str] = None
+    discount_type: Optional[str] = None
+    discount_value: Optional[str] = None
+    error: Optional[str] = None
+
+
+class PromoCodeInfo(BaseModel):
+    """MF3: Promo code info for admin list."""
+    id: str
+    code: str
+    discount_type: str
+    discount_value: str
+    max_uses: Optional[int] = None
+    used_count: int = 0
+    is_active: bool = True
+
+
+class PromoCodeCreateRequest(BaseModel):
+    """MF3: Admin create promo code."""
+    code: str
+    discount_type: str = Field(..., pattern="^(percentage|fixed)$")
+    discount_value: Decimal = Field(..., gt=0)
+    max_uses: Optional[int] = None
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+    applies_to_tiers: Optional[List[str]] = None
+
+
+# ── MF4: Currency Schemas ─────────────────────────────────────────────────
+
+class CurrencyResponse(BaseModel):
+    """MF4: Company currency response."""
+    currency: str = "USD"
+
+
+# ── MF5: Timezone Schemas ─────────────────────────────────────────────────
+
+class TimezoneResponse(BaseModel):
+    """MF5: Billing timezone display settings."""
+    timezone: str = "UTC"
+
+
+# ── MF6: Enterprise Billing Schemas ───────────────────────────────────────
+
+class EnterpriseBillingRequest(BaseModel):
+    """MF6: Enable manual billing request."""
+    company_id: str
+
+
+class ManualInvoiceRequest(BaseModel):
+    """MF6: Create manual invoice request."""
+    company_id: str
+    amount: Decimal = Field(..., gt=0)
+    due_date: Optional[datetime] = None
+    line_items: Optional[List[Dict[str, Any]]] = None
+
+
+# ── MF7: Invoice Amendment Schemas ────────────────────────────────────────
+
+class InvoiceAmendmentRequest(BaseModel):
+    """MF7: Create amendment request."""
+    new_amount: Decimal = Field(..., ge=0)
+    amendment_type: str = Field(..., pattern="^(credit|additional_charge)$")
+    reason: str
+
+
+class InvoiceAmendmentInfo(BaseModel):
+    """MF7: Invoice amendment info."""
+    id: str
+    invoice_id: str
+    original_amount: str
+    new_amount: str
+    amendment_type: str
+    reason: str
+    approved_by: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+# ── MF8-MF11: Analytics Schemas ───────────────────────────────────────────
+
+class SpendingSummary(BaseModel):
+    """MF8: Spending summary."""
+    month: str
+    base_plan: str
+    overage_cost: str
+    variant_costs: str
+    total_spend: str
+    projected_next_month: str
+
+
+class ChannelBreakdown(BaseModel):
+    """MF8: Channel breakdown."""
+    month: str
+    channels: Dict[str, Any]
+
+
+class SpendingTrend(BaseModel):
+    """MF8: Monthly spending trend item."""
+    month: str
+    tickets_used: int
+    overage_cost: str
+
+
+class BudgetAlert(BaseModel):
+    """MF9: Budget alert status."""
+    usage_percentage: float
+    tickets_used: int
+    ticket_limit: int
+    thresholds_triggered: List[int]
+    is_over_limit: bool
+
+
+class VoiceUsageInfo(BaseModel):
+    """MF10: Voice usage info."""
+    period: str
+    voice_minutes_used: float
+    status: str
+
+
+class SmsUsageInfo(BaseModel):
+    """MF11: SMS usage info."""
+    period: str
+    sms_count: int
+    status: str
+
+
+# ── DI1-DI5: Dashboard Schemas ─────────────────────────────────────────────
+
+class DashboardSummary(BaseModel):
+    """DI1: Complete billing dashboard data."""
+    subscription_status: Optional[str] = None
+    current_plan: Optional[str] = None
+    billing_frequency: Optional[str] = None
+    current_period_end: Optional[str] = None
+    usage_summary: Optional[Dict[str, Any]] = None
+    spending_summary: Optional[Dict[str, Any]] = None
+    budget_alert: Optional[Dict[str, Any]] = None
+    trial_status: Optional[Dict[str, Any]] = None
+    pause_status: Optional[Dict[str, Any]] = None
+
+
+class PlanComparison(BaseModel):
+    """DI2: Plan comparison for all tiers."""
+    plans: List[Dict[str, Any]]
+
+
+class VariantCatalogItem(BaseModel):
+    """DI3: Variant catalog item."""
+    variant_id: str
+    display_name: str
+    description: Optional[str] = None
+    price_monthly: str
+    price_yearly: str
+    tickets_added: int
+    kb_docs_added: int
+    is_active: bool
+
+
+class VariantCatalog(BaseModel):
+    """DI3: Variant catalog response."""
+    catalog: List[VariantCatalogItem]
+    total: int
+    active_count: int
+
+
+class EnhancedInvoiceHistory(BaseModel):
+    """DI4: Enhanced invoice history with YTD totals."""
+    invoices: List[Dict[str, Any]]
+    ytd_total: str
+    pagination: Dict[str, Any]
+
+
+class PaymentSchedule(BaseModel):
+    """DI5: Payment schedule info."""
+    next_payment_date: Optional[str] = None
+    next_payment_amount: Optional[str] = None
+    upcoming_charges: List[Dict[str, Any]]
+    projected_monthly_total: Optional[str] = None

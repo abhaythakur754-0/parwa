@@ -72,6 +72,16 @@ class Subscription(Base):
     # C1: save_offer_accepted — whether the 20% save offer was accepted
     save_offer_accepted = Column(Boolean, default=False)
 
+    # ── Day 6 additions ─────────────────────────────────────────────
+    # MF1: trial_days — number of trial days (0 = no trial)
+    trial_days = Column(Integer, default=0)
+
+    # MF1: trial_started_at — when trial period started
+    trial_started_at = Column(DateTime(timezone=True), nullable=True)
+
+    # MF1: trial_ends_at — when trial period ends
+    trial_ends_at = Column(DateTime(timezone=True), nullable=True)
+
 
 class Invoice(Base):
     __tablename__ = "invoices"

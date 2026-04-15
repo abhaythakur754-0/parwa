@@ -154,6 +154,9 @@ _MockSubscription = type("Subscription", (object,), {
     "pending_downgrade_at": _AttrChainer(),
     "downgrade_executed_at": None,
     "previous_tier": None,
+    "trial_days": 0,
+    "trial_started_at": _AttrChainer(),
+    "trial_ends_at": _AttrChainer(),
     "days_in_period": 30,
     "metadata_json": None,
     "created_at": _AttrChainer(),
@@ -361,6 +364,55 @@ for _name, _cls in [
     ("IdempotencyKey", _MockIdempotencyKey),
     ("VariantLimit", _MockVariantLimit),
     ("PaymentFailure", _MockPaymentFailure),
+]:
+    setattr(_fake_billing_extended, _name, _cls)
+
+# Day 6: Add new mock models + Subscription alias for convenience
+# (Subscription lives in billing, but some code imports from billing_extended)
+_MockPromoCode = type("PromoCode", (object,), {
+    "__tablename__": "promo_codes",
+    "id": None, "code": None, "discount_type": None,
+    "discount_value": None, "max_uses": None, "used_count": 0,
+    "valid_from": None, "valid_until": None,
+    "applies_to_tiers": None, "created_by": None,
+    "is_active": True, "created_at": _AttrChainer(),
+    "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockCompanyPromoUse = type("CompanyPromoUse", (object,), {
+    "__tablename__": "company_promo_uses",
+    "id": None, "company_id": None, "promo_code_id": None,
+    "applied_at": _AttrChainer(), "invoice_id": None,
+    "discount_amount": None,
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockInvoiceAmendment = type("InvoiceAmendment", (object,), {
+    "__tablename__": "invoice_amendments",
+    "id": None, "invoice_id": None, "company_id": None,
+    "original_amount": None, "new_amount": None,
+    "amendment_type": None, "reason": None,
+    "approved_by": None, "paddle_credit_note_id": None,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+_MockPauseRecord = type("PauseRecord", (object,), {
+    "__tablename__": "pause_records",
+    "id": None, "company_id": None, "subscription_id": None,
+    "paused_at": _AttrChainer(), "resumed_at": _AttrChainer(),
+    "pause_duration_days": None, "max_pause_days": 30,
+    "period_end_extension_days": 0,
+    "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+
+for _name, _cls in [
+    ("PromoCode", _MockPromoCode),
+    ("CompanyPromoUse", _MockCompanyPromoUse),
+    ("InvoiceAmendment", _MockInvoiceAmendment),
+    ("PauseRecord", _MockPauseRecord),
 ]:
     setattr(_fake_billing_extended, _name, _cls)
 

@@ -863,3 +863,52 @@ def auto_retry_payments(self) -> dict:
             },
         )
         raise
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Day 6 Tasks: Trial, Pause automation
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@celery_app.task(base=ParwaBaseTask, name="billing.send_trial_reminders")
+def send_trial_reminders(self):
+    """MF1: Send trial expiration reminders."""
+    try:
+        from app.services.trial_service import get_trial_service
+        service = get_trial_service()
+        result = service.send_trial_reminders()
+        logger.info("trial_reminders_completed", extra={"task": self.name, "reminders_sent": result.get("reminders_sent", 0)})
+        return result
+    except Exception as exc:
+        logger.error("trial_reminders_failed", extra={"task": self.name, "error": str(exc)[:200]})
+        raise
+
+
+@celery_app.task(base=ParwaBaseTask, name="billing.process_expired_trials")
+def process_expired_trials(self):
+    """MF1: Auto-expire trials past trial_ends_at."""
+    try:
+        from app.services.trial_service import get_trial_service
+        service = get_trial_service()
+        result = service.process_expired_trials()
+        logger.info("expired_trials_processed", extra={"task": self.name, "expired_count": result.get("expired_count", 0)})
+        return result
+    except Exception as exc:
+        logger.error("expired_trials_failed", extra={"task": self.name, "error": str(exc)[:200]})
+        raise
+
+
+@celery_app.task(base=ParwaBaseTask, name="billing.process_max_pause_exceeded")
+def process_max_pause_exceeded(self):
+    """MF2: Auto-resume subscriptions that exceeded max pause duration (30 days)."""
+    try:
+        from app.services.pause_service import get_pause_service
+        service = get_pause_service()
+        result = service.process_max_pause_exceeded()
+        logger.info("max_pause_exceeded_processed", extra={"task": self.name, "auto_resumed": result.get("auto_resumed", 0)})
+        return result
+    except Exception as exc:
+        logger.error("max_pause_exceeded_failed", extra={"task": self.name, "error": str(exc)[:200]})
+        raise
+

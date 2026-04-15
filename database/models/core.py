@@ -40,6 +40,13 @@ class Company(Base):
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
 
+    # ── Day 6 additions ─────────────────────────────────────────────
+    # MF4: currency — company billing currency
+    currency = Column(String(3), default="USD")
+
+    # MF6: billing_method — 'paddle' (default) or 'manual' (enterprise)
+    billing_method = Column(String(20), default="paddle")
+
     users = relationship(
         "User", back_populates="company",
         cascade="all, delete-orphan",
