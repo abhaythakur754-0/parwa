@@ -31,6 +31,11 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 logger = logging.getLogger("parwa.smart_router")
 
 # LiteLLM — unified LLM API (BC-007)
+# TODO: LiteLLM is imported for potential future use but is NOT currently
+# the primary routing mechanism.  The Smart Router makes direct HTTP calls
+# to provider APIs (Google, Cerebras, Groq) via httpx.  When LiteLLM
+# is integrated as the primary call layer, replace execute_llm_call with
+# litellm.acompletion() for unified provider switching.
 try:
     import litellm
     _HAS_LITELLM = True

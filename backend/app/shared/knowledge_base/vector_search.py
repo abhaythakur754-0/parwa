@@ -6,14 +6,17 @@ rag_reranking.py, and the RAG API endpoints.
 
 Architecture:
   - VectorStore (ABC): Interface for vector search operations
-  - MockVectorStore: In-memory implementation for dev/testing
+  - InMemoryVectorStore: In-memory implementation for dev/testing (renamed from MockVectorStore)
   - PgVectorStore: PostgreSQL pgvector implementation (production)
   - get_vector_store(): Factory that returns the appropriate store
 
 BC-001: All operations scoped to company_id.
-BC-008: Graceful degradation — MockVectorStore as fallback.
+BC-008: Graceful degradation — InMemoryVectorStore as fallback.
 
 Parent: Day 4 (G1 fix — module was missing, causing ImportError)
+Security Audit Day 6 (I1): PgVectorStore now uses ``knowledge_base_vectors``
+table with native ``<=>`` cosine-distance SQL, accepts a connection string,
+and validates both pgvector extension and table existence.
 """
 
 from __future__ import annotations
@@ -125,11 +128,12 @@ class VectorStore(ABC):
 # ── MockVectorStore (dev/testing) ──────────────────────────────────
 
 
-class MockVectorStore(VectorStore):
+class InMemoryVectorStore(VectorStore):
     """In-memory vector store for development and testing.
 
-    Uses cosine similarity for search. Falls back to deterministic
-    pseudo-embeddings when no real embedding service is available.
+    Renamed from MockVectorStore (Day 6 — I1). Uses cosine similarity
+    for search. Falls back to deterministic pseudo-embeddings when
+    no real embedding service is available.
 
     BC-008: Never crashes — always returns safe defaults.
     """
@@ -242,16 +246,108 @@ class MockVectorStore(VectorStore):
 
 # ── PgVectorStore (production — PostgreSQL + pgvector) ──────────
 
+# Backwards-compatibility alias for existing code
+MockVectorStore = InMemoryVectorStore
+
 
 class PgVectorStore(VectorStore):
     """PostgreSQL + pgvector vector store implementation.
 
-    Uses the document_chunks table which already has an embedding
-    column with pgvector vector(768) type.
+    Uses the ``knowledge_base_vectors`` table with pgvector ``<=>``
+    cosine-similarity operator.  Accepts a PostgreSQL connection string
+    at construction time so callers can supply their own pool.
+
+    Day 6 (I1) security fix:
+      - ``add_vectors`` for bulk vector insertion
+      - ``search`` uses real ``<=>`` cosine similarity SQL
+      - Proper ``company_id`` WHERE clause in every query
+      - Validates pgvector extension availability on ``health_check``
     """
 
-    def __init__(self, dimension: int = 768):
+    def __init__(
+        self,
+        connection_string: Optional[str] = None,
+        dimension: int = 768,
+    ) -> None:
         self.dimension = dimension
+        self._connection_string = connection_string
+
+    def _get_engine(self):
+        """Create a SQLAlchemy engine from the configured connection string.
+
+        Day 6 (I1): Accepts an explicit connection string passed at
+        construction time, falling back to ``settings.DATABASE_URL``.
+        """
+        from sqlalchemy import create_engine
+
+        conn_str = self._connection_string
+        if not conn_str:
+            try:
+                from app.core.config import get_settings
+                conn_str = get_settings().DATABASE_URL
+            except Exception:
+                raise RuntimeError(
+                    "PgVectorStore requires a connection_string or DATABASE_URL env var"
+                )
+        return create_engine(conn_str)
+
+    # ── add_vectors (bulk API — Day 6 I1) ───────────────────────
+
+    def add_vectors(
+        self,
+        vector_ids: List[str],
+        embeddings: List[List[float]],
+        metadata: Optional[List[Dict[str, Any]]] = None,
+    ) -> bool:
+        """Bulk-insert vectors with pre-computed embeddings.
+
+        Day 6 (I1): New method for production RAG ingestion.
+        Uses the ``knowledge_base_vectors`` table with native pgvector
+        ``vector(768)`` column.
+
+        SQL::
+
+            INSERT INTO knowledge_base_vectors (id, embedding, metadata)
+            VALUES ($1, $2::vector, $3)
+            ON CONFLICT (id) DO UPDATE SET embedding = EXCLUDED.embedding
+        """
+        from sqlalchemy import text
+
+        if not vector_ids or not embeddings:
+            return False
+        if len(vector_ids) != len(embeddings):
+            logger.warning(
+                "PgVectorStore.add_vectors: vector_ids (%d) != embeddings (%d)",
+                len(vector_ids), len(embeddings),
+            )
+            return False
+
+        meta_list = metadata or [{}] * len(vector_ids)
+
+        try:
+            engine = self._get_engine()
+            with engine.begin() as conn:
+                for vid, emb, meta in zip(vector_ids, embeddings, meta_list):
+                    conn.execute(
+                        text("""
+                            INSERT INTO knowledge_base_vectors (id, embedding, metadata)
+                            VALUES (:id, :embedding::vector, :metadata)
+                            ON CONFLICT (id) DO UPDATE SET
+                                embedding = EXCLUDED.embedding,
+                                metadata = EXCLUDED.metadata
+                        """),
+                        {
+                            "id": vid,
+                            "embedding": str(emb),
+                            "metadata": str(meta) if isinstance(meta, dict) else str({}),
+                        },
+                    )
+            return True
+        except Exception as exc:
+            logger.warning("PgVectorStore.add_vectors failed: %s", exc)
+            return False
+        finally:
+            engine.dispose()
 
     def add_document(
         self,
@@ -260,43 +356,23 @@ class PgVectorStore(VectorStore):
         company_id: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """Store document chunks and their embeddings in the database."""
-        from sqlalchemy import create_engine, text
-        from app.core.config import get_settings
+        """Store document chunks and their embeddings in the database.
 
-        settings = get_settings()
-        engine = create_engine(settings.DATABASE_URL)
+        Delegates to :meth:`add_vectors` for bulk insertion.  Each
+        chunk's ``company_id`` is injected into its metadata dict.
+        """
+        vector_ids: List[str] = []
+        embeddings: List[List[float]] = []
+        metas: List[Dict[str, Any]] = []
 
-        try:
-            with engine.begin() as conn:
-                for i, chunk in enumerate(chunks):
-                    chunk_id = chunk.get("chunk_id", f"{document_id}_{i}")
-                    embedding = chunk.get("embedding")
-                    if embedding:
-                        conn.execute(
-                            text("""
-                                INSERT INTO document_chunks (id, document_id, chunk_index, content, embedding, metadata_json)
-                                VALUES (:id, :document_id, :chunk_index, :content, :embedding, :metadata_json)
-                                ON CONFLICT (id) DO UPDATE SET
-                                    embedding = EXCLUDED.embedding,
-                                    content = EXCLUDED.content,
-                                    metadata_json = EXCLUDED.metadata_json
-                            """),
-                            {
-                                "id": chunk_id,
-                                "document_id": document_id,
-                                "chunk_index": chunk.get("chunk_index", i),
-                                "content": chunk.get("content", ""),
-                                "embedding": str(embedding),
-                                "metadata_json": str({"company_id": company_id, **(metadata or {})}),
-                            },
-                        )
-            return True
-        except Exception as exc:
-            logger.warning("PgVectorStore add_document failed: %s", exc)
-            return False
-        finally:
-            engine.dispose()
+        for i, chunk in enumerate(chunks):
+            vector_ids.append(chunk.get("chunk_id", f"{document_id}_{i}"))
+            embeddings.append(chunk.get("embedding", []))
+            combined_meta: Dict[str, Any] = {"company_id": company_id, "document_id": document_id}
+            combined_meta.update(metadata or {})
+            metas.append(combined_meta)
+
+        return self.add_vectors(vector_ids, embeddings, metas)
 
     def search(
         self,
@@ -305,39 +381,72 @@ class PgVectorStore(VectorStore):
         top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[SearchResult]:
-        """Find similar documents using cosine similarity."""
-        from sqlalchemy import create_engine, text
-        from app.core.config import get_settings
+        """Find similar documents using cosine similarity.
 
-        settings = get_settings()
-        engine = create_engine(settings.DATABASE_URL)
+        Day 6 (I1): Uses ``knowledge_base_vectors`` with the
+        pgvector ``<=>`` cosine-distance operator.  **Every** query is
+        scoped by ``company_id`` (BC-001 tenant isolation).
 
-        query_sql = """
-            SELECT id, document_id, chunk_index, content, metadata_json,
-                   1 - (embedding <=> :query_embedding::vector) AS similarity
-            FROM document_chunks
-            WHERE embedding IS NOT NULL
-              AND metadata_json::text LIKE :company_pattern
+        SQL::
+
+            SELECT id, metadata, embedding <=> $1::vector AS similarity
+            FROM knowledge_base_vectors
+            WHERE company_id = $2
+            ORDER BY similarity ASC
+            LIMIT $3
+
+        Args:
+            query_embedding: The query vector.
+            company_id: Tenant ID (BC-001).
+            top_k: Max results to return.
+            filters: Optional metadata key/value filters.
+
+        Returns:
+            List[SearchResult] sorted by similarity (ascending distance).
         """
-        params = {
-            "query_embedding": str(query_embedding),
-            "company_pattern": f"%\"company_id\": \"{company_id}\"%",
-            "limit": top_k,
-        }
+        from sqlalchemy import text
 
-        query_sql += " ORDER BY embedding <=> :query_embedding::vector LIMIT :limit"
+        # Build the WHERE clause with company_id scoping (BC-001)
+        where_clauses = []
+        params: Dict[str, Any] = {}
+        params["query_embedding"] = str(query_embedding)
+        params["company_id"] = company_id
+        where_clauses.append("metadata::jsonb->>'company_id' = :company_id")
+
+        # Apply optional metadata filters
+        filter_idx = 3
+        if filters:
+            for fk, fv in filters.items():
+                param_key = f"filter_{fk}"
+                params[param_key] = str(fv)
+                where_clauses.append(f"metadata::jsonb->>'{fk}' = :{param_key}")
+                filter_idx += 1
+
+        where_sql = " AND ".join(where_clauses)
+        params["limit"] = top_k
+
+        query_sql = f"""
+            SELECT id, metadata, embedding <=> :query_embedding::vector AS similarity
+            FROM knowledge_base_vectors
+            WHERE {where_sql}
+            ORDER BY similarity ASC
+            LIMIT :limit
+        """
 
         results: List[SearchResult] = []
         try:
+            engine = self._get_engine()
             with engine.connect() as conn:
                 rows = conn.execute(text(query_sql), params).fetchall()
                 for row in rows:
+                    raw_meta = row[1] if len(row) > 1 else "{}"
+                    meta = raw_meta if isinstance(raw_meta, dict) else {}
                     results.append(SearchResult(
-                        chunk_id=str(row[0]),
-                        document_id=str(row[1]) if row[1] else "",
-                        content=row[3] or "",
-                        score=float(row[5]),
-                        metadata=row[4] if isinstance(row[4], dict) else {},
+                        chunk_id=str(row[0]) if row[0] else "",
+                        document_id=meta.get("document_id", ""),
+                        content=meta.get("content", ""),
+                        score=float(row[2]) if len(row) > 2 else 0.0,
+                        metadata=meta,
                     ))
         except Exception as exc:
             logger.warning("PgVectorStore search failed: %s", exc)
@@ -347,18 +456,22 @@ class PgVectorStore(VectorStore):
         return results
 
     def delete_document(self, document_id: str, company_id: str) -> bool:
-        """Delete all chunks for a document."""
-        from sqlalchemy import create_engine, text
-        from app.core.config import get_settings
+        """Delete all vectors for a document.
 
-        settings = get_settings()
-        engine = create_engine(settings.DATABASE_URL)
+        Scopes deletion to ``company_id`` (BC-001).
+        """
+        from sqlalchemy import text
 
         try:
+            engine = self._get_engine()
             with engine.begin() as conn:
                 conn.execute(
-                    text("DELETE FROM document_chunks WHERE document_id = :document_id"),
-                    {"document_id": document_id},
+                    text("""
+                        DELETE FROM knowledge_base_vectors
+                        WHERE metadata::jsonb->>'company_id' = :company_id
+                          AND metadata::jsonb->>'document_id' = :document_id
+                    """),
+                    {"company_id": company_id, "document_id": document_id},
                 )
             return True
         except Exception as exc:
@@ -368,26 +481,60 @@ class PgVectorStore(VectorStore):
             engine.dispose()
 
     def health_check(self) -> bool:
-        """Check if pgvector extension is available."""
+        """Check if pgvector extension is available.
+
+        Day 6 (I1): Also validates that the ``knowledge_base_vectors``
+        table exists before returning True.
+        """
         return self.is_available()
 
     def is_available(self) -> bool:
-        """Check if pgvector extension is available."""
+        """Check if pgvector extension and table are available.
+
+        Returns False (with a warning log) if:
+          - The ``vector`` extension is not installed
+          - The ``knowledge_base_vectors`` table does not exist
+        """
         try:
-            from sqlalchemy import create_engine, text
-            from app.core.config import get_settings
+            from sqlalchemy import text
 
-            settings = get_settings()
-            engine = create_engine(settings.DATABASE_URL)
+            engine = self._get_engine()
+            try:
+                with engine.connect() as conn:
+                    # 1. Check pgvector extension
+                    result = conn.execute(
+                        text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+                    ).fetchone()
 
-            with engine.connect() as conn:
-                result = conn.execute(
-                    text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
-                ).fetchone()
+                    if result is None:
+                        logger.warning(
+                            "PgVectorStore: pgvector extension not found in database "
+                            "— run CREATE EXTENSION vector; in PostgreSQL"
+                        )
+                        return False
 
-            engine.dispose()
-            return result is not None
-        except Exception:
+                    # 2. Check knowledge_base_vectors table exists
+                    table_check = conn.execute(
+                        text("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables
+                            WHERE table_name = 'knowledge_base_vectors'
+                        )
+                        """)
+                    ).fetchone()
+
+                    if not table_check or not table_check[0]:
+                        logger.warning(
+                            "PgVectorStore: knowledge_base_vectors table not found "
+                            "— run the migration to create it"
+                        )
+                        return False
+
+                    return True
+            finally:
+                engine.dispose()
+        except Exception as exc:
+            logger.warning("PgVectorStore.is_available failed: %s", exc)
             return False
 
 
@@ -420,13 +567,13 @@ def get_vector_store() -> VectorStore:
                 return _store_instance
     except Exception as exc:
         logger.warning(
-            "PgVectorStore unavailable, falling back to MockVectorStore: %s",
+            "PgVectorStore unavailable, falling back to InMemoryVectorStore: %s",
             exc,
         )
 
-    # Fallback to MockVectorStore
-    _store_instance = MockVectorStore()
-    logger.info("Using MockVectorStore for vector search (dev/fallback mode)")
+    # Fallback to InMemoryVectorStore (was MockVectorStore)
+    _store_instance = InMemoryVectorStore()
+    logger.info("Using InMemoryVectorStore for vector search (dev/fallback mode)")
     return _store_instance
 
 
@@ -438,7 +585,7 @@ def _create_pg_vector_store() -> Optional[VectorStore]:
             logger.info("PgVectorStore created — using real pgvector search")
             return store
         else:
-            logger.warning("pgvector extension not found in database — MockVectorStore will be used")
+            logger.warning("pgvector extension or table not found — InMemoryVectorStore will be used")
             return None
     except Exception as exc:
         logger.warning("PgVectorStore creation failed: %s", exc)

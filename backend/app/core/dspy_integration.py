@@ -1,6 +1,13 @@
 """
 DSPy Framework Integration (F-061)
 
+# TODO: DSPy is planned but not yet fully integrated into the pipeline.
+# NOTE: This module provides DSPy signature definitions, module creation,
+# and optimization utilities, but the main AI pipeline (ai_pipeline.py) does
+# NOT currently call DSPy for response generation.  When DSPy is integrated,
+# ai_pipeline.py's _stage_response_generation should delegate to
+# DSPyIntegration.optimize_response() for prompt optimization.
+
 Provides DSPy module wrappers for PARWA techniques with:
 - Signature definitions for common AI tasks
 - Optimizer integration (BootstrapFewShot, MIPROv2)

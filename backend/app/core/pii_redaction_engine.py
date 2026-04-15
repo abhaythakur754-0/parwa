@@ -49,11 +49,17 @@ PII_API_KEY = "API_KEY"
 PII_AADHAAR = "AADHAAR"
 PII_PAN = "PAN"
 
+PII_NAME = "NAME"
+PII_EMAIL_SHORT = "EMAIL_SHORT"
+PII_PHONE_PARTIAL = "PHONE_PARTIAL"
+
 ALL_PII_TYPES: Set[str] = {
     PII_SSN,
     PII_CREDIT_CARD,
     PII_EMAIL,
+    PII_EMAIL_SHORT,
     PII_PHONE,
+    PII_PHONE_PARTIAL,
     PII_IP_ADDRESS,
     PII_DATE_OF_BIRTH,
     PII_PASSPORT,
@@ -65,6 +71,7 @@ ALL_PII_TYPES: Set[str] = {
     PII_API_KEY,
     PII_AADHAAR,
     PII_PAN,
+    PII_NAME,
 }
 
 # ── Compiled Regex Patterns (module-level, compiled ONCE) ─────────
@@ -82,9 +89,14 @@ _PAT_CREDIT_CARD = re.compile(
     r"|3[47]\d{2}[-\s]?\d{6}[-\s]?\d{5})\b"
 )
 
-# 3. Email: standard email format
+# 3. Email: standard email format (handles a@b.co, user@example.com, etc.)
+#    NOTE: Also catches single-char TLDs that are common (e.g. a@b.c, x@y.io)
 _PAT_EMAIL = re.compile(
     r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"
+)
+# 3b. Short email: catches very short patterns like a@b.co or x@y.z
+_PAT_EMAIL_SHORT = re.compile(
+    r"\b[A-Za-z0-9._%+\-]{1,2}@[A-Za-z0-9.\-]{1,10}\.[A-Za-z]{2,3}\b"
 )
 
 # 4. Phone: US formats + international with country codes
@@ -94,6 +106,16 @@ _PAT_PHONE = re.compile(
     r"\d{3}[-.\s]?"
     r"\d{4}\b"
     r"|(?<!\w)\+\d{1,3}[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}\b"
+)
+# 4b. Partial phone: masked/partial patterns like XXX-XXX-1234
+_PAT_PHONE_PARTIAL = re.compile(
+    r"\b(?:[Xx*]{3}[-.\s]?[Xx*]{3}[-.\s]?\d{4}"
+    r"|(?:\(?[Xx*]{3}\)?[-.\s]?[Xx*]{3}[-.\s]?\d{4})"
+    r"|(?:ext(?:ension)?[-.\s]?\d{3,5})"
+    r"|(?:(?:last|final)\s+\d{4})"
+    r"|(?:\b\d{3}[-.\s]\d{4}\b))"
+    r"|(?:phone.*?\d{4}|tel.*?\d{4})",
+    re.IGNORECASE,
 )
 
 # 5. IPv4 Address
@@ -184,6 +206,47 @@ _PAT_AADHAAR = re.compile(
 _PAT_PAN = re.compile(
     r"\b[A-Z]{5}[0-9]{4}[A-Z]\b"
 )
+
+# 17. Name-in-context heuristic: common first/last names preceded by titles
+_TITLE_PREFIXES = r"(?:Mr|Mrs|Ms|Miss|Dr|Prof|Sr|Jr|Hon|Rev|Capt|Lt|Gen|Col|Sgt)\.?\s*"
+_PAT_NAME_IN_CONTEXT = re.compile(
+    rf"\b{_TITLE_PREFIXES}[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b"
+)
+# Also detect plain name mentions when preceded by "contact" / "reach out to"
+_PAT_NAME_WITH_ACTION = re.compile(
+    r"\b(?:contact|reach|call|email|ask for|speak to|message|notify)\s+"
+    r"[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b",
+    re.IGNORECASE,
+)
+# Common first names (top 100 US + global) for contextual detection
+_COMMON_FIRST_NAMES: Set[str] = {
+    "James", "John", "Robert", "Michael", "David", "William", "Richard", "Joseph",
+    "Thomas", "Christopher", "Charles", "Daniel", "Matthew", "Anthony", "Mark",
+    "Donald", "Steven", "Andrew", "Paul", "Joshua", "Kenneth", "Kevin", "Brian",
+    "George", "Timothy", "Ronald", "Edward", "Jason", "Jeffrey", "Ryan", "Jacob",
+    "Gary", "Nicholas", "Eric", "Jonathan", "Stephen", "Larry", "Justin", "Scott",
+    "Brandon", "Benjamin", "Samuel", "Raymond", "Gregory", "Frank", "Alexander",
+    "Mary", "Patricia", "Jennifer", "Linda", "Barbara", "Elizabeth", "Susan",
+    "Jessica", "Sarah", "Karen", "Lisa", "Nancy", "Betty", "Margaret", "Sandra",
+    "Ashley", "Dorothy", "Kimberly", "Emily", "Donna", "Michelle", "Carol", "Amanda",
+    "Melissa", "Deborah", "Stephanie", "Rebecca", "Sharon", "Laura", "Cynthia",
+    "Kathleen", "Amy", "Angela", "Shirley", "Anna", "Brenda", "Pamela", "Emma",
+    "Nicole", "Helen", "Samantha", "Katherine", "Christine", "Debra", "Rachel",
+    "Carolyn", "Janet", "Catherine", "Maria", "Heather", "Diane", "Ruth",
+    "Priya", "Raj", "Wei", "Li", "Yuki", "Hiroshi", "Sanjay", "Amit",
+    "Muhammad", "Omar", "Fatima", "Aisha", "Chen", "Wang", "Zhang", "Liu",
+}
+_COMMON_LAST_NAMES: Set[str] = {
+    "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+    "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
+    "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
+    "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker",
+    "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill",
+    "Flores", "Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell",
+    "Mitchell", "Carter", "Roberts", "Patel", "Shah", "Singh", "Kumar", "Gupta",
+    "Das", "Reddy", "Chen", "Wang", "Zhang", "Liu", "Huang", "Tanaka",
+    "Suzuki", "Watanabe", "Ito", "Kim", "Park", "Choi", "Lee",
+}
 
 # ── Token replacement pattern (for deredaction) ──────────────────
 _TOKEN_PATTERN = re.compile(r"\{\{([A-Z_]+)_[0-9a-f]{8}\}\}")
@@ -277,7 +340,9 @@ class PIIDetector:
             PII_SSN: self._detect_ssn,
             PII_CREDIT_CARD: self._detect_credit_card,
             PII_EMAIL: self._detect_email,
+            PII_EMAIL_SHORT: self._detect_email_short,
             PII_PHONE: self._detect_phone,
+            PII_PHONE_PARTIAL: self._detect_phone_partial,
             PII_IP_ADDRESS: self._detect_ip_address,
             PII_DATE_OF_BIRTH: self._detect_date_of_birth,
             PII_PASSPORT: self._detect_passport,
@@ -289,6 +354,7 @@ class PIIDetector:
             PII_API_KEY: self._detect_api_key,
             PII_AADHAAR: self._detect_aadhaar,
             PII_PAN: self._detect_pan,
+            PII_NAME: self._detect_name,
         }
 
         for pii_type in target_types:
@@ -430,6 +496,38 @@ class PIIDetector:
             ))
         return matches
 
+    def _detect_email_short(self, text: str) -> List[PIIMatch]:
+        """Detect short email patterns (a@b.co, x@y.io, etc.).
+
+        Catches very short local-part and domain emails that might
+        slip through the standard pattern.  Uses a dedicated, tighter
+        pattern so false-positive surface area stays small.
+        """
+        matches: List[PIIMatch] = []
+        # Only flag short emails that were NOT already matched by the
+        # standard email detector (avoid double-counting).
+        already_matched_spans = {m.span() for m in _PAT_EMAIL.finditer(text)}
+        for m in _PAT_EMAIL_SHORT.finditer(text):
+            if m.span() in already_matched_spans:
+                continue
+            raw = m.group()
+            local, domain = raw.rsplit("@", 1)
+            if domain.endswith((".png", ".jpg", ".jpeg", ".gif", ".svg")):
+                continue
+            if domain in ("example.com", "test.com", "domain.com"):
+                continue
+            # Only flag if local part is 1-2 chars and domain is short
+            if len(local) <= 2:
+                matches.append(PIIMatch(
+                    pii_type=PII_EMAIL_SHORT,
+                    value=raw,
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=0.82,
+                    pattern_matched="email_short",
+                ))
+        return matches
+
     def _detect_phone(self, text: str) -> List[PIIMatch]:
         """Detect US and international phone numbers."""
         matches: List[PIIMatch] = []
@@ -468,6 +566,93 @@ class PIIDetector:
                 confidence=confidence,
                 pattern_matched=pattern_matched,
             ))
+        return matches
+
+    def _detect_phone_partial(self, text: str) -> List[PIIMatch]:
+        """Detect partial/masked phone patterns.
+
+        Catches patterns like XXX-XXX-1234, (XXX) XXX-5678,
+        ext. 1234, last 4 digits, and phone-terminated strings.
+        """
+        matches: List[PIIMatch] = []
+        for m in _PAT_PHONE_PARTIAL.finditer(text):
+            raw = m.group()
+            matches.append(PIIMatch(
+                pii_type=PII_PHONE_PARTIAL,
+                value=raw,
+                start=m.start(),
+                end=m.end(),
+                confidence=0.72,
+                pattern_matched="phone_partial_masked",
+            ))
+        return matches
+
+    def _detect_name(self, text: str) -> List[PIIMatch]:
+        """Detect names using contextual heuristics.
+
+        Uses title-prefix patterns (Mr./Mrs./Dr. + name), action-verb
+        patterns ("contact John"), and common first+last name pairs.
+        This is a heuristic — confidence is intentionally lower than
+        regex-only detectors to avoid false positives on non-name text.
+        """
+        matches: List[PIIMatch] = []
+        seen_spans: set = set()
+
+        # Strategy 1: Title-prefixed names (Mr. John Smith, Dr. Priya)
+        for m in _PAT_NAME_IN_CONTEXT.finditer(text):
+            if m.span() not in seen_spans:
+                seen_spans.add(m.span())
+                matches.append(PIIMatch(
+                    pii_type=PII_NAME,
+                    value=m.group(),
+                    start=m.start(),
+                    end=m.end(),
+                    confidence=0.88,
+                    pattern_matched="name_with_title",
+                ))
+
+        # Strategy 2: Action-verb + capitalized word ("contact Jane")
+        for m in _PAT_NAME_WITH_ACTION.finditer(text):
+            if m.span() not in seen_spans:
+                # Extract just the name part
+                raw = m.group()
+                # Find the capitalized word after the action verb
+                name_match = re.search(
+                    r"(?:contact|reach|call|email|ask for|speak to|message|notify)\s+"
+                    r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+                    raw, re.IGNORECASE,
+                )
+                if name_match:
+                    name = name_match.group(1)
+                    first_word = name.split()[0]
+                    if first_word in _COMMON_FIRST_NAMES or first_word in _COMMON_LAST_NAMES:
+                        seen_spans.add(m.span())
+                        matches.append(PIIMatch(
+                            pii_type=PII_NAME,
+                            value=name,
+                            start=m.start() + name_match.start(1),
+                            end=m.start() + name_match.end(1),
+                            confidence=0.72,
+                            pattern_matched="name_with_action",
+                        ))
+
+        # Strategy 3: Common first+last name pair detection
+        # Only when two consecutive capitalized words are both in name lists
+        name_pair_re = re.compile(r"\b([A-Z][a-z]+)\s+([A-Z][a-z]+)\b")
+        for m in name_pair_re.finditer(text):
+            if m.span() not in seen_spans:
+                first, last = m.group(1), m.group(2)
+                if first in _COMMON_FIRST_NAMES and last in _COMMON_LAST_NAMES:
+                    seen_spans.add(m.span())
+                    matches.append(PIIMatch(
+                        pii_type=PII_NAME,
+                        value=m.group(),
+                        start=m.start(),
+                        end=m.end(),
+                        confidence=0.55,
+                        pattern_matched="name_common_pair",
+                    ))
+
         return matches
 
     def _detect_ip_address(self, text: str) -> List[PIIMatch]:

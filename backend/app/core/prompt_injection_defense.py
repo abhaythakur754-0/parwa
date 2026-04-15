@@ -887,7 +887,188 @@ _XSS_RULES: List[Dict[str, Any]] = [
     },
 ]
 
-# ── Category 10: System Command Injection ──
+# ── Category 10: Token Smuggling (Day 4 additions) ──
+_TOKEN_SMUGGLING_RULES: List[Dict[str, Any]] = [
+    {
+        "pattern": re.compile(
+            r"\bROT13\b|\brot13\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "TSM-001",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "ROT13 encoding reference — possible token smuggling",
+    },
+    {
+        "pattern": re.compile(
+            r"(?:\\u[0-9a-fA-F]{4}){3,}",
+        ),
+        "rule_id": "TSM-002",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "Unicode escape sequences (3+ consecutive \\uXXXX) — possible token smuggling",
+    },
+    {
+        "pattern": re.compile(
+            r"&#x?[0-9a-fA-F]{2,4};(?:&#x?[0-9a-fA-F]{2,4};){2,}",
+        ),
+        "rule_id": "TSM-003",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "HTML numeric character references (3+ consecutive) — possible token smuggling",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(?:base64|b64|decode|encode)\s+(?:decode|encode|it|this|the)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "TSM-004",
+        "severity": "high",
+        "confidence": 0.82,
+        "description": "Explicit base64 decode/encode instruction — likely smuggling attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\\U[0-9a-fA-F]{8}",
+        ),
+        "rule_id": "TSM-005",
+        "severity": "high",
+        "confidence": 0.85,
+        "description": "Extended Unicode escape (\\UXXXXXXXX) — possible token smuggling",
+    },
+]
+
+# ── Category 11: Role-Play Attack Expansions (Day 4 additions) ──
+_ROLEPLAY_ADVANCED_RULES: List[Dict[str, Any]] = [
+    {
+        "pattern": re.compile(
+            r"\bAIM\s+mode\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "RPA-001",
+        "severity": "critical",
+        "confidence": 0.95,
+        "description": "AIM (Always Intelligent and Machiavellian) jailbreak attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(?:DAN|AIM|Jailbreak|Developer|Unsafe)\s+(?:prompt|instructions?|mode)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "RPA-002",
+        "severity": "high",
+        "confidence": 0.90,
+        "description": "Named jailbreak framework reference in prompt",
+    },
+    {
+        "pattern": re.compile(
+            r"\byou\s+are\s+(?:ChatGPT|GPT|Claude|Gemini|Bard|Llama)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "RPA-003",
+        "severity": "high",
+        "confidence": 0.88,
+        "description": "LLM identity probing — asks AI to identify itself or pretend to be another model",
+    },
+    {
+        "pattern": re.compile(
+            r"\bpretend\s+(?:you're|you are|to be)\s+(?:a|an|the)\s+"
+            r"(?:unrestricted|uncensored|unfiltered|unhinged)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "RPA-004",
+        "severity": "critical",
+        "confidence": 0.93,
+        "description": "Unrestricted persona creation — advanced role-play attack",
+    },
+    {
+        "pattern": re.compile(
+            r"\bconvert\s+yourself\s+to\s+(?:a|an)\s+evil\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "RPA-005",
+        "severity": "critical",
+        "confidence": 0.95,
+        "description": "Persona corruption attempt — evil AI conversion",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(?:switch|go|enter)\s+(?:into\s+)?(?:jailbreak|DAN|evil|dark)\s+mode\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "RPA-006",
+        "severity": "critical",
+        "confidence": 0.96,
+        "description": "Explicit mode-switching to jailbreak personality",
+    },
+]
+
+# ── Category 12: System Prompt Extraction Expansions (Day 4) ──
+_EXTRACTION_ADVANCED_RULES: List[Dict[str, Any]] = [
+    {
+        "pattern": re.compile(
+            r"\b(?:repeat|recite|write|type)\s+(?:back|out)?\s*"
+            r"(?:the\s+)?(?:exact|full|entire|original|verbatim)\s+"
+            r"(?:wording|text|content|message)\s+(?:of\s+)?(?:your|the)\s+"
+            r"(?:first|initial|system|original)\s+(?:message|prompt|instruction)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXTA-001",
+        "severity": "critical",
+        "confidence": 0.95,
+        "description": "Verbose system prompt extraction request — multi-word variant",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(?:what|tell me|share|describe)\s+"
+            r"(?:are|is|were|do you have)\s+"
+            r"(?:your|the|hidden|secret)\s+"
+            r"(?:instructions?|rules?|guidelines?|directives?|constraints?|policies?)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXTA-002",
+        "severity": "high",
+        "confidence": 0.90,
+        "description": "Probing for hidden instructions or policies",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(?:output|print|return|echo|log)\s+(?:everything|all)\s+"
+            r"(?:above|before|prior|in|from)\s+(?:the\s+)?"
+            r"(?:system|initial|first|setup)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXTA-003",
+        "severity": "critical",
+        "confidence": 0.93,
+        "description": "Context dump request targeting system messages",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(?:between|within|inside|after)\s+(?:the\s+)?"
+            r"(?:<system>|\\[INST\\]|\"system\")\s+tag\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXTA-004",
+        "severity": "critical",
+        "confidence": 0.97,
+        "description": "Explicit system tag boundary extraction attempt",
+    },
+    {
+        "pattern": re.compile(
+            r"\b(?:ignor|skip|bypass|omit)\s+(?:all\s+)?(?:your|the)\s+"
+            r"(?:safety|security|content|restriction|filter|guardrail)\s+"
+            r"(?:filter|check|mechanism|layer|system)\b",
+            re.IGNORECASE,
+        ),
+        "rule_id": "EXTA-005",
+        "severity": "high",
+        "confidence": 0.92,
+        "description": "Safety mechanism bypass combined with extraction",
+    },
+]
+
+# ── Category 13: System Command Injection ──
 _SYSTEM_COMMAND_RULES: List[Dict[str, Any]] = [
     {
         "pattern": re.compile(
@@ -962,6 +1143,9 @@ _ALL_RULES: List[Dict[str, Any]] = (
     + _MULTI_TURN_RULES
     + _SQL_INJECTION_RULES
     + _XSS_RULES
+    + _TOKEN_SMUGGLING_RULES
+    + _ROLEPLAY_ADVANCED_RULES
+    + _EXTRACTION_ADVANCED_RULES
     + _SYSTEM_COMMAND_RULES
 )
 
@@ -1094,13 +1278,20 @@ def _classify_pattern_type(rule_id: str) -> str:
         "CMD": "command_injection",
         "CTX": "context_manipulation",
         "EXT": "data_extraction",
+        "EXTA": "extraction_advanced",
         "PRV": "privilege_escalation",
         "JBR": "jailbreak",
         "ENC": "encoding_trick",
         "MTR": "multi_turn",
+        "SQL": "sql_injection",
+        "XSS": "xss",
+        "TSM": "token_smuggling",
+        "RPA": "roleplay_advanced",
+        "CMDI": "system_command_injection",
         "RATE": "rate_limit",
         "TBLK": "tenant_blocklist",
         "ANOM": "anomaly",
+        "SEG": "social_engineering",
     }
     prefix = rule_id.split("-")[0] if "-" in rule_id else rule_id
     return prefix_map.get(prefix, "unknown")

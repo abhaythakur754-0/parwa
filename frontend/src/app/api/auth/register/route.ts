@@ -50,24 +50,54 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password, fullName, companyName, industry } = body;
 
-    // Validate required fields
-    if (!email || typeof email !== "string" || !email.includes("@")) {
+    // C3: Proper email validation using regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || typeof email !== "string" || !emailRegex.test(email.trim())) {
       return NextResponse.json(
         { status: "error", message: "A valid email address is required." },
         { status: 400 }
       );
     }
 
-    if (
-      !password ||
-      typeof password !== "string" ||
-      password.length < 8
-    ) {
+    // C4: Enforce password complexity (uppercase, lowercase, digit, special char, 8+ chars)
+    if (!password || typeof password !== "string") {
       return NextResponse.json(
-        {
-          status: "error",
-          message: "Password must be at least 8 characters long.",
-        },
+        { status: "error", message: "Password is required." },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { status: "error", message: "Password must be at least 8 characters long." },
+        { status: 400 }
+      );
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one uppercase letter." },
+        { status: 400 }
+      );
+    }
+
+    if (!/[a-z]/.test(password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one lowercase letter." },
+        { status: 400 }
+      );
+    }
+
+    if (!/[0-9]/.test(password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one digit." },
+        { status: 400 }
+      );
+    }
+
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      return NextResponse.json(
+        { status: "error", message: "Password must contain at least one special character." },
         { status: 400 }
       );
     }

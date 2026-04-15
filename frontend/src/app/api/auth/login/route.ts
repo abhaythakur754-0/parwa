@@ -8,6 +8,12 @@ const loginAttempts = new Map<string, number[]>();
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
+// H1: TODO — In production, sessions should use Redis instead of an in-memory Map.
+// The in-memory Map is NOT suitable for production because:
+//   1. Sessions are lost on server restart / redeploy.
+//   2. Sessions are not shared across multiple server instances (horizontal scaling).
+//   3. Memory usage is unbounded without eviction.
+// Replace with a Redis-backed session store before deploying to production.
 // D10-P12 FIX: Server-side session tracking for logout invalidation.
 // Maps session_token -> { email, createdAt }.
 const serverSessions = new Map<string, { email: string; createdAt: number }>();

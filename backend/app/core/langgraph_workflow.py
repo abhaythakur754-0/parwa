@@ -1,6 +1,14 @@
 """
 F-200: LangGraph Workflow Engine (Week 10 Day 12)
 
+# TODO: Integrate LangGraph for workflow persistence
+# NOTE: This module implements a custom StateGraph-based workflow that
+# behaves LIKE LangGraph but does NOT currently depend on the langgraph
+# pip package for core execution.  When the real langgraph package is
+# installed, _build_langgraph_stategraph() builds an actual
+# StateGraph for persistent workflow execution.  Until then, the
+# engine falls back to a simulation mode (BC-008).
+
 Orchestrates the AI response generation pipeline by building a
 StateGraph with nodes for each pipeline step. Three variant tiers:
 
