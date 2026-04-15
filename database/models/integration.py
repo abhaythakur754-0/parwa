@@ -191,3 +191,82 @@ class OutgoingWebhook(Base):
     failure_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+class CustomIntegration(Base):
+    """Unified custom integration table for F-031.
+
+    Supports 5 integration types: rest, graphql, webhook_in, webhook_out, database.
+    Config is stored as encrypted JSON with type-specific schemas.
+
+    BC-001: Scoped to company_id.
+    BC-011: Credentials encrypted at rest (AES-256).
+    BC-012: Auto-disable after 3 consecutive errors.
+    """
+
+    __tablename__ = "custom_integrations"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    name = Column(String(255), nullable=False)
+    # rest, graphql, webhook_in, webhook_out, database
+    integration_type = Column(String(50), nullable=False, index=True)
+    # draft, active, disabled, error
+    status = Column(String(50), nullable=False, default="draft", index=True)
+    # Encrypted JSON config — type-specific fields
+    config_encrypted = Column(Text, nullable=False, default="{}")
+    # Non-encrypted settings (metadata, labels, etc.)
+    settings = Column(Text, nullable=False, default="{}")
+    # Unique webhook endpoint ID (for webhook_in type only)
+    webhook_id = Column(String(36), unique=True, index=True)
+    # HMAC signing secret (webhook_in type only)
+    webhook_secret = Column(String(255))
+    # Error tracking
+    consecutive_error_count = Column(Integer, nullable=False, default=0)
+    last_error_message = Column(Text)
+    last_tested_at = Column(DateTime)
+    last_test_result = Column(Text)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow())
+
+
+class WebhookDeliveryLog(Base):
+    """Outgoing webhook delivery log for F-031.
+
+    Tracks every delivery attempt with status, response, and retry info.
+
+    BC-001: Scoped to company_id.
+    BC-004: Supports retry with exponential backoff.
+    """
+
+    __tablename__ = "webhook_delivery_logs"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    custom_integration_id = Column(
+        String(36), ForeignKey("custom_integrations.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    # The event that triggered this delivery
+    trigger_event = Column(String(100), nullable=False)
+    trigger_event_id = Column(String(36))
+    # Delivery attempt number (1, 2, 3)
+    attempt = Column(Integer, nullable=False, default=1)
+    # pending, success, failed
+    status = Column(String(50), nullable=False, default="pending")
+    # HTTP status code from target
+    response_status_code = Column(Integer)
+    response_body = Column(Text)
+    error_message = Column(Text)
+    # Request payload (for debugging, not encrypted)
+    payload_snapshot = Column(Text)
+    # Timestamps
+    scheduled_at = Column(DateTime, default=lambda: datetime.utcnow())
+    delivered_at = Column(DateTime)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
