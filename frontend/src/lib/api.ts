@@ -62,20 +62,47 @@ apiClient.interceptors.request.use(
 /**
  * Response interceptor for handling errors.
  * GAP-002: Handle malformed responses gracefully.
+ * D9-P11 FIX: On 401, dispatch custom event instead of hard redirect.
+ *   This lets AuthContext handle logout consistently (soft router.push
+ *   instead of window.location.href which kills all React state).
+ * D9-P2 FIX: Attempt token refresh before giving up on 401.
  */
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    // Handle 401 Unauthorized — don't redirect from login page to avoid loops
-    if (error.response?.status === 401) {
+  async (error: AxiosError) => {
+    const originalRequest = error.config;
+
+    // D9-P2: Handle 401 — attempt token refresh before giving up
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (typeof window !== 'undefined') {
+        const refreshToken = localStorage.getItem('parwa_refresh_token');
+        if (refreshToken) {
+          originalRequest._retry = true;
+          try {
+            const { data } = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {
+              refresh_token: refreshToken,
+            });
+            // Store new tokens
+            if (data.access_token) {
+              localStorage.setItem('parwa_access_token', data.access_token);
+            }
+            if (data.refresh_token) {
+              localStorage.setItem('parwa_refresh_token', data.refresh_token);
+            }
+            // Retry original request with new token
+            originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
+            return apiClient(originalRequest);
+          } catch {
+            // Refresh failed — proceed to logout
+          }
+        }
+        // D9-P11: Clear tokens and dispatch event for AuthContext to handle
         localStorage.removeItem('parwa_access_token');
         localStorage.removeItem('parwa_refresh_token');
         localStorage.removeItem('parwa_user');
-        // Only redirect if NOT already on an auth page
-        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/signup') && !window.location.pathname.startsWith('/forgot-password')) {
-          window.location.href = '/login';
-        }
+        // Dispatch custom event instead of hard redirect
+        // AuthContext listens for this and does a clean router.push('/login')
+        window.dispatchEvent(new CustomEvent('parwa:session-expired'));
       }
     }
     

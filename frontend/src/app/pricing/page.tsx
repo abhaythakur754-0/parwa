@@ -143,8 +143,8 @@ function AnimatedPrice({
   monthly: number;
   isAnnual: boolean;
 }) {
-  const annual = Math.round(monthly * 0.8 * 12);
-  const annualMonthly = Math.round(monthly * 0.8);
+  const annualTotal = Math.round(monthly * 0.8 * 12);
+  const annualMonthly = Math.round(annualTotal / 12);
   const displayPrice = isAnnual ? annualMonthly : monthly;
 
   return (

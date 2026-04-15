@@ -164,8 +164,8 @@ function getGoogleProvider(): any {
     name: 'google',
     apiKey: GOOGLE_AI_KEY,
     model: 'gemini-2.0-flash',
-    apiUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_KEY}`,
-    buildHeaders: () => ({ 'Content-Type': 'application/json' }),
+    apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+    buildHeaders: () => ({ 'Content-Type': 'application/json', 'x-goog-api-key': String(GOOGLE_AI_KEY) }),
     buildBody: (messages: any[]) => {
       const systemMsg = messages.find(m => m.role === 'system');
       const chatMsgs = messages.filter(m => m.role !== 'system');
@@ -505,6 +505,9 @@ let _persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 const sessions = new Map();
 
+// D10-P6: Per-session inflight guard to prevent concurrent message processing
+const inflightRequests = new Map<string, boolean>();
+
 function loadSessionsFromDisk(): void {
   if (_sessionsLoaded) return;
   _sessionsLoaded = true;
@@ -546,6 +549,39 @@ function debouncedPersist(): void {
 
 // Auto-load on first module evaluation
 loadSessionsFromDisk();
+
+// D10-P7: Session eviction — remove stale sessions and cap total count
+function evictStaleSessions(): void {
+  const now = Date.now();
+  const MAX_SESSIONS = 500;
+  const MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  // Remove sessions older than 24 hours (check updated_at)
+  for (const [id, session] of sessions.entries()) {
+    const updatedAt = new Date((session as any).updated_at || (session as any).created_at).getTime();
+    if (now - updatedAt > MAX_AGE_MS) {
+      sessions.delete(id);
+    }
+  }
+
+  // Cap total sessions at 500 (remove oldest by updated_at)
+  if (sessions.size > MAX_SESSIONS) {
+    const sorted = Array.from(sessions.entries()).sort((a, b) => {
+      const aTime = new Date((a[1] as any).updated_at || (a[1] as any).created_at).getTime();
+      const bTime = new Date((b[1] as any).updated_at || (b[1] as any).created_at).getTime();
+      return aTime - bTime;
+    });
+    const toRemove = sorted.slice(0, sorted.length - MAX_SESSIONS);
+    for (const [id] of toRemove) {
+      sessions.delete(id);
+    }
+    console.log(`[Jarvis] Evicted ${toRemove.length} sessions to cap at ${MAX_SESSIONS}`);
+  }
+}
+
+// Run eviction after loading, and periodically every hour
+evictStaleSessions();
+setInterval(evictStaleSessions, 60 * 60 * 1000);
 
 /** Save a session and schedule a debounced disk write. */
 function saveSession(id: string, session: any): void {
@@ -1105,9 +1141,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /message — Send Message & Get AI Reply ────────────
     if (endpoint === 'message') {
-      // Parse body FIRST so we can merge context before proxying (Bug #4 fix)
-      const body = await request.json();
-      const { content, session_id, context: incomingContext } = body;
+      // D10-P6: Per-session inflight guard to prevent concurrent message processing
+      const body_raw = await request.json();
+      const inflightKey = body_raw.session_id || 'unknown';
+      if (inflightRequests.get(inflightKey)) {
+        return NextResponse.json({ error: { code: 'rate_limited', message: 'A message is already being processed for this session. Please wait.' } }, { status: 429 });
+      }
+      inflightRequests.set(inflightKey, true);
+      try {
+      const { content, session_id, context: incomingContext } = body_raw;
 
       // Ensure session exists and merge incoming context locally
       let session = session_id ? sessions.get(session_id) : undefined;
@@ -1221,7 +1263,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       (session.messages as any[]).push(userMsg);
       session.message_count_today++;
       session.total_message_count++;
-      session.remaining_today = Math.max(0, 20 - session.message_count_today);
+      const dailyTotal = session.pack_type === 'demo' ? 500 : 20;
+      session.remaining_today = Math.max(0, dailyTotal - session.message_count_today);
       const newStage = detectStage(content, session);
       session.detected_stage = newStage;
       session.context.detected_stage = newStage;
@@ -1264,6 +1307,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       saveSession(session.id, session);
       return NextResponse.json(aiMsg);
+      } finally {
+        inflightRequests.delete(inflightKey);
+      }
     }
 
     // ── POST /context — Update Context ─────────────────────────
@@ -1299,9 +1345,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         // Phase 10e: Create action ticket for OTP
         const ticket = createActionTicket(session, 'otp_verification', { email: body.email, otp_status: 'sent' });
         saveSession(sessionId, session);
-        return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), ticket_id: ticket.id });
+        return NextResponse.json({ message: `OTP sent to ${body.email}`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), ticket_id: ticket.id });
       }
-      return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
+      return NextResponse.json({ message: `OTP sent to ${body.email}`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
     }
 
     // ── POST /verify/verify-otp ────────────────────────────────
@@ -1315,7 +1361,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const session = sessions.get(sessionId);
       const otpData = session.context.otp;
       if (!otpData || otpData.code !== body.code) {
-        return NextResponse.json({ message: 'Invalid OTP code. Please try again.', status: 'failed', attempts_remaining: Math.max(0, (Number(otpData?.attempts_remaining || 3)) - 1) });
+        const newAttempts = Math.max(0, (Number(otpData?.attempts_remaining || 3)) - 1);
+        otpData.attempts_remaining = newAttempts;
+        otpData.attempts = (Number(otpData?.attempts || 0)) + 1;
+        if (newAttempts <= 0) {
+          otpData.status = 'expired';
+        }
+        saveSession(sessionId, session);
+        return NextResponse.json({ message: 'Invalid OTP code. Please try again.', status: 'failed', attempts_remaining: newAttempts });
       }
       session.context = { ...session.context, otp: { ...otpData, status: 'verified', verified_at: new Date().toISOString() }, email_verified: true, business_email: body.email || otpData.email };
       // Phase 10e: Update OTP ticket to completed
@@ -1336,6 +1389,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const session = sessions.get(sessionId);
+
+      // TODO: D10-P2 — Add real payment verification before activating demo pack
+      // In production, verify payment with Paddle/gateway API before proceeding.
+      // This is currently a development endpoint that activates the pack without payment.
+      console.warn('[Jarvis] demo-pack/purchase called without real payment verification (development mode)');
+
       session.pack_type = 'demo';
       session.remaining_today = 500;
       session.context.demo_pack_expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // Gap J4: 24h expiry
@@ -1584,6 +1643,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /payment/webhook — Simulated Paddle Webhook ─────────
     if (endpoint === 'payment/webhook') {
+      // TODO: D10-P1 — Add webhook signature verification using Paddle SDK
+      // In production, verify the Paddle-Signature header against PADDLE_WEBHOOK_SECRET
+      if (!process.env.PADDLE_WEBHOOK_SECRET) {
+        console.warn('[Jarvis] PADDLE_WEBHOOK_SECRET not configured — webhook endpoint is disabled');
+        return NextResponse.json({ error: { code: 'server_config', message: 'Webhook not configured' } }, { status: 500 });
+      }
+
       const body = await request.json();
       const { session_id, event_type, transaction_id } = body;
 
@@ -1711,7 +1777,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const session = sessions.get(sessionId)!;
-      return NextResponse.json({ pack_type: session.pack_type, remaining_today: session.remaining_today, total_allowed: session.pack_type === 'demo' ? 50 : 20, pack_expiry: session.pack_type === 'demo' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null, demo_call_remaining: !session.context.demo_call_used });
+      return NextResponse.json({ pack_type: session.pack_type, remaining_today: session.remaining_today, total_allowed: session.pack_type === 'demo' ? 500 : 20, pack_expiry: session.pack_type === 'demo' ? session.context.demo_pack_expiry || null : null, demo_call_remaining: !session.context.demo_call_used });
     }
 
     // ── GET /payment/status — Payment Status Check ───────────────

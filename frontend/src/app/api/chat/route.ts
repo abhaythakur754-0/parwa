@@ -63,10 +63,13 @@ async function callGoogleAI(messages: ChatMessage[]): Promise<string | null> {
   }));
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_KEY}`,
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GOOGLE_AI_KEY!,
+      },
       body: JSON.stringify({
         systemInstruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
         contents,

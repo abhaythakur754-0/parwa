@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -63,7 +63,9 @@ const Icons = {
   ),
 };
 
-// ── Helper: Format numbers ────────────────────────────────────────────
+// D9-P4: Safe numeric accessor — prevents NaN% when backend returns undefined/null
+const safeNum = (n: number | undefined | null, fallback = 0) =>
+  typeof n === 'number' && isFinite(n) ? n : fallback;
 
 function formatNumber(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -77,7 +79,7 @@ function formatHours(hours: number): string {
 }
 
 function formatPercent(n: number): string {
-  return `${n.toFixed(1)}%`;
+  return `${safeNum(n).toFixed(1)}%`;
 }
 
 // ── Period mapping for date presets ───────────────────────────────────
@@ -97,14 +99,20 @@ export default function DashboardPage() {
   const [datePreset, setDatePreset] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [alerts, setAlerts] = useState<AnomalyAlert[]>([]);
+  // D9-P3: Request counter to discard stale responses from rapid preset changes
+  const requestIdRef = useRef(0);
 
   // ── Fetch Dashboard Data (unified F-036 endpoint) ──────────────────
 
   const fetchDashboard = useCallback(async () => {
+    const currentRequestId = ++requestIdRef.current;
     try {
       setIsRefreshing(true);
       const periodDays = PERIOD_DAYS_MAP[datePreset] || 30;
       const dashboardData = await dashboardApi.getHome(periodDays);
+
+      // D9-P3: Discard stale response if another request was triggered
+      if (currentRequestId !== requestIdRef.current) return;
 
       if (dashboardData.error) {
         console.warn('Dashboard returned error:', dashboardData.error);
@@ -114,10 +122,11 @@ export default function DashboardPage() {
       setData(dashboardData);
       setAlerts(dashboardData.anomalies || []);
     } catch (error) {
+      if (currentRequestId !== requestIdRef.current) return;
       console.error('Failed to fetch dashboard data:', error);
       toast.error(getErrorMessage(error));
     } finally {
-      setIsRefreshing(false);
+      if (currentRequestId === requestIdRef.current) setIsRefreshing(false);
     }
   }, [datePreset]);
 
@@ -184,8 +193,8 @@ export default function DashboardPage() {
           />
           <KPICard
             title="Open Tickets"
-            value={summary ? formatNumber(summary.open + summary.in_progress) : '—'}
-            subtitle={`${summary ? formatNumber(summary.in_progress) : '—'} in progress`}
+            value={summary ? formatNumber(safeNum(summary.open) + safeNum(summary.in_progress)) : '—'}
+            subtitle={`${summary ? formatNumber(safeNum(summary.in_progress)) : '—'} in progress`}
             icon={Icons.open}
             variant="info"
             isLoading={!data}
@@ -193,33 +202,33 @@ export default function DashboardPage() {
           <KPICard
             title="Resolved"
             value={summary ? formatNumber(summary.resolved) : '—'}
-            subtitle={`${summary ? formatPercent(summary.resolution_rate * 100) : '—'} resolution rate`}
+            subtitle={`${summary ? formatPercent(safeNum(summary.resolution_rate) * 100) : '—'} resolution rate`}
             icon={Icons.resolved}
             variant="success"
             isLoading={!data}
           />
           <KPICard
             title="Avg Response"
-            value={summary ? formatHours(summary.avg_first_response_time_hours) : '—'}
+            value={summary ? formatHours(safeNum(summary.avg_first_response_time_hours)) : '—'}
             subtitle="First response time"
             icon={Icons.responseTime}
-            variant={summary && summary.avg_first_response_time_hours > 2 ? 'warning' : 'default'}
+            variant={summary && safeNum(summary.avg_first_response_time_hours) > 2 ? 'warning' : 'default'}
             isLoading={!data}
           />
           <KPICard
             title="Resolution Rate"
-            value={summary ? formatPercent(summary.resolution_rate * 100) : '—'}
+            value={summary ? formatPercent(safeNum(summary.resolution_rate) * 100) : '—'}
             subtitle="Tickets resolved"
             icon={Icons.resolutionRate}
-            variant={summary && summary.resolution_rate >= 0.8 ? 'success' : 'warning'}
+            variant={summary && safeNum(summary.resolution_rate) >= 0.8 ? 'success' : 'warning'}
             isLoading={!data}
           />
           <KPICard
             title="CSAT Score"
-            value={csat ? `${csat.avg_rating.toFixed(1)}/5` : '—'}
+            value={csat ? `${safeNum(csat.avg_rating).toFixed(1)}/5` : '—'}
             subtitle={csat ? `${csat.total_ratings} ratings` : 'Customer satisfaction'}
             icon={Icons.csat}
-            variant={csat && csat.avg_rating >= 4 ? 'success' : 'default'}
+            variant={csat && safeNum(csat.avg_rating) >= 4 ? 'success' : 'default'}
             isLoading={!data}
           />
         </div>
@@ -228,7 +237,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           <KPICard
             title="Critical"
-            value={summary ? formatNumber(summary.critical) : '—'}
+            value={summary ? formatNumber(safeNum(summary.critical)) : '—'}
             icon={(
               <span className="w-3 h-3 rounded-full bg-red-500" />
             )}
@@ -237,7 +246,7 @@ export default function DashboardPage() {
           />
           <KPICard
             title="High Priority"
-            value={summary ? formatNumber(summary.high) : '—'}
+            value={summary ? formatNumber(safeNum(summary.high)) : '—'}
             icon={(
               <span className="w-3 h-3 rounded-full bg-orange-500" />
             )}
@@ -246,14 +255,14 @@ export default function DashboardPage() {
           />
           <KPICard
             title="Awaiting Client"
-            value={summary ? formatNumber(summary.awaiting_client) : '—'}
+            value={summary ? formatNumber(safeNum(summary.awaiting_client)) : '—'}
             icon={Icons.awaiting}
             variant="default"
             isLoading={!data}
           />
           <KPICard
             title="Avg Resolution"
-            value={summary ? formatHours(summary.avg_resolution_time_hours) : '—'}
+            value={summary ? formatHours(safeNum(summary.avg_resolution_time_hours)) : '—'}
             subtitle="Time to resolve"
             icon={Icons.responseTime}
             variant="default"
@@ -261,18 +270,18 @@ export default function DashboardPage() {
           />
           <KPICard
             title="SLA Breached"
-            value={sla ? formatNumber(sla.breached_count) : '—'}
-            subtitle={`of ${sla ? formatNumber(sla.total_tickets_with_sla) : '—'} tickets`}
+            value={sla ? formatNumber(safeNum(sla.breached_count)) : '—'}
+            subtitle={`of ${sla ? formatNumber(safeNum(sla.total_tickets_with_sla)) : '—'} tickets`}
             icon={Icons.breached}
-            variant={sla && sla.breached_count > 0 ? 'danger' : 'success'}
+            variant={sla && safeNum(sla.breached_count) > 0 ? 'danger' : 'success'}
             isLoading={!data}
           />
           <KPICard
             title="SLA Compliance"
-            value={sla ? formatPercent(sla.compliance_rate) : '—'}
-            subtitle={`${sla ? formatNumber(sla.approaching_count) : '—'} approaching`}
+            value={sla ? formatPercent(safeNum(sla.compliance_rate)) : '—'}
+            subtitle={`${sla ? formatNumber(safeNum(sla.approaching_count)) : '—'} approaching`}
             icon={Icons.compliance}
-            variant={sla && sla.compliance_rate >= 95 ? 'success' : sla && sla.compliance_rate >= 80 ? 'warning' : 'danger'}
+            variant={sla && safeNum(sla.compliance_rate) >= 95 ? 'success' : sla && safeNum(sla.compliance_rate) >= 80 ? 'warning' : 'danger'}
             isLoading={!data}
           />
         </div>

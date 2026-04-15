@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { dashboardApi, type ActivityEvent } from '@/lib/dashboard-api';
 import type { ActivityEventType } from '@/types/analytics';
@@ -263,6 +263,10 @@ export default function ActivityFeed({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
   const [total, setTotal] = useState(initialEvents.length);
+  // D9-P6: Use ref for page counter to prevent duplicate events on rapid clicks
+  const pageRef = useRef(1);
+  // D9-P7: Tick timer to refresh relative timestamps every 60 seconds
+  const [, setTick] = useState(0);
 
   // Fetch initial page if no initialEvents provided
   const fetchFeed = useCallback(async (pageNum: number, eventType?: string) => {
@@ -291,6 +295,12 @@ export default function ActivityFeed({
     }
   }, []);
 
+  // D9-P7: Re-render every 60s to update relative timestamps
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Initial load — only if no initialEvents
   useEffect(() => {
     if (initialEvents.length === 0) {
@@ -307,12 +317,13 @@ export default function ActivityFeed({
     fetchFeed(1, filterKey);
   }, [fetchFeed]);
 
-  // Load more
+  // Load more — D9-P6: Use ref to prevent duplicate page fetches
   const handleLoadMore = useCallback(() => {
-    const nextPage = page + 1;
+    const nextPage = pageRef.current + 1;
+    pageRef.current = nextPage;
     setPage(nextPage);
     fetchFeed(nextPage, activeFilter);
-  }, [page, activeFilter, fetchFeed]);
+  }, [activeFilter, fetchFeed]);
 
   return (
     <div className={cn(

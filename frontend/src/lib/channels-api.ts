@@ -3,9 +3,14 @@
  *
  * API helper functions for channel configuration management.
  * Communicates with the backend channels API endpoints.
+ *
+ * D9-P10 FIX: Refactored to use centralized API wrapper (get/put/post)
+ * instead of raw apiClient calls. This ensures channel requests go
+ * through the same safe-parse, token-refresh, and error-handling
+ * pipeline as all other API calls.
  */
 
-import apiClient from '@/lib/api';
+import { get, put, post } from '@/lib/api';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -49,20 +54,14 @@ export interface UpdateChannelConfigPayload {
  * List all available system channels.
  */
 export async function getAvailableChannels(): Promise<ChannelInfo[]> {
-  const { data } = await apiClient.get<ChannelInfo[]>(
-    '/api/v1/channels/',
-  );
-  return data;
+  return get<ChannelInfo[]>('/api/v1/channels/');
 }
 
 /**
  * Get company's channel configuration (all channels with current settings).
  */
 export async function getChannelConfig(): Promise<ChannelConfig[]> {
-  const { data } = await apiClient.get<ChannelConfig[]>(
-    '/api/v1/channels/config',
-  );
-  return data;
+  return get<ChannelConfig[]>('/api/v1/channels/config');
 }
 
 /**
@@ -72,11 +71,10 @@ export async function updateChannelConfig(
   channelType: string,
   payload: UpdateChannelConfigPayload,
 ): Promise<ChannelConfig> {
-  const { data } = await apiClient.put<ChannelConfig>(
+  return put<ChannelConfig>(
     `/api/v1/channels/config/${channelType}`,
     payload,
   );
-  return data;
 }
 
 /**
@@ -86,9 +84,8 @@ export async function testChannelConnection(
   channelType: string,
   testConfig?: Record<string, unknown>,
 ): Promise<ChannelTestResult> {
-  const { data } = await apiClient.post<ChannelTestResult>(
+  return post<ChannelTestResult>(
     `/api/v1/channels/config/${channelType}/test`,
     { test_config: testConfig },
   );
-  return data;
 }

@@ -2,8 +2,51 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 
+// Simple in-memory rate limiter: 3 registrations per 15 minutes per IP
+const registrationAttempts = new Map<string, number[]>();
+const REGISTER_MAX_ATTEMPTS = 3;
+const REGISTER_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function getClientIP(request: NextRequest): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
+function isRegistrationRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const attempts = registrationAttempts.get(ip) || [];
+  const recent = attempts.filter((t) => now - t < REGISTER_WINDOW_MS);
+  registrationAttempts.set(ip, recent);
+  return recent.length >= REGISTER_MAX_ATTEMPTS;
+}
+
+function recordRegistrationAttempt(ip: string): void {
+  const now = Date.now();
+  const attempts = registrationAttempts.get(ip) || [];
+  attempts.push(now);
+  // Prune old entries to prevent unbounded growth
+  registrationAttempts.set(
+    ip,
+    attempts.filter((t) => now - t < REGISTER_WINDOW_MS),
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit check by IP
+    const clientIP = getClientIP(request);
+    if (isRegistrationRateLimited(clientIP)) {
+      return NextResponse.json(
+        { status: "error", message: "Too many registration attempts. Please try again later." },
+        { status: 429 }
+      );
+    }
+
+    recordRegistrationAttempt(clientIP);
+
     const body = await request.json();
     const { email, password, fullName, companyName, industry } = body;
 

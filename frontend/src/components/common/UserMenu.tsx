@@ -16,7 +16,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   User,
@@ -49,6 +49,8 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // D9-P9: Require typed company name for delete confirmation
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -86,22 +88,33 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
     }
   };
 
-  const handleDeleteAccount = async () => {
+  // D9-P9: Require typed company name confirmation for irreversible delete
+  const handleDeleteAccount = useCallback(async () => {
     if (!showDeleteConfirm) {
       setShowDeleteConfirm(true);
+      return;
+    }
+    // Require user to type their email to confirm
+    if (deleteConfirmText !== user?.email) {
       return;
     }
     setIsDeleting(true);
     try {
       await authApi.deleteAccount();
-      toast.success('Account deleted successfully');
+      // D9-P1: Clear all auth state and force redirect to prevent
+      // user from interacting with a deleted account
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('parwa_access_token');
+        localStorage.removeItem('parwa_refresh_token');
+        localStorage.removeItem('parwa_user');
+        // Full page redirect — clean slate, no stale React state
+        window.location.href = '/login?deleted=true';
+      }
     } catch (error) {
       toast.error(getErrorMessage(error));
-    } finally {
       setIsDeleting(false);
-      setIsOpen(false);
     }
-  };
+  }, [showDeleteConfirm, deleteConfirmText, user?.email]);
 
   const firstName = user?.full_name?.split(' ')[0] || 'there';
   const initials = (user?.full_name || user?.email || 'U').slice(0, 2).toUpperCase();
@@ -262,11 +275,29 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
               <span>{isDeleting ? 'Deleting...' : 'Delete Account'}</span>
             </button>
 
+            {/* D9-P9: Typed confirmation for irreversible B2B action */}
             {showDeleteConfirm && (
-              <div className="px-5 py-2 mt-1">
-                <p className="text-[11px] text-rose-400/70 mb-2">
-                  Are you sure? This will permanently delete your account and all data. Click again to confirm.
+              <div className="px-5 py-2 mt-1 space-y-2">
+                <p className="text-[11px] text-rose-400 mb-1">
+                  This will permanently delete your account and all company data.
                 </p>
+                <p className="text-[11px] text-rose-400/70">
+                  Type <strong className="text-rose-400">{user?.email}</strong> to confirm:
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={user?.email || ''}
+                  className="w-full px-3 py-1.5 text-xs bg-white/[0.05] border border-rose-500/30 rounded-lg text-white placeholder:text-white/20 focus:outline-none focus:border-rose-500/60"
+                />
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting || deleteConfirmText !== user?.email}
+                  className="w-full py-1.5 text-xs font-medium bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isDeleting ? 'Deleting...' : 'Permanently Delete Account'}
+                </button>
               </div>
             )}
           </div>

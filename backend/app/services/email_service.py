@@ -39,6 +39,9 @@ from app.logger import get_logger
 logger = get_logger("email_service")
 
 # Circuit breaker state
+# TODO: migrate to Redis-backed state for multi-worker deployments.
+# This dict is per-worker (in-memory), so in a multi-gunicorn/uvicorn setup
+# each worker tracks failures independently and the breaker is less effective.
 _cb_state = {
     "failures": 0,
     "last_failure": 0.0,
