@@ -48,9 +48,9 @@ export async function POST(request: NextRequest) {
     const { email, otp } = body;
 
     // C5: Rate limit check
-    const normalizedEmail = (email || "").trim().toLowerCase();
     const clientIP = getClientIP(request);
     if (email) {
+      const normalizedEmail = (email || "").trim().toLowerCase();
       const rateLimitKey = getOtpRateLimitKey(normalizedEmail, clientIP);
       if (isOtpRateLimited(rateLimitKey)) {
         return NextResponse.json(
