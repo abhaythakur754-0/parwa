@@ -324,6 +324,7 @@ class PgVectorStore(VectorStore):
 
         meta_list = metadata or [{}] * len(vector_ids)
 
+        engine = None
         try:
             engine = self._get_engine()
             with engine.begin() as conn:
@@ -347,7 +348,8 @@ class PgVectorStore(VectorStore):
             logger.warning("PgVectorStore.add_vectors failed: %s", exc)
             return False
         finally:
-            engine.dispose()
+            if engine is not None:
+                engine.dispose()
 
     def add_document(
         self,
@@ -434,6 +436,7 @@ class PgVectorStore(VectorStore):
         """
 
         results: List[SearchResult] = []
+        engine = None
         try:
             engine = self._get_engine()
             with engine.connect() as conn:
@@ -451,7 +454,8 @@ class PgVectorStore(VectorStore):
         except Exception as exc:
             logger.warning("PgVectorStore search failed: %s", exc)
         finally:
-            engine.dispose()
+            if engine is not None:
+                engine.dispose()
 
         return results
 
@@ -462,6 +466,7 @@ class PgVectorStore(VectorStore):
         """
         from sqlalchemy import text
 
+        engine = None
         try:
             engine = self._get_engine()
             with engine.begin() as conn:
@@ -478,7 +483,8 @@ class PgVectorStore(VectorStore):
             logger.warning("PgVectorStore delete_document failed: %s", exc)
             return False
         finally:
-            engine.dispose()
+            if engine is not None:
+                engine.dispose()
 
     def health_check(self) -> bool:
         """Check if pgvector extension is available.
