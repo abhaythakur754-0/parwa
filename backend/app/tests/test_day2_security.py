@@ -29,6 +29,26 @@ def _read(rel_path: str) -> str:
         return f.read()
 
 
+def _extract_service(content: str, service_key: str) -> str:
+    """Extract a service block from docker-compose content by its key (e.g. 'db:')."""
+    lines = content.split("\n")
+    in_service = False
+    service_lines = []
+    for line in lines:
+        stripped = line.lstrip()
+        if not in_service:
+            if stripped == service_key and line == "  " + service_key:
+                in_service = True
+                service_lines.append(line)
+                continue
+        else:
+            # End of service: next 2-space indent key or top-level key
+            if line and not line.startswith("    ") and not line.startswith("#") and stripped:
+                break
+            service_lines.append(line)
+    return "\n".join(service_lines)
+
+
 # ============================================================
 # F1: Bind all dev compose ports to 127.0.0.1 only
 # ============================================================
@@ -313,7 +333,7 @@ class TestF8DocsIPRestriction:
 # ============================================================
 
 class TestF9DevNetworkIsolation:
-    """Dev compose must define explicit backend and frontend networks."""
+    """Dev compose must define and assign explicit backend and frontend networks."""
 
     def test_backend_network_defined(self):
         content = _read("docker-compose.yml")
@@ -336,13 +356,59 @@ class TestF9DevNetworkIsolation:
         assert "driver: bridge" in content, \
             "Networks should use bridge driver"
 
+    def test_db_assigned_to_backend_network(self):
+        """F9: db service must be on backend_network only."""
+        content = _read("docker-compose.yml")
+        service = _extract_service(content, "db:")
+        assert "backend_network" in service, \
+            "db service must be assigned to backend_network"
+        # db should NOT be on frontend_network
+        assert "frontend_network" not in service, \
+            "db service must not be on frontend_network"
+
+    def test_redis_assigned_to_backend_network(self):
+        """F9: redis service must be on backend_network only."""
+        content = _read("docker-compose.yml")
+        service = _extract_service(content, "redis:")
+        assert "backend_network" in service, \
+            "redis service must be assigned to backend_network"
+        assert "frontend_network" not in service, \
+            "redis service must not be on frontend_network"
+
+    def test_backend_assigned_to_both_networks(self):
+        """F9: backend service must be on both backend and frontend networks."""
+        content = _read("docker-compose.yml")
+        service = _extract_service(content, "backend:")
+        assert "backend_network" in service, \
+            "backend service must be assigned to backend_network"
+        assert "frontend_network" in service, \
+            "backend service must be assigned to frontend_network"
+
+    def test_worker_assigned_to_backend_network(self):
+        """F9: worker service must be on backend_network only."""
+        content = _read("docker-compose.yml")
+        service = _extract_service(content, "worker:")
+        assert "backend_network" in service, \
+            "worker service must be assigned to backend_network"
+        assert "frontend_network" not in service, \
+            "worker service must not be on frontend_network"
+
+    def test_frontend_assigned_to_frontend_network(self):
+        """F9: frontend service must be on frontend_network only."""
+        content = _read("docker-compose.yml")
+        service = _extract_service(content, "frontend:")
+        assert "frontend_network" in service, \
+            "frontend service must be assigned to frontend_network"
+        assert "backend_network" not in service, \
+            "frontend service must not be on backend_network"
+
 
 # ============================================================
 # F10: Remove Grafana admin default
 # ============================================================
 
 class TestF10GrafanaNoDefaultAdmin:
-    """Grafana admin user must be required, not default to 'admin'."""
+    """Grafana admin user and password must be required, not default."""
 
     def test_grafana_admin_required(self):
         content = _read("docker-compose.prod.yml")
@@ -353,6 +419,18 @@ class TestF10GrafanaNoDefaultAdmin:
         content = _read("docker-compose.prod.yml")
         assert "GRAFANA_ADMIN_USER:-admin" not in content, \
             "GRAFANA_ADMIN_USER must not default to 'admin'"
+
+    def test_grafana_admin_password_required(self):
+        """F10: GF_SECURITY_ADMIN_PASSWORD must use :? required syntax."""
+        content = _read("docker-compose.prod.yml")
+        assert "${GRAFANA_ADMIN_PASSWORD:?GF_SECURITY_ADMIN_PASSWORD must be set}" in content, \
+            "GF_SECURITY_ADMIN_PASSWORD must use :? required syntax"
+
+    def test_no_grafana_password_default(self):
+        """F10: GF_SECURITY_ADMIN_PASSWORD must not use :- default."""
+        content = _read("docker-compose.prod.yml")
+        assert "GRAFANA_ADMIN_PASSWORD:-" not in content, \
+            "GRAFANA_ADMIN_PASSWORD must not have a default value"
 
 
 # ============================================================
