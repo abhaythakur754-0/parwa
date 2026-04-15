@@ -49,15 +49,17 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       .finally(() => setLoading(false));
   }, [initialState]);
 
-  // Redirect to dashboard if first victory is done — must be before any early returns (Rules of Hooks)
+  // D8-P8: Redirect to dashboard if first victory is done.
+  // NOTE: This fires from the wizard level (fast, reactive) AND the page-level
+  // auth guard in onboarding/page.tsx also redirects when user.onboarding_completed.
+  // This is intentional — the wizard redirect provides instant UX after the
+  // victory animation, while the page-level guard is the security boundary that
+  // prevents re-entry on direct navigation. Next.js deduplicates the navigation.
   useEffect(() => {
-    if (onboardingState?.first_victory_completed || onboardingState?.status === 'completed') {
-      // Check if first victory API has been called
-      if (onboardingState.first_victory_completed) {
-        router.replace('/dashboard');
-      }
+    if (onboardingState?.first_victory_completed) {
+      router.replace('/dashboard');
     }
-  }, [onboardingState?.first_victory_completed, onboardingState?.status, router]);
+  }, [onboardingState?.first_victory_completed, router]);
 
   const completeStep = async (step: number, extraData?: Record<string, unknown>) => {
     setStepError(null);

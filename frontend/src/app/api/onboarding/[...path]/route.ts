@@ -173,6 +173,18 @@ export async function GET(
         ai_greeting: state.ai_greeting,
       });
 
+    // P24: Warmup status proxy — in local fallback, return warm if activated
+    case 'warmup-status':
+      return NextResponse.json({
+        overall_status: state.status === 'completed' ? 'warm' : 'cold',
+        models_ready: state.status === 'completed' ? 1 : 0,
+        models_total: 1,
+        fallback_used: false,
+        message: state.status === 'completed'
+          ? '1/1 models ready.'
+          : 'No warmup initiated yet.',
+      });
+
     default:
       return NextResponse.json({ detail: 'Not found' }, { status: 404 });
   }

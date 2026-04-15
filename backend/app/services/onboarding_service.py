@@ -703,6 +703,27 @@ def activate_ai(
             details={"user_id": user_id},
         )
 
+    # P23 FIX: Validate ai_name uniqueness within the company.
+    # Two different users in the same company should not be able to
+    # create AI assistants with the same name — this causes confusion
+    # in customer-facing widgets and admin dashboards.
+    existing_ai = db.execute(
+        select(OnboardingSession)
+        .where(
+            and_(
+                OnboardingSession.company_id == company_id,
+                OnboardingSession.ai_name == ai_name[:50],
+                OnboardingSession.status == "completed",
+                OnboardingSession.id != session.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing_ai:
+        raise ValidationError(
+            message=f"AI assistant name '{ai_name}' is already in use within your organization. Please choose a different name.",
+            details={"ai_name": ai_name, "existing_session_id": str(existing_ai.id)},
+        )
+
     # P4 FIX: Idempotency — if already activated, return existing config.
     # Prevents duplicate warmup triggers on double-click or network retry.
     if session.status == "completed" and session.ai_name:
@@ -862,6 +883,25 @@ def complete_first_victory(
             message="Onboarding session not found.",
             details={"user_id": user_id},
         )
+
+    # D8-P2 FIX: Verify session is actually completed before allowing
+    # first victory. Without this, a user could call this endpoint
+    # before finishing all onboarding steps (e.g., via direct API call).
+    if session.status != "completed":
+        raise ValidationError(
+            message="Cannot complete first victory — onboarding is not finished yet.",
+            details={
+                "user_id": user_id,
+                "current_status": session.status,
+            },
+        )
+
+    # Idempotency: if already completed, return success without re-writing
+    if session.first_victory_completed:
+        return {
+            "completed": True,
+            "message": "First victory already completed.",
+        }
 
     session.first_victory_completed = True
     session.updated_at = datetime.now(timezone.utc)

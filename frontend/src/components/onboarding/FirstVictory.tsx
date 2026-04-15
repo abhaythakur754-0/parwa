@@ -19,31 +19,41 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting, onVictoryComplete 
   const router = useRouter();
   const [showConfetti, setShowConfetti] = useState(false);
   const [markError, setMarkError] = useState<string | null>(null);
+  // D8-P3: Track warmup status to show accurate AI readiness messaging
+  const [warmupStatus, setWarmupStatus] = useState<string | null>(null);
+  // D8-P5: Track component mount status to prevent retries after unmount
+  const mountedRef = useRef(true);
 
   const markVictory = useCallback(async (attempt = 1): Promise<void> => {
+    // D8-P5: Skip if component unmounted
+    if (!mountedRef.current) return;
     try {
       const res = await fetch('/api/onboarding/first-victory', { method: 'POST' });
 
       if (!res.ok) {
         // D8-2: If server returns error, retry up to MAX_MARK_RETRIES times
-        if (attempt < MAX_MARK_RETRIES) {
+        if (attempt < MAX_MARK_RETRIES && mountedRef.current) {
           setTimeout(() => markVictory(attempt + 1), MARK_RETRY_DELAY_MS);
           return;
         }
-        setMarkError('Unable to mark celebration as seen. You may see this screen again on your next visit.');
+        if (mountedRef.current) {
+          setMarkError('Unable to mark celebration as seen. You may see this screen again on your next visit.');
+        }
         return;
       }
 
       // Successfully marked — notify parent to update state
       onVictoryComplete?.();
-      setMarkError(null);
+      if (mountedRef.current) setMarkError(null);
     } catch {
       // D8-2: Network error — retry
-      if (attempt < MAX_MARK_RETRIES) {
+      if (attempt < MAX_MARK_RETRIES && mountedRef.current) {
         setTimeout(() => markVictory(attempt + 1), MARK_RETRY_DELAY_MS);
         return;
       }
-      setMarkError('Connection lost. Your progress will be saved when you click "Go to Dashboard".');
+      if (mountedRef.current) {
+        setMarkError('Connection lost. Your progress will be saved when you click "Go to Dashboard".');
+      }
     }
   }, [onVictoryComplete]);
 
@@ -56,7 +66,26 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting, onVictoryComplete 
   // Mark first victory as seen with retry
   useEffect(() => {
     markVictory();
+    return () => {
+      // D8-P5: Mark as unmounted to prevent stale setTimeout callbacks
+      mountedRef.current = false;
+    };
   }, [markVictory]);
+
+  // D8-P3: Fetch warmup status to show accurate AI readiness messaging
+  useEffect(() => {
+    if (!mountedRef.current) return;
+    const fetchWarmup = async () => {
+      try {
+        const res = await fetch('/api/onboarding/warmup-status');
+        if (res.ok && mountedRef.current) {
+          const data = await res.json();
+          setWarmupStatus(data.overall_status);
+        }
+      } catch { /* best effort */ }
+    };
+    fetchWarmup();
+  }, []);
 
   const goToDashboard = () => {
     router.push('/dashboard');
@@ -117,7 +146,22 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting, onVictoryComplete 
           Welcome to PARWA!
         </h1>
         <p className="text-xl text-muted-foreground">
-          Your AI assistant <span className="font-semibold text-foreground">{aiName}</span> is ready!
+          {/* D8-P3: Show accurate status based on actual warmup state */}
+          {warmupStatus === 'cooling' ? (
+            <>
+              Your AI assistant <span className="font-semibold text-foreground">{aiName}</span> is activating{' '}
+              <span className="text-amber-600">(some models are warming up — responses may be slower initially)</span>
+            </>
+          ) : warmupStatus === 'warming' ? (
+            <>
+              Your AI assistant <span className="font-semibold text-foreground">{aiName}</span> is warming up{' '}
+              <span className="text-amber-600">(AI models are being prepared — first responses may take a moment)</span>
+            </>
+          ) : (
+            <>
+              Your AI assistant <span className="font-semibold text-foreground">{aiName}</span> is ready!
+            </>
+          )}
         </p>
         {aiGreeting && (
           <p className="text-lg italic text-muted-foreground">

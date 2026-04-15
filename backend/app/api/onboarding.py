@@ -37,6 +37,7 @@ from app.services.onboarding_service import (
     complete_first_victory,
 )
 from app.services.user_details_service import check_ai_activation_prerequisites
+from app.core.cold_start_service import get_cold_start_service
 from database.base import get_db
 from database.models.core import User
 
@@ -189,6 +190,105 @@ def api_activate_ai(
         ai_tone=result["ai_tone"],
         ai_response_style=result["ai_response_style"],
         ai_greeting=result["ai_greeting"],
+    )
+
+
+class WarmupStatusResponse(BaseModel):
+    """Response for warmup status check (P24)."""
+    overall_status: str
+    models_ready: int = 0
+    models_total: int = 0
+    fallback_used: bool = False
+    message: str = ""
+
+
+@router.get(
+    "/warmup-status",
+    response_model=WarmupStatusResponse,
+)
+def api_get_warmup_status(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> WarmupStatusResponse:
+    """Check AI warmup progress after activation.
+
+    P24 FIX: Allows the frontend to poll warmup progress and show
+    the user when their AI models are fully ready.
+    D8-P1 FIX: Handles horizontal scaling — if tenant not found in
+    this instance's in-memory state (request routed to a different pod),
+    silently triggers recovery warmup instead of returning "cold".
+    """
+    cold_start = get_cold_start_service()
+    tenant_state = cold_start.get_tenant_status(user.company_id)
+
+    if not tenant_state:
+        # D8-P1: Tenant activated but this instance doesn't have warmup state.
+        # This happens with horizontal scaling (multiple pods behind a LB).
+        # Check if the session is actually completed in the DB.
+        from app.services.onboarding_service import get_session_with_lock
+        from database.models.onboarding import OnboardingSession
+        from database.models.user_details import UserDetails
+
+        session = db.query(OnboardingSession).filter(
+            OnboardingSession.user_id == user.id,
+            OnboardingSession.company_id == user.company_id,
+        ).first()
+
+        if not session or session.status != "completed":
+            return WarmupStatusResponse(
+                overall_status="cold",
+                message="No warmup initiated yet.",
+            )
+
+        # Session is completed — trigger recovery warmup on this instance.
+        # recover_tenant_warmup() calls warmup_tenant() which is idempotent.
+        details = db.query(UserDetails).filter(
+            UserDetails.company_id == user.company_id,
+        ).first()
+        variant_type = "mini_parwa"
+        if details and details.company_size:
+            size_to_variant = {
+                "1_10": "mini_parwa",
+                "11_50": "parwa",
+                "51_200": "parwa",
+                "201_500": "parwa_high",
+                "501_1000": "parwa_high",
+                "1000_plus": "parwa_high",
+            }
+            variant_type = size_to_variant.get(details.company_size, "mini_parwa")
+
+        # Run warmup in background thread so the poll response isn't blocked
+        import threading
+        def _recovery_warmup():
+            try:
+                cold_start.recover_tenant_warmup(user.company_id, variant_type)
+            except Exception:
+                pass  # Non-blocking — next poll will retry
+        threading.Thread(target=_recovery_warmup, daemon=True).start()
+
+        return WarmupStatusResponse(
+            overall_status="warming",
+            models_ready=0,
+            models_total=0,
+            fallback_used=False,
+            message="Warming up models on this instance...",
+        )
+
+    models_total = len(tenant_state.models_warmed)
+    models_ready = sum(
+        1 for ms in tenant_state.models_warmed.values() if ms.warmup_success
+    )
+
+    return WarmupStatusResponse(
+        overall_status=tenant_state.overall_status.value,
+        models_ready=models_ready,
+        models_total=models_total,
+        fallback_used=tenant_state.fallback_used,
+        message=(
+            f"{models_ready}/{models_total} models ready."
+            if models_total > 0
+            else "Warming up..."
+        ),
     )
 
 

@@ -19,6 +19,7 @@ Services:
 - get_onboarding_state: Get user's onboarding progress
 """
 
+import hashlib
 import secrets
 import re
 from datetime import datetime, timedelta, timezone
@@ -296,6 +297,19 @@ def create_or_update_user_details(
     )
 
 
+def _hash_verification_token(token: str) -> str:
+    """Hash a verification token using SHA-256.
+
+    P10 FIX: Tokens are stored as hashes in the DB so that a DB breach
+    does not expose usable verification tokens. The plaintext token
+    only exists in the email link and in memory during verification.
+    SHA-256 is sufficient here because tokens are already 256-bit
+    cryptographically random values — we just need a one-way transform
+    to prevent raw token recovery from the DB.
+    """
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
 def send_work_email_verification(
     db: Session,
     user_id: str,
@@ -305,6 +319,7 @@ def send_work_email_verification(
     """Send verification email for work email address.
 
     BC-011: Verification token is cryptographically random.
+    P10: Token is hashed before storing in DB.
     GAP-005: Rate limiting to prevent spam.
     Stores token hash and sends email via Brevo.
 
@@ -369,14 +384,15 @@ def send_work_email_verification(
                 details={"retry_after_seconds": remaining},
             )
 
-    # Generate verification token
+    # Generate verification token (plaintext — only exists in email link)
     token = secrets.token_urlsafe(32)
-    details.work_email_verification_token = token
+    # P10 FIX: Store the HASH, not the raw token
+    details.work_email_verification_token = _hash_verification_token(token)
     details.work_email_verification_sent_at = datetime.now(timezone.utc)
 
     db.commit()
 
-    # Send verification email via Brevo
+    # Send verification email via Brevo (URL contains plaintext token)
     try:
         settings = get_settings()
         verification_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
@@ -429,8 +445,10 @@ def verify_work_email(
             details={"token": "Token too short"},
         )
     
+    # P10 FIX: Compare hashed token (DB stores hashes, not plaintext)
+    token_hash = _hash_verification_token(token)
     details = db.query(UserDetails).filter(
-        UserDetails.work_email_verification_token == token,
+        UserDetails.work_email_verification_token == token_hash,
     ).first()
 
     if not details:

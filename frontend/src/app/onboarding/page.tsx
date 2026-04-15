@@ -29,21 +29,29 @@ export default function OnboardingPage() {
   const { user, isAuthenticated, isLoading, hydrate } = useAuth();
 
   // ── Determine render mode ──
-  const [mode, setMode] = useState<'wizard' | 'chat'>(() => {
-    if (typeof window === 'undefined') return 'chat';
+  // D8-P6 FIX: Avoid SSR hydration mismatch. useState initializer runs on both
+  // server and client — server always returns 'chat' (no window.location),
+  // but client might read ?mode=wizard from URL, causing a mismatch.
+  // Solution: Initialize to 'chat', then read URL in useEffect to update.
+  const [mode, setMode] = useState<'wizard' | 'chat'>('chat');
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    return (params.get('mode') as 'wizard' | 'chat') || 'chat';
-  });
+    const urlMode = (params.get('mode') as 'wizard' | 'chat') || 'chat';
+    setMode(urlMode);
+    setHydrated(true);
+  }, []);
 
   // ── Context: Read URL params for entry_source, variant, industry ──
-  const [entrySource] = useState(() => {
-    if (typeof window === 'undefined') return 'onboarding';
+  const [entrySource, setEntrySource] = useState('onboarding');
+  const [entryParams, setEntryParams] = useState<Record<string, unknown>>({});
+
+  // D8-P6: Read URL params and localStorage only after hydration
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('entry_source') || 'onboarding';
-  });
-  const [entryParams] = useState<Record<string, unknown>>(() => {
-    if (typeof window === 'undefined') return {};
-    const params = new URLSearchParams(window.location.search);
+    setEntrySource(params.get('entry_source') || 'onboarding');
+
     const ctx: Record<string, unknown> = {};
     const industry = params.get('industry');
     const variant = params.get('variant');
@@ -52,34 +60,41 @@ export default function OnboardingPage() {
     // Read bridged context from localStorage (set by other pages)
     // NOTE: Do NOT remove context here — let useJarvisChat's pushContextToBackend handle the sync.
     // Removing it here causes data loss if the push hasn't completed yet.
+    // D8-P4: Validate parsed JSON is actually an object (browser extensions
+    // can inject non-object values into localStorage, causing runtime errors).
     try {
       const stored = localStorage.getItem('parwa_jarvis_context');
       if (stored) {
-        const bridged = JSON.parse(stored) as Record<string, unknown>;
-        if (bridged.variant && !variant) ctx.variant = bridged.variant;
-        if (bridged.variant_id && !params.get('variant_id')) ctx.variant_id = bridged.variant_id;
-        if (bridged.industry && !industry) ctx.industry = bridged.industry;
-        if (bridged.selected_variants) ctx.selected_variants = bridged.selected_variants;
-        if (bridged.total_price) ctx.total_price = bridged.total_price;
-        if (bridged.source) ctx.referral_source = bridged.source;
-        if (bridged.roi_result) ctx.roi_result = bridged.roi_result;
-        if (bridged.interests) ctx.interests = bridged.interests;
-        if (bridged.pages_visited) ctx.pages_visited = bridged.pages_visited;
+        const parsed = JSON.parse(stored);
+        const bridged = (parsed && typeof parsed === 'object' && !Array.isArray(parsed))
+          ? (parsed as Record<string, unknown>) : null;
+        if (bridged && typeof bridged.variant === 'string' && !variant) ctx.variant = bridged.variant;
+        if (bridged && typeof bridged.variant_id === 'string' && !params.get('variant_id')) ctx.variant_id = bridged.variant_id;
+        if (bridged && typeof bridged.industry === 'string' && !industry) ctx.industry = bridged.industry;
+        if (bridged && Array.isArray(bridged.selected_variants)) ctx.selected_variants = bridged.selected_variants;
+        if (bridged && typeof bridged.total_price === 'number') ctx.total_price = bridged.total_price;
+        if (bridged && typeof bridged.source === 'string') ctx.referral_source = bridged.source;
+        if (bridged && typeof bridged.roi_result === 'object' && bridged.roi_result) ctx.roi_result = bridged.roi_result;
+        if (bridged && Array.isArray(bridged.interests)) ctx.interests = bridged.interests;
+        if (bridged && Array.isArray(bridged.pages_visited)) ctx.pages_visited = bridged.pages_visited;
       }
     } catch { /* ignore */ }
     // Also read pricing selection if available
+    // D8-P4: Type-validate pricing selection from localStorage
     try {
       const stored = localStorage.getItem('parwa_pricing_selection');
       if (stored) {
-        const pricing = JSON.parse(stored) as Record<string, unknown>;
-        if (pricing.plan && !ctx.selected_plan) ctx.selected_plan = pricing.plan;
-        if (pricing.industry && !ctx.industry) ctx.industry = pricing.industry;
-        if (pricing.variants && !ctx.selected_variants) ctx.selected_variants = pricing.variants;
-        if (pricing.totalMonthly && !ctx.total_price) ctx.total_price = pricing.totalMonthly;
+        const parsed = JSON.parse(stored);
+        const pricing = (parsed && typeof parsed === 'object' && !Array.isArray(parsed))
+          ? (parsed as Record<string, unknown>) : null;
+        if (pricing && typeof pricing.plan === 'string' && !ctx.selected_plan) ctx.selected_plan = pricing.plan;
+        if (pricing && typeof pricing.industry === 'string' && !ctx.industry) ctx.industry = pricing.industry;
+        if (pricing && Array.isArray(pricing.variants) && !ctx.selected_variants) ctx.selected_variants = pricing.variants;
+        if (pricing && typeof pricing.totalMonthly === 'number' && !ctx.total_price) ctx.total_price = pricing.totalMonthly;
       }
     } catch { /* ignore */ }
-    return ctx;
-  });
+    setEntryParams(ctx);
+  }, []);
 
   useEffect(() => {
     // Wait for auth to initialize

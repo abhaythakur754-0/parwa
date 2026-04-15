@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -53,6 +53,15 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
   const [activating, setActivating] = useState(false);
   const [activated, setActivated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // P24: Warmup progress state
+  const [warmupStatus, setWarmupStatus] = useState<{
+    overall_status: string;
+    models_ready: number;
+    models_total: number;
+    message: string;
+  } | null>(null);
+  const warmupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [prereqError, setPrereqError] = useState<string | null>(null);
 
@@ -140,6 +149,59 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
       setActivating(false);
     }
   };
+
+  // P24 FIX: Poll warmup status after activation completes.
+  // Shows the user real-time progress as models warm up.
+  // D8-P7 FIX: Use exponential backoff (2s → 3s → 5s max) instead of
+  // hardcoded 3s, reducing unnecessary polling as warmup progresses.
+  useEffect(() => {
+    if (!activated) return;
+
+    let pollCount = 0;
+    const MAX_POLL_INTERVAL = 5000;
+    const INITIAL_POLL_INTERVAL = 2000;
+
+    const pollWarmup = async () => {
+      if (!warmupPollRef.current) return; // cancelled
+      try {
+        const res = await fetch('/api/onboarding/warmup-status');
+        if (res.ok) {
+          const data = await res.json();
+          setWarmupStatus(data);
+          // Stop polling once fully warm
+          if (data.overall_status === 'warm') {
+            if (warmupPollRef.current) {
+              clearInterval(warmupPollRef.current);
+              warmupPollRef.current = null;
+            }
+          }
+        }
+      } catch {
+        // Best effort — don't block the user
+      }
+      pollCount++;
+      // D8-P7: Increase interval with each poll (exponential backoff)
+      if (warmupPollRef.current) {
+        const nextInterval = Math.min(
+          INITIAL_POLL_INTERVAL * Math.pow(1.5, pollCount),
+          MAX_POLL_INTERVAL
+        );
+        clearInterval(warmupPollRef.current);
+        warmupPollRef.current = setInterval(pollWarmup, nextInterval);
+      }
+    };
+
+    // Poll immediately
+    pollWarmup();
+    warmupPollRef.current = setInterval(pollWarmup, INITIAL_POLL_INTERVAL);
+
+    return () => {
+      if (warmupPollRef.current) {
+        clearInterval(warmupPollRef.current);
+        warmupPollRef.current = null;
+      }
+    };
+  }, [activated]);
 
   if (loading) {
     return (
@@ -274,6 +336,16 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
           <CheckCircle2 className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800">
             AI assistant activated successfully!
+            {warmupStatus && warmupStatus.overall_status !== 'warm' && (
+              <span className="ml-2 text-green-600">
+                ({warmupStatus.message || 'Preparing AI models...'})
+              </span>
+            )}
+            {warmupStatus && warmupStatus.overall_status === 'warm' && (
+              <span className="ml-2 text-green-600">
+                (All models ready — fully operational!)
+              </span>
+            )}
           </AlertDescription>
         </Alert>
       )}
