@@ -149,8 +149,8 @@ export default function DashboardPage() {
 
   // ── Handle Alert Dismiss ────────────────────────────────────────────
 
-  const handleAlertDismiss = useCallback((index: number) => {
-    setAlerts(prev => prev.filter((_, i) => i !== index));
+  const handleAlertDismiss = useCallback((_alertKey: string) => {
+    setAlerts(prev => prev.slice(1));
   }, []);
 
   // ── Safe data accessors ─────────────────────────────────────────────
