@@ -3955,9 +3955,9 @@ def _get_default_system_prompt() -> str:
         "700+ features. 4 industries.\n\n"
 
         "THREE PLANS:\n"
-        "• Mini PARWA — $999/mo — 1 agent, 1K tickets/mo, Email+Chat — Saves $156K/yr\n"
-        "• PARWA — $2,499/mo — 3 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr\n"
-        "• PARWA High — $3,999/mo — 5 agents, 15K tickets/mo, all channels — Saves $288K/yr\n\n"
+        "• PARWA Starter — $999/mo — 3 agents, 1K tickets/mo, Email+Chat — Saves $156K/yr\n"
+        "• PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr\n"
+        "• PARWA High — $3,999/mo — 15 agents, 15K tickets/mo, all channels — Saves $288K/yr\n\n"
 
         "DEMO PACK & CALLS:\n"
         "Users can test my voice and chat capabilities for just $1. "

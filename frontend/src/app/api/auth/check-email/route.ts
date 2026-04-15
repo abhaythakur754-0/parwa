@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email } = body;
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get("email");
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json(
@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({
-      exists: !!user,
+      email: normalizedEmail,
+      available: !user,
     });
   } catch (error: unknown) {
     const message =

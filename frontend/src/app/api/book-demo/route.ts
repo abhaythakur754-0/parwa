@@ -45,8 +45,9 @@ export async function POST(req: NextRequest) {
       message: 'Demo request submitted successfully! Our team will reach out within 24 hours.',
       id: demoRequest.id,
     });
-  } catch (error: any) {
-    console.error('Book Demo API error:', error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+    console.error('Book Demo API error:', message);
     return NextResponse.json(
       { status: 'error', message: 'Failed to submit demo request. Please try again.' },
       { status: 500 }

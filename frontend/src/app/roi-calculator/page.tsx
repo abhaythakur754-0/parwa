@@ -131,7 +131,7 @@ const INDUSTRIES = [
 ];
 
 const TEAM_SIZES = [
-  { label: '1–5 agents', value: 3 },
+  { label: '3–15 agents', value: 3 },
   { label: '6–10 agents', value: 8 },
   { label: '11–15 agents', value: 13 },
   { label: '16–30 agents', value: 23 },

@@ -718,7 +718,7 @@ const VARIANT_PRICES: Record<string, number> = {
 };
 
 const PLAN_PRICES: Record<string, number> = {
-  'starter': 999, 'growth': 2499, 'high': 3999,
+  'starter': 49, 'growth': 149, 'high': 399,
 };
 
 function calculateBillSummary(session: any) {
@@ -1019,7 +1019,7 @@ function getKeywordResponse(message: string, session: any): string {
       `✅ PARWA meets healthcare's strictest requirements.\n\n🛡️ HIPAA compliant with full audit trails\n🔐 AES-256 encryption at rest & in transit\n🩺 Smart clinical escalation built in\n\nWant to see a patient scheduling scenario?`,
     ],
     pricing: [
-      `💰 Here's the lineup:\n\n• 🟠 PARWA Starter — $999/mo — 1 agent, 1K tickets/mo\n• 🟠 PARWA Growth — $2,499/mo — 3 agents, 5K tickets/mo\n• 🟠 PARWA High — $3,999/mo — 5 agents, 15K tickets/mo\n\nAll with zero AI markup, cancel anytime. Which one fits your needs?`,
+      `💰 Here's the lineup:\n\n• 🟠 PARWA Starter — $999/mo — 3 agents, 1K tickets/mo\n• 🟠 PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo\n• 🟠 PARWA High — $3,999/mo — 15 agents, 15K tickets/mo\n\nAll with zero AI markup, cancel anytime. Which one fits your needs?`,
     ],
     roi: [
       `📊 Here's the math:\n\n• PARWA Starter → saves ~$156K/yr (vs 3 agents)\n• PARWA Growth → saves ~$186K/yr (vs 4 juniors)\n• PARWA High → saves ~$288K/yr (vs 5 seniors)\n\nThat's 85-92% savings with 24/7 coverage. Want me to calculate yours?`,

@@ -346,7 +346,7 @@ const KNOWLEDGE_INDEX: KnowledgeIndex[] = [
   {
     keywords: ['price', 'pricing', 'cost', 'plan', 'monthly', 'subscription', 'afford', 'cheap', 'expensive', '$999', '$2499', '$3999'],
     source: '01_pricing_tiers',
-    content: `PARWA Plans: Mini PARWA $999/mo (1 agent, 1000 tickets), PARWA $2,499/mo (3 agents, 5000 tickets, 70-80% autonomous), PARWA High $3,999/mo (5 agents, 15000 tickets, all channels). Annual billing saves 15%. Overage $0.10-$0.50/ticket. $1 Demo Pack: 500 messages + 3-min voice call.`,
+    content: `PARWA Plans: PARWA Starter $999/mo (3 agents, 1000 tickets), PARWA Growth $2,499/mo (8 agents, 5000 tickets, 70-80% autonomous), PARWA High $3,999/mo (15 agents, 15000 tickets, all channels). Annual billing saves 15%. Overage $0.10-$0.50/ticket. $1 Demo Pack: 500 messages + 3-min voice call.`,
     relevance: 1.0,
   },
   // Industry

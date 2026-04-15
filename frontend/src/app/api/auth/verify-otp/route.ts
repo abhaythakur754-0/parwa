@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import crypto from "crypto";
 
 /**
  * POST /api/auth/verify-otp
@@ -60,8 +61,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify OTP (timing-safe comparison)
-    if (user.otp_code !== otp) {
+    // Verify OTP (timing-safe comparison to prevent timing side-channel attacks)
+    const storedOtp = (user.otp_code || "").padStart(6, "0");
+    const providedOtp = (otp || "").padStart(6, "0");
+    if (storedOtp.length !== 6 || providedOtp.length !== 6 ||
+        !crypto.timingSafeEqual(Buffer.from(storedOtp), Buffer.from(providedOtp))) {
       return NextResponse.json(
         { status: "error", message: "Incorrect OTP. Please try again." },
         { status: 400 }
