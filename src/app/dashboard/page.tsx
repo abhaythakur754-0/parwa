@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useSocket } from '@/lib/socket';
 import {
   WelcomeCard,
   TrendChart,
@@ -10,19 +11,24 @@ import {
   SLAChart,
   AgentPerformanceTable,
   ResponseTimeChart,
+  ActivityFeed,
+  AlertBanner,
+  AdaptationTracker,
+  GrowthNudge,
+  TicketForecast,
+  CSATTrends,
+  ConfidenceTrend,
+  DriftDetection,
+  QAScores,
+  ROIDashboard,
+  SystemHealthStrip,
+  ActiveAgentsSummary,
+  FirstVictoryBanner,
+  RecentApprovals,
+  SavingsCounter,
 } from '@/components/dashboard';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import KPICard from '@/components/dashboard/KPICard';
-import ActivityFeed from '@/components/dashboard/ActivityFeed';
-import AlertBanner from '@/components/dashboard/AlertBanner';
-import AdaptationTracker from '@/components/dashboard/AdaptationTracker';
-import GrowthNudge from '@/components/dashboard/GrowthNudge';
-import TicketForecast from '@/components/dashboard/TicketForecast';
-import CSATTrends from '@/components/dashboard/CSATTrends';
-import ConfidenceTrend from '@/components/dashboard/ConfidenceTrend';
-import DriftDetection from '@/components/dashboard/DriftDetection';
-import QAScores from '@/components/dashboard/QAScores';
-import ROIDashboard from '@/components/dashboard/ROIDashboard';
 import { analyticsApi } from '@/lib/analytics-api';
 import { dashboardApi, type DashboardHomeResponse } from '@/lib/dashboard-api';
 import { getErrorMessage } from '@/lib/api';
@@ -94,16 +100,16 @@ function formatPercent(n: number): string {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { latestTicketEvent, isConnected } = useSocket();
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [agentData, setAgentData] = useState<AgentMetrics[]>([]);
   const [dateRange, setDateRange] = useState<Partial<DateRange>>({});
   const [datePreset, setDatePreset] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // ── NEW: Dashboard Home data (anomalies + activity feed) ─────────
   const [homeData, setHomeData] = useState<DashboardHomeResponse | null>(null);
 
-  // ── Fetch Dashboard Data (existing — old analytics endpoint) ──────
+  // ── Fetch Dashboard Data ────────────────────────────────────────────
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -122,29 +128,33 @@ export default function DashboardPage() {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  // ── Fetch NEW Dashboard Home data (anomalies + activity) ──────────
+  // ── Fetch Home Data (anomalies + activity + CSAT) ──────────────────
 
   useEffect(() => {
     dashboardApi
       .getHome(30)
       .then((home) => setHomeData(home))
-      .catch(() => {
-        // Silent fail — new features are supplementary
-      });
+      .catch(() => {});
   }, []);
 
-  // ── Fetch Agent Data (separate endpoint) ──────────────────────────
+  // ── Fetch Agent Data ───────────────────────────────────────────────
 
   useEffect(() => {
     analyticsApi
       .getAgents(50, dateRange)
       .then((agents) => setAgentData(agents))
-      .catch(() => {
-        // Silent fail — agent data is secondary
-      });
+      .catch(() => {});
   }, [dateRange]);
 
-  // ── Handle Date Change ────────────────────────────────────────────
+  // ── Socket.io: Re-fetch dashboard when significant events arrive ───
+
+  useEffect(() => {
+    if (!latestTicketEvent) return;
+    // Debounce: only refetch every 10 seconds at most
+    fetchDashboard();
+  }, [latestTicketEvent, fetchDashboard]);
+
+  // ── Handle Date Change ──────────────────────────────────────────────
 
   const handleDateChange = useCallback((range: { start_date: string; end_date: string }) => {
     setDateRange(range);
@@ -158,20 +168,31 @@ export default function DashboardPage() {
     else setDatePreset('custom');
   }, []);
 
+  // ── Derive CSAT from homeData (fixes hardcoded "—") ────────────────
+
+  const csatScore = homeData?.csat
+    ? (homeData.csat as any)?.overall_avg ?? (homeData.csat as any)?.avg_score ?? null
+    : null;
+
   // ── Render ─────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
-      {/* Welcome Card */}
+      {/* ── Row 0: First Victory Banner (Day 2 — O1.5) ────────────── */}
+      <FirstVictoryBanner />
+
+      {/* ── Row 1: System Health Strip (Day 2 — O1.1) ─────────────── */}
+      <SystemHealthStrip />
+
+      {/* ── Row 2: Welcome Card + Header ───────────────────────────── */}
       <WelcomeCard
         userName={user?.full_name}
         companyName={user?.company_name}
-        industry="Support"
+        industry={user?.industry || 'Support'}
         variantCount={data?.summary.resolved ?? 0}
         resolutionRate={data ? formatPercent(data.summary.resolution_rate) : '0%'}
       />
 
-      {/* Header */}
       <DashboardHeader
         title="Performance Overview"
         subtitle="Key metrics for your support team"
@@ -181,64 +202,86 @@ export default function DashboardPage() {
         isRefreshing={isRefreshing}
       />
 
-      {/* ── Alert Banners (NEW — W16D1) ───────────────────────────── */}
+      {/* ── Alert Banners ──────────────────────────────────────────── */}
       {homeData?.anomalies && homeData.anomalies.length > 0 && (
         <AlertBanner anomalies={homeData.anomalies} />
       )}
 
-      {/* ── KPI Cards Row 1: Primary Metrics ────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        <KPICard
-          title="Total Tickets"
-          value={data ? formatNumber(data.summary.total_tickets) : '—'}
-          subtitle="All time in range"
-          icon={Icons.tickets}
-          variant="default"
-          isLoading={!data}
-        />
-        <KPICard
-          title="Open Tickets"
-          value={data ? formatNumber(data.summary.open + data.summary.in_progress) : '—'}
-          subtitle={`${data ? formatNumber(data.summary.in_progress) : '—'} in progress`}
-          icon={Icons.open}
-          variant="info"
-          isLoading={!data}
-        />
-        <KPICard
-          title="Resolved"
-          value={data ? formatNumber(data.summary.resolved) : '—'}
-          subtitle={`${data ? formatPercent(data.summary.resolution_rate) : '—'} rate`}
-          icon={Icons.resolved}
-          variant="success"
-          isLoading={!data}
-        />
-        <KPICard
-          title="Avg Response"
-          value={data ? formatHours(data.summary.avg_first_response_time_hours) : '—'}
-          subtitle="First response time"
-          icon={Icons.responseTime}
-          variant={data && data.summary.avg_first_response_time_hours > 2 ? 'warning' : 'default'}
-          isLoading={!data}
-        />
-        <KPICard
-          title="Resolution Rate"
-          value={data ? formatPercent(data.summary.resolution_rate) : '—'}
-          subtitle="Tickets resolved successfully"
-          icon={Icons.resolutionRate}
-          variant={data && data.summary.resolution_rate >= 80 ? 'success' : 'warning'}
-          isLoading={!data}
-        />
-        <KPICard
-          title="CSAT Score"
-          value="—"
-          subtitle="Customer satisfaction"
-          icon={Icons.csat}
-          variant="default"
-          isLoading={!data}
-        />
+      {/* ── Row 3: KPI Cards + Savings Counter (Day 2 — O1.10) ───── */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+        <div className="xl:col-span-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <KPICard
+              title="Total Tickets"
+              value={data ? formatNumber(data.summary.total_tickets) : '—'}
+              subtitle="All time in range"
+              icon={Icons.tickets}
+              variant="default"
+              isLoading={!data}
+            />
+            <KPICard
+              title="Open Tickets"
+              value={data ? formatNumber(data.summary.open + data.summary.in_progress) : '—'}
+              subtitle={`${data ? formatNumber(data.summary.in_progress) : '—'} in progress`}
+              icon={Icons.open}
+              variant="info"
+              isLoading={!data}
+            />
+            <KPICard
+              title="Resolved"
+              value={data ? formatNumber(data.summary.resolved) : '—'}
+              subtitle={`${data ? formatPercent(data.summary.resolution_rate) : '—'} rate`}
+              icon={Icons.resolved}
+              variant="success"
+              isLoading={!data}
+            />
+            <KPICard
+              title="Avg Response"
+              value={data ? formatHours(data.summary.avg_first_response_time_hours) : '—'}
+              subtitle="First response time"
+              icon={Icons.responseTime}
+              variant={data && data.summary.avg_first_response_time_hours > 2 ? 'warning' : 'default'}
+              isLoading={!data}
+            />
+            <KPICard
+              title="Resolution Rate"
+              value={data ? formatPercent(data.summary.resolution_rate) : '—'}
+              subtitle="Tickets resolved successfully"
+              icon={Icons.resolutionRate}
+              variant={data && data.summary.resolution_rate >= 80 ? 'success' : 'warning'}
+              isLoading={!data}
+            />
+            <KPICard
+              title="CSAT Score"
+              value={csatScore ? formatPercent(csatScore) : '—'}
+              subtitle="Customer satisfaction"
+              icon={Icons.csat}
+              variant={csatScore && csatScore >= 4 ? 'success' : csatScore && csatScore >= 3 ? 'warning' : 'default'}
+              isLoading={!data}
+            />
+          </div>
+        </div>
+
+        {/* Savings Counter (PROMINENT — Day 2 O1.10) */}
+        <div className="xl:col-span-1">
+          <SavingsCounter />
+        </div>
       </div>
 
-      {/* ── KPI Cards Row 2: Priority + SLA ───────────────────────── */}
+      {/* ── Row 4: Active Agents Summary (Day 2 — O1.4) ──────────── */}
+      <ActiveAgentsSummary />
+
+      {/* ── Row 5: ROI Dashboard (PROMINENT) + Growth Nudge ────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <ROIDashboard />
+        </div>
+        <div>
+          <GrowthNudge />
+        </div>
+      </div>
+
+      {/* ── Row 6: KPI Cards Row 2: Priority + SLA ─────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <KPICard
           title="Critical"
@@ -261,7 +304,6 @@ export default function DashboardPage() {
           variant="default"
           isLoading={!data}
         />
-
         <KPICard
           title="Avg Resolution"
           value={data ? formatHours(data.summary.avg_resolution_time_hours) : '—'}
@@ -288,21 +330,20 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* ── Row 3: Ticket Trends (full width area chart) ───────────── */}
+      {/* ── Row 7: Ticket Trends (full width) ─────────────────────── */}
       {data ? (
         <TrendChart data={data.trend} />
       ) : (
         <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[332px] animate-pulse" />
       )}
 
-      {/* ── Row 4: Category Chart + SLA Chart ──────────────────────── */}
+      {/* ── Row 8: Category Chart + SLA Chart ──────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {data ? (
           <CategoryChart data={data.by_category} />
         ) : (
           <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
         )}
-
         {data ? (
           <SLAChart data={data.sla} />
         ) : (
@@ -310,43 +351,37 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── Row 5: Response Time Distribution ──────────────────────── */}
+      {/* ── Row 9: Response Time Distribution ──────────────────────── */}
       <ResponseTimeChart dateRange={dateRange} />
 
-      {/* ── Row 6: Activity Feed + Placeholder (NEW — W16D1) ─────── */}
+      {/* ── Row 10: Activity Feed + Recent Approvals (Day 2 — O1.8) ─ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Activity Feed */}
         <ActivityFeed
           initialEvents={homeData?.activity_feed}
           isLoading={!homeData}
         />
-
-        {/* AI Adaptation Tracker (W16D3 — F-039) */}
-        <AdaptationTracker />
+        <RecentApprovals />
       </div>
 
-      {/* ── Row 7: Growth Nudge + Ticket Forecast (W16D4) ─────────── */}
+      {/* ── Row 11: Adaptation Tracker ─────────────────────────────── */}
+      <AdaptationTracker />
+
+      {/* ── Row 12: Growth Nudge + Ticket Forecast ─────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <GrowthNudge />
         <TicketForecast />
+        <ConfidenceTrend />
       </div>
 
-      {/* ── Row 8: CSAT Trends (W16D4 — F-044) ────────────────────── */}
-      <CSATTrends />
-
-      {/* ── Row 9: Confidence Trend + QA Scores (W16D5) ───────────── */}
+      {/* ── Row 13: CSAT Trends + QA Scores ────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ConfidenceTrend />
+        <CSATTrends />
         <QAScores />
       </div>
 
-      {/* ── Row 10: Drift Detection (W16D5 — F-116) ────────────────── */}
+      {/* ── Row 14: Drift Detection ────────────────────────────────── */}
       <DriftDetection />
 
-      {/* ── Row 11: ROI Dashboard (W16D6 — F-113) ──────────────────── */}
-      <ROIDashboard />
-
-      {/* ── Row 12: Agent Performance Table ──────────────────────────── */}
+      {/* ── Row 15: Agent Performance Table ────────────────────────── */}
       <AgentPerformanceTable data={agentData} />
     </div>
   );

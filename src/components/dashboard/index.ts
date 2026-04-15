@@ -40,3 +40,10 @@ export { default as QAScores } from './QAScores';
 
 // Week 16 Day 6 — ROI Dashboard
 export { default as ROIDashboard } from './ROIDashboard';
+
+// Day 2 — Overview Page Enhancement
+export { default as SystemHealthStrip } from './SystemHealthStrip';
+export { default as ActiveAgentsSummary } from './ActiveAgentsSummary';
+export { default as FirstVictoryBanner } from './FirstVictoryBanner';
+export { default as RecentApprovals } from './RecentApprovals';
+export { default as SavingsCounter } from './SavingsCounter';
