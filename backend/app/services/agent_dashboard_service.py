@@ -331,7 +331,7 @@ class AgentDashboardService:
             )
 
         previous_status = agent.status
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         agent.status = "paused"
         agent.updated_at = now
         db.flush()
@@ -410,7 +410,7 @@ class AgentDashboardService:
             )
 
         previous_status = agent.status
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         agent.status = "active"
         agent.updated_at = now
         db.flush()
@@ -671,7 +671,13 @@ class AgentDashboardService:
         try:
             from database.models.tickets import Ticket, TicketAssignment
 
-            tickets = db.query(Ticket).join(
+            from sqlalchemy import func as sa_func, extract
+
+            avg_minutes = db.query(
+                sa_func.avg(
+                    sa_func.extract('epoch', Ticket.first_response_at - Ticket.created_at) / 60
+                )
+            ).join(
                 TicketAssignment,
                 TicketAssignment.ticket_id == Ticket.id,
             ).filter(
@@ -679,20 +685,9 @@ class AgentDashboardService:
                 TicketAssignment.assignee_id == agent_id,
                 TicketAssignment.assigned_at >= since,
                 Ticket.first_response_at.isnot(None),
-            ).all()
+            ).scalar()
 
-            if not tickets:
-                return None
-
-            times: List[float] = []
-            for t in tickets:
-                if t.first_response_at and t.created_at:
-                    minutes = (
-                        t.first_response_at - t.created_at
-                    ).total_seconds() / 60
-                    times.append(minutes)
-
-            return round(sum(times) / len(times), 1) if times else None
+            return round(float(avg_minutes), 1) if avg_minutes else None
 
         except Exception:
             return None
@@ -928,13 +923,16 @@ class AgentDashboardService:
 # LAZY SERVICE LOADING (BC-008)
 # ══════════════════════════════════════════════════════════════════
 
-_service_cache: Dict[str, AgentDashboardService] = {}
+from collections import OrderedDict
+
+_SERVICE_CACHE_MAX_SIZE = 1000
+_service_cache: OrderedDict[str, AgentDashboardService] = OrderedDict()
 
 
 def get_agent_dashboard_service(
     company_id: str,
 ) -> AgentDashboardService:
-    """Get or create an AgentDashboardService for a tenant.
+    """Get or create an AgentDashboardService for a tenant (LRU cache).
 
     Args:
         company_id: Tenant identifier (BC-001).
@@ -943,7 +941,11 @@ def get_agent_dashboard_service(
         AgentDashboardService instance.
     """
     if company_id not in _service_cache:
+        if len(_service_cache) >= _SERVICE_CACHE_MAX_SIZE:
+            _service_cache.popitem(last=False)
         _service_cache[company_id] = AgentDashboardService(company_id)
+    else:
+        _service_cache.move_to_end(company_id)
     return _service_cache[company_id]
 
 

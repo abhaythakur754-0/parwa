@@ -116,6 +116,14 @@ class _AttrChainer:
     def __bool__(self):
         return True
 
+# ── Common mock model helpers (used across multiple model modules) ──
+def _mock_model_init(self, **kwargs):
+    for k, v in kwargs.items():
+        setattr(self, k, v)
+
+def _mock_model_to_dict(self):
+    return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+
 # ── database.models.email_channel and outbound_email (Week 13) ────
 _fake_email_channel = types.ModuleType("database.models.email_channel")
 _fake_outbound_email = types.ModuleType("database.models.outbound_email")
@@ -145,6 +153,20 @@ _MockTicketMessage = type("TicketMessage", (), {
 })
 setattr(_fake_tickets_models, "Ticket", _MockTicket)
 setattr(_fake_tickets_models, "TicketMessage", _MockTicketMessage)
+
+# TicketFeedback and TicketAssignment needed by agent_dashboard_service.py (Week 17)
+_MockTicketFeedback = type("TicketFeedback", (object,), {
+    "id": None, "company_id": _AttrChainer(), "ticket_id": None,
+    "rating": None, "created_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockTicketAssignment = type("TicketAssignment", (object,), {
+    "id": None, "company_id": _AttrChainer(), "ticket_id": None,
+    "assignee_id": None, "assigned_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+setattr(_fake_tickets_models, "TicketFeedback", _MockTicketFeedback)
+setattr(_fake_tickets_models, "TicketAssignment", _MockTicketAssignment)
 
 sys.modules.setdefault("database.models.tickets", _fake_tickets_models)
 
@@ -212,13 +234,6 @@ sys.modules.setdefault("database.models.email_delivery_event", _fake_delivery_ev
 
 # ── database.models.ooo_detection (Week 13 Day 3 — F-122) ──────────
 _fake_ooo_models = types.ModuleType("database.models.ooo_detection")
-
-def _mock_model_init(self, **kwargs):
-    for k, v in kwargs.items():
-        setattr(self, k, v)
-
-def _mock_model_to_dict(self):
-    return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
 _MockOOODetectionRule = type("OOODetectionRule", (object,), {
     "__tablename__": "ooo_detection_rules",
@@ -411,6 +426,49 @@ setattr(_fake_sms_models, "SMSMessage", _MockSMSMessage)
 setattr(_fake_sms_models, "SMSConversation", _MockSMSConversation)
 setattr(_fake_sms_models, "SMSChannelConfig", _MockSMSChannelConfig)
 sys.modules.setdefault("database.models.sms_channel", _fake_sms_models)
+
+# ── database.models.integration (Week 17 Day 1 — F-031) ────────
+_fake_integration_models = types.ModuleType("database.models.integration")
+
+_MockCustomIntegration = type("CustomIntegration", (object,), {
+    "__tablename__": "custom_integrations",
+    "id": None, "company_id": _AttrChainer(),
+    "name": None, "integration_type": None, "status": "draft",
+    "config_encrypted": None, "settings": "{}",
+    "webhook_id": None, "webhook_secret": None,
+    "consecutive_error_count": 0,
+    "last_error_message": None,
+    "last_tested_at": None, "last_test_result": None,
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+setattr(_fake_integration_models, "CustomIntegration", _MockCustomIntegration)
+sys.modules.setdefault("database.models.integration", _fake_integration_models)
+
+# ── database.models.agent (Week 17 Day 1 — F-097) ──────────────
+_fake_agent_models = types.ModuleType("database.models.agent")
+
+_MockAgent = type("Agent", (object,), {
+    "__tablename__": "agents",
+    "id": None, "company_id": _AttrChainer(),
+    "name": None, "status": "draft", "specialty": None,
+    "description": None, "base_model": None,
+    "model_checkpoint_id": None,
+    "channels": None, "permissions": None,
+    "created_at": _AttrChainer(), "updated_at": _AttrChainer(),
+    "activated_at": _AttrChainer(),
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+_MockInstructionSet = type("InstructionSet", (object,), {
+    "__tablename__": "instruction_sets",
+    "id": None, "company_id": _AttrChainer(),
+    "agent_id": None, "name": None, "version": 1,
+    "status": "active",
+    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+})
+setattr(_fake_agent_models, "Agent", _MockAgent)
+setattr(_fake_agent_models, "InstructionSet", _MockInstructionSet)
+sys.modules.setdefault("database.models.agent", _fake_agent_models)
 
 sys.modules.setdefault("database", _fake_database)
 sys.modules.setdefault("database.base", _fake_base)

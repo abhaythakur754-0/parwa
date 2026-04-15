@@ -212,6 +212,7 @@ class TestCredentialHelpers:
     def test_mask_config_nested_dict(self):
         config = {"auth": {"client_secret": "super-secret-value-12345"}}
         masked = _mask_config(config)
+        # Fixed: _mask_config now recurses into nested dicts, masking sensitive inner keys
         assert masked["auth"]["client_secret"] == "supe****"
 
     def test_parse_json_valid(self):
@@ -338,8 +339,7 @@ class TestCreate:
         assert "Invalid integration type" in str(exc_info.value.message)
 
     def test_create_missing_required_fields(self, service, company_id):
-        # REST requires url and method
-        mock_db.query.return_value.filter.return_value.count.return_value = 0
+        # REST requires url and method — validation fails before plan limit check
         with pytest.raises(ValidationError) as exc_info:
             service.create(
                 company_id=company_id,
@@ -350,7 +350,6 @@ class TestCreate:
         assert "Missing required config fields" in str(exc_info.value.message)
 
     def test_create_invalid_auth_type(self, service, company_id):
-        mock_db.query.return_value.filter.return_value.count.return_value = 0
         with pytest.raises(ValidationError) as exc_info:
             service.create(
                 company_id=company_id,
@@ -361,7 +360,6 @@ class TestCreate:
         assert "Invalid auth_type" in str(exc_info.value.message)
 
     def test_create_invalid_http_method(self, service, company_id):
-        mock_db.query.return_value.filter.return_value.count.return_value = 0
         with pytest.raises(ValidationError) as exc_info:
             service.create(
                 company_id=company_id,
@@ -408,7 +406,7 @@ class TestGetAndList:
     def test_get_returns_masked_integration(self, service, mock_db):
         integration = _make_mock_integration()
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         result = service.get("int-123", "comp-abc-123")
@@ -421,7 +419,7 @@ class TestGetAndList:
 
     def test_get_not_found_returns_none(self, service, mock_db):
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = None
+        mock_query.filter.return_value.first.return_value = None
         mock_db.query.return_value = mock_query
 
         result = service.get("nonexistent", "comp-abc-123")
@@ -472,7 +470,7 @@ class TestUpdateDeleteActivate:
     def test_update_name(self, service, mock_db):
         integration = _make_mock_integration(status="draft")
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         result = service.update("int-123", "comp-abc-123", name="New Name")
@@ -485,7 +483,7 @@ class TestUpdateDeleteActivate:
             last_error_message="Connection failed",
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         result = service.update(
@@ -498,7 +496,7 @@ class TestUpdateDeleteActivate:
     def test_update_disabled_integration_raises(self, service, mock_db):
         integration = _make_mock_integration(status="disabled")
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         with pytest.raises(ValidationError) as exc_info:
@@ -507,7 +505,7 @@ class TestUpdateDeleteActivate:
 
     def test_update_not_found_raises(self, service, mock_db):
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = None
+        mock_query.filter.return_value.first.return_value = None
         mock_db.query.return_value = mock_query
 
         with pytest.raises(ValidationError):
@@ -516,7 +514,7 @@ class TestUpdateDeleteActivate:
     def test_delete_success(self, service, mock_db):
         integration = _make_mock_integration()
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         result = service.delete("int-123", "comp-abc-123")
@@ -525,7 +523,7 @@ class TestUpdateDeleteActivate:
 
     def test_delete_not_found_raises(self, service, mock_db):
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = None
+        mock_query.filter.return_value.first.return_value = None
         mock_db.query.return_value = mock_query
 
         with pytest.raises(ValidationError):
@@ -534,7 +532,7 @@ class TestUpdateDeleteActivate:
     def test_activate_draft_to_active(self, service, mock_db):
         integration = _make_mock_integration(status="draft")
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         result = service.activate("int-123", "comp-abc-123")
@@ -544,7 +542,7 @@ class TestUpdateDeleteActivate:
     def test_activate_non_draft_raises(self, service, mock_db):
         integration = _make_mock_integration(status="active")
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         with pytest.raises(ValidationError) as exc_info:
@@ -553,7 +551,7 @@ class TestUpdateDeleteActivate:
 
     def test_activate_not_found_raises(self, service, mock_db):
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = None
+        mock_query.filter.return_value.first.return_value = None
         mock_db.query.return_value = mock_query
 
         with pytest.raises(ValidationError):
@@ -577,7 +575,7 @@ class TestConnectivity:
             }),
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         with patch("app.services.custom_integration_service.httpx.Client") as mock_client:
@@ -603,7 +601,7 @@ class TestConnectivity:
             }),
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         with patch("app.services.custom_integration_service.httpx.Client") as mock_client:
@@ -628,7 +626,7 @@ class TestConnectivity:
             }),
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         import httpx
@@ -652,7 +650,7 @@ class TestConnectivity:
             }),
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         result = service.test_connectivity("int-123", "comp-abc-123")
@@ -666,7 +664,7 @@ class TestConnectivity:
             config_encrypted=_encrypt_config({"secret": "whsec-test-secret"}),
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         result = service.test_connectivity("int-123", "comp-abc-123")
@@ -683,7 +681,7 @@ class TestConnectivity:
             }),
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         with patch("app.services.custom_integration_service.httpx.Client") as mock_client:
@@ -706,7 +704,7 @@ class TestConnectivity:
             }),
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         result = service.test_connectivity("int-123", "comp-abc-123")
@@ -715,7 +713,7 @@ class TestConnectivity:
 
     def test_test_not_found_raises(self, service, mock_db):
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = None
+        mock_query.filter.return_value.first.return_value = None
         mock_db.query.return_value = mock_query
 
         with pytest.raises(ValidationError):
@@ -732,7 +730,7 @@ class TestErrorTracking:
     def test_record_success_resets_count(self, service, mock_db):
         integration = _make_mock_integration(consecutive_error_count=2)
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         service.record_success("int-123", "comp-abc-123")
@@ -742,7 +740,7 @@ class TestErrorTracking:
     def test_record_failure_increments_count(self, service, mock_db):
         integration = _make_mock_integration(consecutive_error_count=0)
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         auto_disabled = service.record_failure("int-123", "comp-abc-123", "Connection refused")
@@ -755,7 +753,7 @@ class TestErrorTracking:
             consecutive_error_count=2,
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         auto_disabled = service.record_failure("int-123", "comp-abc-123", "Connection refused")
@@ -765,7 +763,7 @@ class TestErrorTracking:
 
     def test_record_failure_not_found_returns_false(self, service, mock_db):
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = None
+        mock_query.filter.return_value.first.return_value = None
         mock_db.query.return_value = mock_query
 
         auto_disabled = service.record_failure("nonexistent", "comp-abc-123", "Error")
@@ -783,7 +781,7 @@ class TestErrorTracking:
             }),
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         import httpx
@@ -813,7 +811,7 @@ class TestWebhookIdLookup:
             status="active",
         )
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = integration
+        mock_query.filter.return_value.first.return_value = integration
         mock_db.query.return_value = mock_query
 
         result = service.get_by_webhook_id("wh-abc-123")
@@ -822,7 +820,7 @@ class TestWebhookIdLookup:
 
     def test_get_by_webhook_id_not_found(self, service, mock_db):
         mock_query = MagicMock()
-        mock_query.filter.return_value.and_.return_value.first.return_value = None
+        mock_query.filter.return_value.first.return_value = None
         mock_db.query.return_value = mock_query
 
         result = service.get_by_webhook_id("nonexistent")

@@ -197,10 +197,14 @@ class TestGetAgentCards:
 
     def test_status_filter(self, service, mock_db):
         agent = _make_mock_agent()
-        mock_db.query.return_value.filter.return_value \
-            .order_by.return_value.all.return_value = [agent]
-        mock_db.query.return_value.filter.return_value \
-            .group_by.return_value.all.return_value = [("active", 1)]
+        # When status_filter is set, the service chains TWO .filter() calls.
+        # Make the filter mock return itself so chaining works regardless of
+        # how many .filter() calls the service adds.
+        mock_filter = MagicMock()
+        mock_filter.filter.return_value = mock_filter
+        mock_filter.order_by.return_value.all.return_value = [agent]
+        mock_filter.group_by.return_value.all.return_value = [("active", 1)]
+        mock_db.query.return_value.filter.return_value = mock_filter
 
         result = service.get_agent_cards(mock_db, status_filter="active")
         assert len(result["cards"]) == 1
@@ -277,16 +281,18 @@ class TestGetAgentCard:
 
     def test_includes_instruction_set(self, service, mock_db):
         agent = _make_mock_agent()
-        mock_db.query.return_value.filter.return_value.first.side_effect = [
-            agent,
-            None,  # No provisioning status
-        ]
         mock_instruction = MagicMock()
         mock_instruction.id = "instr-123"
         mock_instruction.name = "Billing Instructions v2"
         mock_instruction.version = 3
-        mock_db.query.return_value.filter.return_value \
-            .filter.return_value.filter.return_value.first.return_value = mock_instruction
+        # Both db.query().filter().first() calls share the same mock path
+        # because mock_db.query always returns the same object.  The service
+        # calls .first() twice: once for the Agent and once for the
+        # InstructionSet (both use a single .filter() with multiple args).
+        mock_db.query.return_value.filter.return_value.first.side_effect = [
+            agent,
+            mock_instruction,
+        ]
 
         result = service.get_agent_card("agent-123", mock_db)
         assert "active_instruction_set" in result
@@ -590,32 +596,26 @@ class TestQuickActions:
 
 class TestSocketEmission:
     def test_emit_status_change_calls_emit(self, service):
-        with patch("app.services.agent_dashboard_service.emit_to_tenant", new_callable=MagicMock) as mock_emit:
-            mock_emit.return_value = MagicMock()  # for async context
-            mock_emit.return_value.__await__ = MagicMock(return_value=None)
-
+        # Patch at the source module — emit_to_tenant is imported lazily
+        # inside _emit_status_change, not at module level.
+        with patch("app.core.socketio.emit_to_tenant") as mock_emit:
             service._emit_status_change(
                 agent_id="agent-123",
                 previous_status="active",
                 new_status="paused",
                 user_id="user-1",
             )
+            mock_emit.assert_called_once()
 
     def test_emit_failure_does_not_raise(self, service):
         """BC-005: Socket.io failure must never break the caller."""
-        with patch("app.services.agent_dashboard_service.emit_to_tenant", side_effect=Exception("Socket error")):
-            with patch("app.services.agent_dashboard_service.asyncio") as mock_async:
-                mock_async.get_running_loop = MagicMock(side_effect=RuntimeError)
-                mock_async.new_event_loop = MagicMock()
-                mock_async.set_event_loop = MagicMock()
-                mock_async.ensure_future = MagicMock()
-
-                # Should not raise
-                service._emit_status_change(
-                    agent_id="agent-123",
-                    previous_status="active",
-                    new_status="paused",
-                )
+        with patch("app.core.socketio.emit_to_tenant", side_effect=Exception("Socket error")):
+            # Should not raise — the method wraps Socket.io in try/except
+            service._emit_status_change(
+                agent_id="agent-123",
+                previous_status="active",
+                new_status="paused",
+            )
 
 
 # ══════════════════════════════════════════════════════════════════

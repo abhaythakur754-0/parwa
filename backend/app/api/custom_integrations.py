@@ -337,6 +337,27 @@ def activate_custom_integration(
     )
 
 
+@router.post(
+    "/{integration_id}/reactivate",
+    response_model=CustomIntegrationResponse,
+)
+def reactivate_custom_integration(
+    integration_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CustomIntegrationResponse:
+    """Reactivate a disabled integration (resets to draft).
+
+    Clears the error count and sets status back to draft so the
+    integration can be re-tested and re-activated.
+
+    BC-001: Scoped to user's company_id.
+    """
+    service = CustomIntegrationService(db)
+    integration = service.reactivate(integration_id, user.company_id)
+    return CustomIntegrationResponse(**integration)
+
+
 # ── Outgoing Webhook Delivery Logs ─────────────────────────────────
 
 

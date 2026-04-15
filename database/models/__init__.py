@@ -82,3 +82,4 @@ from database.models.agent import (  # noqa: F401 — Week 14 Day 4: F-095, F-09
     InstructionABTest,
     InstructionABAssignment,
 )
+from database.models.provisioning import PendingAgent  # noqa: F401 — F-099

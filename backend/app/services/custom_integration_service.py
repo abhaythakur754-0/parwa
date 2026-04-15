@@ -20,10 +20,12 @@ Building Codes:
 """
 
 import hashlib
+import ipaddress
 import json
 import secrets
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy import and_
@@ -135,12 +137,8 @@ def _decrypt_config(encrypted: str) -> Dict[str, Any]:
 
         return json.loads(plaintext.decode())
     except Exception:
-        # If decryption fails, try raw JSON parse (backward compat / dev mode)
-        try:
-            return json.loads(encrypted)
-        except Exception:
-            logger.warning("config_decryption_failed", error="both_encryption_and_json_parse_failed")
-            return {}
+        logger.error("config_decryption_failed", error="decryption_failed")
+        return {}
 
 
 def _mask_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -168,9 +166,62 @@ def _mask_config(config: Dict[str, Any]) -> Dict[str, Any]:
     for key, value in config.items():
         if any(s in key.lower() for s in sensitive_keys):
             masked[key] = _mask_value(value)
+        elif isinstance(value, dict):
+            # Recurse into nested dicts to mask any sensitive inner keys
+            masked[key] = _mask_config(value)
         else:
             masked[key] = value
     return masked
+
+
+# ── SSRF Prevention ───────────────────────────────────────────────
+
+_PRIVATE_CIDRS = [
+    ipaddress.ip_network(cidr) for cidr in [
+        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+        "127.0.0.0/8", "169.254.0.0/16", "::1/128", "fc00::/7",
+    ]
+]
+
+
+def _validate_url(url: str) -> None:
+    """Validate URL is not pointing to private/internal IPs (SSRF prevention)."""
+    if not url:
+        return
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if not hostname:
+            return
+        # Block localhost variants
+        if hostname in ("localhost", "metadata.google.internal", "metadata"):
+            raise ValidationError(
+                message="URL hostname is not allowed",
+                details={"hostname": hostname, "reason": "blocked_hostname"},
+            )
+        # Check for link-local IPv6
+        if hostname.startswith("fe80:"):
+            raise ValidationError(
+                message="URL points to a link-local address",
+                details={"hostname": hostname},
+            )
+        # Resolve and check against private ranges
+        import socket
+        addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        for family, _, _, _, sockaddr in addr_infos:
+            ip = ipaddress.ip_address(sockaddr[0])
+            for cidr in _PRIVATE_CIDRS:
+                if ip in cidr:
+                    raise ValidationError(
+                        message="URL points to a private/internal IP address",
+                        details={"hostname": hostname, "ip": str(ip)},
+                    )
+    except ValidationError:
+        raise
+    except socket.gaierror:
+        pass  # DNS resolution failed — not a private IP
+    except Exception:
+        pass  # Other errors — don't block on validation failure
 
 
 # ── Service ─────────────────────────────────────────────────────────
@@ -242,6 +293,10 @@ class CustomIntegrationService:
                     details={"valid_methods": sorted(VALID_HTTP_METHODS)},
                 )
             config["method"] = method
+
+        # Validate URLs (SSRF prevention)
+        if integration_type in ("rest", "graphql", "webhook_out"):
+            _validate_url(config.get("url", ""))
 
         # Check plan limits
         self._check_plan_limit(company_id)
@@ -440,6 +495,41 @@ class CustomIntegrationService:
 
         return self._to_dict(integration, mask_credentials=True)
 
+    def reactivate(self, integration_id: str, company_id: str) -> Dict[str, Any]:
+        """Reactivate a disabled integration (resets to draft).
+
+        Clears error count and resets status to draft so the integration
+        can be re-tested and re-activated.
+        """
+        integration = self._get_by_id(integration_id, company_id)
+        if not integration:
+            raise ValidationError(
+                message="Custom integration not found",
+                details={"integration_id": integration_id},
+            )
+
+        if integration.status != "disabled":
+            raise ValidationError(
+                message=f"Cannot reactivate integration in '{integration.status}' status. "
+                       f"Only disabled integrations can be reactivated.",
+                details={"current_status": integration.status},
+            )
+
+        now = datetime.now(timezone.utc)
+        integration.status = "draft"
+        integration.consecutive_error_count = 0
+        integration.last_error_message = None
+        integration.updated_at = now
+        self.db.flush()
+
+        logger.info(
+            "custom_integration_reactivated",
+            integration_id=integration_id,
+            company_id=company_id,
+        )
+
+        return self._to_dict(integration, mask_credentials=True)
+
     # ── Testing ───────────────────────────────────────────────────
 
     def test_connectivity(
@@ -609,6 +699,8 @@ class CustomIntegrationService:
         if not url:
             return {"success": False, "message": "URL is required"}
 
+        _validate_url(url)
+
         # Build auth headers
         auth_headers = self._build_auth_headers(config)
         headers = {**headers, **auth_headers}
@@ -656,6 +748,8 @@ class CustomIntegrationService:
 
         if not url:
             return {"success": False, "message": "URL is required"}
+
+        _validate_url(url)
 
         # Build auth headers
         auth_headers = self._build_auth_headers(config)
@@ -740,6 +834,8 @@ class CustomIntegrationService:
         if not url:
             return {"success": False, "message": "URL is required"}
 
+        _validate_url(url)
+
         payload = test_payload or config.get("payload_template") or {"test": True}
         headers["Content-Type"] = "application/json"
 
@@ -802,7 +898,11 @@ class CustomIntegrationService:
 
             # Mask password for logging
             log_conn = self._mask_connection_string(connection_string)
-            engine = create_engine(connection_string, pool_pre_ping=True)
+            engine = create_engine(
+                connection_string,
+                pool_pre_ping=True,
+                connect_args={"connect_timeout": DB_TIMEOUT_SECONDS} if db_type == "postgresql" else {},
+            )
 
             with engine.connect() as conn:
                 if db_type == "postgresql":

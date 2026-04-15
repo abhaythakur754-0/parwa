@@ -285,3 +285,50 @@ async def resume_agent(
             error=str(exc),
         )
         raise
+
+
+@router.get("/api/agents/dashboard/{agent_id}/metrics")
+async def get_agent_realtime_metrics(
+    agent_id: str,
+    company_id: str = Depends(get_company_id),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get realtime metrics for a single agent.
+
+    Returns the latest performance metrics for dashboard display
+    or polling. Also emitted via Socket.io agent:metrics_updated.
+
+    F-097: Agent Dashboard
+    BC-001: Scoped by company_id.
+    BC-011: Requires authentication.
+    """
+    if not agent_id or not agent_id.strip():
+        raise ValidationError(
+            message="agent_id is required",
+            details={"field": "agent_id"},
+        )
+
+    try:
+        from app.services.agent_dashboard_service import (
+            get_agent_dashboard_service,
+        )
+
+        svc = get_agent_dashboard_service(company_id)
+        result = svc.get_agent_realtime_metrics(
+            agent_id=agent_id.strip(),
+            db=db,
+        )
+        return result
+
+    except (ValidationError, Exception) as exc:
+        from app.exceptions import NotFoundError
+        if isinstance(exc, (ValidationError, NotFoundError)):
+            raise
+        logger.error(
+            "agent_realtime_metrics_error",
+            company_id=company_id,
+            agent_id=agent_id,
+            error=str(exc),
+        )
+        raise
