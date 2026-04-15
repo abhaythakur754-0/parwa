@@ -707,7 +707,7 @@ export default function ROICalculatorPage() {
                     </span>
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs text-orange-300 font-bold">
                       <TicketCheck className="w-3 h-3 text-orange-400" />
-                      Total Capacity: {fmtNum(recommendedModel.ticketCapacity * recommendedComparison.quantity)}
+                      Total Capacity: {fmtNum(Number(recommendedModel.ticketCapacity.replace(/[^0-9]/g, '')) * (recommendedComparison.quantity || 1))}
                     </span>
                     {recommendedModel.channels.map((ch) => (
                       <span
