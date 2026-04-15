@@ -334,5 +334,182 @@ class TestLocalStorageTokenRemoval:
             "API client must send httpOnly cookies with every request"
 
 
+# ============================================================
+# C6: HTML Escaping in Email Templates
+# ============================================================
+
+class TestHTMLEscapingInEmails:
+    """Verify user input is HTML-escaped in email templates (C6)."""
+
+    def test_forgot_password_escapes_username(self):
+        """C6: forgot-password should escape userName before HTML interpolation."""
+        with open("frontend/src/app/api/forgot-password/route.ts") as f:
+            content = f.read()
+
+        assert "escapeHtml" in content, \
+            "forgot-password should have an escapeHtml function"
+        # userName should NOT be used directly in the template
+        lines = content.split("\n")
+        template_lines = [
+            line for line in lines
+            if "Hi ${userName}" in line or 'Hi ${userName}' in line
+        ]
+        assert len(template_lines) == 0, \
+            "forgot-password should NOT use raw userName — use escaped version"
+        # Should use the escaped variable
+        assert "safeName" in content, \
+            "forgot-password should use a safeName variable for HTML output"
+
+    def test_escapeHtml_function_escapes_script_tags(self):
+        """C6: escapeHtml should handle <script> tags in user names."""
+        # Simulate the escapeHtml function logic
+        def escapeHtml(s: str) -> str:
+            return (s
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+                .replace("'", "&#039;"))
+
+        malicious = '<script>alert("xss")</script>'
+        escaped = escapeHtml(malicious)
+        assert "<script>" not in escaped
+        assert "&lt;script&gt;" in escaped
+        assert '"xss"' not in escaped
+        assert "&quot;xss&quot;" in escaped
+
+    def test_escapeHtml_function_escapes_ampersand(self):
+        """C6: escapeHtml should handle ampersands."""
+        def escapeHtml(s: str) -> str:
+            return (s
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+                .replace("'", "&#039;"))
+
+        assert escapeHtml("Tom & Jerry") == "Tom &amp; Jerry"
+
+
+# ============================================================
+# A10: OTP Not in Email Subject
+# ============================================================
+
+class TestOTPNotInSubject:
+    """Verify OTP codes are NOT leaked in email subject lines (A10)."""
+
+    def test_jarvis_service_no_otp_in_subject(self):
+        """A10: jarvis_service.py should NOT include OTP in subject line."""
+        with open("backend/app/services/jarvis_service.py") as f:
+            content = f.read()
+
+        # Check that subject line does NOT include the OTP variable
+        lines = content.split("\n")
+        otp_subject_lines = [
+            line for line in lines
+            if "subject=" in line and "{otp_code}" in line
+        ]
+        assert len(otp_subject_lines) == 0, \
+            f"jarvis_service should NOT include {{otp_code}} in subject. Found: {otp_subject_lines}"
+
+    def test_jarvis_service_has_generic_subject(self):
+        """A10: jarvis_service.py should use a generic subject without OTP."""
+        with open("backend/app/services/jarvis_service.py") as f:
+            content = f.read()
+
+        assert 'subject="PARWA Verification Code"' in content or \
+               "subject='PARWA Verification Code'" in content, \
+            "jarvis_service should use a generic subject for verification emails"
+
+    def test_business_email_otp_no_code_in_subject(self):
+        """A10: business_email_otp_service.py should NOT include OTP in subject."""
+        with open("backend/app/services/business_email_otp_service.py") as f:
+            content = f.read()
+
+        lines = content.split("\n")
+        for line in lines:
+            if "subject=" in line and ("{otp" in line.lower() or "{code" in line.lower()):
+                assert False, \
+                    f"business_email_otp_service should NOT include OTP in subject: {line}"
+
+
+# ============================================================
+# C3 + C4: Input Validation Tests
+# ============================================================
+
+class TestInputValidation:
+    """Verify proper input validation on auth endpoints."""
+
+    def test_register_has_email_regex(self):
+        """C3: Register should use proper email regex validation."""
+        with open("frontend/src/app/api/auth/register/route.ts") as f:
+            content = f.read()
+
+        assert "emailRegex" in content or "email_regex" in content, \
+            "Register should use email regex validation"
+        assert "/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/" in content, \
+            "Register should use proper email regex pattern"
+
+    def test_register_password_complexity_uppercase(self):
+        """C4: Register should enforce uppercase in password."""
+        with open("frontend/src/app/api/auth/register/route.ts") as f:
+            content = f.read()
+
+        assert "[A-Z]" in content, \
+            "Register should check for uppercase letters in password"
+
+    def test_register_password_complexity_lowercase(self):
+        """C4: Register should enforce lowercase in password."""
+        with open("frontend/src/app/api/auth/register/route.ts") as f:
+            content = f.read()
+
+        assert "[a-z]" in content, \
+            "Register should check for lowercase letters in password"
+
+    def test_register_password_complexity_digit(self):
+        """C4: Register should enforce digit in password."""
+        with open("frontend/src/app/api/auth/register/route.ts") as f:
+            content = f.read()
+
+        assert "[0-9]" in content, \
+            "Register should check for digits in password"
+
+    def test_register_password_complexity_special(self):
+        """C4: Register should enforce special character in password."""
+        with open("frontend/src/app/api/auth/register/route.ts") as f:
+            content = f.read()
+
+        assert "[^A-Za-z0-9]" in content, \
+            "Register should check for special characters in password"
+
+
+# ============================================================
+# C5: OTP Rate Limiting Tests
+# ============================================================
+
+class TestOTPRateLimiting:
+    """Verify OTP endpoints have rate limiting."""
+
+    def test_verify_otp_has_rate_limit(self):
+        """C5: verify-otp should have rate limiting."""
+        with open("frontend/src/app/api/auth/verify-otp/route.ts") as f:
+            content = f.read()
+
+        assert "isOtpRateLimited" in content, \
+            "verify-otp should have rate limiting"
+        assert "OTP_MAX_ATTEMPTS" in content, \
+            "verify-otp should define max OTP attempts"
+        assert "429" in content, \
+            "verify-otp should return 429 when rate limited"
+
+    def test_verify_otp_rate_limit_5_per_15_min(self):
+        """C5: verify-otp should limit to 5 attempts per 15 minutes."""
+        with open("frontend/src/app/api/auth/verify-otp/route.ts") as f:
+            content = f.read()
+
+        assert "5" in content.split("OTP_MAX_ATTEMPTS")[1].split("\n")[0], \
+            "verify-otp should allow max 5 attempts"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

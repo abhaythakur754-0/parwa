@@ -929,7 +929,9 @@ def send_business_otp(
         """
         send_email(
             to=email,
-            subject=f"PARWA Verification Code: {otp_code}",
+            # FIX A10: OTP removed from subject line to prevent leakage
+            # via mobile notification previews, email logs, and proxy logs.
+            subject="PARWA Verification Code",
             html_content=otp_html,
         )
     except Exception as e:
