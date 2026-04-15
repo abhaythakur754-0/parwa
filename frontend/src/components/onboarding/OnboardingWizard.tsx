@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import { ProgressIndicator } from './ProgressIndicator';
 import { LegalCompliance } from './LegalCompliance';
 import { IntegrationSetup } from './IntegrationSetup';
@@ -56,8 +57,21 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
     }
   }, [onboardingState?.first_victory_completed, onboardingState?.status, router]);
 
-  const completeStep = async (step: number) => {
+  const completeStep = async (step: number, extraData?: Record<string, unknown>) => {
     setCompletedSteps((prev) => [...prev.filter((s) => s !== step), step]);
+
+    // D8-4: Merge extra data from child component (e.g., AI config from activation)
+    if (extraData) {
+      if (extraData.ai_name) setAiName(extraData.ai_name as string);
+      if (extraData.ai_greeting !== undefined) setAiGreeting(extraData.ai_greeting as string | null);
+      setOnboardingState((prev) => prev ? {
+        ...prev,
+        ...(extraData.ai_name && { ai_name: extraData.ai_name as string }),
+        ...(extraData.ai_tone && { ai_tone: extraData.ai_tone as string }),
+        ...(extraData.ai_response_style && { ai_response_style: extraData.ai_response_style as string }),
+        ...(extraData.ai_greeting !== undefined && { ai_greeting: extraData.ai_greeting as string | null }),
+      } : prev);
+    }
 
     try {
       const res = await fetch(`/api/onboarding/complete-step?step=${step}`, {
@@ -82,6 +96,16 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
     }
   };
 
+  // D8-1: Called by FirstVictory after marking completion on server.
+  // Updates local state so the redirect useEffect triggers.
+  const handleVictoryComplete = () => {
+    setOnboardingState((prev) => prev ? {
+      ...prev,
+      first_victory_completed: true,
+      status: 'completed' as const,
+    } : prev);
+  };
+
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -92,7 +116,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
 
   // Show first victory if onboarding is completed
   if (onboardingState?.status === 'completed' && !onboardingState.first_victory_completed) {
-    return <FirstVictory aiName={aiName} aiGreeting={aiGreeting} />;
+    return <FirstVictory aiName={aiName} aiGreeting={aiGreeting} onVictoryComplete={handleVictoryComplete} />;
   }
 
   if (onboardingState?.first_victory_completed) {
@@ -123,12 +147,13 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
               <p className="text-muted-foreground mb-6">
                 Let&apos;s set up your AI-powered customer support platform in a few steps.
               </p>
-              <button
+              {/* D8-5: Use shadcn Button instead of raw <button> */}
+              <Button
                 onClick={() => completeStep(1)}
-                className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                size="lg"
               >
                 Let&apos;s Get Started
-              </button>
+              </Button>
             </div>
           )}
 
@@ -146,7 +171,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
 
           {currentStep === 5 && (
             <AIConfig
-              onComplete={() => completeStep(5)}
+              onComplete={(config) => completeStep(5, config)}
               initialConfig={{
                 ai_name: onboardingState?.ai_name || 'Jarvis',
                 ai_tone: onboardingState?.ai_tone || 'professional',

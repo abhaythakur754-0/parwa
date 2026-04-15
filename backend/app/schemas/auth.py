@@ -168,6 +168,10 @@ class UserResponse(BaseModel):
     is_verified: bool
     company_id: str
     company_name: Optional[str] = None
+    # D8-3: Derive onboarding_completed from OnboardingSession.
+    # This field is computed server-side so the frontend auth guard
+    # on /onboarding can correctly redirect completed users to /dashboard.
+    onboarding_completed: bool = False
     created_at: Optional[str] = None
 
     model_config = {"from_attributes": True}

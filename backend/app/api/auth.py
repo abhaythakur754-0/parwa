@@ -353,11 +353,27 @@ def logout(
 @router.get("/me", response_model=UserResponse)
 def get_me(
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> UserResponse:
     """Get the current authenticated user's profile.
 
     BC-001: User is always scoped to a company.
+    D8-3: Derives onboarding_completed from OnboardingSession
+    so the frontend auth guard can redirect completed users.
     """
+    # D8-3: Check onboarding session to derive completion status
+    onboarding_completed = False
+    try:
+        from database.models.onboarding import OnboardingSession
+        session = db.query(OnboardingSession).filter(
+            OnboardingSession.user_id == user.id,
+            OnboardingSession.company_id == user.company_id,
+        ).first()
+        if session and session.status == "completed" and session.first_victory_completed:
+            onboarding_completed = True
+    except Exception:
+        pass  # Non-critical — default to False
+
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -368,6 +384,7 @@ def get_me(
         is_active=user.is_active,
         is_verified=user.is_verified,
         company_id=user.company_id,
+        onboarding_completed=onboarding_completed,
         created_at=(
             user.created_at.isoformat()
             if user.created_at else None

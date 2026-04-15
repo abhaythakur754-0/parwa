@@ -22,7 +22,14 @@ const STYLE_OPTIONS: Array<{ value: AIResponseStyle; label: string; description:
 ];
 
 interface AIConfigProps {
-  onComplete: () => void;
+  // D8-4: onComplete now receives the server-validated AI config
+  // so the wizard can pass it to FirstVictory
+  onComplete: (config?: {
+    ai_name: string;
+    ai_tone: string;
+    ai_response_style: string;
+    ai_greeting: string | null;
+  }) => void;
   initialConfig?: {
     ai_name?: string;
     ai_tone?: AITone;
@@ -119,8 +126,15 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
         throw new Error(data?.detail || data?.error?.message || 'Activation failed');
       }
 
+      const responseData = await res.json().catch(() => ({}));
       setActivated(true);
-      onComplete();
+      // D8-4: Pass server-validated config back to wizard
+      onComplete({
+        ai_name: responseData.ai_name || trimmedName,
+        ai_tone: responseData.ai_tone || aiTone,
+        ai_response_style: responseData.ai_response_style || aiStyle,
+        ai_greeting: responseData.ai_greeting || null,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Activation failed');
     } finally {
