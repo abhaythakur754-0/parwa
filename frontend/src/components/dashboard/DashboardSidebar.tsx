@@ -107,6 +107,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
     '/dashboard/tickets/',
     '/dashboard/agents',
     '/dashboard/agents/',
+    '/dashboard/approvals',
   ]);
 
   const navItems: NavItem[] = [

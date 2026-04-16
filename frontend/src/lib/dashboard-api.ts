@@ -402,6 +402,37 @@ export const dashboardApi = {
     const qs = sp.toString();
     return get<TicketMessagesResponse>(`/api/tickets/${ticketId}/messages${qs ? `?${qs}` : ''}`);
   },
+
+  // ── Day 6: Approvals API ──────────────────────────────────────
+  getApprovals: (params?: { page?: number; pageSize?: number; status?: string; priority?: string; blockReason?: string; search?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set('page', String(params.page));
+    if (params?.pageSize) sp.set('page_size', String(params.pageSize));
+    if (params?.status) sp.set('status', params.status);
+    if (params?.priority) sp.set('priority', params.priority);
+    if (params?.blockReason) sp.set('block_reason', params.blockReason);
+    if (params?.search) sp.set('search', params.search);
+    const qs = sp.toString();
+    return get<ApprovalListResponse>(`/api/approvals${qs ? `?${qs}` : ''}`);
+  },
+
+  getApproval: (id: string) =>
+    get<ApprovalDetail>(`/api/approvals/${id}`),
+
+  approveResponse: (id: string, data?: { edited_response?: string; review_notes?: string }) =>
+    post<any>(`/api/approvals/${id}/approve`, data || {}),
+
+  rejectResponse: (id: string, data?: { review_notes?: string }) =>
+    post<any>(`/api/approvals/${id}/reject`, data || {}),
+
+  escalateResponse: (id: string, data?: { review_notes?: string }) =>
+    post<any>(`/api/approvals/${id}/escalate`, data || {}),
+
+  batchReview: (data: { ids: string[]; action: 'approved' | 'rejected'; review_notes?: string }) =>
+    post<any>('/api/approvals/batch', data),
+
+  getApprovalStats: () =>
+    get<ApprovalQueueStats>(`/api/approvals/stats`),
 };
 
 // ── Day 5: Customer CRM Types ──────────────────────────────────────
@@ -528,6 +559,53 @@ export interface TicketMessagesResponse {
   total: number;
   page: number;
   page_size: number;
+}
+
+// ── Day 6: Approval Types ─────────────────────────────────────
+
+export interface BlockedResponse {
+  id: string;
+  company_id: string;
+  ticket_id: string | null;
+  query: string;
+  original_response: string;
+  edited_response: string | null;
+  block_reason: string;
+  confidence_score: number;
+  guardrail_report: Record<string, unknown> | null;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'pending' | 'in_review' | 'approved' | 'rejected' | 'auto_rejected' | 'expired';
+  reviewer_id: string | null;
+  reviewer_action: string | null;
+  review_notes: string | null;
+  auto_reject_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApprovalListResponse {
+  items: BlockedResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface ApprovalDetail extends BlockedResponse {
+  wait_time_minutes: number | null;
+  ticket_subject: string | null;
+  ticket_channel: string | null;
+  ticket_customer_id: string | null;
+}
+
+export interface ApprovalQueueStats {
+  total_pending: number;
+  total_in_review: number;
+  total_approved: number;
+  total_rejected: number;
+  total_auto_rejected: number;
+  avg_wait_time_minutes: number;
+  urgent_count: number;
+  high_count: number;
 }
 
 export default dashboardApi;
