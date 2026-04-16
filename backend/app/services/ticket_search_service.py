@@ -498,7 +498,7 @@ class TicketSearchService:
 
     def _highlight_match(
         self,
-        text: str,
+        search_text: str,
         query: str,
         highlight_start: str = "**",
         highlight_end: str = "**",
@@ -506,7 +506,7 @@ class TicketSearchService:
         """Highlight matching text.
 
         Args:
-            text: Text to search in
+            search_text: Text to search in
             query: Query to highlight
             highlight_start: Start marker
             highlight_end: End marker
@@ -515,23 +515,23 @@ class TicketSearchService:
             Text with highlighted matches
         """
         # Find context around match
-        text_lower = text.lower()
+        text_lower = search_text.lower()
         query_lower = query.lower()
 
         idx = text_lower.find(query_lower)
         if idx == -1:
-            return text
+            return search_text
 
         # Get context (50 chars before and after)
         start = max(0, idx - 50)
-        end = min(len(text), idx + len(query) + 50)
+        end = min(len(search_text), idx + len(query) + 50)
 
-        snippet = text[start:end]
+        snippet = search_text[start:end]
 
         # Add ellipsis
         if start > 0:
             snippet = "..." + snippet
-        if end < len(text):
+        if end < len(search_text):
             snippet = snippet + "..."
 
         # Highlight the match
@@ -602,7 +602,7 @@ class TicketSearchService:
 
     def search_by_similarity(
         self,
-        text: str,
+        search_text: str,
         threshold: float = 0.85,
         limit: int = 10,
     ) -> List[Dict[str, Any]]:
@@ -611,7 +611,7 @@ class TicketSearchService:
         Used for duplicate detection and related tickets.
 
         Args:
-            text: Text to compare against
+            search_text: Text to compare against
             threshold: Minimum similarity score (0-1)
             limit: Maximum results
 
@@ -634,7 +634,7 @@ class TicketSearchService:
 
         for ticket in tickets:
             if ticket.subject:
-                similarity = self._calculate_similarity(text, ticket.subject)
+                similarity = self._calculate_similarity(search_text, ticket.subject)
                 if similarity >= threshold:
                     results.append({
                         "ticket": self._ticket_to_dict(ticket),

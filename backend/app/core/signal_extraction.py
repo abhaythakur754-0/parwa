@@ -292,7 +292,6 @@ class SignalExtractor:
 
         # Store in cache (GAP-007: key already includes variant_type)
         try:
-            from app.core.redis import cache_set
             await cache_set(
                 request.company_id, cache_key,
                 result.to_dict(), ttl_seconds=self.CACHE_TTL_SECONDS,

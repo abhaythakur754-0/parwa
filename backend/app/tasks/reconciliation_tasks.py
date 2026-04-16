@@ -431,7 +431,6 @@ def _get_sync_paddle_client():
         paddle.get_subscription_sync = get_subscription_sync
 
     if not hasattr(paddle, 'list_transactions_sync'):
-        import asyncio
 
         def list_transactions_sync(**kwargs):
             loop = asyncio.new_event_loop()

@@ -1249,7 +1249,6 @@ class CustomIntegrationService:
     @staticmethod
     def _mask_connection_string(conn_str: str) -> str:
         """Mask password in a connection string for logging."""
-        import re
         return re.sub(
             r"(://[^:]+:)([^@]+)(@)",
             r"\1****\3",

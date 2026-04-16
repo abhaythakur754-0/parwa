@@ -806,7 +806,6 @@ class SentimentAnalyzer:
 
         # ── Cache store ─────────────────────────────────────────
         try:
-            from app.core.redis import cache_set
             await cache_set(
                 company_id, cache_key,
                 result.to_dict(), ttl_seconds=self.CACHE_TTL_SECONDS,

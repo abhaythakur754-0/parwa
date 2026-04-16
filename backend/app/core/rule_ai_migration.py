@@ -640,14 +640,14 @@ class RuleAIMigrationEngine:
             logger.warning("redis_set_failed key=%s", key, exc_info=True)
             return False
 
-    async def _redis_hincrby(self, key: str, field: str, amount: int = 1) -> None:
+    async def _redis_hincrby(self, key: str, hash_field: str, amount: int = 1) -> None:
         """Safe Redis HINCRBY."""
         if self._redis is None:
             return
         try:
-            await self._redis.hincrby(key, field, amount)
+            await self._redis.hincrby(key, hash_field, amount)
         except Exception:
-            logger.warning("redis_hincrby_failed key=%s field=%s", key, field, exc_info=True)
+            logger.warning("redis_hincrby_failed key=%s field=%s", key, hash_field, exc_info=True)
 
     async def _redis_lpush(self, key: str, value: str, maxlen: int = _FALLBACK_LOG_MAX) -> None:
         """LPUSH with LTRIM to cap list length."""

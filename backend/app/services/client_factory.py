@@ -149,8 +149,6 @@ def provision_company(
 
     # Validate email uniqueness
     if db is not None:
-        from database.models.core import User
-
         existing = db.query(User).filter(
             User.email == owner_email.strip().lower(),
         ).first()
@@ -356,8 +354,6 @@ def check_team_member_limit(
     Returns:
         True if under the limit, False if at/over.
     """
-    from database.models.core import User
-
     entitlements = get_company_entitlements(company_id, db)
     max_members = entitlements.get("max_team_members", 3)
 

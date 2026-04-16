@@ -347,14 +347,14 @@ class TokenBudgetService:
 
     # ── In-Memory Fallback ────────────────────────────────────────
 
-    def _mem_get(self, conversation_id: str, field: str) -> int:
+    def _mem_get(self, conversation_id: str, field_name: str) -> int:
         bucket = self._in_memory.get(conversation_id, {})
-        return int(bucket.get(field, 0))
+        return int(bucket.get(field_name, 0))
 
-    def _mem_set(self, conversation_id: str, field: str, value: int) -> None:
+    def _mem_set(self, conversation_id: str, field_name: str, value: int) -> None:
         if conversation_id not in self._in_memory:
             self._in_memory[conversation_id] = {}
-        self._in_memory[conversation_id][field] = value
+        self._in_memory[conversation_id][field_name] = value
 
     def _mem_get_info(self, conversation_id: str) -> dict[str, str]:
         bucket = self._in_memory.get(conversation_id, {})

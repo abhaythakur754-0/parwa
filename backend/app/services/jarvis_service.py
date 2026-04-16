@@ -914,7 +914,6 @@ def send_business_otp(
 
     # Send OTP via Brevo email
     try:
-        from app.services.email_service import send_email
         otp_html = render_email_template(
             "otp_email.html",
             {"otp_code": otp_code, "expires_minutes": OTP_EXPIRY_MINUTES},

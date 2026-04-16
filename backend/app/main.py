@@ -85,10 +85,10 @@ from app.api.identity import router as identity_router  # Day 5: Identity resolu
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
-import app.webhooks.paddle_handler   # noqa: F401, E402
-import app.webhooks.brevo_handler    # noqa: F401, E402
-import app.webhooks.twilio_handler   # noqa: F401, E402
-import app.webhooks.shopify_handler  # noqa: F401, E402
+import app.webhooks.paddle_handler as _wh_paddle    # noqa: F401, E402
+import app.webhooks.brevo_handler as _wh_brevo      # noqa: F401, E402
+import app.webhooks.twilio_handler as _wh_twilio     # noqa: F401, E402
+import app.webhooks.shopify_handler as _wh_shopify   # noqa: F401, E402
 
 # Track if logging has been configured (idempotent)
 _logging_configured = False
