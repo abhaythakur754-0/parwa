@@ -8,7 +8,6 @@ import {
   type Agent,
   type AgentCardData,
   type AgentMetrics,
-  type AgentConversation,
   type AgentMistake,
 } from '@/lib/agents-api';
 import { ticketsApi } from '@/lib/tickets-api';
@@ -199,9 +198,9 @@ function LiveActivityPanel({
       }
     };
 
-    socket.on('agent:activity', handler);
+    socket.on('agent:status_changed', handler);
     return () => {
-      socket.off('agent:activity', handler);
+      socket.off('agent:status_changed', handler);
     };
   }, [socket, isConnected, agentId]);
 
@@ -259,7 +258,7 @@ function LiveActivityPanel({
             </div>
             <p className="text-xs text-zinc-500">No active ticket being handled</p>
             <p className="text-[10px] text-zinc-600 mt-0.5">
-              {isConnected ? 'Waiting for activity events...' : 'Connect to see live updates'}
+              {isConnected ? 'Waiting for agent updates…' : 'Connect to see live updates'}
             </p>
           </div>
         )}
@@ -295,7 +294,10 @@ function MistakeLog({ agentId }: { agentId: string }) {
   const handleTrainFromErrors = async () => {
     setTraining(true);
     try {
-      await agentsApi.pauseAgent(agentId, 'Retraining from error patterns');
+      // TODO(placeholder): This is a stub retraining flow.
+      // Pauses the agent, simulates retraining, then resumes.
+      // Replace with actual retraining API when available.
+      await agentsApi.pauseAgent(agentId);
       // Simulate retraining trigger
       await new Promise(r => setTimeout(r, 1500));
       await agentsApi.resumeAgent(agentId);
@@ -396,7 +398,9 @@ function AgentConfigPanel({ agent, onRefresh }: { agent: Agent; onRefresh: () =>
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Optimistic update
+      // TODO(placeholder): Replace with actual backend PUT endpoint when available.
+      // Currently simulates a save with a delay.
+      console.warn('handleSave is a stub — backend PUT /api/agents/:id not yet implemented');
       await new Promise(r => setTimeout(r, 800));
       onRefresh();
       setEditOpen(false);
@@ -563,11 +567,9 @@ export default function AgentDetailPage() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [cardData, setCardData] = useState<AgentCardData | null>(null);
   const [metrics, setMetrics] = useState<AgentMetrics | null>(null);
-  const [conversations, setConversations] = useState<AgentConversation[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [convPage, setConvPage] = useState(1);
 
   // ── Fetch Data ───────────────────────────────────────────────────
 

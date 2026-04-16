@@ -76,18 +76,6 @@ function formatSpecialty(s: string): string {
   return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function statusColor(status: string): string {
-  const map: Record<string, string> = {
-    active: 'bg-emerald-500',
-    paused: 'bg-amber-500',
-    error: 'bg-red-500',
-    initializing: 'bg-blue-500',
-    training: 'bg-zinc-500',
-    deprovisioned: 'bg-zinc-500',
-  };
-  return map[status] || 'bg-zinc-500';
-}
-
 function statusBadgeStyle(status: string): string {
   const map: Record<string, string> = {
     active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -314,11 +302,11 @@ function AgentCard({
         <div className="flex items-center gap-1.5">
           <BarChartIcon />
           <span className="text-[11px] text-zinc-500">Resolution:</span>
-          <span className="text-xs font-semibold text-zinc-200">{data.resolution_rate.toFixed(1)}%</span>
+          <span className="text-xs font-semibold text-zinc-200">{(data.resolution_rate ?? 0).toFixed(1)}%</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] text-zinc-500">CSAT:</span>
-          <span className="text-xs font-semibold text-zinc-200">{data.csat_avg.toFixed(1)}/5</span>
+          <span className="text-xs font-semibold text-zinc-200">{(data.csat_avg ?? 0).toFixed(1)}/5</span>
         </div>
       </div>
 
@@ -456,7 +444,7 @@ function AddAgentDialog({
           requires_approval: false,
         });
         onClose();
-        window.location.reload();
+        // Note: Parent does not auto-refetch; user can manually refresh to see the new agent.
       }, 1000);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -871,8 +859,7 @@ export default function AgentsPage() {
         {/* Search & Filters (A5) */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <SearchIcon />
-            <div className="absolute left-8 top-1/2 -translate-y-1/2 text-zinc-500">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
               </svg>

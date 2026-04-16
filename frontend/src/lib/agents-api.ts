@@ -63,16 +63,6 @@ export interface AgentMetrics {
   mistakes_7d: number;
 }
 
-export interface AgentConversation {
-  ticket_id: string;
-  customer: string | null;
-  channel: string;
-  status: string;
-  confidence: number | null;
-  duration: number | null;
-  created_at: string;
-}
-
 export interface AgentMistake {
   id: string;
   timestamp: string;
@@ -91,13 +81,6 @@ export interface AgentComparisonResult {
   comparison: Record<string, any>;
 }
 
-export interface AgentLimit {
-  current_agents: number;
-  max_agents: number;
-  available_slots: number;
-  can_create: boolean;
-}
-
 // ── Agents API ─────────────────────────────────────────────────────────
 
 export const agentsApi = {
@@ -112,8 +95,8 @@ export const agentsApi = {
     get<AgentStatusCounts>('/api/agents/dashboard/status-counts'),
 
   // ── Actions ──────────────────────────────────────────────────────
-  pauseAgent: (id: string, reason?: string) =>
-    post(`/api/agents/dashboard/${id}/pause`, { reason }),
+  pauseAgent: (id: string) =>
+    post(`/api/agents/dashboard/${id}/pause`),
 
   resumeAgent: (id: string) =>
     post(`/api/agents/dashboard/${id}/resume`),
@@ -151,10 +134,6 @@ export const agentsApi = {
 
   createAgent: (data: AgentCreateRequest) =>
     post<{ agent: Agent; message: string }>('/api/agents/create', data),
-
-  // ── Provisioning ─────────────────────────────────────────────────
-  getAgentLimit: () =>
-    get<AgentLimit>('/api/agents/limit'),
 };
 
 export default agentsApi;
