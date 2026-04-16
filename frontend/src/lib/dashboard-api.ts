@@ -350,12 +350,13 @@ export const dashboardApi = {
     get<ROIDashboardResponse>(`/api/analytics/savings?months=${months}`),
 
   // ── Day 5: Customer CRM API ───────────────────────────────────────
-  getCustomers: (params?: { page?: number; pageSize?: number; search?: string; status?: string }) => {
+  getCustomers: (params?: { page?: number; pageSize?: number; search?: string; verified?: string; hasOpenTickets?: boolean }) => {
     const sp = new URLSearchParams();
     if (params?.page) sp.set('page', String(params.page));
     if (params?.pageSize) sp.set('page_size', String(params.pageSize));
     if (params?.search) sp.set('search', params.search);
-    if (params?.status) sp.set('status', params.status);
+    if (params?.verified) sp.set('is_verified', params.verified);
+    if (params?.hasOpenTickets !== undefined) sp.set('has_open_tickets', String(params.hasOpenTickets));
     const qs = sp.toString();
     return get<CustomerListResponse>(`/api/customers${qs ? `?${qs}` : ''}`);
   },
@@ -363,14 +364,16 @@ export const dashboardApi = {
   getCustomer: (id: string) =>
     get<Customer>(`/api/customers/${id}`),
 
-  getCustomerTickets: (id: string, params?: { page?: number; pageSize?: number; status?: string }) => {
+  getCustomerTickets: (id: string, params?: { page?: number; pageSize?: number }) => {
     const sp = new URLSearchParams();
     if (params?.page) sp.set('page', String(params.page));
     if (params?.pageSize) sp.set('page_size', String(params.pageSize));
-    if (params?.status) sp.set('status', params.status);
     const qs = sp.toString();
-    return get<any>(`/api/customers/${id}/tickets${qs ? `?${qs}` : ''}`);
+    return get<TicketListResponse>(`/api/customers/${id}/tickets${qs ? `?${qs}` : ''}`);
   },
+
+  getTicket: (ticketId: string) =>
+    get<TicketResponse>(`/api/tickets/${ticketId}`),
 
   getCustomerChannels: (id: string) =>
     get<CustomerChannel[]>(`/api/customers/${id}/channels`),
@@ -379,23 +382,23 @@ export const dashboardApi = {
     post<any>('/api/customers/merge', data),
 
   // ── Day 5: Conversations API ──────────────────────────────────────
-  getConversations: (params?: { page?: number; pageSize?: number; channel?: string; search?: string; agent?: string; dateFrom?: string; dateTo?: string }) => {
+  getConversations: (params?: { page?: number; pageSize?: number; channel?: string; search?: string; assignedTo?: string; status?: string[] }) => {
     const sp = new URLSearchParams();
     if (params?.page) sp.set('page', String(params.page));
     if (params?.pageSize) sp.set('page_size', String(params.pageSize));
     if (params?.channel) sp.set('channel', params.channel);
     if (params?.search) sp.set('search', params.search);
-    if (params?.agent) sp.set('agent', params.agent);
-    if (params?.dateFrom) sp.set('date_from', params.dateFrom);
-    if (params?.dateTo) sp.set('date_to', params.dateTo);
+    if (params?.assignedTo) sp.set('assigned_to', params.assignedTo);
+    if (params?.status) params.status.forEach(s => sp.append('status', s));
     const qs = sp.toString();
     return get<ConversationListResponse>(`/api/tickets${qs ? `?${qs}` : ''}`);
   },
 
-  getConversationMessages: (ticketId: string, params?: { page?: number; pageSize?: number }) => {
+  getConversationMessages: (ticketId: string, params?: { page?: number; pageSize?: number; includeInternal?: boolean }) => {
     const sp = new URLSearchParams();
     if (params?.page) sp.set('page', String(params.page));
     if (params?.pageSize) sp.set('page_size', String(params.pageSize));
+    if (params?.includeInternal) sp.set('include_internal', 'true');
     const qs = sp.toString();
     return get<TicketMessagesResponse>(`/api/tickets/${ticketId}/messages${qs ? `?${qs}` : ''}`);
   },
@@ -427,7 +430,7 @@ export interface CustomerChannel {
 }
 
 export interface CustomerListResponse {
-  customers: Customer[];
+  items: Customer[];
   total: number;
   page: number;
   page_size: number;
@@ -439,31 +442,74 @@ export interface CustomerMergeRequest {
   reason?: string;
 }
 
-// ── Day 5: Conversation Types ──────────────────────────────────────
+// ── Day 5: Conversation Types (aligned with backend TicketResponse) ──
 
 export interface Conversation {
-  ticket_id: string;
-  customer_name: string | null;
-  customer_email: string | null;
+  id: string;
+  company_id: string;
+  customer_id: string | null;
   channel: string;
-  agent_name: string | null;
-  subject: string | null;
   status: string;
+  subject: string | null;
   priority: string;
-  confidence: number | null;
-  sentiment: string | null;
-  created_at: string;
-  updated_at: string;
-  resolution_time_seconds: number | null;
-  message_count: number;
-  ai_summary: string | null;
+  category: string | null;
+  tags: string[];
+  agent_id: string | null;
+  assigned_to: string | null;
+  classification_intent: string | null;
+  classification_type: string | null;
+  awaiting_human: boolean;
+  escalation_level: number;
+  sla_breached: boolean;
+  is_open: boolean;
+  is_resolved: boolean;
+  is_closed: boolean;
+  time_since_created: string | null;
+  time_since_updated: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface ConversationListResponse {
-  conversations: Conversation[];
+  items: Conversation[];
   total: number;
   page: number;
   page_size: number;
+  pages: number;
+}
+
+export interface TicketResponse {
+  id: string;
+  company_id: string;
+  customer_id: string | null;
+  channel: string;
+  status: string;
+  subject: string | null;
+  priority: string;
+  category: string | null;
+  tags: string[];
+  agent_id: string | null;
+  assigned_to: string | null;
+  classification_intent: string | null;
+  classification_type: string | null;
+  awaiting_human: boolean;
+  escalation_level: number;
+  sla_breached: boolean;
+  is_open: boolean;
+  is_resolved: boolean;
+  is_closed: boolean;
+  time_since_created: string | null;
+  time_since_updated: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TicketListResponse {
+  items: TicketResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
 }
 
 export interface TicketMessage {

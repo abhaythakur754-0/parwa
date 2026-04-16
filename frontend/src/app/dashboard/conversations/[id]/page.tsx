@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { dashboardApi, type TicketMessage } from '@/lib/dashboard-api';
+import { dashboardApi, type TicketMessage, type TicketResponse } from '@/lib/dashboard-api';
 
 export default function ConversationDetailPage() {
   const params = useParams();
   const ticketId = params.id as string;
   const [messages, setMessages] = useState<TicketMessage[]>([]);
-  const [ticket, setTicket] = useState<any>(null);
+  const [ticket, setTicket] = useState<TicketResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,17 +17,12 @@ export default function ConversationDetailPage() {
     const load = async () => {
       setLoading(true); setError(null);
       try {
-        const [msgsData, tixData] = await Promise.all([
-          dashboardApi.getConversationMessages(ticketId, { pageSize: 100 }),
-          dashboardApi.getConversationMessages(ticketId, { pageSize: 1 }).catch(() => null),
+        const [ticketData, msgsData] = await Promise.all([
+          dashboardApi.getTicket(ticketId),
+          dashboardApi.getConversationMessages(ticketId, { pageSize: 100, includeInternal: true }),
         ]);
+        setTicket(ticketData);
         setMessages(msgsData.messages || []);
-        if (msgsData.messages && msgsData.messages.length > 0) {
-          setTicket({
-            id: ticketId,
-            channel: msgsData.messages[0]?.channel,
-          });
-        }
       } catch (err: any) {
         setError(err.message || 'Failed to load conversation');
       } finally { setLoading(false); }
@@ -45,19 +40,33 @@ export default function ConversationDetailPage() {
         Back to Conversations
       </Link>
 
-      <div className="flex gap-6">
+      <div className="flex gap-6 flex-col lg:flex-row">
         {/* Transcript */}
         <div className="flex-1">
           <div className="bg-zinc-900/50 rounded-xl border border-white/[0.06] p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <div>
-                <h1 className="text-lg font-semibold text-zinc-100">Conversation #{ticketId.slice(0, 8)}</h1>
-                {ticket?.channel && <span className="text-xs text-zinc-500 capitalize mt-1">{ticket.channel} channel</span>}
+                <h1 className="text-lg font-semibold text-zinc-100">#{ticketId.slice(0, 8)}{ticket?.subject ? ` - ${ticket.subject}` : ''}</h1>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  {ticket?.channel && <span className="text-xs text-zinc-500 capitalize">{ticket.channel} channel</span>}
+                  {ticket?.status && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 capitalize">{ticket.status.replace(/_/g, ' ')}</span>
+                  )}
+                  {ticket?.priority && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${ticket.priority === 'critical' ? 'bg-red-500/10 text-red-400' : ticket.priority === 'high' ? 'bg-amber-500/10 text-amber-400' : 'bg-zinc-800 text-zinc-400'}`}>{ticket.priority}</span>
+                  )}
+                  {ticket?.awaiting_human && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400">Awaiting Human</span>
+                  )}
+                </div>
               </div>
               <div className="flex gap-2">
-                <button className="px-3 py-1.5 text-xs bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors">Escalate</button>
-                <button className="px-3 py-1.5 text-xs bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors">Reassign</button>
-                <button className="px-3 py-1.5 text-xs bg-orange-500/10 text-orange-400 rounded-lg hover:bg-orange-500/20 transition-colors">Export</button>
+                {/* TODO: Implement escalate — needs backend endpoint POST /api/tickets/{id}/escalate */}
+                <button disabled className="px-3 py-1.5 text-xs bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors opacity-50 cursor-not-allowed">Escalate</button>
+                {/* TODO: Implement reassign — needs backend endpoint POST /api/tickets/{id}/reassign */}
+                <button disabled className="px-3 py-1.5 text-xs bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors opacity-50 cursor-not-allowed">Reassign</button>
+                {/* TODO: Implement export — needs backend endpoint GET /api/tickets/{id}/export */}
+                <button disabled className="px-3 py-1.5 text-xs bg-orange-500/10 text-orange-400 rounded-lg hover:bg-orange-500/20 transition-colors opacity-50 cursor-not-allowed">Export</button>
               </div>
             </div>
 
@@ -103,26 +112,35 @@ export default function ConversationDetailPage() {
 
             {/* Reply Box */}
             <div className="mt-6 pt-4 border-t border-white/[0.06]">
+              {/* TODO: Implement send reply — needs backend endpoint POST /api/tickets/{id}/messages */}
               <textarea placeholder="Type a reply..." rows={3} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50 resize-none" />
               <div className="flex justify-end mt-2">
-                <button className="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">Send Reply</button>
+                <button disabled className="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors opacity-50 cursor-not-allowed">Send Reply</button>
               </div>
             </div>
           </div>
         </div>
 
         {/* Metadata Panel */}
-        <div className="w-72 shrink-0 space-y-4">
-          <div className="bg-zinc-900/50 rounded-xl border border-white/[0.06] p-4">
-            <h3 className="text-sm font-semibold text-zinc-200 mb-3">Details</h3>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between"><dt className="text-zinc-500">Channel</dt><dd className="text-zinc-300 capitalize">{ticket?.channel || '\u2014'}</dd></div>
-              <div className="flex justify-between"><dt className="text-zinc-500">Messages</dt><dd className="text-zinc-300">{messages.length}</dd></div>
-              <div className="flex justify-between"><dt className="text-zinc-500">Duration</dt><dd className="text-zinc-300">{formatDuration(messages)}</dd></div>
-              <div className="flex justify-between"><dt className="text-zinc-500">Customer msgs</dt><dd className="text-zinc-300">{messages.filter(m => m.role === 'customer').length}</dd></div>
-              <div className="flex justify-between"><dt className="text-zinc-500">AI msgs</dt><dd className="text-zinc-300">{messages.filter(m => m.role === 'ai' || m.role === 'agent').length}</dd></div>
-            </dl>
-          </div>
+        <div className="w-full lg:w-72 shrink-0 space-y-4">
+          {ticket && (
+            <div className="bg-zinc-900/50 rounded-xl border border-white/[0.06] p-4">
+              <h3 className="text-sm font-semibold text-zinc-200 mb-3">Details</h3>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between"><dt className="text-zinc-500">Channel</dt><dd className="text-zinc-300 capitalize">{ticket.channel || '\u2014'}</dd></div>
+                <div className="flex justify-between"><dt className="text-zinc-500">Status</dt><dd className="text-zinc-300 capitalize">{ticket.status.replace(/_/g, ' ')}</dd></div>
+                <div className="flex justify-between"><dt className="text-zinc-500">Priority</dt><dd className="text-zinc-300 capitalize">{ticket.priority}</dd></div>
+                <div className="flex justify-between"><dt className="text-zinc-500">Category</dt><dd className="text-zinc-300 capitalize">{ticket.category ? ticket.category.replace(/_/g, ' ') : '\u2014'}</dd></div>
+                <div className="flex justify-between"><dt className="text-zinc-500">Messages</dt><dd className="text-zinc-300">{messages.length}</dd></div>
+                <div className="flex justify-between"><dt className="text-zinc-500">Duration</dt><dd className="text-zinc-300">{formatDuration(messages)}</dd></div>
+                <div className="flex justify-between"><dt className="text-zinc-500">Customer msgs</dt><dd className="text-zinc-300">{messages.filter(m => m.role === 'customer').length}</dd></div>
+                <div className="flex justify-between"><dt className="text-zinc-500">AI msgs</dt><dd className="text-zinc-300">{messages.filter(m => m.role === 'ai' || m.role === 'agent').length}</dd></div>
+                {ticket.classification_intent && (
+                  <div className="flex justify-between"><dt className="text-zinc-500">Intent</dt><dd className="text-zinc-300 text-right max-w-[140px] truncate">{ticket.classification_intent}</dd></div>
+                )}
+              </dl>
+            </div>
+          )}
 
           <div className="bg-zinc-900/50 rounded-xl border border-white/[0.06] p-4">
             <h3 className="text-sm font-semibold text-zinc-200 mb-3">AI Confidence</h3>
@@ -136,7 +154,7 @@ export default function ConversationDetailPage() {
                   <>
                     <p className={`text-2xl font-bold ${color}`}>{aiMsgs.length > 0 ? `${avg.toFixed(1)}%` : 'N/A'}</p>
                     <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${avg}%` }} />
+                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(avg, 100)}%` }} />
                     </div>
                     <p className="text-xs text-zinc-500">Average across {aiMsgs.length} AI responses</p>
                   </>
@@ -148,9 +166,12 @@ export default function ConversationDetailPage() {
           <div className="bg-zinc-900/50 rounded-xl border border-white/[0.06] p-4">
             <h3 className="text-sm font-semibold text-zinc-200 mb-3">Quick Actions</h3>
             <div className="space-y-2">
-              <button className="w-full px-3 py-2 text-sm text-left bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors">Add Internal Note</button>
-              <button className="w-full px-3 py-2 text-sm text-left bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors">Escalate to Human</button>
-              <button className="w-full px-3 py-2 text-sm text-left bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors">Export as PDF</button>
+              {/* TODO: Add internal note — needs backend endpoint POST /api/tickets/{id}/messages with is_internal=true */}
+              <button disabled className="w-full px-3 py-2 text-sm text-left bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors opacity-50 cursor-not-allowed">Add Internal Note</button>
+              {/* TODO: Escalate to human — needs backend endpoint */}
+              <button disabled className="w-full px-3 py-2 text-sm text-left bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors opacity-50 cursor-not-allowed">Escalate to Human</button>
+              {/* TODO: Export as PDF — needs backend endpoint */}
+              <button disabled className="w-full px-3 py-2 text-sm text-left bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors opacity-50 cursor-not-allowed">Export as PDF</button>
             </div>
           </div>
         </div>

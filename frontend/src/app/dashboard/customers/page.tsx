@@ -12,7 +12,7 @@ export default function CustomersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [verifiedFilter, setVerifiedFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -22,21 +22,19 @@ export default function CustomersPage() {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string> = {};
-      if (page > 1) params.page = String(page);
-      params.page_size = String(PAGE_SIZE);
-      if (search) params.search = search;
-      if (statusFilter !== 'all') params.status = statusFilter;
-      const qs = new URLSearchParams(params).toString();
-      const data = await dashboardApi.getCustomers({ page, pageSize: PAGE_SIZE, search: search || undefined, status: statusFilter !== 'all' ? statusFilter : undefined });
-      setCustomers(data.customers || []);
+      const data = await dashboardApi.getCustomers({
+        page, pageSize: PAGE_SIZE,
+        search: search || undefined,
+        verified: verifiedFilter !== 'all' ? verifiedFilter : undefined,
+      });
+      setCustomers(data.items || []);
       setTotal(data.total || 0);
     } catch (err: any) {
       setError(err.message || 'Failed to load customers');
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter]);
+  }, [page, search, verifiedFilter]);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
 
@@ -70,7 +68,8 @@ export default function CustomersPage() {
           {selectedIds.size > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-zinc-400">{selectedIds.size} selected</span>
-              <button className="px-3 py-1.5 text-xs font-medium bg-zinc-800 text-zinc-200 rounded-lg hover:bg-zinc-700 transition-colors">Export CSV</button>
+              {/* TODO: Implement CSV export for selected customers */}
+              <button disabled className="px-3 py-1.5 text-xs font-medium bg-zinc-800 text-zinc-200 rounded-lg hover:bg-zinc-700 transition-colors opacity-50 cursor-not-allowed">Export CSV</button>
               {selectedIds.size >= 2 && (
                 <button onClick={() => setShowMergeModal(true)} className="px-3 py-1.5 text-xs font-medium bg-orange-500/10 text-orange-400 rounded-lg hover:bg-orange-500/20 transition-colors">Merge Selected</button>
               )}
@@ -84,14 +83,14 @@ export default function CustomersPage() {
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
           <input type="text" placeholder="Search by name, email, phone..." value={searchInput} onChange={(e) => { setSearchInput(e.target.value); setPage(1); }} className="w-full pl-10 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50" />
         </div>
-        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-orange-500/50">
+        <select value={verifiedFilter} onChange={(e) => { setVerifiedFilter(e.target.value); setPage(1); }} className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-orange-500/50">
           <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
+          <option value="true">Verified</option>
+          <option value="false">Unverified</option>
         </select>
       </div>
 
-      <div className="bg-zinc-900/50 rounded-xl border border-white/[0.06] overflow-hidden">
+      <div className="bg-zinc-900/50 rounded-xl border border-white/[0.06] overflow-hidden overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-white/[0.06]">

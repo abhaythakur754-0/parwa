@@ -3,14 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { dashboardApi, type Customer, type CustomerChannel } from '@/lib/dashboard-api';
+import { dashboardApi, type Customer, type CustomerChannel, type TicketResponse } from '@/lib/dashboard-api';
 
 export default function CustomerDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [channels, setChannels] = useState<CustomerChannel[]>([]);
-  const [tickets, setTickets] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<TicketResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'tickets' | 'channels' | 'notes'>('tickets');
@@ -22,11 +22,11 @@ export default function CustomerDetailPage() {
         const [cust, chs, tix] = await Promise.all([
           dashboardApi.getCustomer(id),
           dashboardApi.getCustomerChannels(id).catch(() => []),
-          dashboardApi.getCustomerTickets(id).catch(() => ({ tickets: [] })),
+          dashboardApi.getCustomerTickets(id).catch(() => ({ items: [], total: 0, page: 1, page_size: 25, pages: 0 })),
         ]);
         setCustomer(cust);
         setChannels(Array.isArray(chs) ? chs : []);
-        setTickets(tix.tickets || []);
+        setTickets(tix.items || []);
       } catch (err: any) {
         setError(err.message || 'Failed to load customer');
       } finally { setLoading(false); }
@@ -85,23 +85,25 @@ export default function CustomerDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'tickets' && (
-        <div className="bg-zinc-900/50 rounded-xl border border-white/[0.06] overflow-hidden">
+        <div className="bg-zinc-900/50 rounded-xl border border-white/[0.06] overflow-hidden overflow-x-auto">
           {tickets.length === 0 ? <p className="p-8 text-center text-zinc-500">No tickets from this customer</p> : (
             <table className="w-full">
               <thead><tr className="border-b border-white/[0.06]">
                 <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">Ticket</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">Subject</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">Priority</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">Channel</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">Date</th>
               </tr></thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {tickets.map((t: any) => (
+                {tickets.map((t) => (
                   <tr key={t.id} className="hover:bg-white/[0.02]">
                     <td className="px-4 py-3"><Link href={`/dashboard/tickets/${t.id}`} className="text-sm text-orange-400 hover:underline">#{t.id.slice(0, 8)}</Link></td>
-                    <td className="px-4 py-3 text-sm text-zinc-300">{t.subject || '\u2014'}</td>
-                    <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">{t.status || '\u2014'}</span></td>
-                    <td className="px-4 py-3 text-sm text-zinc-400">{t.channel || '\u2014'}</td>
+                    <td className="px-4 py-3 text-sm text-zinc-300">{t.subject || t.classification_intent || '\u2014'}</td>
+                    <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 capitalize">{(t.status || '').replace(/_/g, ' ')}</span></td>
+                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${t.priority === 'critical' ? 'bg-red-500/10 text-red-400' : t.priority === 'high' ? 'bg-amber-500/10 text-amber-400' : 'bg-zinc-800 text-zinc-400'} capitalize`}>{t.priority || '\u2014'}</span></td>
+                    <td className="px-4 py-3 text-sm text-zinc-400 capitalize">{t.channel || '\u2014'}</td>
                     <td className="px-4 py-3 text-sm text-zinc-500">{t.created_at ? new Date(t.created_at).toLocaleDateString() : '\u2014'}</td>
                   </tr>
                 ))}
@@ -130,9 +132,10 @@ export default function CustomerDetailPage() {
 
       {activeTab === 'notes' && (
         <div className="bg-zinc-900/50 rounded-xl border border-white/[0.06] p-6">
+          {/* TODO: Implement customer notes — needs backend endpoint for storing/retrieving notes */}
           <textarea placeholder="Add internal note about this customer..." rows={3} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50 resize-none" />
           <div className="flex justify-end mt-3">
-            <button className="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">Add Note</button>
+            <button disabled className="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors opacity-50 cursor-not-allowed">Add Note</button>
           </div>
         </div>
       )}
