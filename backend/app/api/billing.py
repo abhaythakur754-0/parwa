@@ -80,6 +80,7 @@ from app.schemas.billing import (
     DashboardSummary,
     PlanComparison,
     VariantCatalog,
+    VariantCatalogItem,
     EnhancedInvoiceHistory,
     PaymentSchedule,
 )
