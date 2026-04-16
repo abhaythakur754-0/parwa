@@ -31,6 +31,9 @@ import {
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Popover, PopoverTrigger, PopoverContent,
+} from '@/components/ui/popover';
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -256,6 +259,16 @@ export default function TicketDetailPage() {
   const [escalateReason, setEscalateReason] = useState('');
   const [escalating, setEscalating] = useState(false);
 
+  // Reassign state (Fix 8)
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [reassignAgentId, setReassignAgentId] = useState('');
+  const [reassigning, setReassigning] = useState(false);
+
+  // Edit note state (Fix 10)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteText, setEditNoteText] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+
   // Messages ref for auto-scroll
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -352,6 +365,70 @@ export default function TicketDetailPage() {
     } catch (err) {
       console.error('Failed to delete note:', err);
     }
+  };
+
+  // ── Reassign (Fix 8) ─────────────────────────────────────────
+
+  const handleReassign = async () => {
+    if (!reassignAgentId.trim()) return;
+    setReassigning(true);
+    try {
+      const updated = await ticketsApi.assign(ticketId, {
+        assignee_id: reassignAgentId.trim(),
+        assignee_type: 'human',
+      });
+      setTicket(updated);
+      setReassignOpen(false);
+      setReassignAgentId('');
+    } catch (err) {
+      console.error('Failed to reassign:', err);
+    } finally {
+      setReassigning(false);
+    }
+  };
+
+  // ── Edit Note (Fix 10) ────────────────────────────────────────────
+
+  const handleStartEditNote = (note: NoteResponse) => {
+    setEditingNoteId(note.id);
+    setEditNoteText(note.content);
+  };
+
+  const handleCancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditNoteText('');
+  };
+
+  const handleSaveEditNote = async (noteId: string) => {
+    if (!editNoteText.trim()) return;
+    setSavingNote(true);
+    try {
+      const updated = await ticketsApi.updateNote(ticketId, noteId, { content: editNoteText.trim() });
+      setNotes(prev => prev.map(n => n.id === noteId ? updated : n));
+      setEditingNoteId(null);
+      setEditNoteText('');
+    } catch (err) {
+      console.error('Failed to update note:', err);
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  // ── Export Conversation CSV (Fix 9) ────────────────────────────────
+
+  const handleExportConversation = () => {
+    const csvContent = [
+      'Role,Content,Confidence,Created At',
+      ...messages.map(m =>
+        `"${m.role}","${(m.content || '').replace(/"/g, '"")}","${m.ai_confidence ?? ''}","${m.created_at}"`
+      ),
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `ticket-${ticketId.slice(0, 8)}-conversation.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   // ── Escalate (T16) ────────────────────────────────────────────────
@@ -549,6 +626,53 @@ export default function TicketDetailPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
               Escalate
+            </Button>
+            {/* Reassign (Fix 8) */}
+            <Popover open={reassignOpen} onOpenChange={setReassignOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-zinc-400 hover:text-purple-400 hover:bg-purple-500/10 text-xs h-7"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Z" />
+                  </svg>
+                  Reassign
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[260px] bg-[#1A1A1A] border-white/[0.06] p-3" side="bottom" align="end">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-zinc-400">Agent ID</label>
+                  <input
+                    type="text"
+                    placeholder="Enter Agent ID..."
+                    value={reassignAgentId}
+                    onChange={(e) => setReassignAgentId(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleReassign(); }}
+                    className="w-full px-2.5 py-1.5 bg-[#111111] border border-white/[0.06] rounded-md text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-[#FF7F11]/50"
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    className="w-full bg-[#FF7F11] text-white hover:bg-[#FF7F11]/90 text-xs h-7"
+                    disabled={!reassignAgentId.trim() || reassigning}
+                    onClick={handleReassign}
+                  >
+                    {reassigning ? 'Reassigning...' : 'Reassign'}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+            {/* Export Conversation (Fix 9) */}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 text-xs h-7"
+              onClick={handleExportConversation}
+            >
+              <DownloadIcon />
+              Export
             </Button>
           </div>
         </div>
@@ -1048,6 +1172,16 @@ export default function TicketDetailPage() {
                                 </span>
                               </div>
                               <div className="flex items-center gap-1">
+                                {/* Edit note button (Fix 10) */}
+                                <button
+                                  onClick={() => handleStartEditNote(note)}
+                                  className="p-1 text-zinc-600 hover:text-[#FF7F11] transition-colors rounded"
+                                  title="Edit note"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                  </svg>
+                                </button>
                                 <button
                                   onClick={() => handleTogglePin(note.id)}
                                   className="p-1 text-zinc-600 hover:text-[#FF7F11] transition-colors rounded"
@@ -1064,7 +1198,38 @@ export default function TicketDetailPage() {
                                 </button>
                               </div>
                             </div>
-                            <p className="text-xs text-zinc-400 whitespace-pre-wrap">{note.content}</p>
+                            {editingNoteId === note.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editNoteText}
+                                  onChange={(e) => setEditNoteText(e.target.value)}
+                                  className="bg-[#0D0D0D] border-white/[0.06] text-zinc-200 placeholder:text-zinc-600 text-xs min-h-[60px] resize-none focus-visible:border-[#FF7F11]/50 focus-visible:ring-[#FF7F11]/20"
+                                  rows={3}
+                                  autoFocus
+                                />
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-zinc-500 hover:text-zinc-300 text-xs h-6 px-2"
+                                    onClick={handleCancelEditNote}
+                                    disabled={savingNote}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="bg-[#FF7F11] text-white hover:bg-[#FF7F11]/90 text-xs h-6 px-2"
+                                    disabled={!editNoteText.trim() || savingNote}
+                                    onClick={() => handleSaveEditNote(note.id)}
+                                  >
+                                    {savingNote ? 'Saving...' : 'Save'}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-zinc-400 whitespace-pre-wrap">{note.content}</p>
+                            )}
                           </div>
                         ))
                       )}

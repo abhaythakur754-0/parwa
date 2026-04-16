@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ticketsApi, type TicketResponse, type TicketStatus, type TicketPriority, type TicketChannel } from '@/lib/tickets-api';
 import { useSocket } from '@/contexts/SocketContext';
@@ -21,6 +21,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Popover, PopoverTrigger, PopoverContent,
+} from '@/components/ui/popover';
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -49,6 +52,14 @@ const PRIORITY_OPTIONS: { value: string; label: string }[] = [
   { value: 'high', label: 'High' },
   { value: 'medium', label: 'Medium' },
   { value: 'low', label: 'Low' },
+];
+
+const CONFIDENCE_OPTIONS: { value: string; label: string; min: number | null; max: number | null }[] = [
+  { value: 'all', label: 'All Confidence', min: null, max: null },
+  { value: 'critical', label: 'Critical (0-25%)', min: 0, max: 25 },
+  { value: 'low', label: 'Low (25-50%)', min: 25, max: 50 },
+  { value: 'medium', label: 'Medium (50-75%)', min: 50, max: 75 },
+  { value: 'high', label: 'High (75-100%)', min: 75, max: 100 },
 ];
 
 const SORT_COLUMNS = [
@@ -233,6 +244,8 @@ export default function TicketsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [agentFilter, setAgentFilter] = useState('');
+  const [confidenceFilter, setConfidenceFilter] = useState('all');
 
   // Sort state
   const [sortBy, setSortBy] = useState<SortColumn>('created_at');
@@ -241,13 +254,18 @@ export default function TicketsPage() {
   // Bulk action state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  const [bulkAction, setBulkAction] = useState<'resolve' | 'priority'>('resolve');
+  const [bulkAction, setBulkAction] = useState<'resolve' | 'priority' | 'assign'>('resolve');
   const [bulkPriority, setBulkPriority] = useState<string>('medium');
+  const [bulkAgentId, setBulkAgentId] = useState<string>('');
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
 
   // New ticket highlight
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  // Hover state for quick view
+  const [hoveredTicketId, setHoveredTicketId] = useState<string | null>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // ── Fetch Tickets ───────────────────────────────────────────────────
 
@@ -265,13 +283,27 @@ export default function TicketsPage() {
       if (statusFilter !== 'all') params.status = [statusFilter];
       if (channelFilter !== 'all') params.channel = channelFilter;
       if (priorityFilter !== 'all') params.priority = [priorityFilter];
-      if (dateFrom) {
-        // dateFrom and dateTo are sent as part of search or as custom filters
-        // Backend may not support date range directly, so we include in search or skip
-      }
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+      if (agentFilter) params.assigned_to = agentFilter;
 
       const data = await ticketsApi.list(params as Parameters<typeof ticketsApi.list>[0]);
-      setTickets(data.items || []);
+      let ticketItems = data.items || [];
+
+      // Client-side confidence filter
+      if (confidenceFilter !== 'all') {
+        const range = CONFIDENCE_OPTIONS.find(o => o.value === confidenceFilter);
+        if (range && range.min !== null && range.max !== null) {
+          ticketItems = ticketItems.filter(t => {
+            const conf = (t.metadata_json?.confidence as number) ?? null;
+            if (conf === null) return false;
+            if (confidenceFilter === 'critical') return conf >= 0 && conf < 25;
+            return conf >= range.min! && conf < range.max!;
+          });
+        }
+      }
+
+      setTickets(ticketItems);
       setTotal(data.total || 0);
       setPages(data.pages || 0);
     } catch (err) {
@@ -279,7 +311,7 @@ export default function TicketsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter, channelFilter, priorityFilter, sortBy, sortOrder, dateFrom, dateTo]);
+  }, [page, search, statusFilter, channelFilter, priorityFilter, sortBy, sortOrder, dateFrom, dateTo, agentFilter, confidenceFilter]);
 
   useEffect(() => {
     fetchTickets();
@@ -301,7 +333,16 @@ export default function TicketsPage() {
     if (latestTicketEvent && latestTicketEvent !== prevEventRef.current) {
       prevEventRef.current = latestTicketEvent;
       if (latestTicketEvent === 'ticket:new') {
-        fetchTickets();
+        fetchTickets().then(() => {
+          // Highlight the new ticket (will be first in list since sorted by created_at desc)
+          setTickets(prev => {
+            if (prev.length > 0) {
+              setHighlightedId(prev[0].id);
+              setTimeout(() => setHighlightedId(null), 3000);
+            }
+            return prev;
+          });
+        });
       } else if (
         latestTicketEvent === 'ticket:status_changed' ||
         latestTicketEvent === 'ticket:resolved' ||
@@ -317,6 +358,7 @@ export default function TicketsPage() {
   const handleStatusChange = (value: string) => { setStatusFilter(value); setPage(1); };
   const handleChannelChange = (value: string) => { setChannelFilter(value); setPage(1); };
   const handlePriorityChange = (value: string) => { setPriorityFilter(value); setPage(1); };
+  const handleConfidenceChange = (value: string) => { setConfidenceFilter(value); setPage(1); };
 
   // ── Sort Handler ───────────────────────────────────────────────────
 
@@ -359,12 +401,27 @@ export default function TicketsPage() {
       if (bulkAction === 'resolve') {
         await ticketsApi.bulkUpdateStatus({ ticket_ids: ids, status: 'resolved' });
       } else if (bulkAction === 'priority') {
-        await ticketsApi.bulkUpdateStatus({ ticket_ids: ids, status: 'open' });
-        // Note: Bulk priority not directly supported, but we use bulk status as proxy
-        // In production, a dedicated bulk priority endpoint would be used
+        // Iterate through each ticket and update priority individually
+        await Promise.all(
+          ids.map(id =>
+            ticketsApi.update(id, { priority: bulkPriority as 'critical' | 'high' | 'medium' | 'low' })
+          )
+        );
+      } else if (bulkAction === 'assign') {
+        if (!bulkAgentId.trim()) {
+          setBulkError('Agent ID is required');
+          setBulkLoading(false);
+          return;
+        }
+        await ticketsApi.bulkAssign({
+          ticket_ids: ids,
+          assignee_id: bulkAgentId.trim(),
+          assignee_type: 'human',
+        });
       }
       setBulkDialogOpen(false);
       setSelectedIds(new Set());
+      setBulkAgentId('');
       fetchTickets();
     } catch (err) {
       setBulkError(getErrorMessage(err));
@@ -381,10 +438,12 @@ export default function TicketsPage() {
     setPriorityFilter('all');
     setDateFrom('');
     setDateTo('');
+    setAgentFilter('');
+    setConfidenceFilter('all');
     setPage(1);
   };
 
-  const hasActiveFilters = search || statusFilter !== 'all' || channelFilter !== 'all' || priorityFilter !== 'all' || dateFrom || dateTo;
+  const hasActiveFilters = search || statusFilter !== 'all' || channelFilter !== 'all' || priorityFilter !== 'all' || dateFrom || dateTo || agentFilter || confidenceFilter !== 'all';
 
   // ── Pagination ─────────────────────────────────────────────────────
 
@@ -485,6 +544,30 @@ export default function TicketsPage() {
               </SelectContent>
             </Select>
 
+            {/* Agent Filter */}
+            <input
+              type="text"
+              placeholder="Agent ID..."
+              value={agentFilter}
+              onChange={(e) => { setAgentFilter(e.target.value); setPage(1); }}
+              className="h-8 w-[100px] px-2 bg-[#1A1A1A] border border-white/[0.06] rounded-lg text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-[#FF7F11]/50"
+              title="Filter by Agent ID"
+            />
+
+            {/* Confidence Filter */}
+            <Select value={confidenceFilter} onValueChange={handleConfidenceChange}>
+              <SelectTrigger size="sm" className="w-[130px] bg-[#1A1A1A] border-white/[0.06] text-zinc-300 text-xs">
+                <SelectValue placeholder="Confidence" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1A1A1A] border-white/[0.06]">
+                {CONFIDENCE_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-zinc-300">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {/* Date Range */}
             <input
               type="date"
@@ -535,6 +618,17 @@ export default function TicketsPage() {
             onClick={() => { setBulkAction('priority'); setBulkDialogOpen(true); }}
           >
             Change Priority
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-zinc-300 hover:text-purple-400 hover:bg-purple-500/10 text-xs h-7"
+            onClick={() => { setBulkAction('assign'); setBulkAgentId(''); setBulkDialogOpen(true); }}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Z" />
+            </svg>
+            Assign Agent
           </Button>
           <Button
             size="sm"
@@ -729,21 +823,101 @@ export default function TicketsPage() {
                     </Badge>
                   </TableCell>
 
-                  {/* Subject */}
+                  {/* Subject + Quick View Popover (T8) */}
                   <TableCell className="p-3 max-w-[300px]">
-                    <p className="text-sm text-zinc-200 truncate">{ticket.subject || '(No subject)'}</p>
-                    {ticket.tags && ticket.tags.length > 0 && (
-                      <div className="flex gap-1 mt-0.5 flex-wrap">
-                        {ticket.tags.slice(0, 3).map(tag => (
-                          <span key={tag} className="text-[10px] px-1.5 py-0 rounded bg-zinc-800 text-zinc-500">
-                            {tag}
-                          </span>
-                        ))}
-                        {ticket.tags.length > 3 && (
-                          <span className="text-[10px] text-zinc-600">+{ticket.tags.length - 3}</span>
-                        )}
-                      </div>
-                    )}
+                    <Popover open={hoveredTicketId === ticket.id} onOpenChange={(open) => {
+                      if (!open) setHoveredTicketId(null);
+                    }}>
+                      <PopoverTrigger asChild>
+                        <div
+                          className="cursor-default"
+                          onMouseEnter={() => {
+                            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                            hoverTimeoutRef.current = setTimeout(() => {
+                              setHoveredTicketId(ticket.id);
+                            }, 500);
+                          }}
+                          onMouseLeave={() => {
+                            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                            hoverTimeoutRef.current = setTimeout(() => {
+                              setHoveredTicketId(null);
+                            }, 200);
+                          }}
+                        >
+                          <p className="text-sm text-zinc-200 truncate">{ticket.subject || '(No subject)'}</p>
+                          {ticket.tags && ticket.tags.length > 0 && (
+                            <div className="flex gap-1 mt-0.5 flex-wrap">
+                              {ticket.tags.slice(0, 3).map(tag => (
+                                <span key={tag} className="text-[10px] px-1.5 py-0 rounded bg-zinc-800 text-zinc-500">
+                                  {tag}
+                                </span>
+                              ))}
+                              {ticket.tags.length > 3 && (
+                                <span className="text-[10px] text-zinc-600">+{ticket.tags.length - 3}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-[300px] bg-[#1A1A1A] border-white/[0.06] p-4 text-zinc-200 shadow-xl"
+                        side="bottom"
+                        align="start"
+                        sideOffset={4}
+                        onMouseEnter={() => {
+                          if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                        }}
+                        onMouseLeave={() => {
+                          if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                          setHoveredTicketId(null);
+                        }}
+                      >
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-sm font-medium text-zinc-100 truncate">{ticket.subject || '(No subject)'}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-zinc-500">Customer</span>
+                              <p className="text-zinc-300 truncate mt-0.5">{ticket.customer_id?.slice(0, 12) || '\u2014'}</p>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500">Channel</span>
+                              <p className="text-zinc-300 flex items-center gap-1 mt-0.5 capitalize">
+                                <span>{CHANNEL_ICONS[ticket.channel]?.icon || '?'}</span>
+                                {ticket.channel}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500">Priority</span>
+                              <div className="mt-0.5">
+                                <Badge variant="outline" className={`text-[10px] font-semibold uppercase ${PRIORITY_STYLES[ticket.priority] || ''}`}>
+                                  {ticket.priority}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500">Status</span>
+                              <div className="mt-0.5">
+                                <Badge variant="outline" className={`text-[10px] font-medium ${STATUS_STYLES[ticket.status] || ''}`}>
+                                  {formatStatus(ticket.status)}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500">AI Confidence</span>
+                              <div className="mt-0.5">
+                                <ConfidenceBar confidence={ticket.metadata_json?.confidence as number | null} />
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500">Created</span>
+                              <p className="text-zinc-300 mt-0.5">{relativeTime(ticket.created_at)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </TableCell>
 
                   {/* Channel (hidden on mobile) */}
@@ -854,7 +1028,7 @@ export default function TicketsPage() {
         <DialogContent className="bg-[#1A1A1A] border-white/[0.06] text-zinc-200">
           <DialogHeader>
             <DialogTitle className="text-zinc-100">
-              {bulkAction === 'resolve' ? 'Mark as Resolved' : 'Change Priority'}
+              {bulkAction === 'resolve' ? 'Mark as Resolved' : bulkAction === 'priority' ? 'Change Priority' : 'Assign Agent'}
             </DialogTitle>
             <DialogDescription className="text-zinc-500">
               This action will be applied to {selectedIds.size} selected ticket{selectedIds.size !== 1 ? 's' : ''}.
@@ -876,6 +1050,19 @@ export default function TicketsPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {bulkAction === 'assign' && (
+            <div className="py-2">
+              <label className="text-xs font-medium text-zinc-400 block mb-1.5">Agent ID</label>
+              <input
+                type="text"
+                placeholder="Enter Agent ID..."
+                value={bulkAgentId}
+                onChange={(e) => setBulkAgentId(e.target.value)}
+                className="w-full px-3 py-2 bg-[#111111] border border-white/[0.06] rounded-lg text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-[#FF7F11]/50"
+              />
             </div>
           )}
 
