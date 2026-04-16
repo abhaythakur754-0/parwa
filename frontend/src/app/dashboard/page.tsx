@@ -9,8 +9,15 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import DashboardAlerts from '@/components/dashboard/DashboardAlerts';
 import SavingsCounter from '@/components/dashboard/SavingsCounter';
 import WorkforceAllocation from '@/components/dashboard/WorkforceAllocation';
+import SystemHealthStrip from '@/components/dashboard/SystemHealthStrip';
+import ActiveAgentsSummary from '@/components/dashboard/ActiveAgentsSummary';
+import FirstVictoryBanner from '@/components/dashboard/FirstVictoryBanner';
+import RecentApprovals from '@/components/dashboard/RecentApprovals';
+import ROIDashboard from '@/components/dashboard/ROIDashboard';
+import GrowthNudge from '@/components/dashboard/GrowthNudge';
 import { dashboardApi, type DashboardHomeData } from '@/lib/dashboard-api';
 import { getErrorMessage } from '@/lib/api';
+import { useSocket } from '@/contexts/SocketContext';
 import type { AnomalyAlert } from '@/types/analytics';
 
 // ── Icons (inline SVGs) ──────────────────────────────────────────────
@@ -63,7 +70,8 @@ const Icons = {
   ),
 };
 
-// D9-P4: Safe numeric accessor — prevents NaN% when backend returns undefined/null
+// ── Safe numeric accessor ───────────────────────────────────────────
+
 const safeNum = (n: number | undefined | null, fallback = 0) =>
   typeof n === 'number' && isFinite(n) ? n : fallback;
 
@@ -82,7 +90,7 @@ function formatPercent(n: number): string {
   return `${safeNum(n).toFixed(1)}%`;
 }
 
-// ── Period mapping for date presets ───────────────────────────────────
+// ── Period mapping for date presets ──────────────────────────────────
 
 const PERIOD_DAYS_MAP: Record<string, number> = {
   'today': 1,
@@ -99,7 +107,7 @@ export default function DashboardPage() {
   const [datePreset, setDatePreset] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [alerts, setAlerts] = useState<AnomalyAlert[]>([]);
-  // D9-P3: Request counter to discard stale responses from rapid preset changes
+  const { latestTicketEvent } = useSocket();
   const requestIdRef = useRef(0);
 
   // ── Fetch Dashboard Data (unified F-036 endpoint) ──────────────────
@@ -111,7 +119,7 @@ export default function DashboardPage() {
       const periodDays = PERIOD_DAYS_MAP[datePreset] || 30;
       const dashboardData = await dashboardApi.getHome(periodDays);
 
-      // D9-P3: Discard stale response if another request was triggered
+      // Discard stale response
       if (currentRequestId !== requestIdRef.current) return;
 
       if (dashboardData.error) {
@@ -134,7 +142,14 @@ export default function DashboardPage() {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  // ── Handle Date Preset Change ───────────────────────────────────────
+  // ── Refetch on Socket.io ticket events ────────────────────────────
+  useEffect(() => {
+    if (latestTicketEvent) {
+      fetchDashboard();
+    }
+  }, [latestTicketEvent, fetchDashboard]);
+
+  // ── Handle Date Preset Change ──────────────────────────────────────
 
   const handleDateChange = useCallback((range: { start_date: string; end_date: string }) => {
     const today = new Date().toISOString().split('T')[0];
@@ -147,13 +162,13 @@ export default function DashboardPage() {
     else setDatePreset('custom');
   }, []);
 
-  // ── Handle Alert Dismiss ────────────────────────────────────────────
+  // ── Handle Alert Dismiss ──────────────────────────────────────────
 
   const handleAlertDismiss = useCallback((_alertKey: string) => {
     setAlerts(prev => prev.slice(1));
   }, []);
 
-  // ── Safe data accessors ─────────────────────────────────────────────
+  // ── Safe data accessors ──────────────────────────────────────────
 
   const summary = data?.summary;
   const sla = data?.sla;
@@ -175,11 +190,41 @@ export default function DashboardPage() {
           isRefreshing={isRefreshing}
         />
 
+        {/* ── Day 2: System Health Strip (O1.1) ──────────────────────── */}
+        <SystemHealthStrip />
+
+        {/* ── Day 2: First Victory Banner (O1.5) ─────────────────────── */}
+        <FirstVictoryBanner />
+
         {/* ── F-036: Dashboard Alerts Banner ──────────────────────────── */}
         <DashboardAlerts
           alerts={alerts}
           onDismiss={handleAlertDismiss}
         />
+
+        {/* ── Day 2: ROI Comparison Card (O1.2) — PROMINENT ──────────── */}
+        <ROIDashboard initialData={data ? {
+          current_month: {
+            period: '', date: '',
+            tickets_ai: safeNum(summary?.resolved, 0),
+            tickets_human: 0,
+            ai_cost: 0, human_cost: 0,
+            savings: 0, cumulative_savings: 0,
+          },
+          previous_month: {
+            period: '', date: '',
+            tickets_ai: 0, tickets_human: 0,
+            ai_cost: 0, human_cost: 0,
+            savings: 0, cumulative_savings: 0,
+          },
+          all_time_savings: 0,
+          all_time_tickets_ai: safeNum(summary?.resolved, 0),
+          all_time_tickets_human: 0,
+          monthly_trend: [],
+          avg_cost_per_ticket_ai: 0.50,
+          avg_cost_per_ticket_human: 12.00,
+          savings_pct: 95,
+        } as any : undefined} />
 
         {/* ── KPI Cards Row 1 ───────────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -336,7 +381,10 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Savings + Workforce Row (F-040 + F-041) ─────────────── */}
+        {/* ── Day 2: Active Agents Summary (O1.4) ────────────────────── */}
+        <ActiveAgentsSummary />
+
+        {/* ── Savings + Workforce Row (F-040 + F-041) ──────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SavingsCounter
             initialData={data?.savings as any}
@@ -345,6 +393,9 @@ export default function DashboardPage() {
             initialData={data?.workforce as any}
           />
         </div>
+
+        {/* ── Day 2: Recent Approvals (O1.8) ─────────────────────────── */}
+        <RecentApprovals />
 
         {/* ── Bottom Row: Category + Agent Performance ───────────────── */}
         {data && (
@@ -392,6 +443,9 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* ── Day 2: Growth Nudge Card (O1.6) ───────────────────────── */}
+        <GrowthNudge />
       </div>
     </div>
   );

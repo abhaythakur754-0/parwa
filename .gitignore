@@ -153,3 +153,4 @@ dmypy.json
 *.db-journal
 *.sqlite
 *.sqlite3
+twilio_2FA_recovery_code.txt

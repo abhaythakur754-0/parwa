@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSocket } from '@/contexts/SocketContext';
 
 // ── Navigation Items ──────────────────────────────────────────────────
 
@@ -12,7 +13,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
-  badge?: string;
+  badgeKey?: 'tickets' | 'approvals' | 'notifications';
 }
 
 // ── Sidebar Props ─────────────────────────────────────────────────────
@@ -93,16 +94,25 @@ const Icons = {
 export default function DashboardSidebar({ collapsed, onToggle }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { badgeCounts } = useSocket();
+
+  // Pages that have been built (Day 1, 2, 5) — rest show as "Coming Soon"
+  const builtPages = new Set([
+    '/dashboard',
+    '/dashboard/channels',
+    '/dashboard/customers',
+    '/dashboard/conversations',
+    '/dashboard/training',
+  ]);
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: Icons.dashboard },
-    { label: 'Tickets', href: '/dashboard/tickets', icon: Icons.tickets },
+    { label: 'Tickets', href: '/dashboard/tickets', icon: Icons.tickets, badgeKey: 'tickets' },
     { label: 'Customers', href: '/dashboard/customers', icon: Icons.customers },
     { label: 'Conversations', href: '/dashboard/conversations', icon: Icons.conversations },
     { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels },
     { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents },
-    { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals },
-    { label: 'Jarvis AI', href: '/jarvis', icon: Icons.jarvis },
+    { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals, badgeKey: 'approvals' },
   ];
 
   const bottomItems: NavItem[] = [
@@ -114,6 +124,12 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
     return pathname.startsWith(href);
   };
 
+  const getBadgeCount = (item: NavItem): number | null => {
+    if (!item.badgeKey) return null;
+    const count = badgeCounts[item.badgeKey] || 0;
+    return count > 0 ? count : null;
+  };
+
   return (
     <aside
       className={cn(
@@ -122,13 +138,13 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       )}
     >
       {/* ── Logo / Brand ──────────────────────────────────────────── */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-white/[0.06]">
+      <div className="h-14 flex items-center justify-between px-4 border-b border-white/[0.06]">
         {!collapsed && (
           <Link href="/dashboard" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <span className="text-white font-bold text-sm">P</span>
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <span className="text-white font-bold text-xs">P</span>
             </div>
-            <span className="text-white font-semibold text-[15px] tracking-tight">
+            <span className="text-white font-semibold text-sm tracking-tight">
               PARWA
             </span>
           </Link>
@@ -145,66 +161,104 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       {/* ── Navigation ───────────────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-jarvis" aria-label="Main navigation">
         <div className="space-y-1">
-          {navItems.map((item) => (
+          {navItems.map((item) => {
+            const badgeCount = getBadgeCount(item);
+            const isBuilt = builtPages.has(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative',
+                  isActive(item.href)
+                    ? 'bg-orange-500/10 text-orange-400 shadow-sm shadow-orange-500/5'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]',
+                  !isBuilt && 'opacity-60'
+                )}
+                title={collapsed ? item.label : undefined}
+              >
+                <span className={cn(
+                  'shrink-0 transition-colors',
+                  isActive(item.href) ? 'text-orange-400' : 'text-zinc-500'
+                )}>
+                  {item.icon}
+                </span>
+                {!collapsed && (
+                  <>
+                    <span className="flex-1">{item.label}</span>
+                    {!isBuilt && (
+                      <span className="text-[8px] text-zinc-600 bg-white/[0.04] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">
+                        Soon
+                      </span>
+                    )}
+                    {badgeCount != null && (
+                      <span className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold bg-[#FF7F11]/15 text-[#FF7F11] rounded-full px-1">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                  </>
+                )}
+                {collapsed && badgeCount != null && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] flex items-center justify-center text-[8px] font-bold bg-[#FF7F11] text-white rounded-full">
+                    {badgeCount > 9 ? '9+' : badgeCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* ── Bottom Section ────────────────────────────────────────── */}
+      <div className="border-t border-white/[0.06] p-3 space-y-1">
+        {bottomItems.map((item) => {
+          const isBuilt = builtPages.has(item.href);
+          return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                 isActive(item.href)
-                  ? 'bg-orange-500/10 text-orange-400 shadow-sm shadow-orange-500/5'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+                  ? 'bg-orange-500/10 text-orange-400'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]',
+                !isBuilt && 'opacity-60'
               )}
               title={collapsed ? item.label : undefined}
             >
               <span className={cn(
-                'shrink-0 transition-colors',
-                isActive(item.href) ? 'text-orange-400' : 'text-zinc-500 group-hover:text-zinc-300'
+                'shrink-0',
+                isActive(item.href) ? 'text-orange-400' : 'text-zinc-500'
               )}>
                 {item.icon}
               </span>
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && (
+                <>
+                  <span>{item.label}</span>
+                  {!isBuilt && (
+                    <span className="text-[8px] text-zinc-600 bg-white/[0.04] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider ml-auto">
+                      Soon
+                    </span>
+                  )}
+                </>
+              )}
             </Link>
-          ))}
-        </div>
-      </nav>
-
-      {/* ── Bottom Section ────────────────────────────────────────── */}
-      <div className="border-t border-white/[0.06] p-3 space-y-1">
-        {bottomItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-              isActive(item.href)
-                ? 'bg-orange-500/10 text-orange-400'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
-            )}
-            title={collapsed ? item.label : undefined}
-          >
-            <span className={cn(
-              'shrink-0',
-              isActive(item.href) ? 'text-orange-400' : 'text-zinc-500'
-            )}>
-              {item.icon}
-            </span>
-            {!collapsed && <span>{item.label}</span>}
-          </Link>
-        ))}
+          );
+        })}
 
         {/* ── User Info + Logout ──────────────────────────────────── */}
         {!collapsed && user && (
           <div className="mt-3 pt-3 border-t border-white/[0.06]">
             <div className="flex items-center gap-3 px-3 py-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white text-xs font-semibold shrink-0">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white text-xs font-semibold shrink-0">
                 {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-zinc-200 truncate">
                   {user.full_name || 'User'}
                 </p>
-                <p className="text-xs text-zinc-500 truncate">
+                <p className="text-[11px] text-zinc-500 truncate">
                   {user.company_name || user.email}
                 </p>
               </div>

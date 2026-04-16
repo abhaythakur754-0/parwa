@@ -120,11 +120,10 @@ apiClient.interceptors.response.use(
           // Retry original request — new cookie is set automatically
           return apiClient(originalRequest);
         } catch {
-          // Refresh failed — proceed to logout
+          // Refresh failed — clear user data and dispatch event for AuthContext
+          localStorage.removeItem('parwa_user');
+          window.dispatchEvent(new CustomEvent('parwa:session-expired'));
         }
-        // D9-P11: Clear user data and dispatch event for AuthContext
-        localStorage.removeItem('parwa_user');
-        window.dispatchEvent(new CustomEvent('parwa:session-expired'));
       }
     }
     

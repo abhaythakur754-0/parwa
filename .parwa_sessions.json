@@ -1,0 +1,55 @@
+{
+  "sess_1776303304348_y9318sy": {
+    "id": "sess_1776303304348_y9318sy",
+    "type": "onboarding",
+    "context": {
+      "pages_visited": [
+        "landing_page",
+        "jarvis_chat_page"
+      ],
+      "industry": null,
+      "selected_variants": [],
+      "selected_plan": null,
+      "roi_result": null,
+      "demo_topics": [],
+      "concerns_raised": [],
+      "business_email": null,
+      "email_verified": false,
+      "referral_source": "",
+      "utm_medium": "",
+      "referrer": "",
+      "entry_source": "direct",
+      "entry_params": {},
+      "detected_stage": "welcome",
+      "action_tickets": [],
+      "payment_data": null,
+      "bill_summary": null
+    },
+    "messages": [
+      {
+        "id": "jarvis_welcome_1776303304348",
+        "session_id": "sess_1776303304348_y9318sy",
+        "role": "jarvis",
+        "content": "Hey! I'm Jarvis from PARWA. I help businesses find the right AI support setup -- plans, pricing, demos, the works. What brings you in today?",
+        "message_type": "text",
+        "metadata": {
+          "entry_source": "direct"
+        },
+        "timestamp": "2026-04-16T01:35:04.348Z"
+      }
+    ],
+    "message_count_today": 0,
+    "total_message_count": 0,
+    "remaining_today": 20,
+    "pack_type": "free",
+    "is_active": true,
+    "payment_status": "none",
+    "handoff_completed": false,
+    "detected_stage": "welcome",
+    "created_at": "2026-04-16T01:35:04.348Z",
+    "updated_at": "2026-04-16T01:35:04.384Z",
+    "stage_history": [
+      "welcome"
+    ]
+  }
+}
