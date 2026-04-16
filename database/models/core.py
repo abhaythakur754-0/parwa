@@ -47,6 +47,18 @@ class Company(Base):
     # MF6: billing_method — 'paddle' (default) or 'manual' (enterprise)
     billing_method = Column(String(20), default="paddle")
 
+    # ── Shadow Mode Config (Day 1 additions) ─────────────────────
+    # system_mode is added via migration 026 (shadow/supervised/graduated)
+    system_mode = Column(String(15), default="supervised")
+    # Undo window in minutes (default: 30 minutes)
+    undo_window_minutes = Column(Integer, default=30)
+    # Risk threshold above which actions are forced to shadow
+    risk_threshold_shadow = Column(Numeric(3, 2), default=0.7)
+    # Risk threshold below which actions auto-execute in graduated mode
+    risk_threshold_auto = Column(Numeric(3, 2), default=0.3)
+    # Stage 0: remaining shadow actions before graduation
+    shadow_actions_remaining = Column(Integer, default=10)
+
     users = relationship(
         "User", back_populates="company",
         cascade="all, delete-orphan",

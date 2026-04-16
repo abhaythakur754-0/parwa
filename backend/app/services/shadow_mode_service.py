@@ -11,8 +11,9 @@ BC-001: All operations scoped by company_id.
 BC-008: Never crash the caller — defensive error handling.
 """
 
+import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -25,6 +26,46 @@ from database.models.shadow_mode import ShadowLog, ShadowPreference
 from database.models.approval import UndoLog, ExecutedAction
 
 logger = logging.getLogger("parwa.services.shadow_mode")
+
+# ── Socket.io Event Emitter Helper ──────────────────────────────
+
+async def _emit_shadow_event(
+    company_id: str,
+    event_type: str,
+    payload: Dict[str, Any],
+) -> None:
+    """
+    Emit a shadow mode event via Socket.io.
+
+    Never crashes the caller - errors are logged only.
+    """
+    try:
+        from app.core.event_emitter import emit_shadow_event
+        await emit_shadow_event(company_id, event_type, payload)
+    except Exception as e:
+        logger.warning(
+            "shadow_event_emit_failed company_id=%s event=%s error=%s",
+            company_id, event_type, str(e),
+        )
+
+
+def _emit_shadow_event_sync(
+    company_id: str,
+    event_type: str,
+    payload: Dict[str, Any],
+) -> None:
+    """Synchronous wrapper for emit_shadow_event."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(_emit_shadow_event(company_id, event_type, payload))
+        else:
+            loop.run_until_complete(_emit_shadow_event(company_id, event_type, payload))
+    except RuntimeError:
+        # No event loop, create a new one
+        asyncio.run(_emit_shadow_event(company_id, event_type, payload))
+    except Exception as e:
+        logger.warning("shadow_event_sync_failed: %s", str(e))
 
 # ── Valid modes ────────────────────────────────────────────────
 
@@ -177,6 +218,17 @@ class ShadowModeService:
                 company_id, old_mode, mode, set_via,
             )
 
+            # Emit Socket.io event
+            _emit_shadow_event_sync(
+                company_id,
+                "shadow:mode_changed",
+                {
+                    "mode": mode,
+                    "previous_mode": old_mode,
+                    "set_via": set_via,
+                },
+            )
+
             return {
                 "company_id": company_id,
                 "mode": mode,
@@ -221,6 +273,31 @@ class ShadowModeService:
                     )
 
                 company_mode = getattr(company, "system_mode", None) or "supervised"
+
+                # ── Stage 0: Shadow Actions Remaining Check ──
+                shadow_remaining = getattr(company, "shadow_actions_remaining", None)
+                if shadow_remaining is not None and shadow_remaining > 0:
+                    # Force shadow mode for Stage 0 onboarding
+                    return {
+                        "mode": "shadow",
+                        "risk_score": 0.5,
+                        "reason": f"Stage 0 onboarding: {shadow_remaining} shadow actions remaining",
+                        "requires_approval": True,
+                        "auto_execute": False,
+                        "stage_0": True,
+                        "shadow_actions_remaining": shadow_remaining,
+                        "layers": {
+                            "layer1_heuristic": {"score": 0.5, "reason": "Stage 0 forced"},
+                            "layer2_preference": {"mode": None, "reason": "Stage 0 override"},
+                            "layer3_historical": {"avg_risk": None, "reason": "Stage 0 override"},
+                            "layer4_safety_floor": {"hard_safety": True, "reason": "Stage 0 override"},
+                        },
+                        "company_mode": "shadow",
+                    }
+
+                # ── Get config thresholds from company ──
+                risk_threshold_shadow = float(getattr(company, "risk_threshold_shadow", 0.7) or 0.7)
+                risk_threshold_auto = float(getattr(company, "risk_threshold_auto", 0.3) or 0.3)
 
                 # ── Layer 1: Heuristic Risk Score ──
                 base_score = ACTION_RISK_BASE.get(action_type, 0.5)
@@ -377,6 +454,18 @@ class ShadowModeService:
                 entry.id, company_id, action_type, mode, risk_score or 0.0,
             )
 
+            # Emit Socket.io event for new shadow action
+            _emit_shadow_event_sync(
+                company_id,
+                "shadow:action_logged",
+                {
+                    "shadow_log_id": entry.id,
+                    "action_type": action_type,
+                    "risk_score": risk_score,
+                    "mode": mode,
+                },
+            )
+
             return self._shadow_log_to_dict(entry)
 
     # ═══════════════════════════════════════════════════════════════
@@ -462,6 +551,17 @@ class ShadowModeService:
             logger.info(
                 "shadow_preference_set company_id=%s category=%s mode=%s set_via=%s",
                 company_id, action_category, preferred_mode, set_via,
+            )
+
+            # Emit Socket.io event for preference change
+            _emit_shadow_event_sync(
+                company_id,
+                "shadow:preference_changed",
+                {
+                    "action_category": action_category,
+                    "preferred_mode": preferred_mode,
+                    "set_via": set_via,
+                },
             )
 
             return self._preference_to_dict(pref)
@@ -564,12 +664,38 @@ class ShadowModeService:
             entry.manager_decision = "approved"
             entry.manager_note = note
             entry.resolved_at = datetime.utcnow()
+
+            # Decrement shadow_actions_remaining for Stage 0
+            company = db.query(Company).filter(
+                Company.id == entry.company_id
+            ).first()
+            if company:
+                remaining = getattr(company, "shadow_actions_remaining", None)
+                if remaining is not None and remaining > 0:
+                    company.shadow_actions_remaining = remaining - 1
+                    logger.info(
+                        "stage_0_decremented company_id=%s remaining=%d",
+                        entry.company_id, remaining - 1,
+                    )
+
             db.commit()
             db.refresh(entry)
 
             logger.info(
                 "shadow_action_approved id=%s manager=%s company_id=%s",
                 shadow_log_id, manager_id, entry.company_id,
+            )
+
+            # Emit Socket.io event
+            _emit_shadow_event_sync(
+                entry.company_id,
+                "shadow:action_approved",
+                {
+                    "shadow_log_id": shadow_log_id,
+                    "action_type": entry.action_type,
+                    "manager_id": manager_id,
+                    "note": note,
+                },
             )
 
             return self._shadow_log_to_dict(entry)
@@ -620,6 +746,18 @@ class ShadowModeService:
             logger.info(
                 "shadow_action_rejected id=%s manager=%s company_id=%s",
                 shadow_log_id, manager_id, entry.company_id,
+            )
+
+            # Emit Socket.io event
+            _emit_shadow_event_sync(
+                entry.company_id,
+                "shadow:action_rejected",
+                {
+                    "shadow_log_id": shadow_log_id,
+                    "action_type": entry.action_type,
+                    "manager_id": manager_id,
+                    "note": note,
+                },
             )
 
             return self._shadow_log_to_dict(entry)
@@ -693,6 +831,18 @@ class ShadowModeService:
             logger.info(
                 "shadow_action_undone shadow_id=%s undo_id=%s manager=%s reason=%s",
                 shadow_log_id, undo_log.id, manager_id, reason[:100],
+            )
+
+            # Emit Socket.io event
+            _emit_shadow_event_sync(
+                entry.company_id,
+                "shadow:action_undone",
+                {
+                    "shadow_log_id": shadow_log_id,
+                    "undo_log_id": undo_log.id,
+                    "action_type": entry.action_type,
+                    "reason": reason,
+                },
             )
 
             return {

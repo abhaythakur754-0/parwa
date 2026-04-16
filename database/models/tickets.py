@@ -177,6 +177,20 @@ class Ticket(Base):
     # PS23: client timezone for SLA
     client_timezone = Column(String(50))
 
+    # ── Shadow Mode Fields (Day 3 additions) ─────────────────────
+    # none, pending_approval, approved, rejected, auto_approved, undone
+    shadow_status = Column(String(20), default="none", nullable=False)
+    # Risk score 0.0-1.0 computed by Jarvis
+    risk_score = Column(Numeric(5, 4), nullable=True)
+    # User who approved (if applicable)
+    approved_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    # Link to shadow_log entry
+    shadow_log_id = Column(
+        String(36), ForeignKey("shadow_log.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
     closed_at = Column(DateTime)
