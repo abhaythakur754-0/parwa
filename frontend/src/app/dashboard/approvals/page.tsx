@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { dashboardApi, type BlockedResponse, type ApprovalDetail, type ApprovalQueueStats } from '@/lib/dashboard-api';
 import { useSocket } from '@/contexts/SocketContext';
 import { getErrorMessage } from '@/lib/api';
@@ -31,6 +31,7 @@ const STATUS_TABS: { value: string; label: string }[] = [
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
   { value: 'auto_rejected', label: 'Auto Rejected' },
+  { value: 'expired', label: 'Expired' },
 ];
 
 const PRIORITY_OPTIONS: { value: string; label: string }[] = [
@@ -47,8 +48,14 @@ const BLOCK_REASON_OPTIONS: { value: string; label: string }[] = [
   { value: 'guardrail_blocked', label: 'Guardrail Blocked' },
   { value: 'pii_leak', label: 'PII Leak' },
   { value: 'hallucination', label: 'Hallucination' },
+  { value: 'prompt_injection', label: 'Prompt Injection' },
   { value: 'content_safety', label: 'Content Safety' },
   { value: 'policy_violation', label: 'Policy Violation' },
+  { value: 'tone_violation', label: 'Tone Violation' },
+  { value: 'length_violation', label: 'Length Violation' },
+  { value: 'topic_irrelevance', label: 'Topic Irrelevance' },
+  { value: 'custom_rule', label: 'Custom Rule' },
+  { value: 'timeout', label: 'Timeout' },
 ];
 
 // ── Color Maps ──────────────────────────────────────────────────────────
@@ -81,8 +88,14 @@ const BLOCK_REASON_STYLES: Record<string, string> = {
   guardrail_blocked: 'bg-violet-500/15 text-violet-400 border-violet-500/20',
   pii_leak: 'bg-red-500/15 text-red-400 border-red-500/20',
   hallucination: 'bg-pink-500/15 text-pink-400 border-pink-500/20',
+  prompt_injection: 'bg-rose-500/15 text-rose-400 border-rose-500/20',
   content_safety: 'bg-orange-500/15 text-orange-400 border-orange-500/20',
   policy_violation: 'bg-red-500/15 text-red-400 border-red-500/20',
+  tone_violation: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20',
+  length_violation: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20',
+  topic_irrelevance: 'bg-teal-500/15 text-teal-400 border-teal-500/20',
+  custom_rule: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/20',
+  timeout: 'bg-zinc-600/15 text-zinc-400 border-zinc-600/20',
 };
 
 // ── Helper: Relative Time ───────────────────────────────────────────────
@@ -243,9 +256,7 @@ function SkeletonRows() {
 // ── Main Component ──────────────────────────────────────────────────────
 
 export default function ApprovalsPage() {
-  const router = useRouter();
   const { socket, badgeCounts } = useSocket();
-  const prevApprovalEventRef = useRef<string | null>(null);
 
   // Data state
   const [approvals, setApprovals] = useState<BlockedResponse[]>([]);
@@ -618,7 +629,7 @@ export default function ApprovalsPage() {
               <p className="text-2xl font-semibold text-emerald-400">
                 {stats?.total_approved ?? 0}
               </p>
-              <p className="text-xs text-zinc-500 mt-1">Approved Today</p>
+              <p className="text-xs text-zinc-500 mt-1">Approved</p>
             </div>
 
             {/* Rejected */}
@@ -636,7 +647,7 @@ export default function ApprovalsPage() {
               <p className="text-2xl font-semibold text-red-400">
                 {stats?.total_rejected ?? 0}
               </p>
-              <p className="text-xs text-zinc-500 mt-1">Rejected Today</p>
+              <p className="text-xs text-zinc-500 mt-1">Rejected</p>
             </div>
           </>
         )}
@@ -958,7 +969,7 @@ export default function ApprovalsPage() {
                             setShowEditResponse(false);
                             setDetailActionLoading(true);
                             try {
-                              await dashboardApi.rejectResponse(item.id, { review_notes: 'Quick reject' });
+                              await dashboardApi.rejectResponse(item.id);
                               fetchApprovals();
                               fetchStats();
                             } catch {
@@ -1133,12 +1144,12 @@ export default function ApprovalsPage() {
                 {detailItem.ticket_id && (
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-zinc-500">Ticket:</span>
-                    <button
-                      onClick={() => router.push(`/dashboard/tickets/${detailItem.ticket_id}`)}
+                    <Link
+                      href={`/dashboard/tickets/${detailItem.ticket_id}`}
                       className="text-orange-400 hover:text-orange-300 underline underline-offset-2 transition-colors"
                     >
                       View Ticket #{detailItem.ticket_id.slice(0, 8)}
-                    </button>
+                    </Link>
                   </div>
                 )}
 

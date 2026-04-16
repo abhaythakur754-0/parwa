@@ -96,7 +96,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
   const { user, logout } = useAuth();
   const { badgeCounts } = useSocket();
 
-  // Pages that have been built (Day 1, 2, 3, 4, 5) — rest show as "Coming Soon"
+  // Pages that have been built (Day 1-6) — rest show as "Coming Soon"
   const builtPages = new Set([
     '/dashboard',
     '/dashboard/channels',

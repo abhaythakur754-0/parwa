@@ -603,6 +603,7 @@ export interface ApprovalQueueStats {
   total_approved: number;
   total_rejected: number;
   total_auto_rejected: number;
+  total_expired: number;
   avg_wait_time_minutes: number;
   urgent_count: number;
   high_count: number;
