@@ -21,6 +21,7 @@ interface NavItem {
 interface DashboardSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  onOpenJarvis?: () => void;
 }
 
 // ── Icon Components (inline SVG to avoid extra deps) ──────────────────
@@ -72,6 +73,26 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
     </svg>
   ),
+  analytics: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+    </svg>
+  ),
+  knowledgeBase: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+    </svg>
+  ),
+  billing: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+    </svg>
+  ),
+  notifications: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    </svg>
+  ),
   jarvis: (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
@@ -96,7 +117,7 @@ const Icons = {
 
 // ── DashboardSidebar Component ───────────────────────────────────────
 
-export default function DashboardSidebar({ collapsed, onToggle }: DashboardSidebarProps) {
+export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { badgeCounts } = useSocket();
@@ -114,6 +135,11 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
     '/dashboard/agents/',
     '/dashboard/approvals',
     '/dashboard/integrations',
+    '/dashboard/billing',
+    '/dashboard/notifications',
+    '/dashboard/analytics',
+    '/dashboard/knowledge-base',
+    '/dashboard/settings',
   ]);
 
   const navItems: NavItem[] = [
@@ -125,6 +151,10 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
     { label: 'Integrations', href: '/dashboard/integrations', icon: Icons.integrations },
     { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents },
     { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals, badgeKey: 'approvals' },
+    { label: 'Analytics', href: '/dashboard/analytics', icon: Icons.analytics },
+    { label: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: Icons.knowledgeBase },
+    { label: 'Billing', href: '/dashboard/billing', icon: Icons.billing },
+    { label: 'Notifications', href: '/dashboard/notifications', icon: Icons.notifications, badgeKey: 'notifications' },
   ];
 
   const bottomItems: NavItem[] = [
@@ -224,6 +254,16 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
 
       {/* ── Bottom Section ────────────────────────────────────────── */}
       <div className="border-t border-white/[0.06] p-3 space-y-1">
+        {/* Jarvis Button */}
+        <button
+          onClick={onOpenJarvis}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 transition-all duration-200"
+          title="Jarvis AI Assistant"
+        >
+          <span className="shrink-0">{Icons.jarvis}</span>
+          {!collapsed && <span>Jarvis</span>}
+        </button>
+
         {bottomItems.map((item) => {
           const isBuilt = builtPages.has(item.href);
           return (

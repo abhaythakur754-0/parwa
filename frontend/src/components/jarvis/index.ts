@@ -27,3 +27,7 @@ export { PackExpiredCard } from './PackExpiredCard';
 export { ActionTicketCard } from './ActionTicketCard';
 export { PostCallSummaryCard } from './PostCallSummaryCard';
 export { RechargeCTACard } from './RechargeCTACard';
+
+// Dashboard Integration
+export { JarvisSidebar } from './JarvisSidebar';
+export { JarvisProvider, useJarvisSidebar } from './JarvisProvider';
