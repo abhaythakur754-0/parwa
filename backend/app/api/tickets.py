@@ -44,6 +44,14 @@ from app.schemas.ticket import (
     TicketBulkStatusUpdate,
     TicketBulkAssign,
     TicketBulkOperationResponse,
+    TicketResolveWithShadowRequest,
+    TicketResolveWithShadowResponse,
+    TicketApproveResolutionRequest,
+    TicketApproveResolutionResponse,
+    TicketUndoResolutionRequest,
+    TicketUndoResolutionResponse,
+    TicketShadowDetailsResponse,
+    ShadowStatus,
 )
 
 
@@ -120,6 +128,10 @@ async def list_tickets(
     tags: Optional[List[str]] = Query(None),
     is_spam: Optional[bool] = Query(None),
     is_frozen: Optional[bool] = Query(None),
+    shadow_status: Optional[str] = Query(
+        None,
+        description="Filter by shadow status (none, pending_approval, approved, rejected, auto_approved, undone)",
+    ),
     search: Optional[str] = Query(None),
     # Pagination
     page: int = Query(1, ge=1),
@@ -132,6 +144,7 @@ async def list_tickets(
     """List tickets with filters and pagination.
 
     F-046: Ticket listing with filtering.
+    Day 3: Added shadow_status filter.
     """
     company_id = current_user.get("company_id")
 
@@ -153,6 +166,11 @@ async def list_tickets(
         sort_by=sort_by,
         sort_order=sort_order,
     )
+
+    # Filter by shadow_status in Python since it's not in the service method
+    if shadow_status:
+        tickets = [t for t in tickets if getattr(t, 'shadow_status', 'none') == shadow_status]
+        total = len(tickets)
 
     return TicketListResponse(
         items=[_ticket_to_response(t) for t in tickets],
@@ -697,6 +715,133 @@ async def list_attachments(
         }
         for a in attachments
     ]
+
+
+# ── SHADOW MODE ENDPOINTS (Day 3) ─────────────────────────────────────────────
+
+@router.post(
+    "/{ticket_id}/resolve-with-shadow",
+    response_model=TicketResolveWithShadowResponse,
+    summary="Resolve ticket with shadow mode check",
+)
+async def resolve_ticket_with_shadow(
+    ticket_id: str,
+    data: TicketResolveWithShadowRequest,
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
+) -> Any:
+    """Resolve a ticket with shadow mode evaluation.
+
+    Evaluates if the resolution requires manager approval based on
+    risk score and company shadow mode settings.
+
+    Day 3: Shadow mode integration.
+    BC-001: Company-scoped operation.
+    BC-008: Never crashes caller.
+    """
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("user_id")
+
+    service = TicketService(db, company_id)
+
+    result = service.resolve_ticket_with_shadow(
+        ticket_id=ticket_id,
+        manager_id=user_id,
+        resolution_note=data.resolution_note,
+    )
+
+    return TicketResolveWithShadowResponse(**result)
+
+
+@router.post(
+    "/{ticket_id}/approve-resolution",
+    response_model=TicketApproveResolutionResponse,
+    summary="Approve pending ticket resolution",
+)
+async def approve_ticket_resolution(
+    ticket_id: str,
+    data: TicketApproveResolutionRequest,
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
+) -> Any:
+    """Approve a pending shadow ticket resolution.
+
+    Only tickets with shadow_status='pending_approval' can be approved.
+
+    Day 3: Shadow mode integration.
+    BC-001: Company-scoped operation.
+    """
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("user_id")
+
+    service = TicketService(db, company_id)
+
+    result = service.approve_ticket_resolution(
+        ticket_id=ticket_id,
+        manager_id=user_id,
+        note=data.note,
+    )
+
+    return TicketApproveResolutionResponse(**result)
+
+
+@router.post(
+    "/{ticket_id}/undo-resolution",
+    response_model=TicketUndoResolutionResponse,
+    summary="Undo approved ticket resolution",
+)
+async def undo_ticket_resolution(
+    ticket_id: str,
+    data: TicketUndoResolutionRequest,
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
+) -> Any:
+    """Undo a previously approved ticket resolution.
+
+    Reopens the ticket and creates an undo log entry.
+    Only tickets with shadow_status='approved' or 'auto_approved' can be undone.
+
+    Day 3: Shadow mode integration.
+    BC-001: Company-scoped operation.
+    """
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("user_id")
+
+    service = TicketService(db, company_id)
+
+    result = service.undo_ticket_resolution(
+        ticket_id=ticket_id,
+        reason=data.reason,
+        manager_id=user_id,
+    )
+
+    return TicketUndoResolutionResponse(**result)
+
+
+@router.get(
+    "/{ticket_id}/shadow-details",
+    response_model=TicketShadowDetailsResponse,
+    summary="Get shadow mode details for ticket",
+)
+async def get_ticket_shadow_details(
+    ticket_id: str,
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
+) -> Any:
+    """Get shadow mode details for a ticket.
+
+    Returns shadow status, risk score, approval info, and shadow log entry.
+
+    Day 3: Shadow mode integration.
+    BC-001: Company-scoped operation.
+    """
+    company_id = current_user.get("company_id")
+
+    service = TicketService(db, company_id)
+
+    result = service.get_ticket_shadow_details(ticket_id=ticket_id)
+
+    return TicketShadowDetailsResponse(**result)
 
 
 # ── HELPER FUNCTIONS ────────────────────────────────────────────────────────

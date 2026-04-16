@@ -26,6 +26,7 @@ from app.exceptions import (
     ValidationError,
 )
 from app.services.rate_limit_service import RateLimitService
+from app.services.shadow_mode_service import ShadowModeService
 from database.models.tickets import (
     Customer,
     Ticket,
@@ -36,6 +37,7 @@ from database.models.tickets import (
     TicketCategory,
 )
 from database.models.core import Company
+from database.models.shadow_mode import ShadowLog
 
 
 class TicketService:
@@ -833,3 +835,480 @@ class TicketService:
                 })
 
         return success_count, failures
+
+    # ── SHADOW MODE TICKET METHODS ─────────────────────────────────────────────
+
+    def evaluate_ticket_shadow(
+        self,
+        ticket_id: str,
+        action_type: str,
+    ) -> Dict[str, Any]:
+        """Evaluate if a ticket action should go through shadow mode.
+
+        Uses ShadowModeService to evaluate risk based on action type and
+        ticket metadata. Returns evaluation result with risk score and
+        decision.
+
+        BC-001: Scoped by company_id from instance.
+        BC-008: Never crashes caller - defensive error handling.
+
+        Args:
+            ticket_id: Ticket ID to evaluate.
+            action_type: Type of action (e.g., 'ticket_close', 'ticket_escalate').
+
+        Returns:
+            Dict with keys:
+                - requires_approval: bool
+                - risk_score: float (0.0-1.0)
+                - mode: str ('shadow', 'supervised', 'graduated')
+                - shadow_log_id: Optional[str] if logged
+                - reason: str
+                - error: Optional[str] if something went wrong
+        """
+        try:
+            # Get ticket to extract context
+            ticket = self.get_ticket(ticket_id)
+
+            # Build action payload with ticket context
+            action_payload = {
+                "ticket_id": ticket_id,
+                "ticket_status": ticket.status,
+                "ticket_priority": ticket.priority,
+                "ticket_category": ticket.category,
+                "reopen_count": ticket.reopen_count,
+                "escalation_level": ticket.escalation_level,
+                "sla_breached": ticket.sla_breached,
+            }
+
+            # Use ShadowModeService to evaluate
+            shadow_service = ShadowModeService()
+            result = shadow_service.evaluate_action_risk(
+                company_id=self.company_id,
+                action_type=action_type,
+                action_payload=action_payload,
+            )
+
+            return {
+                "requires_approval": result.get("requires_approval", True),
+                "risk_score": result.get("risk_score", 0.5),
+                "mode": result.get("mode", "supervised"),
+                "shadow_log_id": None,  # Not logged yet
+                "reason": result.get("reason", ""),
+                "layers": result.get("layers", {}),
+                "auto_execute": result.get("auto_execute", False),
+            }
+
+        except NotFoundError:
+            return {
+                "requires_approval": True,
+                "risk_score": 0.5,
+                "mode": "supervised",
+                "shadow_log_id": None,
+                "reason": "Ticket not found - defaulting to supervised",
+                "error": "Ticket not found",
+                "auto_execute": False,
+            }
+        except Exception as e:
+            # BC-008: Never crash the caller
+            return {
+                "requires_approval": True,
+                "risk_score": 0.5,
+                "mode": "supervised",
+                "shadow_log_id": None,
+                "reason": f"Evaluation error - defaulting to supervised",
+                "error": str(e),
+                "auto_execute": False,
+            }
+
+    def resolve_ticket_with_shadow(
+        self,
+        ticket_id: str,
+        manager_id: Optional[str] = None,
+        resolution_note: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Resolve a ticket, checking shadow mode first.
+
+        If shadow mode requires approval:
+            - Log action to shadow_log
+            - Set ticket.shadow_status = 'pending_approval'
+            - Return pending state
+
+        If auto-execute (graduated mode, low risk):
+            - Resolve ticket immediately
+            - Log to shadow_log with auto_approved flag
+            - Add to undo queue
+
+        BC-001: Scoped by company_id.
+        BC-008: Never crashes caller.
+
+        Args:
+            ticket_id: Ticket ID to resolve.
+            manager_id: Optional manager ID for audit.
+            resolution_note: Optional note for the resolution.
+
+        Returns:
+            Dict with resolution status and shadow details.
+        """
+        try:
+            # Evaluate shadow mode
+            evaluation = self.evaluate_ticket_shadow(
+                ticket_id=ticket_id,
+                action_type="ticket_close",
+            )
+
+            ticket = self.get_ticket(ticket_id)
+
+            # Check if ticket can be resolved
+            if ticket.status not in [
+                TicketStatus.in_progress.value,
+                TicketStatus.resolved.value,
+                TicketStatus.awaiting_client.value,
+                TicketStatus.awaiting_human.value,
+            ]:
+                return {
+                    "success": False,
+                    "error": f"Cannot resolve ticket in status: {ticket.status}",
+                    "ticket_id": ticket_id,
+                }
+
+            shadow_service = ShadowModeService()
+
+            if evaluation["requires_approval"] and not evaluation.get("auto_execute"):
+                # Log to shadow_log and set pending
+                log_result = shadow_service.log_shadow_action(
+                    company_id=self.company_id,
+                    action_type="ticket_close",
+                    action_payload={
+                        "ticket_id": ticket_id,
+                        "resolution_note": resolution_note,
+                        "manager_id": manager_id,
+                    },
+                    risk_score=evaluation["risk_score"],
+                    mode=evaluation["mode"],
+                )
+
+                # Update ticket shadow status
+                ticket.shadow_status = "pending_approval"
+                ticket.shadow_log_id = log_result.get("id")
+                ticket.risk_score = evaluation["risk_score"]
+                ticket.updated_at = datetime.now(timezone.utc)
+                self.db.commit()
+                self.db.refresh(ticket)
+
+                return {
+                    "success": True,
+                    "resolved": False,
+                    "pending_approval": True,
+                    "ticket_id": ticket_id,
+                    "shadow_log_id": log_result.get("id"),
+                    "risk_score": evaluation["risk_score"],
+                    "mode": evaluation["mode"],
+                    "message": "Resolution pending manager approval",
+                }
+
+            else:
+                # Auto-execute: resolve immediately
+                old_status = ticket.status
+                ticket.status = TicketStatus.resolved.value
+                ticket.shadow_status = "auto_approved"
+                ticket.risk_score = evaluation["risk_score"]
+                ticket.updated_at = datetime.now(timezone.utc)
+                self.db.commit()
+                self.db.refresh(ticket)
+
+                # Record status change
+                self._record_status_change(
+                    ticket_id=ticket_id,
+                    from_status=old_status,
+                    to_status=TicketStatus.resolved.value,
+                    user_id=manager_id,
+                    reason=f"Auto-approved resolution: {resolution_note or 'No note'}",
+                )
+
+                # Log auto-approval
+                log_result = shadow_service.log_shadow_action(
+                    company_id=self.company_id,
+                    action_type="ticket_close",
+                    action_payload={
+                        "ticket_id": ticket_id,
+                        "resolution_note": resolution_note,
+                        "auto_approved": True,
+                    },
+                    risk_score=evaluation["risk_score"],
+                    mode="graduated",
+                )
+
+                # Approve the logged action automatically
+                shadow_service.approve_shadow_action(
+                    shadow_log_id=log_result.get("id"),
+                    manager_id=manager_id or "system",
+                    note="Auto-approved in graduated mode",
+                )
+
+                return {
+                    "success": True,
+                    "resolved": True,
+                    "pending_approval": False,
+                    "ticket_id": ticket_id,
+                    "shadow_log_id": log_result.get("id"),
+                    "risk_score": evaluation["risk_score"],
+                    "mode": evaluation["mode"],
+                    "message": "Ticket resolved (auto-approved)",
+                }
+
+        except NotFoundError:
+            return {
+                "success": False,
+                "error": "Ticket not found",
+                "ticket_id": ticket_id,
+            }
+        except Exception as e:
+            # BC-008: Never crash caller
+            return {
+                "success": False,
+                "error": str(e),
+                "ticket_id": ticket_id,
+            }
+
+    def approve_ticket_resolution(
+        self,
+        ticket_id: str,
+        manager_id: str,
+        note: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Approve a pending shadow ticket resolution.
+
+        Updates ticket.shadow_status to 'approved', sets approved_by and
+        approved_at, executes the actual resolution, and calls
+        ShadowModeService.approve_shadow_action().
+
+        BC-001: Scoped by company_id.
+        BC-008: Never crashes caller.
+
+        Args:
+            ticket_id: Ticket ID to approve.
+            manager_id: Manager ID approving the resolution.
+            note: Optional approval note.
+
+        Returns:
+            Dict with approval status and ticket details.
+        """
+        try:
+            ticket = self.get_ticket(ticket_id)
+
+            # Verify ticket is pending approval
+            if ticket.shadow_status != "pending_approval":
+                return {
+                    "success": False,
+                    "error": f"Ticket is not pending approval. Current status: {ticket.shadow_status}",
+                    "ticket_id": ticket_id,
+                }
+
+            if not ticket.shadow_log_id:
+                return {
+                    "success": False,
+                    "error": "No shadow log entry found for this ticket",
+                    "ticket_id": ticket_id,
+                }
+
+            # Update ticket
+            old_status = ticket.status
+            ticket.shadow_status = "approved"
+            ticket.approved_by = manager_id
+            ticket.approved_at = datetime.now(timezone.utc)
+            ticket.status = TicketStatus.resolved.value
+            ticket.updated_at = datetime.now(timezone.utc)
+            self.db.commit()
+            self.db.refresh(ticket)
+
+            # Record status change
+            self._record_status_change(
+                ticket_id=ticket_id,
+                from_status=old_status,
+                to_status=TicketStatus.resolved.value,
+                user_id=manager_id,
+                reason=f"Manager approved: {note or 'No note'}",
+            )
+
+            # Approve in ShadowModeService
+            shadow_service = ShadowModeService()
+            shadow_result = shadow_service.approve_shadow_action(
+                shadow_log_id=ticket.shadow_log_id,
+                manager_id=manager_id,
+                note=note,
+            )
+
+            return {
+                "success": True,
+                "ticket_id": ticket_id,
+                "shadow_status": "approved",
+                "approved_by": manager_id,
+                "approved_at": ticket.approved_at.isoformat() if ticket.approved_at else None,
+                "shadow_log": shadow_result,
+                "message": "Ticket resolution approved",
+            }
+
+        except NotFoundError:
+            return {
+                "success": False,
+                "error": "Ticket not found",
+                "ticket_id": ticket_id,
+            }
+        except Exception as e:
+            # BC-008: Never crash caller
+            return {
+                "success": False,
+                "error": str(e),
+                "ticket_id": ticket_id,
+            }
+
+    def undo_ticket_resolution(
+        self,
+        ticket_id: str,
+        reason: str,
+        manager_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Undo a previously approved ticket resolution.
+
+        Sets ticket.shadow_status to 'undone', reopens the ticket, and
+        calls ShadowModeService.undo_auto_approved_action().
+
+        BC-001: Scoped by company_id.
+        BC-008: Never crashes caller.
+
+        Args:
+            ticket_id: Ticket ID to undo.
+            reason: Reason for the undo.
+            manager_id: Optional manager ID requesting undo.
+
+        Returns:
+            Dict with undo status and ticket details.
+        """
+        try:
+            ticket = self.get_ticket(ticket_id)
+
+            # Verify ticket was resolved (approved or auto_approved)
+            if ticket.shadow_status not in ["approved", "auto_approved"]:
+                return {
+                    "success": False,
+                    "error": f"Ticket is not in an approved state. Current status: {ticket.shadow_status}",
+                    "ticket_id": ticket_id,
+                }
+
+            if not ticket.shadow_log_id:
+                return {
+                    "success": False,
+                    "error": "No shadow log entry found for this ticket",
+                    "ticket_id": ticket_id,
+                }
+
+            # Update ticket
+            old_status = ticket.status
+            ticket.shadow_status = "undone"
+            ticket.status = TicketStatus.reopened.value
+            ticket.reopen_count = (ticket.reopen_count or 0) + 1
+            ticket.updated_at = datetime.now(timezone.utc)
+            self.db.commit()
+            self.db.refresh(ticket)
+
+            # Record status change
+            self._record_status_change(
+                ticket_id=ticket_id,
+                from_status=old_status,
+                to_status=TicketStatus.reopened.value,
+                user_id=manager_id,
+                reason=f"Undo resolution: {reason}",
+            )
+
+            # Undo in ShadowModeService
+            shadow_service = ShadowModeService()
+            undo_result = shadow_service.undo_auto_approved_action(
+                shadow_log_id=ticket.shadow_log_id,
+                reason=reason,
+                manager_id=manager_id,
+            )
+
+            return {
+                "success": True,
+                "ticket_id": ticket_id,
+                "shadow_status": "undone",
+                "ticket_status": TicketStatus.reopened.value,
+                "undo_log": undo_result,
+                "message": "Ticket resolution undone",
+            }
+
+        except NotFoundError:
+            return {
+                "success": False,
+                "error": "Ticket not found",
+                "ticket_id": ticket_id,
+            }
+        except Exception as e:
+            # BC-008: Never crash caller
+            return {
+                "success": False,
+                "error": str(e),
+                "ticket_id": ticket_id,
+            }
+
+    def get_ticket_shadow_details(
+        self,
+        ticket_id: str,
+    ) -> Dict[str, Any]:
+        """Get shadow mode details for a ticket.
+
+        Returns ticket's shadow status, risk score, approval info, and
+        related shadow log entry.
+
+        BC-001: Scoped by company_id.
+        BC-008: Never crashes caller.
+
+        Args:
+            ticket_id: Ticket ID to get details for.
+
+        Returns:
+            Dict with shadow mode details.
+        """
+        try:
+            ticket = self.get_ticket(ticket_id)
+
+            result = {
+                "ticket_id": ticket_id,
+                "shadow_status": ticket.shadow_status or "none",
+                "risk_score": float(ticket.risk_score) if ticket.risk_score else None,
+                "approved_by": ticket.approved_by,
+                "approved_at": ticket.approved_at.isoformat() if ticket.approved_at else None,
+                "shadow_log_id": ticket.shadow_log_id,
+            }
+
+            # Fetch shadow log entry if exists
+            if ticket.shadow_log_id:
+                shadow_log = self.db.query(ShadowLog).filter(
+                    ShadowLog.id == ticket.shadow_log_id,
+                ).first()
+
+                if shadow_log:
+                    result["shadow_log"] = {
+                        "id": shadow_log.id,
+                        "action_type": shadow_log.action_type,
+                        "mode": shadow_log.mode,
+                        "risk_score": shadow_log.jarvis_risk_score,
+                        "manager_decision": shadow_log.manager_decision,
+                        "manager_note": shadow_log.manager_note,
+                        "resolved_at": shadow_log.resolved_at.isoformat() if shadow_log.resolved_at else None,
+                        "created_at": shadow_log.created_at.isoformat() if shadow_log.created_at else None,
+                    }
+
+            return result
+
+        except NotFoundError:
+            return {
+                "ticket_id": ticket_id,
+                "error": "Ticket not found",
+            }
+        except Exception as e:
+            # BC-008: Never crash caller
+            return {
+                "ticket_id": ticket_id,
+                "error": str(e),
+            }

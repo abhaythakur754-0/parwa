@@ -807,3 +807,148 @@ class TicketBulkOperationResponse(BaseModel):
         description="Token for undoing the bulk operation",
     )
     message: str = Field(default="Bulk operation completed")
+
+
+# ── Shadow Mode Schemas (Day 3) ───────────────────────────────────────────────
+
+
+class ShadowStatus:
+    """Shadow status constants."""
+
+    NONE = "none"
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    AUTO_APPROVED = "auto_approved"
+    UNDONE = "undone"
+
+    VALID_STATUSES = [
+        NONE, PENDING_APPROVAL, APPROVED, REJECTED, AUTO_APPROVED, UNDONE,
+    ]
+
+
+class TicketResolveWithShadowRequest(BaseModel):
+    """Request to resolve a ticket with shadow mode check."""
+
+    resolution_note: Optional[str] = Field(
+        default=None,
+        max_length=1000,
+        description="Optional note for the resolution",
+    )
+
+
+class TicketResolveWithShadowResponse(BaseModel):
+    """Response after attempting to resolve with shadow mode."""
+
+    success: bool = Field(description="Whether the operation was successful")
+    resolved: bool = Field(description="Whether the ticket was resolved")
+    pending_approval: bool = Field(description="Whether approval is pending")
+    ticket_id: str = Field(description="Ticket ID")
+    shadow_log_id: Optional[str] = Field(
+        default=None,
+        description="Shadow log entry ID",
+    )
+    risk_score: Optional[float] = Field(
+        default=None,
+        description="Computed risk score (0.0-1.0)",
+    )
+    mode: Optional[str] = Field(
+        default=None,
+        description="Shadow mode used (shadow, supervised, graduated)",
+    )
+    message: str = Field(description="Human-readable message")
+    error: Optional[str] = Field(
+        default=None,
+        description="Error message if failed",
+    )
+
+
+class TicketApproveResolutionRequest(BaseModel):
+    """Request to approve a pending ticket resolution."""
+
+    note: Optional[str] = Field(
+        default=None,
+        max_length=1000,
+        description="Optional approval note",
+    )
+
+
+class TicketApproveResolutionResponse(BaseModel):
+    """Response after approving a ticket resolution."""
+
+    success: bool = Field(description="Whether the approval was successful")
+    ticket_id: str = Field(description="Ticket ID")
+    shadow_status: str = Field(description="Updated shadow status")
+    approved_by: str = Field(description="ID of the approver")
+    approved_at: Optional[str] = Field(
+        default=None,
+        description="Timestamp of approval",
+    )
+    shadow_log: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Shadow log entry details",
+    )
+    message: str = Field(description="Human-readable message")
+    error: Optional[str] = Field(
+        default=None,
+        description="Error message if failed",
+    )
+
+
+class TicketUndoResolutionRequest(BaseModel):
+    """Request to undo a previously approved ticket resolution."""
+
+    reason: str = Field(
+        min_length=1,
+        max_length=1000,
+        description="Reason for the undo",
+    )
+
+
+class TicketUndoResolutionResponse(BaseModel):
+    """Response after undoing a ticket resolution."""
+
+    success: bool = Field(description="Whether the undo was successful")
+    ticket_id: str = Field(description="Ticket ID")
+    shadow_status: str = Field(description="Updated shadow status")
+    ticket_status: str = Field(description="Updated ticket status")
+    undo_log: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Undo log entry details",
+    )
+    message: str = Field(description="Human-readable message")
+    error: Optional[str] = Field(
+        default=None,
+        description="Error message if failed",
+    )
+
+
+class TicketShadowDetailsResponse(BaseModel):
+    """Response with shadow mode details for a ticket."""
+
+    ticket_id: str = Field(description="Ticket ID")
+    shadow_status: str = Field(description="Current shadow status")
+    risk_score: Optional[float] = Field(
+        default=None,
+        description="Computed risk score",
+    )
+    approved_by: Optional[str] = Field(
+        default=None,
+        description="ID of approver if approved",
+    )
+    approved_at: Optional[str] = Field(
+        default=None,
+        description="Timestamp of approval",
+    )
+    shadow_log_id: Optional[str] = Field(
+        default=None,
+        description="Shadow log entry ID",
+    )
+    shadow_log: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Shadow log entry details",
+    )
+    error: Optional[str] = Field(
+        default=None,
+        description="Error message if retrieval failed",
+    )
