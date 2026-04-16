@@ -417,13 +417,18 @@ export default function TicketDetailPage() {
   // ── Export Conversation CSV (Fix 9) ────────────────────────────────
 
   const handleExportConversation = () => {
-    const csvContent = [
-      'Role,Content,Confidence,Created At',
-      ...messages.map(m =>
-        `"${m.role}","${(m.content || '').replace(/"/g, '"")}","${m.ai_confidence ?? ''}","${m.created_at}"`
-      ),
-    ].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const esc = (s: string | number) => String(s).replace(/"/g, '""');
+    const rows = [
+      ['Role', 'Content', 'Confidence', 'Created At'],
+      ...messages.map(m => [
+        m.role,
+        m.content || '',
+        m.ai_confidence ?? '',
+        m.created_at,
+      ]),
+    ];
+    const csvContent = rows.map(r => r.map(esc).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;'});
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `ticket-${ticketId.slice(0, 8)}-conversation.csv`;
