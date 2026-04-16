@@ -73,7 +73,7 @@ export interface PaginatedShadowLog {
   total: number;
   page: number;
   page_size: number;
-  total_pages: number;
+  pages: number;
 }
 
 // ── API Functions ───────────────────────────────────────────────────────────
@@ -135,24 +135,24 @@ export async function deleteShadowPreference(
  * Get shadow log entries with filtering and pagination.
  */
 export async function getShadowLog(
-  filters: Record<string, any>,
-  page: number,
-  pageSize: number
+  params: Record<string, any>
 ): Promise<PaginatedShadowLog> {
   const sp = new URLSearchParams();
-  sp.set('page', String(page));
-  sp.set('page_size', String(pageSize));
   
-  // Apply filters
-  if (filters.action_type) sp.set('action_type', filters.action_type);
-  if (filters.mode) sp.set('mode', filters.mode);
-  if (filters.decision) sp.set('decision', filters.decision);
-  if (filters.date_from) sp.set('date_from', filters.date_from);
-  if (filters.date_to) sp.set('date_to', filters.date_to);
-  if (filters.sort_by) sp.set('sort_by', filters.sort_by);
-  if (filters.sort_dir) sp.set('sort_dir', filters.sort_dir);
-  if (filters.risk_min !== undefined) sp.set('risk_min', String(filters.risk_min));
-  if (filters.risk_max !== undefined) sp.set('risk_max', String(filters.risk_max));
+  // Required pagination params
+  sp.set('page', String(params.page ?? 1));
+  sp.set('page_size', String(params.page_size ?? 20));
+  
+  // Optional filters
+  if (params.action_type) sp.set('action_type', params.action_type);
+  if (params.mode) sp.set('mode', params.mode);
+  if (params.decision) sp.set('decision', params.decision);
+  if (params.date_from) sp.set('date_from', params.date_from);
+  if (params.date_to) sp.set('date_to', params.date_to);
+  if (params.sort_by) sp.set('sort_by', params.sort_by);
+  if (params.sort_dir) sp.set('sort_dir', params.sort_dir);
+  if (params.risk_min !== undefined) sp.set('risk_min', String(params.risk_min));
+  if (params.risk_max !== undefined) sp.set('risk_max', String(params.risk_max));
   
   return get<PaginatedShadowLog>(`/api/shadow/log?${sp.toString()}`);
 }
