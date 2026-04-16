@@ -1241,61 +1241,6 @@ async def apply_save_offer(
         )
 
 
-@router.delete("/subscription", response_model=CancelResponse)
-async def cancel_subscription(
-    request: Request,
-    data: SubscriptionCancel,
-    company_id: UUID = Depends(get_company_id),
-    user_id: Optional[UUID] = Depends(get_user_id),
-) -> CancelResponse:
-    """
-    Cancel subscription.
-
-    Netflix-style cancellation:
-    - Default: Access continues until end of billing period
-    - effective_immediately=true: Stop now (no refund)
-
-    Args:
-        data: SubscriptionCancel with reason and effective_immediately flag
-
-    Returns:
-        Cancellation details with access_until date
-    """
-    service = get_subscription_service()
-
-    try:
-        result = await service.cancel_subscription(
-            company_id=company_id,
-            reason=data.reason,
-            effective_immediately=data.effective_immediately,
-            user_id=user_id,
-        )
-
-        return CancelResponse(
-            subscription=result["subscription"],
-            cancellation=result["cancellation"],
-            message=result["message"],
-        )
-
-    except SubscriptionNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "code": "subscription_not_found",
-                "message": str(e),
-            },
-        )
-    except SubscriptionError as e:
-        logger.error("subscription_cancel_failed company_id=%s error=%s", company_id, e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "subscription_error",
-                "message": "Failed to cancel subscription",
-            },
-        )
-
-
 @router.post("/cancel/confirm")
 async def cancel_confirm(
     request: Request,

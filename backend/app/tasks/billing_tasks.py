@@ -243,7 +243,7 @@ def invoice_sync(self, company_id: str) -> dict:
             asyncio.set_event_loop(loop)
             try:
                 invoices = loop.run_until_complete(
-                    paddle.get_invoices(customer_id=company.paddle_customer_id)
+                    paddle.list_invoices(customer_id=company.paddle_customer_id)
                 )
             finally:
                 loop.close()
@@ -871,7 +871,7 @@ def auto_retry_payments(self) -> dict:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-@celery_app.task(base=ParwaBaseTask, name="billing.send_trial_reminders")
+@app.task(base=ParwaBaseTask, name="billing.send_trial_reminders")
 def send_trial_reminders(self):
     """MF1: Send trial expiration reminders."""
     try:
@@ -885,7 +885,7 @@ def send_trial_reminders(self):
         raise
 
 
-@celery_app.task(base=ParwaBaseTask, name="billing.process_expired_trials")
+@app.task(base=ParwaBaseTask, name="billing.process_expired_trials")
 def process_expired_trials(self):
     """MF1: Auto-expire trials past trial_ends_at."""
     try:
@@ -899,7 +899,7 @@ def process_expired_trials(self):
         raise
 
 
-@celery_app.task(base=ParwaBaseTask, name="billing.process_max_pause_exceeded")
+@app.task(base=ParwaBaseTask, name="billing.process_max_pause_exceeded")
 def process_max_pause_exceeded(self):
     """MF2: Auto-resume subscriptions that exceeded max pause duration (30 days)."""
     try:

@@ -18,7 +18,8 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from celery import shared_task
+from app.tasks.base import ParwaBaseTask
+from app.tasks.celery_app import app
 
 from app.clients.paddle_client import (
     PaddleClient,
@@ -38,10 +39,13 @@ class ReconciliationError(Exception):
     pass
 
 
-@shared_task(
-    name="billing.reconcile_subscriptions",
+@app.task(
+    base=ParwaBaseTask,
     bind=True,
+    queue="default",
+    name="billing.reconcile_subscriptions",
     max_retries=3,
+    retry_backoff=True,
     default_retry_delay=300,
 )
 def reconcile_subscriptions(self) -> Dict[str, Any]:
@@ -161,10 +165,13 @@ def reconcile_subscriptions(self) -> Dict[str, Any]:
         db.close()
 
 
-@shared_task(
-    name="billing.reconcile_transactions",
+@app.task(
+    base=ParwaBaseTask,
     bind=True,
+    queue="default",
+    name="billing.reconcile_transactions",
     max_retries=3,
+    retry_backoff=True,
     default_retry_delay=300,
 )
 def reconcile_transactions(self) -> Dict[str, Any]:
@@ -268,10 +275,13 @@ def reconcile_transactions(self) -> Dict[str, Any]:
         db.close()
 
 
-@shared_task(
-    name="billing.reconcile_usage",
+@app.task(
+    base=ParwaBaseTask,
     bind=True,
+    queue="default",
+    name="billing.reconcile_usage",
     max_retries=3,
+    retry_backoff=True,
     default_retry_delay=300,
 )
 def reconcile_usage(self) -> Dict[str, Any]:
@@ -368,9 +378,11 @@ def reconcile_usage(self) -> Dict[str, Any]:
         db.close()
 
 
-@shared_task(
-    name="billing.reconcile_all",
+@app.task(
+    base=ParwaBaseTask,
     bind=True,
+    queue="default",
+    name="billing.reconcile_all",
 )
 def reconcile_all(self) -> Dict[str, Any]:
     """

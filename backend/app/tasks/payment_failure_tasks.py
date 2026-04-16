@@ -130,12 +130,12 @@ def stop_service_immediately(
             ).all()
 
             for ticket in open_tickets:
-                ticket.status = "frozen"
-                # Store original status for restoration on resume (Bug B5 fix)
-                if not hasattr(ticket, '_original_status'):
-                    ticket._original_status = None  # Will be stored via JSON metadata
+                # Bug B5 FIX: Store the ORIGINAL status BEFORE changing it
+                original_status = ticket.status  # 'open', 'pending', or 'in_progress'
                 ticket.metadata_json = ticket.metadata_json or {}
-                ticket.metadata_json["pre_freeze_status"] = ticket.status  # already set to frozen, use original
+                ticket.metadata_json["pre_freeze_status"] = original_status
+                # NOW set to frozen
+                ticket.status = "frozen"
                 results["tickets_frozen"] += 1
 
             db.commit()

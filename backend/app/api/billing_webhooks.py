@@ -88,20 +88,66 @@ def verify_paddle_signature(
     """
     Verify Paddle webhook signature using HMAC-SHA256.
 
+    B6 FIX: Standardized to PaddleClient's implementation which includes:
+    - Parsing the Paddle signature format: ts={timestamp};h1={hash}
+    - Verifying the hash is HMAC-SHA256 of '{timestamp}:{payload}'
+    - Rejecting signatures older than 5 minutes (replay attack prevention)
+    - Constant-time comparison to prevent timing attacks
+
     BC-011: Cryptographic verification of webhook authenticity.
     """
     if not secret:
         logger.warning("paddle_webhook_no_secret_configured")
         return False
 
-    expected = hmac.new(
-        secret.encode(),
-        payload,
-        hashlib.sha256,
-    ).hexdigest()
+    try:
+        import time as _time
 
-    # Constant-time comparison to prevent timing attacks
-    return hmac.compare_digest(signature, expected)
+        # Parse Paddle signature format: ts={timestamp};h1={hash}
+        parts = {}
+        for part in signature.split(";"):
+            key, _, value = part.partition("=")
+            parts[key.strip()] = value.strip()
+
+        ts_str = parts.get("ts")
+        h1_hash = parts.get("h1")
+
+        if not ts_str or not h1_hash:
+            logger.warning(
+                "paddle_webhook_invalid_format sig=%s",
+                signature[:50],
+            )
+            return False
+
+        # Verify timestamp is within 5 minutes (replay attack prevention)
+        try:
+            ts = int(ts_str)
+        except ValueError:
+            logger.warning("paddle_webhook_invalid_timestamp ts=%s", ts_str)
+            return False
+
+        current_time = int(_time.time())
+        if abs(current_time - ts) > 300:  # 5 minutes
+            logger.warning(
+                "paddle_webhook_expired ts=%d current=%d diff=%d",
+                ts, current_time, abs(current_time - ts),
+            )
+            return False
+
+        # Compute HMAC-SHA256 of '{timestamp}:{payload}'
+        signed_payload = f"{ts_str}:".encode() + payload
+        expected = hmac.new(
+            secret.encode(),
+            signed_payload,
+            hashlib.sha256,
+        ).hexdigest()
+
+        # Use constant-time comparison to prevent timing attacks
+        return hmac.compare_digest(h1_hash, expected)
+
+    except Exception as exc:
+        logger.warning("paddle_webhook_verify_error error=%s", str(exc))
+        return False
 
 
 def extract_company_id_from_event(data: Dict[str, Any]) -> Optional[str]:
