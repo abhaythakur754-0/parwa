@@ -293,3 +293,30 @@ Stage Summary:
 - Zero TypeScript errors in new source files (pre-existing test file errors only)
 - All 8 features (K1-K8) implemented
 - Matches existing dashboard design patterns (billing page, agents page, etc.)
+---
+Task ID: 1-shadow-d1
+Agent: Shadow Mode Backend Builder
+Task: Shadow Mode Day 1 — Dual Control System (Backend)
+
+Work Log:
+- Created Alembic migration 026_shadow_mode (shadow_log table, shadow_preferences table, system_mode column on companies, composite indexes)
+- Created database models (shadow_mode.py): ShadowLog and ShadowPreference with JSONB, composite indexes, unique constraints
+- Created shadow_mode_service.py with full 4-layer decision system:
+  - Layer 1: Heuristic risk scoring (14 action types + payload-based adjustments)
+  - Layer 2: Per-category preferences override
+  - Layer 3: Historical pattern analysis (weighted average)
+  - Layer 4: Hard safety floor (5 always-approve-required actions)
+  - Full CRUD: get/set company mode, evaluate risk, log actions, preferences, pending count, approve/reject/undo, batch resolve, escalate, paginated log, statistics
+- Created API routes (shadow.py): 11 endpoints under /api/shadow (mode GET/PUT, preferences GET/PATCH/DELETE, log GET, stats GET, evaluate POST, approve/reject/undo POST)
+- Created API routes (approvals.py bridge): 6 endpoints under /api/approvals (list, stats, approve, reject, escalate, batch)
+- Registered both routers in main.py
+- Updated models __init__.py with ShadowLog, ShadowPreference imports
+- All endpoints use get_current_user auth dependency, company_id scoping, Socket.io event emission
+- All files pass Python syntax checks
+
+Stage Summary:
+- All backend endpoints for shadow mode created (17 total: 11 shadow + 6 approvals)
+- 4-layer decision system implemented with heuristic scoring, preferences, historical patterns, and safety floor
+- Real-time events via Socket.io (approval:approved, approval:rejected, approval:batch, system:maintenance)
+- Approvals bridge connects frontend /api/approvals/* to shadow mode service
+- 5 new files created, 2 existing files modified (main.py, __init__.py)

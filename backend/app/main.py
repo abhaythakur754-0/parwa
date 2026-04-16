@@ -82,6 +82,8 @@ from app.api.custom_integrations import router as custom_integrations_router  # 
 from app.api.gdpr import router as gdpr_router  # Day 3: GDPR data privacy endpoints (E3)
 from app.api.customers import router as customers_router  # Day 5: Customer CRM endpoints (C1-C10)
 from app.api.identity import router as identity_router  # Day 5: Identity resolution endpoints
+from app.api.shadow import router as shadow_router  # Shadow Mode: Dual Control System
+from app.api.approvals import router as approvals_router  # Shadow Mode: Approvals bridge
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
@@ -333,6 +335,8 @@ app.include_router(custom_integrations_router)  # Week 17: Custom Integration Bu
 app.include_router(gdpr_router)  # Day 3: GDPR data privacy endpoints (E3)
 app.include_router(customers_router)  # Day 5: Customer CRM (C1-C10)
 app.include_router(identity_router)  # Day 5: Identity resolution
+app.include_router(shadow_router)  # Shadow Mode: Dual Control System
+app.include_router(approvals_router)  # Shadow Mode: Approvals bridge
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
