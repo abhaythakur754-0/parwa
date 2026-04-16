@@ -241,3 +241,16 @@ async def emit_system_event(
         return False
     cid = company_id or payload.get("company_id") or "system"
     return await emit_event(cid, event_type, payload, correlation_id)
+
+
+async def emit_shadow_event(
+    company_id: str,
+    event_type: str,
+    payload: Dict[str, Any],
+    correlation_id: Optional[str] = None,
+) -> bool:
+    """Emit a shadow mode event (must start with 'shadow:')."""
+    if not event_type.startswith("shadow:"):
+        logger.warning("emit_shadow_mismatch", event_type=event_type)
+        return False
+    return await emit_event(company_id, event_type, payload, correlation_id)

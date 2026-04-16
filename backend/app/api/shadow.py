@@ -116,19 +116,19 @@ def set_mode(
 
     # Emit real-time event
     try:
-        from app.core.event_emitter import emit_system_event
+        from app.core.event_emitter import emit_shadow_event
         import asyncio
 
         asyncio.get_event_loop().create_task(
-            emit_system_event(
-                event_type="system:maintenance",
+            emit_shadow_event(
+                company_id=str(company_id),
+                event_type="shadow:mode_changed",
                 payload={
                     "company_id": str(company_id),
-                    "subsystem": "shadow_mode",
-                    "status": f"mode_changed_to_{body.mode}",
-                    "message": f"System mode changed to {body.mode}",
+                    "mode": body.mode,
+                    "previous_mode": result.get("previous_mode"),
+                    "set_via": body.set_via,
                 },
-                company_id=str(company_id),
             )
         )
     except Exception:
@@ -315,19 +315,19 @@ def approve_action(
 
     # Emit approval event
     try:
-        from app.core.event_emitter import emit_approval_event
+        from app.core.event_emitter import emit_shadow_event
         import asyncio
 
         asyncio.get_event_loop().create_task(
-            emit_approval_event(
+            emit_shadow_event(
                 company_id=str(company_id),
-                event_type="approval:approved",
+                event_type="shadow:action_resolved",
                 payload={
-                    "approval_id": shadow_id,
                     "company_id": str(company_id),
+                    "shadow_log_id": shadow_id,
                     "action_type": result.get("action_type"),
-                    "status": "approved",
-                    "approver_id": user.id,
+                    "decision": "approved",
+                    "manager_id": user.id,
                     "reason": body.note,
                 },
             )
@@ -366,19 +366,19 @@ def reject_action(
 
     # Emit rejection event
     try:
-        from app.core.event_emitter import emit_approval_event
+        from app.core.event_emitter import emit_shadow_event
         import asyncio
 
         asyncio.get_event_loop().create_task(
-            emit_approval_event(
+            emit_shadow_event(
                 company_id=str(company_id),
-                event_type="approval:rejected",
+                event_type="shadow:action_resolved",
                 payload={
-                    "approval_id": shadow_id,
                     "company_id": str(company_id),
+                    "shadow_log_id": shadow_id,
                     "action_type": result.get("action_type"),
-                    "status": "rejected",
-                    "approver_id": user.id,
+                    "decision": "rejected",
+                    "manager_id": user.id,
                     "reason": body.note,
                 },
             )
@@ -416,3 +416,49 @@ def undo_action(
         raise HTTPException(status_code=400, detail=str(e))
 
     return result
+
+
+class JarvisCommandRequest(BaseModel):
+    message: str = Field(..., description="The user's message containing a shadow mode command")
+
+
+@router.post("/jarvis-command")
+def jarvis_shadow_command(
+    body: JarvisCommandRequest,
+    user: User = Depends(get_current_user),
+):
+    """Process a shadow mode conversational command from Jarvis chat.
+
+    Parses natural language commands like:
+    - "put refunds in shadow mode"
+    - "switch to graduated mode"
+    - "show me pending approvals"
+    - "approve the last refund"
+    - "undo the last action"
+
+    Returns the command result for Jarvis to relay to the user.
+    """
+    from app.services.jarvis_service import process_shadow_mode_command
+
+    company_id = user.company_id
+    if not company_id:
+        raise AuthorizationError(message="User has no associated company")
+
+    result = process_shadow_mode_command(
+        message=body.message,
+        company_id=str(company_id),
+        user_id=user.id,
+    )
+
+    if result is None:
+        return {
+            "command_matched": False,
+            "message": None,
+        }
+
+    return {
+        "command_matched": True,
+        "success": result.get("success", False),
+        "message": result.get("message", ""),
+        "data": {k: v for k, v in result.items() if k not in ("success", "message")},
+    }

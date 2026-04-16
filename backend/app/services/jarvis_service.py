@@ -251,6 +251,15 @@ __all__ = [
     "jarvis_get_channels",
     "jarvis_scan_pii",
     "jarvis_merge_with_brand_voice",
+    # --- Shadow Mode Commands (Day 3) ---
+    "jarvis_shadow_set_preference",
+    "jarvis_shadow_get_status",
+    "jarvis_shadow_approve_last",
+    "jarvis_shadow_reject_last",
+    "jarvis_shadow_switch_mode",
+    "jarvis_shadow_undo_last",
+    "jarvis_shadow_get_pending",
+    "process_shadow_mode_command",
 ]
 
 
@@ -2224,6 +2233,85 @@ def build_system_prompt(
                         prompt += f"- {g}\n"
     except Exception:
         pass
+
+    # ── Shadow Mode Awareness (Day 3 — Jarvis Context Integration) ──
+    # Inject live shadow mode context so Jarvis knows the current state,
+    # client preferences, pending approvals, and can handle shadow commands.
+    try:
+        from app.services.shadow_mode_service import ShadowModeService
+
+        shadow_svc = ShadowModeService()
+        if company_id:
+            # Get current system mode
+            current_mode = shadow_svc.get_company_mode(company_id)
+
+            # Get pending approvals count
+            pending_count = shadow_svc.get_pending_count(company_id)
+
+            # Get client preferences
+            preferences = shadow_svc.get_shadow_preferences(company_id)
+
+            # Get recent stats
+            shadow_stats = shadow_svc.get_shadow_stats(company_id)
+
+            prompt += "\n\n## Shadow Mode Awareness\n\n"
+            prompt += (
+                "You (Jarvis) are responsible for evaluating the risk of every action "
+                "before execution. Use the 4-layer decision system:\n"
+                "1. Assess your own confidence and risk\n"
+                "2. Check client preferences\n"
+                "3. Apply learned patterns\n"
+                "4. Enforce hard safety floor\n\n"
+            )
+
+            prompt += f"**Current System Mode:** {current_mode}\n"
+            prompt += f"**Pending Approvals:** {pending_count} action(s) awaiting review\n"
+
+            if preferences:
+                pref_lines = []
+                for p in preferences:
+                    pref_lines.append(
+                        f"- {p.get('action_category', 'unknown')}: "
+                        f"{p.get('preferred_mode', 'shadow')} "
+                        f"(set via {p.get('set_via', 'ui')})"
+                    )
+                prompt += (
+                    "\n**Client Shadow Mode Preferences:**\n"
+                    + "\n".join(pref_lines)
+                    + "\n"
+                )
+            else:
+                prompt += "\n**Client Shadow Mode Preferences:** None set (using default company mode)\n"
+
+            # Include stats summary for context
+            total = shadow_stats.get("total_actions", 0)
+            approval_rate = shadow_stats.get("approval_rate", 0)
+            avg_risk = shadow_stats.get("avg_risk_score", 0)
+            prompt += (
+                f"\n**Shadow Mode Stats:** {total} total actions, "
+                f"{approval_rate}% approval rate, "
+                f"average risk score {avg_risk:.2f}\n"
+            )
+
+            prompt += (
+                "\n**Jarvis Shadow Commands you can execute:**\n"
+                "- 'put [action] in shadow/supervised/graduated mode' → update preference\n"
+                "- 'show me pending approvals' → list pending shadow actions\n"
+                "- 'approve the last [action]' → approve most recent pending action\n"
+                "- 'reject the last [action]' → reject most recent pending action\n"
+                "- 'switch to [shadow/supervised/graduated] mode' → change system mode\n"
+                "- 'undo the last [action]' → undo recent auto-approved action\n"
+                "- 'what is my current shadow mode?' → report current mode and preferences\n"
+                "- 'why was this action put in shadow mode?' → explain risk evaluation\n"
+                "- 'always ask me before [action type]' → set preference to shadow\n\n"
+                "When a client asks you to change shadow mode settings, update the "
+                "shadow_preferences table AND inform the UI via WebSocket so the "
+                "dashboard reflects the change in real-time.\n\n"
+                "When explaining WHY you put something in shadow mode, be transparent: "
+                "share your risk score and reasoning.\n"
+            )
+    except Exception as exc:
+        logger.debug("shadow_mode_context_injection_failed: %s", str(exc))
 
     prompt += context_section
     return prompt
@@ -4319,3 +4407,718 @@ def prune_session_context(db: Session, session_id: str):
 
     session.context = ctx
     db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Shadow Mode Conversational Commands (Day 3 — Jarvis Integration)
+# ═══════════════════════════════════════════════════════════════════════
+#
+# These functions allow Jarvis to execute shadow mode operations via
+# conversational commands.  The client talks to Jarvis, Jarvis calls
+# these functions, and the results are reflected in both the chat
+# and the dashboard UI via WebSocket events.
+#
+# All operations are scoped by company_id (BC-001) and require the
+# user to have an active session with a valid company association.
+
+
+def jarvis_shadow_set_preference(
+    company_id: str,
+    action_category: str,
+    preferred_mode: str,
+    set_via: str = "jarvis",
+) -> Dict[str, Any]:
+    """Set a shadow mode preference for an action category via Jarvis chat.
+
+    Called when a user says something like:
+    - "Put refunds in shadow mode"
+    - "Always ask me before sending SMS"
+    - "Make email replies graduated"
+
+    Args:
+        company_id: Company UUID (BC-001).
+        action_category: The action category (e.g., 'refund', 'sms').
+        preferred_mode: 'shadow', 'supervised', or 'graduated'.
+        set_via: Always 'jarvis' for conversational commands.
+
+    Returns:
+        Dict with preference details and success status.
+    """
+    from app.services.shadow_mode_service import ShadowModeService, VALID_MODES
+
+    if preferred_mode not in VALID_MODES:
+        return {
+            "success": False,
+            "error": f"Invalid mode: {preferred_mode}. Must be one of: {', '.join(sorted(VALID_MODES))}",
+        }
+
+    svc = ShadowModeService()
+    preference = svc.set_shadow_preference(
+        company_id=company_id,
+        action_category=action_category,
+        preferred_mode=preferred_mode,
+        set_via=set_via,
+    )
+
+    # Emit WebSocket event to sync dashboard
+    try:
+        import asyncio
+        from app.core.event_emitter import emit_shadow_event
+
+        asyncio.get_event_loop().create_task(
+            emit_shadow_event(
+                company_id=company_id,
+                event_type="shadow:preference_changed",
+                payload={
+                    "company_id": company_id,
+                    "action_category": action_category,
+                    "preferred_mode": preferred_mode,
+                    "set_via": set_via,
+                },
+            )
+        )
+    except Exception:
+        logger.debug("shadow_pref_ws_emit_failed")
+
+    return {
+        "success": True,
+        "message": (
+            f"Done! I've set '{action_category}' to {preferred_mode} mode. "
+            f"This change is reflected in your dashboard settings now."
+        ),
+        "preference": preference,
+    }
+
+
+def jarvis_shadow_get_status(company_id: str) -> Dict[str, Any]:
+    """Get the current shadow mode status for a company.
+
+    Called when a user asks:
+    - "What is my current shadow mode?"
+    - "Show me my shadow mode settings"
+
+    Args:
+        company_id: Company UUID (BC-001).
+
+    Returns:
+        Dict with current mode, preferences, pending count, and stats.
+    """
+    from app.services.shadow_mode_service import ShadowModeService
+
+    svc = ShadowModeService()
+    mode = svc.get_company_mode(company_id)
+    preferences = svc.get_shadow_preferences(company_id)
+    pending_count = svc.get_pending_count(company_id)
+    stats = svc.get_shadow_stats(company_id)
+
+    mode_descriptions = {
+        "shadow": (
+            "Shadow Mode — I show what I would do but don't execute anything. "
+            "You approve every action."
+        ),
+        "supervised": (
+            "Supervised Mode — I auto-execute low-risk actions and ask for "
+            "approval on medium/high risk ones."
+        ),
+        "graduated": (
+            "Graduated Mode — I auto-execute low-risk actions with undo "
+            "available. High-risk actions still need approval."
+        ),
+    }
+
+    return {
+        "success": True,
+        "current_mode": mode,
+        "mode_description": mode_descriptions.get(mode, "Unknown mode"),
+        "preferences": preferences,
+        "pending_approvals": pending_count,
+        "stats": {
+            "total_actions": stats.get("total_actions", 0),
+            "approval_rate": stats.get("approval_rate", 0),
+            "avg_risk_score": stats.get("avg_risk_score", 0),
+        },
+    }
+
+
+def jarvis_shadow_get_pending(
+    company_id: str, limit: int = 10,
+) -> Dict[str, Any]:
+    """Get pending shadow actions awaiting approval.
+
+    Called when a user asks:
+    - "Show me pending approvals"
+    - "What actions need my review?"
+
+    Args:
+        company_id: Company UUID (BC-001).
+        limit: Maximum number of entries to return.
+
+    Returns:
+        Dict with list of pending actions.
+    """
+    from app.services.shadow_mode_service import ShadowModeService
+
+    svc = ShadowModeService()
+    result = svc.get_shadow_log(
+        company_id=company_id,
+        filters={"decision": "pending"},
+        page=1,
+        page_size=limit,
+    )
+
+    items = result.get("items", [])
+    if not items:
+        return {
+            "success": True,
+            "message": "All caught up! There are no pending actions waiting for your review.",
+            "pending_actions": [],
+            "total": 0,
+        }
+
+    action_list = []
+    for item in items:
+        action_list.append({
+            "id": item.get("id"),
+            "action_type": item.get("action_type"),
+            "risk_score": item.get("jarvis_risk_score"),
+            "mode": item.get("mode"),
+            "created_at": item.get("created_at"),
+            "payload_preview": str(item.get("action_payload", {}))[:200],
+        })
+
+    return {
+        "success": True,
+        "message": (
+            f"You have {result.get('total', 0)} pending action(s) awaiting review. "
+            f"Here are the most recent ones:"
+        ),
+        "pending_actions": action_list,
+        "total": result.get("total", 0),
+    }
+
+
+def jarvis_shadow_approve_last(
+    company_id: str,
+    action_type: Optional[str] = None,
+    manager_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Approve the most recent pending shadow action.
+
+    Called when a user says:
+    - "Approve the last refund"
+    - "Approve the most recent action"
+
+    Args:
+        company_id: Company UUID (BC-001).
+        action_type: Optional action type filter (e.g., 'refund').
+        manager_id: UUID of the approving manager.
+
+    Returns:
+        Dict with approval result.
+    """
+    from app.services.shadow_mode_service import ShadowModeService
+
+    svc = ShadowModeService()
+    filters = {"decision": "pending"}
+    if action_type:
+        filters["action_type"] = action_type
+
+    result = svc.get_shadow_log(
+        company_id=company_id, filters=filters, page=1, page_size=1,
+    )
+    items = result.get("items", [])
+
+    if not items:
+        return {
+            "success": False,
+            "message": (
+                "No pending actions found to approve. "
+                "Everything is already resolved!"
+            ),
+        }
+
+    last_item = items[0]
+    entry_id = last_item.get("id")
+
+    try:
+        approved = svc.approve_shadow_action(
+            shadow_log_id=entry_id,
+            manager_id=manager_id or "jarvis",
+        )
+    except ShadowModeService.ShadowModeError as e:
+        return {"success": False, "message": f"Could not approve: {str(e)}"}
+
+    # Emit WebSocket event
+    try:
+        import asyncio
+        from app.core.event_emitter import emit_shadow_event
+
+        asyncio.get_event_loop().create_task(
+            emit_shadow_event(
+                company_id=company_id,
+                event_type="shadow:action_resolved",
+                payload={
+                    "company_id": company_id,
+                    "shadow_log_id": entry_id,
+                    "decision": "approved",
+                    "action_type": last_item.get("action_type"),
+                    "manager_id": manager_id or "jarvis",
+                },
+            )
+        )
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "message": (
+            f"Approved! The {last_item.get('action_type', 'action')} "
+            f"(risk score: {last_item.get('jarvis_risk_score', 'N/A')}) "
+            f"has been approved and will be executed."
+        ),
+        "approved_action": approved,
+    }
+
+
+def jarvis_shadow_reject_last(
+    company_id: str,
+    action_type: Optional[str] = None,
+    manager_id: Optional[str] = None,
+    note: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Reject the most recent pending shadow action.
+
+    Called when a user says:
+    - "Reject the last refund"
+    - "Don't send that SMS"
+
+    Args:
+        company_id: Company UUID (BC-001).
+        action_type: Optional action type filter.
+        manager_id: UUID of the rejecting manager.
+        note: Optional rejection reason.
+
+    Returns:
+        Dict with rejection result.
+    """
+    from app.services.shadow_mode_service import ShadowModeService
+
+    svc = ShadowModeService()
+    filters = {"decision": "pending"}
+    if action_type:
+        filters["action_type"] = action_type
+
+    result = svc.get_shadow_log(
+        company_id=company_id, filters=filters, page=1, page_size=1,
+    )
+    items = result.get("items", [])
+
+    if not items:
+        return {
+            "success": False,
+            "message": "No pending actions found to reject.",
+        }
+
+    last_item = items[0]
+    entry_id = last_item.get("id")
+
+    try:
+        rejected = svc.reject_shadow_action(
+            shadow_log_id=entry_id,
+            manager_id=manager_id or "jarvis",
+            note=note or "Rejected via Jarvis command",
+        )
+    except ShadowModeService.ShadowModeError as e:
+        return {"success": False, "message": f"Could not reject: {str(e)}"}
+
+    # Emit WebSocket event
+    try:
+        import asyncio
+        from app.core.event_emitter import emit_shadow_event
+
+        asyncio.get_event_loop().create_task(
+            emit_shadow_event(
+                company_id=company_id,
+                event_type="shadow:action_resolved",
+                payload={
+                    "company_id": company_id,
+                    "shadow_log_id": entry_id,
+                    "decision": "rejected",
+                    "action_type": last_item.get("action_type"),
+                    "manager_id": manager_id or "jarvis",
+                    "reason": note,
+                },
+            )
+        )
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "message": (
+            f"Rejected. The {last_item.get('action_type', 'action')} "
+            f"will NOT be executed."
+        ),
+        "rejected_action": rejected,
+    }
+
+
+def jarvis_shadow_switch_mode(
+    company_id: str,
+    new_mode: str,
+    manager_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Switch the company's system shadow mode.
+
+    Called when a user says:
+    - "Switch to supervised mode"
+    - "Turn on graduated mode"
+    - "Put everything in shadow mode"
+
+    Args:
+        company_id: Company UUID (BC-001).
+        new_mode: Target mode ('shadow', 'supervised', 'graduated').
+        manager_id: UUID of the manager making the change.
+
+    Returns:
+        Dict with mode change result.
+    """
+    from app.services.shadow_mode_service import ShadowModeService, VALID_MODES
+
+    if new_mode not in VALID_MODES:
+        return {
+            "success": False,
+            "message": (
+                f"Invalid mode: {new_mode}. "
+                f"Valid modes are: {', '.join(sorted(VALID_MODES))}"
+            ),
+        }
+
+    svc = ShadowModeService()
+    result = svc.set_company_mode(
+        company_id=company_id,
+        mode=new_mode,
+        set_via="jarvis",
+    )
+
+    # Emit WebSocket event to sync dashboard
+    try:
+        import asyncio
+        from app.core.event_emitter import emit_shadow_event
+
+        asyncio.get_event_loop().create_task(
+            emit_shadow_event(
+                company_id=company_id,
+                event_type="shadow:mode_changed",
+                payload={
+                    "company_id": company_id,
+                    "mode": new_mode,
+                    "previous_mode": result.get("previous_mode"),
+                    "set_via": "jarvis",
+                },
+            )
+        )
+    except Exception:
+        pass
+
+    mode_labels = {
+        "shadow": "Shadow Mode (preview only, no auto-execution)",
+        "supervised": "Supervised Mode (auto low-risk, approve medium/high)",
+        "graduated": "Graduated Mode (auto low-risk with undo, approve high-risk)",
+    }
+
+    return {
+        "success": True,
+        "message": (
+            f"Switched to {new_mode} mode! "
+            f"{mode_labels.get(new_mode, '')} "
+            f"Your dashboard header badge has been updated."
+        ),
+        "mode": new_mode,
+        "previous_mode": result.get("previous_mode"),
+    }
+
+
+def jarvis_shadow_undo_last(
+    company_id: str,
+    action_type: Optional[str] = None,
+    manager_id: Optional[str] = None,
+    reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Undo the most recent approved/auto-approved action.
+
+    Called when a user says:
+    - "Undo the last refund"
+    - "Take back the last action"
+
+    Args:
+        company_id: Company UUID (BC-001).
+        action_type: Optional action type filter.
+        manager_id: UUID of the manager requesting undo.
+        reason: Optional reason for undo.
+
+    Returns:
+        Dict with undo result.
+    """
+    from app.services.shadow_mode_service import ShadowModeService
+
+    svc = ShadowModeService()
+
+    # Find the most recent approved action
+    filters = {"decision": "approved"}
+    if action_type:
+        filters["action_type"] = action_type
+
+    result = svc.get_shadow_log(
+        company_id=company_id, filters=filters, page=1, page_size=1,
+    )
+    items = result.get("items", [])
+
+    if not items:
+        return {
+            "success": False,
+            "message": (
+                "No recent approved actions found to undo. "
+                "There's nothing to undo right now."
+            ),
+        }
+
+    last_item = items[0]
+    entry_id = last_item.get("id")
+
+    try:
+        undo_result = svc.undo_auto_approved_action(
+            shadow_log_id=entry_id,
+            reason=reason or f"Undone via Jarvis command by {'user' if manager_id else 'Jarvis'}",
+            manager_id=manager_id,
+        )
+    except ShadowModeService.ShadowModeError as e:
+        return {"success": False, "message": f"Could not undo: {str(e)}"}
+
+    # Emit WebSocket event
+    try:
+        import asyncio
+        from app.core.event_emitter import emit_shadow_event
+
+        asyncio.get_event_loop().create_task(
+            emit_shadow_event(
+                company_id=company_id,
+                event_type="shadow:action_undone",
+                payload={
+                    "company_id": company_id,
+                    "shadow_log_id": entry_id,
+                    "undo_id": undo_result.get("undo_id"),
+                    "action_type": last_item.get("action_type"),
+                    "reason": reason,
+                },
+            )
+        )
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "message": (
+            f"Done! The {last_item.get('action_type', 'action')} has been undone. "
+            f"The reversal has been logged in your audit trail."
+        ),
+        "undo_result": undo_result,
+    }
+
+
+def process_shadow_mode_command(
+    message: str,
+    company_id: str,
+    user_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Parse a user message for shadow mode commands and execute them.
+
+    This is the main entry point for shadow mode conversational commands.
+    It should be called from the message processing pipeline when a
+    user message matches a shadow mode command pattern.
+
+    Patterns matched:
+    - "put [action] in [mode] mode"
+    - "show me pending approvals"
+    - "approve the last [action]"
+    - "reject the last [action]"
+    - "switch to [mode] mode"
+    - "undo the last [action]"
+    - "what is my current shadow mode"
+    - "always ask me before [action]"
+
+    Args:
+        message: The user's message text.
+        company_id: Company UUID (BC-001).
+        user_id: Optional UUID of the user.
+
+    Returns:
+        Dict with command result, or None if no command matched.
+    """
+    if not message or not company_id:
+        return None
+
+    msg = message.strip().lower()
+    original_msg = message.strip()
+
+    # ── "put [action] in [mode] mode" ──
+    import re
+    put_match = re.search(
+        r"put\s+(.+?)\s+in\s+(shadow|supervised|graduated)\s+mode",
+        msg,
+    )
+    if put_match:
+        action = put_match.group(1).strip()
+        mode = put_match.group(2)
+        # Normalize action to category
+        category_map = {
+            "refund": "refund",
+            "refunds": "refund",
+            "sms": "sms",
+            "text": "sms",
+            "email": "email_reply",
+            "emails": "email_reply",
+            "email reply": "email_reply",
+            "email replies": "email_reply",
+            "ticket": "ticket",
+            "tickets": "ticket",
+        }
+        category = category_map.get(action, action)
+        return jarvis_shadow_set_preference(
+            company_id=company_id,
+            action_category=category,
+            preferred_mode=mode,
+            set_via="jarvis",
+        )
+
+    # ── "always ask me before [action]" ──
+    always_match = re.search(
+        r"always\s+ask\s+me\s+before\s+(.+?)(?:\.|$)", msg,
+    )
+    if always_match:
+        action = always_match.group(1).strip()
+        category_map = {
+            "sending": "sms",
+            "send": "sms",
+            "refunding": "refund",
+            "refund": "refund",
+            "closing": "ticket",
+            "close": "ticket",
+        }
+        category = category_map.get(action, action)
+        return jarvis_shadow_set_preference(
+            company_id=company_id,
+            action_category=category,
+            preferred_mode="shadow",
+            set_via="jarvis",
+        )
+
+    # ── "switch to [mode] mode" ──
+    switch_match = re.search(
+        r"switch\s+to\s+(shadow|supervised|graduated)\s+mode", msg,
+    )
+    if not switch_match:
+        switch_match = re.search(
+            r"(?:turn|set|put)\s+(?:on\s+)?(shadow|supervised|graduated)\s+mode",
+            msg,
+        )
+    if switch_match:
+        mode = switch_match.group(1)
+        return jarvis_shadow_switch_mode(
+            company_id=company_id,
+            new_mode=mode,
+            manager_id=user_id,
+        )
+
+    # ── "show me pending approvals" ──
+    if any(
+        kw in msg
+        for kw in ["pending approval", "pending action", "show me pending", "what needs my review"]
+    ):
+        return jarvis_shadow_get_pending(company_id=company_id)
+
+    # ── "approve the last [action]" ──
+    approve_match = re.search(r"approve\s+(?:the\s+)?last\s+(.+?)(?:\.|$)", msg)
+    if approve_match:
+        action = approve_match.group(1).strip()
+        category_map = {
+            "refund": "refund",
+            "refunds": "refund",
+            "sms": "sms_reply",
+            "email": "email_reply",
+            "ticket": "ticket_close",
+            "action": None,  # approve last of any type
+        }
+        action_type = category_map.get(action, action if action != "one" else None)
+        return jarvis_shadow_approve_last(
+            company_id=company_id,
+            action_type=action_type,
+            manager_id=user_id,
+        )
+    if msg.strip() in ["approve the last one", "approve last", "approve it"]:
+        return jarvis_shadow_approve_last(
+            company_id=company_id,
+            manager_id=user_id,
+        )
+
+    # ── "reject the last [action]" ──
+    reject_match = re.search(r"reject\s+(?:the\s+)?last\s+(.+?)(?:\.|$)", msg)
+    if reject_match:
+        action = reject_match.group(1).strip()
+        category_map = {
+            "refund": "refund",
+            "refunds": "refund",
+            "sms": "sms_reply",
+            "email": "email_reply",
+            "action": None,
+        }
+        action_type = category_map.get(action, action if action != "one" else None)
+        return jarvis_shadow_reject_last(
+            company_id=company_id,
+            action_type=action_type,
+            manager_id=user_id,
+        )
+    if msg.strip() in ["reject the last one", "reject last", "reject it"]:
+        return jarvis_shadow_reject_last(
+            company_id=company_id,
+            manager_id=user_id,
+        )
+
+    # ── "undo the last [action]" ──
+    undo_match = re.search(r"undo\s+(?:the\s+)?last\s+(.+?)(?:\.|$)", msg)
+    if undo_match:
+        action = undo_match.group(1).strip()
+        category_map = {
+            "refund": "refund",
+            "refunds": "refund",
+            "sms": "sms_reply",
+            "email": "email_reply",
+            "action": None,
+        }
+        action_type = category_map.get(action, action if action != "one" else None)
+        return jarvis_shadow_undo_last(
+            company_id=company_id,
+            action_type=action_type,
+            manager_id=user_id,
+        )
+    if msg.strip() in ["undo the last one", "undo last", "undo it"]:
+        return jarvis_shadow_undo_last(
+            company_id=company_id,
+            manager_id=user_id,
+        )
+
+    # ── "what is my current shadow mode" ──
+    if any(
+        kw in msg
+        for kw in [
+            "current shadow mode",
+            "what is my shadow mode",
+            "what mode am i",
+            "my shadow mode",
+            "shadow mode status",
+        ]
+    ):
+        return jarvis_shadow_get_status(company_id=company_id)
+
+    # No command matched
+    return None

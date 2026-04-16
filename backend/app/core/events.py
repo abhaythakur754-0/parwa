@@ -26,6 +26,7 @@ class EventCategory(str, Enum):
     APPROVAL = "approval"
     NOTIFICATION = "notification"
     SYSTEM = "system"
+    SHADOW = "shadow"
 
 
 # ── Event Payload Schemas ────────────────────────────────
@@ -85,6 +86,22 @@ class SystemEventPayload(BaseModel):
     status: Optional[str] = None
     message: Optional[str] = None
     metric_value: Optional[float] = None
+    extra: Optional[Dict[str, Any]] = None
+
+
+class ShadowModeEventPayload(BaseModel):
+    """Schema for shadow mode events."""
+    company_id: str
+    mode: Optional[str] = None
+    previous_mode: Optional[str] = None
+    action_type: Optional[str] = None
+    risk_score: Optional[float] = None
+    shadow_log_id: Optional[str] = None
+    manager_id: Optional[str] = None
+    decision: Optional[str] = None
+    set_via: Optional[str] = None
+    reason: Optional[str] = None
+    pending_count: Optional[int] = None
     extra: Optional[Dict[str, Any]] = None
 
 
@@ -240,6 +257,22 @@ class EventRegistry:
                 type_str=type_str,
                 category=EventCategory.SYSTEM,
                 payload_schema=SystemEventPayload,
+                description=desc,
+            ))
+
+        # ── Shadow Mode Events (6) ──
+        for type_str, desc in [
+            ("shadow:mode_changed", "System shadow mode changed (shadow/supervised/graduated)"),
+            ("shadow:action_pending", "New shadow action awaiting approval"),
+            ("shadow:action_resolved", "Shadow action approved or rejected"),
+            ("shadow:action_undone", "Auto-approved action was undone"),
+            ("shadow:preference_changed", "Per-category shadow preference updated"),
+            ("shadow:stats_updated", "Shadow mode statistics refreshed"),
+        ]:
+            self.register(EventType(
+                type_str=type_str,
+                category=EventCategory.SHADOW,
+                payload_schema=ShadowModeEventPayload,
                 description=desc,
             ))
 

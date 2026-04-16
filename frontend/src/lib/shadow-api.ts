@@ -140,4 +140,8 @@ export const shadowApi = {
   /** Undo a previously approved action */
   undo: (id: string, reason: string) =>
     post<ShadowLogEntry>(`/api/shadow/${id}/undo`, { reason }),
+
+  /** Process a Jarvis conversational shadow mode command */
+  jarvisCommand: (message: string) =>
+    post<{ command_matched: boolean; success: boolean; message: string | null; data: Record<string, any> }>('/api/shadow/jarvis-command', { message }),
 };

@@ -12,6 +12,8 @@
  *   notification:new
  *   system:error, system:recovered
  *   approval:pending, approval:approved, approval:rejected
+ *   shadow:mode_changed, shadow:action_pending, shadow:action_resolved,
+ *   shadow:action_undone, shadow:preference_changed, shadow:stats_updated
  */
 
 'use client';
@@ -272,6 +274,41 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
     socket.on('system:mode_changed', (data: any) => {
       if (data.mode) setAiMode(data.mode);
+    });
+
+    // ── Shadow Mode Events (Day 3 — Real-time UI ↔ Jarvis Sync) ───────
+
+    socket.on('shadow:mode_changed', (data: any) => {
+      if (data.mode) setAiMode(data.mode as 'shadow' | 'supervised' | 'graduated');
+      lastEventIdRef.current = data.event_id || data.id || null;
+    });
+
+    socket.on('shadow:action_pending', (data: any) => {
+      setBadgeCounts(prev => ({
+        ...prev,
+        approvals: prev.approvals + 1,
+      }));
+      lastEventIdRef.current = data.event_id || data.id || null;
+    });
+
+    socket.on('shadow:action_resolved', (data: any) => {
+      setBadgeCounts(prev => ({
+        ...prev,
+        approvals: Math.max(0, prev.approvals - 1),
+      }));
+      lastEventIdRef.current = data.event_id || data.id || null;
+    });
+
+    socket.on('shadow:action_undone', (data: any) => {
+      lastEventIdRef.current = data.event_id || data.id || null;
+    });
+
+    socket.on('shadow:preference_changed', (data: any) => {
+      lastEventIdRef.current = data.event_id || data.id || null;
+    });
+
+    socket.on('shadow:stats_updated', (data: any) => {
+      lastEventIdRef.current = data.event_id || data.id || null;
     });
 
     socket.on('system:paused', () => {

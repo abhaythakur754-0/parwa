@@ -34,6 +34,7 @@ KB_FILES = {
     "faq": "08_faq.json",
     "competitors": "09_competitor_comparisons.json",
     "edge_cases": "10_edge_cases.json",
+    "shadow_mode": "11_shadow_mode.json",
 }
 
 # ── Cache ──────────────────────────────────────────────────────────
@@ -126,6 +127,36 @@ def search_knowledge(query: str, context: Optional[Dict[str, Any]] = None) -> Li
                     "content": f"INTEGRATION: We support {item['name']}. {item.get('description', '')}",
                     "score": 0.7
                 })
+
+    # 6. Check Shadow Mode knowledge
+    shadow_keywords = ["shadow", "mode", "approve", "reject", "undo", "supervised", "graduated", "risk score", "safety floor", "dual control", "approval queue"]
+    if any(k in query_lower for k in shadow_keywords):
+        shadow = _knowledge_cache.get("shadow_mode", {})
+        sm = shadow.get("shadow_mode", {})
+        if sm.get("overview"):
+            matches.append({
+                "source": "11_shadow_mode.json",
+                "content": f"SHADOW MODE: {sm['overview']}",
+                "score": 0.95
+            })
+        # Match specific modes
+        modes = sm.get("modes", {})
+        for mode_name, mode_data in modes.items():
+            if mode_name in query_lower:
+                matches.append({
+                    "source": "11_shadow_mode.json",
+                    "content": f"SHADOW MODE - {mode_data.get('name', mode_name)}: {mode_data.get('description', '')} When used: {mode_data.get('when_used', '')}",
+                    "score": 0.9
+                })
+        # Match dual control
+        dc = sm.get("dual_control", {})
+        if "dual control" in query_lower or "jarvis command" in query_lower:
+            cmds = dc.get("jarvis_commands", [])
+            matches.append({
+                "source": "11_shadow_mode.json",
+                "content": f"DUAL CONTROL: {dc.get('concept', '')} Commands: {', '.join(cmds[:5])}",
+                "score": 0.85
+            })
 
     # Sort matches by score descending
     matches.sort(key=lambda x: x["score"], reverse=True)
