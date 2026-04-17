@@ -98,6 +98,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
     </svg>
   ),
+  shieldCheck: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+    </svg>
+  ),
   collapse: (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -140,6 +145,8 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
     '/dashboard/analytics',
     '/dashboard/knowledge-base',
     '/dashboard/settings',
+    '/dashboard/settings/shadow-mode',
+    '/dashboard/shadow-log',
   ]);
 
   const navItems: NavItem[] = [
@@ -151,6 +158,7 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
     { label: 'Integrations', href: '/dashboard/integrations', icon: Icons.integrations },
     { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents },
     { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals, badgeKey: 'approvals' },
+    { label: 'Shadow Log', href: '/dashboard/shadow-log', icon: Icons.shieldCheck },
     { label: 'Analytics', href: '/dashboard/analytics', icon: Icons.analytics },
     { label: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: Icons.knowledgeBase },
     { label: 'Billing', href: '/dashboard/billing', icon: Icons.billing },

@@ -418,6 +418,69 @@ def undo_action(
     return result
 
 
+@router.get("/undo-history")
+def get_undo_history(
+    user: User = Depends(get_current_user),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """Get the undo history for the company.
+
+    Returns a list of actions that have been undone, including
+    the original action data, undo reason, and who performed the undo.
+    """
+    from sqlalchemy import desc
+    from database.base import SessionLocal
+    from database.models.approval import UndoLog, ExecutedAction
+
+    company_id = user.company_id
+    if not company_id:
+        raise AuthorizationError(message="User has no associated company")
+
+    with SessionLocal() as db:
+        undo_logs = (
+            db.query(UndoLog)
+            .filter(UndoLog.company_id == str(company_id))
+            .order_by(desc(UndoLog.created_at))
+            .limit(limit)
+            .all()
+        )
+
+        entries = []
+        for log in undo_logs:
+            # Get the associated executed action for action type
+            executed_action = (
+                db.query(ExecutedAction)
+                .filter(ExecutedAction.id == log.executed_action_id)
+                .first()
+            )
+
+            # Get the user who undid the action
+            undone_by_name = None
+            if log.undone_by:
+                undo_user = db.query(User).filter(User.id == log.undone_by).first()
+                if undo_user:
+                    undone_by_name = undo_user.name or undo_user.email
+
+            entries.append({
+                "id": log.id,
+                "company_id": log.company_id,
+                "executed_action_id": log.executed_action_id,
+                "undo_type": log.undo_type,
+                "original_data": log.original_data,
+                "undo_data": log.undo_data,
+                "undo_reason": log.undo_reason,
+                "undone_by": log.undone_by,
+                "undone_by_name": undone_by_name,
+                "action_type": executed_action.action_type if executed_action else None,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            })
+
+        return {
+            "entries": entries,
+            "total": len(entries),
+        }
+
+
 class JarvisCommandRequest(BaseModel):
     message: str = Field(..., description="The user's message containing a shadow mode command")
 
