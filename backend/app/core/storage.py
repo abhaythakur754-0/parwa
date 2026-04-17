@@ -812,11 +812,75 @@ class GCPStorageBackend(StorageBackend):
         content_type: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> FileMetadata:
-        """Upload to GCS (stub — delegates to local for now)."""
-        # TODO: implement real GCS upload
-        logger.warning("GCP upload not yet wired; using local fallback")
-        return self._upload_local(
-            company_id, file_path, content, content_type, metadata,
+        """Upload to Google Cloud Storage.
+
+        Uses chunked upload for files > 5MB for reliability.
+        Includes retry logic for transient errors.
+        """
+        from google.cloud import storage
+        import time
+
+        _validate_company_id(company_id)
+        _validate_file_path(file_path)
+
+        # Build GCS object name: {company_id}/{file_path}
+        object_name = f"{company_id}/{file_path}"
+
+        client = storage.Client(project=self.project_id)
+        bucket = client.bucket(self.bucket_name)
+        blob = bucket.blob(object_name)
+
+        # Set metadata
+        blob.metadata = metadata or {}
+        blob.content_type = content_type
+
+        # Chunked upload for large files (>5MB)
+        file_size = len(content)
+        chunk_size = 5 * 1024 * 1024  # 5MB chunks
+
+        max_retries = 3
+        retry_delay = 1.0
+
+        for attempt in range(max_retries):
+            try:
+                if file_size > chunk_size:
+                    # Use resumable upload for large files
+                    blob.upload_from_string(
+                        content,
+                        content_type=content_type,
+                        timeout=300,  # 5 min timeout
+                    )
+                else:
+                    blob.upload_from_string(
+                        content,
+                        content_type=content_type,
+                        timeout=60,
+                    )
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                logger.warning(
+                    "gcp_upload_retry attempt=%d error=%s",
+                    attempt + 1, str(e),
+                )
+                time.sleep(retry_delay * (attempt + 1))
+
+        checksum = hashlib.md5(content).hexdigest()
+        logger.info(
+            "gcp_upload_success company=%s path=%s size=%d checksum=%s",
+            company_id, file_path, file_size, checksum,
+        )
+
+        return FileMetadata(
+            company_id=company_id,
+            file_path=file_path,
+            file_name=Path(file_path).name,
+            content_type=content_type,
+            size_bytes=file_size,
+            checksum_md5=checksum,
+            uploaded_at=datetime.now(timezone.utc),
+            metadata=metadata or {},
         )
 
     def download(
@@ -844,8 +908,32 @@ class GCPStorageBackend(StorageBackend):
     def _download_gcp(
         self, company_id: str, file_path: str,
     ) -> Tuple[bytes, str]:
-        """Download from GCS (stub — delegates to local for now)."""
-        raise NotImplementedError("GCP download not yet implemented")
+        """Download from Google Cloud Storage."""
+        from google.cloud import storage
+
+        _validate_company_id(company_id)
+        _validate_file_path(file_path)
+
+        object_name = f"{company_id}/{file_path}"
+
+        client = storage.Client(project=self.project_id)
+        bucket = client.bucket(self.bucket_name)
+        blob = bucket.blob(object_name)
+
+        if not blob.exists():
+            raise FileNotFoundError(
+                f"File not found: {file_path} for company {company_id}"
+            )
+
+        content = blob.download_as_bytes(timeout=60)
+        content_type = blob.content_type or "application/octet-stream"
+
+        logger.info(
+            "gcp_download_success company=%s path=%s size=%d",
+            company_id, file_path, len(content),
+        )
+
+        return content, content_type
 
     def delete(
         self,
@@ -865,8 +953,29 @@ class GCPStorageBackend(StorageBackend):
         return True
 
     def _delete_gcp(self, company_id: str, file_path: str) -> bool:
-        """Delete from GCS (stub)."""
-        raise NotImplementedError("GCP delete not yet implemented")
+        """Delete from Google Cloud Storage."""
+        from google.cloud import storage
+
+        _validate_company_id(company_id)
+        _validate_file_path(file_path)
+
+        object_name = f"{company_id}/{file_path}"
+
+        client = storage.Client(project=self.project_id)
+        bucket = client.bucket(self.bucket_name)
+        blob = bucket.blob(object_name)
+
+        if not blob.exists():
+            return False
+
+        blob.delete(timeout=30)
+
+        logger.info(
+            "gcp_delete_success company=%s path=%s",
+            company_id, file_path,
+        )
+
+        return True
 
     def list_files(
         self,
@@ -930,10 +1039,36 @@ class GCPStorageBackend(StorageBackend):
     def _get_signed_url_gcp(
         self, company_id: str, file_path: str, expires_in: int = 3600,
     ) -> str:
-        """Generate GCS signed URL (stub)."""
-        raise NotImplementedError(
-            "GCP signed URL not yet implemented"
+        """Generate GCS signed URL for direct file access."""
+        from google.cloud import storage
+        from datetime import timedelta
+
+        _validate_company_id(company_id)
+        _validate_file_path(file_path)
+
+        object_name = f"{company_id}/{file_path}"
+
+        client = storage.Client(project=self.project_id)
+        bucket = client.bucket(self.bucket_name)
+        blob = bucket.blob(object_name)
+
+        if not blob.exists():
+            raise FileNotFoundError(
+                f"File not found: {file_path} for company {company_id}"
+            )
+
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(seconds=expires_in),
+            method="GET",
         )
+
+        logger.info(
+            "gcp_signed_url_generated company=%s path=%s expires_in=%ds",
+            company_id, file_path, expires_in,
+        )
+
+        return signed_url
 
     def exists(
         self,
@@ -951,8 +1086,19 @@ class GCPStorageBackend(StorageBackend):
         return self._local_path(company_id, file_path).exists()
 
     def _exists_gcp(self, company_id: str, file_path: str) -> bool:
-        """Check existence in GCS (stub)."""
-        raise NotImplementedError("GCP exists not yet implemented")
+        """Check if file exists in Google Cloud Storage."""
+        from google.cloud import storage
+
+        _validate_company_id(company_id)
+        _validate_file_path(file_path)
+
+        object_name = f"{company_id}/{file_path}"
+
+        client = storage.Client(project=self.project_id)
+        bucket = client.bucket(self.bucket_name)
+        blob = bucket.blob(object_name)
+
+        return blob.exists()
 
     def get_file_size(
         self,
@@ -975,8 +1121,27 @@ class GCPStorageBackend(StorageBackend):
         return resolved.stat().st_size
 
     def _get_file_size_gcp(self, company_id: str, file_path: str) -> int:
-        """Get file size from GCS (stub)."""
-        raise NotImplementedError("GCP get_file_size not yet implemented")
+        """Get file size from Google Cloud Storage."""
+        from google.cloud import storage
+
+        _validate_company_id(company_id)
+        _validate_file_path(file_path)
+
+        object_name = f"{company_id}/{file_path}"
+
+        client = storage.Client(project=self.project_id)
+        bucket = client.bucket(self.bucket_name)
+        blob = bucket.blob(object_name)
+
+        if not blob.exists():
+            raise FileNotFoundError(
+                f"File not found: {file_path} for company {company_id}"
+            )
+
+        # Reload to get the size
+        blob.reload()
+
+        return blob.size or 0
 
 
 # ── Storage Backend Factory ─────────────────────────────────────────

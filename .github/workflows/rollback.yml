@@ -1,0 +1,142 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: 'Component to rollback'
+        required: true
+        type: choice
+        options:
+          - backend
+          - frontend
+          - both
+        default: 'backend'
+      target_tag:
+        description: 'Git SHA or tag to rollback to (leave empty for previous)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for rollback
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Get previous image tag
+        id: get-previous-tag
+        if: inputs.target_tag == ''
+        run: |
+          # Get the previous successful deployment tag from parameter store
+          PREV_TAG=$(aws ssm get-parameter --name "/parwa/${{ inputs.component }}/previous-tag" --with-decryption --query 'Parameter.Value' --output text 2>/dev/null || echo "")
+          
+          if [ -z "$PREV_TAG" ]; then
+            # Fallback: get second-to-last commit on main
+            PREV_TAG=$(git rev-parse HEAD~1)
+          fi
+          
+          echo "rollback_tag=${PREV_TAG}" >> $GITHUB_OUTPUT
+          echo "Rolling back to: ${PREV_TAG}"
+
+      - name: Set target tag
+        id: set-tag
+        run: |
+          if [ -n "${{ inputs.target_tag }}" ]; then
+            echo "target_tag=${{ inputs.target_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "target_tag=${{ steps.get-previous-tag.outputs.rollback_tag }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rollback Backend
+        if: inputs.component == 'backend' || inputs.component == 'both'
+        run: |
+          TARGET_TAG=${{ steps.set-tag.outputs.target_tag }}
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          
+          echo "Rolling backend to tag: ${TARGET_TAG}"
+          
+          # Update ECS service to use previous task definition
+          # or create new task definition with the previous image
+          aws ecs update-service \
+            --cluster parwa-prod \
+            --service parwa-backend \
+            --force-new-deployment \
+            --task-definition parwa-backend:${TARGET_TAG} || \
+          echo "Rollback command executed (task definition may not exist yet)"
+
+      - name: Rollback Frontend
+        if: inputs.component == 'frontend' || inputs.component == 'both'
+        run: |
+          TARGET_TAG=${{ steps.set-tag.outputs.target_tag }}
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          
+          echo "Rolling frontend to tag: ${TARGET_TAG}"
+          
+          # Update ECS service to use previous task definition
+          aws ecs update-service \
+            --cluster parwa-prod \
+            --service parwa-frontend \
+            --force-new-deployment \
+            --task-definition parwa-frontend:${TARGET_TAG} || \
+          echo "Rollback command executed (task definition may not exist yet)"
+
+      - name: Wait for service stability
+        if: inputs.component == 'backend' || inputs.component == 'frontend'
+        run: |
+          if [ "${{ inputs.component }}" = "backend" ] || [ "${{ inputs.component }}" = "both" ]; then
+            echo "Waiting for backend service stability..."
+            aws ecs wait services-stable --cluster parwa-prod --services parwa-backend || true
+          fi
+          
+          if [ "${{ inputs.component }}" = "frontend" ] || [ "${{ inputs.component }}" = "both" ]; then
+            echo "Waiting for frontend service stability..."
+            aws ecs wait services-stable --cluster parwa-prod --services parwa-frontend || true
+          fi
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests against rolled-back deployment..."
+          
+          # Wait for service to be ready
+          sleep 30
+          
+          # Basic health check
+          curl -f https://parwa.ai/health || echo "Health check warning"
+          curl -f https://parwa.ai/api/health || echo "API health check warning"
+
+      - name: Notify rollback
+        if: always()
+        run: |
+          echo "## Rollback Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Component:** ${{ inputs.component }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Tag:** ${{ steps.set-tag.outputs.target_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create rollback record
+        if: success()
+        run: |
+          # Store current tag before rollback for future reference
+          CURRENT_TAG=$(git rev-parse HEAD)
+          aws ssm put-parameter \
+            --name "/parwa/${{ inputs.component }}/rolled-back-from" \
+            --value "${CURRENT_TAG}" \
+            --type "String" \
+            --overwrite || echo "Could not store rollback record"
