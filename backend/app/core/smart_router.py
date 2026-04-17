@@ -923,6 +923,141 @@ class SmartRouter:
         """Return all provider health status."""
         return self._health.get_all_status()
 
+    # ── Guardrails Integration (Day 2 - Safety & Compliance) ───────────────
+
+    def execute_llm_call_with_guardrails(
+        self,
+        company_id: str,
+        routing_decision: RoutingDecision,
+        messages: list,
+        original_query: str = "",
+        variant_type: str = "parwa",
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        enable_guardrails: bool = True,
+    ) -> dict:
+        """Execute LLM call with automatic guardrails check.
+
+        This is the recommended entry point for production LLM calls.
+        Applies guardrails to every response before returning.
+
+        BC-007: All AI through Smart Router.
+        BC-009: Blocked responses handled via BlockedResponseManager.
+        BC-001: company_id is always second parameter.
+
+        Args:
+            company_id: Tenant identifier.
+            routing_decision: Routing decision from route() method.
+            messages: Chat messages for the LLM.
+            original_query: The customer's original query (for guardrails).
+            variant_type: PARWA variant type for strictness level.
+            temperature: LLM temperature.
+            max_tokens: Maximum tokens to generate.
+            enable_guardrails: Set False to skip guardrails (for internal steps).
+
+        Returns:
+            Dict with LLM response and guardrails metadata:
+            - content: The response (or safe fallback if blocked)
+            - guardrails_action: "allow" | "block" | "flag_for_review"
+            - guardrails_report: Full guardrails report (if applicable)
+            - blocked_reasons: List of reasons if blocked
+        """
+        # Execute the base LLM call
+        result = self.execute_llm_call(
+            company_id=company_id,
+            routing_decision=routing_decision,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        # Skip guardrails for internal steps or if disabled
+        if not enable_guardrails:
+            result["guardrails_skipped"] = True
+            return result
+
+        # Skip guardrails for empty responses
+        if not result.get("content"):
+            result["guardrails_action"] = "skipped_empty"
+            return result
+
+        # Apply guardrails
+        try:
+            from app.core.guardrails_integration import apply_guardrails_to_llm_result
+
+            guarded_result = apply_guardrails_to_llm_result(
+                llm_result=result,
+                original_query=original_query,
+                company_id=company_id,
+                variant_type=variant_type,
+            )
+            return guarded_result
+
+        except Exception as e:
+            # BC-008: Guardrails failure should not block the response
+            logger.exception(
+                "Guardrails integration failed for company_id=%s, returning original: %s",
+                company_id, str(e),
+            )
+            result["guardrails_error"] = str(e)
+            result["guardrails_action"] = "allow"  # Fail open
+            return result
+
+    async def async_execute_llm_call_with_guardrails(
+        self,
+        company_id: str,
+        routing_decision: RoutingDecision,
+        messages: list,
+        original_query: str = "",
+        variant_type: str = "parwa",
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        enable_guardrails: bool = True,
+    ) -> dict:
+        """Async version of execute_llm_call_with_guardrails.
+
+        Same behavior as sync version but for async contexts.
+        """
+        # Execute the base LLM call
+        result = await self.async_execute_llm_call(
+            company_id=company_id,
+            routing_decision=routing_decision,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        # Skip guardrails for internal steps or if disabled
+        if not enable_guardrails:
+            result["guardrails_skipped"] = True
+            return result
+
+        # Skip guardrails for empty responses
+        if not result.get("content"):
+            result["guardrails_action"] = "skipped_empty"
+            return result
+
+        # Apply guardrails (sync, as guardrails engine is not async)
+        try:
+            from app.core.guardrails_integration import apply_guardrails_to_llm_result
+
+            guarded_result = apply_guardrails_to_llm_result(
+                llm_result=result,
+                original_query=original_query,
+                company_id=company_id,
+                variant_type=variant_type,
+            )
+            return guarded_result
+
+        except Exception as e:
+            logger.exception(
+                "Guardrails integration failed for company_id=%s: %s",
+                company_id, str(e),
+            )
+            result["guardrails_error"] = str(e)
+            result["guardrails_action"] = "allow"
+            return result
+
     # ── Internal Routing Logic ──────────────────────────────────
 
     def _route_safe(

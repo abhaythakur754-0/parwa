@@ -243,11 +243,11 @@ class TestPIIDetectorAllTypes:
         assert len(matches) >= 1
         assert matches[0].pii_type == PII_IBAN
 
-    def test_detect_mrn(self, detector):
-        from app.core.pii_redaction_engine import PII_MEDICAL_RECORD_NUMBER
-        matches = detector._detect_medical_record_number("MRN-12345A")
+    def test_detect_record_number(self, detector):
+        from app.core.pii_redaction_engine import PII_RECORD_NUMBER
+        matches = detector._detect_record_number("MRN-12345A")
         assert len(matches) == 1
-        assert matches[0].pii_type == PII_MEDICAL_RECORD_NUMBER
+        assert matches[0].pii_type == PII_RECORD_NUMBER
 
 
 # ── Token Generation Tests ─────────────────────────────────────
