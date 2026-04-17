@@ -86,4 +86,6 @@ from database.models.provisioning import PendingAgent  # noqa: F401 — F-099
 from database.models.shadow_mode import (  # noqa: F401 — Shadow Mode: Dual Control System
     ShadowLog,
     ShadowPreference,
+    EmailShadowQueue,
+    SmsShadowQueue,
 )

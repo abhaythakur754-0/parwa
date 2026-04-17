@@ -84,6 +84,7 @@ from app.api.customers import router as customers_router  # Day 5: Customer CRM 
 from app.api.identity import router as identity_router  # Day 5: Identity resolution endpoints
 from app.api.shadow import router as shadow_router  # Shadow Mode: Dual Control System
 from app.api.approvals import router as approvals_router  # Shadow Mode: Approvals bridge
+from app.api.twilio_channels import router as twilio_channels_router  # Day 7: Twilio SMS/Voice webhooks
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
@@ -337,6 +338,7 @@ app.include_router(customers_router)  # Day 5: Customer CRM (C1-C10)
 app.include_router(identity_router)  # Day 5: Identity resolution
 app.include_router(shadow_router)  # Shadow Mode: Dual Control System
 app.include_router(approvals_router)  # Shadow Mode: Approvals bridge
+app.include_router(twilio_channels_router)  # Day 7: Twilio SMS/Voice webhooks
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
