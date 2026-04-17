@@ -345,3 +345,85 @@ Stage Summary:
 - Day 7: Onboarding Stage 0 Enforcer
 - Day 8: Testing, Polish & Documentation
 - Covers ALL integration points discussed with user
+
+---
+Task ID: 1-shadow-d5
+Agent: main
+Task: Shadow Mode Day 5 — Undo, Log & Settings (Gap Analysis + Tests)
+
+Work Log:
+- Read Day 5 Gap Analysis document (SHADOW_MODE_DAY5_GAP_ANALYSIS.md)
+- Verified all frontend components exist and are complete:
+  - UndoQueue.tsx (450 lines): countdown timer, undo modal, Socket.io integration
+  - UndoHistory.tsx (380 lines): expandable rows, export CSV, undo history display
+  - Shadow Log Page (805 lines): stats strip, mode distribution, filters, pagination, approve/reject
+  - Settings Page (657 lines): global mode selector, preferences table, undo window, risk thresholds, What-If Simulator
+  - WhatIfSimulator.tsx (443 lines): action type selection, dynamic fields, 4-layer explanation
+- Verified backend API endpoints exist:
+  - /api/shadow/undo-history (GET) - returns undo history with action type and user info
+  - All shadow mode endpoints in shadow.py (17 endpoints total)
+- Verified shadow-api.ts has all required client methods
+- Verified navigation: Shadow Log in DashboardSidebar (line 161)
+- Created comprehensive test files:
+  - frontend/__tests__/components/shadow-mode/day5-shadow-mode.test.tsx (~450 lines)
+    - B5.1 UndoQueue tests: empty state, countdown, undo modal, API calls, Socket events
+    - B5.2 UndoHistory tests: display entries, expand row, export CSV, relative time
+    - B5.3 Shadow Log Page tests: stats, mode distribution, filters, approve/reject, expand rows
+    - B5.4 Settings Page tests: mode selector, preferences CRUD, undo window, risk thresholds
+  - backend/tests/test_shadow_mode_day5.py (~380 lines)
+    - Undo History endpoint tests
+    - Settings mode change tests
+    - Preferences CRUD tests
+    - What-If Simulator tests
+    - Socket event emission tests
+    - Integration tests
+- Updated Gap Analysis document with test status
+
+Stage Summary:
+- Day 5 components: 100% complete (all existed)
+- Day 5 tests: 100% complete (newly created)
+- 2 test files created: frontend (~450 lines) + backend (~380 lines)
+- Gap Analysis updated to reflect test completion
+- All 4 deliverables verified: UndoQueue, UndoHistory, ShadowLog, Settings
+
+---
+Task ID: 1-shadow-d7
+Agent: main
+Task: Shadow Mode Day 7 — Onboarding Stage 0 Enforcer
+
+Work Log:
+- Created Day 7 Gap Analysis document (SHADOW_MODE_DAY7_GAP_ANALYSIS.md)
+- Verified backend Stage 0 enforcement already implemented:
+  - shadow_actions_remaining field on Company model (core.py)
+  - Stage 0 check in evaluate_action_risk() (shadow_mode_service.py lines 277-293)
+  - Decrement logic on approval (shadow_mode_service.py lines 668-677)
+  - Migration 027_shadow_mode_config includes the field
+- Verified Safety Floor indicators already implemented:
+  - ApprovalDetailModal.tsx (Layer 4: Safety Floor display)
+  - ShadowModeSettings.tsx (Hard Safety Floor section)
+  - WhatIfSimulator.tsx (Layer 4 explanation)
+- Created ShadowModeStep.tsx (~310 lines):
+  - Animated explanation of Shadow Mode (CSS animations, no framer-motion)
+  - Progress bar with shadow_actions_remaining
+  - Sample actions preview (Email, SMS, Refund)
+  - Benefits grid (Full Control, Transparency, Trust Building)
+  - Real-time WebSocket updates
+  - Skip option and continue button
+- Created ShadowGraduationModal.tsx (~260 lines):
+  - Confetti celebration animation (CSS-based)
+  - Mode transition explanation
+  - "What changed?" section with benefits
+  - Option to stay in Shadow Mode longer
+  - Continue button
+- Updated onboarding/index.ts with new exports
+- Integrated ShadowModeStep into OnboardingWizard.tsx:
+  - Added as Step 6 after AIConfig
+  - Modified step flow: Step 5 → Step 6 → FirstVictory
+
+Stage Summary:
+- Day 7 status: 100% complete
+- Backend: Stage 0 enforcement already implemented
+- Frontend: 2 new components created (ShadowModeStep, ShadowGraduationModal)
+- 4 files created/modified
+- Zero TypeScript errors in new components
+- Onboarding now includes Shadow Mode explanation step

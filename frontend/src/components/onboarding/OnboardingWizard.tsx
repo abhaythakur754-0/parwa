@@ -9,6 +9,7 @@ import { IntegrationSetup } from './IntegrationSetup';
 import { KnowledgeUpload } from './KnowledgeUpload';
 import { AIConfig } from './AIConfig';
 import { FirstVictory } from './FirstVictory';
+import { ShadowModeStep } from './ShadowModeStep';
 import { Loader2 } from 'lucide-react';
 import type { OnboardingState, AITone, AIResponseStyle } from '@/types/onboarding';
 
@@ -95,8 +96,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
           );
         } catch { /* localStorage unavailable (e.g., incognito) — ignore */ }
 
-        // After step 5, show FirstVictory directly (don't advance to step 6)
-        if (step >= 5) {
+        // After step 6 (ShadowModeStep), show FirstVictory
+        if (step >= 6) {
           setOnboardingState((prev) => prev ? { ...prev, status: 'completed' as const } : prev);
           return;
         }
@@ -229,6 +230,14 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
                 ai_response_style: onboardingState?.ai_response_style || 'concise',
                 ai_greeting: onboardingState?.ai_greeting || undefined,
               }}
+            />
+          )}
+
+          {/* Day 7: Shadow Mode Step - shown after AI activation */}
+          {currentStep === 6 && (
+            <ShadowModeStep
+              onComplete={() => completeStep(6)}
+              canSkip={true}
             />
           )}
         </div>

@@ -18,3 +18,5 @@ export { UploadProgress } from './UploadProgress';
 export { AIConfig } from './AIConfig';
 export { ActivationButton } from './ActivationButton';
 export { FirstVictory } from './FirstVictory';
+export { ShadowModeStep } from './ShadowModeStep';
+export { ShadowGraduationModal } from './ShadowGraduationModal';

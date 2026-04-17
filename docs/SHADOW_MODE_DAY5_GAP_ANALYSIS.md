@@ -1,6 +1,7 @@
 # Shadow Mode Day 5 Gap Analysis — Undo, Log & Settings
 
 > **Analysis Date:** April 17, 2026
+> **Updated:** April 17, 2026 (Tests Added)
 > **Part:** Part 11 (Shadow Mode) - Day 5
 > **Focus:** Undo Interface, Shadow Log Audit Trail, and Settings Panel
 
@@ -147,12 +148,19 @@ Day 5 of Shadow Mode implementation focuses on building the Undo Interface, Shad
 
 | Test | Status | Notes |
 |------|--------|-------|
-| UndoQueue renders empty state | ⏳ Pending | Component created |
-| UndoQueue shows countdown | ⏳ Pending | Timer logic implemented |
-| UndoQueue handles undo action | ⏳ Pending | Modal + API call |
-| UndoHistory loads data | ⏳ Pending | API endpoint created |
-| Settings page mode change | ⏳ Pending | API integration |
-| Settings preferences CRUD | ⏳ Pending | Full CRUD implemented |
+| UndoQueue renders empty state | ✅ Complete | Test file created |
+| UndoQueue shows countdown | ✅ Complete | Timer logic tested |
+| UndoQueue handles undo action | ✅ Complete | Modal + API call tested |
+| UndoHistory loads data | ✅ Complete | API endpoint tested |
+| Settings page mode change | ✅ Complete | API integration tested |
+| Settings preferences CRUD | ✅ Complete | Full CRUD tested |
+| Backend undo-history endpoint | ✅ Complete | Endpoint tested |
+| Socket event emission | ✅ Complete | Event emission tested |
+
+### Test Files Created
+
+1. `frontend/__tests__/components/shadow-mode/day5-shadow-mode.test.tsx` — Frontend unit tests
+2. `backend/tests/test_shadow_mode_day5.py` — Backend API tests
 
 ---
 
@@ -175,6 +183,8 @@ Day 5 of Shadow Mode implementation focuses on building the Undo Interface, Shad
 - [x] What-if simulator (already existed)
 - [x] Undo-history API endpoint
 - [x] Navigation updates
+- [x] Frontend tests (day5-shadow-mode.test.tsx)
+- [x] Backend tests (test_shadow_mode_day5.py)
 
 ---
 
