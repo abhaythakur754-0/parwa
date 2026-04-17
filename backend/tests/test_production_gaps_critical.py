@@ -15,6 +15,7 @@ Run: pytest backend/tests/test_production_gaps_critical.py -v
 import asyncio
 import hashlib
 import json
+import re
 import threading
 import time
 import uuid
@@ -186,7 +187,6 @@ class TestGuardrailChunkingBypass:
         combined = chunk1 + chunk2 + chunk3
         
         # Pattern for SSN
-        import re
         ssn_pattern = re.compile(r'\d{3}[-\s]\d{2}[-\s]\d{4}')
         
         # Individual chunks don't contain full SSN
