@@ -912,3 +912,139 @@ def process_max_pause_exceeded(self):
         logger.error("max_pause_exceeded_failed", extra={"task": self.name, "error": str(exc)[:200]})
         raise
 
+
+# ═══════════════════════════════════════════════════════════════════════
+# Day 3.2: Redis-PostgreSQL Usage Sync (BG-13)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="billing.sync_redis_usage_to_postgres",
+    max_retries=3,
+    soft_time_limit=300,
+    time_limit=600,
+)
+@with_company_id
+def sync_redis_usage_to_postgres(self, company_id: str) -> dict:
+    """
+    BG-13: Sync Redis usage counter to PostgreSQL.
+
+    Runs periodically to ensure persistence and reconciliation.
+
+    Args:
+        company_id: Company UUID string
+
+    Returns:
+        Dict with sync status
+    """
+    import asyncio
+    try:
+        from app.services.usage_tracking_service import get_usage_tracking_service
+
+        service = get_usage_tracking_service()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(
+                service.sync_redis_to_postgres(company_id=company_id)
+            )
+        finally:
+            loop.close()
+
+        logger.info(
+            "redis_usage_sync_completed",
+            extra={
+                "task": self.name,
+                "company_id": company_id,
+                "status": result.get("status"),
+                "redis_count": result.get("redis_count"),
+                "postgres_count": result.get("postgres_count"),
+            },
+        )
+
+        return result
+
+    except Exception as exc:
+        logger.error(
+            "redis_usage_sync_failed",
+            extra={
+                "task": self.name,
+                "company_id": company_id,
+                "error": str(exc)[:200],
+            },
+        )
+        raise
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="default",
+    name="billing.sync_all_redis_usage",
+    max_retries=2,
+    soft_time_limit=600,
+    time_limit=900,
+)
+def sync_all_redis_usage(self) -> dict:
+    """
+    BG-13: Sync Redis usage for all active companies.
+
+    Called by Celery Beat daily (after midnight) to reconcile
+    all Redis counters with PostgreSQL.
+    """
+    try:
+        results = {
+            "total_companies": 0,
+            "synced": 0,
+            "failed": 0,
+            "errors": [],
+        }
+
+        with SessionLocal() as db:
+            # Get all active companies
+            active_companies = db.query(Company).join(
+                Subscription,
+                Company.id == Subscription.company_id,
+            ).filter(
+                Subscription.status == "active",
+            ).all()
+
+            results["total_companies"] = len(active_companies)
+
+            for company in active_companies:
+                try:
+                    sync_redis_usage_to_postgres.delay(company_id=str(company.id))
+                    results["synced"] += 1
+                except Exception as e:
+                    results["failed"] += 1
+                    results["errors"].append({
+                        "company_id": str(company.id),
+                        "error": str(e)[:100],
+                    })
+
+        logger.info(
+            "sync_all_redis_usage_completed",
+            extra={
+                "task": self.name,
+                "total": results["total_companies"],
+                "synced": results["synced"],
+                "failed": results["failed"],
+            },
+        )
+
+        return results
+
+    except Exception as exc:
+        logger.error(
+            "sync_all_redis_usage_failed",
+            extra={
+                "task": self.name,
+                "error": str(exc)[:200],
+            },
+        )
+        raise
+

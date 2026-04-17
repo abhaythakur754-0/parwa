@@ -1,0 +1,48 @@
+{
+  "found_count": "6",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Confidence score race condition",
+      "breaks": "Simultaneous updates to confidence scores create inconsistent state",
+      "scenario": "Two agents process the same ticket concurrently, one updates relevance score to 0.8, the other updates completeness to 0.9, but the final stored score becomes corrupted or only one value persists",
+      "prompt": "Write a test that simulates concurrent updates to confidence scores for the same ticket. Create two worker processes that simultaneously update different dimensions (relevance and completeness) of the same ticket's confidence score. Verify the final stored score contains both updated values and no data corruption."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Guardrail bypass via content chunking",
+      "breaks": "Large content bypasses PII detection when split into chunks",
+      "scenario": "User uploads a document with PII information, but when it's processed in chunks, each chunk individually passes PII detection, allowing sensitive data to slip through the guardrails",
+      "prompt": "Write a test that creates a document containing PII information (SSN, email, phone) and tests the guardrail pipeline with various chunk sizes. Verify that PII detection fails when the PII is split across chunks but the content is semantically connected."
+    },
+    {
+      "severity": "HIGH",
+      "title": "False negative in hallucination detection",
+      "breaks": "Fabricated information passes as accurate",
+      "scenario": "Agent generates a response that includes completely fabricated product specifications, but the hallucination detection fails because it uses similar language patterns to accurate information",
+      "prompt": "Write a test that creates a response with deliberately fabricated information mixed with accurate facts. Test the hallucination detection guardrail with various types of false information (product specs, dates, statistics) and measure false negative rates."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Tenant isolation in guardrail results",
+      "breaks": "Guardrail configuration from one tenant affects another",
+      "scenario": "Tenant A has strict content policies, Tenant B has lenient ones, but when processing requests, the wrong tenant's policy configuration is applied, causing false positives/negatives",
+      "prompt": "Write a test that creates two tenants with different guardrail policy configurations. Process identical content through both tenants' guardrail pipelines and verify that the results differ according to each tenant's specific configuration, with no cross-contamination."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Confidence threshold cascade failure",
+      "breaks": "Low confidence score triggers blocking but doesn't provide fallback",
+      "scenario": "Agent generates a response with low confidence score (0.6), triggering the confidence-based blocking guardrail, but no alternative response is provided, leaving the customer without any answer",
+      "prompt": "Write a test that simulates various confidence scores (0.3, 0.5, 0.7, 0.9) and verifies the system behavior when each threshold is crossed. Ensure that when blocking occurs, appropriate fallback responses are provided and logged."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Guardrail pipeline silent failure",
+      "breaks": "One guardrail failure stops processing without alerting",
+      "scenario": "The PII detection guardrail fails unexpectedly, causing the entire guardrail pipeline to halt silently, allowing all subsequent content to bypass all other guardrails",
+      "prompt": "Write a test that simulates a failure in one guardrail component (PII detection) and verifies that the pipeline either continues with remaining guardrails or fails gracefully with proper alerting, rather than silently allowing content to pass through unchecked."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 6\n\nGAP 1\nSeverity: CRITICAL\nTitle: Confidence score race condition\nWhat breaks: Simultaneous updates to confidence scores create inconsistent state\nReal scenario: Two agents process the same ticket concurrently, one updates relevance score to 0.8, the other updates completeness to 0.9, but the final stored score becomes corrupted or only one value persists\nAI agent prompt: Write a test that simulates concurrent updates to confidence scores for the same ticket. Create two worker processes that simultaneously update different dimensions (relevance and completeness) of the same ticket's confidence score. Verify the final stored score contains both updated values and no data corruption.\n\nGAP 2\nSeverity: CRITICAL\nTitle: Guardrail bypass via content chunking\nWhat breaks: Large content bypasses PII detection when split into chunks\nReal scenario: User uploads a document with PII information, but when it's processed in chunks, each chunk individually passes PII detection, allowing sensitive data to slip through the guardrails\nAI agent prompt: Write a test that creates a document containing PII information (SSN, email, phone) and tests the guardrail pipeline with various chunk sizes. Verify that PII detection fails when the PII is split across chunks but the content is semantically connected.\n\nGAP 3\nSeverity: HIGH\nTitle: False negative in hallucination detection\nWhat breaks: Fabricated information passes as accurate\nReal scenario: Agent generates a response that includes completely fabricated product specifications, but the hallucination detection fails because it uses similar language patterns to accurate information\nAI agent prompt: Write a test that creates a response with deliberately fabricated information mixed with accurate facts. Test the hallucination detection guardrail with various types of false information (product specs, dates, statistics) and measure false negative rates.\n\nGAP 4\nSeverity: HIGH\nTitle: Tenant isolation in guardrail results\nWhat breaks: Guardrail configuration from one tenant affects another\nReal scenario: Tenant A has strict content policies, Tenant B has lenient ones, but when processing requests, the wrong tenant's policy configuration is applied, causing false positives/negatives\nAI agent prompt: Write a test that creates two tenants with different guardrail policy configurations. Process identical content through both tenants' guardrail pipelines and verify that the results differ according to each tenant's specific configuration, with no cross-contamination.\n\nGAP 5\nSeverity: MEDIUM\nTitle: Confidence threshold cascade failure\nWhat breaks: Low confidence score triggers blocking but doesn't provide fallback\nReal scenario: Agent generates a response with low confidence score (0.6), triggering the confidence-based blocking guardrail, but no alternative response is provided, leaving the customer without any answer\nAI agent prompt: Write a test that simulates various confidence scores (0.3, 0.5, 0.7, 0.9) and verifies the system behavior when each threshold is crossed. Ensure that when blocking occurs, appropriate fallback responses are provided and logged.\n\nGAP 6\nSeverity: MEDIUM\nTitle: Guardrail pipeline silent failure\nWhat breaks: One guardrail failure stops processing without alerting\nReal scenario: The PII detection guardrail fails unexpectedly, causing the entire guardrail pipeline to halt silently, allowing all subsequent content to bypass all other guardrails\nAI agent prompt: Write a test that simulates a failure in one guardrail component (PII detection) and verifies that the pipeline either continues with remaining guardrails or fails gracefully with proper alerting, rather than silently allowing content to pass through unchecked."
+}

@@ -1,6 +1,6 @@
 # PROJECT_STATE.md — Live Project State Memory
 
-> **Last Updated:** April 16, 2026
+> **Last Updated:** April 17, 2026
 > **Approach:** Part-by-part production readiness. One part at a time, no stubs allowed.
 
 ## Project Overview
@@ -10,19 +10,33 @@
 - **Industries:** E-commerce, SaaS, Logistics (NO healthcare — removed April 2026)
 - **Deployment:** Docker (docker-compose for dev, docker-compose.prod.yml for production)
 - **Current Phase:** Production Readiness — 18-part systematic plan
-- **Currently Building:** Part 18 (Safety — 5-day plan, 63 items) + Part 12 (Dashboard — 8-day plan, 155 items) + Part 15 (Billing — 6-day plan, 105 items, 43 issues found)
+- **Currently Building:** Infrastructure (Day 1-3 COMPLETE) → Day 4 next
+- **Latest Completion:** Day 3 - Billing Architecture (5 critical bugs fixed)
 
 ## Current Status
 
 Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were actually stubs or partial implementations. The Production Readiness Report revealed the real state. We are now following an 18-part systematic plan — completing each part fully before moving to the next.
 
+## Infrastructure Roadmap Progress (8 Days)
+
+| Day | Focus | Status |
+|-----|-------|--------|
+| Day 1 | Security Hardening | ✅ COMPLETE |
+| Day 2 | Safety & Compliance | ✅ COMPLETE |
+| Day 3 | Billing Architecture | ✅ COMPLETE |
+| Day 4 | Billing Infrastructure | ⏳ Next |
+| Day 5 | Monitoring & Health | 🔜 Pending |
+| Day 6 | RAG & AI Pipeline | 🔜 Pending |
+| Day 7 | Shadow Mode & Channels | 🔜 Pending |
+| Day 8 | CI/CD & Storage | 🔜 Pending |
+
 ## 18-Part Status
 
 | # | Part | Completeness | Priority |
 |---|------|-------------|----------|
-| 1 | Infrastructure & Foundation | ~55% | P0 |
+| 1 | Infrastructure & Foundation | ~70% | P0 |
 | 2 | Onboarding System | ~60% | P0 |
-| 3 | Three Variants & Billing | ~50% | P0 |
+| 3 | Three Variants & Billing | ~65% | P0 |
 | 4 | Industry-Specific Variants | ~15% | P1 |
 | 5 | Variant Orchestration | ~40% | P1 |
 | 6 | Agent Lightning (Training) | ~20% | P1 |
@@ -30,14 +44,50 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 | 8 | Context Awareness / Memory | ~35% | P1 |
 | 9 | AI Technique Engine | ~70% | P1 |
 | 10 | Jarvis Control System | ~40% | P1 |
-| 11 | Shadow Mode | ~0% | P2 |
+| 11 | Shadow Mode | ~10% | P2 |
 | 12 | Dashboard System | ~30% | P1 |
 | 13 | Ticket Management | ~65% | P1 |
 | 14 | Communication Channels | ~30% | P2 |
-| 15 | Billing & Revenue | ~50% | P0 |
+| 15 | Billing & Revenue | ~65% | P0 |
 | 16 | Training & Analytics | ~25% | P2 |
 | 17 | Integrations | ~35% | P2 |
-| 18 | Safety & Compliance | ~40% | P0 |
+| 18 | Safety & Compliance | ~50% | P0 |
+
+## Day 3 Completions (April 17, 2026)
+
+### 3.1 Downgrade Execution ✅
+- `_apply_pending_downgrade()` with resource cleanup
+- Agents paused, team members downgraded, KB docs archived, voice disabled
+- Celery Beat scheduled at midnight UTC
+
+### 3.2 Usage Metering System ✅
+- `increment_ticket_usage_redis()` - Atomic INCR for real-time tracking
+- `get_realtime_usage()` - Fast Redis lookup
+- `check_and_block_on_overage()` - Blocking logic
+- `sync_redis_to_postgres()` - Periodic reconciliation
+- Celery Beat daily sync at 1 AM UTC
+
+### 3.3 Variant-Entitlement Service ✅
+- NEW: `backend/app/services/entitlement_service.py`
+- `can_access()` method for 6 dimensions:
+  1. Tickets (monthly limit)
+  2. Agents (AI agent count)
+  3. Team Members (user accounts)
+  4. Voice Channels (concurrent slots)
+  5. KB Docs (knowledge base documents)
+  6. AI Techniques (premium features)
+- `enforce_limit()` raises exception on exceeded
+- Upgrade suggestions with pricing
+
+### 3.4 Calendar vs Billing Period Alignment ✅
+- `_sync_billing_cycle_dates()` in Paddle webhook handler
+- Syncs Paddle's `next_billed_at` to local subscription
+- Period start calculated as `next_billing - 30 days`
+
+### 3.5 Payment Failure Immediate Stop ✅
+- `_trigger_payment_failure_stop()` in webhook handler
+- Netflix-style: No grace period, immediate stop
+- Company suspended within 60 seconds of payment failure
 
 ## Key Architecture Decisions
 
@@ -50,6 +100,7 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 7. **AI Pipeline:** Signal Extraction then Classification then RAG then Technique Selection then Response Generation then CLARA Quality Gate
 8. **GSD Engine:** 6-state machine (NEW then GREETING then DIAGNOSIS then RESOLUTION then FOLLOW-UP then CLOSED)
 9. **14 AI Techniques:** Tier 1 (CLARA, CRP, GSD), Tier 2 (CoT, ReAct, ThoT, Reverse, Step-Back), Tier 3 (GST, UoT, ToT, Self-Consistency, Reflexion, Least-to-Most)
+10. **Usage Tracking:** Redis atomic INCR + PostgreSQL persistence + daily sync
 
 ## Critical Findings (Technology Verification Report)
 
@@ -74,7 +125,7 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 
 ## Critical Findings (Billing Audit — April 16)
 
-- 5 critical architectural bugs: downgrades never execute, usage not metered, variants disconnected from billing, entitlement enforcement broken (only tickets), calendar month vs billing period mismatch
+- ~~5 critical architectural bugs: downgrades never execute, usage not metered, variants disconnected from billing, entitlement enforcement broken (only tickets), calendar month vs billing period mismatch~~ → **FIXED Day 3**
 - 8 code bugs: email says 48hr but code stops immediately, create_transaction() missing on PaddleClient, double-counting in overage, AI agents not stopped on payment failure, ticket status lost on resume, fake variant price IDs, wrong plan names in ReAct tool, HMAC inconsistency
 - 33 missing features: no yearly billing, no 30-day periods, no variant add-on management, no resource cleanup on downgrade, no refund system, no chargeback handling, no spending cap, no data export, no retention policy, no trial, no pause, no promo codes, no corporate invoicing, and 21 more
 - 10 additional bugs in Celery tasks, reconciliation, and webhook handling
@@ -93,7 +144,6 @@ Parallel streams with no dependencies:
 
 ## Next Steps
 
-- Execute Part 18 Day 1 — PII & Prompt Injection fixes
-- OR execute Part 12 Day 1 — Dashboard foundation (header, sidebar, Socket.io)
-- OR execute Part 15 Day 1 — Critical billing fixes (usage metering, enforcement, bugs)
+- **Day 4:** Billing Infrastructure (25+ webhook handlers, idempotency, 10 billing services, 8 DB tables)
+- OR continue with Day 5 (Monitoring, Health & Distributed State)
 - Update PROJECT_STATUS.md daily with progress

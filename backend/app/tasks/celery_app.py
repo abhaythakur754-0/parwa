@@ -223,6 +223,13 @@ def _build_config() -> dict:
                 "schedule": {"hour": 0, "minute": 10},
                 "kwargs": {},
             },
+            # Day 3.2: Sync Redis usage to PostgreSQL (daily at 1 AM)
+            "sync-all-redis-usage-daily": {
+                "task": ("app.tasks.billing"
+                          ".sync_all_redis_usage"),
+                "schedule": {"hour": 1, "minute": 0},
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,

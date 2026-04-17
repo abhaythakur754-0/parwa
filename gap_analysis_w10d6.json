@@ -1,0 +1,41 @@
+{
+  "found_count": "5",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Tenant isolation leak in ticket search",
+      "breaks": "Support agents can see tickets from other tenants in search results",
+      "scenario": "Agent at company A searches for \"urgent\" and sees tickets from company B that contain \"urgent\" in the subject line",
+      "prompt": "Write a test that creates tickets in two different tenant companies, then simulates a support agent search and verifies that only tickets from their own company appear in results. Include edge cases where ticket subjects contain the search term but belong to different tenants."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Payment failure state not properly isolated",
+      "breaks": "When a tenant's payment fails, their data might become accessible to other tenants during the transition",
+      "scenario": "Company A's payment fails, but during the brief period before their access is revoked, an agent from Company B can accidentally access Company A's ticket data through a shared cache or connection pool",
+      "prompt": "Write a test that simulates a payment failure scenario for one tenant while another tenant is actively using the system. Verify that the failing tenant's data is completely isolated and inaccessible throughout the entire payment failure process, including all cache layers and database connections."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Ticket count race condition with pricing tier changes",
+      "breaks": "Simultaneous ticket creation and tier changes can cause incorrect billing counts",
+      "scenario": "Company is at their 2,000th ticket limit, a customer creates a ticket while the system is simultaneously upgrading them to the Growth tier, resulting in the ticket being counted against both tiers or not counted at all",
+      "prompt": "Write a test that creates multiple threads: one continuously creating tickets at the limit of a pricing tier, another thread simultaneously upgrading the tenant to the next tier, and a third thread checking the ticket count. Verify that all tickets are correctly counted against the appropriate tier and no tickets are lost or double-counted."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Webhook double-fire causing ticket duplication",
+      "breaks": "Paddle might send the same payment webhook twice, creating duplicate tickets",
+      "scenario": "Paddle sends a \"payment_successful\" webhook twice for the same transaction, the system processes both and creates two identical tickets for the same customer issue",
+      "prompt": "Write a test that simulates receiving the same payment webhook payload twice in quick succession. Verify that the system detects and handles the duplicate webhook appropriately without creating duplicate tickets or causing other data inconsistencies."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Redis cache invalidation on tenant deletion",
+      "breaks": "Cached data remains accessible after tenant account is deleted",
+      "scenario": "Company A deletes their account, but cached ticket data remains in Redis and can be accessed by mistake if a new company with the same ID is created later",
+      "prompt": "Write a test that creates a tenant, generates ticket data, verifies it's cached, then deletes the tenant. Confirm that all cached data for that tenant is completely removed from Redis. Then create a new tenant with the same ID and verify no stale data from the previous tenant is accessible."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 5\n\nGAP 1\nSeverity: CRITICAL\nTitle: Tenant isolation leak in ticket search\nWhat breaks: Support agents can see tickets from other tenants in search results\nReal scenario: Agent at company A searches for \"urgent\" and sees tickets from company B that contain \"urgent\" in the subject line\nAI agent prompt: Write a test that creates tickets in two different tenant companies, then simulates a support agent search and verifies that only tickets from their own company appear in results. Include edge cases where ticket subjects contain the search term but belong to different tenants.\n\nGAP 2\nSeverity: CRITICAL\nTitle: Payment failure state not properly isolated\nWhat breaks: When a tenant's payment fails, their data might become accessible to other tenants during the transition\nReal scenario: Company A's payment fails, but during the brief period before their access is revoked, an agent from Company B can accidentally access Company A's ticket data through a shared cache or connection pool\nAI agent prompt: Write a test that simulates a payment failure scenario for one tenant while another tenant is actively using the system. Verify that the failing tenant's data is completely isolated and inaccessible throughout the entire payment failure process, including all cache layers and database connections.\n\nGAP 3\nSeverity: HIGH\nTitle: Ticket count race condition with pricing tier changes\nWhat breaks: Simultaneous ticket creation and tier changes can cause incorrect billing counts\nReal scenario: Company is at their 2,000th ticket limit, a customer creates a ticket while the system is simultaneously upgrading them to the Growth tier, resulting in the ticket being counted against both tiers or not counted at all\nAI agent prompt: Write a test that creates multiple threads: one continuously creating tickets at the limit of a pricing tier, another thread simultaneously upgrading the tenant to the next tier, and a third thread checking the ticket count. Verify that all tickets are correctly counted against the appropriate tier and no tickets are lost or double-counted.\n\nGAP 4\nSeverity: HIGH\nTitle: Webhook double-fire causing ticket duplication\nWhat breaks: Paddle might send the same payment webhook twice, creating duplicate tickets\nReal scenario: Paddle sends a \"payment_successful\" webhook twice for the same transaction, the system processes both and creates two identical tickets for the same customer issue\nAI agent prompt: Write a test that simulates receiving the same payment webhook payload twice in quick succession. Verify that the system detects and handles the duplicate webhook appropriately without creating duplicate tickets or causing other data inconsistencies.\n\nGAP 5\nSeverity: MEDIUM\nTitle: Redis cache invalidation on tenant deletion\nWhat breaks: Cached data remains accessible after tenant account is deleted\nReal scenario: Company A deletes their account, but cached ticket data remains in Redis and can be accessed by mistake if a new company with the same ID is created later\nAI agent prompt: Write a test that creates a tenant, generates ticket data, verifies it's cached, then deletes the tenant. Confirm that all cached data for that tenant is completely removed from Redis. Then create a new tenant with the same ID and verify no stale data from the previous tenant is accessible."
+}

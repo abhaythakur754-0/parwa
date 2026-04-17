@@ -303,6 +303,11 @@ def handle_subscription_created(event: dict) -> dict:
         },
     )
 
+    # Day 3.4: Update subscription with Paddle billing cycle dates
+    company_id = event.get("company_id")
+    if company_id:
+        _sync_billing_cycle_dates(company_id, sub_data)
+
     return {
         "status": "processed",
         "action": "subscription_created",
@@ -331,6 +336,11 @@ def handle_subscription_updated(event: dict) -> dict:
             "previous_status": previous.get("status"),
         },
     )
+
+    # Day 3.4: Update subscription with Paddle billing cycle dates
+    company_id = event.get("company_id")
+    if company_id:
+        _sync_billing_cycle_dates(company_id, sub_data)
 
     return {
         "status": "processed",
@@ -553,6 +563,19 @@ def handle_transaction_payment_failed(event: dict) -> dict:
             "subscription_id": tx_data.get("subscription_id"),
         },
     )
+
+    # Day 3.5: Trigger immediate service stop via PaymentFailureService
+    company_id = event.get("company_id")
+    if company_id:
+        _trigger_payment_failure_stop(
+            company_id=company_id,
+            transaction_id=tx_data.get("transaction_id"),
+            subscription_id=tx_data.get("subscription_id"),
+            error_code=tx_data.get("error_code"),
+            error_detail=tx_data.get("error_detail"),
+            amount=tx_data.get("amount"),
+            currency=tx_data.get("currency", "USD"),
+        )
 
     return {
         "status": "processed",
@@ -1087,6 +1110,134 @@ def handle_payment_chargeback_created(event: dict) -> dict:
         "data": cb_data,
         "occurred_at": _parse_occurred_at(event).isoformat(),
     }
+
+
+# ── Day 3.4: Billing Cycle Sync Helper ────────────────────────────────────
+
+def _sync_billing_cycle_dates(company_id: str, sub_data: dict) -> None:
+    """
+    Day 3.4: Sync Paddle billing cycle dates to local subscription.
+
+    Ensures current_period_start and current_period_end match
+    Paddle's actual billing cycle, not calendar months.
+    """
+    try:
+        from database.base import SessionLocal
+        from database.models.billing import Subscription
+        from decimal import Decimal
+
+        subscription_id = sub_data.get("subscription_id")
+        next_billing_date = sub_data.get("next_billing_date")
+
+        if not subscription_id or not next_billing_date:
+            return
+
+        with SessionLocal() as db:
+            subscription = db.query(Subscription).filter(
+                Subscription.company_id == company_id,
+                Subscription.paddle_subscription_id == subscription_id,
+            ).first()
+
+            if not subscription:
+                return
+
+            # Parse next_billing_date
+            if isinstance(next_billing_date, str):
+                next_billing = datetime.fromisoformat(
+                    next_billing_date.replace("Z", "+00:00")
+                )
+            elif isinstance(next_billing_date, datetime):
+                next_billing = next_billing_date
+            else:
+                return
+
+            # Calculate period start (30 days before next billing)
+            from datetime import timedelta
+            period_start = next_billing - timedelta(days=30)
+
+            # Update subscription
+            subscription.current_period_start = period_start
+            subscription.current_period_end = next_billing
+            db.commit()
+
+            logger.info(
+                "billing_cycle_synced company_id=%s subscription_id=%s "
+                "period_start=%s period_end=%s",
+                company_id,
+                subscription_id,
+                period_start.isoformat(),
+                next_billing.isoformat(),
+            )
+
+    except Exception as e:
+        logger.error(
+            "billing_cycle_sync_failed company_id=%s error=%s",
+            company_id,
+            str(e),
+        )
+
+
+# ── Day 3.5: Payment Failure Handler ─────────────────────────────────────
+
+def _trigger_payment_failure_stop(
+    company_id: str,
+    transaction_id: str,
+    subscription_id: str = None,
+    error_code: str = None,
+    error_detail: str = None,
+    amount: str = None,
+    currency: str = "USD",
+) -> None:
+    """
+    Day 3.5: Trigger immediate service stop on payment failure.
+
+    Netflix-style: No grace period, no dunning, immediate stop.
+    """
+    import asyncio
+    from decimal import Decimal
+
+    try:
+        from app.services.payment_failure_service import get_payment_failure_service
+
+        service = get_payment_failure_service()
+
+        # Parse amount to Decimal
+        try:
+            amount_decimal = Decimal(str(amount)) if amount else Decimal("0.00")
+        except Exception:
+            amount_decimal = Decimal("0.00")
+
+        # Run async handler
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(
+                service.handle_payment_failure(
+                    company_id=company_id,
+                    paddle_transaction_id=transaction_id,
+                    failure_code=error_code or "payment_declined",
+                    failure_reason=error_detail or "Payment declined by payment provider",
+                    amount_attempted=amount_decimal,
+                    paddle_subscription_id=subscription_id,
+                    currency=currency,
+                )
+            )
+        finally:
+            loop.close()
+
+        logger.info(
+            "payment_failure_triggered company_id=%s transaction_id=%s result=%s",
+            company_id,
+            transaction_id,
+            result.get("status"),
+        )
+
+    except Exception as e:
+        logger.error(
+            "payment_failure_trigger_failed company_id=%s error=%s",
+            company_id,
+            str(e),
+        )
 
 
 # ── Handler Registry (25+ handlers) ────────────────────────────────────────

@@ -1,0 +1,55 @@
+{
+  "found_count": "7",
+  "gaps": [
+    {
+      "severity": "CRITICAL",
+      "title": "Draft Composer Race Condition",
+      "breaks": "Multiple simultaneous edits to the same draft cause data corruption",
+      "scenario": "Agent A and B both edit draft #123 at the same time via Socket.io. Agent A saves, then Agent B saves over it, losing Agent A's changes permanently.",
+      "prompt": "Write a test that connects two Socket.io clients to the same draft ID, have both clients send edit messages simultaneously with different content, verify only one edit is kept and the other is lost, then add retry logic to handle concurrent edits properly."
+    },
+    {
+      "severity": "CRITICAL",
+      "title": "Training Data Cross-Contamination",
+      "breaks": "Variant-specific data leaks between tenants in vector index",
+      "scenario": "Tenant A's \"support\" variant gets trained on Tenant B's \"sales\" variant data due to incorrect tenant+variant metadata in the vector index, leading to privacy violations and incorrect responses.",
+      "prompt": "Write a test that creates two variants for different tenants with overlapping but different training data, query the vector index with tenant-specific queries, verify that results only contain data from the correct tenant-variant combination, and add isolation checks to the index query logic."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Edge Case Handler Ordering Vulnerability",
+      "breaks": "Malicious input bypasses handlers by exploiting execution order",
+      "scenario": "Attacker crafts a message with \"malicious <script>alert(1)</script>\" that passes the \"HTML\" handler before the \"malicious HTML\" handler due to incorrect ordering, executing XSS in the agent interface.",
+      "prompt": "Write a test that creates a message containing multiple edge case triggers in different orders, verify that all handlers execute regardless of order, and implement a priority-based execution system with proper input sanitization."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Socket.io Session Isolation Failure",
+      "breaks": "Draft edits leak between concurrent agent sessions",
+      "scenario": "Agent A starts editing draft #123, Agent B starts editing the same draft in a different session. Agent B sees Agent A's uncommitted changes in real-time before saving, violating workflow isolation.",
+      "prompt": "Write a test that creates two separate Socket.io sessions for the same draft ID with different agents, verify that edits in one session are not visible in the other until committed, and implement proper session isolation."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Cache Staleness Detection Bypass",
+      "breaks": "Outdated drafts served despite freshness signals",
+      "scenario": "Knowledge base is updated, freshness signal is sent but cache invalidation is delayed. Agent receives a draft generated with outdated KB data, leading to incorrect suggestions.",
+      "prompt": "Write a test that updates the KB, sends the freshness signal, then immediately requests a draft, verify the draft uses updated data, and implement proper cache invalidation with timestamp checks."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Technique Tier Access Bypass",
+      "breaks": "Higher-tier techniques accessible by lower-tier customers",
+      "scenario": "A Starter tier customer crafts a request that triggers a High-tier technique by exploiting variant selection logic, accessing functionality they haven't paid for.",
+      "prompt": "Write a test that attempts to access each technique tier with different customer tiers, verify that only appropriate techniques are accessible, and implement strict tier checks before technique selection."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Draft Regeneration State Loss",
+      "breaks": "Failed regeneration leaves draft in inconsistent state",
+      "scenario": "Agent clicks \"regenerate\" on draft #123, system fails midway through, draft remains partially updated with incomplete data. Agent can't recover original or new draft.",
+      "prompt": "Write a test that simulates a draft regeneration failure midway through the process, verify the system maintains the previous draft state or implements proper rollback, and adds error recovery mechanisms."
+    }
+  ],
+  "raw_response": "GAPS FOUND: 7\n\nGAP 1\nSeverity: CRITICAL\nTitle: Draft Composer Race Condition\nWhat breaks: Multiple simultaneous edits to the same draft cause data corruption\nReal scenario: Agent A and B both edit draft #123 at the same time via Socket.io. Agent A saves, then Agent B saves over it, losing Agent A's changes permanently.\nAI agent prompt: Write a test that connects two Socket.io clients to the same draft ID, have both clients send edit messages simultaneously with different content, verify only one edit is kept and the other is lost, then add retry logic to handle concurrent edits properly.\n\nGAP 2\nSeverity: CRITICAL\nTitle: Training Data Cross-Contamination\nWhat breaks: Variant-specific data leaks between tenants in vector index\nReal scenario: Tenant A's \"support\" variant gets trained on Tenant B's \"sales\" variant data due to incorrect tenant+variant metadata in the vector index, leading to privacy violations and incorrect responses.\nAI agent prompt: Write a test that creates two variants for different tenants with overlapping but different training data, query the vector index with tenant-specific queries, verify that results only contain data from the correct tenant-variant combination, and add isolation checks to the index query logic.\n\nGAP 3\nSeverity: HIGH\nTitle: Edge Case Handler Ordering Vulnerability\nWhat breaks: Malicious input bypasses handlers by exploiting execution order\nReal scenario: Attacker crafts a message with \"malicious <script>alert(1)</script>\" that passes the \"HTML\" handler before the \"malicious HTML\" handler due to incorrect ordering, executing XSS in the agent interface.\nAI agent prompt: Write a test that creates a message containing multiple edge case triggers in different orders, verify that all handlers execute regardless of order, and implement a priority-based execution system with proper input sanitization.\n\nGAP 4\nSeverity: HIGH\nTitle: Socket.io Session Isolation Failure\nWhat breaks: Draft edits leak between concurrent agent sessions\nReal scenario: Agent A starts editing draft #123, Agent B starts editing the same draft in a different session. Agent B sees Agent A's uncommitted changes in real-time before saving, violating workflow isolation.\nAI agent prompt: Write a test that creates two separate Socket.io sessions for the same draft ID with different agents, verify that edits in one session are not visible in the other until committed, and implement proper session isolation.\n\nGAP 5\nSeverity: HIGH\nTitle: Cache Staleness Detection Bypass\nWhat breaks: Outdated drafts served despite freshness signals\nReal scenario: Knowledge base is updated, freshness signal is sent but cache invalidation is delayed. Agent receives a draft generated with outdated KB data, leading to incorrect suggestions.\nAI agent prompt: Write a test that updates the KB, sends the freshness signal, then immediately requests a draft, verify the draft uses updated data, and implement proper cache invalidation with timestamp checks.\n\nGAP 6\nSeverity: HIGH\nTitle: Technique Tier Access Bypass\nWhat breaks: Higher-tier techniques accessible by lower-tier customers\nReal scenario: A Starter tier customer crafts a request that triggers a High-tier technique by exploiting variant selection logic, accessing functionality they haven't paid for.\nAI agent prompt: Write a test that attempts to access each technique tier with different customer tiers, verify that only appropriate techniques are accessible, and implement strict tier checks before technique selection.\n\nGAP 7\nSeverity: MEDIUM\nTitle: Draft Regeneration State Loss\nWhat breaks: Failed regeneration leaves draft in inconsistent state\nReal scenario: Agent clicks \"regenerate\" on draft #123, system fails midway through, draft remains partially updated with incomplete data. Agent can't recover original or new draft.\nAI agent prompt: Write a test that simulates a draft regeneration failure midway through the process, verify the system maintains the previous draft state or implements proper rollback, and adds error recovery mechanisms."
+}

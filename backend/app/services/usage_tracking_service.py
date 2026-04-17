@@ -786,6 +786,287 @@ class UsageTrackingService:
             }
 
 
+    # ═════════════════════════════════════════════════════════════════════
+    # Day 3.2: Redis-Based Real-Time Usage Tracking (BG-13)
+    # ═════════════════════════════════════════════════════════════════════
+
+    async def _get_redis(self):
+        """Get Redis client for usage tracking."""
+        from app.core.redis import get_redis
+        return await get_redis()
+
+    def _build_usage_redis_key(self, company_id: str, period_id: str) -> str:
+        """
+        Build Redis key for usage counter.
+
+        Key format: parwa:{company_id}:usage:{period_id}:tickets
+        Period ID is typically YYYY-MM format for monthly tracking.
+        """
+        return f"parwa:{company_id}:usage:{period_id}:tickets"
+
+    async def increment_ticket_usage_redis(
+        self,
+        company_id: Any,
+        count: int = 1,
+    ) -> Dict[str, Any]:
+        """
+        Increment ticket usage in Redis with atomic INCR.
+
+        BG-13: Real-time usage counting via Redis before PostgreSQL persistence.
+        This method is called at ticket creation time for immediate tracking.
+
+        Args:
+            company_id: Company UUID or str
+            count: Number of tickets to add (default 1)
+
+        Returns:
+            Dict with:
+                - company_id, period_id, tickets_used (Redis count),
+                  ticket_limit, remaining, is_over_limit
+
+        Raises:
+            UsageTrackingError: If company_id is invalid
+        """
+        company_id_str = self._validate_company_id(company_id)
+
+        if count < 0:
+            raise UsageTrackingError("count must be non-negative")
+
+        period_id = datetime.now(timezone.utc).strftime("%Y-%m")
+        redis_key = self._build_usage_redis_key(company_id_str, period_id)
+
+        try:
+            redis = await self._get_redis()
+
+            # Atomic INCR
+            new_count = await redis.incrby(redis_key, count)
+
+            # Set TTL to 35 days (longer than a month for safety)
+            await redis.expire(redis_key, 35 * 24 * 3600)
+
+            # Get ticket limit for comparison
+            with SessionLocal() as db:
+                ticket_limit = self._get_ticket_limit(db, company_id_str)
+
+            remaining = max(0, ticket_limit - new_count)
+            is_over_limit = new_count > ticket_limit
+
+            logger.info(
+                "redis_usage_incremented "
+                "company_id=%s period=%s count=%s total=%s limit=%s over=%s",
+                company_id_str,
+                period_id,
+                count,
+                new_count,
+                ticket_limit,
+                is_over_limit,
+            )
+
+            return {
+                "company_id": company_id_str,
+                "period_id": period_id,
+                "tickets_used": new_count,
+                "ticket_limit": ticket_limit,
+                "tickets_remaining": remaining,
+                "is_over_limit": is_over_limit,
+            }
+
+        except Exception as e:
+            logger.error(
+                "redis_usage_increment_failed company_id=%s error=%s",
+                company_id_str,
+                str(e),
+            )
+            # Fallback: still increment in PostgreSQL
+            return self.increment_ticket_usage(company_id_str, count)
+
+    async def get_realtime_usage(
+        self,
+        company_id: Any,
+    ) -> Dict[str, Any]:
+        """
+        Get real-time ticket usage from Redis.
+
+        Args:
+            company_id: Company UUID or str
+
+        Returns:
+            Dict with:
+                - company_id, period_id, tickets_used (Redis),
+                  ticket_limit, usage_percentage, is_over_limit
+        """
+        company_id_str = self._validate_company_id(company_id)
+        period_id = datetime.now(timezone.utc).strftime("%Y-%m")
+        redis_key = self._build_usage_redis_key(company_id_str, period_id)
+
+        try:
+            redis = await self._get_redis()
+            tickets_used = int(await redis.get(redis_key) or 0)
+
+            with SessionLocal() as db:
+                ticket_limit = self._get_ticket_limit(db, company_id_str)
+
+            usage_percentage = round(tickets_used / max(ticket_limit, 1), 4)
+            is_over_limit = tickets_used > ticket_limit
+
+            return {
+                "company_id": company_id_str,
+                "period_id": period_id,
+                "tickets_used": tickets_used,
+                "ticket_limit": ticket_limit,
+                "usage_percentage": usage_percentage,
+                "is_over_limit": is_over_limit,
+                "source": "redis",
+            }
+
+        except Exception as e:
+            logger.warning(
+                "redis_usage_get_failed company_id=%s error=%s",
+                company_id_str,
+                str(e),
+            )
+            # Fallback to PostgreSQL
+            return self.get_current_usage(company_id_str)
+
+    async def check_and_block_on_overage(
+        self,
+        company_id: Any,
+    ) -> Dict[str, Any]:
+        """
+        BG-13: Check if company is over limit and should be blocked.
+
+        Called before creating a new ticket. Returns blocking info.
+
+        Args:
+            company_id: Company UUID or str
+
+        Returns:
+            Dict with:
+                - blocked: bool - whether to block ticket creation
+                - tickets_used, ticket_limit, overage_count
+                - message: human-readable status
+                - overage_charge: Decimal if over limit
+        """
+        company_id_str = self._validate_company_id(company_id)
+
+        # Get real-time usage from Redis
+        usage = await self.get_realtime_usage(company_id_str)
+
+        tickets_used = usage["tickets_used"]
+        ticket_limit = usage["ticket_limit"]
+        overage_count = max(0, tickets_used - ticket_limit)
+
+        if tickets_used >= ticket_limit:
+            # Calculate overage charge at $0.10/ticket
+            overage_charge = Decimal(str(overage_count)) * OVERAGE_RATE_PER_TICKET
+
+            return {
+                "blocked": True,
+                "company_id": company_id_str,
+                "tickets_used": tickets_used,
+                "ticket_limit": ticket_limit,
+                "overage_count": overage_count,
+                "overage_charge": str(self._round_money(overage_charge)),
+                "overage_rate": str(OVERAGE_RATE_PER_TICKET),
+                "message": (
+                    f"Usage limit exceeded. You have used {tickets_used} of "
+                    f"{ticket_limit} monthly tickets. Overage: "
+                    f"${overage_charge} for {overage_count} extra tickets."
+                ),
+            }
+
+        return {
+            "blocked": False,
+            "company_id": company_id_str,
+            "tickets_used": tickets_used,
+            "ticket_limit": ticket_limit,
+            "overage_count": 0,
+            "overage_charge": "0.00",
+            "message": f"Within limit: {tickets_used}/{ticket_limit} tickets used.",
+        }
+
+    async def sync_redis_to_postgres(
+        self,
+        company_id: Any,
+        period_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Sync Redis usage counter to PostgreSQL for persistence.
+
+        Called by Celery beat task for reconciliation.
+
+        Args:
+            company_id: Company UUID or str
+            period_id: Period to sync (default: current month)
+
+        Returns:
+            Dict with sync status
+        """
+        company_id_str = self._validate_company_id(company_id)
+
+        if period_id is None:
+            period_id = datetime.now(timezone.utc).strftime("%Y-%m")
+
+        redis_key = self._build_usage_redis_key(company_id_str, period_id)
+
+        try:
+            redis = await self._get_redis()
+            redis_count = int(await redis.get(redis_key) or 0)
+
+            # Get PostgreSQL count
+            with SessionLocal() as db:
+                pg_count = (
+                    db.query(func.coalesce(func.sum(UsageRecord.tickets_used), 0))
+                    .filter(
+                        UsageRecord.company_id == company_id_str,
+                        UsageRecord.record_month == period_id,
+                    )
+                    .scalar()
+                )
+                pg_count = int(pg_count)
+
+                # If Redis count is higher, update PostgreSQL
+                if redis_count > pg_count:
+                    diff = redis_count - pg_count
+                    today = datetime.now(timezone.utc).date()
+                    record = self._get_or_create_daily_record(
+                        db, company_id_str, today
+                    )
+                    record.tickets_used = redis_count
+                    db.commit()
+
+                    logger.info(
+                        "usage_synced_to_postgres "
+                        "company_id=%s period=%s redis=%s pg_before=%s diff=%s",
+                        company_id_str,
+                        period_id,
+                        redis_count,
+                        pg_count,
+                        diff,
+                    )
+
+                return {
+                    "status": "synced",
+                    "company_id": company_id_str,
+                    "period_id": period_id,
+                    "redis_count": redis_count,
+                    "postgres_count": pg_count,
+                    "difference": redis_count - pg_count,
+                }
+
+        except Exception as e:
+            logger.error(
+                "usage_sync_failed company_id=%s error=%s",
+                company_id_str,
+                str(e),
+            )
+            return {
+                "status": "error",
+                "company_id": company_id_str,
+                "error": str(e),
+            }
+
+
 # ── Singleton Service ────────────────────────────────────────────────────
 
 _usage_tracking_service: Optional[UsageTrackingService] = None
