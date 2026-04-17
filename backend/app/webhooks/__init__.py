@@ -21,11 +21,44 @@ _HANDLER_REGISTRY: Dict[str, Callable] = {}
 # Supported event types per provider
 PROVIDER_EVENT_TYPES = {
     "paddle": [
+        # Subscription events (7)
         "subscription.created",
         "subscription.updated",
-        "subscription.cancelled",
-        "payment.succeeded",
-        "payment.failed",
+        "subscription.activated",
+        "subscription.canceled",
+        "subscription.past_due",
+        "subscription.paused",
+        "subscription.resumed",
+        # Transaction events (5)
+        "transaction.completed",
+        "transaction.paid",
+        "transaction.payment_failed",
+        "transaction.canceled",
+        "transaction.updated",
+        # Customer events (3)
+        "customer.created",
+        "customer.updated",
+        "customer.deleted",
+        # Price events (3)
+        "price.created",
+        "price.updated",
+        "price.deleted",
+        # Discount events (3)
+        "discount.created",
+        "discount.updated",
+        "discount.deleted",
+        # Credit events (3)
+        "credit.created",
+        "credit.updated",
+        "credit.deleted",
+        # Adjustment events (2)
+        "adjustment.created",
+        "adjustment.updated",
+        # Report events (2)
+        "report.created",
+        "report.updated",
+        # Chargeback event (1)
+        "payment.chargeback.created",
     ],
     "brevo": [
         "inbound_email",

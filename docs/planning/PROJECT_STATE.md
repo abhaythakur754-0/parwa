@@ -10,8 +10,8 @@
 - **Industries:** E-commerce, SaaS, Logistics (NO healthcare — removed April 2026)
 - **Deployment:** Docker (docker-compose for dev, docker-compose.prod.yml for production)
 - **Current Phase:** Production Readiness — 18-part systematic plan
-- **Currently Building:** Infrastructure (Day 1-3 COMPLETE) → Day 4 next
-- **Latest Completion:** Day 3 - Billing Architecture (5 critical bugs fixed)
+- **Currently Building:** Infrastructure (Day 1-4 COMPLETE) → Day 5 next
+- **Latest Completion:** Day 4 - Billing Infrastructure (29 webhook handlers, idempotency, 8 tables)
 
 ## Current Status
 
@@ -24,8 +24,8 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 | Day 1 | Security Hardening | ✅ COMPLETE |
 | Day 2 | Safety & Compliance | ✅ COMPLETE |
 | Day 3 | Billing Architecture | ✅ COMPLETE |
-| Day 4 | Billing Infrastructure | ⏳ Next |
-| Day 5 | Monitoring & Health | 🔜 Pending |
+| Day 4 | Billing Infrastructure | ✅ COMPLETE |
+| Day 5 | Monitoring & Health | ⏳ Next |
 | Day 6 | RAG & AI Pipeline | 🔜 Pending |
 | Day 7 | Shadow Mode & Channels | 🔜 Pending |
 | Day 8 | CI/CD & Storage | 🔜 Pending |
@@ -89,6 +89,38 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 - Netflix-style: No grace period, immediate stop
 - Company suspended within 60 seconds of payment failure
 
+## Day 4 Completions (April 17, 2026)
+
+### 4.1 Complete Paddle Webhook Coverage ✅
+- 29 webhook handlers for all Paddle event types
+- Categories: Subscription (7), Transaction (5), Customer (3), Price (3), Discount (3), Credit (3), Adjustment (2), Report (2), Chargeback (1)
+- Updated PROVIDER_EVENT_TYPES registry from 5 to 29 events
+
+### 4.2 Idempotency & Webhook Reliability ✅
+- `IdempotencyKey` model with SHA-256 hash verification
+- 7-day key expiration with automatic cleanup
+- `WebhookSequence` model for ordering enforcement
+- Max 5 retry attempts with error handling
+
+### 4.3 Payment Infrastructure Services ✅
+- 9 billing service modules (paddle_client, subscription, proration, usage_tracking, invoice, refund, payment_failure, entitlement, notification)
+- billing_cycle_service integrated into subscription_service
+- payment_method_service integrated into paddle_client
+
+### 4.4 Database Schema (8 Tables) ✅
+- `ClientRefund` - PARWA clients refunding their customers
+- `PaymentMethod` - Payment method cache from Paddle
+- `UsageRecord` - Daily/monthly usage tracking
+- `VariantLimit` - Variant feature limits
+- `IdempotencyKey` - Webhook idempotency tracking
+- `WebhookSequence` - Webhook ordering tracking
+- `ProrationAudit` - Proration calculation audit trail
+- `PaymentFailure` - Payment failure audit log
+
+### Code Quality Fixes ✅
+- Removed duplicate model definitions in billing_extended.py
+- Updated webhook event registry to match actual handlers
+
 ## Key Architecture Decisions
 
 1. **Tenant Isolation:** company_id flows from JWT to middleware to DB queries to Celery tasks to Redis keys
@@ -144,6 +176,6 @@ Parallel streams with no dependencies:
 
 ## Next Steps
 
-- **Day 4:** Billing Infrastructure (25+ webhook handlers, idempotency, 10 billing services, 8 DB tables)
-- OR continue with Day 5 (Monitoring, Health & Distributed State)
-- Update PROJECT_STATUS.md daily with progress
+- **Day 5:** Monitoring, Health & Distributed State (Prometheus/Grafana, distributed health, GSD persistence, worker health check)
+- OR continue with Day 6 (RAG & AI Pipeline Hardening)
+- Update PROJECT_STATE.md daily with progress
