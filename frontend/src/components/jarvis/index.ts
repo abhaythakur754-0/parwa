@@ -28,6 +28,9 @@ export { ActionTicketCard } from './ActionTicketCard';
 export { PostCallSummaryCard } from './PostCallSummaryCard';
 export { RechargeCTACard } from './RechargeCTACard';
 
+// Shadow Mode (Day 6)
+export { ShadowModeCard } from './ShadowModeCard';
+
 // Dashboard Integration
 export { JarvisSidebar } from './JarvisSidebar';
 export { JarvisProvider, useJarvisSidebar } from './JarvisProvider';
