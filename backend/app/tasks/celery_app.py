@@ -254,6 +254,20 @@ def _build_config() -> dict:
                 },
                 "kwargs": {},
             },
+            # Part 13 Day 2: SLA timer checks (every minute)
+            "sla-check-all-companies-1min": {
+                "task": ("app.tasks.sla_tasks"
+                          ".check_all_company_slas"),
+                "schedule": 60.0,  # Every 60 seconds
+                "kwargs": {},
+            },
+            # Part 13 Day 2: Daily SLA report (daily at 6 AM UTC)
+            "sla-daily-report-6am": {
+                "task": ("app.tasks.sla_tasks"
+                          ".daily_sla_report_all"),
+                "schedule": {"hour": 6, "minute": 0},
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,

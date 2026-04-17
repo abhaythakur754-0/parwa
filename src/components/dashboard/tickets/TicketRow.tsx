@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import type { Ticket, TicketStatus, TicketPriority, TicketChannel } from '@/types/ticket';
 import ConfidenceBar from './ConfidenceBar';
+import { SLABadge } from './SLATimer';
 
 // ── Config Maps ─────────────────────────────────────────────────────────
 
@@ -114,9 +115,19 @@ export default function TicketRow({ ticket, isSelected, onSelect, onHover }: Tic
 
       {/* Status */}
       <td className="px-3 py-3">
-        <span className={cn('inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold border', status.className)}>
-          {status.label}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={cn('inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold border', status.className)}>
+            {status.label}
+          </span>
+          {/* SLA Badge */}
+          {ticket.sla_deadline && (
+            <SLABadge
+              isBreached={ticket.sla_breached}
+              isApproaching={ticket.sla_approaching}
+              hasSLA={true}
+            />
+          )}
+        </div>
       </td>
 
       {/* Subject */}

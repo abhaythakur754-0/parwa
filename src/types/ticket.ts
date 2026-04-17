@@ -140,6 +140,8 @@ export interface Ticket {
   resolution_time_minutes: number | null;
   first_response_time_minutes: number | null;
   sla_deadline: string | null;
+  sla_breached: boolean;
+  sla_approaching: boolean;
   is_ai_resolved: boolean;
   tags: string[];
   message_count: number;

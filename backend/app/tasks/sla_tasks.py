@@ -489,3 +489,123 @@ def daily_sla_report(self, company_id: str) -> Dict[str, Any]:
         
     finally:
         db.close()
+
+
+# ── Part 13 Day 2: Company-wide SLA Tasks ─────────────────────────────────────
+
+
+@shared_task(
+    base=ParwaTask,
+    bind=True,
+    name="sla.check_all_company_slas",
+    max_retries=3,
+    soft_time_limit=55,
+    time_limit=60,
+)
+def check_all_company_slas(self) -> Dict[str, Any]:
+    """
+    Check SLA timers for ALL active companies.
+    
+    Runs every minute via Beat schedule.
+    Iterates through all active companies and triggers
+    run_sla_check for each.
+    """
+    from database.models.core import Company
+    
+    db = SessionLocal()
+    
+    try:
+        # Get all active companies
+        active_companies = db.query(Company).filter(
+            Company.status == 'active',
+        ).all()
+        
+        companies_checked = 0
+        total_breaches = 0
+        total_warnings = 0
+        
+        for company in active_companies:
+            try:
+                # Trigger SLA check for this company
+                result = run_sla_check(company_id=company.id)
+                companies_checked += 1
+                total_breaches += result.get("breaches_detected", 0)
+                total_warnings += result.get("warnings_sent", 0)
+            except Exception as e:
+                logger.error(
+                    f"SLA check failed for company {company.id}: {e}"
+                )
+        
+        logger.info(
+            f"SLA check complete: {companies_checked} companies, "
+            f"{total_breaches} breaches, {total_warnings} warnings"
+        )
+        
+        return {
+            "companies_checked": companies_checked,
+            "total_breaches": total_breaches,
+            "total_warnings": total_warnings,
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to check all company SLAs: {e}")
+        raise
+        
+    finally:
+        db.close()
+
+
+@shared_task(
+    base=ParwaTask,
+    bind=True,
+    name="sla.daily_sla_report_all",
+    max_retries=3,
+    soft_time_limit=300,
+    time_limit=330,
+)
+def daily_sla_report_all(self) -> Dict[str, Any]:
+    """
+    Generate daily SLA reports for ALL active companies.
+    
+    Runs daily at 6 AM UTC via Beat schedule.
+    """
+    from database.models.core import Company
+    
+    db = SessionLocal()
+    
+    try:
+        # Get all active companies
+        active_companies = db.query(Company).filter(
+            Company.status == 'active',
+        ).all()
+        
+        reports_generated = 0
+        reports_failed = 0
+        
+        for company in active_companies:
+            try:
+                # Trigger daily report for this company
+                daily_sla_report.delay(company_id=company.id)
+                reports_generated += 1
+            except Exception as e:
+                logger.error(
+                    f"Failed to queue SLA report for company {company.id}: {e}"
+                )
+                reports_failed += 1
+        
+        logger.info(
+            f"Daily SLA report queue complete: "
+            f"{reports_generated} generated, {reports_failed} failed"
+        )
+        
+        return {
+            "reports_generated": reports_generated,
+            "reports_failed": reports_failed,
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to queue daily SLA reports: {e}")
+        raise
+        
+    finally:
+        db.close()
