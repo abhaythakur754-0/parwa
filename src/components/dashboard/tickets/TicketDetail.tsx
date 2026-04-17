@@ -12,6 +12,7 @@ import CustomerInfoCard from './CustomerInfoCard';
 import InternalNotes from './InternalNotes';
 import TimelineView from './TimelineView';
 import ReplyBox from './ReplyBox';
+import AssignmentSuggestions from './AssignmentSuggestions';
 import toast from 'react-hot-toast';
 
 interface TicketDetailProps {
@@ -81,6 +82,17 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
     const note = await ticketsApi.addInternalNote(ticketId, content, isPinned);
     setNotes((prev) => [note, ...prev]);
   }, [ticketId]);
+
+  const handleAssignAgent = useCallback(async (agentId: string) => {
+    if (!ticket) return;
+    try {
+      const updated = await ticketsApi.assignTicket(ticket.id, agentId);
+      setTicket(updated);
+      toast.success('Agent assigned successfully');
+    } catch {
+      toast.error('Failed to assign agent');
+    }
+  }, [ticket]);
 
   // Loading state
   if (isLoading) {
@@ -232,6 +244,13 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
 
         {/* Right: Metadata sidebar */}
         <div className="space-y-4">
+          {/* AI Assignment Suggestions */}
+          {!ticket.assigned_to && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+            <AssignmentSuggestions
+              ticketId={ticketId}
+              onSelectAgent={handleAssignAgent}
+            />
+          )}
           <CustomerInfoCard customer={ticket.customer} />
           <TicketMetadata ticket={ticket} />
         </div>
