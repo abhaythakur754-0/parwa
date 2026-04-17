@@ -3,6 +3,7 @@
  *
  * Barrel exports for all ticket management components.
  * Day 3 — Tickets Page
+ * Day 7 — Real-time Updates & Dashboard Integration
  */
 
 export { default as TicketList } from './TicketList';
@@ -20,3 +21,12 @@ export { default as CustomerInfoCard } from './CustomerInfoCard';
 export { default as InternalNotes } from './InternalNotes';
 export { default as TimelineView } from './TimelineView';
 export { default as ReplyBox } from './ReplyBox';
+
+// Day 7 — Real-time Updates
+export { default as RealtimeNotifications } from './RealtimeNotifications';
+export { default as TicketActivityStream } from './TicketActivityStream';
+export { default as DashboardWidgets } from './DashboardWidgets';
+export { default as AgentPresenceIndicator, AgentPresenceList, PresenceDot } from './AgentPresenceIndicator';
+export { useTicketRealtime } from './useTicketRealtime';
+export type { TicketEvent, TicketRealtimeState, TicketRealtimeActions, TicketRealtimeReturn } from './useTicketRealtime';
+export type { AgentPresence, PresenceStatus } from './AgentPresenceIndicator';
