@@ -582,3 +582,119 @@ def dispatch_training_mistake_check(self):
             "dispatch_training_mistake_check failed error=%s", exc,
         )
         return {"status": "failed", "error": str(exc)[:200]}
+
+
+# ── Day 6: RAG & AI Pipeline Periodic Tasks ───────────────────────────────
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="knowledge",
+    name="app.tasks.periodic.reindex_all_knowledge_documents",
+    max_retries=1,
+)
+def reindex_all_knowledge_documents(self):
+    """Weekly reindex of all knowledge base documents.
+
+    Re-embeds all documents to ensure embeddings are up-to-date
+    with the latest embedding model. Runs weekly on Sunday at 2 AM UTC.
+
+    Day 6 (F-033): Knowledge base pipeline maintenance.
+    BC-004: Runs weekly via Celery Beat.
+    """
+    try:
+        from database.base import SessionLocal
+        from database.models.onboarding import KnowledgeDocument
+        from sqlalchemy import text
+
+        db = SessionLocal()
+        try:
+            # Find documents that need reindexing (processed > 7 days ago)
+            result = db.execute(text("""
+                SELECT DISTINCT kd.id, kd.company_id
+                FROM knowledge_documents kd
+                WHERE kd.status = 'completed'
+                AND kd.updated_at < NOW() - INTERVAL '7 days'
+                ORDER BY kd.company_id
+            """))
+            documents = result.fetchall()
+
+            reindexed = 0
+            errors = 0
+
+            for doc_row in documents:
+                try:
+                    doc_id = doc_row[0]
+                    company_id = doc_row[1]
+
+                    # Dispatch reindex task
+                    from app.tasks.knowledge_tasks import reindex_document
+                    reindex_document.delay(doc_id, company_id)
+                    reindexed += 1
+
+                except Exception as doc_exc:
+                    logger.warning(
+                        "reindex_dispatch_failed doc_id=%s error=%s",
+                        doc_row[0], str(doc_exc)[:100],
+                    )
+                    errors += 1
+
+            logger.info(
+                "reindex_all_knowledge_documents completed "
+                "total=%d reindexed=%d errors=%d",
+                len(documents), reindexed, errors,
+            )
+            return {
+                "status": "ok",
+                "total_documents": len(documents),
+                "reindexed": reindexed,
+                "errors": errors,
+            }
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(
+            "reindex_all_knowledge_documents failed error=%s", exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="training",
+    name="app.tasks.periodic.dspy_weekly_optimization",
+    max_retries=1,
+)
+def dspy_weekly_optimization(self):
+    """Weekly DSPy prompt optimization.
+
+    Runs BootstrapFewShot or MIPROv2 optimization on all AI technique
+    prompts. Stores optimized prompts in database for A/B testing.
+
+    Day 6 (DSPY-1): DSPy optimization pipeline.
+    BC-004: Runs weekly (Sunday 2-4 AM UTC) via Celery Beat.
+    """
+    try:
+        from app.core.dspy_integration import DSPyIntegration
+
+        integration = DSPyIntegration()
+
+        # Run optimization for all predefined signatures
+        optimized = integration.run_weekly_optimization()
+
+        logger.info(
+            "dspy_weekly_optimization completed optimized=%d",
+            len(optimized) if optimized else 0,
+        )
+        return {
+            "status": "ok",
+            "optimized_count": len(optimized) if optimized else 0,
+            "techniques": list(optimized.keys()) if optimized else [],
+        }
+    except Exception as exc:
+        logger.warning(
+            "dspy_weekly_optimization failed error=%s", exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}

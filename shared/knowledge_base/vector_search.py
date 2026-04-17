@@ -33,7 +33,8 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────
 
-EMBEDDING_DIMENSION = 768  # Default embedding dimension (compatible with many models)
+EMBEDDING_DIMENSION = 1536  # OpenAI text-embedding-3-small dimension (Day 6)
+# Note: Google text-embedding-004 is 768 dimensions, use OpenAI for 1536
 
 # ── Search Result ─────────────────────────────────────────────────────
 
@@ -564,7 +565,7 @@ class PgVectorStore(VectorStore):
                 "document_id VARCHAR(36) NOT NULL, "
                 "chunk_index INTEGER NOT NULL, "
                 "content TEXT, "
-                "embedding vector(768), "
+                "embedding vector(1536), "
                 "metadata JSONB, "
                 "created_at TIMESTAMP DEFAULT NOW()"
                 ")",

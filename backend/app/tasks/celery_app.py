@@ -37,6 +37,7 @@ QUEUE_NAMES = [
     "webhook",
     "analytics",
     "training",
+    "knowledge",  # Day 6: Knowledge base tasks
     "dead_letter",  # Day 16: DLQ for permanently failed tasks
 ]
 
@@ -97,6 +98,7 @@ def _build_config() -> dict:
             "app.tasks.ai.heavy.*": {"queue": "ai_heavy"},
             "app.tasks.ai.light.*": {"queue": "ai_light"},
             "app.tasks.training.*": {"queue": "training"},
+            "app.tasks.knowledge.*": {"queue": "knowledge"},  # Day 6
         },
         # Day 16: Beat scheduler (periodic tasks)
         "beat_schedule": {
@@ -230,6 +232,28 @@ def _build_config() -> dict:
                 "schedule": {"hour": 1, "minute": 0},
                 "kwargs": {},
             },
+            # Day 6: Reindex knowledge documents (weekly, Sunday 2 AM UTC)
+            "reindex-knowledge-documents-weekly": {
+                "task": ("app.tasks.periodic"
+                          ".reindex_all_knowledge_documents"),
+                "schedule": {
+                    "day_of_week": 0,  # Sunday
+                    "hour": 2,
+                    "minute": 0,
+                },
+                "kwargs": {},
+            },
+            # Day 6: DSPy optimization (weekly, Sunday 2-4 AM UTC)
+            "dspy-weekly-optimization": {
+                "task": ("app.tasks.periodic"
+                          ".dspy_weekly_optimization"),
+                "schedule": {
+                    "day_of_week": 0,  # Sunday
+                    "hour": 3,
+                    "minute": 0,
+                },
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,
@@ -250,6 +274,8 @@ def _build_config() -> dict:
             "app.tasks.ai_engine_tasks",
             # Week 13 Day 3: Email channel task module
             "app.tasks.email_channel_tasks",
+            # Day 6: Knowledge base task module
+            "app.tasks.knowledge_tasks",
         ],
     }
 

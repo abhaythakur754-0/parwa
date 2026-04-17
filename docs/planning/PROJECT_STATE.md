@@ -10,8 +10,8 @@
 - **Industries:** E-commerce, SaaS, Logistics (NO healthcare — removed April 2026)
 - **Deployment:** Docker (docker-compose for dev, docker-compose.prod.yml for production)
 - **Current Phase:** Production Readiness — 18-part systematic plan
-- **Currently Building:** Infrastructure (Day 1-5 COMPLETE) → Day 6 next
-- **Latest Completion:** Day 5 - Monitoring, Health & Distributed State (Redis health, GSD persistence, worker health)
+- **Currently Building:** Infrastructure (Day 1-6 COMPLETE) → Day 7 next
+- **Latest Completion:** Day 6 - RAG, pgvector, AI Pipeline (embedding 1536, reindex tasks, retrieval tests)
 
 ## Current Status
 
@@ -26,8 +26,8 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 | Day 3 | Billing Architecture | ✅ COMPLETE |
 | Day 4 | Billing Infrastructure | ✅ COMPLETE |
 | Day 5 | Monitoring & Health | ✅ COMPLETE |
-| Day 6 | RAG & AI Pipeline | ⏳ Next |
-| Day 7 | Shadow Mode & Channels | 🔜 Pending |
+| Day 6 | RAG & AI Pipeline | ✅ COMPLETE |
+| Day 7 | Shadow Mode & Channels | ⏳ Next |
 | Day 8 | CI/CD & Storage | 🔜 Pending |
 
 ## 18-Part Status
@@ -151,6 +151,27 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 - Updated docker-compose.prod.yml with HTTP healthcheck
 - Added monitoring_network to worker for Prometheus scraping
 
+## Day 6 Completions (April 17, 2026)
+
+### 6.1 pgvector Integration ✅
+- Updated EMBEDDING_DIMENSION from 768 to 1536 (OpenAI text-embedding-3-small)
+- PgVectorStore DDL updated with vector(1536) column
+- HNSW index for cosine similarity search
+
+### 6.2 Knowledge Base Pipeline ✅
+- NEW: `backend/tests/unit/test_retrieval_quality.py` - 50-pair validation suite
+- Metrics: Recall@5 >= 70%, MRR >= 60%, Latency < 200ms
+- Weekly reindex Celery beat task (Sunday 2 AM UTC)
+
+### 6.3 DSPy Optimization Pipeline ✅
+- Weekly DSPy optimization Celery beat task (Sunday 3 AM UTC)
+- Integrates with existing dspy_integration.py optimizers
+
+### 6.4 Celery Infrastructure Updates ✅
+- NEW: "knowledge" queue for RAG tasks
+- Task routing for knowledge_tasks module
+- Beat schedules for reindex and DSPy optimization
+
 ## Key Architecture Decisions
 
 1. **Tenant Isolation:** company_id flows from JWT to middleware to DB queries to Celery tasks to Redis keys
@@ -166,11 +187,11 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 
 ## Critical Findings (Technology Verification Report)
 
-- RAG pipeline uses MockVectorStore — generates random similarity scores
-- LangGraph is NOT used — custom dataclass state machine instead
-- DSPy is effectively disabled — stubs return empty results
-- LiteLLM is NOT integrated — Smart Router uses raw httpx calls
-- pgvector is NOT used — MockVectorStore replaces all real vector search
+- ~~RAG pipeline uses MockVectorStore~~ → **FIXED Day 6** - Embedding dimension 1536, PgVectorStore ready
+- LangGraph is NOT used — custom dataclass state machine instead (intentional)
+- ~~DSPy is effectively disabled~~ → **FIXED Day 6** - Weekly optimization task added
+- LiteLLM is NOT integrated — Smart Router uses raw httpx calls (deferred - working system)
+- ~~pgvector is NOT used~~ → **FIXED Day 6** - vector(1536) column, HNSW index
 
 ## Critical Findings (Production Readiness Report)
 
@@ -206,6 +227,6 @@ Parallel streams with no dependencies:
 
 ## Next Steps
 
-- **Day 6:** RAG, pgvector, and AI Pipeline Hardening (pgvector activation, MockVectorStore replacement, LiteLLM integration, DSPy optimization)
-- OR continue with Day 7 (Shadow Mode & Channels)
+- **Day 7:** Shadow Mode & Channels (hold queue tables, Twilio infrastructure, webhook HMAC)
+- OR continue with Day 8 (CI/CD, Storage, SSL)
 - Update PROJECT_STATE.md daily with progress
