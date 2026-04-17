@@ -10,8 +10,8 @@
 - **Industries:** E-commerce, SaaS, Logistics (NO healthcare — removed April 2026)
 - **Deployment:** Docker (docker-compose for dev, docker-compose.prod.yml for production)
 - **Current Phase:** Production Readiness — 18-part systematic plan
-- **Currently Building:** Infrastructure (Day 1-4 COMPLETE) → Day 5 next
-- **Latest Completion:** Day 4 - Billing Infrastructure (29 webhook handlers, idempotency, 8 tables)
+- **Currently Building:** Infrastructure (Day 1-5 COMPLETE) → Day 6 next
+- **Latest Completion:** Day 5 - Monitoring, Health & Distributed State (Redis health, GSD persistence, worker health)
 
 ## Current Status
 
@@ -25,8 +25,8 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 | Day 2 | Safety & Compliance | ✅ COMPLETE |
 | Day 3 | Billing Architecture | ✅ COMPLETE |
 | Day 4 | Billing Infrastructure | ✅ COMPLETE |
-| Day 5 | Monitoring & Health | ⏳ Next |
-| Day 6 | RAG & AI Pipeline | 🔜 Pending |
+| Day 5 | Monitoring & Health | ✅ COMPLETE |
+| Day 6 | RAG & AI Pipeline | ⏳ Next |
 | Day 7 | Shadow Mode & Channels | 🔜 Pending |
 | Day 8 | CI/CD & Storage | 🔜 Pending |
 
@@ -121,6 +121,36 @@ Previous approach (Weeks 1-17 roadmap) marked many items as COMPLETE that were a
 - Removed duplicate model definitions in billing_extended.py
 - Updated webhook event registry to match actual handlers
 
+## Day 5 Completions (April 17, 2026)
+
+### 5.1 Monitoring Stack Configuration ✅
+- Alertmanager with Slack + Email routing (5 receivers: default, critical, warning, billing, ops)
+- Severity-based routing with inhibit rules
+- Environment variable configuration for Slack/SMTP
+- Prometheus scrape config updated for worker port 8001
+
+### 5.2 Distributed Provider Health Tracking ✅
+- NEW: `backend/app/core/health_redis.py`
+- Redis key structure: `parwa:global:health:{registry_key}`
+- Lua scripts for atomic operations (record_success, record_failure, rate_limit)
+- Fields: consecutive_failures, circuit_state, avg_latency_ms, total_requests
+- Daily reset with atomic scan
+
+### 5.3 GSD Engine Tenant Config Persistence ✅
+- NEW: `shared/gsd_engine/` directory
+- `config_persistence.py` - Hybrid PostgreSQL → Redis (5min) → Memory (30s)
+- `state_sync.py` - Redis pub/sub for real-time state updates
+- GSDTenantConfig dataclass with all settings
+- Bootstrap from PostgreSQL on startup
+
+### 5.4 Celery Worker Health Check ✅
+- NEW: `backend/app/core/worker_health.py`
+- HTTP server on port 8001 (configurable via WORKER_HEALTH_PORT)
+- Endpoints: /health, /ready, /metrics (Prometheus-style)
+- Fields: broker_connected, heartbeat_active, active_tasks, queue_depth, memory, CPU
+- Updated docker-compose.prod.yml with HTTP healthcheck
+- Added monitoring_network to worker for Prometheus scraping
+
 ## Key Architecture Decisions
 
 1. **Tenant Isolation:** company_id flows from JWT to middleware to DB queries to Celery tasks to Redis keys
@@ -176,6 +206,6 @@ Parallel streams with no dependencies:
 
 ## Next Steps
 
-- **Day 5:** Monitoring, Health & Distributed State (Prometheus/Grafana, distributed health, GSD persistence, worker health check)
-- OR continue with Day 6 (RAG & AI Pipeline Hardening)
+- **Day 6:** RAG, pgvector, and AI Pipeline Hardening (pgvector activation, MockVectorStore replacement, LiteLLM integration, DSPy optimization)
+- OR continue with Day 7 (Shadow Mode & Channels)
 - Update PROJECT_STATE.md daily with progress

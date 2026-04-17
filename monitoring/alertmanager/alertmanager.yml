@@ -1,5 +1,13 @@
 global:
   resolve_timeout: 5m
+  # Slack configuration (set SLACK_API_URL via environment)
+  slack_api_url: '{{ .Env.SLACK_WEBHOOK_URL | default "" }}'
+  # SMTP configuration for email alerts
+  smtp_smarthost: '{{ .Env.SMTP_HOST | default "smtp.gmail.com" }}:{{ .Env.SMTP_PORT | default "587" }}'
+  smtp_from: '{{ .Env.SMTP_FROM | default "alerts@parwa.ai" }}'
+  smtp_auth_username: '{{ .Env.SMTP_USER | default "" }}'
+  smtp_auth_password: '{{ .Env.SMTP_PASSWORD | default "" }}'
+  smtp_require_tls: true
 
 route:
   group_by: ['alertname', 'parwa_service']
@@ -9,18 +17,153 @@ route:
   receiver: 'default-receiver'
 
   routes:
+    # Critical alerts: Immediate Slack + Email
     - match:
         severity: critical
       receiver: 'critical-receiver'
       group_wait: 0s
       repeat_interval: 1h
+      continue: true  # Also send to default
+
+    # Warning alerts: Slack only
+    - match:
+        severity: warning
+      receiver: 'warning-receiver'
+      group_wait: 30s
+      repeat_interval: 2h
+
+    # Billing/payment alerts: Special routing
+    - match:
+      parwa_service: billing
+      receiver: 'billing-receiver'
+      group_wait: 0s
+
+    # Infrastructure alerts: Ops team
+    - match:
+      parwa_service: infrastructure
+      receiver: 'ops-receiver'
 
 receivers:
+  # Default receiver: Slack notification
   - name: 'default-receiver'
+    slack_configs:
+      - channel: '#parwa-alerts'
+        send_resolved: true
+        title: '{{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Service:* {{ .Labels.parwa_service }}
+          *Severity:* {{ .Labels.severity }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Started:* {{ .StartsAt }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}danger{{ else }}warning{{ end }}{{ else }}good{{ end }}'
     webhook_configs:
       - url: 'http://backend:8000/api/webhooks/alertmanager'
         send_resolved: true
+
+  # Critical receiver: Immediate Slack + Email
   - name: 'critical-receiver'
+    slack_configs:
+      - channel: '#parwa-critical'
+        send_resolved: true
+        title: ':rotating_light: CRITICAL: {{ .CommonLabels.alertname }}'
+        text: |-
+          :fire: *CRITICAL ALERT - IMMEDIATE ACTION REQUIRED*
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Service:* {{ .Labels.parwa_service }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Runbook:* {{ .Annotations.runbook_url | default "N/A" }}
+          *Started:* {{ .StartsAt }}
+          {{ end }}
+        color: 'danger'
+        username: 'PARWA AlertManager'
+        icon_emoji: ':warning:'
+    email_configs:
+      - to: '{{ .Env.ALERT_EMAIL_CRITICAL | default "ops@parwa.ai" }}'
+        send_resolved: true
+        html: |-
+          <h2>Critical Alert: {{ .CommonLabels.alertname }}</h2>
+          <p><strong>Status:</strong> {{ .Status | toUpper }}</p>
+          <p><strong>Service:</strong> {{ .CommonLabels.parwa_service }}</p>
+          {{ range .Alerts }}
+          <hr>
+          <p><strong>Summary:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Started:</strong> {{ .StartsAt }}</p>
+          {{ end }}
+        subject: '[PARWA CRITICAL] {{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
     webhook_configs:
       - url: 'http://backend:8000/api/webhooks/alertmanager'
         send_resolved: true
+
+  # Warning receiver: Slack only
+  - name: 'warning-receiver'
+    slack_configs:
+      - channel: '#parwa-alerts'
+        send_resolved: true
+        title: ':warning: {{ .CommonLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Service:* {{ .Labels.parwa_service }}
+          *Summary:* {{ .Annotations.summary }}
+          *Started:* {{ .StartsAt }}
+          {{ end }}
+        color: 'warning'
+        username: 'PARWA AlertManager'
+        icon_emoji: ':warning:'
+
+  # Billing receiver: Finance team
+  - name: 'billing-receiver'
+    slack_configs:
+      - channel: '#parwa-billing'
+        send_resolved: true
+        title: ':moneybag: Billing Alert: {{ .CommonLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Details:* {{ .Annotations.summary }}
+          *Started:* {{ .StartsAt }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+    email_configs:
+      - to: '{{ .Env.ALERT_EMAIL_BILLING | default "billing@parwa.ai" }}'
+        send_resolved: true
+        subject: '[PARWA BILLING] {{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
+
+  # Ops receiver: Infrastructure team
+  - name: 'ops-receiver'
+    slack_configs:
+      - channel: '#parwa-ops'
+        send_resolved: true
+        title: ':server: Infrastructure: {{ .CommonLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Component:* {{ .Labels.component | default "unknown" }}
+          *Summary:* {{ .Annotations.summary }}
+          *Started:* {{ .StartsAt }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+    email_configs:
+      - to: '{{ .Env.ALERT_EMAIL_OPS | default "ops@parwa.ai" }}'
+        send_resolved: true
+        subject: '[PARWA OPS] {{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
+
+# Inhibit rules: Don't spam when critical is firing
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'parwa_service']
+  - source_match:
+      severity: 'critical'
+    target_match_re:
+      severity: info|none
+    equal: ['parwa_service']
