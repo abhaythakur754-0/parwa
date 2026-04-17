@@ -162,15 +162,14 @@ async def get_assignment_scores(
     """Get assignment scores for all candidates.
 
     F-050: Preview who should be assigned based on scoring.
-    Week 4: Rule-based scoring.
-    Week 9: AI-based scoring.
+    Uses real 5-factor AI scoring: expertise, workload, performance, response time, availability.
     """
     company_id = current_user.get("company_id")
 
     service = AssignmentService(db, company_id)
 
     try:
-        result = service.get_assignment_scores(ticket_id)
+        result = service.get_assignment_scores(ticket_id, use_ai_scoring=True)
 
         return AssignmentScoresResponse(
             ticket_id=result["ticket_id"],
@@ -183,6 +182,35 @@ async def get_assignment_scores(
             ),
             scoring_method=result["scoring_method"],
         )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get(
+    "/{ticket_id}/suggest-assignee",
+    summary="Get AI assignment suggestions",
+)
+async def get_suggested_assignee(
+    ticket_id: str,
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
+) -> Any:
+    """Get AI-powered assignment suggestions with detailed scoring.
+
+    Returns full 5-factor breakdown for each candidate:
+    - Expertise match (category/intent vs agent specialty)
+    - Workload balance (open tickets)
+    - Performance history (resolution rate, CSAT, confidence)
+    - Response time history (SLA compliance)
+    - Availability status
+    """
+    company_id = current_user.get("company_id")
+
+    service = AssignmentService(db, company_id)
+
+    try:
+        result = service.get_assignment_scores(ticket_id, use_ai_scoring=True)
+        return result
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

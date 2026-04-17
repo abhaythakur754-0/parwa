@@ -183,19 +183,25 @@ class AssignmentService:
     def get_assignment_scores(
         self,
         ticket_id: str,
+        use_ai_scoring: bool = True,
     ) -> Dict[str, Any]:
-        """Get assignment scores for all candidates (AI stub).
+        """Get assignment scores for all candidates.
 
-        Week 4: Returns rule-based scores.
-        Week 9: Will return AI-computed scores.
+        Uses real 5-factor AI scoring algorithm:
+        1. Expertise Match (40 pts) - Category/intent matches agent specialty
+        2. Workload Balance (30 pts) - Fewer open tickets = higher score
+        3. Performance History (20 pts) - Resolution rate, CSAT, confidence
+        4. Response Time History (15 pts) - SLA compliance rate
+        5. Availability (10 pts) - Online/active status
 
         Args:
             ticket_id: Ticket ID
+            use_ai_scoring: Use AI scoring (default True). False falls back to rule-based.
 
         Returns:
             Dict with candidate scores and recommendation
         """
-        # Get ticket
+        # Get ticket for validation
         ticket = self.db.query(Ticket).filter(
             Ticket.id == ticket_id,
             Ticket.company_id == self.company_id,
@@ -204,10 +210,22 @@ class AssignmentService:
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
 
-        # Get available agents
+        if use_ai_scoring:
+            # Use real AI scoring
+            try:
+                from app.services.assignment_scoring_service import get_assignment_scoring_service
+                scoring_svc = get_assignment_scoring_service(self.db, self.company_id)
+                return scoring_svc.calculate_scores(ticket_id)
+            except Exception as exc:
+                # Fall back to rule-based on error
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"AI scoring failed, falling back to rule-based: {exc}"
+                )
+
+        # Rule-based fallback (legacy)
         agents = self._get_available_agents()
 
-        # Score each agent (rule-based for now)
         scores = {}
         for agent in agents:
             score = self._calculate_agent_score(agent, ticket)
@@ -218,14 +236,12 @@ class AssignmentService:
                 "current_tickets": self._get_agent_ticket_count(agent.id),
             }
 
-        # Sort by score
         sorted_candidates = sorted(
             scores.values(),
             key=lambda x: x["score"],
             reverse=True,
         )
 
-        # Get best match
         best_match = sorted_candidates[0] if sorted_candidates else None
 
         return {
