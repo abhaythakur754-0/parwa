@@ -8,9 +8,15 @@
 
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import type { AnomalyItem } from '@/lib/dashboard-api';
+
+interface AnomalyItem {
+  severity: string;
+  type: string;
+  message: string;
+  detected_at: string;
+}
 
 // ── Severity Badge Config ────────────────────────────────────────────
 

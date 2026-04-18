@@ -116,6 +116,21 @@ export interface AgentMetricsResponse {
   };
 }
 
+// ── Response Time Distribution ─────────────────────────────────────────
+
+export interface ResponseTimeBucket {
+  bucket: string;
+  count: number;
+  label: string;
+}
+
+export interface ResponseTimeDistribution {
+  buckets: ResponseTimeBucket[];
+  avg_response_minutes: number;
+  median_response_minutes: number;
+  p95_response_minutes: number;
+}
+
 // ── Activity Feed (F-037) ─────────────────────────────────────────────
 
 export type ActivityEventType =
