@@ -54,8 +54,7 @@ function CustomTooltip({
 }
 
 /** Active shape for hover effect on pie slices. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function renderActiveShape(props: any) {
+function renderActiveShape(props: unknown) {
   const {
     cx,
     cy,
@@ -65,7 +64,16 @@ function renderActiveShape(props: any) {
     endAngle,
     fill,
     percent,
-  } = props;
+  } = props as {
+    cx: number;
+    cy: number;
+    innerRadius: number;
+    outerRadius: number;
+    startAngle: number;
+    endAngle: number;
+    fill: string;
+    percent: number;
+  };
 
   return (
     <g>
