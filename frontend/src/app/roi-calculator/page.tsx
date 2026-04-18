@@ -63,8 +63,8 @@ const PARWA_MODELS: ParwaModel[] = [
     tier: 'Entry',
     price: 999,
     aiResolution: 0.60,
-    agents: 3,
-    ticketCapacity: '1K tickets/mo',
+    agents: 1,
+    ticketCapacity: '2K tickets/mo',
     channels: ['Email', 'Chat'],
     description:
       'Your first AI teammate. Handles FAQs, ticket intake, and basic queries autonomously. Perfect for small teams getting started with AI support.',
@@ -216,11 +216,11 @@ function getRecommendedModel(
   if (tickets <= 1000 && agentCount <= 5) {
     recommended = PARWA_MODELS[0]; // Starter
     reasons.push(
-      `Your volume of ${fmtNum(tickets)} tickets/month fits within the Starter tier's 1K ticket capacity.`
+      `Your volume of ${fmtNum(tickets)} tickets/month fits within the Starter tier's 2K ticket capacity.`
     );
     if (agentCount <= 3) {
       reasons.push(
-        `With ${agentCount} agent${agentCount > 1 ? 's' : ''}, the Starter's 3-agent configuration covers your entire team.`
+        `With ${agentCount} agent${agentCount > 1 ? 's' : ''}, the Starter's 1-agent configuration covers your AI workforce needs.`
       );
     }
     reasons.push(
