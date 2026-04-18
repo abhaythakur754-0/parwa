@@ -45,13 +45,16 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
     async function load() {
       try {
         setIsLoading(true);
-        const data = await ticketsApi.fetchTicketDetail(ticketId);
-        if (data) {
-          setTicket(data.ticket);
-          setMessages(data.messages);
-          setNotes(data.notes);
-          setTimeline(data.timeline);
-        }
+        const [ticketRes, messagesRes, notesRes, timelineRes] = await Promise.all([
+          ticketsApi.get(ticketId),
+          ticketsApi.getMessages(ticketId),
+          ticketsApi.getNotes(ticketId),
+          ticketsApi.getTimeline(ticketId),
+        ]);
+        setTicket(ticketRes as unknown as Ticket);
+        setMessages(messagesRes.messages as unknown as TicketMessage[]);
+        setNotes(notesRes.notes as unknown as InternalNote[]);
+        setTimeline(timelineRes.events as unknown as TimelineEntry[]);
       } catch {
         toast.error('Failed to load ticket');
       } finally {
@@ -70,8 +73,8 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
     if (!ticket || !reassignAgentId.trim()) return;
     try {
       setReassigning(true);
-      const updated = await ticketsApi.assignTicket(ticket.id, reassignAgentId);
-      setTicket(updated);
+      const updated = await ticketsApi.assign(ticket.id, { assignee_id: reassignAgentId, assignee_type: 'human' });
+      setTicket(updated as unknown as Ticket);
       toast.success('Ticket reassigned');
       setReassignOpen(false);
       setReassignAgentId('');
@@ -85,7 +88,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
   const handleExportConversation = useCallback(() => {
     if (!ticket) return;
     const headers = ['Timestamp', 'Sender', 'Content'];
-    const rows = messages.map(m => [m.created_at, m.sender_type, m.content.replace(/,/g, ';')]);
+    const rows = messages.map(m => [m.created_at, m.sender_role, m.content.replace(/,/g, ';')]);
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -100,8 +103,8 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
   const handleEscalate = useCallback(async () => {
     if (!ticket) return;
     try {
-      const updated = await ticketsApi.escalateTicket(ticket.id);
-      setTicket(updated);
+      const updated = await ticketsApi.updateStatus(ticket.id, { status: 'escalated' as any });
+      setTicket(updated as unknown as Ticket);
       toast.success('Ticket escalated');
     } catch {
       toast.error('Failed to escalate');
@@ -109,20 +112,20 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
   }, [ticket]);
 
   const handleReply = useCallback(async (content: string) => {
-    const msg = await ticketsApi.sendReply(ticketId, content);
-    setMessages((prev) => [...prev, msg]);
+    const msg = await ticketsApi.createMessage(ticketId, { role: 'agent', content });
+    setMessages((prev) => [...prev, msg as unknown as TicketMessage]);
   }, [ticketId]);
 
   const handleAddNote = useCallback(async (content: string, isPinned: boolean) => {
-    const note = await ticketsApi.addInternalNote(ticketId, content, isPinned);
-    setNotes((prev) => [note, ...prev]);
+    const note = await ticketsApi.createNote(ticketId, { content, is_pinned: isPinned });
+    setNotes((prev) => [note as unknown as InternalNote, ...prev]);
   }, [ticketId]);
 
   const handleAssignAgent = useCallback(async (agentId: string) => {
     if (!ticket) return;
     try {
-      const updated = await ticketsApi.assignTicket(ticket.id, agentId);
-      setTicket(updated);
+      const updated = await ticketsApi.assign(ticket.id, { assignee_id: agentId, assignee_type: 'human' });
+      setTicket(updated as unknown as Ticket);
       toast.success('Agent assigned successfully');
     } catch {
       toast.error('Failed to assign agent');
@@ -300,7 +303,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
         {/* Right: Metadata sidebar */}
         <div className="space-y-4">
           {/* AI Assignment Suggestions */}
-          {!ticket.assigned_to && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+          {!ticket.assigned_agent?.id && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
             <AssignmentSuggestions
               ticketId={ticketId}
               onSelectAgent={handleAssignAgent}
