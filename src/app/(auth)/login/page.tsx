@@ -25,7 +25,12 @@ function LoginContent() {
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectTo = searchParams.get('redirect') || '/models';
+  const rawRedirect = searchParams.get('redirect') || '/models';
+  // Validate redirect: only allow relative paths starting with "/"
+  // Reject any redirect containing "://" (external URLs) or "\\" (backslash bypass)
+  const redirectTo = (rawRedirect.startsWith('/') && !rawRedirect.includes('://') && !rawRedirect.includes('\\'))
+    ? rawRedirect
+    : '/models';
 
   useEffect(() => {
     if (isAuthenticated && !authLoading) router.push(redirectTo);

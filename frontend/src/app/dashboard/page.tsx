@@ -300,7 +300,7 @@ export default function DashboardPage() {
           />
           <KPICard
             title="Awaiting Client"
-            value={summary ? formatNumber(safeNum(summary.awaiting_client)) : '—'}
+            value={summary ? formatNumber(safeNum(summary.awaiting_customer)) : '—'}
             icon={Icons.awaiting}
             variant="default"
             isLoading={!data}

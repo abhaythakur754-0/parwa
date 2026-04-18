@@ -2052,6 +2052,20 @@ async def get_dashboard_summary(request: Request):
     company_id = getattr(request.state, "company_id", None)
     result: Dict[str, Any] = {}
 
+    # Subscription info (BILL-C03: populate required fields)
+    if company_id:
+        try:
+            from app.services.subscription_service import get_subscription_service
+            sub_service = get_subscription_service()
+            subscription = await sub_service.get_subscription(UUID(company_id))
+            if subscription:
+                result["subscription_status"] = subscription.status.value if hasattr(subscription.status, "value") else str(subscription.status)
+                result["current_plan"] = subscription.variant.value if hasattr(subscription.variant, "value") else str(subscription.variant)
+                result["billing_frequency"] = subscription.billing_frequency if hasattr(subscription, "billing_frequency") else None
+                result["current_period_end"] = str(subscription.current_period_end) if subscription.current_period_end else None
+        except Exception:
+            pass
+
     # Trial status
     try:
         from app.services.trial_service import get_trial_service

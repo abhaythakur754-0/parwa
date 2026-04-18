@@ -2,10 +2,42 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 
+// Simple in-memory rate limiter: 5 attempts per 15 minutes per email
+const loginAttempts = new Map<string, number[]>();
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function isLoginRateLimited(email: string): boolean {
+  const now = Date.now();
+  const attempts = loginAttempts.get(email) || [];
+  const recent = attempts.filter((t) => now - t < LOGIN_WINDOW_MS);
+  loginAttempts.set(email, recent);
+  return recent.length >= LOGIN_MAX_ATTEMPTS;
+}
+
+function recordLoginAttempt(email: string): void {
+  const now = Date.now();
+  const attempts = loginAttempts.get(email) || [];
+  attempts.push(now);
+  // Prune old entries to prevent unbounded growth
+  loginAttempts.set(
+    email,
+    attempts.filter((t) => now - t < LOGIN_WINDOW_MS),
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password } = body;
+
+    // Rate limit check
+    if (typeof email === "string" && isLoginRateLimited(email.trim().toLowerCase())) {
+      return NextResponse.json(
+        { status: "error", message: "Too many login attempts. Please try again later." },
+        { status: 429 }
+      );
+    }
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json(
@@ -22,6 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    recordLoginAttempt(normalizedEmail);
 
     // Find user by email
     const user = await db.user.findUnique({

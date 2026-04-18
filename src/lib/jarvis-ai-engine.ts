@@ -677,7 +677,7 @@ export class JarvisAIEngine {
     response += "- PARWA AI: **under $1 per ticket** (Starter tier)\n\n";
 
     response += "**Plan-specific savings:**\n";
-    response += "- **Starter ($999/mo)** vs 3 agents ($14K/mo) = **$156K/year saved**\n";
+    response += "- **Starter ($999/mo)** vs 3 agents ($14K/mo) = **$168K/year saved**\n";
     response += "- **Growth ($2,499/mo)** vs 4 juniors ($18K/mo) = **$186K/year saved**\n";
     response += "- **High ($3,999/mo)** vs 5 seniors ($28K/mo) = **$288K/year saved**\n\n";
 

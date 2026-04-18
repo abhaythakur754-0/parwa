@@ -23,7 +23,8 @@ export type MessageType =
   | 'pack_expired'
   | 'error'
   | 'message_counter'
-  | 'demo_pack_cta';
+  | 'demo_pack_cta'
+  | 'pipeline_insight';
 
 export type SessionType = 'onboarding' | 'customer_care';
 

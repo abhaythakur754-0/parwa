@@ -35,6 +35,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose ports
 EXPOSE 80 443
 
-# Run nginx in foreground as non-root user
-USER nginx
+# Run nginx in foreground.
+# NOTE: Cannot use USER nginx here because nginx needs to bind to port 443
+# (a privileged port). Nginx handles dropping privileges internally via
+# the "user nginx;" directive in nginx.conf. Container security is enforced
+# via read-only filesystem and resource limits in docker-compose.
 CMD ["nginx", "-g", "daemon off;"]

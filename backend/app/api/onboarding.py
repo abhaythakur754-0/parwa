@@ -64,7 +64,7 @@ def api_complete_step(
     BC-001: Scoped to user's company_id.
 
     Args:
-        step: Step number to complete (1-5).
+        step: Step number to complete (1-6).
     """
     result = complete_step(
         db=db,

@@ -31,6 +31,9 @@ export { RechargeCTACard } from './RechargeCTACard';
 // Shadow Mode (Day 6)
 export { ShadowModeCard } from './ShadowModeCard';
 
+// Pipeline Insights
+export { PipelineInsightCard } from './PipelineInsightCard';
+
 // Dashboard Integration
 export { JarvisSidebar } from './JarvisSidebar';
 export { JarvisProvider, useJarvisSidebar } from './JarvisProvider';

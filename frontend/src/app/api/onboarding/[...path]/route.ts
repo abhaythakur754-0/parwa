@@ -71,7 +71,13 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
 
 // ── Local State Persistence ────────────────────────────────────
 
-const STATE_STORE_PATH = path.join(process.cwd(), '.parwa_onboarding_state.json');
+// ONB-C05: Per-user state file to isolate local fallback data between users.
+// Each authenticated user gets their own .json file keyed by user_id.
+function getStateStorePath(userId: string): string {
+  // Sanitize userId to prevent path traversal (remove any path separators)
+  const safeId = String(userId).replace(/[^a-zA-Z0-9_-]/g, '_');
+  return path.join(process.cwd(), `.parwa_onboarding_state_${safeId}.json`);
+}
 
 interface OnboardingState {
   current_step: number;
@@ -92,10 +98,34 @@ interface OnboardingState {
   updated_at: string;
 }
 
-function loadState(): OnboardingState {
+// ONB-C04: Extract user_id from parwa_session cookie for auth check and user isolation.
+function getUserIdFromRequest(request: NextRequest): string | null {
+  const cookieHeader = request.headers.get('cookie') || '';
+  const cookies = Object.fromEntries(
+    cookieHeader.split(';').map(c => {
+      const [key, ...rest] = c.trim().split('=');
+      return [key, rest.join('=')];
+    })
+  );
+  // parwa_session is a JSON cookie containing user_id
+  const sessionCookie = cookies['parwa_session'];
+  if (sessionCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(sessionCookie));
+      if (parsed.user_id) return parsed.user_id;
+    } catch {
+      // Cookie may not be JSON — try as plain value (user_id directly)
+      if (sessionCookie) return sessionCookie;
+    }
+  }
+  return null;
+}
+
+function loadState(userId: string): OnboardingState {
+  const statePath = getStateStorePath(userId);
   try {
-    if (fs.existsSync(STATE_STORE_PATH)) {
-      const raw = fs.readFileSync(STATE_STORE_PATH, 'utf-8');
+    if (fs.existsSync(statePath)) {
+      const raw = fs.readFileSync(statePath, 'utf-8');
       return JSON.parse(raw);
     }
   } catch { /* ignore */ }
@@ -115,10 +145,11 @@ function loadState(): OnboardingState {
   };
 }
 
-function saveState(state: OnboardingState): void {
+function saveState(state: OnboardingState, userId: string): void {
   state.updated_at = new Date().toISOString();
+  const statePath = getStateStorePath(userId);
   try {
-    fs.writeFileSync(STATE_STORE_PATH, JSON.stringify(state, null, 2), 'utf-8');
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf-8');
   } catch { /* ignore */ }
 }
 
@@ -150,8 +181,17 @@ export async function GET(
   const prodBlock = productionGuard();
   if (prodBlock) return prodBlock;
 
+  // ONB-C04: Auth check for local fallback — require parwa_session cookie
+  const userId = getUserIdFromRequest(request);
+  if (!userId) {
+    return NextResponse.json(
+      { detail: 'Authentication required. Please log in.' },
+      { status: 401 }
+    );
+  }
+
   // Local fallback (dev/staging only)
-  const state = loadState();
+  const state = loadState(userId);
 
   switch (pathKey) {
     case 'state':
@@ -205,14 +245,23 @@ export async function POST(
   const prodBlock = productionGuard();
   if (prodBlock) return prodBlock;
 
+  // ONB-C04: Auth check for local fallback — require parwa_session cookie
+  const userId = getUserIdFromRequest(request);
+  if (!userId) {
+    return NextResponse.json(
+      { detail: 'Authentication required. Please log in.' },
+      { status: 401 }
+    );
+  }
+
   // Local fallback (dev/staging only)
-  const state = loadState();
+  const state = loadState(userId);
 
   switch (pathKey) {
     case 'complete-step': {
       const url = new URL(request.url);
       const step = parseInt(url.searchParams.get('step') || '1', 10);
-      if (step < 1 || step > 5) {
+      if (step < 1 || step > 6) {
         return NextResponse.json({ detail: 'Invalid step' }, { status: 400 });
       }
       // P18 FIX: Enforce sequential step progression in local fallback.
@@ -220,7 +269,7 @@ export async function POST(
       if (step !== state.current_step) {
         // P11: Allow skipping optional step 4 (KB) — if user is on step 4,
         // they can advance without uploading documents.
-        const isOptionalSkip = step === 5 && state.current_step === 4;
+        const isOptionalSkip = (step === 5 && state.current_step === 4);
         if (!isOptionalSkip) {
           return NextResponse.json(
             { detail: `Invalid step transition. Expected step ${state.current_step}, got ${step}.` },
@@ -238,10 +287,10 @@ export async function POST(
       if (step >= state.current_step) {
         state.current_step = step + 1;
       }
-      if (step === 5) {
+      if (step === 6) {
         state.status = 'completed';
       }
-      saveState(state);
+      saveState(state, userId);
       return NextResponse.json({
         message: `Step ${step} completed successfully.`,
         current_step: state.current_step,
@@ -263,7 +312,7 @@ export async function POST(
         accept_ai_data: true,
         accepted_at: new Date().toISOString(),
       };
-      saveState(state);
+      saveState(state, userId);
       return NextResponse.json({
         message: 'Legal consents accepted successfully.',
         terms_accepted_at: state.legal_consents.accepted_at,
@@ -315,7 +364,7 @@ export async function POST(
       state.ai_response_style = ai_response_style;
       state.ai_greeting = ai_greeting;
       state.status = 'completed';
-      saveState(state);
+      saveState(state, userId);
       return NextResponse.json({
         ai_name: state.ai_name,
         ai_tone: state.ai_tone,
@@ -326,7 +375,7 @@ export async function POST(
 
     case 'first-victory': {
       state.first_victory_completed = true;
-      saveState(state);
+      saveState(state, userId);
       return NextResponse.json({
         message: 'First victory celebration completed.',
       });

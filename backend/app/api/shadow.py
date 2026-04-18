@@ -10,6 +10,7 @@ BC-011: All endpoints require authentication.
 """
 
 import logging
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -481,8 +482,98 @@ def get_undo_history(
         }
 
 
+class UpdateConfigRequest(BaseModel):
+    undo_window_minutes: Optional[int] = Field(None, ge=1, le=1440, description="Undo window in minutes (1-1440)")
+    risk_threshold_shadow: Optional[float] = Field(None, ge=0.0, le=1.0, description="Risk threshold to force shadow mode (0.0-1.0)")
+    risk_threshold_auto: Optional[float] = Field(None, ge=0.0, le=1.0, description="Risk threshold for auto-execute in graduated mode (0.0-1.0)")
+
+
+class GetConfigResponse(BaseModel):
+    undo_window_minutes: int
+    risk_threshold_shadow: float
+    risk_threshold_auto: float
+
+
 class JarvisCommandRequest(BaseModel):
     message: str = Field(..., description="The user's message containing a shadow mode command")
+
+
+@router.get("/config")
+def get_config(
+    user: User = Depends(get_current_user),
+):
+    """Get the shadow mode configuration for the company (undo window, risk thresholds)."""
+    from decimal import Decimal
+    from database.base import SessionLocal
+    from database.models.core import Company
+
+    company_id = user.company_id
+    if not company_id:
+        raise AuthorizationError(message="User has no associated company")
+
+    with SessionLocal() as db:
+        company = db.query(Company).filter(Company.id == company_id).first()
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+
+        return {
+            "undo_window_minutes": company.undo_window_minutes or 30,
+            "risk_threshold_shadow": float(company.risk_threshold_shadow) if company.risk_threshold_shadow else 0.7,
+            "risk_threshold_auto": float(company.risk_threshold_auto) if company.risk_threshold_auto else 0.3,
+        }
+
+
+@router.put("/config")
+def update_config(
+    body: UpdateConfigRequest,
+    user: User = Depends(get_current_user),
+):
+    """Update shadow mode configuration (undo window, risk thresholds).
+
+    Only owners and admins can change these settings.
+    """
+    from database.base import SessionLocal
+    from database.models.core import Company
+
+    company_id = user.company_id
+    if not company_id:
+        raise AuthorizationError(message="User has no associated company")
+
+    if user.role not in ("owner", "admin"):
+        raise HTTPException(
+            status_code=403,
+            detail="Only owners and admins can change shadow mode configuration",
+        )
+
+    with SessionLocal() as db:
+        company = db.query(Company).filter(Company.id == company_id).first()
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+
+        if body.undo_window_minutes is not None:
+            company.undo_window_minutes = body.undo_window_minutes
+        if body.risk_threshold_shadow is not None:
+            company.risk_threshold_shadow = body.risk_threshold_shadow
+        if body.risk_threshold_auto is not None:
+            company.risk_threshold_auto = body.risk_threshold_auto
+
+        company.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(company)
+
+        logger.info(
+            "shadow_config_updated company_id=%s user=%s undo_window=%s risk_shadow=%.2f risk_auto=%.2f",
+            company_id, user.id, company.undo_window_minutes,
+            float(company.risk_threshold_shadow or 0.7),
+            float(company.risk_threshold_auto or 0.3),
+        )
+
+        return {
+            "company_id": str(company_id),
+            "undo_window_minutes": company.undo_window_minutes,
+            "risk_threshold_shadow": float(company.risk_threshold_shadow) if company.risk_threshold_shadow else 0.7,
+            "risk_threshold_auto": float(company.risk_threshold_auto) if company.risk_threshold_auto else 0.3,
+        }
 
 
 @router.post("/jarvis-command")

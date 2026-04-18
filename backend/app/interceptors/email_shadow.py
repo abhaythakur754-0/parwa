@@ -58,12 +58,17 @@ def evaluate_email_shadow(
     
     Returns:
         EmailShadowResult with evaluation outcome.
+    
+    When auto_execute=True, the email is sent immediately and logged
+    to the undo queue for potential reversal.
     """
     try:
         # Lazy import to avoid circular dependencies
         from app.services.shadow_mode_service import ShadowModeService
+        from app.interceptors.base_interceptor import ShadowInterceptor
         
         service = shadow_service or ShadowModeService()
+        interceptor = ShadowInterceptor()
         
         # Evaluate using the 4-layer system
         evaluation = service.evaluate_action_risk(
@@ -72,23 +77,45 @@ def evaluate_email_shadow(
             action_payload=email_payload,
         )
         
-        # Log the shadow action if approval is required
-        shadow_log_id = None
-        if evaluation.get("requires_approval"):
-            log_entry = service.log_shadow_action(
+        auto_execute = evaluation.get("auto_execute", False)
+        requires_approval = evaluation.get("requires_approval", True)
+        risk_score = evaluation.get("risk_score", 0.5)
+        mode = evaluation.get("mode", "supervised")
+        
+        # Always log the action to shadow_log for audit trail
+        log_entry = service.log_shadow_action(
+            company_id=company_id,
+            action_type="email_reply",
+            action_payload=email_payload,
+            risk_score=risk_score,
+            mode=mode,
+        )
+        shadow_log_id = log_entry.get("id")
+        
+        # Auto-execute: send the email immediately
+        if auto_execute and not requires_approval:
+            _execute_email_action(
                 company_id=company_id,
-                action_type="email_reply",
-                action_payload=email_payload,
-                risk_score=evaluation.get("risk_score"),
-                mode=evaluation.get("mode"),
+                email_payload=email_payload,
+                shadow_log_id=shadow_log_id,
             )
-            shadow_log_id = log_entry.get("id")
+            # Log to undo queue for potential reversal
+            interceptor._log_to_undo_queue(
+                company_id=company_id,
+                shadow_log_id=shadow_log_id,
+                action_type="email_reply",
+                action_data=email_payload,
+            )
+            logger.info(
+                "email_auto_executed company_id=%s log_id=%s risk=%.2f",
+                company_id, shadow_log_id, risk_score,
+            )
         
         return EmailShadowResult(
-            requires_approval=evaluation.get("requires_approval", True),
-            auto_execute=evaluation.get("auto_execute", False),
-            mode=evaluation.get("mode", "supervised"),
-            risk_score=evaluation.get("risk_score", 0.5),
+            requires_approval=requires_approval,
+            auto_execute=auto_execute,
+            mode=mode,
+            risk_score=risk_score,
             reason=evaluation.get("reason", ""),
             shadow_log_id=shadow_log_id,
             layers=evaluation.get("layers"),
@@ -110,6 +137,61 @@ def evaluate_email_shadow(
             risk_score=0.5,
             reason=f"Evaluation failed: {str(e)}",
         )
+
+
+def _execute_email_action(
+    company_id: str,
+    email_payload: Dict[str, Any],
+    shadow_log_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Execute an email send action that was auto-approved.
+    
+    Delegates to the email service for actual sending.
+    
+    Args:
+        company_id: Company UUID (BC-001).
+        email_payload: Dict with email details.
+        shadow_log_id: Optional shadow log ID for audit trail.
+    
+    Returns:
+        Dict with execution result.
+    """
+    try:
+        from app.services.email_service import EmailService
+        
+        email_service = EmailService()
+        
+        result = email_service.send_email(
+            to=email_payload.get("to"),
+            subject=email_payload.get("subject"),
+            body=email_payload.get("body"),
+            from_address=email_payload.get("from_address"),
+            reply_to=email_payload.get("reply_to"),
+            company_id=company_id,
+        )
+        
+        logger.info(
+            "email_executed company_id=%s to=%s shadow_id=%s",
+            company_id, email_payload.get("to"), shadow_log_id,
+        )
+        
+        return {
+            "status": "sent",
+            "shadow_log_id": shadow_log_id,
+            "email_result": result,
+            "sent_at": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(
+            "email_execution_failed company_id=%s shadow_id=%s error=%s",
+            company_id, shadow_log_id, str(e), exc_info=True,
+        )
+        return {
+            "status": "error",
+            "shadow_log_id": shadow_log_id,
+            "error": str(e),
+        }
 
 
 def process_email_after_approval(

@@ -27,3 +27,6 @@ export { PackExpiredCard } from './PackExpiredCard';
 export { ActionTicketCard } from './ActionTicketCard';
 export { PostCallSummaryCard } from './PostCallSummaryCard';
 export { RechargeCTACard } from './RechargeCTACard';
+
+// Pipeline Insight Card (Week 8-11)
+export { PipelineInsightCard } from './PipelineInsightCard';

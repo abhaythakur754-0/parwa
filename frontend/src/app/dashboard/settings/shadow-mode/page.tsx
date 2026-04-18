@@ -182,6 +182,8 @@ export default function ShadowModeSettingsPage() {
   const [undoWindow, setUndoWindow] = useState(30);
   const [riskThresholdShadow, setRiskThresholdShadow] = useState(0.7);
   const [riskThresholdAuto, setRiskThresholdAuto] = useState(0.3);
+  const [configSaving, setConfigSaving] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -197,15 +199,24 @@ export default function ShadowModeSettingsPage() {
     setLoading(true);
     setError(false);
     try {
-      const [modeRes, prefsRes, statsRes] = await Promise.all([
+      const [modeRes, prefsRes, statsRes, configRes] = await Promise.all([
         shadowApi.getMode(),
         shadowApi.getPreferences(),
         shadowApi.getStats(),
+        shadowApi.getConfig(),
       ]);
 
       setCurrentMode(modeRes.mode);
       setPreferences(prefsRes.preferences);
       setStats(statsRes);
+
+      // Load config values from backend
+      if (configRes) {
+        setUndoWindow(configRes.undo_window_minutes);
+        setRiskThresholdShadow(configRes.risk_threshold_shadow);
+        setRiskThresholdAuto(configRes.risk_threshold_auto);
+        setConfigLoaded(true);
+      }
     } catch {
       setError(true);
     } finally {
@@ -310,6 +321,49 @@ export default function ShadowModeSettingsPage() {
     }
   };
 
+  // ── Config persistence handlers ──────────────────────────────────────
+  const handleUndoWindowChange = async (value: number) => {
+    setUndoWindow(value);
+    if (!configLoaded) return; // Don't save until initial load
+    setConfigSaving(true);
+    try {
+      await shadowApi.updateConfig({ undo_window_minutes: value });
+      toast.success(`Undo window updated to ${value} minutes`);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
+  const handleRiskThresholdShadowChange = async (value: number) => {
+    setRiskThresholdShadow(value);
+    if (!configLoaded) return;
+    setConfigSaving(true);
+    try {
+      await shadowApi.updateConfig({ risk_threshold_shadow: value });
+      toast.success('Shadow risk threshold updated');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
+  const handleRiskThresholdAutoChange = async (value: number) => {
+    setRiskThresholdAuto(value);
+    if (!configLoaded) return;
+    setConfigSaving(true);
+    try {
+      await shadowApi.updateConfig({ risk_threshold_auto: value });
+      toast.success('Auto-execute risk threshold updated');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
   // ════════════════════════════════════════════════════════════════════════
   // Render
   // ════════════════════════════════════════════════════════════════════════
@@ -395,7 +449,7 @@ export default function ShadowModeSettingsPage() {
                   <div className="flex flex-wrap gap-4 text-xs text-zinc-500">
                     <span>Total actions: <span className="text-zinc-300">{stats.total_actions}</span></span>
                     <span>Pending: <span className="text-yellow-400">{stats.pending_count}</span></span>
-                    <span>Approval rate: <span className="text-emerald-400">{(stats.approval_rate * 100).toFixed(1)}%</span></span>
+                    <span>Approval rate: <span className="text-emerald-400">{stats.approval_rate.toFixed(1)}%</span></span>
                   </div>
                 </div>
               )}
@@ -525,7 +579,8 @@ export default function ShadowModeSettingsPage() {
                 </p>
                 <select
                   value={undoWindow}
-                  onChange={(e) => setUndoWindow(parseInt(e.target.value))}
+                  onChange={(e) => handleUndoWindowChange(parseInt(e.target.value))}
+                  disabled={configSaving}
                   className="w-full rounded-lg border border-white/[0.08] bg-[#141414] px-4 py-2.5 text-sm text-white focus:border-[#FF7F11]/50 focus:outline-none focus:ring-1 focus:ring-[#FF7F11]/30 transition-colors appearance-none cursor-pointer"
                 >
                   {UNDO_WINDOW_OPTIONS.map((opt) => (
@@ -552,7 +607,8 @@ export default function ShadowModeSettingsPage() {
                       max="1"
                       step="0.05"
                       value={riskThresholdShadow}
-                      onChange={(e) => setRiskThresholdShadow(parseFloat(e.target.value))}
+                      onChange={(e) => handleRiskThresholdShadowChange(parseFloat(e.target.value))}
+                      disabled={configSaving}
                       className="w-full h-2 bg-white/[0.06] rounded-lg appearance-none cursor-pointer accent-[#FF7F11]"
                     />
                     <p className="text-[10px] text-zinc-600 mt-1">Actions above this risk always require approval</p>
@@ -568,7 +624,8 @@ export default function ShadowModeSettingsPage() {
                       max="0.5"
                       step="0.05"
                       value={riskThresholdAuto}
-                      onChange={(e) => setRiskThresholdAuto(parseFloat(e.target.value))}
+                      onChange={(e) => handleRiskThresholdAutoChange(parseFloat(e.target.value))}
+                      disabled={configSaving}
                       className="w-full h-2 bg-white/[0.06] rounded-lg appearance-none cursor-pointer accent-[#FF7F11]"
                     />
                     <p className="text-[10px] text-zinc-600 mt-1">Actions below this risk are auto-executed</p>

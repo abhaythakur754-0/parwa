@@ -40,6 +40,8 @@ interface ShadowModeStepProps {
   onComplete: () => void;
   /** Whether this step can be skipped */
   canSkip?: boolean;
+  /** Called when user graduates from shadow mode */
+  onGraduate?: () => void;
   /** Additional CSS classes */
   className?: string;
 }
@@ -79,6 +81,7 @@ const SAMPLE_ACTIONS: SampleAction[] = [
 export function ShadowModeStep({
   onComplete,
   canSkip = true,
+  onGraduate,
   className,
 }: ShadowModeStepProps) {
   const { socket } = useSocket();
@@ -87,6 +90,8 @@ export function ShadowModeStep({
   const [currentMode, setCurrentMode] = useState<SystemMode>('shadow');
   const [showSampleActions, setShowSampleActions] = useState(false);
   const [animatingProgress, setAnimatingProgress] = useState(false);
+  // Track whether graduation has been announced (to fire onGraduate only once)
+  const [graduationAnnounced, setGraduationAnnounced] = useState(false);
 
   // Fetch initial shadow mode status
   const fetchStatus = useCallback(async () => {
@@ -99,6 +104,9 @@ export function ShadowModeStep({
       // For new users, this would come from a separate endpoint
       // For now, we estimate from stats
       setActionsRemaining(10 - (statsRes?.approved_count || 0));
+      // Fix: Math.max guard prevents actionsRemaining going negative
+      // if approved_count exceeds the expected total
+      setActionsRemaining((v) => Math.max(0, v));
     } catch (err) {
       console.error('[ShadowModeStep] Failed to fetch status:', err);
     } finally {
@@ -137,6 +145,14 @@ export function ShadowModeStep({
   const totalActions = 10;
   const progress = ((totalActions - actionsRemaining) / totalActions) * 100;
   const isGraduated = actionsRemaining <= 0 || currentMode !== 'shadow';
+
+  // Fire onGraduate callback when graduation is first detected
+  useEffect(() => {
+    if (isGraduated && !graduationAnnounced && onGraduate) {
+      setGraduationAnnounced(true);
+      onGraduate();
+    }
+  }, [isGraduated, graduationAnnounced, onGraduate]);
 
   // Get risk level color
   const getRiskColor = (level: 'low' | 'medium' | 'high') => {

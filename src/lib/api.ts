@@ -24,7 +24,7 @@ import {
 } from '@/types/auth';
 
 // API base URL from environment or default
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 /**
  * Create axios instance with default configuration.
@@ -186,6 +186,18 @@ export async function post<T>(url: string, data?: unknown, config?: AxiosRequest
 export async function patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
   try {
     const response = await apiClient.patch<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * Generic PUT request with safe parsing.
+ */
+export async function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.put<T>(url, data, config);
     return safeParseResponse<T>(response);
   } catch (error) {
     throw error;

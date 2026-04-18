@@ -188,7 +188,7 @@ def complete_step(
         db: Database session.
         user_id: User UUID.
         company_id: Company UUID.
-        step: Step number being completed (1-5).
+        step: Step number being completed (1-6).
 
     Returns:
         Dict with updated session state.
@@ -196,9 +196,9 @@ def complete_step(
     Raises:
         ValidationError: If step transition is invalid.
     """
-    if step < 1 or step > 5:
+    if step < 1 or step > 6:
         raise ValidationError(
-            message="Invalid step number. Must be 1-5.",
+            message="Invalid step number. Must be 1-6.",
             details={"step": step},
         )
 
@@ -248,7 +248,7 @@ def complete_step(
         completed.append(step)
 
     session.completed_steps = json.dumps(completed)
-    session.current_step = step + 1 if step < 5 else 5
+    session.current_step = step + 1 if step < 6 else 6
     session.updated_at = datetime.now(timezone.utc)
 
     # Mark flags based on step
@@ -256,7 +256,7 @@ def complete_step(
         session.details_completed = True
     elif step == 2:
         session.legal_accepted = True
-    elif step == 5:
+    elif step == 6:
         session.status = "completed"
         session.completed_at = datetime.now(timezone.utc)
 

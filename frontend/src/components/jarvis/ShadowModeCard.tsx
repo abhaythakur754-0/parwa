@@ -132,13 +132,13 @@ export function ShadowModeCard({
     socket.on('shadow:mode_changed', handleModeChange);
     socket.on('shadow:action_resolved', handleStatsUpdate);
     socket.on('shadow:action_undone', handleStatsUpdate);
-    socket.on('shadow:new', handleStatsUpdate);
+    socket.on('shadow:action_logged', handleStatsUpdate);
 
     return () => {
       socket.off('shadow:mode_changed', handleModeChange);
       socket.off('shadow:action_resolved', handleStatsUpdate);
       socket.off('shadow:action_undone', handleStatsUpdate);
-      socket.off('shadow:new', handleStatsUpdate);
+      socket.off('shadow:action_logged', handleStatsUpdate);
     };
   }, [socket, onModeChange]);
 
@@ -169,7 +169,7 @@ export function ShadowModeCard({
   // Get current mode config
   const config = mode ? MODE_CONFIG[mode] : null;
   const pendingCount = stats?.pending_count ?? 0;
-  const approvalRate = stats?.approval_rate ? (stats.approval_rate * 100).toFixed(0) : '0';
+  const approvalRate = stats?.approval_rate ? stats.approval_rate.toFixed(0) : '0';
 
   // Loading state
   if (loading) {

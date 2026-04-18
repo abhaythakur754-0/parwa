@@ -369,6 +369,10 @@ export default function BillingPage() {
   };
 
   const handleCancelStep1 = async () => {
+    if (!cancelReason.trim()) {
+      toast.error('Please select a reason for canceling');
+      return;
+    }
     try {
       await billingApi.cancelFeedback({ reason: cancelReason, feedback: cancelFeedback });
       setCancelStep(2);

@@ -287,7 +287,7 @@ async def handle_paddle_webhook(
 
 @router.post("/webhooks/paddle/payment-failed")
 async def handle_payment_failed_webhook(
-    webhook: PaymentFailedWebhook,
+    request: Request,
     background_tasks: BackgroundTasks,
 ):
     """
@@ -295,7 +295,31 @@ async def handle_payment_failed_webhook(
 
     For explicit payment failure handling with company_id in payload.
     This is a convenience endpoint for direct payment failure notifications.
+
+    BILL-C05: Added Paddle webhook HMAC signature verification.
     """
+    settings = get_settings()
+
+    # Verify Paddle webhook signature (BILL-C05)
+    body = await request.body()
+    signature = request.headers.get("paddle_signature", "")
+    webhook_secret = getattr(settings, "PADDLE_WEBHOOK_SECRET", "")
+
+    if webhook_secret and not verify_paddle_signature(body, signature, webhook_secret):
+        logger.warning(
+            "payment_failed_webhook_invalid_signature signature=%s",
+            signature[:20] + "..." if signature else "missing",
+        )
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    # Parse payload
+    try:
+        import json
+        payload = json.loads(body)
+        webhook = PaymentFailedWebhook(**payload)
+    except Exception as exc:
+        logger.warning("payment_failed_webhook_invalid_payload error=%s", str(exc))
+        raise HTTPException(status_code=400, detail=f"Invalid payload: {str(exc)}")
     logger.warning(
         "payment_failed_webhook company_id=%s transaction_id=%s code=%s",
         webhook.company_id,
@@ -334,14 +358,38 @@ async def handle_payment_failed_webhook(
 
 @router.post("/webhooks/paddle/payment-succeeded")
 async def handle_payment_succeeded_webhook(
-    webhook: PaymentSucceededWebhook,
+    request: Request,
     background_tasks: BackgroundTasks,
 ):
     """
     Dedicated payment succeeded webhook endpoint.
 
     Resumes service if company had a previous payment failure.
+
+    BILL-C05: Added Paddle webhook HMAC signature verification.
     """
+    settings = get_settings()
+
+    # Verify Paddle webhook signature (BILL-C05)
+    body = await request.body()
+    signature = request.headers.get("paddle_signature", "")
+    webhook_secret = getattr(settings, "PADDLE_WEBHOOK_SECRET", "")
+
+    if webhook_secret and not verify_paddle_signature(body, signature, webhook_secret):
+        logger.warning(
+            "payment_succeeded_webhook_invalid_signature signature=%s",
+            signature[:20] + "..." if signature else "missing",
+        )
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    # Parse payload
+    try:
+        import json
+        payload = json.loads(body)
+        webhook = PaymentSucceededWebhook(**payload)
+    except Exception as exc:
+        logger.warning("payment_succeeded_webhook_invalid_payload error=%s", str(exc))
+        raise HTTPException(status_code=400, detail=f"Invalid payload: {str(exc)}")
     logger.info(
         "payment_succeeded_webhook company_id=%s transaction_id=%s",
         webhook.company_id,

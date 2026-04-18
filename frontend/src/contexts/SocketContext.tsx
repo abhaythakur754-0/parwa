@@ -122,7 +122,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
   const connect = useCallback(() => {
     if (socketRef.current?.connected) return;
 
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_SOCKET_URL || '';
     const socket = io(`${API_BASE}/ws`, {
       path: '/ws/socket.io',
       transports: ['websocket', 'polling'],

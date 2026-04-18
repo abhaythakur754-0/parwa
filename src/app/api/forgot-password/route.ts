@@ -16,7 +16,21 @@ function generateOTP(): string {
   return (num % 1000000).toString().padStart(6, "0");
 }
 
+/**
+ * FIX: HTML-escape user input before interpolating into email HTML.
+ * Prevents XSS if userName contains script tags or HTML entities.
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function getOTPEmailHTML(userName: string, otp: string): string {
+  const safeName = escapeHtml(userName);
   return `
 <!DOCTYPE html>
 <html>
@@ -46,7 +60,7 @@ function getOTPEmailHTML(userName: string, otp: string): string {
       <td style="background:linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%); border-radius:16px; padding:40px; border:1px solid rgba(255,127,17,0.25); box-shadow:0 4px 24px rgba(0,0,0,0.2);">
         <h1 style="margin:0 0 8px; font-size:24px; font-weight:700; color:#ffffff;">Password Reset</h1>
         <p style="margin:0 0 28px; font-size:15px; color:rgba(255,255,255,0.5); line-height:1.6;">
-          Hi ${userName},<br><br>
+          Hi ${safeName},<br><br>
           We received a request to reset your password. Use the OTP below to verify your identity:
         </p>
 
@@ -99,11 +113,15 @@ export async function POST(request: NextRequest) {
       where: { email: normalizedEmail },
     });
 
-    // If user doesn't exist, return a clear error
+    // FIX: Use ambiguous response to prevent email enumeration.
+    // Do NOT reveal whether an account with this email exists.
     if (!user) {
       return NextResponse.json(
-        { status: "error", message: "No account found with this email address." },
-        { status: 400 }
+        {
+          status: "success",
+          message: "If an account with this email exists, an OTP has been sent.",
+        },
+        { status: 200 }
       );
     }
 

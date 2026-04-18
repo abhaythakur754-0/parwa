@@ -268,6 +268,19 @@ def _build_config() -> dict:
                 "schedule": {"hour": 6, "minute": 0},
                 "kwargs": {},
             },
+            # Shadow mode periodic tasks
+            "shadow-cleanup-expired-queue-15min": {
+                "task": ("app.tasks.shadow_tasks"
+                          ".cleanup_expired_shadow_queue"),
+                "schedule": 900.0,  # Every 15 minutes
+                "kwargs": {},
+            },
+            "shadow-aggregate-stats-5min": {
+                "task": ("app.tasks.shadow_tasks"
+                          ".aggregate_shadow_stats"),
+                "schedule": 300.0,  # Every 5 minutes
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,
@@ -290,6 +303,8 @@ def _build_config() -> dict:
             "app.tasks.email_channel_tasks",
             # Day 6: Knowledge base task module
             "app.tasks.knowledge_tasks",
+            # Shadow mode queue processing
+            "app.tasks.shadow_tasks",
         ],
     }
 

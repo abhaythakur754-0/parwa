@@ -50,53 +50,10 @@ interface ChatWindowProps {
 
 /** Build a context-aware welcome message based on session context. */
 function getWelcomeMessage(ctx?: JarvisContext | null): { heading: string; body: string } {
-  const entrySource = ctx?.entry_source;
-  const pagesVisited = ctx?.pages_visited || [];
-
-  // Match entry_source to specific messages
-  if (entrySource === 'pricing') {
-    return {
-      heading: 'Pricing questions? I can help! 💰',
-      body: "I see you were exploring our pricing! Ready to find the right plan for your business?",
-    };
-  }
-  if (entrySource === 'roi') {
-    return {
-      heading: 'Welcome back! 📊',
-      body: "I see you've been checking out our ROI calculator. Want to see how PARWA can save you money?",
-    };
-  }
-  if (entrySource === 'features' || entrySource === 'models') {
-    return {
-      heading: 'Explore our AI models! 🤖',
-      body: "I see you were browsing our AI models. Which ones caught your eye?",
-    };
-  }
-
-  // Check pages_visited for context hints
-  if (pagesVisited.includes('pricing_page')) {
-    return {
-      heading: 'Hey there! 👋',
-      body: "Welcome! I see you've been looking at our pricing. I can help you pick the perfect plan.",
-    };
-  }
-  if (pagesVisited.includes('roi_calculator')) {
-    return {
-      heading: 'Hey there! 👋',
-      body: "Welcome! I see you've been using our ROI calculator. Ready to see PARWA in action?",
-    };
-  }
-  if (pagesVisited.includes('models_page')) {
-    return {
-      heading: 'Hey there! 👋',
-      body: "Welcome! I see you were browsing our AI models. I'd love to help you find the right fit.",
-    };
-  }
-
-  // Default / direct / onboarding
+  // Default — used only as fallback when backend hasn't sent a welcome yet
   return {
     heading: "Hey there! 👋",
-    body: "I'm Jarvis, your AI assistant from PARWA. I'll help you find the perfect AI agents for your business. What brings you here today?",
+    body: "I'm Jarvis, your AI assistant from PARWA. Start typing to begin our conversation.",
   };
 }
 

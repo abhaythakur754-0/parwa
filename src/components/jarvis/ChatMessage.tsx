@@ -11,6 +11,8 @@
 'use client';
 
 import { User, Bot, AlertTriangle, Clock, Zap } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { JarvisMessage, MessageType, MessageRole } from '@/types/jarvis';
 
 // Phase 6 card imports
@@ -26,6 +28,7 @@ import { LimitReachedCard } from './LimitReachedCard';
 import { PackExpiredCard } from './PackExpiredCard';
 import { MessageCounter } from './MessageCounter';
 import { DemoPackCTA } from './DemoPackCTA';
+import { PipelineInsightCard } from './PipelineInsightCard';
 
 interface ChatMessageProps {
   message: JarvisMessage;
@@ -379,6 +382,14 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
         </CardWrapper>
       );
 
+    // pipeline_insight type — AI pipeline analysis card
+    case 'pipeline_insight':
+      return (
+        <CardWrapper message={message} isUser={false}>
+          <PipelineInsightCard pipeline={metadata as Record<string, unknown>} />
+        </CardWrapper>
+      );
+
     // ── Standard text message ─────────────────────────────────
     default:
       return (
@@ -400,8 +411,10 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
               {isUser ? (
                 <p className="whitespace-pre-wrap break-words">{message.content}</p>
               ) : (
-                <div className="space-y-0.5">
-                  {renderInlineContent(message.content)}
+                <div className="space-y-0.5 prose prose-invert prose-sm max-w-none [&_p]:text-white/80 [&_p]:text-sm [&_p]:leading-relaxed [&_p]:m-0 [&_p]:mb-1 [&_strong]:text-white [&_em]:text-orange-200/80 [&_ul]:list-none [&_ul]:pl-0 [&_ol]:pl-4 [&_li]:text-white/80 [&_li]:text-sm [&_li]:leading-relaxed [&_li]:py-0.5 [&_code]:text-orange-300/80 [&_code]:bg-white/5 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_pre]:bg-white/5 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_a]:text-orange-400 [&_a]:underline [&_a]:underline-offset-2 [&_table]:text-xs [&_th]:text-white/50 [&_th]:px-2 [&_th]:py-1 [&_th]:border [&_th]:border-white/10 [&_td]:text-white/80 [&_td]:px-2 [&_td]:py-1 [&_td]:border [&_td]:border-white/5 [&_h1]:text-white [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mt-2 [&_h1]:mb-1 [&_h2]:text-white [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-2 [&_h2]:mb-1 [&_h3]:text-white/90 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mt-1 [&_h3]:mb-0.5 [&_hr]:border-white/10 [&_hr]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-orange-500/30 [&_blockquote]:pl-3 [&_blockquote]:text-white/60">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.content}
+                  </ReactMarkdown>
                 </div>
               )}
             </div>

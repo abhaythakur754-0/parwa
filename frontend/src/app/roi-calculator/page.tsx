@@ -280,7 +280,7 @@ interface ModelComparison {
   annualSavings: number;
   savingsPercent: number;
   hoursSavedPerMonth: number;
-  paybackMonths: number;
+  paybackMonths: number | null;
   isRecommended: boolean;
   quantity: number;
 }
@@ -312,7 +312,7 @@ function calculateComparisons(
       currentAnnual > 0 ? (annualSavings / currentAnnual) * 100 : 0;
     const hoursSavedPerMonth = aiTickets * 0.25; // ~15min per ticket
     const paybackMonths =
-      monthlySavings > 0 ? parwaMonthly / monthlySavings : 999;
+      monthlySavings > 0 ? parwaMonthly / monthlySavings : null;
 
     return {
       model,
@@ -326,7 +326,7 @@ function calculateComparisons(
       annualSavings,
       savingsPercent,
       hoursSavedPerMonth,
-      paybackMonths: Math.min(12, Math.max(1, paybackMonths)),
+      paybackMonths: paybackMonths !== null ? Math.round(paybackMonths * 10) / 10 : null,
       isRecommended: model.id === recommendedId,
       quantity,
     };
@@ -400,8 +400,8 @@ export default function ROICalculatorPage() {
     if (step > 1) setStep(step - 1);
   };
 
-  // Max current cost for bar chart scaling
-  const maxCostForChart = Math.max(currentTotalAnnual, ...comparisons.map((c) => c.currentAnnualCost));
+  // Max current cost for bar chart scaling (guard against division by zero)
+  const maxCostForChart = Math.max(1, currentTotalAnnual, ...comparisons.map((c) => c.currentAnnualCost));
 
   return (
     <div
@@ -778,7 +778,7 @@ export default function ROICalculatorPage() {
                 <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4 text-center">
                   <Zap className="w-5 h-5 text-purple-400 mx-auto mb-2" />
                   <div className="text-2xl sm:text-3xl font-black text-purple-400">
-                    {recommendedComparison.paybackMonths.toFixed(1)}
+                    {recommendedComparison.paybackMonths !== null ? `${recommendedComparison.paybackMonths}` : 'N/A'}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
                     Month Payback
@@ -1023,7 +1023,9 @@ export default function ROICalculatorPage() {
                           style={{
                             width: `${Math.min(
                               100,
-                              (comp.parwaAnnualCost / maxCostForChart) * 100
+                              maxCostForChart > 0
+                                ? (comp.parwaAnnualCost / maxCostForChart) * 100
+                                : 0
                             )}%`,
                           }}
                         />

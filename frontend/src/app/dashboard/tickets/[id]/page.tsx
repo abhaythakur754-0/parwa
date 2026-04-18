@@ -41,7 +41,7 @@ const STATUS_OPTIONS = [
   { value: 'open', label: 'Open' },
   { value: 'assigned', label: 'Assigned' },
   { value: 'in_progress', label: 'In Progress' },
-  { value: 'awaiting_client', label: 'Awaiting Client' },
+  { value: 'awaiting_customer', label: 'Awaiting Customer' },
   { value: 'awaiting_human', label: 'Awaiting Human' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'closed', label: 'Closed' },
@@ -61,7 +61,7 @@ const STATUS_STYLES: Record<string, string> = {
   open: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/20',
   assigned: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
   in_progress: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
-  awaiting_client: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+  awaiting_customer: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
   awaiting_human: 'bg-orange-500/15 text-orange-400 border-orange-500/20',
   resolved: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
   reopened: 'bg-violet-500/15 text-violet-400 border-violet-500/20',
@@ -116,7 +116,7 @@ function getGSDStage(status: string): number {
   const map: Record<string, number> = {
     open: 0, queued: 0, stale: 0,
     assigned: 1, in_progress: 1,
-    awaiting_client: 2, awaiting_human: 2,
+    awaiting_customer: 2, awaiting_human: 2,
     resolved: 3, reopened: 2,
     closed: 4, frozen: 3,
   };

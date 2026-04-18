@@ -57,6 +57,7 @@ export default function ProfilePage() {
     created_at?: string | null;
     onboarding_completed?: boolean;
     role?: string;
+    plan?: string;
   } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -78,7 +79,7 @@ export default function ProfilePage() {
     try {
       const refreshToken = localStorage.getItem('parwa_refresh_token');
       if (refreshToken) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/logout`, {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/logout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh_token: refreshToken }),
@@ -101,7 +102,7 @@ export default function ProfilePage() {
     setIsDeleting(true);
     try {
       const token = localStorage.getItem('parwa_access_token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/user/delete-account`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/user/delete-account`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -121,6 +122,7 @@ export default function ProfilePage() {
     }
   };
 
+  const planName = userData?.plan || 'Free Trial';
   const firstName = userData?.full_name?.split(' ')[0] || 'User';
   const initials = (userData?.full_name || userData?.email || 'U').slice(0, 2).toUpperCase();
   const memberSince = userData?.created_at
@@ -204,7 +206,7 @@ export default function ProfilePage() {
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-orange-500/10 border border-orange-500/20 text-orange-300">
                   <Crown className="w-3 h-3" />
-                  Free Trial
+                  {planName}
                 </span>
                 {userData.is_verified && (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
@@ -236,7 +238,7 @@ export default function ProfilePage() {
             { icon: MessageSquare, label: 'Messages', value: '20/day', color: 'text-orange-400' },
             { icon: Clock, label: 'Member Since', value: memberSinceShort, color: 'text-orange-400' },
             { icon: Shield, label: 'Status', value: userData.is_verified ? 'Verified' : 'Unverified', color: userData.is_verified ? 'text-green-400' : 'text-amber-400' },
-            { icon: CreditCard, label: 'Plan', value: 'Free Trial', color: 'text-orange-400' },
+            { icon: CreditCard, label: 'Plan', value: planName, color: 'text-orange-400' },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -321,8 +323,8 @@ export default function ProfilePage() {
             <div className="flex items-center gap-3 px-5 py-3.5">
               <Clock className="w-4 h-4 text-orange-400/50" />
               <div className="flex-1">
-                <p className="text-[11px] text-white/30 uppercase tracking-wider">Free Trial Status</p>
-                <p className="text-sm text-orange-300 font-medium">Active — 20 messages / day</p>
+                <p className="text-[11px] text-white/30 uppercase tracking-wider">Plan Status</p>
+                <p className="text-sm text-orange-300 font-medium">Active — {planName}</p>
               </div>
             </div>
           </div>

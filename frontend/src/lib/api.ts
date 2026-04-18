@@ -26,7 +26,7 @@ import {
 } from '@/types/auth';
 
 // API base URL from environment or default
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 /**
  * FIX A3: Generate a CSRF token for double-submit cookie pattern.

@@ -33,7 +33,7 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'open', label: 'Open' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'awaiting_human', label: 'Awaiting Human' },
-  { value: 'awaiting_client', label: 'Awaiting Client' },
+  { value: 'awaiting_customer', label: 'Awaiting Customer' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'closed', label: 'Closed' },
   { value: 'reopened', label: 'Reopened' },
@@ -56,10 +56,10 @@ const PRIORITY_OPTIONS: { value: string; label: string }[] = [
 
 const CONFIDENCE_OPTIONS: { value: string; label: string; min: number | null; max: number | null }[] = [
   { value: 'all', label: 'All Confidence', min: null, max: null },
-  { value: 'critical', label: 'Critical (0-25%)', min: 0, max: 25 },
-  { value: 'low', label: 'Low (25-50%)', min: 25, max: 50 },
-  { value: 'medium', label: 'Medium (50-75%)', min: 50, max: 75 },
-  { value: 'high', label: 'High (75-100%)', min: 75, max: 100 },
+  { value: 'critical', label: 'Critical (0-25%)', min: 0, max: 0.25 },
+  { value: 'low', label: 'Low (25-50%)', min: 0.25, max: 0.5 },
+  { value: 'medium', label: 'Medium (50-75%)', min: 0.5, max: 0.75 },
+  { value: 'high', label: 'High (75-100%)', min: 0.75, max: 1.0 },
 ];
 
 const SORT_COLUMNS = [
@@ -79,7 +79,7 @@ const STATUS_STYLES: Record<string, string> = {
   open: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/20',
   assigned: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
   in_progress: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
-  awaiting_client: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+  awaiting_customer: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
   awaiting_human: 'bg-orange-500/15 text-orange-400 border-orange-500/20',
   resolved: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
   reopened: 'bg-violet-500/15 text-violet-400 border-violet-500/20',
@@ -187,14 +187,16 @@ const EmptyTicketIcon = () => (
 
 function ConfidenceBar({ confidence }: { confidence: number | null }) {
   if (confidence === null) return <span className="text-zinc-600 text-xs">&mdash;</span>;
-  const color = confidence >= 75 ? 'bg-emerald-500' : confidence >= 50 ? 'bg-amber-500' : 'bg-red-500';
-  const textColor = confidence >= 75 ? 'text-emerald-400' : confidence >= 50 ? 'text-amber-400' : 'text-red-400';
+  // confidence is expected in 0-1 range; convert to percentage for display
+  const pct = Math.round(confidence * 100);
+  const color = pct >= 75 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-500' : 'bg-red-500';
+  const textColor = pct >= 75 ? 'text-emerald-400' : pct >= 50 ? 'text-amber-400' : 'text-red-400';
   return (
     <div className="flex items-center gap-2 min-w-[80px]">
       <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${confidence}%` }} />
+        <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />
       </div>
-      <span className={`text-xs font-medium ${textColor} w-8 text-right`}>{confidence}%</span>
+      <span className={`text-xs font-medium ${textColor} w-8 text-right`}>{pct}%</span>
     </div>
   );
 }
@@ -290,14 +292,17 @@ export default function TicketsPage() {
       const data = await ticketsApi.list(params as Parameters<typeof ticketsApi.list>[0]);
       let ticketItems = data.items || [];
 
-      // Client-side confidence filter
+      // NOTE: Client-side confidence filtering causes pagination totals to be
+      // inaccurate. The `data.total` reflects the server-side total without
+      // confidence filtering. When confidence filtering is active, the visible
+      // item count may differ from the reported total. Ideally, confidence
+      // filtering should be moved to the API query params.
       if (confidenceFilter !== 'all') {
         const range = CONFIDENCE_OPTIONS.find(o => o.value === confidenceFilter);
         if (range && range.min !== null && range.max !== null) {
           ticketItems = ticketItems.filter(t => {
             const conf = (t.metadata_json?.confidence as number) ?? null;
             if (conf === null) return false;
-            if (confidenceFilter === 'critical') return conf >= 0 && conf < 25;
             return conf >= range.min! && conf < range.max!;
           });
         }

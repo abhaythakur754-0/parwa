@@ -10,7 +10,8 @@ import { KnowledgeUpload } from './KnowledgeUpload';
 import { AIConfig } from './AIConfig';
 import { FirstVictory } from './FirstVictory';
 import { ShadowModeStep } from './ShadowModeStep';
-import { Loader2 } from 'lucide-react';
+import { ShadowGraduationModal } from './ShadowGraduationModal';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import type { OnboardingState, AITone, AIResponseStyle } from '@/types/onboarding';
 
 interface OnboardingWizardProps {
@@ -29,6 +30,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const [stepError, setStepError] = useState<string | null>(null);
   // D14-P9: Force remount of AIConfig on cross-tab state changes
   const [stateVersion, setStateVersion] = useState(0);
+  // Shadow graduation modal state
+  const [showGraduationModal, setShowGraduationModal] = useState(false);
 
   // Fetch initial state
   useEffect(() => {
@@ -63,6 +66,13 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       router.replace('/dashboard');
     }
   }, [onboardingState?.first_victory_completed, router]);
+
+  const goBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+      setStepError(null);
+    }
+  };
 
   const completeStep = async (step: number, extraData?: Record<string, unknown>) => {
     setStepError(null);
@@ -188,16 +198,29 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
 
         {/* Step Content */}
         <div className="bg-card rounded-xl border p-6 sm:p-8 shadow-sm">
+          {/* Back button (hidden on step 1) */}
+          {currentStep > 1 && (
+            <button
+              onClick={goBack}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
+          )}
+
+          {/* P6: Show step error if any (above all steps) */}
+          {stepError && (
+            <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <p className="text-destructive text-sm">{stepError}</p>
+            </div>
+          )}
           {currentStep === 1 && (
             <div className="text-center py-8">
               <h2 className="text-2xl font-bold mb-2">Welcome to PARWA</h2>
               <p className="text-muted-foreground mb-6">
                 Let&apos;s set up your AI-powered customer support platform in a few steps.
               </p>
-              {/* P6: Show step error if any */}
-              {stepError && (
-                <p className="text-destructive text-sm mb-4">{stepError}</p>
-              )}
               {/* D8-5: Use shadcn Button instead of raw <button> */}
               <Button
                 onClick={() => completeStep(1)}
@@ -238,9 +261,20 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
             <ShadowModeStep
               onComplete={() => completeStep(6)}
               canSkip={true}
+              onGraduate={() => setShowGraduationModal(true)}
             />
           )}
         </div>
+
+        {/* ShadowGraduationModal — shown when shadow mode graduation conditions are met */}
+        <ShadowGraduationModal
+          isOpen={showGraduationModal}
+          onClose={() => setShowGraduationModal(false)}
+          onContinue={() => {
+            setShowGraduationModal(false);
+          }}
+          newMode="supervised"
+        />
       </div>
     </div>
   );

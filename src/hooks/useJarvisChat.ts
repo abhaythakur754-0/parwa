@@ -142,6 +142,15 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
   const msgCounterRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
+  // ── Session Ref (avoids stale closure in sendMessage) ─────────
+
+  // Keep a ref to the latest session context so sendMessage always
+  // reads the CURRENT context — not a stale closure from render time.
+  const sessionContextRef = useRef(session?.context || {});
+  useEffect(() => {
+    sessionContextRef.current = session?.context || {};
+  }, [session]);
+
   // ── Computed Values ─────────────────────────────────────────────
 
   const remainingToday = session?.remaining_today ?? 20;
@@ -159,28 +168,80 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     setError(null);
 
     try {
-      const body: JarvisSessionCreateRequest = {
-        entry_source: (entrySource as EntrySource) || 'direct',
-        entry_params: entryParams,
-      };
+      // ── Session persistence: try to resume existing session first ──
+      let sessionData: JarvisSession | null = null;
+      let isResumed = false;
 
-      const sessionData = await apiFetch<JarvisSession>('/session', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
+      if (typeof window !== 'undefined') {
+        const storedSessionId = localStorage.getItem('parwa_jarvis_session_id');
+        const storedSessionTime = localStorage.getItem('parwa_jarvis_session_time');
 
-      sessionRef.current = sessionData.id;
-      setSession(sessionData);
+        // Resume if session exists and is less than 24 hours old
+        if (storedSessionId && storedSessionTime) {
+          const sessionAge = Date.now() - parseInt(storedSessionTime, 10);
+          const MAX_SESSION_AGE = 24 * 60 * 60 * 1000; // 24 hours
+
+          if (sessionAge < MAX_SESSION_AGE) {
+            try {
+              const existingSession = await apiFetch<JarvisSession>(
+                `/session?session_id=${storedSessionId}`,
+              );
+              if (existingSession && existingSession.id) {
+                sessionData = existingSession;
+                sessionRef.current = existingSession.id;
+                isResumed = true;
+              }
+            } catch {
+              // Session expired or invalid — will create new below
+              localStorage.removeItem('parwa_jarvis_session_id');
+              localStorage.removeItem('parwa_jarvis_session_time');
+            }
+          } else {
+            // Session too old — clean up
+            localStorage.removeItem('parwa_jarvis_session_id');
+            localStorage.removeItem('parwa_jarvis_session_time');
+          }
+        }
+      }
+
+      // ── Create new session if no existing one to resume ──
+      if (!sessionData) {
+        const body: JarvisSessionCreateRequest = {
+          entry_source: (entrySource as EntrySource) || 'direct',
+          entry_params: entryParams,
+        };
+
+        sessionData = await apiFetch<JarvisSession>('/session', {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+
+        sessionRef.current = sessionData.id;
+
+        // Persist session_id for page refresh recovery
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('parwa_jarvis_session_id', sessionData.id);
+          localStorage.setItem('parwa_jarvis_session_time', String(Date.now()));
+        }
+      }
+
+      setSession(sessionData!);
 
       // Load history
       const history = await apiFetch<JarvisHistoryResponse>(
-        `/history?session_id=${sessionData.id}&limit=100`,
+        `/history?session_id=${sessionData!.id}&limit=100`,
       );
 
       setMessages(history.messages || []);
 
+      // Skip context bridge on resume — already has context
+      if (isResumed) {
+        setIsLoading(false);
+        return;
+      }
+
       // Restore OTP state from context if present
-      const ctx = sessionData.context as JarvisContext;
+      const ctx = sessionData!.context as JarvisContext;
       if (ctx?.otp?.status === 'sent') {
         setOtpState({
           status: 'sent',
@@ -226,13 +287,14 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
             }
             // Bridge entry_source so the backend knows the user's journey origin
             if (bridgedContext.entry_source) {
-              contextPatch.entry_source = bridgedContext.entry_source as string;
+              contextPatch.entry_source = bridgedContext.entry_source as EntrySource;
             }
+
             // Push context to backend
             const hasPatch = Object.keys(contextPatch).length > 0;
             if (hasPatch) {
               await apiFetch<JarvisSession>(
-                `/context?session_id=${sessionData.id}`,
+                `/context?session_id=${sessionData!.id}`,
                 { method: 'PATCH', body: JSON.stringify(contextPatch) },
               );
               // Update local session state
@@ -241,9 +303,13 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
                 return { ...prev, context: { ...prev.context, ...contextPatch } };
               });
             }
-            // NOTE: Do NOT remove parwa_jarvis_context here.
-            // Other pages may still need to read it, and the pushContextToBackend
-            // above already synced it to the backend session.
+            // Clean up consumed localStorage context after bridging
+            setTimeout(() => {
+              try {
+                localStorage.removeItem('parwa_jarvis_context');
+                localStorage.removeItem('parwa_pricing_selection');
+              } catch { /* ignore */ }
+            }, 5000);
           }
 
           // Also read parwa_pricing_selection as fallback (set by pricing page)
@@ -335,9 +401,8 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
 
       try {
         // ── Attach current session context to every message ──
-        // This ensures the AI always has the latest context even if
-        // the PATCH /context endpoint failed or hasn't completed yet
-        const currentCtx = session?.context || {};
+        // Use sessionContextRef to avoid stale closure — always reads latest context
+        const currentCtx = sessionContextRef.current;
         const body: JarvisMessageSendRequest & { context?: typeof currentCtx } = {
           content: content.trim(),
           session_id: sessionId || undefined,
@@ -393,7 +458,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
         isSendingRef.current = false;
       }
     },
-    [isLimitReached],
+    [isLimitReached], // session accessed via sessionContextRef
   );
 
   // ── Retry Last Message ──────────────────────────────────────────

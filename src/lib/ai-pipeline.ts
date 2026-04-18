@@ -387,7 +387,7 @@ const KNOWLEDGE_INDEX: KnowledgeIndex[] = [
   {
     keywords: ['too expensive', 'not sure', 'concern', 'worried', 'risk', 'trust', 'reliable', 'already use', 'happy with', 'competitor'],
     source: '07_objection_handling',
-    content: `Key objection strategies: Cost → ROI reframing ($156K-$288K/year saved, 85-92% reduction). Complexity → 10-14 day setup, zero downtime. Security → SOC 2, GDPR, AES-256. "Already use X" → PARWA enhances, doesn't replace. AI quality → 60-70% auto-resolution, <2% error rate after tuning.`,
+    content: `Key objection strategies: Cost → ROI reframing ($168K-$288K/year saved, 85-92% reduction). Complexity → 10-14 day setup, zero downtime. Security → SOC 2, GDPR, AES-256. "Already use X" → PARWA enhances, doesn't replace. AI quality → 60-70% auto-resolution, <2% error rate after tuning.`,
     relevance: 0.9,
   },
   // FAQ

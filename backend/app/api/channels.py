@@ -16,7 +16,7 @@ from app.exceptions import NotFoundError, ValidationError
 from app.services.channel_service import ChannelService
 
 
-router = APIRouter(prefix="/channels", tags=["channels"])
+router = APIRouter(prefix="/api/channels", tags=["channels"])
 
 
 @router.get(

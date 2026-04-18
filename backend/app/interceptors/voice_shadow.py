@@ -88,8 +88,10 @@ def evaluate_voice_shadow(
     try:
         # Lazy import to avoid circular dependencies
         from app.services.shadow_mode_service import ShadowModeService
+        from app.interceptors.base_interceptor import ShadowInterceptor
         
         service = shadow_service or ShadowModeService()
+        interceptor = ShadowInterceptor()
         
         # Evaluate using the 4-layer system
         evaluation = service.evaluate_action_risk(
@@ -98,23 +100,45 @@ def evaluate_voice_shadow(
             action_payload=voice_payload,
         )
         
-        # Log the shadow action if approval is required
-        shadow_log_id = None
-        if evaluation.get("requires_approval"):
-            log_entry = service.log_shadow_action(
+        auto_execute = evaluation.get("auto_execute", False)
+        requires_approval = evaluation.get("requires_approval", True)
+        risk_score = evaluation.get("risk_score", 0.5)
+        mode = evaluation.get("mode", "supervised")
+        
+        # Always log the action to shadow_log for audit trail
+        log_entry = service.log_shadow_action(
+            company_id=company_id,
+            action_type="voice_reply",
+            action_payload=voice_payload,
+            risk_score=risk_score,
+            mode=mode,
+        )
+        shadow_log_id = log_entry.get("id")
+        
+        # Auto-execute: play the TTS message immediately
+        if auto_execute and not requires_approval:
+            _execute_voice_action(
                 company_id=company_id,
-                action_type="voice_reply",
-                action_payload=voice_payload,
-                risk_score=evaluation.get("risk_score"),
-                mode=evaluation.get("mode"),
+                voice_payload=voice_payload,
+                shadow_log_id=shadow_log_id,
             )
-            shadow_log_id = log_entry.get("id")
+            # Log to undo queue for potential reversal
+            interceptor._log_to_undo_queue(
+                company_id=company_id,
+                shadow_log_id=shadow_log_id,
+                action_type="voice_reply",
+                action_data=voice_payload,
+            )
+            logger.info(
+                "voice_auto_executed company_id=%s log_id=%s risk=%.2f",
+                company_id, shadow_log_id, risk_score,
+            )
         
         return VoiceShadowResult(
-            requires_approval=evaluation.get("requires_approval", True),
-            auto_execute=evaluation.get("auto_execute", False),
-            mode=evaluation.get("mode", "supervised"),
-            risk_score=evaluation.get("risk_score", 0.5),
+            requires_approval=requires_approval,
+            auto_execute=auto_execute,
+            mode=mode,
+            risk_score=risk_score,
             reason=evaluation.get("reason", ""),
             shadow_log_id=shadow_log_id,
             layers=evaluation.get("layers"),
@@ -136,6 +160,59 @@ def evaluate_voice_shadow(
             risk_score=0.5,
             reason=f"Evaluation failed: {str(e)}",
         )
+
+
+def _execute_voice_action(
+    company_id: str,
+    voice_payload: Dict[str, Any],
+    shadow_log_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Execute a voice/TTS action that was auto-approved.
+    
+    Delegates to the call lifecycle service for actual TTS playback.
+    
+    Args:
+        company_id: Company UUID (BC-001).
+        voice_payload: Dict with voice details.
+        shadow_log_id: Optional shadow log ID for audit trail.
+    
+    Returns:
+        Dict with execution result.
+    """
+    try:
+        from app.core.call_lifecycle import CallLifecycleService
+        
+        call_service = CallLifecycleService()
+        
+        result = call_service.play_tts(
+            call_id=voice_payload.get("call_id"),
+            message=voice_payload.get("message"),
+            voice_type=voice_payload.get("voice_type", "alice"),
+            company_id=company_id,
+        )
+        
+        logger.info(
+            "voice_executed company_id=%s call_id=%s shadow_id=%s",
+            company_id, voice_payload.get("call_id"), shadow_log_id,
+        )
+        
+        return {
+            "status": "played",
+            "shadow_log_id": shadow_log_id,
+            "voice_result": result,
+            "played_at": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(
+            "voice_execution_failed company_id=%s shadow_id=%s error=%s",
+            company_id, shadow_log_id, str(e), exc_info=True,
+        )
+        return {
+            "status": "error",
+            "shadow_log_id": shadow_log_id,
+            "error": str(e),
+        }
 
 
 def process_voice_after_approval(

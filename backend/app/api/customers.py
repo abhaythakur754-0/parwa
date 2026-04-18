@@ -24,7 +24,7 @@ from app.schemas.customer import (
 )
 
 
-router = APIRouter(prefix="/customers", tags=["customers"])
+router = APIRouter(prefix="/api/customers", tags=["customers"])
 
 
 def _customer_to_response(customer: Any) -> Dict[str, Any]:

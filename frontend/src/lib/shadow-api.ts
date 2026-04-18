@@ -128,7 +128,7 @@ export async function setShadowPreference(
 export async function deleteShadowPreference(
   category: string
 ): Promise<{ deleted: boolean }> {
-  return del<{ deleted: boolean }>(`/api/shadow/preferences?category=${encodeURIComponent(category)}`);
+  return del<{ deleted: boolean }>(`/api/shadow/preferences/${encodeURIComponent(category)}`);
 }
 
 /**
@@ -164,6 +164,32 @@ export async function getShadowStats(): Promise<ShadowStats> {
   return get<ShadowStats>('/api/shadow/stats');
 }
 
+/** Shadow mode configuration (undo window, risk thresholds) */
+export interface ShadowConfig {
+  company_id: string;
+  undo_window_minutes: number;
+  risk_threshold_shadow: number;
+  risk_threshold_auto: number;
+}
+
+/**
+ * Get the shadow mode configuration for the company.
+ */
+export async function getShadowConfig(): Promise<ShadowConfig> {
+  return get<ShadowConfig>('/api/shadow/config');
+}
+
+/**
+ * Update shadow mode configuration (undo window, risk thresholds).
+ */
+export async function updateShadowConfig(config: {
+  undo_window_minutes?: number;
+  risk_threshold_shadow?: number;
+  risk_threshold_auto?: number;
+}): Promise<ShadowConfig> {
+  return put<ShadowConfig>('/api/shadow/config', config);
+}
+
 /**
  * Evaluate the risk for a potential action.
  */
@@ -184,7 +210,7 @@ export async function approveShadowAction(
   id: string,
   note?: string
 ): Promise<ShadowLogEntry> {
-  return post<ShadowLogEntry>(`/api/shadow/approve/${id}`, { note });
+  return post<ShadowLogEntry>(`/api/shadow/${id}/approve`, { note });
 }
 
 /**
@@ -194,7 +220,7 @@ export async function rejectShadowAction(
   id: string,
   note?: string
 ): Promise<ShadowLogEntry> {
-  return post<ShadowLogEntry>(`/api/shadow/reject/${id}`, { note });
+  return post<ShadowLogEntry>(`/api/shadow/${id}/reject`, { note });
 }
 
 /**
@@ -204,7 +230,7 @@ export async function undoShadowAction(
   id: string,
   reason: string
 ): Promise<{ undo_id: string }> {
-  return post<{ undo_id: string }>(`/api/shadow/undo/${id}`, { reason });
+  return post<{ undo_id: string }>(`/api/shadow/${id}/undo`, { reason });
 }
 
 /**
@@ -254,6 +280,12 @@ export const shadowApi = {
   
   /** Get shadow mode statistics */
   getStats: getShadowStats,
+  
+  /** Get shadow mode configuration */
+  getConfig: getShadowConfig,
+  
+  /** Update shadow mode configuration */
+  updateConfig: updateShadowConfig,
   
   /** Evaluate a what-if scenario */
   evaluate: evaluateActionRisk,

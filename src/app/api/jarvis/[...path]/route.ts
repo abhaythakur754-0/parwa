@@ -436,7 +436,7 @@ INDUSTRY DETAILS:
 - Logistics: TMS, WMS, GPS, Carrier APIs. Shipment tracking, delivery issues, driver coordination, fleet management, hazmat.
 - Others: Custom integrations, CRM, Helpdesk. General inquiries, billing, multi-department routing.
 
-ROI: Starter saves ~$156K/yr net (replaces $168K/yr in human costs). Growth saves ~$186K/yr net. High saves ~$288K/yr net. 85-92% vs hiring human agents at $4-6K/mo each.
+ROI: Starter saves ~$168K/yr net (replaces $168K/yr in human costs). Growth saves ~$186K/yr net. High saves ~$288K/yr net. 85-92% vs hiring human agents at $4-6K/mo each.
 
 SECURITY: GDPR, SOC 2 Type II. AES-256 at rest, TLS 1.3 in transit, full audit trail, PII redaction, per-tenant data isolation. Customer data never trains other clients' models.
 
@@ -858,7 +858,7 @@ function getKeywordResponse(message: string, session: any): string {
       "PARWA has three plans. Starter is $999/mo with 3 agents and 1,000 tickets — great for email and chat support. Growth is $2,499/mo with 8 agents and 5,000 tickets, adding SMS and voice capabilities along with smart analytics. High is $3,999/mo with 15 agents and 15,000 tickets, including social media, video support, and full decision-making autonomy. All plans come with 15% off for annual billing and you can cancel anytime. Which plan sounds like it might fit?",
     ],
     roi: [
-      "Here's the straightforward math. PARWA Starter at $999/mo replaces roughly 3 human agents who would cost $14K/mo combined — that's about $156K/year in savings. Growth at $2,499/mo saves roughly $186K/year versus 4 junior agents. High at $3,999/mo saves roughly $288K/year versus 5 senior agents. Across all plans we see 85-92% cost reduction while actually improving response times to under 3 seconds. Want me to calculate what your specific savings would look like?",
+      "Here's the straightforward math. PARWA Starter at $999/mo replaces roughly 3 human agents who would cost $14K/mo combined — that's about $168K/year in savings. Growth at $2,499/mo saves roughly $186K/year versus 4 junior agents. High at $3,999/mo saves roughly $288K/year versus 5 senior agents. Across all plans we see 85-92% cost reduction while actually improving response times to under 3 seconds. Want me to calculate what your specific savings would look like?",
     ],
     demo: [
       "You're in the right place — this chat is the demo. You can ask me anything your customers would ask and I'll respond exactly how a deployed PARWA agent would. Try asking things like 'Where's my order #12345?' or 'How do I reset my API key?' and you'll see the quality firsthand. If you want the full experience, our $1 Demo Pack gives you 500 messages plus a 3-minute AI voice call.",

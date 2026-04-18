@@ -50,13 +50,13 @@ const tiers: PricingTier[] = [
     cta: 'Get Started',
     ctaLink: '/signup',
     features: [
-      '1,000 tickets per month',
-      '3 AI Agents',
+      '2,000 tickets per month',
+      '1 AI Agent',
       'Basic RAG (Knowledge Base)',
       'Email Support',
       'Standard Response Time',
       'Basic Analytics Dashboard',
-      '5 Knowledge Base Documents',
+      '100 Knowledge Base Documents',
       'Email Channel',
       'Web Chat Widget',
     ],
@@ -117,11 +117,11 @@ const tiers: PricingTier[] = [
 
 // Feature comparison matrix
 const comparisonFeatures: PricingFeature[] = [
-  { name: 'Tickets / Month', starter: '1,000', growth: '5,000', high: '15,000' },
-  { name: 'AI Agents', starter: '3', growth: '8', high: '15' },
+  { name: 'Tickets / Month', starter: '2,000', growth: '5,000', high: '15,000' },
+  { name: 'AI Agents', starter: '1', growth: '8', high: '15' },
   { name: 'RAG (Knowledge Base)', starter: 'Basic', growth: 'Advanced + All Techniques', high: 'Full AI Pipeline' },
   { name: 'Communication Channels', starter: '2 (Email, Chat)', growth: 'All 11 Channels', high: 'All 11 + Custom' },
-  { name: 'Knowledge Base Documents', starter: '5', growth: 'Unlimited', high: 'Unlimited' },
+  { name: 'Knowledge Base Documents', starter: '100', growth: 'Unlimited', high: 'Unlimited' },
   { name: 'Custom Brand Voice', starter: false, growth: true, high: true },
   { name: 'AI Training & Fine-tuning', starter: false, growth: false, high: true },
   { name: 'SLA Management', starter: false, growth: true, high: true },

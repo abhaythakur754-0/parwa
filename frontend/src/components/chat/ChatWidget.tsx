@@ -55,7 +55,7 @@ export function ChatWidget({ industry, variant }: ChatWidgetProps) {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const msgCountRef = useRef(0);
+  const [msgCount, setMsgCount] = useState(0);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -80,7 +80,7 @@ export function ChatWidget({ industry, variant }: ChatWidgetProps) {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
-    msgCountRef.current++;
+    setMsgCount(prev => prev + 1);
 
     try {
       const res = await fetch('/api/chat', {
@@ -169,7 +169,7 @@ export function ChatWidget({ industry, variant }: ChatWidgetProps) {
   };
 
   // Show CTA after 3+ messages
-  const showFullJarvisCTA = msgCountRef.current >= 3;
+  const showFullJarvisCTA = msgCount >= 3;
 
   return (
     <>

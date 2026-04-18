@@ -101,7 +101,7 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
     try {
       const refreshToken = localStorage.getItem('parwa_refresh_token');
       if (refreshToken) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/logout`, {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/logout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh_token: refreshToken }),
@@ -126,7 +126,7 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
     setIsDeleting(true);
     try {
       const token = localStorage.getItem('parwa_access_token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/user/delete-account`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/user/delete-account`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

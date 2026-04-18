@@ -85,6 +85,39 @@ from app.api.identity import router as identity_router  # Day 5: Identity resolu
 from app.api.shadow import router as shadow_router  # Shadow Mode: Dual Control System
 from app.api.approvals import router as approvals_router  # Shadow Mode: Approvals bridge
 from app.api.twilio_channels import router as twilio_channels_router  # Day 7: Twilio SMS/Voice webhooks
+from app.api.billing import router as billing_router  # Billing: subscription, invoices, usage
+from app.api.billing_webhooks import router as billing_webhooks_router  # Billing webhooks
+from app.api.notifications import router as notifications_router  # Notifications: templates, preferences
+from app.api.tickets import router as tickets_router  # Ticket CRUD
+from app.api.ticket_lifecycle import router as ticket_lifecycle_router  # Ticket lifecycle
+from app.api.ticket_messages import router as ticket_messages_router  # Ticket messages
+from app.api.ticket_notes import router as ticket_notes_router  # Ticket notes
+from app.api.ticket_search import router as ticket_search_router  # Ticket search
+from app.api.ticket_bulk import router as ticket_bulk_router  # Ticket bulk actions
+from app.api.ticket_export import router as ticket_export_router  # Ticket export
+from app.api.ticket_assignment import router as ticket_assignment_router  # Ticket assignment
+from app.api.ticket_merge import router as ticket_merge_router  # Ticket merge
+from app.api.ticket_timeline import router as ticket_timeline_router  # Ticket timeline
+from app.api.ticket_classification import router as ticket_classification_router  # Ticket classification
+from app.api.ticket_templates import router as ticket_templates_router  # Ticket templates
+from app.api.training import router as training_router  # Training pipeline
+from app.api.training_advanced import router as training_advanced_router  # Advanced training
+from app.api.peer_review import router as peer_review_router  # Peer review
+from app.api.rag import router as rag_router  # RAG retrieval
+from app.api.agent_metrics import router as agent_metrics_router  # Agent metrics
+from app.api.agent_provisioning import router as agent_provisioning_router  # Agent provisioning
+from app.api.ai_classification import router as ai_classification_router  # AI classification
+from app.api.ai_signals import router as ai_signals_router  # AI signals
+from app.api.channels import router as channels_router  # Channel management
+from app.api.classification import router as classification_router  # Classification
+from app.api.collisions import router as collisions_router  # Collision detection
+from app.api.custom_fields import router as custom_fields_router  # Custom fields
+from app.api.response import response_router, brand_voice_router, assignment_router  # Response, brand voice, assignment
+from app.api.signals import router as signals_router  # Signals
+from app.api.sla import router as sla_router  # SLA management
+from app.api.technique_config import router as technique_config_router  # Technique configuration
+from app.api.triggers import router as triggers_router  # Triggers
+from app.api.workflow import router as workflow_router  # Workflow management
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
@@ -294,8 +327,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Company-ID"],
 )
 
 
@@ -339,6 +372,41 @@ app.include_router(identity_router)  # Day 5: Identity resolution
 app.include_router(shadow_router)  # Shadow Mode: Dual Control System
 app.include_router(approvals_router)  # Shadow Mode: Approvals bridge
 app.include_router(twilio_channels_router)  # Day 7: Twilio SMS/Voice webhooks
+app.include_router(billing_router)  # Billing: subscription, invoices, usage
+app.include_router(billing_webhooks_router)  # Billing webhooks
+app.include_router(notifications_router)  # Notifications: templates, preferences
+app.include_router(tickets_router)  # Ticket CRUD
+app.include_router(ticket_lifecycle_router)  # Ticket lifecycle
+app.include_router(ticket_messages_router)  # Ticket messages
+app.include_router(ticket_notes_router)  # Ticket notes
+app.include_router(ticket_search_router)  # Ticket search
+app.include_router(ticket_bulk_router)  # Ticket bulk actions
+app.include_router(ticket_export_router)  # Ticket export
+app.include_router(ticket_assignment_router)  # Ticket assignment
+app.include_router(ticket_merge_router)  # Ticket merge
+app.include_router(ticket_timeline_router)  # Ticket timeline
+app.include_router(ticket_classification_router)  # Ticket classification
+app.include_router(ticket_templates_router)  # Ticket templates
+app.include_router(training_router)  # Training pipeline
+app.include_router(training_advanced_router)  # Advanced training
+app.include_router(peer_review_router)  # Peer review
+app.include_router(rag_router)  # RAG retrieval
+app.include_router(agent_metrics_router)  # Agent metrics
+app.include_router(agent_provisioning_router)  # Agent provisioning
+app.include_router(ai_classification_router)  # AI classification
+app.include_router(ai_signals_router)  # AI signals
+app.include_router(channels_router)  # Channel management
+app.include_router(classification_router)  # Classification
+app.include_router(collisions_router)  # Collision detection
+app.include_router(custom_fields_router)  # Custom fields
+app.include_router(response_router)  # Response management
+app.include_router(brand_voice_router)  # Brand voice
+app.include_router(assignment_router)  # Assignment
+app.include_router(signals_router)  # Signals
+app.include_router(sla_router)  # SLA management
+app.include_router(technique_config_router)  # Technique configuration
+app.include_router(triggers_router)  # Triggers
+app.include_router(workflow_router)  # Workflow management
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

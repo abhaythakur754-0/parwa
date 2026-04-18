@@ -1,11 +1,11 @@
 /**
- * PARWA Tickets API — Day 3
+ * PARWA Tickets API — Real API Client
  *
  * API functions for ticket management.
- * Currently uses mock data — will be replaced with real API calls.
+ * Uses real HTTP calls via the centralized API client.
  */
 
-import { get, post, patch } from '@/lib/api';
+import { get, post, patch, put, del } from '@/lib/api';
 import type {
   Ticket,
   TicketListResponse,
@@ -16,17 +16,6 @@ import type {
   TicketMessage,
   BulkActionPayload,
 } from '@/types/ticket';
-import {
-  mockTickets,
-  getMockTicketDetail,
-  filterTickets,
-  sortTickets,
-  paginateTickets,
-} from '@/lib/mock/ticket-mock-data';
-
-// ── Helper: simulate network delay ──────────────────────────────────────
-
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ── Get Ticket List ─────────────────────────────────────────────────────
 
@@ -36,46 +25,30 @@ export async function fetchTickets(
   filters?: Partial<TicketFilters>,
   sort?: TicketSort
 ): Promise<TicketListResponse> {
-  // TODO: Replace with real API call
-  // return get<TicketListResponse>(`/api/tickets?page=${page}&page_size=${pageSize}`);
-  await delay(300);
-
-  let filtered = filterTickets(mockTickets, filters || {});
-
+  const sp = new URLSearchParams();
+  sp.set('page', String(page));
+  sp.set('page_size', String(pageSize));
   if (sort) {
-    filtered = sortTickets(filtered, sort.field, sort.direction);
+    sp.set('sort_by', sort.field);
+    sp.set('sort_order', sort.direction);
   }
+  if (filters?.status) sp.set('status', filters.status);
+  if (filters?.priority) sp.set('priority', filters.priority);
+  if (filters?.channel) sp.set('channel', filters.channel);
+  if (filters?.search) sp.set('search', filters.search);
+  if (filters?.assigned_to) sp.set('assigned_to', filters.assigned_to);
+  if (filters?.date_from) sp.set('date_from', filters.date_from);
+  if (filters?.date_to) sp.set('date_to', filters.date_to);
+  if (filters?.category) sp.set('category', filters.category);
 
-  const { items, total, totalPages } = paginateTickets(filtered, page, pageSize);
-
-  return {
-    tickets: items,
-    pagination: {
-      page,
-      page_size: pageSize,
-      total,
-      total_pages: totalPages,
-    },
-  };
+  const qs = sp.toString();
+  return get<TicketListResponse>(`/api/tickets${qs ? `?${qs}` : ''}`);
 }
 
 // ── Get Ticket Detail ───────────────────────────────────────────────────
 
 export async function fetchTicketDetail(ticketId: string): Promise<TicketDetailResponse | null> {
-  // TODO: Replace with real API call
-  // return get<TicketDetailResponse>(`/api/tickets/${ticketId}`);
-  await delay(200);
-
-  const ticket = mockTickets.find((t) => t.id === ticketId);
-  if (!ticket) return null;
-
-  const detail = getMockTicketDetail(ticket);
-  return {
-    ticket: detail.ticket,
-    messages: detail.messages,
-    notes: detail.notes,
-    timeline: detail.timeline,
-  };
+  return get<TicketDetailResponse>(`/api/tickets/${ticketId}`);
 }
 
 // ── Update Ticket Status ────────────────────────────────────────────────
@@ -84,14 +57,7 @@ export async function updateTicketStatus(
   ticketId: string,
   status: string
 ): Promise<Ticket> {
-  // TODO: Replace with real API call
-  // return patch<Ticket>(`/api/tickets/${ticketId}`, { status });
-  await delay(200);
-
-  const ticket = mockTickets.find((t) => t.id === ticketId);
-  if (!ticket) throw new Error('Ticket not found');
-
-  return { ...ticket, status: status as Ticket['status'], updated_at: new Date().toISOString() };
+  return patch<Ticket>(`/api/tickets/${ticketId}/status`, { status });
 }
 
 // ── Assign Ticket ───────────────────────────────────────────────────────
@@ -100,14 +66,7 @@ export async function assignTicket(
   ticketId: string,
   agentId: string
 ): Promise<Ticket> {
-  // TODO: Replace with real API call
-  // return patch<Ticket>(`/api/tickets/${ticketId}/assign`, { agent_id: agentId });
-  await delay(200);
-
-  const ticket = mockTickets.find((t) => t.id === ticketId);
-  if (!ticket) throw new Error('Ticket not found');
-
-  return { ...ticket, assigned_agent: { id: agentId, name: 'Agent', email: '', avatar_url: null, is_online: true, active_ticket_count: 0 }, updated_at: new Date().toISOString() };
+  return post<Ticket>(`/api/tickets/${ticketId}/assign`, { assignee_id: agentId, assignee_type: 'human' });
 }
 
 // ── Change Ticket Priority ──────────────────────────────────────────────
@@ -116,13 +75,7 @@ export async function changePriority(
   ticketId: string,
   priority: string
 ): Promise<Ticket> {
-  // TODO: Replace with real API call
-  await delay(200);
-
-  const ticket = mockTickets.find((t) => t.id === ticketId);
-  if (!ticket) throw new Error('Ticket not found');
-
-  return { ...ticket, priority: priority as Ticket['priority'], updated_at: new Date().toISOString() };
+  return patch<Ticket>(`/api/tickets/${ticketId}`, { priority });
 }
 
 // ── Add Internal Note ───────────────────────────────────────────────────
@@ -132,20 +85,7 @@ export async function addInternalNote(
   content: string,
   isPinned: boolean = false
 ): Promise<InternalNote> {
-  // TODO: Replace with real API call
-  // return post<InternalNote>(`/api/tickets/${ticketId}/notes`, { content, is_pinned: isPinned });
-  await delay(200);
-
-  return {
-    id: crypto.randomUUID(),
-    ticket_id: ticketId,
-    author_id: 'current-user',
-    author_name: 'You',
-    content,
-    is_pinned: isPinned,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+  return post<InternalNote>(`/api/tickets/${ticketId}/notes`, { content, is_pinned: isPinned });
 }
 
 // ── Send Reply ──────────────────────────────────────────────────────────
@@ -154,23 +94,7 @@ export async function sendReply(
   ticketId: string,
   content: string
 ): Promise<TicketMessage> {
-  // TODO: Replace with real API call
-  // return post<TicketMessage>(`/api/tickets/${ticketId}/reply`, { content });
-  await delay(300);
-
-  return {
-    id: crypto.randomUUID(),
-    ticket_id: ticketId,
-    sender_role: 'human_agent',
-    sender_name: 'You',
-    content,
-    content_type: 'text',
-    ai_confidence: null,
-    sentiment: null,
-    ai_technique: null,
-    attachments: [],
-    created_at: new Date().toISOString(),
-  };
+  return post<TicketMessage>(`/api/tickets/${ticketId}/messages`, { role: 'human_agent', content });
 }
 
 // ── Escalate Ticket ─────────────────────────────────────────────────────
@@ -179,33 +103,22 @@ export async function escalateTicket(
   ticketId: string,
   reason?: string
 ): Promise<Ticket> {
-  // TODO: Replace with real API call
-  await delay(200);
-
-  const ticket = mockTickets.find((t) => t.id === ticketId);
-  if (!ticket) throw new Error('Ticket not found');
-
-  return { ...ticket, status: 'escalated', updated_at: new Date().toISOString() };
+  return patch<Ticket>(`/api/tickets/${ticketId}/status`, {
+    status: 'awaiting_human',
+    reason: reason || 'Escalated by agent',
+  });
 }
 
 // ── Bulk Actions ────────────────────────────────────────────────────────
 
 export async function executeBulkAction(payload: BulkActionPayload): Promise<{ success: boolean; count: number }> {
-  // TODO: Replace with real API call
-  // return post('/api/tickets/bulk-action', payload);
-  await delay(500);
-
-  return { success: true, count: payload.ticket_ids.length };
+  return post('/api/tickets/bulk-action', payload);
 }
 
 // ── Export Tickets ──────────────────────────────────────────────────────
 
 export async function exportTickets(ticketIds: string[]): Promise<{ download_url: string }> {
-  // TODO: Replace with real API call
-  // return post('/api/tickets/export', { ticket_ids: ticketIds });
-  await delay(1000);
-
-  return { download_url: '#export-csv' };
+  return post('/api/tickets/export', { ticket_ids: ticketIds });
 }
 
 export const ticketsApi = {

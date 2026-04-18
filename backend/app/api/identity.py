@@ -20,7 +20,7 @@ from app.schemas.customer import (
 )
 
 
-router = APIRouter(prefix="/identity", tags=["identity"])
+router = APIRouter(prefix="/api/identity", tags=["identity"])
 
 
 @router.post(

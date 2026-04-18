@@ -7,7 +7,7 @@ import { Loader2, Lock, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react
 import toast from 'react-hot-toast';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 function ResetPasswordContent() {
   const router = useRouter();

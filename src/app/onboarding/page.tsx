@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { JarvisChat } from '@/components/jarvis/JarvisChat';
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
 import { ChatErrorBoundary } from '@/components/jarvis/ChatErrorBoundary';
 
 export default function OnboardingPage() {
@@ -28,14 +28,17 @@ export default function OnboardingPage() {
   const { user, isAuthenticated, isLoading, hydrate } = useAuth();
 
   // ── Context: Read URL params for entry_source, variant, industry ──
-  const [entrySource] = useState(() => {
-    if (typeof window === 'undefined') return 'onboarding';
+  // ONB-C06: Initialize with safe defaults to avoid SSR hydration mismatch.
+  // Actual URL params and localStorage are read client-side in useEffect.
+  const [entrySource, setEntrySource] = useState('onboarding');
+  const [entryParams, setEntryParams] = useState<Record<string, unknown>>({});
+
+  // ONB-C06 FIX: Read URL params and localStorage in useEffect (client-only)
+  // to prevent SSR hydration mismatch from window.location / localStorage.
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('entry_source') || 'onboarding';
-  });
-  const [entryParams] = useState<Record<string, unknown>>(() => {
-    if (typeof window === 'undefined') return {};
-    const params = new URLSearchParams(window.location.search);
+    setEntrySource(params.get('entry_source') || 'onboarding');
+
     const ctx: Record<string, unknown> = {};
     const industry = params.get('industry');
     const variant = params.get('variant');
@@ -70,8 +73,8 @@ export default function OnboardingPage() {
         if (pricing.totalMonthly && !ctx.total_price) ctx.total_price = pricing.totalMonthly;
       }
     } catch { /* ignore */ }
-    return ctx;
-  });
+    setEntryParams(ctx);
+  }, []);
 
   useEffect(() => {
     // Wait for auth to initialize
@@ -124,11 +127,11 @@ export default function OnboardingPage() {
     );
   }
 
-  // ── Render Chat ──────────────────────────────────────────────
+  // ── Render Wizard ──────────────────────────────────────────────
 
   return (
     <ChatErrorBoundary>
-      <JarvisChat entrySource={entrySource} entryParams={entryParams} />
+      <OnboardingWizard />
     </ChatErrorBoundary>
   );
 }

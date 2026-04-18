@@ -13,7 +13,7 @@ export type TicketStatus =
   | 'open'
   | 'assigned'
   | 'in_progress'
-  | 'awaiting_client'
+  | 'awaiting_customer'
   | 'awaiting_human'
   | 'resolved'
   | 'reopened'
@@ -55,7 +55,7 @@ export interface TicketResponse {
   frozen: boolean;
   is_spam: boolean;
   awaiting_human: boolean;
-  awaiting_client: boolean;
+  awaiting_customer: boolean;
   escalation_level: number;
   sla_breached: boolean;
   first_response_at: string | null;
