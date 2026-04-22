@@ -53,7 +53,8 @@ class ChannelDispatcher:
     Channels supported:
     - email: Via OutboundEmailService + Brevo (F-120)
     - chat: Via Socket.io real-time push
-    - sms: Via Twilio (Week 13 Day 5 — stub for now)
+    - sms: Via Twilio with TCPA compliance (BC-010) and rate limiting (BC-006)
+    - voice: Audit trail only (TTS pipeline integration pending)
     - internal: TicketMessage only, no external send
     """
 
@@ -132,6 +133,16 @@ class ChannelDispatcher:
                     company_id=company_id,
                     ticket=ticket,
                     ai_response_text=ai_response_text or strip_html(ai_response_html),
+                    role=role,
+                    model_used=model_used,
+                )
+            elif channel == "voice":
+                return self._dispatch_voice(
+                    company_id=company_id,
+                    ticket=ticket,
+                    ai_response_text=(
+                        ai_response_text or strip_html(ai_response_html)
+                    ),
                     role=role,
                     model_used=model_used,
                 )
@@ -298,41 +309,387 @@ class ChannelDispatcher:
         role: str,
         model_used: Optional[str],
     ) -> dict:
-        """Dispatch AI response via SMS channel (Week 13 Day 5 stub).
+        """Dispatch AI response via SMS channel (Twilio).
 
-        Day 5 will implement full SMS dispatch via Twilio.
-        Currently stores a TicketMessage and returns a stub status.
+        Creates a TicketMessage for audit trail, retrieves the
+        customer's phone number, and sends via Twilio async.
+
+        Handles TwilioTCPAError (BC-010) and TwilioRateLimitError
+        (BC-006) gracefully, updating dispatch_status in metadata.
         """
-        # Create TicketMessage for audit trail even in stub mode
+        # ── Resolve customer phone number ───────────────────────
+        to_number = self._get_customer_phone(ticket)
+        if not to_number:
+            logger.error(
+                "dispatch_sms_no_phone",
+                extra={
+                    "company_id": company_id,
+                    "ticket_id": ticket.id,
+                },
+            )
+            # Create TicketMessage so the audit trail is preserved
+            message = TicketMessage(
+                ticket_id=ticket.id,
+                company_id=company_id,
+                role=role,
+                channel="sms",
+                content=(ai_response_text or "")[:1600],
+                metadata_json=json.dumps({
+                    "source": "ai_response",
+                    "model_used": model_used,
+                    "dispatch_status": "failed",
+                    "error": "No customer phone number found on ticket",
+                }),
+            )
+            self.db.add(message)
+            self.db.commit()
+            return {
+                "status": "error",
+                "channel": "sms",
+                "ticket_id": ticket.id,
+                "message_id": str(message.id),
+                "error": "No customer phone number found",
+            }
+
+        # ── Truncate body to Twilio limit (1600 chars) ──────────
+        sms_body = (ai_response_text or "")[:1600]
+
+        # ── Create TicketMessage for audit trail ────────────────
         message = TicketMessage(
             ticket_id=ticket.id,
             company_id=company_id,
             role=role,
             channel="sms",
-            content=ai_response_text[:160],  # SMS length limit
+            content=sms_body[:200],  # Preview for ticket view
             metadata_json=json.dumps({
                 "source": "ai_response",
                 "model_used": model_used,
-                "dispatch_status": "stub_pending_day5",
+                "dispatch_status": "dispatching",
+                "to_number": to_number,
+                "body_length": len(sms_body),
             }),
         )
         self.db.add(message)
+
+        if not ticket.first_response_at:
+            ticket.first_response_at = datetime.now(timezone.utc)
+
         self.db.commit()
+        self.db.refresh(message)
+
+        # ── Send via Twilio (async, fire-and-forget) ────────────
+        run_async_coro(
+            self._send_sms_async(
+                message_id=message.id,
+                company_id=company_id,
+                to_number=to_number,
+                body=sms_body,
+            )
+        )
 
         logger.info(
-            "dispatch_sms_stub",
+            "dispatched_to_sms",
             extra={
                 "company_id": company_id,
                 "ticket_id": ticket.id,
                 "message_id": str(message.id),
+                "to_number": to_number,
+                "role": role,
             },
         )
         return {
-            "status": "stub",
+            "status": "dispatched",
             "channel": "sms",
             "ticket_id": ticket.id,
             "message_id": str(message.id),
-            "message": "SMS dispatch not yet implemented (Week 13 Day 5)",
+        }
+
+    # ── SMS Helpers ─────────────────────────────────────────────
+
+    async def _send_sms_async(
+        self,
+        message_id: str,
+        company_id: str,
+        to_number: str,
+        body: str,
+    ) -> None:
+        """Async helper: send SMS via Twilio and update TicketMessage.
+
+        Called via ``run_async_coro`` from the sync ``_dispatch_sms``.
+        Handles Twilio-specific exceptions and updates the
+        TicketMessage metadata_json with the final dispatch status.
+        """
+        from app.core.channels.twilio_client import (
+            TwilioClientError,
+            TwilioRateLimitError,
+            TwilioTCPAError,
+            get_twilio_client,
+        )
+
+        try:
+            client = get_twilio_client(company_id, self.db)
+            result = await client.send_sms(
+                to=to_number,
+                body=body,
+                company_id=company_id,
+                db=self.db,
+            )
+
+            if result.get("success"):
+                self._update_message_dispatch_status(
+                    message_id=message_id,
+                    status="sent",
+                    twilio_sid=result.get("message_sid"),
+                    twilio_status=result.get("status"),
+                )
+                logger.info(
+                    "dispatch_sms_sent",
+                    extra={
+                        "company_id": company_id,
+                        "message_id": message_id,
+                        "twilio_sid": result.get("message_sid"),
+                        "to_number": to_number,
+                    },
+                )
+            else:
+                self._update_message_dispatch_status(
+                    message_id=message_id,
+                    status="failed",
+                    error=result.get("error_message", "Twilio send failed"),
+                    error_code=result.get("error_code"),
+                )
+                logger.warning(
+                    "dispatch_sms_twilio_rejected",
+                    extra={
+                        "company_id": company_id,
+                        "message_id": message_id,
+                        "error_code": result.get("error_code"),
+                        "to_number": to_number,
+                    },
+                )
+
+        except TwilioTCPAError as exc:
+            logger.warning(
+                "dispatch_sms_tcpa_blocked",
+                extra={
+                    "company_id": company_id,
+                    "message_id": message_id,
+                    "to_number": to_number,
+                    "error": str(exc)[:200],
+                },
+            )
+            self._update_message_dispatch_status(
+                message_id=message_id,
+                status="failed",
+                error=f"TCPA compliance: {exc}",
+            )
+
+        except TwilioRateLimitError as exc:
+            logger.warning(
+                "dispatch_sms_rate_limited",
+                extra={
+                    "company_id": company_id,
+                    "message_id": message_id,
+                    "to_number": to_number,
+                    "error": str(exc)[:200],
+                },
+            )
+            self._update_message_dispatch_status(
+                message_id=message_id,
+                status="failed",
+                error=f"Rate limited (BC-006): {exc}",
+            )
+
+        except TwilioClientError as exc:
+            logger.error(
+                "dispatch_sms_client_error",
+                extra={
+                    "company_id": company_id,
+                    "message_id": message_id,
+                    "to_number": to_number,
+                    "error": str(exc)[:200],
+                },
+            )
+            self._update_message_dispatch_status(
+                message_id=message_id,
+                status="failed",
+                error=str(exc)[:200],
+            )
+
+        except Exception as exc:
+            logger.error(
+                "dispatch_sms_unexpected_error",
+                extra={
+                    "company_id": company_id,
+                    "message_id": message_id,
+                    "to_number": to_number,
+                    "error": str(exc)[:200],
+                },
+            )
+            self._update_message_dispatch_status(
+                message_id=message_id,
+                status="failed",
+                error=str(exc)[:200],
+            )
+
+    def _get_customer_phone(self, ticket: Ticket) -> Optional[str]:
+        """Extract customer phone number from ticket metadata or customer.
+
+        Resolution order:
+        1. ``ticket.metadata_json["customer_number"]`` (set by SMS inbound)
+        2. ``ticket.metadata_json["from_number"]`` (Twilio webhook)
+        3. Customer record linked via ``ticket.customer_id``
+
+        Returns:
+            Phone number string or None.
+        """
+        # 1 & 2: Check ticket metadata (populated by SMS inbound pipeline)
+        if ticket.metadata_json:
+            try:
+                meta = (json.loads(ticket.metadata_json)
+                        if isinstance(ticket.metadata_json, str)
+                        else ticket.metadata_json)
+                phone = meta.get("customer_number") or meta.get("from_number")
+                if phone:
+                    return str(phone)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        # 3: Look up customer record
+        if hasattr(ticket, "customer_id") and ticket.customer_id:
+            try:
+                from database.models.customers import Customer
+                customer = self.db.query(Customer).filter(
+                    Customer.id == ticket.customer_id,
+                    Customer.company_id == ticket.company_id,
+                ).first()
+                if customer:
+                    phone = (getattr(customer, "phone", None)
+                             or getattr(customer, "phone_number", None))
+                    if phone:
+                        return str(phone)
+            except Exception as exc:
+                logger.warning(
+                    "dispatch_sms_customer_lookup_failed",
+                    extra={
+                        "ticket_id": ticket.id,
+                        "customer_id": str(ticket.customer_id),
+                        "error": str(exc)[:100],
+                    },
+                )
+
+        return None
+
+    def _update_message_dispatch_status(
+        self,
+        message_id: str,
+        status: str,
+        twilio_sid: Optional[str] = None,
+        twilio_status: Optional[str] = None,
+        error: Optional[str] = None,
+        error_code: Optional[str] = None,
+    ) -> None:
+        """Update a TicketMessage's metadata_json dispatch status.
+
+        Merges the new status fields into the existing metadata.
+        Handles session issues gracefully (e.g., closed session
+        after fire-and-forget async execution).
+        """
+        try:
+            message = self.db.query(TicketMessage).filter(
+                TicketMessage.id == message_id,
+            ).first()
+            if not message:
+                return
+
+            # Parse existing metadata and merge
+            try:
+                meta = (json.loads(message.metadata_json)
+                        if message.metadata_json else {})
+            except (json.JSONDecodeError, TypeError):
+                meta = {}
+
+            meta["dispatch_status"] = status
+            if twilio_sid:
+                meta["twilio_message_sid"] = twilio_sid
+            if twilio_status:
+                meta["twilio_status"] = twilio_status
+            if error:
+                meta["error"] = error
+            if error_code:
+                meta["error_code"] = error_code
+
+            message.metadata_json = json.dumps(meta)
+            self.db.commit()
+        except Exception as exc:
+            # Non-critical: the message was already created with
+            # dispatch_status="dispatching" — don't raise.
+            logger.warning(
+                "dispatch_sms_metadata_update_failed",
+                extra={
+                    "message_id": message_id,
+                    "error": str(exc)[:100],
+                },
+            )
+
+    # ── Voice Channel ───────────────────────────────────────────
+
+    def _dispatch_voice(
+        self,
+        company_id: str,
+        ticket: Ticket,
+        ai_response_text: str,
+        role: str,
+        model_used: Optional[str],
+    ) -> dict:
+        """Dispatch AI response via voice channel.
+
+        Currently stores a TicketMessage for audit trail and logs
+        a warning that the TTS (text-to-speech) pipeline is required
+        for actual voice delivery.
+
+        Future: integrate TTS → Twilio <Say>/<Play> TwiML →
+        ``TwilioClient.make_call()`` for outbound voice responses.
+        """
+        message = TicketMessage(
+            ticket_id=ticket.id,
+            company_id=company_id,
+            role=role,
+            channel="voice",
+            content=ai_response_text,
+            metadata_json=json.dumps({
+                "source": "ai_response",
+                "model_used": model_used,
+                "dispatch_status": "stored",
+                "note": "Voice delivery requires TTS pipeline integration",
+            }),
+        )
+        self.db.add(message)
+
+        if not ticket.first_response_at:
+            ticket.first_response_at = datetime.now(timezone.utc)
+
+        self.db.commit()
+        self.db.refresh(message)
+
+        logger.warning(
+            "dispatch_voice_tts_pending",
+            extra={
+                "company_id": company_id,
+                "ticket_id": ticket.id,
+                "message_id": str(message.id),
+                "detail": (
+                    "Voice AI response stored but not delivered — "
+                    "TTS pipeline + Twilio make_call() integration needed"
+                ),
+            },
+        )
+        return {
+            "status": "stored",
+            "channel": "voice",
+            "ticket_id": ticket.id,
+            "message_id": str(message.id),
+            "note": "Voice delivery requires TTS pipeline",
         }
 
     def _dispatch_internal(

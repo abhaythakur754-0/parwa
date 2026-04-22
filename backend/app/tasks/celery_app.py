@@ -99,6 +99,7 @@ def _build_config() -> dict:
             "app.tasks.ai.light.*": {"queue": "ai_light"},
             "app.tasks.training.*": {"queue": "training"},
             "app.tasks.knowledge.*": {"queue": "knowledge"},  # Day 6
+            "app.tasks.day5.*": {"queue": "default"},  # Day 5
         },
         # Day 16: Beat scheduler (periodic tasks)
         "beat_schedule": {
@@ -281,6 +282,47 @@ def _build_config() -> dict:
                 "schedule": 300.0,  # Every 5 minutes
                 "kwargs": {},
             },
+            # Day 5: Financial safety, webhook health, anomaly detection
+            "process-dead-letter-queue-hourly": {
+                "task": ("app.tasks.day5"
+                          ".process_dead_letter_queue"),
+                "schedule": 3600.0,  # Every hour
+                "kwargs": {},
+            },
+            "daily-anomaly-check-04utc": {
+                "task": ("app.tasks.day5"
+                          ".daily_anomaly_check"),
+                "schedule": {"hour": 4, "minute": 0},
+                "kwargs": {},
+            },
+            "weekly-invoice-audit-mon-05utc": {
+                "task": ("app.tasks.day5"
+                          ".weekly_invoice_audit"),
+                "schedule": {
+                    "day_of_week": 0,  # Monday
+                    "hour": 5,
+                    "minute": 0,
+                },
+                "kwargs": {},
+            },
+            "webhook-health-summary-0630utc": {
+                "task": ("app.tasks.day5"
+                          ".webhook_health_summary"),
+                "schedule": {"hour": 6, "minute": 30},
+                "kwargs": {},
+            },
+            "check-spending-caps-07utc": {
+                "task": ("app.tasks.day5"
+                          ".check_spending_caps"),
+                "schedule": {"hour": 7, "minute": 0},
+                "kwargs": {},
+            },
+            "expire-credits-0330utc": {
+                "task": ("app.tasks.day5"
+                          ".expire_credits"),
+                "schedule": {"hour": 3, "minute": 30},
+                "kwargs": {},
+            },
         },
         # Day 16: Task send events for monitoring
         "task_send_sent_event": True,
@@ -305,6 +347,8 @@ def _build_config() -> dict:
             "app.tasks.knowledge_tasks",
             # Shadow mode queue processing
             "app.tasks.shadow_tasks",
+            # Day 5: Financial safety, webhook health, anomaly detection
+            "app.tasks.day5_tasks",
         ],
     }
 

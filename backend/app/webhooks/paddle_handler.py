@@ -1104,6 +1104,17 @@ def handle_payment_chargeback_created(event: dict) -> dict:
         },
     )
 
+    # Chargeback enforcement: ticket + subscription hold + notification
+    company_id = event.get("company_id")
+    if company_id:
+        _handle_chargeback_actions(
+            company_id=company_id,
+            transaction_id=cb_data.get("transaction_id"),
+            amount=cb_data.get("amount"),
+            currency=cb_data.get("currency", "USD"),
+            reason=cb_data.get("reason", "unknown"),
+        )
+
     return {
         "status": "processed",
         "action": "chargeback_created",
@@ -1173,6 +1184,125 @@ def _sync_billing_cycle_dates(company_id: str, sub_data: dict) -> None:
         logger.error(
             "billing_cycle_sync_failed company_id=%s error=%s",
             company_id,
+            str(e),
+        )
+
+
+# ── Chargeback Enforcement Handler ─────────────────────────────────────
+
+def _handle_chargeback_actions(
+    company_id: str,
+    transaction_id: str,
+    amount: str = None,
+    currency: str = "USD",
+    reason: str = "unknown",
+) -> None:
+    """Enforce chargeback response: ticket, subscription hold, notification.
+
+    Follows the same fire-and-forget pattern as _trigger_payment_failure_stop
+    so the webhook response is never blocked.
+    """
+    import asyncio
+
+    try:
+        from database.base import SessionLocal
+
+        with SessionLocal() as db:
+            # 1. Create internal high-priority ticket via TicketService
+            try:
+                from app.services.ticket_service import TicketService
+                ticket_svc = TicketService(db, company_id)
+                ticket_svc.create_ticket(
+                    customer_id="system",
+                    channel="internal",
+                    subject=f"Chargeback Alert: {transaction_id}",
+                    priority="high",
+                    category="billing",
+                    metadata_json={
+                        "chargeback_transaction_id": transaction_id,
+                        "chargeback_amount": str(amount or 0),
+                        "chargeback_currency": currency,
+                        "chargeback_reason": reason,
+                        "source": "paddle_webhook",
+                    },
+                )
+                logger.info(
+                    "chargeback_ticket_created cid=%s txn=%s",
+                    company_id,
+                    transaction_id,
+                )
+            except Exception as ticket_err:
+                logger.error(
+                    "chargeback_ticket_create_failed cid=%s txn=%s err=%s",
+                    company_id,
+                    transaction_id,
+                    str(ticket_err),
+                )
+
+            # 2. Suspend subscription to "payment_hold"
+            try:
+                from database.models.billing import Subscription
+                subscription = db.query(Subscription).filter(
+                    Subscription.company_id == company_id,
+                ).order_by(Subscription.created_at.desc()).first()
+
+                if subscription and subscription.status != "payment_hold":
+                    subscription.status = "payment_hold"
+                    db.commit()
+                    logger.info(
+                        "chargeback_sub_held cid=%s sub_id=%s",
+                        company_id,
+                        str(subscription.id),
+                    )
+            except Exception as sub_err:
+                logger.error(
+                    "chargeback_sub_hold_failed cid=%s err=%s",
+                    company_id,
+                    str(sub_err),
+                )
+
+        # 3. Emit Socket.io notification (async)
+        try:
+            from app.core.socketio import emit_to_tenant
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(
+                    emit_to_tenant(
+                        company_id,
+                        "billing:chargeback_created",
+                        {
+                            "transaction_id": transaction_id,
+                            "amount": str(amount or 0),
+                            "currency": currency,
+                            "reason": reason,
+                            "timestamp": (
+                                datetime.now(timezone.utc).isoformat()
+                            ),
+                        },
+                    )
+                )
+            finally:
+                loop.close()
+
+            logger.info(
+                "chargeback_notification_sent cid=%s txn=%s",
+                company_id,
+                transaction_id,
+            )
+        except Exception as notify_err:
+            logger.error(
+                "chargeback_notification_failed cid=%s err=%s",
+                company_id,
+                str(notify_err),
+            )
+
+    except Exception as e:
+        logger.error(
+            "chargeback_actions_failed cid=%s txn=%s err=%s",
+            company_id,
+            transaction_id,
             str(e),
         )
 

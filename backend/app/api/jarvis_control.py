@@ -549,11 +549,55 @@ async def _execute_command(
 
         # Agent commands
         if cmd_type == "list_agents":
-            return {"message": "Agent listing requires live system data"}
+            try:
+                from database.models.core import User
+                members = (
+                    db.query(User)
+                    .filter(
+                        User.company_id == company_id,
+                        User.is_active == True,  # noqa: E712
+                    )
+                    .all()
+                )
+                agents = [
+                    {
+                        "id": str(m.id),
+                        "email": m.email,
+                        "full_name": getattr(m, "full_name", None),
+                        "role": str(m.role),
+                    }
+                    for m in members
+                ]
+                return {"agents": agents, "total": len(agents)}
+            except Exception as agent_err:
+                logger.error(
+                    "jarvis_list_agents_error",
+                    company_id=company_id,
+                    error=str(agent_err),
+                )
+                return {"error": str(agent_err)[:200]}
 
         # Queue commands
         if cmd_type == "list_queues":
-            return {"message": "Queue listing requires live Celery connection"}
+            try:
+                from app.tasks.celery_app import app as celery_app
+                inspect = celery_app.control.inspect()
+                active = inspect.active_queues() or {}
+                queues = {}
+                for worker_name, queue_list in active.items():
+                    queues[worker_name] = [
+                        {"name": q.get("name"),
+                         "routing_key": q.get("routing_key")}
+                        for q in queue_list
+                    ]
+                return {"queues": queues, "workers": list(queues.keys())}
+            except Exception as queue_err:
+                logger.error(
+                    "jarvis_list_queues_error",
+                    company_id=company_id,
+                    error=str(queue_err),
+                )
+                return {"error": str(queue_err)[:200]}
 
         # Incident commands
         if cmd_type == "list_incidents":
@@ -565,16 +609,58 @@ async def _execute_command(
 
         # Analytics
         if cmd_type in ("show_analytics", "query_analytics"):
-            return {"message": "Analytics query routed successfully", "params": params}
+            try:
+                from app.services.analytics_service import (
+                    get_billing_analytics_service,
+                )
+                analytics_svc = get_billing_analytics_service()
+                summary = analytics_svc.get_spending_summary(company_id)
+                budget = analytics_svc.get_budget_alert(company_id)
+                return {
+                    "spending": summary,
+                    "budget_alert": budget,
+                    "params": params,
+                }
+            except Exception as analytics_err:
+                logger.error(
+                    "jarvis_analytics_error",
+                    company_id=company_id,
+                    error=str(analytics_err),
+                )
+                # Fallback: simple ticket counts by status
+                try:
+                    from sqlalchemy import func
+                    from database.models.ticket import Ticket
+                    status_counts = (
+                        db.query(Ticket.status, func.count(Ticket.id))
+                        .filter(Ticket.company_id == company_id)
+                        .group_by(Ticket.status)
+                        .all()
+                    )
+                    return {
+                        "ticket_counts_by_status": {
+                            str(s): c for s, c in status_counts
+                        },
+                        "fallback": True,
+                        "params": params,
+                    }
+                except Exception as fallback_err:
+                    return {"error": str(fallback_err)[:200], "params": params}
 
         # Help
         if cmd_type == "help":
             from app.core.jarvis_command_parser import get_command_parser
             parser = get_command_parser()
             commands = parser.get_available_commands()
-            return {"total_commands": len(commands), "message": "Type a command to execute"}
+            return {
+                "total_commands": len(commands),
+                "message": "Type a command to execute",
+            }
 
-        return {"message": f"Command '{cmd_type}' acknowledged", "params": params}
+        return {
+            "message": f"Command '{cmd_type}' acknowledged",
+            "params": params,
+        }
 
     except Exception as exc:
         logger.warning(

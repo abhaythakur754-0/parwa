@@ -464,3 +464,64 @@ def delete_api_provider(
     return MessageResponse(
         message="API provider deactivated successfully"
     )
+
+
+# ── Webhook Management ────────────────────────────────────────────
+
+
+@router.post("/webhooks/{webhook_id}/retry")
+def retry_failed_webhook_endpoint(
+    webhook_id: str,
+    user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Retry a failed webhook event. Admin only.
+
+    Resets the event to pending status, clears error info,
+    increments the attempt counter, and re-dispatches to Celery
+    for asynchronous processing.
+
+    BC-011: Admin-only access.
+    BC-012: Structured JSON response.
+    """
+    if not webhook_id or not webhook_id.strip():
+        raise NotFoundError(
+            message="webhook_id is required",
+            details={"webhook_id": webhook_id},
+        )
+
+    try:
+        from app.services.webhook_service import retry_failed_webhook
+
+        result = retry_failed_webhook(webhook_id)
+
+        log_audit(
+            company_id=user.company_id,
+            actor_id=user.id,
+            actor_type="user",
+            action="retry",
+            resource_type="webhook_event",
+            resource_id=webhook_id,
+            new_value=str(result.get("status")),
+            db=db,
+        )
+
+        return result
+
+    except ValueError as ve:
+        raise NotFoundError(
+            message=str(ve),
+            details={"webhook_id": webhook_id},
+        )
+    except Exception as exc:
+        log_audit(
+            company_id=user.company_id,
+            actor_id=user.id,
+            actor_type="user",
+            action="retry_failed",
+            resource_type="webhook_event",
+            resource_id=webhook_id,
+            new_value=f"error: {str(exc)[:200]}",
+            db=db,
+        )
+        raise
