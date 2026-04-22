@@ -1,3 +1,170 @@
+# PARWA Worklog - Sprint: Dashboard → Security → Shadow → Critical Fixes → Integration Wiring
+
+> **Build Approach:** Day-by-day with workflow: Build → Unit Test → Find Gaps → Fix → Push
+> **Sprint Started:** April 21, 2026
+> **Current State:** Day 5 Complete — Integration Wiring ✅
+
+---
+
+## Day 5 — Integration Wiring (April 23, 2026)
+
+### Task ID: 5
+**Agent:** Main Agent
+**Task:** Integration Wiring + Remaining Feature Completion
+
+### Audit Findings:
+1. day5_tasks.py (6 Celery tasks) — Exist but NOT registered in beat schedule
+2. SMS dispatch in channel_dispatcher.py — Stub returning {"status": "stub"}
+3. Voice dispatch — Completely missing (no _dispatch_voice method)
+4. Chargeback handler — Logs only, no downstream enforcement action
+5. Jarvis control commands (list_agents, list_queues, show_analytics) — Stubs returning hardcoded messages
+6. Admin webhook retry — No exposed API endpoint for manual retry
+
+### Work Log:
+
+1. **CELERY BEAT SCHEDULE — 6 TASKS REGISTERED**
+   - Added `app.tasks.day5_tasks` to imports list
+   - Added `app.tasks.day5.*` → queue "default" route
+   - Registered 6 beat schedule entries:
+     - process_dead_letter_queue → hourly
+     - daily_anomaly_check → daily 04:00 UTC
+     - weekly_invoice_audit → Monday 05:00 UTC
+     - webhook_health_summary → daily 06:30 UTC
+     - check_spending_caps → daily 07:00 UTC
+     - expire_credits → daily 03:30 UTC
+
+2. **SMS DISPATCH — FULL TWILIO INTEGRATION**
+   - Replaced stub with real implementation using TwilioClient
+   - Phone resolution: ticket metadata → customer record
+   - Async SMS send via run_async_coro + get_twilio_client factory
+   - TCPA opt-out checking (BC-010)
+   - Rate limiting (BC-006, 5 msgs/thread/24h)
+   - Error handling: TwilioTCPAError, TwilioRateLimitError, TwilioClientError
+   - Helper methods: _get_customer_phone(), _send_sms_async(), _update_message_dispatch_status()
+
+3. **VOICE DISPATCH — NEW METHOD**
+   - Added _dispatch_voice() method with routing in dispatch()
+   - Creates TicketMessage for audit trail
+   - Logs TTS pipeline integration pending
+   - Returns {"status": "stored", "channel": "voice"}
+
+4. **CHARGEBACK ENFORCEMENT**
+   - Added _handle_chargeback_actions() to paddle_handler.py
+   - Creates high-priority internal ticket ("Chargeback Alert: {transaction_id}")
+   - Suspends subscription to "payment_hold" status
+   - Emits "billing:chargeback_created" Socket.io event
+   - Each action individually wrapped in try/except (fire-and-forget pattern)
+
+5. **JARVIS CONTROL COMMANDS — 3 STUBS WIRED**
+   - list_agents → DB query (User model, active, by company_id)
+   - list_queues → Celery inspect API (control.inspect().active_queues())
+   - show_analytics → BillingAnalyticsService with Ticket count fallback
+
+6. **ADMIN WEBHOOK RETRY ENDPOINT**
+   - POST /api/admin/webhooks/{webhook_id}/retry
+   - Admin-only guard via require_platform_admin
+   - Calls WebhookService.retry_failed_webhook()
+   - Audit logging on success/failure
+
+7. **FLAKE8 VALIDATION**
+   - Fixed all new E501 line-length errors introduced by Day 5 code
+   - All remaining errors verified as pre-existing (line shifts from additions)
+   - Zero new lint errors introduced
+
+### Stage Summary:
+
+**Files Modified:**
+- `backend/app/tasks/celery_app.py` — 6 beat entries + import + route
+- `backend/app/core/channel_dispatcher.py` — SMS dispatch (379→735 lines), voice dispatch
+- `backend/app/webhooks/paddle_handler.py` — Chargeback enforcement actions
+- `backend/app/api/jarvis_control.py` — 3 command stubs wired to real services
+- `backend/app/api/admin.py` — Webhook retry endpoint
+
+**Commit:** 0572ae4 (pushed to main)
+
+---
+
+## Day 4 — Critical Fixes + Pipeline Wiring (April 23, 2026)
+
+### Task ID: 4
+**Agent:** Main Agent
+**Task:** Critical Fixes + Pipeline Wiring
+
+### Audit Findings:
+1. Ticket search tenant isolation — ALREADY DONE (filters by company_id)
+2. Webhook idempotency — ALREADY DONE (event_id dedup via webhook_service)
+3. Guardrails engine — ALREADY WIRED (TODO comment was stale; _stage_guardrails calls run_full_check with all 8 layers)
+4. ORM stubs (SpendingCap, DeadLetterWebhook, WebhookHealthStat) — ALREADY HAD MODELS + MIGRATION (found bug: missing updated_at column)
+5. Payment failure resume side-effects — TODO stub found and fixed
+6. Push notification dispatch — TODO placeholder replaced with FCM implementation
+7. Paddle get_payment_status — TODO stub replaced with DB-backed implementation
+
+### Work Log:
+
+1. **GUARDRAILS TODO CLEANUP**
+   - Removed misleading TODO comment in ai_pipeline.py (line 617-623)
+   - Confirmed _stage_guardrails at line 1199 already calls GuardrailsEngine.run_full_check()
+   - All 8 guard layers active: CONTENT_SAFETY, TOPIC_RELEVANCE, HALLUCINATION_CHECK, POLICY_COMPLIANCE, TONE_VALIDATION, LENGTH_CONTROL, PII_LEAK_PREVENTION, CONFIDENCE_GATE
+
+2. **PAYMENT FAILURE RESUME SIDE-EFFECTS**
+   - Replaced TODO in payment_failure_service.py (line 366-370)
+   - Implemented 4 recovery actions with individual try/except:
+     - Resume AI agents via AgentProvisioningService.resume_company_agents()
+     - Unfreeze tickets (bulk update frozen → open)
+     - Send service_resumed HTML email to company owner
+     - Emit billing:service_resumed Socket.io event
+
+3. **DEAD LETTER WEBHOOK BUG FIX**
+   - Found missing updated_at column on dead_letter_webhooks table
+   - Added updated_at column to DeadLetterWebhook model in billing_extended.py
+   - Created Alembic migration 029_dead_letter_webhook_updated_at.py
+
+4. **PUSH NOTIFICATION (FCM) IMPLEMENTATION**
+   - Replaced TODO placeholder in notification_service.py
+   - Full FCM HTTP v1 dispatch: token lookup, payload building, OAuth2 token exchange
+   - Supports both Android (priority channel) and APNs (aps payload)
+   - Graceful fallback when FCM not configured or no push token
+   - Added _get_fcm_access_token static method with JWT signing
+
+5. **PADDLE PAYMENT STATUS FIX**
+   - Replaced hardcoded stub in paddle_service.py get_payment_status()
+   - Real DB implementation: Redis session lookup, PaymentFailure check, Subscription status, WebhookEvent scan
+   - Returns actual payment state instead of always returning 'none'
+
+6. **FLAKE8 VERIFICATION**
+   - All flake8 errors in modified files are pre-existing (F401, W293)
+   - Zero new lint errors introduced by Day 4 changes
+   - Fixed trailing whitespace in notification_service.py as bonus cleanup
+
+### Stage Summary:
+
+**Files Modified:**
+- `backend/app/core/ai_pipeline.py` — Stale TODO removed
+- `backend/app/services/payment_failure_service.py` — Resume side-effects implemented
+- `backend/app/services/notification_service.py` — FCM push notifications implemented
+- `backend/app/services/paddle_service.py` — get_payment_status real implementation
+- `database/models/billing_extended.py` — DeadLetterWebhook updated_at column added
+
+**Files Created:**
+- `database/alembic/versions/029_dead_letter_webhook_updated_at.py` — Alembic migration
+
+
+**Commit:** 3fe327e (pushed to main)
+
+---
+
+## Sprint Summary (Days 1-5)
+
+| Day | Focus | Commit | Status |
+|-----|-------|--------|--------|
+| Day 1 | Dashboard Completion — 3 missing endpoints, system status fix, response-time endpoint | a037118 | ✅ |
+| Day 2 | Security Hardening — RBAC (33 routes), Audit Log API + Viewer, Sentry SDK, Role-based Sidebar | a1be6c3 | ✅ |
+| Day 3 | Shadow Mode Completion — Batch Approve/Reject, Training Metrics Dashboard, Escalation Workflow | 0e9b161 | ✅ |
+| Day 4 | Critical Fixes + Pipeline Wiring — Guardrails cleanup, Payment resume, FCM push, Paddle fix, DLQ bug fix | 3fe327e | ✅ |
+| Day 5 | Integration Wiring — Celery Beat (6 tasks), SMS dispatch, Voice dispatch, Chargeback enforcement, Jarvis commands, Webhook admin | 0572ae4 | ✅ |
+
+---
+
 # PARWA Worklog - Part 13: Ticket Management Build
 
 > **Build Approach:** Day-by-day with workflow: Build → Unit Test → Find Gaps → Fix → Push
