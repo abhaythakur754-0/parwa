@@ -1004,3 +1004,122 @@ def _flag_anomalies(
                 kpi["is_anomaly"] = True
 
     return kpis
+
+
+# ══════════════════════════════════════════════════════════════════
+# RESPONSE TIME DISTRIBUTION
+# ══════════════════════════════════════════════════════════════════
+
+# Bucket definitions: (upper_bound_minutes, bucket_key, display_label)
+_RESPONSE_TIME_BUCKETS: List[Tuple[int, str, str]] = [
+    (15,    "0-15m",   "<15m"),
+    (30,    "15-30m",  "15-30m"),
+    (60,    "30m-1h",  "30m-1h"),
+    (120,   "1-2h",    "1-2h"),
+    (240,   "2-4h",    "2-4h"),
+    (480,   "4-8h",    "4-8h"),
+    (float("inf"), "8h+", "8h+"),
+]
+
+
+def get_response_time_distribution(
+    company_id: str,
+    db: Session,
+    days: int = 30,
+) -> Dict[str, Any]:
+    """Get first-response time distribution bucketed by time ranges.
+
+    Queries tickets with ``first_response_at`` set, computes the delta
+    from ``created_at``, buckets them into standard ranges, and
+    calculates avg / median / P95 response times in minutes.
+
+    Returns a ``ResponseTimeDistribution`` dict:
+    {
+        "buckets": [{"bucket": "0-15m", "count": 42, "label": "<15m"}, ...],
+        "avg_response_minutes": 28.5,
+        "median_response_minutes": 12.3,
+        "p95_response_minutes": 340.0,
+    }
+
+    BC-001: Scoped by company_id.
+    """
+    try:
+        now = datetime.now(timezone.utc)
+        start = now - timedelta(days=days)
+
+        tickets = db.query(Ticket).filter(
+            Ticket.company_id == company_id,
+            Ticket.created_at >= start,
+            Ticket.first_response_at.isnot(None),
+        ).all()
+
+        # Calculate response times in minutes
+        response_minutes: List[float] = []
+        for t in tickets:
+            if t.first_response_at and t.created_at:
+                delta = (t.first_response_at - t.created_at).total_seconds()
+                if delta >= 0:
+                    response_minutes.append(delta / 60.0)
+
+        # Bucket the response times using range boundaries
+        # Boundaries: 0, 15, 30, 60, 120, 240, 480, inf
+        boundaries = [0, 15, 30, 60, 120, 240, 480, float("inf")]
+        buckets: List[Dict[str, Any]] = []
+        for i, (_, bucket_key, label) in enumerate(_RESPONSE_TIME_BUCKETS):
+            lower = boundaries[i]
+            upper = boundaries[i + 1]
+            count = sum(1 for m in response_minutes if lower <= m < upper)
+            buckets.append({
+                "bucket": bucket_key,
+                "count": count,
+                "label": label,
+            })
+
+        # Calculate statistics
+        avg_response_minutes = 0.0
+        median_response_minutes = 0.0
+        p95_response_minutes = 0.0
+
+        if response_minutes:
+            sorted_minutes = sorted(response_minutes)
+            n = len(sorted_minutes)
+
+            avg_response_minutes = round(sum(sorted_minutes) / n, 1)
+
+            # Median
+            if n % 2 == 0:
+                median_response_minutes = round(
+                    (sorted_minutes[n // 2 - 1] + sorted_minutes[n // 2]) / 2, 1,
+                )
+            else:
+                median_response_minutes = round(sorted_minutes[n // 2], 1)
+
+            # P95
+            p95_index = int(n * 0.95)
+            if p95_index >= n:
+                p95_index = n - 1
+            p95_response_minutes = round(sorted_minutes[p95_index], 1)
+
+        return {
+            "buckets": buckets,
+            "avg_response_minutes": avg_response_minutes,
+            "median_response_minutes": median_response_minutes,
+            "p95_response_minutes": p95_response_minutes,
+        }
+
+    except Exception as exc:
+        logger.error(
+            "response_time_distribution_error",
+            company_id=company_id,
+            error=str(exc),
+        )
+        # Return empty structure on error
+        return {
+            "buckets": [
+                {"bucket": bk, "count": 0, "label": lbl}
+                for _, bk, lbl in _RESPONSE_TIME_BUCKETS
+            ],
+            "avg_response_minutes": 0,
+            "median_response_minutes": 0,
+            "p95_response_minutes": 0,
+        }

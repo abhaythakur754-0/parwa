@@ -389,6 +389,74 @@ async def get_agent_metrics(
     ]
 
 
+# ── Response Time Distribution Endpoint ────────────────────────────────────────
+
+class ResponseTimeBucketResponse(BaseModel):
+    """Response schema for a single response-time bucket."""
+    bucket: str
+    count: int
+    label: str
+
+
+class ResponseTimeDistributionResponse(BaseModel):
+    """Response schema for response time distribution."""
+    buckets: List[ResponseTimeBucketResponse]
+    avg_response_minutes: float
+    median_response_minutes: float
+    p95_response_minutes: float
+
+
+@router.get(
+    "/response-time",
+    response_model=ResponseTimeDistributionResponse,
+    summary="Get first-response time distribution",
+)
+async def get_response_time(
+    start_date: Optional[datetime] = Query(None, description="Start date for range"),
+    end_date: Optional[datetime] = Query(None, description="End date for range"),
+    days: int = Query(30, ge=1, le=365, description="Number of days (used when start_date is not provided)"),
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
+) -> Any:
+    """
+    Get first-response time distribution bucketed by time ranges.
+
+    Returns histogram buckets (0-15m, 15-30m, 30m-1h, 1-2h, 2-4h, 4-8h, 8h+)
+    plus avg, median, and P95 response times in minutes.
+
+    BC-001: Scoped by company_id.
+    BC-011: Requires authentication.
+    """
+    company_id = get_company_id_from_user(current_user)
+    if not company_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Company ID not found",
+        )
+
+    try:
+        from app.services.dashboard_service import get_response_time_distribution
+
+        # When start_date is not provided, use the `days` parameter
+        data = get_response_time_distribution(
+            company_id, db, days=days,
+        )
+
+        return ResponseTimeDistributionResponse(
+            buckets=[
+                ResponseTimeBucketResponse(**b) for b in data.get("buckets", [])
+            ],
+            avg_response_minutes=data.get("avg_response_minutes", 0),
+            median_response_minutes=data.get("median_response_minutes", 0),
+            p95_response_minutes=data.get("p95_response_minutes", 0),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to compute response time distribution: {str(exc)[:200]}",
+        )
+
+
 # ── Dashboard Endpoint (Combined) ────────────────────────────────────────────
 
 @router.get(

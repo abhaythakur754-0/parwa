@@ -75,6 +75,7 @@ from app.api.jarvis_ops import router as jarvis_ops_router  # Week 14 Day 2: Qui
 from app.api.agents import router as agents_router  # Week 14 Day 4: Agent Provisioning (F-095), Dynamic Instructions (F-096)
 from app.api.agent_dashboard import router as agent_dashboard_router  # Week 15 Day 5: Agent Dashboard (F-097)
 from app.api.dashboard import router as dashboard_router  # Week 15 Day 1: Dashboard Home (F-036), Activity Feed (F-037), KPI Metrics (F-038)
+from app.api.system_status import router as system_status_router  # F-088: System status for frontend health strip
 from app.api.analytics_advanced import router as analytics_advanced_router  # Week 15 Day 2: Adaptation (F-039), Savings (F-040), Workforce (F-041)
 from app.api.analytics_intelligence import router as analytics_intelligence_router  # Week 15 Day 3: Growth Nudge (F-042), Forecast (F-043), CSAT Trends (F-044)
 from app.api.reports import router as reports_router  # Week 15 Day 4: Export Reports (F-045)
@@ -362,6 +363,7 @@ app.include_router(jarvis_ops_router)  # Week 14 Day 2: Quick Commands (F-090), 
 app.include_router(agents_router)  # Week 14 Day 4: Agent Provisioning (F-095), Dynamic Instructions (F-096)
 app.include_router(agent_dashboard_router)  # Week 15 Day 5: Agent Dashboard (F-097)
 app.include_router(dashboard_router)  # Week 15 Day 1: Dashboard Home (F-036), Activity Feed (F-037), KPI Metrics (F-038)
+app.include_router(system_status_router)  # F-088: System status for frontend health strip
 app.include_router(analytics_advanced_router)  # Week 15 Day 2: Adaptation (F-039), Savings (F-040), Workforce (F-041)
 app.include_router(analytics_intelligence_router)  # Week 15 Day 3: Growth Nudge (F-042), Forecast (F-043), CSAT Trends (F-044)
 app.include_router(reports_router)  # Week 15 Day 4: Export Reports (F-045)
