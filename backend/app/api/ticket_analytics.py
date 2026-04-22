@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.services.ticket_analytics_service import (
     TicketAnalyticsService,
     DateRange,
@@ -33,7 +33,11 @@ from app.services.ticket_analytics_service import (
 )
 
 
-router = APIRouter(prefix="/analytics/tickets", tags=["analytics", "tickets"])
+router = APIRouter(
+    prefix="/analytics/tickets",
+    tags=["analytics", "tickets"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 # ── Request/Response Schemas ─────────────────────────────────────────────────

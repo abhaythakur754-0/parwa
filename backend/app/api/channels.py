@@ -11,12 +11,16 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.exceptions import NotFoundError, ValidationError
 from app.services.channel_service import ChannelService
 
 
-router = APIRouter(prefix="/api/channels", tags=["channels"])
+router = APIRouter(
+    prefix="/api/channels",
+    tags=["channels"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
+)
 
 
 @router.get(

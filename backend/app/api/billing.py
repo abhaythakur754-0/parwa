@@ -84,6 +84,7 @@ from app.schemas.billing import (
     EnhancedInvoiceHistory,
     PaymentSchedule,
 )
+from app.api.deps import require_roles
 from app.services.subscription_service import (
     SubscriptionService,
     SubscriptionError,
@@ -130,7 +131,11 @@ from database.base import SessionLocal
 
 logger = logging.getLogger("parwa.api.billing")
 
-router = APIRouter(prefix="/api/billing", tags=["billing"])
+router = APIRouter(
+    prefix="/api/billing",
+    tags=["billing"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
+)
 
 
 # ── Request/Response Models ───────────────────────────────────────────────

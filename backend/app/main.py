@@ -89,6 +89,7 @@ from app.api.twilio_channels import router as twilio_channels_router  # Day 7: T
 from app.api.billing import router as billing_router  # Billing: subscription, invoices, usage
 from app.api.billing_webhooks import router as billing_webhooks_router  # Billing webhooks
 from app.api.notifications import router as notifications_router  # Notifications: templates, preferences
+from app.api.audit import router as audit_router  # Audit log: trail, stats, export
 from app.api.tickets import router as tickets_router  # Ticket CRUD
 from app.api.ticket_lifecycle import router as ticket_lifecycle_router  # Ticket lifecycle
 from app.api.ticket_messages import router as ticket_messages_router  # Ticket messages
@@ -161,6 +162,14 @@ async def lifespan(app: FastAPI):
     """
     settings = get_settings()
     configure_logging(settings.ENVIRONMENT)
+
+    # Initialize Sentry for error monitoring (no-op if SENTRY_DSN not set)
+    try:
+        from app.core.sentry import init_sentry
+        init_sentry()
+    except Exception as exc:
+        logger = get_logger("lifespan")
+        logger.warning("sentry_setup_error", error=str(exc))
 
     # ── Run Alembic migrations on startup (Docker-safe) ──
     try:
@@ -377,6 +386,7 @@ app.include_router(twilio_channels_router)  # Day 7: Twilio SMS/Voice webhooks
 app.include_router(billing_router)  # Billing: subscription, invoices, usage
 app.include_router(billing_webhooks_router)  # Billing webhooks
 app.include_router(notifications_router)  # Notifications: templates, preferences
+app.include_router(audit_router)  # Audit log: trail, stats, export
 app.include_router(tickets_router)  # Ticket CRUD
 app.include_router(ticket_lifecycle_router)  # Ticket lifecycle
 app.include_router(ticket_messages_router)  # Ticket messages
@@ -476,6 +486,15 @@ async def internal_error_handler(
         error_type=type(exc).__name__,
         error_message=str(exc),
     )
+    # Capture exception to Sentry for error monitoring
+    try:
+        from app.core.sentry import capture_exception
+        capture_exception(exc, extra={
+            "path": request.url.path,
+            "method": request.method,
+        })
+    except Exception:
+        pass
     return JSONResponse(
         status_code=500,
         content={

@@ -162,6 +162,24 @@ def get_company_id(
     return str(user.company_id)
 
 
+# Pre-defined role groups for common access patterns
+ALL_ROLES = ("owner", "admin", "agent", "viewer")
+MANAGEMENT_ROLES = ("owner", "admin")
+OPERATIONAL_ROLES = ("owner", "admin", "agent")
+
+
+def require_management(*override_roles):
+    """Owner/Admin only — for billing, settings, integrations, dangerous operations."""
+    roles = override_roles if override_roles else MANAGEMENT_ROLES
+    return require_roles(*roles)
+
+
+def require_operational(*override_roles):
+    """Owner/Admin/Agent — for ticket ops, customer management, training."""
+    roles = override_roles if override_roles else OPERATIONAL_ROLES
+    return require_roles(*roles)
+
+
 def optional_user(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),

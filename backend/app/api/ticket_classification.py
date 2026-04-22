@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.services.classification_service import (
     ClassificationService,
     IntentCategory,
@@ -28,7 +28,11 @@ from app.services.classification_service import (
 from app.exceptions import NotFoundError, ValidationError
 
 
-router = APIRouter(prefix="/tickets", tags=["ticket-classification"])
+router = APIRouter(
+    prefix="/tickets",
+    tags=["ticket-classification"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 # ── SCHEMAS ────────────────────────────────────────────────────────────────

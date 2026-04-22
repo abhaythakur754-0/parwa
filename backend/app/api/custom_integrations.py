@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
 from app.services.custom_integration_service import CustomIntegrationService
 from app.services.outgoing_webhook_service import OutgoingWebhookService
 from database.base import get_db
@@ -32,6 +32,7 @@ from database.models.core import User
 router = APIRouter(
     prefix="/api/integrations/custom",
     tags=["Custom Integrations (F-031)"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
 )
 
 

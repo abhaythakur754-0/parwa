@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.schemas.sla import (
     SLAPolicyCreate,
     SLAPolicyUpdate,
@@ -36,7 +36,11 @@ from app.services.sla_service import (
 )
 
 
-router = APIRouter(prefix="/sla", tags=["sla"])
+router = APIRouter(
+    prefix="/sla",
+    tags=["sla"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
+)
 
 
 # ── SLA POLICY ENDPOINTS ─────────────────────────────────────────────────────

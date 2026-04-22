@@ -31,12 +31,16 @@ from fastapi import status as http_status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_current_user, get_company_id
+from app.api.deps import get_db, get_current_user, get_company_id, require_roles
 from app.services.activity_log_service import ActivityLogService
 from app.exceptions import NotFoundError
 
 
-router = APIRouter(prefix="/tickets", tags=["tickets", "timeline"])
+router = APIRouter(
+    prefix="/tickets",
+    tags=["tickets", "timeline"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 # ── Request/Response Schemas ───────────────────────────────────────────────

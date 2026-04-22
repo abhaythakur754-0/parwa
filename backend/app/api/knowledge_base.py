@@ -29,7 +29,7 @@ from app.services.file_storage_service import FileStorageService
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
 from app.exceptions import ValidationError
 from app.services.onboarding_service import (
     get_knowledge_documents,
@@ -40,7 +40,11 @@ from database.base import get_db
 from database.models.core import User
 from database.models.onboarding import KnowledgeDocument
 
-router = APIRouter(prefix="/api/kb", tags=["Knowledge Base"])
+router = APIRouter(
+    prefix="/api/kb",
+    tags=["Knowledge Base"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
+)
 
 logger = logging.getLogger("parwa.knowledge_base")
 

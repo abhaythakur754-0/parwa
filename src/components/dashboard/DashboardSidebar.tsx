@@ -14,6 +14,7 @@ interface NavItem {
   href: string;
   icon: React.ReactNode;
   badgeKey?: 'tickets' | 'approvals' | 'notifications';
+  roles?: string[]; // If undefined, visible to all authenticated users
 }
 
 // ── Sidebar Props ─────────────────────────────────────────────────────
@@ -103,6 +104,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
     </svg>
   ),
+  auditLog: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+    </svg>
+  ),
   collapse: (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -147,27 +153,38 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
     '/dashboard/settings',
     '/dashboard/settings/shadow-mode',
     '/dashboard/shadow-log',
+    '/dashboard/audit',
   ]);
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: Icons.dashboard },
     { label: 'Tickets', href: '/dashboard/tickets', icon: Icons.tickets, badgeKey: 'tickets' },
     { label: 'Customers', href: '/dashboard/customers', icon: Icons.customers },
-    { label: 'Conversations', href: '/dashboard/conversations', icon: Icons.conversations },
-    { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels },
-    { label: 'Integrations', href: '/dashboard/integrations', icon: Icons.integrations },
-    { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents },
-    { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals, badgeKey: 'approvals' },
-    { label: 'Shadow Log', href: '/dashboard/shadow-log', icon: Icons.shieldCheck },
+    { label: 'Conversations', href: '/dashboard/conversations', icon: Icons.conversations, roles: ['owner', 'admin', 'agent'] },
+    { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels, roles: ['owner', 'admin', 'agent'] },
+    { label: 'Integrations', href: '/dashboard/integrations', icon: Icons.integrations, roles: ['owner', 'admin'] },
+    { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents, roles: ['owner', 'admin'] },
+    { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals, badgeKey: 'approvals', roles: ['owner', 'admin', 'agent'] },
+    { label: 'Shadow Log', href: '/dashboard/shadow-log', icon: Icons.shieldCheck, roles: ['owner', 'admin', 'agent'] },
     { label: 'Analytics', href: '/dashboard/analytics', icon: Icons.analytics },
-    { label: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: Icons.knowledgeBase },
-    { label: 'Billing', href: '/dashboard/billing', icon: Icons.billing },
+    { label: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: Icons.knowledgeBase, roles: ['owner', 'admin', 'agent'] },
+    { label: 'Billing', href: '/dashboard/billing', icon: Icons.billing, roles: ['owner', 'admin'] },
     { label: 'Notifications', href: '/dashboard/notifications', icon: Icons.notifications, badgeKey: 'notifications' },
+    { label: 'Audit Log', href: '/dashboard/audit', icon: Icons.auditLog, roles: ['owner', 'admin'] },
   ];
 
   const bottomItems: NavItem[] = [
-    { label: 'Settings', href: '/dashboard/settings', icon: Icons.settings },
+    { label: 'Settings', href: '/dashboard/settings', icon: Icons.settings, roles: ['owner', 'admin'] },
   ];
+
+  // Filter nav items based on user role
+  const userRole = user?.role || 'viewer';
+  const visibleNavItems = navItems.filter(
+    (item) => !item.roles || item.roles.includes(userRole)
+  );
+  const visibleBottomItems = bottomItems.filter(
+    (item) => !item.roles || item.roles.includes(userRole)
+  );
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard';
@@ -211,7 +228,7 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
       {/* ── Navigation ───────────────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-jarvis" aria-label="Main navigation">
         <div className="space-y-1">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const badgeCount = getBadgeCount(item);
             const isBuilt = builtPages.has(item.href);
 
@@ -272,7 +289,7 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
           {!collapsed && <span>Jarvis</span>}
         </button>
 
-        {bottomItems.map((item) => {
+        {visibleBottomItems.map((item) => {
           const isBuilt = builtPages.has(item.href);
           return (
             <Link
@@ -320,6 +337,9 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
                 </p>
                 <p className="text-[11px] text-zinc-500 truncate">
                   {user.company_name || user.email}
+                </p>
+                <p className="text-[10px] font-semibold text-orange-400/70 uppercase tracking-wider">
+                  {user.role?.toUpperCase() || 'VIEWER'}
                 </p>
               </div>
               <button

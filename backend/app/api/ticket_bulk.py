@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.schemas.bulk_action import (
     BulkActionRequest,
     BulkActionResponse,
@@ -35,7 +35,11 @@ from app.services.bulk_action_service import (
 )
 
 
-router = APIRouter(prefix="/tickets/bulk", tags=["bulk-actions"])
+router = APIRouter(
+    prefix="/tickets/bulk",
+    tags=["bulk-actions"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 @router.post(

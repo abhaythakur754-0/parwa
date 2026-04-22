@@ -19,15 +19,23 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.services.assignment_service import AssignmentService, AssigneeType
 from app.exceptions import NotFoundError, ValidationError
 
 
-router = APIRouter(prefix="/tickets", tags=["ticket-assignment"])
+router = APIRouter(
+    prefix="/tickets",
+    tags=["ticket-assignment"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 # Separate router for assignment rules
-rules_router = APIRouter(prefix="/assignments/rules", tags=["assignment-rules"])
+rules_router = APIRouter(
+    prefix="/assignments/rules",
+    tags=["assignment-rules"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 # ── SCHEMAS ────────────────────────────────────────────────────────────────

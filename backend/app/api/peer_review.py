@@ -19,13 +19,19 @@ BC-012: Structured JSON error responses.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request, Path, HTTPException
+from fastapi import APIRouter, Depends, Query, Request, Path, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.api.deps import require_roles
+
 logger = logging.getLogger("parwa.peer_review_api")
 
-router = APIRouter(prefix="/api/v1", tags=["Peer Review"])
+router = APIRouter(
+    prefix="/api/v1",
+    tags=["Peer Review"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 def _get_db(request: Request):

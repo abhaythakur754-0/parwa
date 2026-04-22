@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
 from app.services.integration_service import (
     INTEGRATION_TYPES,
     IntegrationService,
@@ -113,7 +113,7 @@ class TestCredentialsRequest(BaseModel):
 )
 def api_test_credentials(
     body: TestCredentialsRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> TestIntegrationResponse:
     """Test integration credentials without creating a record.
@@ -138,7 +138,7 @@ def api_test_credentials(
 )
 def api_create_integration(
     body: CreateIntegrationRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> IntegrationResponse:
     """Create a new integration.
@@ -166,7 +166,7 @@ def api_create_integration(
 )
 def api_list_integrations(
     status: str | None = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> List[IntegrationResponse]:
     """List integrations for the authenticated user's company.
@@ -189,7 +189,7 @@ def api_list_integrations(
 )
 def api_test_integration(
     integration_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> TestIntegrationResponse:
     """Test an existing integration's connectivity.
@@ -214,7 +214,7 @@ def api_test_integration(
 )
 def api_delete_integration(
     integration_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
     """Delete an integration.

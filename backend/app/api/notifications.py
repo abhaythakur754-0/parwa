@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, get_tenant_context
+from app.api.deps import get_current_user, get_db, get_tenant_context, require_roles
 from app.services.notification_service import NotificationService
 from app.services.notification_template_service import NotificationTemplateService
 from app.services.notification_preference_service import NotificationPreferenceService
@@ -269,7 +269,7 @@ async def list_templates(
 async def create_template(
     request: TemplateCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     tenant: Dict = Depends(get_tenant_context),
 ):
     """Create a notification template."""
@@ -339,7 +339,7 @@ async def update_template(
     template_id: str,
     request: TemplateUpdateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     tenant: Dict = Depends(get_tenant_context),
 ):
     """Update notification template."""
@@ -372,7 +372,7 @@ async def update_template(
 async def delete_template(
     template_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     tenant: Dict = Depends(get_tenant_context),
 ):
     """Delete notification template."""

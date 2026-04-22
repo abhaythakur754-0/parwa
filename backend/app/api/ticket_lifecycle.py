@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, get_tenant_context
+from app.api.deps import get_current_user, get_db, get_tenant_context, require_roles
 from app.services.ticket_lifecycle_service import TicketLifecycleService
 from app.services.ticket_state_machine import TicketStateMachine, TransitionValidator
 from app.services.stale_ticket_service import StaleTicketService
@@ -25,7 +25,11 @@ from database.models.core import User
 from database.models.tickets import Ticket, TicketStatus
 
 
-router = APIRouter(prefix="/tickets", tags=["Ticket Lifecycle"])
+router = APIRouter(
+    prefix="/tickets",
+    tags=["Ticket Lifecycle"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 # ── Request/Response Schemas ───────────────────────────────────────────────────
@@ -403,7 +407,11 @@ async def get_stale_tickets(
 
 # ── Incident Endpoints ───────────────────────────────────────────────────────
 
-incident_router = APIRouter(prefix="/incidents", tags=["Incidents"])
+incident_router = APIRouter(
+    prefix="/incidents",
+    tags=["Incidents"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 @incident_router.post("")
@@ -617,7 +625,11 @@ async def add_affected_customers(
 
 # ── Spam Queue Endpoints ─────────────────────────────────────────────────────
 
-spam_router = APIRouter(prefix="/spam", tags=["Spam Moderation"])
+spam_router = APIRouter(
+    prefix="/spam",
+    tags=["Spam Moderation"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 @spam_router.get("/queue")

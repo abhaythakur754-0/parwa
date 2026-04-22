@@ -10,13 +10,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.exceptions import NotFoundError, ValidationError
 from app.services.custom_field_service import CustomFieldService
 from database.models.core import User
 
 
-router = APIRouter(prefix="/custom-fields", tags=["Custom Fields"])
+router = APIRouter(
+    prefix="/custom-fields",
+    tags=["Custom Fields"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
+)
 
 
 # ── Schemas ────────────────────────────────────────────────────────────────

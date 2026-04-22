@@ -22,13 +22,17 @@ from fastapi import status as http_status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_current_user, get_company_id
+from app.api.deps import get_db, get_current_user, get_company_id, require_roles
 from app.services.message_service import MessageService
 from app.exceptions import NotFoundError, ValidationError, AuthorizationError
 from app.core.event_emitter import emit_event
 
 
-router = APIRouter(prefix="/tickets", tags=["tickets", "messages"])
+router = APIRouter(
+    prefix="/tickets",
+    tags=["tickets", "messages"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 # ── Request/Response Schemas ───────────────────────────────────────────────

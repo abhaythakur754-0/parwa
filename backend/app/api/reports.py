@@ -32,7 +32,11 @@ from database.models.core import User
 
 logger = get_logger("reports_api")
 
-router = APIRouter(prefix="/api/reports", tags=["reports", "export"])
+router = APIRouter(
+    prefix="/api/reports",
+    tags=["reports", "export"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
+)
 
 
 # ══════════════════════════════════════════════════════════════════

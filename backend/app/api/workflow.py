@@ -75,7 +75,11 @@ from app.exceptions import NotFoundError, ValidationError
 from database.base import get_db
 from database.models.core import User
 
-router = APIRouter(prefix="/api/v1/workflow", tags=["workflow"])
+router = APIRouter(
+    prefix="/api/v1/workflow",
+    tags=["workflow"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
+)
 
 
 # ═══════════════════════════════════════════════════════════════════

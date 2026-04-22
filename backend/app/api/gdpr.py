@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
 from database.base import get_db
 from database.models.core import (
     User,
@@ -45,7 +45,11 @@ from database.models.core import (
 
 logger = logging.getLogger("parwa.gdpr")
 
-router = APIRouter(prefix="/api/gdpr", tags=["GDPR"])
+router = APIRouter(
+    prefix="/api/gdpr",
+    tags=["GDPR"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 # ── Helpers ──────────────────────────────────────────────────────
 

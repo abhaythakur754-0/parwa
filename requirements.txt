@@ -31,3 +31,4 @@ prometheus-fastapi-instrumentator>=6.1.0
 paddle-python-sdk>=1.0.0
 twilio>=9.0.0
 python-dotenv>=1.0.0
+sentry-sdk[fastapi]>=2.0.0

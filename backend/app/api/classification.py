@@ -15,9 +15,10 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from app.api.deps import require_roles
 from app.logger import get_logger
 
 logger = get_logger("classification_api")
@@ -25,6 +26,7 @@ logger = get_logger("classification_api")
 router = APIRouter(
     prefix="/api/classification",
     tags=["Classification"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
 )
 
 

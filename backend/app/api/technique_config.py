@@ -17,10 +17,11 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.api.deps import require_roles
 from app.core.technique_router import (
     TechniqueID,
     TechniqueTier,
@@ -247,6 +248,7 @@ def get_config_store() -> TechniqueConfigStore:
 router = APIRouter(
     prefix="/api/techniques/config",
     tags=["Technique Config"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
 )
 
 

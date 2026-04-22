@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.exceptions import NotFoundError, ValidationError
 from app.services.customer_service import CustomerService
 from app.schemas.customer import (
@@ -24,7 +24,11 @@ from app.schemas.customer import (
 )
 
 
-router = APIRouter(prefix="/api/customers", tags=["customers"])
+router = APIRouter(
+    prefix="/api/customers",
+    tags=["customers"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 def _customer_to_response(customer: Any) -> Dict[str, Any]:

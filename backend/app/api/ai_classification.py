@@ -11,10 +11,16 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/api/ai/classification", tags=["AI Classification"])
+from app.api.deps import require_roles
+
+router = APIRouter(
+    prefix="/api/ai/classification",
+    tags=["AI Classification"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
+)
 
 
 # ── Request/Response Models ───────────────────────────────────────────

@@ -23,7 +23,7 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.exceptions import NotFoundError, AuthorizationError, ValidationError
 from app.services.ticket_service import TicketService
 from app.services.priority_service import PriorityService
@@ -55,7 +55,11 @@ from app.schemas.ticket import (
 )
 
 
-router = APIRouter(prefix="/tickets", tags=["tickets"])
+router = APIRouter(
+    prefix="/tickets",
+    tags=["tickets"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 # ── TICKET CRUD ─────────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.schemas.bulk_action import (
     TicketMergeRequest,
     TicketUnmergeRequest,
@@ -33,7 +33,11 @@ from app.services.ticket_merge_service import (
 )
 
 
-router = APIRouter(prefix="/tickets/merge", tags=["ticket-merge"])
+router = APIRouter(
+    prefix="/tickets/merge",
+    tags=["ticket-merge"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 @router.post(

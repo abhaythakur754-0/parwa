@@ -23,11 +23,15 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.services.ticket_merge_service import TicketMergeService
 from database.models.tickets import Ticket, TicketMessage, TicketAttachment
 
-router = APIRouter(prefix="/tickets/export", tags=["ticket-export"])
+router = APIRouter(
+    prefix="/tickets/export",
+    tags=["ticket-export"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 EXPORT_DIR = "/tmp/parwa_exports"
 

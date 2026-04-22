@@ -10,13 +10,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_roles
 from app.exceptions import NotFoundError, ValidationError
 from app.services.template_service import TemplateService
 from database.models.core import User
 
 
-router = APIRouter(prefix="/templates", tags=["Templates"])
+router = APIRouter(
+    prefix="/templates",
+    tags=["Templates"],
+    dependencies=[Depends(require_roles("owner", "admin", "agent"))],
+)
 
 
 # ── Schemas ────────────────────────────────────────────────────────────────
