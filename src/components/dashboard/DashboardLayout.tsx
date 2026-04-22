@@ -12,7 +12,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { SocketProvider } from '@/lib/socket';
+import { SocketProvider } from '@/contexts/SocketContext';
 import DashboardSidebar from './DashboardSidebar';
 import DashboardHeaderBar from './DashboardHeaderBar';
 import toast from 'react-hot-toast';

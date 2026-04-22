@@ -17,7 +17,6 @@ export default function NotFound() {
         <h2 className="text-xl font-semibold text-white/70 mb-3">Page Not Found</h2>
         <p className="text-sm text-white/40 mb-8 leading-relaxed">
           The page you&apos;re looking for doesn&apos;t exist or has been moved.
-          Let Jarvis help you find what you need.
         </p>
         <div className="flex items-center justify-center gap-3">
           <Link

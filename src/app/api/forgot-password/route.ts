@@ -17,7 +17,7 @@ function generateOTP(): string {
 }
 
 /**
- * FIX: HTML-escape user input before interpolating into email HTML.
+ * FIX C6: HTML-escape user input before interpolating into email HTML.
  * Prevents XSS if userName contains script tags or HTML entities.
  */
 function escapeHtml(str: string): string {
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       where: { email: normalizedEmail },
     });
 
-    // FIX: Use ambiguous response to prevent email enumeration.
+    // FIX A6: Use ambiguous response to prevent email enumeration.
     // Do NOT reveal whether an account with this email exists.
     if (!user) {
       return NextResponse.json(

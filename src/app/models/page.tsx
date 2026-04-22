@@ -338,7 +338,14 @@ export default function ModelsPage() {
       }
     }
     if (typeof window !== 'undefined') {
-      localStorage.setItem('parwa_jarvis_context', JSON.stringify(context));
+      // Gap #10 Fix: MERGE into existing context instead of overwriting.
+      // Previously, this erased ROI data and other context from earlier pages.
+      try {
+        const existing = JSON.parse(localStorage.getItem('parwa_jarvis_context') || '{}');
+        localStorage.setItem('parwa_jarvis_context', JSON.stringify({ ...existing, ...context }));
+      } catch {
+        localStorage.setItem('parwa_jarvis_context', JSON.stringify(context));
+      }
     }
     const params = new URLSearchParams();
     if (activeIndustry) params.set('industry', activeIndustry.label);

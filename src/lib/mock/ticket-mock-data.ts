@@ -152,6 +152,8 @@ function generateTicket(index: number): Ticket {
     resolution_time_minutes: isResolved ? rand(5, 1440) : null,
     first_response_time_minutes: status !== 'open' ? rand(1, 30) : null,
     sla_deadline: createdMinutesAgo < 500 ? new Date(Date.now() + rand(60, 480) * 60_000).toISOString() : null,
+    sla_breached: createdMinutesAgo > 500 && Math.random() > 0.5,
+    sla_approaching: createdMinutesAgo > 400 && createdMinutesAgo <= 500 && Math.random() > 0.3,
     is_ai_resolved: isResolved && Math.random() > 0.4,
     tags: Array.from({ length: rand(0, 3) }, () => pick(tags)).filter((v, i, a) => a.indexOf(v) === i),
     message_count: rand(2, 24),

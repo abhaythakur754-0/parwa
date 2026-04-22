@@ -181,8 +181,8 @@ services:
   # ──────────────────────────────────────────────
   frontend:
     build:
-      context: ./frontend
-      dockerfile: ../infra/docker/frontend.Dockerfile
+      context: .
+      dockerfile: ./infra/docker/frontend.Dockerfile
     container_name: parwa_frontend
     restart: unless-stopped
     deploy:
@@ -199,7 +199,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./frontend:/app
+      - .:/app
       - /app/node_modules
       - /app/.next
     command: npm run dev

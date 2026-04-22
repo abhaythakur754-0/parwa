@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify OTP (timing-safe comparison to prevent timing side-channel attacks)
+    // Verify OTP (timing-safe comparison)
     const storedOtp = (user.otp_code || "").padStart(6, "0");
     const providedOtp = (otp || "").padStart(6, "0");
     if (storedOtp.length !== 6 || providedOtp.length !== 6 ||

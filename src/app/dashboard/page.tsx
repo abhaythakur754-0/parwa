@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useSocket } from '@/lib/socket';
+import { useSocket } from '@/contexts/SocketContext';
 import {
   WelcomeCard,
   TrendChart,
@@ -30,7 +30,7 @@ import {
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import KPICard from '@/components/dashboard/KPICard';
 import { analyticsApi } from '@/lib/analytics-api';
-import { dashboardApi, type DashboardHomeResponse } from '@/lib/dashboard-api';
+import { dashboardApi, type DashboardHomeData } from '@/lib/dashboard-api';
 import { getErrorMessage } from '@/lib/api';
 import type { DashboardData, AgentMetrics, DateRange } from '@/types/analytics';
 
@@ -107,7 +107,7 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<Partial<DateRange>>({});
   const [datePreset, setDatePreset] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [homeData, setHomeData] = useState<DashboardHomeResponse | null>(null);
+  const [homeData, setHomeData] = useState<DashboardHomeData | null>(null);
 
   // ── Fetch Dashboard Data ────────────────────────────────────────────
 

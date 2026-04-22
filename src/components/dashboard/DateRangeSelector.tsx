@@ -40,9 +40,14 @@ function getDateRange(preset: string): { start_date: string; end_date: string } 
       start.setDate(start.getDate() - 30);
   }
 
+  // Use local date formatting to avoid UTC offset issues (e.g. dates near midnight)
+  const formatDate = (d: Date) => {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   return {
-    start_date: start.toISOString().split('T')[0],
-    end_date: end.toISOString().split('T')[0],
+    start_date: formatDate(start),
+    end_date: formatDate(end),
   };
 }
 
@@ -62,10 +67,12 @@ export default function DateRangeSelector({
   className,
 }: DateRangeSelectorProps) {
   return (
-    <div className={cn('flex items-center gap-1 bg-white/[0.04] rounded-lg p-1', className)}>
+    <div className={cn('flex items-center gap-1 bg-white/[0.04] rounded-lg p-1', className)} role="tablist" aria-label="Date range">
       {presetRanges.map((preset) => (
         <button
           key={preset.value}
+          role="tab"
+          aria-selected={value === preset.value}
           onClick={() => onChange(getDateRange(preset.value))}
           className={cn(
             'px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200',

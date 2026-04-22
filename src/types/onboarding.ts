@@ -225,4 +225,10 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'isCompleted' | 'isActive'>[
     description: 'Configure your AI assistant',
     isOptional: false,
   },
+  {
+    id: 6,
+    title: 'Shadow Mode',
+    description: 'Review AI actions before they are sent',
+    isOptional: false,
+  },
 ];

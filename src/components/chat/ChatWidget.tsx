@@ -151,7 +151,13 @@ export function ChatWidget({ industry, variant }: ChatWidgetProps) {
 
     // Store context for Jarvis to pick up
     if (typeof window !== 'undefined') {
-      localStorage.setItem('parwa_jarvis_context', JSON.stringify(context));
+      // Gap #10 Fix: MERGE into existing context instead of overwriting
+      try {
+        const existing = JSON.parse(localStorage.getItem('parwa_jarvis_context') || '{}');
+        localStorage.setItem('parwa_jarvis_context', JSON.stringify({ ...existing, ...context }));
+      } catch {
+        localStorage.setItem('parwa_jarvis_context', JSON.stringify(context));
+      }
     }
 
     // Navigate to full Jarvis chat with context

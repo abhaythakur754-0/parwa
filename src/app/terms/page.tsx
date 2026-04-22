@@ -31,16 +31,15 @@ export default function TermsPage() {
               <h2 className="text-lg font-semibold text-white mb-2">1. Acceptance of Terms</h2>
               <p className="text-white/60 leading-relaxed">
                 By accessing or using PARWA&apos;s AI customer support platform, you agree to be bound
-                by these Terms of Service. If you do not agree, please do not use our services.
+                by these Terms of Service.
               </p>
             </section>
 
             <section>
               <h2 className="text-lg font-semibold text-white mb-2">2. Service Description</h2>
               <p className="text-white/60 leading-relaxed">
-                PARWA provides AI-powered customer support agents that handle tickets across email,
-                chat, SMS, voice, and social media channels. Service availability and features depend
-                on your selected plan (Starter, Growth, or High).
+                PARWA provides AI-powered customer support agents across email, chat, SMS, voice,
+                and social media channels.
               </p>
             </section>
 
@@ -48,21 +47,12 @@ export default function TermsPage() {
               <h2 className="text-lg font-semibold text-white mb-2">3. Billing</h2>
               <p className="text-white/60 leading-relaxed">
                 Plans are billed monthly or annually with a 15% discount for annual billing.
-                Overages are charged at $0.10/ticket. You may cancel anytime.
+                You may cancel anytime.
               </p>
             </section>
 
             <section>
-              <h2 className="text-lg font-semibold text-white mb-2">4. Limitation of Liability</h2>
-              <p className="text-white/60 leading-relaxed">
-                PARWA is not liable for AI-generated responses that contain errors. Customers are
-                responsible for reviewing and approving AI actions within their configured autonomy
-                limits.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-lg font-semibold text-white mb-2">5. Contact</h2>
+              <h2 className="text-lg font-semibold text-white mb-2">4. Contact</h2>
               <p className="text-white/60 leading-relaxed">
                 For legal inquiries, contact us at legal@parwa.ai.
               </p>

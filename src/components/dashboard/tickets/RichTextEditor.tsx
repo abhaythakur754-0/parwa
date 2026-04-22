@@ -34,7 +34,9 @@ interface RichTextEditorProps {
   maxHeight?: number;
 }
 
-const TOOLBAR_BUTTONS = [
+type ToolbarItem = { command: string; icon: React.ReactNode; title: string } | { type: 'separator' };
+
+const TOOLBAR_BUTTONS: ToolbarItem[] = [
   {
     command: 'bold',
     icon: (
@@ -91,7 +93,7 @@ const TOOLBAR_BUTTONS = [
     ),
     title: 'Insert Link',
   },
-] as const;
+];
 
 export default function RichTextEditor({
   value,
@@ -185,11 +187,12 @@ export default function RichTextEditor({
             );
           }
 
+          const button = btn as { command: string; icon: React.ReactNode; title: string };
           return (
             <button
-              key={btn.command}
+              key={button.command}
               type="button"
-              onClick={() => execCommand(btn.command)}
+              onClick={() => execCommand(button.command)}
               disabled={disabled}
               className={cn(
                 'p-1.5 rounded transition-colors',
@@ -197,9 +200,9 @@ export default function RichTextEditor({
                   ? 'text-zinc-700 cursor-not-allowed'
                   : 'text-zinc-400 hover:text-white hover:bg-white/[0.06]'
               )}
-              title={btn.title}
+              title={button.title}
             >
-              {btn.icon}
+              {button.icon}
             </button>
           );
         })}

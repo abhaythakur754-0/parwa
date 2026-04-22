@@ -1,137 +1,382 @@
 /**
- * PARWA Tickets API — Real API Client
+ * PARWA Tickets API Client
  *
- * API functions for ticket management.
- * Uses real HTTP calls via the centralized API client.
+ * Dedicated API client for all ticket-related endpoints.
+ * Full TypeScript types matching the backend schema.
  */
 
 import { get, post, patch, put, del } from '@/lib/api';
-import type {
-  Ticket,
-  TicketListResponse,
-  TicketDetailResponse,
-  TicketFilters,
-  TicketSort,
-  InternalNote,
-  TicketMessage,
-  BulkActionPayload,
-} from '@/types/ticket';
 
-// ── Get Ticket List ─────────────────────────────────────────────────────
+// ── Ticket Types ─────────────────────────────────────────────────────────
 
-export async function fetchTickets(
-  page: number = 1,
-  pageSize: number = 25,
-  filters?: Partial<TicketFilters>,
-  sort?: TicketSort
-): Promise<TicketListResponse> {
-  const sp = new URLSearchParams();
-  sp.set('page', String(page));
-  sp.set('page_size', String(pageSize));
-  if (sort) {
-    sp.set('sort_by', sort.field);
-    sp.set('sort_order', sort.direction);
-  }
-  if (filters?.status) sp.set('status', filters.status);
-  if (filters?.priority) sp.set('priority', filters.priority);
-  if (filters?.channel) sp.set('channel', filters.channel);
-  if (filters?.search) sp.set('search', filters.search);
-  if (filters?.assigned_to) sp.set('assigned_to', filters.assigned_to);
-  if (filters?.date_from) sp.set('date_from', filters.date_from);
-  if (filters?.date_to) sp.set('date_to', filters.date_to);
-  if (filters?.category) sp.set('category', filters.category);
+export type TicketStatus =
+  | 'open'
+  | 'assigned'
+  | 'in_progress'
+  | 'awaiting_customer'
+  | 'awaiting_human'
+  | 'resolved'
+  | 'reopened'
+  | 'closed'
+  | 'frozen'
+  | 'queued'
+  | 'stale';
 
-  const qs = sp.toString();
-  return get<TicketListResponse>(`/api/tickets${qs ? `?${qs}` : ''}`);
+export type TicketPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export type TicketChannel = 'email' | 'chat' | 'sms' | 'voice' | 'social';
+
+export type TicketCategory =
+  | 'tech_support'
+  | 'billing'
+  | 'feature_request'
+  | 'bug_report'
+  | 'general'
+  | 'complaint';
+
+export type MessageRole = 'customer' | 'agent' | 'ai' | 'system';
+
+export interface TicketResponse {
+  id: string;
+  company_id: string;
+  customer_id: string | null;
+  channel: string;
+  status: string;
+  subject: string | null;
+  priority: string;
+  category: string | null;
+  tags: string[];
+  agent_id: string | null;
+  assigned_to: string | null;
+  classification_intent: string | null;
+  classification_type: string | null;
+  metadata_json: Record<string, unknown>;
+  reopen_count: number;
+  frozen: boolean;
+  is_spam: boolean;
+  awaiting_human: boolean;
+  awaiting_customer: boolean;
+  escalation_level: number;
+  sla_breached: boolean;
+  first_response_at: string | null;
+  resolution_target_at: string | null;
+  variant_version: string | null;
+  plan_snapshot: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  // Computed
+  is_open: boolean;
+  is_resolved: boolean;
+  is_closed: boolean;
+  time_since_created: string | null;
+  time_since_updated: string | null;
 }
 
-// ── Get Ticket Detail ───────────────────────────────────────────────────
-
-export async function fetchTicketDetail(ticketId: string): Promise<TicketDetailResponse | null> {
-  return get<TicketDetailResponse>(`/api/tickets/${ticketId}`);
+export interface MessageResponse {
+  id: string;
+  ticket_id: string;
+  role: string;
+  content: string;
+  channel: string;
+  is_internal: boolean;
+  is_redacted: boolean;
+  ai_confidence: number | null;
+  variant_version: string | null;
+  created_at: string;
 }
 
-// ── Update Ticket Status ────────────────────────────────────────────────
-
-export async function updateTicketStatus(
-  ticketId: string,
-  status: string
-): Promise<Ticket> {
-  return patch<Ticket>(`/api/tickets/${ticketId}/status`, { status });
+export interface NoteResponse {
+  id: string;
+  ticket_id: string;
+  author_id: string;
+  content: string;
+  is_pinned: boolean;
+  created_at: string;
 }
 
-// ── Assign Ticket ───────────────────────────────────────────────────────
-
-export async function assignTicket(
-  ticketId: string,
-  agentId: string
-): Promise<Ticket> {
-  return post<Ticket>(`/api/tickets/${ticketId}/assign`, { assignee_id: agentId, assignee_type: 'human' });
+export interface TimelineEvent {
+  id: string;
+  type: string;
+  timestamp: string;
+  actor_id: string | null;
+  actor_type: string;
+  old_value: string | null;
+  new_value: string | null;
+  reason: string | null;
+  metadata: Record<string, unknown> | null;
 }
 
-// ── Change Ticket Priority ──────────────────────────────────────────────
-
-export async function changePriority(
-  ticketId: string,
-  priority: string
-): Promise<Ticket> {
-  return patch<Ticket>(`/api/tickets/${ticketId}`, { priority });
+export interface AttachmentResponse {
+  id: string;
+  ticket_id: string;
+  filename: string;
+  file_type: string;
+  file_size: number;
+  url: string;
+  uploaded_by: string | null;
+  created_at: string;
 }
 
-// ── Add Internal Note ───────────────────────────────────────────────────
-
-export async function addInternalNote(
-  ticketId: string,
-  content: string,
-  isPinned: boolean = false
-): Promise<InternalNote> {
-  return post<InternalNote>(`/api/tickets/${ticketId}/notes`, { content, is_pinned: isPinned });
+export interface TicketListResponse {
+  items: TicketResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
 }
 
-// ── Send Reply ──────────────────────────────────────────────────────────
-
-export async function sendReply(
-  ticketId: string,
-  content: string
-): Promise<TicketMessage> {
-  return post<TicketMessage>(`/api/tickets/${ticketId}/messages`, { role: 'human_agent', content });
+export interface MessageListResponse {
+  messages: MessageResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
 }
 
-// ── Escalate Ticket ─────────────────────────────────────────────────────
-
-export async function escalateTicket(
-  ticketId: string,
-  reason?: string
-): Promise<Ticket> {
-  return patch<Ticket>(`/api/tickets/${ticketId}/status`, {
-    status: 'awaiting_human',
-    reason: reason || 'Escalated by agent',
-  });
+export interface NoteListResponse {
+  notes: NoteResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
 }
 
-// ── Bulk Actions ────────────────────────────────────────────────────────
-
-export async function executeBulkAction(payload: BulkActionPayload): Promise<{ success: boolean; count: number }> {
-  return post('/api/tickets/bulk-action', payload);
+export interface TimelineResponse {
+  events: TimelineEvent[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
 }
 
-// ── Export Tickets ──────────────────────────────────────────────────────
-
-export async function exportTickets(ticketIds: string[]): Promise<{ download_url: string }> {
-  return post('/api/tickets/export', { ticket_ids: ticketIds });
+export interface TimelineSummary {
+  total_events: number;
+  messages_count: number;
+  notes_count: number;
+  status_changes: number;
+  assignments: number;
+  escalations: number;
+  sla_events: number;
 }
+
+export interface AttachmentListResponse {
+  attachments: AttachmentResponse[];
+  total: number;
+}
+
+// ── Query Parameter Types ───────────────────────────────────────────────
+
+export interface TicketListParams {
+  status?: TicketStatus[];
+  priority?: TicketPriority[];
+  category?: TicketCategory[];
+  channel?: TicketChannel;
+  assigned_to?: string;
+  customer_id?: string;
+  search?: string;
+  page?: number;
+  page_size?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface MessageListParams {
+  include_internal?: boolean;
+  role?: MessageRole;
+  page?: number;
+  page_size?: number;
+  order?: 'asc' | 'desc';
+}
+
+export interface NoteListParams {
+  pinned_only?: boolean;
+  page?: number;
+  page_size?: number;
+  order?: 'asc' | 'desc';
+}
+
+export interface TimelineParams {
+  include_messages?: boolean;
+  include_notes?: boolean;
+  activity_types?: string[];
+  page?: number;
+  page_size?: number;
+}
+
+// ── Request Body Types ──────────────────────────────────────────────────
+
+export interface CreateMessageRequest {
+  role: MessageRole;
+  content: string;
+  channel?: string;
+  is_internal?: boolean;
+  metadata_json?: Record<string, unknown>;
+  ai_confidence?: number;
+}
+
+export interface UpdateTicketRequest {
+  subject?: string;
+  priority?: TicketPriority;
+  category?: TicketCategory;
+  tags?: string[];
+  metadata_json?: Record<string, unknown>;
+}
+
+export interface UpdateStatusRequest {
+  status: TicketStatus;
+  reason?: string;
+}
+
+export interface AssignTicketRequest {
+  assignee_id: string;
+  assignee_type: 'human' | 'ai';
+  reason?: string;
+}
+
+export interface CreateNoteRequest {
+  content: string;
+  is_pinned?: boolean;
+}
+
+export interface BulkStatusRequest {
+  ticket_ids: string[];
+  status: TicketStatus;
+  reason?: string;
+}
+
+export interface BulkAssignRequest {
+  ticket_ids: string[];
+  assignee_id: string;
+  assignee_type: 'human' | 'ai';
+  reason?: string;
+}
+
+// ── Tickets API ─────────────────────────────────────────────────────────
 
 export const ticketsApi = {
-  fetchTickets,
-  fetchTicketDetail,
-  updateTicketStatus,
-  assignTicket,
-  changePriority,
-  addInternalNote,
-  sendReply,
-  escalateTicket,
-  executeBulkAction,
-  exportTickets,
+  // ── Ticket CRUD ───────────────────────────────────────────────────
+  list: (params?: TicketListParams) => {
+    const sp = new URLSearchParams();
+    if (params) {
+      if (params.status?.length) params.status.forEach(s => sp.append('status[]', s));
+      if (params.priority?.length) params.priority.forEach(p => sp.append('priority[]', p));
+      if (params.category?.length) params.category.forEach(c => sp.append('category[]', c));
+      if (params.channel) sp.set('channel', params.channel);
+      if (params.assigned_to) sp.set('assigned_to', params.assigned_to);
+      if (params.customer_id) sp.set('customer_id', params.customer_id);
+      if (params.search) sp.set('search', params.search);
+      if (params.page) sp.set('page', String(params.page));
+      if (params.page_size) sp.set('page_size', String(params.page_size));
+      if (params.sort_by) sp.set('sort_by', params.sort_by);
+      if (params.sort_order) sp.set('sort_order', params.sort_order);
+    }
+    const qs = sp.toString();
+    return get<TicketListResponse>(`/api/tickets${qs ? `?${qs}` : ''}`);
+  },
+
+  get: (id: string) =>
+    get<TicketResponse>(`/api/tickets/${id}`),
+
+  update: (id: string, data: UpdateTicketRequest) =>
+    put<TicketResponse>(`/api/tickets/${id}`, data),
+
+  updateStatus: (id: string, data: UpdateStatusRequest) =>
+    patch<TicketResponse>(`/api/tickets/${id}/status`, data),
+
+  assign: (id: string, data: AssignTicketRequest) =>
+    post<TicketResponse>(`/api/tickets/${id}/assign`, data),
+
+  // ── Bulk Operations ──────────────────────────────────────────────
+  bulkUpdateStatus: (data: BulkStatusRequest) =>
+    post<{ updated: number }>('/api/tickets/bulk/status', data),
+
+  bulkAssign: (data: BulkAssignRequest) =>
+    post<{ updated: number }>('/api/tickets/bulk/assign', data),
+
+  // ── Messages ─────────────────────────────────────────────────────
+  getMessages: (ticketId: string, params?: MessageListParams) => {
+    const sp = new URLSearchParams();
+    if (params) {
+      if (params.include_internal !== undefined) sp.set('include_internal', String(params.include_internal));
+      if (params.role) sp.set('role', params.role);
+      if (params.page) sp.set('page', String(params.page));
+      if (params.page_size) sp.set('page_size', String(params.page_size));
+      if (params.order) sp.set('order', params.order);
+    }
+    const qs = sp.toString();
+    return get<MessageListResponse>(`/api/tickets/${ticketId}/messages${qs ? `?${qs}` : ''}`);
+  },
+
+  createMessage: (ticketId: string, data: CreateMessageRequest) =>
+    post<MessageResponse>(`/api/tickets/${ticketId}/messages`, data),
+
+  updateMessage: (ticketId: string, messageId: string, data: Partial<CreateMessageRequest>) =>
+    put<MessageResponse>(`/api/tickets/${ticketId}/messages/${messageId}`, data),
+
+  deleteMessage: (ticketId: string, messageId: string) =>
+    del<void>(`/api/tickets/${ticketId}/messages/${messageId}`),
+
+  redactMessage: (ticketId: string, messageId: string) =>
+    post<MessageResponse>(`/api/tickets/${ticketId}/messages/${messageId}/redact`),
+
+  // ── Notes ────────────────────────────────────────────────────────
+  getNotes: (ticketId: string, params?: NoteListParams) => {
+    const sp = new URLSearchParams();
+    if (params) {
+      if (params.pinned_only) sp.set('pinned_only', 'true');
+      if (params.page) sp.set('page', String(params.page));
+      if (params.page_size) sp.set('page_size', String(params.page_size));
+      if (params.order) sp.set('order', params.order);
+    }
+    const qs = sp.toString();
+    return get<NoteListResponse>(`/api/tickets/${ticketId}/notes${qs ? `?${qs}` : ''}`);
+  },
+
+  createNote: (ticketId: string, data: CreateNoteRequest) =>
+    post<NoteResponse>(`/api/tickets/${ticketId}/notes`, data),
+
+  updateNote: (ticketId: string, noteId: string, data: { content: string }) =>
+    put<NoteResponse>(`/api/tickets/${ticketId}/notes/${noteId}`, data),
+
+  deleteNote: (ticketId: string, noteId: string) =>
+    del<void>(`/api/tickets/${ticketId}/notes/${noteId}`),
+
+  togglePinNote: (ticketId: string, noteId: string) =>
+    patch<NoteResponse>(`/api/tickets/${ticketId}/notes/${noteId}/pin`),
+
+  // ── Timeline ─────────────────────────────────────────────────────
+  getTimeline: (ticketId: string, params?: TimelineParams) => {
+    const sp = new URLSearchParams();
+    if (params) {
+      if (params.include_messages !== undefined) sp.set('include_messages', String(params.include_messages));
+      if (params.include_notes !== undefined) sp.set('include_notes', String(params.include_notes));
+      if (params.activity_types?.length) params.activity_types.forEach(t => sp.append('activity_types', t));
+      if (params.page) sp.set('page', String(params.page));
+      if (params.page_size) sp.set('page_size', String(params.page_size));
+    }
+    const qs = sp.toString();
+    return get<TimelineResponse>(`/api/tickets/${ticketId}/timeline${qs ? `?${qs}` : ''}`);
+  },
+
+  getTimelineSummary: (ticketId: string) =>
+    get<TimelineSummary>(`/api/tickets/${ticketId}/timeline/summary`),
+
+  // ── Attachments ──────────────────────────────────────────────────
+  getAttachments: (ticketId: string) =>
+    get<AttachmentListResponse>(`/api/tickets/${ticketId}/attachments`),
+
+  uploadAttachment: async (ticketId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`/api/tickets/${ticketId}/attachments`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error('Failed to upload attachment');
+    return response.json() as Promise<AttachmentResponse>;
+  },
 };
 
 export default ticketsApi;

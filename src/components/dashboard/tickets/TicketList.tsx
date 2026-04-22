@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { useSocket } from '@/lib/socket';
+import { useSocket } from '@/contexts/SocketContext';
 import { ticketsApi } from '@/lib/tickets-api';
 import type { Ticket, TicketFilters, TicketSort, TicketSortField, BulkActionType } from '@/types/ticket';
 import TicketSearch from './TicketSearch';
@@ -89,10 +89,16 @@ export default function TicketList({ className }: { className?: string }) {
   const fetchTickets = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await ticketsApi.fetchTickets(page, PAGE_SIZE, filters, sort);
-      setTickets(response.tickets);
-      setTotal(response.pagination.total);
-      setTotalPages(response.pagination.total_pages);
+      const response = await ticketsApi.list({
+        page,
+        page_size: PAGE_SIZE,
+        search: filters.search,
+        sort_by: sort.field,
+        sort_order: sort.direction,
+      });
+      setTickets(response.items as unknown as Ticket[]);
+      setTotal(response.total);
+      setTotalPages(response.pages);
     } catch (err) {
       toast.error('Failed to load tickets');
     } finally {
@@ -107,7 +113,7 @@ export default function TicketList({ className }: { className?: string }) {
   // Real-time new ticket event
   useEffect(() => {
     if (!latestTicketEvent) return;
-    if (latestTicketEvent.event_type === 'ticket.created') {
+    if (latestTicketEvent === 'ticket.created') {
       fetchTickets();
     }
   }, [latestTicketEvent, fetchTickets]);
@@ -145,11 +151,15 @@ export default function TicketList({ className }: { className?: string }) {
   const handleBulkAction = useCallback(async (action: BulkActionType, data?: Record<string, unknown>) => {
     try {
       const ids = Array.from(selectedIds);
-      await ticketsApi.executeBulkAction({
-        action,
-        ticket_ids: ids,
-        data: data as any,
-      });
+      if (action === 'mark_resolved' || action === 'close') {
+        const status = action === 'close' ? 'closed' : 'resolved';
+        await ticketsApi.bulkUpdateStatus({ ticket_ids: ids, status });
+      } else if (action === 'assign_agent' && data?.agent_id) {
+        await ticketsApi.bulkAssign({ ticket_ids: ids, assignee_id: data.agent_id as string, assignee_type: 'human' });
+      } else {
+        toast.error(`Unsupported bulk action: ${action}`);
+        return;
+      }
       toast.success(`Bulk action completed on ${ids.length} tickets`);
       clearSelection();
       fetchTickets();

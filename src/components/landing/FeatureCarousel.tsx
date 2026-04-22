@@ -66,14 +66,14 @@ function SlideBackground1() {
       <div className="absolute inset-0 bg-gradient-to-br from-orange-950/50 via-orange-900/30 to-transparent" />
 
       {/* Large chat bubble — user message (right side) */}
-      <div className="absolute top-[12%] right-[8%] w-48 sm:w-64 h-20 sm:h-24 rounded-2xl rounded-br-sm bg-orange-500/10 border border-orange-400/20 flex items-center px-5 sm:px-6"
+      <div className="absolute top-[12%] right-[8%] w-48 sm:w-64 h-20 sm:h-24 rounded-2xl rounded-br-sm bg-orange-500/10 border border-orange-400/20 backdrop-blur-sm flex items-center px-5 sm:px-6"
         style={{ animation: 'slide1BubbleFlyInLeft 6s ease-in-out infinite' }}>
         <span className="text-orange-200 text-xs sm:text-sm font-medium">Handle these 15 refund requests ✨</span>
         <div className="ml-2 w-2 h-2 rounded-full bg-orange-400/60" style={{ animation: 'slide1TypingCursor 1s infinite' }} />
       </div>
 
       {/* Reply bubble — Jarvis (left-ish, on right half) */}
-      <div className="absolute top-[30%] right-[5%] w-56 sm:w-72 h-16 sm:h-20 rounded-2xl rounded-bl-sm bg-orange-500/10 border border-orange-400/15 shadow-lg shadow-orange-500/10 flex items-center px-5 sm:px-6"
+      <div className="absolute top-[30%] right-[5%] w-56 sm:w-72 h-16 sm:h-20 rounded-2xl rounded-bl-sm bg-orange-500/10 border border-orange-400/15 backdrop-blur-sm shadow-lg shadow-orange-500/10 flex items-center px-5 sm:px-6"
         style={{ animation: 'slide1BubbleFlyInRight 8s ease-in-out infinite 2s' }}>
         <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center mr-3 flex-shrink-0">
           <svg className="w-3.5 h-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -94,11 +94,11 @@ function SlideBackground1() {
         style={{ animation: 'slide1BubbleFloat 8s ease-in-out infinite 2s' }} />
 
       {/* Orange glow pulse */}
-      <div className="absolute top-1/2 right-1/3 -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-orange-500/12"
+      <div className="absolute top-1/2 right-1/3 -translate-y-1/2 w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-orange-500/12 blur-[80px]"
         style={{ animation: 'slide1GlowPulse 4s ease-in-out infinite' }} />
 
       {/* Message send indicator */}
-      <div className="absolute bottom-[18%] right-[12%] flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-400/20"
+      <div className="absolute bottom-[18%] right-[12%] flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-400/20 backdrop-blur-sm"
         style={{ animation: 'slide1MessagePulse 3s ease-in-out infinite' }}>
         <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -124,7 +124,7 @@ function SlideBackground2() {
         style={{ animation: 'slide2IconMorph 12s ease-in-out infinite 1s' }} />
 
       {/* Gear → Checkmark icon morph */}
-      <div className="absolute top-[28%] right-[55%] w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/5 border border-orange-500/20 shadow-lg flex items-center justify-center"
+      <div className="absolute top-[28%] right-[55%] w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/5 border border-orange-500/20 backdrop-blur-sm shadow-lg flex items-center justify-center"
         style={{ animation: 'slide2IconMorph 8s ease-in-out infinite' }}>
         <svg className="w-8 h-8 sm:w-10 sm:h-10 text-orange-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"
           style={{ animation: 'slide2GearSpin 6s linear infinite' }}>
@@ -166,7 +166,7 @@ function SlideBackground2() {
       ))}
 
       {/* Warm glow */}
-      <div className="absolute bottom-[20%] right-[35%] w-48 h-48 bg-amber-500/8 rounded-full"
+      <div className="absolute bottom-[20%] right-[35%] w-48 h-48 bg-amber-500/8 rounded-full blur-[60px]"
         style={{ animation: 'slide1GlowPulse 5s ease-in-out infinite 1s' }} />
     </div>
   );
@@ -201,9 +201,9 @@ function SlideBackground3() {
       ))}
 
       {/* Central brain glow */}
-      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 rounded-full bg-orange-400/15"
+      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 rounded-full bg-orange-400/15 blur-xl"
         style={{ animation: 'slide3BrainPulse 4s ease-in-out infinite' }} />
-      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-32 h-32 sm:w-44 sm:h-44 rounded-full bg-orange-400/12"
+      <div className="absolute top-1/2 right-[40%] -translate-y-1/2 w-32 h-32 sm:w-44 sm:h-44 rounded-full bg-orange-400/12 blur-lg"
         style={{ animation: 'slide3BrainPulse 3s ease-in-out infinite 0.5s' }} />
 
       {/* Concentric rings */}
@@ -260,11 +260,11 @@ function SlideBackground4() {
           {/* Hour markers */}
           {Array.from({ length: 12 }).map((_, i) => {
             const angle = (i * 30 - 90) * (Math.PI / 180);
-            const x1 = (50 + 38 * Math.cos(angle)).toFixed(4);
-            const y1 = (50 + 38 * Math.sin(angle)).toFixed(4);
-            const x2 = (50 + 42 * Math.cos(angle)).toFixed(4);
-            const y2 = (50 + 42 * Math.sin(angle)).toFixed(4);
-            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,159,68,0.4)" strokeWidth="1.5" suppressHydrationWarning />;
+            const x1 = Math.round((50 + 38 * Math.cos(angle)) * 1000) / 1000;
+            const y1 = Math.round((50 + 38 * Math.sin(angle)) * 1000) / 1000;
+            const x2 = Math.round((50 + 42 * Math.cos(angle)) * 1000) / 1000;
+            const y2 = Math.round((50 + 42 * Math.sin(angle)) * 1000) / 1000;
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,159,68,0.4)" strokeWidth="1.5" />;
           })}
           {/* Hour hand */}
           <line x1="50" y1="50" x2="50" y2="25" stroke="rgba(255,159,68,0.7)" strokeWidth="3" strokeLinecap="round"
@@ -285,7 +285,7 @@ function SlideBackground4() {
       </div>
 
       {/* Calendar flip animation */}
-      <div className="absolute top-[15%] right-[55%] w-16 h-20 sm:w-20 sm:h-24 bg-orange-950/40 rounded-xl border border-orange-500/20 shadow-lg flex flex-col items-center justify-center"
+      <div className="absolute top-[15%] right-[55%] w-16 h-20 sm:w-20 sm:h-24 bg-orange-950/40 backdrop-blur-sm rounded-xl border border-orange-500/20 shadow-lg flex flex-col items-center justify-center"
         style={{ animation: 'slide4CalendarFlip 4s ease-in-out infinite' }}>
         <div className="w-full h-5 bg-orange-500/20 rounded-t-xl flex items-center justify-center">
           <span className="text-orange-300/60 text-[8px] sm:text-[10px] font-bold">HRS</span>
@@ -327,7 +327,7 @@ function SlideBackground5() {
       <div className="absolute inset-0 bg-gradient-to-br from-orange-950/50 via-orange-900/30 to-transparent" />
 
       {/* Jarvis core glow */}
-      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-28 h-28 sm:w-36 sm:h-36 rounded-full bg-orange-500/20"
+      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-28 h-28 sm:w-36 sm:h-36 rounded-full bg-orange-500/20 blur-xl"
         style={{ animation: 'slide5CoreGlow 3s ease-in-out infinite' }} />
 
       {/* Concentric expanding rings (Iron Man Jarvis style) */}
@@ -389,7 +389,7 @@ function SlideBackground5() {
       ))}
 
       {/* Deep orange ambient glow */}
-      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-orange-500/8" />
+      <div className="absolute top-1/2 right-[35%] -translate-y-1/2 w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-orange-500/8 blur-[100px]" />
     </div>
   );
 }
@@ -469,7 +469,7 @@ export default function FeatureCarousel() {
 
                 {/* Accent Glow */}
                 <div
-                  className="absolute bottom-0 left-1/4 w-96 h-96 rounded-full pointer-events-none"
+                  className="absolute bottom-0 left-1/4 w-96 h-96 rounded-full blur-[120px] pointer-events-none"
                   style={{ background: slide.accentGlow }}
                 />
 
@@ -504,7 +504,7 @@ export default function FeatureCarousel() {
             <div className="flex items-center justify-between max-w-7xl mx-auto">
               <button
                 onClick={prevSlide}
-                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/5 hover:bg-white/10 border border-orange-500/30 hover:border-orange-400/50 text-orange-300 hover:text-orange-200 flex items-center justify-center transition-all duration-300 focus-visible-ring"
+                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-orange-500/30 hover:border-orange-400/50 text-orange-300 hover:text-orange-200 flex items-center justify-center transition-all duration-300 focus-visible-ring"
                 aria-label="Previous slide"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -540,7 +540,7 @@ export default function FeatureCarousel() {
 
               <button
                 onClick={nextSlide}
-                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/5 hover:bg-white/10 border border-orange-500/30 hover:border-orange-400/50 text-orange-300 hover:text-orange-200 flex items-center justify-center transition-all duration-300 focus-visible-ring"
+                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-orange-500/30 hover:border-orange-400/50 text-orange-300 hover:text-orange-200 flex items-center justify-center transition-all duration-300 focus-visible-ring"
                 aria-label="Next slide"
               >
                 <ChevronRight className="w-5 h-5" />

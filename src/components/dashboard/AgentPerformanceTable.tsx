@@ -1,14 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  flexRender,
-  createColumnHelper,
-  type SortingState,
-} from '@tanstack/react-table';
+import React, { useMemo, useState } from 'react';
 import { ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AgentMetrics } from '@/types/analytics';
@@ -18,11 +10,8 @@ interface AgentPerformanceTableProps {
   className?: string;
 }
 
-type ColumnSortable = {
-  enableSorting: true;
-};
-
-const columnHelper = createColumnHelper<AgentMetrics>();
+type SortField = keyof AgentMetrics;
+type SortDir = 'asc' | 'desc';
 
 /** Format hours into human-readable string. */
 function formatResolutionTime(hours: number): string {
@@ -46,7 +35,7 @@ function CSATBadge({ avg, count }: { avg: number | null; count: number }) {
         : 'text-red-400 bg-red-500/[0.1]';
 
   const stars = Math.round(avg);
-  const starStr = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+  const starStr = '\u2605'.repeat(stars) + '\u2606'.repeat(5 - stars);
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -103,153 +92,79 @@ export default function AgentPerformanceTable({
   data,
   className,
 }: AgentPerformanceTableProps) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
-  const columns = useMemo(
-    () => [
-      columnHelper.accessor('agent_name', {
-        header: ({ column }) => (
-          <button
-            className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
-            Agent Name
-            <SortIcon isSorted={column.getIsSorted()} />
-          </button>
-        ),
-        cell: ({ getValue }) => (
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedData = useMemo(() => {
+    if (!sortField) return data;
+    return [...data].sort((a, b) => {
+      const aVal = a[sortField] ?? 0;
+      const bVal = b[sortField] ?? 0;
+      const cmp = typeof aVal === 'string' ? aVal.localeCompare(bVal as string) : (aVal as number) - (bVal as number);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [data, sortField, sortDir]);
+
+  type Col = { key: SortField; label: string };
+  const columns: Col[] = [
+    { key: 'agent_name', label: 'Agent Name' },
+    { key: 'tickets_assigned', label: 'Assigned' },
+    { key: 'tickets_resolved', label: 'Resolved' },
+    { key: 'tickets_open', label: 'Open' },
+    { key: 'resolution_rate', label: 'Resolution Rate' },
+    { key: 'avg_resolution_time_hours', label: 'Avg Time' },
+    { key: 'csat_avg', label: 'CSAT' },
+  ];
+
+  const renderCell = (row: AgentMetrics, col: Col) => {
+    switch (col.key) {
+      case 'agent_name':
+        return (
           <span className="text-sm text-zinc-300 font-medium">
-            {getValue() || 'Unknown Agent'}
+            {row.agent_name || 'Unknown Agent'}
           </span>
-        ),
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'agent_name'>>),
-
-      columnHelper.accessor('tickets_assigned', {
-        header: ({ column }) => (
-          <button
-            className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
-            Assigned
-            <SortIcon isSorted={column.getIsSorted()} />
-          </button>
-        ),
-        cell: ({ getValue }) => (
-          <span className="text-sm text-zinc-400 tabular-nums">{getValue()}</span>
-        ),
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'tickets_assigned'>>),
-
-      columnHelper.accessor('tickets_resolved', {
-        header: ({ column }) => (
-          <button
-            className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
-            Resolved
-            <SortIcon isSorted={column.getIsSorted()} />
-          </button>
-        ),
-        cell: ({ getValue }) => (
-          <span className="text-sm text-zinc-400 tabular-nums">{getValue()}</span>
-        ),
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'tickets_resolved'>>),
-
-      columnHelper.accessor('tickets_open', {
-        header: ({ column }) => (
-          <button
-            className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
-            Open
-            <SortIcon isSorted={column.getIsSorted()} />
-          </button>
-        ),
-        cell: ({ getValue }) => {
-          const v = getValue() as number;
-          return (
-            <span
-              className={cn(
-                'text-sm tabular-nums',
-                v > 0 ? 'text-amber-400' : 'text-zinc-600'
-              )}
-            >
-              {v}
-            </span>
-          );
-        },
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'tickets_open'>>),
-
-      columnHelper.accessor('resolution_rate', {
-        header: ({ column }) => (
-          <button
-            className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
-            Resolution Rate
-            <SortIcon isSorted={column.getIsSorted()} />
-          </button>
-        ),
-        cell: ({ getValue }) => <ResolutionBar rate={getValue() as number} />,
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'resolution_rate'>>),
-
-      columnHelper.accessor('avg_resolution_time_hours', {
-        header: ({ column }) => (
-          <button
-            className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
-            Avg Time
-            <SortIcon isSorted={column.getIsSorted()} />
-          </button>
-        ),
-        cell: ({ getValue }) => (
+        );
+      case 'tickets_assigned':
+        return <span className="text-sm text-zinc-400 tabular-nums">{row.tickets_assigned}</span>;
+      case 'tickets_resolved':
+        return <span className="text-sm text-zinc-400 tabular-nums">{row.tickets_resolved}</span>;
+      case 'tickets_open': {
+        const v = row.tickets_open;
+        return (
+          <span className={cn('text-sm tabular-nums', v > 0 ? 'text-amber-400' : 'text-zinc-600')}>
+            {v}
+          </span>
+        );
+      }
+      case 'resolution_rate':
+        return <ResolutionBar rate={row.resolution_rate} />;
+      case 'avg_resolution_time_hours':
+        return (
           <span className="text-sm text-zinc-400 tabular-nums">
-            {getValue() != null ? formatResolutionTime(getValue() as number) : '—'}
+            {row.avg_resolution_time_hours != null ? formatResolutionTime(row.avg_resolution_time_hours) : '\u2014'}
           </span>
-        ),
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'avg_resolution_time_hours'>>),
-
-      columnHelper.accessor('csat_avg', {
-        header: ({ column }) => (
-          <button
-            className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
-            CSAT
-            <SortIcon isSorted={column.getIsSorted()} />
-          </button>
-        ),
-        cell: ({ row }) => (
-          <CSATBadge avg={row.original.csat_avg} count={row.original.csat_count} />
-        ),
-      } as ColumnSortable & ReturnType<typeof columnHelper.accessor<'csat_avg'>>),
-    ],
-    []
-  );
-
-  const table = useReactTable({
-    data,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+        );
+      case 'csat_avg':
+        return <CSATBadge avg={row.csat_avg} count={row.csat_count} />;
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div
-      className={cn(
-        'rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6',
-        className
-      )}
-    >
+    <div className={cn('rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6', className)}>
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-zinc-300">
-          Agent Performance
-        </h3>
-        <p className="text-xs text-zinc-600 mt-0.5">
-          Individual metrics per support agent
-        </p>
+        <h3 className="text-sm font-semibold text-zinc-300">Agent Performance</h3>
+        <p className="text-xs text-zinc-600 mt-0.5">Individual metrics per support agent</p>
       </div>
 
       {data.length === 0 ? (
@@ -263,40 +178,36 @@ export default function AgentPerformanceTable({
         <div className="overflow-x-auto rounded-lg border border-white/[0.04]">
           <table className="w-full text-left">
             <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr
-                  key={headerGroup.id}
-                  className="border-b border-white/[0.06] bg-white/[0.02]"
-                >
-                  {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className="px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider whitespace-nowrap"
+              <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    className="px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider whitespace-nowrap"
+                  >
+                    <button
+                      className="flex items-center gap-1.5 hover:text-zinc-200 transition-colors"
+                      onClick={() => handleSort(col.key)}
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              ))}
+                      {col.label}
+                      <SortIcon isSorted={sortField === col.key ? sortDir : false} />
+                    </button>
+                  </th>
+                ))}
+              </tr>
             </thead>
             <tbody>
-              {table.getRowModel().rows.map((row, rowIndex) => (
+              {sortedData.map((row, rowIndex) => (
                 <tr
-                  key={row.id}
+                  key={row.agent_id || rowIndex}
                   className={cn(
                     'border-b border-white/[0.03] transition-colors',
                     'hover:bg-white/[0.02]',
                     rowIndex % 2 === 1 && 'bg-white/[0.01]'
                   )}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <td
-                      key={cell.id}
-                      className="px-4 py-3 whitespace-nowrap"
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  {columns.map((col) => (
+                    <td key={col.key} className="px-4 py-3 whitespace-nowrap">
+                      {renderCell(row, col)}
                     </td>
                   ))}
                 </tr>

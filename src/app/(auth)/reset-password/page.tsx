@@ -5,9 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, Lock, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
-import axios from 'axios';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+import { post } from '@/lib/api';
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -42,16 +40,16 @@ function ResetPasswordContent() {
     setError(null);
     setIsLoading(true);
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/auth/reset-password`, {
+      const response = await post<{ status: string }>('/api/auth/reset-password', {
         token: token, new_password: newPassword, confirm_password: confirmPassword,
       });
-      if (response.data?.status === 'success') {
+      if (response?.status === 'success') {
         setSuccess(true);
         toast.success('Password reset successfully!');
         setTimeout(() => { router.push('/login'); }, 3000);
       }
     } catch (err: any) {
-      const message = err.response?.data?.detail || err.response?.data?.message || 'Failed to reset password. The link may have expired.';
+      const message = err?.detail || err?.message || err?.response?.data?.detail || 'Failed to reset password. The link may have expired.';
       setError(message);
       toast.error(message);
     } finally { setIsLoading(false); }
@@ -62,7 +60,7 @@ function ResetPasswordContent() {
       <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}>
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, transparent 70%)', top: '20%', left: '15%', animation: 'orbFloat 10s ease-in-out infinite' }} />
-          <div className="absolute w-[250px] h-[250px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,165,0,0.1) 0%, transparent 70%)', bottom: '20%', right: '15%', animation: 'orbFloat 12s ease-in-out infinite' }} />
+          <div className="absolute w-[250px] h-[250px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 70%)', bottom: '20%', right: '15%', animation: 'orbFloat 12s ease-in-out infinite' }} />
         </div>
         <div className="w-full max-w-md relative z-10">
           <div className="rounded-2xl p-6 sm:p-8 text-center space-y-4" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(255,127,17,0.2)', backdropFilter: 'blur(20px)', boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)' }}>

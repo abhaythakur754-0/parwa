@@ -40,23 +40,21 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DetailTab>('conversation');
 
-  // Reassign state
-  const [reassignOpen, setReassignOpen] = useState(false);
-  const [reassignAgentId, setReassignAgentId] = useState('');
-  const [reassigning, setReassigning] = useState(false);
-
   // Fetch detail
   useEffect(() => {
     async function load() {
       try {
         setIsLoading(true);
-        const data = await ticketsApi.fetchTicketDetail(ticketId);
-        if (data) {
-          setTicket(data.ticket);
-          setMessages(data.messages);
-          setNotes(data.notes);
-          setTimeline(data.timeline);
-        }
+        const [ticketRes, messagesRes, notesRes, timelineRes] = await Promise.all([
+          ticketsApi.get(ticketId),
+          ticketsApi.getMessages(ticketId),
+          ticketsApi.getNotes(ticketId),
+          ticketsApi.getTimeline(ticketId),
+        ]);
+        setTicket(ticketRes as unknown as Ticket);
+        setMessages(messagesRes.messages as unknown as TicketMessage[]);
+        setNotes(notesRes.notes as unknown as InternalNote[]);
+        setTimeline(timelineRes.events as unknown as TimelineEntry[]);
       } catch {
         toast.error('Failed to load ticket');
       } finally {
@@ -66,49 +64,20 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
     load();
   }, [ticketId]);
 
-  // Action handlers
-  const handleEscalate = useCallback(async () => {
-    if (!ticket) return;
-    try {
-      const updated = await ticketsApi.escalateTicket(ticket.id);
-      setTicket(updated);
-      toast.success('Ticket escalated');
-    } catch {
-      toast.error('Failed to escalate');
-    }
-  }, [ticket]);
+  // Reassign state
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [reassignAgentId, setReassignAgentId] = useState('');
+  const [reassigning, setReassigning] = useState(false);
 
-  const handleReply = useCallback(async (content: string) => {
-    const msg = await ticketsApi.sendReply(ticketId, content);
-    setMessages((prev) => [...prev, msg]);
-  }, [ticketId]);
-
-  const handleAddNote = useCallback(async (content: string, isPinned: boolean) => {
-    const note = await ticketsApi.addInternalNote(ticketId, content, isPinned);
-    setNotes((prev) => [note, ...prev]);
-  }, [ticketId]);
-
-  const handleAssignAgent = useCallback(async (agentId: string) => {
-    if (!ticket) return;
-    try {
-      const updated = await ticketsApi.assignTicket(ticket.id, agentId);
-      setTicket(updated);
-      toast.success('Agent assigned successfully');
-    } catch {
-      toast.error('Failed to assign agent');
-    }
-  }, [ticket]);
-
-  // Reassign handler
   const handleReassign = useCallback(async () => {
     if (!ticket || !reassignAgentId.trim()) return;
-    setReassigning(true);
     try {
-      const updated = await ticketsApi.assignTicket(ticket.id, reassignAgentId.trim());
-      setTicket(updated);
+      setReassigning(true);
+      const updated = await ticketsApi.assign(ticket.id, { assignee_id: reassignAgentId, assignee_type: 'human' });
+      setTicket(updated as unknown as Ticket);
+      toast.success('Ticket reassigned');
       setReassignOpen(false);
       setReassignAgentId('');
-      toast.success('Ticket reassigned successfully');
     } catch {
       toast.error('Failed to reassign ticket');
     } finally {
@@ -116,21 +85,52 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
     }
   }, [ticket, reassignAgentId]);
 
-  // Export handler
   const handleExportConversation = useCallback(() => {
-    const esc = (s: string | number) => String(s).replace(/"/g, '""');
-    const rows = [
-      ['Role', 'Content', 'Created At'],
-      ...messages.map(m => [m.sender_role, m.content || '', m.created_at]),
-    ];
-    const csvContent = rows.map(r => r.map(esc).join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `ticket-${ticketId}-conversation.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }, [ticketId, messages]);
+    if (!ticket) return;
+    const headers = ['Timestamp', 'Sender', 'Content'];
+    const rows = messages.map(m => [m.created_at, m.sender_role, m.content.replace(/,/g, ';')]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ticket-${ticket.ticket_number}-export.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [ticket, messages]);
+
+  // Action handlers
+  const handleEscalate = useCallback(async () => {
+    if (!ticket) return;
+    try {
+      const updated = await ticketsApi.updateStatus(ticket.id, { status: 'escalated' as any });
+      setTicket(updated as unknown as Ticket);
+      toast.success('Ticket escalated');
+    } catch {
+      toast.error('Failed to escalate');
+    }
+  }, [ticket]);
+
+  const handleReply = useCallback(async (content: string) => {
+    const msg = await ticketsApi.createMessage(ticketId, { role: 'agent', content });
+    setMessages((prev) => [...prev, msg as unknown as TicketMessage]);
+  }, [ticketId]);
+
+  const handleAddNote = useCallback(async (content: string, isPinned: boolean) => {
+    const note = await ticketsApi.createNote(ticketId, { content, is_pinned: isPinned });
+    setNotes((prev) => [note as unknown as InternalNote, ...prev]);
+  }, [ticketId]);
+
+  const handleAssignAgent = useCallback(async (agentId: string) => {
+    if (!ticket) return;
+    try {
+      const updated = await ticketsApi.assign(ticket.id, { assignee_id: agentId, assignee_type: 'human' });
+      setTicket(updated as unknown as Ticket);
+      toast.success('Agent assigned successfully');
+    } catch {
+      toast.error('Failed to assign agent');
+    }
+  }, [ticket]);
 
   // Loading state
   if (isLoading) {
@@ -218,39 +218,15 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
             </svg>
             Escalate
           </button>
-          {/* Reassign Button */}
-          <div className="relative">
-            <button
-              onClick={() => setReassignOpen(!reassignOpen)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/10 text-blue-400 text-xs font-medium border border-blue-500/20 hover:bg-blue-500/20 transition-all"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-              </svg>
-              Reassign
-            </button>
-            {reassignOpen && (
-              <div className="absolute right-0 top-full mt-1 z-10 p-2 bg-[#1A1A1A] border border-white/[0.06] rounded-lg shadow-xl w-56">
-                <input
-                  type="text"
-                  placeholder="Enter Agent ID..."
-                  value={reassignAgentId}
-                  onChange={(e) => setReassignAgentId(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleReassign(); }}
-                  className="w-full px-2 py-1.5 bg-[#111111] border border-white/[0.06] rounded text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50"
-                  autoFocus
-                />
-                <button
-                  onClick={handleReassign}
-                  disabled={!reassignAgentId.trim() || reassigning}
-                  className="mt-1.5 w-full px-3 py-1.5 bg-orange-500 hover:bg-orange-600 rounded text-xs font-medium text-white transition-colors disabled:opacity-50"
-                >
-                  {reassigning ? 'Reassigning...' : 'Confirm Reassign'}
-                </button>
-              </div>
-            )}
-          </div>
-          {/* Export Button */}
+          <button
+            onClick={() => setReassignOpen(!reassignOpen)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/10 text-blue-400 text-xs font-medium border border-blue-500/20 hover:bg-blue-500/20 transition-all"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+            </svg>
+            Reassign
+          </button>
           <button
             onClick={handleExportConversation}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.04] text-zinc-400 text-xs font-medium border border-white/[0.08] hover:bg-white/[0.08] transition-all"
@@ -260,6 +236,24 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
             </svg>
             Export
           </button>
+          {reassignOpen && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Agent ID"
+                value={reassignAgentId}
+                onChange={e => setReassignAgentId(e.target.value)}
+                className="px-2 py-1.5 text-xs bg-black/20 border border-white/10 rounded-md text-white placeholder-zinc-600 w-32"
+              />
+              <button
+                onClick={handleReassign}
+                disabled={reassigning || !reassignAgentId.trim()}
+                className="px-2 py-1.5 text-xs bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+              >
+                {reassigning ? '...' : 'Go'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -309,7 +303,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
         {/* Right: Metadata sidebar */}
         <div className="space-y-4">
           {/* AI Assignment Suggestions */}
-          {!ticket.assigned_to && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+          {!ticket.assigned_agent?.id && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
             <AssignmentSuggestions
               ticketId={ticketId}
               onSelectAgent={handleAssignAgent}

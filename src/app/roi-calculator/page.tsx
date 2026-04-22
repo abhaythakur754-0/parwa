@@ -63,8 +63,8 @@ const PARWA_MODELS: ParwaModel[] = [
     tier: 'Entry',
     price: 999,
     aiResolution: 0.60,
-    agents: 3,
-    ticketCapacity: '1K tickets/mo',
+    agents: 1,
+    ticketCapacity: '2K tickets/mo',
     channels: ['Email', 'Chat'],
     description:
       'Your first AI teammate. Handles FAQs, ticket intake, and basic queries autonomously. Perfect for small teams getting started with AI support.',
@@ -130,7 +130,7 @@ const INDUSTRIES = [
 ];
 
 const TEAM_SIZES = [
-  { label: '1–5 agents', value: 3 },
+  { label: '3–15 agents', value: 3 },
   { label: '6–10 agents', value: 8 },
   { label: '11–15 agents', value: 13 },
   { label: '16–30 agents', value: 23 },
@@ -146,7 +146,8 @@ const BENCHMARKS: Record<
   ecommerce: { avgTickets: 5000, avgCostPerTicket: 6.5, avgSalary: 36000 },
   saas: { avgTickets: 3500, avgCostPerTicket: 8.2, avgSalary: 40000 },
   logistics: { avgTickets: 6000, avgCostPerTicket: 5.8, avgSalary: 34000 },
-  finance: { avgTickets: 3000, avgCostPerTicket: 9.0, avgSalary: 45000 },
+  finance: { avgTickets: 4000, avgCostPerTicket: 7.5, avgSalary: 42000 },
+  healthcare: { avgTickets: 3000, avgCostPerTicket: 9.0, avgSalary: 45000 },
   realestate: { avgTickets: 2500, avgCostPerTicket: 7.0, avgSalary: 38000 },
   education: { avgTickets: 2000, avgCostPerTicket: 6.0, avgSalary: 35000 },
   others: { avgTickets: 3500, avgCostPerTicket: 7.0, avgSalary: 37000 },
@@ -215,11 +216,11 @@ function getRecommendedModel(
   if (tickets <= 1000 && agentCount <= 5) {
     recommended = PARWA_MODELS[0]; // Starter
     reasons.push(
-      `Your volume of ${fmtNum(tickets)} tickets/month fits within the Starter tier's 1K ticket capacity.`
+      `Your volume of ${fmtNum(tickets)} tickets/month fits within the Starter tier's 2K ticket capacity.`
     );
     if (agentCount <= 3) {
       reasons.push(
-        `With ${agentCount} agent${agentCount > 1 ? 's' : ''}, the Starter's 3-agent configuration covers your entire team.`
+        `With ${agentCount} agent${agentCount > 1 ? 's' : ''}, the Starter's 1-agent configuration covers your AI workforce needs.`
       );
     }
     reasons.push(
@@ -279,8 +280,9 @@ interface ModelComparison {
   annualSavings: number;
   savingsPercent: number;
   hoursSavedPerMonth: number;
-  paybackMonths: number;
+  paybackMonths: number | null;
   isRecommended: boolean;
+  quantity: number;
 }
 
 function calculateComparisons(
@@ -292,11 +294,17 @@ function calculateComparisons(
   recommendedId: string
 ): ModelComparison[] {
   return PARWA_MODELS.map((model) => {
+    // ── Quantity Scaling Logic ──
+    const quantity = Math.max(1, Math.ceil(tickets / (Number(model.ticketCapacity.replace(/[^0-9]/g, '')) || 1000)));
+    
+    // Split volume into AI-resolved and human-handled
     const aiTickets = Math.round(tickets * model.aiResolution);
     const humanTickets = tickets - aiTickets;
-    // PARWA cost = platform fee + remaining human ticket costs (at 25% efficiency gain)
+
+    // PARWA cost = (platform fee * quantity) + remaining human ticket costs (at 25% efficiency gain)
     const humanCost = humanTickets * cpt * 0.25;
-    const parwaMonthly = model.price + humanCost;
+    const platformCost = model.price * quantity;
+    const parwaMonthly = platformCost + humanCost;
     const parwaAnnual = parwaMonthly * 12;
     const monthlySavings = Math.max(0, currentMonthly - parwaMonthly);
     const annualSavings = Math.max(0, currentAnnual - parwaAnnual);
@@ -304,7 +312,7 @@ function calculateComparisons(
       currentAnnual > 0 ? (annualSavings / currentAnnual) * 100 : 0;
     const hoursSavedPerMonth = aiTickets * 0.25; // ~15min per ticket
     const paybackMonths =
-      monthlySavings > 0 ? parwaMonthly / monthlySavings : 999;
+      monthlySavings > 0 ? parwaMonthly / monthlySavings : null;
 
     return {
       model,
@@ -318,8 +326,9 @@ function calculateComparisons(
       annualSavings,
       savingsPercent,
       hoursSavedPerMonth,
-      paybackMonths: Math.min(12, Math.max(1, paybackMonths)),
+      paybackMonths: paybackMonths !== null ? Math.round(paybackMonths * 10) / 10 : null,
       isRecommended: model.id === recommendedId,
+      quantity,
     };
   });
 }
@@ -391,8 +400,8 @@ export default function ROICalculatorPage() {
     if (step > 1) setStep(step - 1);
   };
 
-  // Max current cost for bar chart scaling
-  const maxCostForChart = Math.max(currentTotalAnnual, ...comparisons.map((c) => c.currentAnnualCost));
+  // Max current cost for bar chart scaling (guard against division by zero)
+  const maxCostForChart = Math.max(1, currentTotalAnnual, ...comparisons.map((c) => c.currentAnnualCost));
 
   return (
     <div
@@ -667,6 +676,7 @@ export default function ROICalculatorPage() {
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                     <div>
                       <h2 className="text-2xl sm:text-3xl font-black text-white mb-1">
+                        {recommendedComparison.quantity > 1 ? `${recommendedComparison.quantity}x ` : ''}
                         {recommendedModel.name}
                       </h2>
                       <p className="text-base text-orange-300/80 font-medium">
@@ -675,7 +685,7 @@ export default function ROICalculatorPage() {
                     </div>
                     <div className="text-left sm:text-right flex-shrink-0">
                       <div className="text-4xl font-black text-orange-400">
-                        ${recommendedModel.price.toLocaleString()}
+                        ${(recommendedModel.price * recommendedComparison.quantity).toLocaleString()}
                       </div>
                       <div className="text-sm text-gray-400">/month</div>
                     </div>
@@ -695,9 +705,9 @@ export default function ROICalculatorPage() {
                       <Users className="w-3 h-3 text-orange-400" />
                       {recommendedModel.agents} AI Agents
                     </span>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs text-orange-300 font-bold">
                       <TicketCheck className="w-3 h-3 text-orange-400" />
-                      {recommendedModel.ticketCapacity}
+                      Total Capacity: {fmtNum(Number(recommendedModel.ticketCapacity.replace(/[^0-9]/g, '')) * (recommendedComparison.quantity || 1))}
                     </span>
                     {recommendedModel.channels.map((ch) => (
                       <span
@@ -768,7 +778,7 @@ export default function ROICalculatorPage() {
                 <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4 text-center">
                   <Zap className="w-5 h-5 text-purple-400 mx-auto mb-2" />
                   <div className="text-2xl sm:text-3xl font-black text-purple-400">
-                    {recommendedComparison.paybackMonths.toFixed(1)}
+                    {recommendedComparison.paybackMonths !== null ? `${recommendedComparison.paybackMonths}` : 'N/A'}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
                     Month Payback
@@ -880,7 +890,12 @@ export default function ROICalculatorPage() {
                             : '—'}
                         </td>
                         <td className="px-5 py-3.5 text-right text-gray-300 font-semibold">
-                          ${recommendedModel.price.toLocaleString()}/mo
+                          ${(recommendedModel.price * recommendedComparison.quantity).toLocaleString()}/mo
+                          {recommendedComparison.quantity > 1 && (
+                            <div className="text-[10px] text-gray-500 font-normal">
+                              ({recommendedComparison.quantity}x ${recommendedModel.price.toLocaleString()})
+                            </div>
+                          )}
                         </td>
                       </tr>
                       {/* TOTAL MONTHLY */}
@@ -1008,7 +1023,9 @@ export default function ROICalculatorPage() {
                           style={{
                             width: `${Math.min(
                               100,
-                              (comp.parwaAnnualCost / maxCostForChart) * 100
+                              maxCostForChart > 0
+                                ? (comp.parwaAnnualCost / maxCostForChart) * 100
+                                : 0
                             )}%`,
                           }}
                         />
@@ -1197,12 +1214,35 @@ export default function ROICalculatorPage() {
                       } catch {
                         /* ignore */
                       }
+                      try {
+                        const roiCtx = {
+                          industry,
+                          roi_result: {
+                            monthly_savings: recommendedComparison.monthlySavings,
+                            annual_savings: recommendedComparison.annualSavings,
+                            parwa_monthly: recommendedComparison.parwaMonthlyCost,
+                            current_monthly: recommendedComparison.currentMonthlyCost,
+                            quantity: recommendedComparison.quantity
+                          },
+                          variant: recommendedModel.id,
+                          quantity: recommendedComparison.quantity,
+                          entry_source: 'roi'
+                        };
+                        // Gap #10 Fix: MERGE into existing context
+                        try {
+                          const existing = JSON.parse(localStorage.getItem('parwa_jarvis_context') || '{}');
+                          localStorage.setItem('parwa_jarvis_context', JSON.stringify({ ...existing, ...roiCtx }));
+                        } catch {
+                          localStorage.setItem('parwa_jarvis_context', JSON.stringify(roiCtx));
+                        }
+                      } catch (e) { /* ignore */ }
                     }
                     window.location.href =
                       '/jarvis?entry_source=roi&industry=' +
                       encodeURIComponent(industry) +
                       '&variant=' +
-                      encodeURIComponent(recommendedModel.id);
+                      encodeURIComponent(recommendedModel.id) +
+                      '&qty=' + recommendedComparison.quantity;
                   }}
                   className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-white/10 text-gray-300 text-sm font-bold hover:border-orange-500/30 hover:bg-white/5 transition-all duration-300"
                 >

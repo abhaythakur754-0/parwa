@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password, fullName, companyName, industry } = body;
 
-    // Proper email validation using regex
+    // C3: Proper email validation using regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || typeof email !== "string" || !emailRegex.test(email.trim())) {
       return NextResponse.json(
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Enforce password complexity (uppercase, lowercase, digit, special char, 8+ chars)
+    // C4: Enforce password complexity (uppercase, lowercase, digit, special char, 8+ chars)
     if (!password || typeof password !== "string") {
       return NextResponse.json(
         { status: "error", message: "Password is required." },
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       where: { email: normalizedEmail },
     });
 
-    // FIX: Use ambiguous response to prevent email enumeration.
+    // FIX A6: Use ambiguous response to prevent email enumeration.
     // Do NOT reveal whether an account with this email exists.
     if (existingUser) {
       return NextResponse.json(
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     const salt = await bcrypt.genSalt(12);
     const password_hash = await bcrypt.hash(password, salt);
 
-    // FIX: Create user with is_verified: false.
+    // FIX A5: Create user with is_verified: false.
     // Email verification is required before login.
     const user = await db.user.create({
       data: {

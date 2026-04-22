@@ -1,5 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// ── B4: Auth + Rate Limiting ──────────────────────────────────────
+
+// Simple in-memory rate limiter: 5 requests per minute per IP
+const _rateLimitStore = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = _rateLimitStore.get(ip);
+
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    _rateLimitStore.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+
+  entry.count++;
+  return entry.count <= RATE_LIMIT_MAX;
+}
+
+// Clean up stale entries every 5 minutes to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of _rateLimitStore.entries()) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+      _rateLimitStore.delete(key);
+    }
+  }
+}, 300_000);
+
 // ── z-ai-web-dev-sdk — Primary AI Provider ───────────────────────
 
 let ZAI: any = null;
@@ -63,10 +93,13 @@ async function callGoogleAI(messages: ChatMessage[]): Promise<string | null> {
   }));
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_KEY}`,
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GOOGLE_AI_KEY!,
+      },
       body: JSON.stringify({
         systemInstruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
         contents,
@@ -165,6 +198,24 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
 
 export async function POST(req: NextRequest) {
   try {
+    // B4: Check for session/auth cookie
+    const sessionCookie = req.cookies.get('session') || req.cookies.get('__Secure-next-auth.session-token') || req.cookies.get('next-auth.session-token');
+    if (!sessionCookie) {
+      return NextResponse.json(
+        { status: 'error', message: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // B4: Rate limit by client IP (5 req/min)
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+    if (!checkRateLimit(clientIp)) {
+      return NextResponse.json(
+        { status: 'error', message: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const { message, industry, variant } = await req.json();
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
@@ -190,15 +241,15 @@ AI-powered customer support platform. Businesses deploy AI agents that handle ti
 
 THREE PLANS:
 🟠 PARWA Starter — $999/mo — 3 agents, 1K tickets/mo, Email+Chat — Saves $168K/yr
-🟠 PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr
-🟠 PARWA High — $3,999/mo — 15 agents, 15K tickets/mo, all channels — Saves $288K/yr
+🟠 PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo, +SMS+Voice — Saves $216K/yr
+🟠 PARWA High — $3,999/mo — 15 agents, 15K tickets/mo, all channels — Saves $336K/yr
 
 INDUSTRIES:
 • E-commerce (Shopify, WooCommerce, Magento)
 • SaaS (GitHub, Jira, Slack, Intercom)
 • Logistics (TMS, WMS, GPS systems)
 
-BILLING: Monthly, cancel anytime. 15% off annual. $0.10 overage/ticket. $1 Demo Pack.
+BILLING: Monthly, cancel anytime. 20% off annual. $0.10 overage/ticket. $1 Demo Pack.
 SECURITY: GDPR, SOC 2, AES-256, TLS 1.3, audit trail, PII redaction.
 vs COMPETITORS: 85-92% savings vs Intercom, Zendesk AI, or hiring agents.
 

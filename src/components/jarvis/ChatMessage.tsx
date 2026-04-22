@@ -11,8 +11,6 @@
 'use client';
 
 import { User, Bot, AlertTriangle, Clock, Zap } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import type { JarvisMessage, MessageType, MessageRole } from '@/types/jarvis';
 
 // Phase 6 card imports
@@ -28,7 +26,6 @@ import { LimitReachedCard } from './LimitReachedCard';
 import { PackExpiredCard } from './PackExpiredCard';
 import { MessageCounter } from './MessageCounter';
 import { DemoPackCTA } from './DemoPackCTA';
-import { PipelineInsightCard } from './PipelineInsightCard';
 
 interface ChatMessageProps {
   message: JarvisMessage;
@@ -49,7 +46,7 @@ interface ChatMessageProps {
     isDemoPackActive?: boolean;
     isHandoffComplete?: boolean;
     paymentProcessing?: boolean;
-    otpState?: { status: string; email: string };
+    otpState?: { status: string; email: string; attempts?: number };
     demoCallState?: { status: string; phone: string | null; duration: number };
   };
 }
@@ -59,8 +56,8 @@ interface ChatMessageProps {
 function MessageAvatar({ role }: { role: MessageRole }) {
   if (role === 'user') {
     return (
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-400/20 flex items-center justify-center shrink-0">
-        <User className="w-4 h-4 text-blue-300" />
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400/20 to-orange-500/20 border border-orange-500/20 flex items-center justify-center shrink-0">
+        <User className="w-4 h-4 text-orange-300" />
       </div>
     );
   }
@@ -91,7 +88,7 @@ function MessageTimestamp({
   return (
     <p
       className={`text-[10px] mt-1 px-1 ${
-        isUser ? 'text-blue-300/40 text-right' : 'text-orange-300/40'
+        isUser ? 'text-orange-300/40 text-right' : 'text-orange-300/40'
       }`}
     >
       {time}
@@ -145,51 +142,70 @@ function ErrorMessage({
 }
 
 // ── Inline Content Renderer (bullet-point aware, XSS-safe) ──────────
-// Day 4 fix (D4-5): Removed isEmojiChar() from bullet detection.
-// Only explicit bullet markers (•, -, *, numbered) trigger bullet rendering.
-// Emoji-started lines render as normal text paragraphs.
+
+function isEmojiChar(ch: string): boolean {
+  // Must use codePointAt for emoji (surrogate pairs in JS)
+  const code = ch.codePointAt(0) || 0;
+  return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
+}
 
 function renderInlineContent(content: string) {
-  // Pre-process: if a single line contains multiple bullet markers (•, -, *) split them into separate lines
+  // Pre-process Bold text **text**
+  const processBold = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-bold text-white">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
   const preprocessed = content.split('\n').flatMap((line) => {
     const trimmed = line.trim();
     if (!trimmed) return [line];
-    // Check if line has 2+ bullet markers — meaning multiple bullets are jammed on one line
     const bulletMatches = trimmed.match(/[\u2022\-*•]\s/g);
     if (bulletMatches && bulletMatches.length >= 2) {
-      // Split on bullet markers but keep the marker with each piece
       return trimmed.split(/(?=[\u2022\-*•]\s)/).filter(Boolean);
     }
     return [line];
   });
 
   const lines = preprocessed;
+  let openerUsed = false;
 
   return lines.map((line, index) => {
     const trimmed = line.trim();
     if (!trimmed) return <div key={index} className="h-2" />;
 
-    // Bullet point lines (•, -, *, or numbered list)
-    const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed);
+    const isEmoji = isEmojiChar(trimmed);
+    const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed) || isEmoji;
+    const isOpener = !openerUsed && !isBullet && trimmed.length < 120; // Expanded opener detection
 
     if (isBullet) {
-      // Strip leading bullet markers but keep emoji + text
       const displayText = trimmed.replace(/^[\u2022\-*•]\s*/, '').replace(/^[0-9]+[.)]\s*/, '');
       return (
-        <div key={index} className="flex items-start gap-2 py-0.5">
-          <span className="text-orange-400 shrink-0 mt-0.5 text-xs">&#9656;</span>
+        <div key={index} className="flex items-start gap-2.5 py-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-orange-500/40 mt-1.5 shrink-0" />
           <span className="text-white/90 leading-relaxed text-sm">
-            {displayText}
+            {processBold(displayText)}
           </span>
         </div>
       );
     }
 
-
+    if (isOpener) {
+      openerUsed = true;
+      return (
+        <p key={index} className="text-white font-semibold text-[15px] leading-relaxed mb-1">
+          {processBold(trimmed)}
+        </p>
+      );
+    }
 
     return (
-      <p key={index} className="text-white/80 text-sm leading-relaxed">
-        {trimmed}
+      <p key={index} className="text-white/80 text-[14px] leading-relaxed">
+        {processBold(trimmed)}
       </p>
     );
   });
@@ -208,12 +224,12 @@ function CardWrapper({
 }) {
   return (
     <div
-      className={`flex items-end gap-2 px-4 py-2 chat-msg-reveal ${
+      className={`flex items-start gap-3 px-4 py-4 chat-msg-reveal ${
         isUser ? 'flex-row-reverse' : ''
       }`}
     >
       <MessageAvatar role={message.role} />
-      <div className="max-w-[80%]">
+      <div className="max-w-[90%]">
         {children}
         <MessageTimestamp timestamp={message.timestamp} isUser={isUser} />
       </div>
@@ -287,6 +303,7 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
             onSendOtp={hookActions?.sendOtp || (async () => {})}
             onVerifyOtp={hookActions?.verifyOtp || (async () => false)}
             initialEmail={sessionState?.otpState?.email || (metadata.email as string) || ''}
+            otpAttempts={sessionState?.otpState?.attempts ?? 0}
             onVerified={undefined}
           />
         </CardWrapper>
@@ -382,39 +399,29 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
         </CardWrapper>
       );
 
-    // pipeline_insight type — AI pipeline analysis card
-    case 'pipeline_insight':
-      return (
-        <CardWrapper message={message} isUser={false}>
-          <PipelineInsightCard pipeline={metadata as Record<string, unknown>} />
-        </CardWrapper>
-      );
-
     // ── Standard text message ─────────────────────────────────
     default:
       return (
         <div
-          className={`flex items-end gap-2 px-4 py-2 chat-msg-reveal ${
-            isUser ? 'flex-row-reverse' : ''
+          className={`flex items-start gap-4 px-4 py-8 chat-msg-reveal border-b border-white/[0.03] ${
+            isUser ? 'flex-row-reverse bg-orange-500/[0.03]' : 'bg-transparent'
           }`}
         >
           <MessageAvatar role={message.role} />
 
-          <div className={`max-w-[75%] flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+          <div className={`flex-1 flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
             <div
-              className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                 isUser
-                  ? 'bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white rounded-br-md shadow-lg shadow-blue-500/10'
-                  : 'glass text-white/90 rounded-bl-md border border-white/[0.06]'
+                  ? 'bg-orange-600/90 text-white shadow-lg shadow-orange-500/10'
+                  : 'text-white/90'
               }`}
             >
               {isUser ? (
                 <p className="whitespace-pre-wrap break-words">{message.content}</p>
               ) : (
-                <div className="space-y-0.5 prose prose-invert prose-sm max-w-none [&_p]:text-white/80 [&_p]:text-sm [&_p]:leading-relaxed [&_p]:m-0 [&_p]:mb-1 [&_strong]:text-white [&_em]:text-orange-200/80 [&_ul]:list-none [&_ul]:pl-0 [&_ol]:pl-4 [&_li]:text-white/80 [&_li]:text-sm [&_li]:leading-relaxed [&_li]:py-0.5 [&_code]:text-orange-300/80 [&_code]:bg-white/5 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_pre]:bg-white/5 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_a]:text-orange-400 [&_a]:underline [&_a]:underline-offset-2 [&_table]:text-xs [&_th]:text-white/50 [&_th]:px-2 [&_th]:py-1 [&_th]:border [&_th]:border-white/10 [&_td]:text-white/80 [&_td]:px-2 [&_td]:py-1 [&_td]:border [&_td]:border-white/5 [&_h1]:text-white [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mt-2 [&_h1]:mb-1 [&_h2]:text-white [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-2 [&_h2]:mb-1 [&_h3]:text-white/90 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mt-1 [&_h3]:mb-0.5 [&_hr]:border-white/10 [&_hr]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-orange-500/30 [&_blockquote]:pl-3 [&_blockquote]:text-white/60">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {message.content}
-                  </ReactMarkdown>
+                <div className="space-y-0.5">
+                  {renderInlineContent(message.content)}
                 </div>
               )}
             </div>

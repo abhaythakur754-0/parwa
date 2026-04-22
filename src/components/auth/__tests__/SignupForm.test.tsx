@@ -57,6 +57,7 @@ describe('SignupForm', () => {
     expect(screen.getByRole('option', { name: /e-commerce/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /saas/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /other/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /other/i })).toBeInTheDocument();
   });
 
   it('should show password strength meter when typing password', async () => {

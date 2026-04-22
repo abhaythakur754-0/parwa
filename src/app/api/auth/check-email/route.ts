@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // FIX: Always return available: true to prevent email enumeration.
+    // FIX A6: Always return available: true to prevent email enumeration.
     // The signup form will discover duplicates only on actual registration attempt.
     return NextResponse.json({
       email: normalizedEmail,

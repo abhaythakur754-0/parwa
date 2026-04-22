@@ -54,7 +54,7 @@ function CustomTooltip({
 }
 
 /** Active shape for hover effect on pie slices. */
-function renderActiveShape(props: Record<string, unknown>) {
+function renderActiveShape(props: unknown) {
   const {
     cx,
     cy,

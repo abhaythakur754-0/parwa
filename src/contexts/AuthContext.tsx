@@ -16,10 +16,8 @@ import { getErrorMessage } from '@/lib/api';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// ── Storage Keys ────────────────────────────────────────────────────────
+// ── Storage Keys (localStorage for user data ONLY, never tokens) ────────
 
-const AUTH_TOKEN_KEY = 'parwa_access_token';
-const REFRESH_TOKEN_KEY = 'parwa_refresh_token';
 const USER_KEY = 'parwa_user';
 
 // ── Auth Provider ───────────────────────────────────────────────────────
@@ -41,33 +39,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const initializeAuth = useCallback(async () => {
     try {
-      // Check for existing session
-      const storedUser = localStorage.getItem(USER_KEY);
-      const accessToken = localStorage.getItem(AUTH_TOKEN_KEY);
-
-      if (storedUser && accessToken) {
-        const user = JSON.parse(storedUser) as User;
-        
-        // Verify the session is still valid by fetching user profile
-        // Use a short timeout (5s) for init check to avoid blocking the UI
-        try {
-          const currentUser = await Promise.race([
-            authApi.getMe(),
-            new Promise<never>((_, reject) => 
-              setTimeout(() => reject(new Error('Auth check timeout')), 5000)
-            ),
-          ]);
-          setState({
-            user: currentUser,
-            isAuthenticated: true,
-            isLoading: false,
-            isInitialized: true,
-          });
-          return;
-        } catch {
-          // Session invalid or backend unreachable, clear storage
-          clearAuthStorage();
-        }
+      // FIX A2: No longer check localStorage for tokens.
+      // Tokens are stored exclusively in httpOnly cookies (parwa_session).
+      // Instead, verify the session by calling /api/auth/me which reads the cookie.
+      try {
+        const currentUser = await Promise.race([
+          authApi.getMe(),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+          ),
+        ]);
+        // Store user data in localStorage for UI hydration (not tokens)
+        localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+        setState({
+          user: currentUser,
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+        });
+        return;
+      } catch {
+        // Session invalid or backend unreachable, clear user data
+        clearAuthStorage();
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
@@ -87,17 +80,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initializeAuth();
   }, [initializeAuth]);
 
-  // ── Storage Helpers ──────────────────────────────────────────────────
+  // ── Storage Helpers (user data only, NEVER tokens) ───────────────────
 
-  const storeAuthData = (authResponse: AuthResponse) => {
-    localStorage.setItem(AUTH_TOKEN_KEY, authResponse.tokens.access_token);
-    localStorage.setItem(REFRESH_TOKEN_KEY, authResponse.tokens.refresh_token);
+  const storeUserData = (authResponse: AuthResponse) => {
+    // FIX A2: Store ONLY user data in localStorage, never tokens.
+    // Tokens are handled exclusively via httpOnly cookies set by the server.
     localStorage.setItem(USER_KEY, JSON.stringify(authResponse.user));
   };
 
   const clearAuthStorage = () => {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    // FIX A2: Only clear user data, not tokens (tokens are httpOnly cookies)
     localStorage.removeItem(USER_KEY);
   };
 
@@ -108,7 +100,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       const response = await authApi.login({ email, password });
-      storeAuthData(response);
+      storeUserData(response);
 
       setState({
         user: response.user,
@@ -131,7 +123,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       const response = await authApi.register(data);
-      storeAuthData(response);
+      storeUserData(response);
 
       setState({
         user: response.user,
@@ -154,7 +146,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       const response = await authApi.googleAuth({ id_token: idToken });
-      storeAuthData(response);
+      storeUserData(response);
 
       setState({
         user: response.user,
@@ -174,10 +166,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = useCallback(async () => {
     try {
-      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-      if (refreshToken) {
-        await authApi.logout({ refresh_token: refreshToken });
-      }
+      // FIX A2: Call server-side logout to clear httpOnly cookie.
+      // No need to send refresh_token from localStorage — the server
+      // reads it from the httpOnly cookie.
+      await authApi.logout({ refresh_token: '' });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -195,15 +187,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // ── Refresh Session ──────────────────────────────────────────────────
 
   const refreshSession = useCallback(async () => {
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
+    // FIX A2: Token refresh is handled by the API interceptor in api.ts.
+    // The interceptor calls /api/auth/refresh with the httpOnly cookie
+    // and gets new cookies set automatically.
+    // This method is kept for backwards compatibility but does nothing.
     try {
-      const tokens = await authApi.refresh({ refresh_token: refreshToken });
-      localStorage.setItem(AUTH_TOKEN_KEY, tokens.access_token);
-      localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
+      await authApi.refresh({ refresh_token: '' });
     } catch (error) {
       clearAuthStorage();
       setState({
@@ -228,7 +217,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   // ── Hydrate from localStorage ────────────────────────────────────────
-  // Called after login/signup via Next.js API routes that write directly to localStorage.
 
   const hydrate = useCallback(() => {
     try {
@@ -255,6 +243,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isInitialized: true,
     }));
   }, []);
+
+  // ── D9-P12: Cross-tab session synchronisation ──────────────────────
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      clearAuthStorage();
+      setState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        isInitialized: true,
+      });
+      router.push('/login');
+    };
+
+    // FIX A2: Listen for storage events to detect logout from another tab.
+    // Since tokens are now in httpOnly cookies, we only sync user data state.
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === USER_KEY && !e.newValue) {
+        clearAuthStorage();
+        setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          isInitialized: true,
+        });
+        router.push('/login');
+      }
+    };
+
+    window.addEventListener('parwa:session-expired', handleSessionExpired);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('parwa:session-expired', handleSessionExpired);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [router]);
 
   // ── Context Value ────────────────────────────────────────────────────
 

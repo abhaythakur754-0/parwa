@@ -10,7 +10,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Bot } from 'lucide-react';
 import type { JarvisMessage, JarvisContext } from '@/types/jarvis';
 import { ChatMessage } from './ChatMessage';
 import { TypingIndicator } from './TypingIndicator';
@@ -48,14 +48,17 @@ interface ChatWindowProps {
   sessionContext?: JarvisContext | null;
 }
 
-/** Build a context-aware welcome message based on session context. */
-function getWelcomeMessage(ctx?: JarvisContext | null): { heading: string; body: string } {
-  // Default — used only as fallback when backend hasn't sent a welcome yet
-  return {
-    heading: "Hey there! 👋",
-    body: "I'm Jarvis, your AI assistant from PARWA. Start typing to begin our conversation.",
-  };
-}
+/**
+ * Bug #5 Fix: Removed local getWelcomeMessage to prevent dual-welcome conflict.
+ * The server-side route.ts generates a rich, context-aware welcome via
+ * getContextAwareWelcome(). That message arrives as the first jarvis message.
+ * Previously, ChatWindow showed its OWN welcome (above) during the loading gap,
+ * then the server welcome appeared — causing confusing duplicate messages.
+ *
+ * Now: During loading, we show a generic connecting state.
+ * After loading: The server's welcome message (already in messages[]) is displayed.
+ * Single source of truth = route.ts getContextAwareWelcome().
+ */
 
 export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hookActions, sessionState, sessionContext }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -63,17 +66,22 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
   const isNearBottomRef = useRef(true);
 
   // Track scroll position — user is near bottom if within 80px
+  // Attach to the ScrollArea viewport (data-radix-scroll-area-viewport),
+  // NOT the outer containerRef which has overflow-hidden and never scrolls.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    const viewport = container.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]');
+    if (!viewport) return;
+
     const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
+      const { scrollTop, scrollHeight, clientHeight } = viewport;
       isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 80;
     };
 
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+    return () => viewport.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Auto-scroll to bottom only when user is near bottom
@@ -84,28 +92,28 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
   }, [messages.length, isTyping]);
 
   const isEmpty = messages.length === 0 && !isTyping;
-  const welcome = getWelcomeMessage(sessionContext);
 
   return (
-    <div className="flex-1 overflow-hidden relative" ref={containerRef} role="log" aria-label="Chat messages">
+    <div className="flex-1 overflow-hidden relative bg-[#0D0D0D]" ref={containerRef} role="log" aria-label="Chat messages">
       <ScrollArea className="h-full scrollbar-premium">
-        <div className="flex flex-col min-h-full py-4">
-          {/* Empty state */}
+        <div className="flex flex-col min-h-full">
+          {/* Empty state — Bug #5 Fix: generic loading/connecting state.
+              The real context-aware welcome comes from the server (route.ts) */}
           {isEmpty && (
-            <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center animate-fade-in">
+            <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center animate-fade-in max-w-2xl mx-auto">
               {/* Decorative icon */}
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/15 flex items-center justify-center mb-4">
-                <MessageSquare className="w-8 h-8 text-orange-400/50" />
+              <div className="w-16 h-16 rounded-3xl bg-orange-500/5 border border-orange-500/10 flex items-center justify-center mb-6">
+                <Bot className="w-8 h-8 text-orange-400/40" />
               </div>
 
               <h3 className="text-base font-medium text-white/60 mb-1">
-                {welcome.heading}
+                Connecting to Jarvis...
               </h3>
               <p className="text-sm text-white/30 max-w-xs leading-relaxed">
-                {welcome.body}
+                Initializing your control center. One moment...
               </p>
 
-              {/* Quick-start suggestions */}
+              {/* Quick-start suggestions — shown until server welcome arrives */}
               <div className="flex flex-wrap justify-center gap-2 mt-6">
                 {SUGGESTIONS.map((s) => (
                   <QuickSuggestion key={s} text={s} onClick={onSuggestionClick} />
@@ -116,7 +124,7 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
 
           {/* Message list */}
           {!isEmpty && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
               {messages.map((msg, idx) => (
                 <ChatMessage
                   key={msg.id || `msg-${idx}`}

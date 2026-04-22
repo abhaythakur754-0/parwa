@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import crypto from "crypto";
 
-// In-memory rate limiter for OTP verification: 5 attempts per 15 min per email/IP
+// C5: In-memory rate limiter for OTP verification: 5 attempts per 15 min per email/IP
 const otpAttempts = new Map<string, number[]>();
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, otp } = body;
 
-    // Rate limit check
+    // C5: Rate limit check
     const clientIP = getClientIP(request);
     if (email) {
       const normalizedEmail = (email || "").trim().toLowerCase();

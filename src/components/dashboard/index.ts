@@ -1,68 +1,36 @@
 /**
- * PARWA Dashboard Components
+ * PARWA Dashboard Components — Barrel Exports
  *
- * Barrel exports for all dashboard cards, charts, and layout components.
- * Phase 4 — Day 1 & Day 2
- * Week 16 Day 1 — Activity Feed + Alert Banner
+ * All dashboard components are exported from this single entry point
+ * for clean imports: import { KPICard } from '@/components/dashboard';
  */
 
-export { DashboardLayout } from './DashboardLayout';
-export { default as DashboardHeaderBar } from './DashboardHeaderBar';
-export { WelcomeCard } from './WelcomeCard';
-export { default as KPICard } from './KPICard';
 export { default as DashboardHeader } from './DashboardHeader';
-export { default as DateRangeSelector } from './DateRangeSelector';
+export { default as DashboardHeaderBar } from './DashboardHeaderBar';
 export { default as DashboardSidebar } from './DashboardSidebar';
-
-// Phase 4 Day 2 — Charts & Table
-export { default as TrendChart } from './TrendChart';
-export { default as CategoryChart } from './CategoryChart';
-export { default as SLAChart } from './SLAChart';
-export { default as AgentPerformanceTable } from './AgentPerformanceTable';
-export { default as ResponseTimeChart } from './ResponseTimeChart';
-
-// Week 16 Day 1 — Activity Feed & Alerts
+export { default as DashboardAlerts } from './DashboardAlerts';
+export { default as KPICard } from './KPICard';
+export { default as DateRangeSelector } from './DateRangeSelector';
 export { default as ActivityFeed } from './ActivityFeed';
 export { default as AlertBanner } from './AlertBanner';
-
-// Week 16 Day 3 — Adaptation Tracker
-export { default as AdaptationTracker } from './AdaptationTracker';
-
-// Week 16 Day 4 — Growth Nudge, Ticket Forecast, CSAT Trends
-export { default as GrowthNudge } from './GrowthNudge';
-export { default as TicketForecast } from './TicketForecast';
-export { default as CSATTrends } from './CSATTrends';
-
-// Week 16 Day 5 — Confidence Trend, Drift Detection, QA Scores
-export { default as ConfidenceTrend } from './ConfidenceTrend';
-export { default as DriftDetection } from './DriftDetection';
-export { default as QAScores } from './QAScores';
-
-// Week 16 Day 6 — ROI Dashboard
-export { default as ROIDashboard } from './ROIDashboard';
-
-// Day 2 — Overview Page Enhancement
+export { default as WelcomeCard } from './WelcomeCard';
+export { default as SavingsCounter } from './SavingsCounter';
+export { default as WorkforceAllocation } from './WorkforceAllocation';
 export { default as SystemHealthStrip } from './SystemHealthStrip';
 export { default as ActiveAgentsSummary } from './ActiveAgentsSummary';
 export { default as FirstVictoryBanner } from './FirstVictoryBanner';
 export { default as RecentApprovals } from './RecentApprovals';
-export { default as SavingsCounter } from './SavingsCounter';
-
-// Day 3 — Tickets Page
-export {
-  TicketList,
-  TicketDetail,
-  TicketRow,
-  TicketSearch,
-  TicketFiltersBar,
-  TicketQuickView,
-  BulkActions,
-  ConversationView,
-  TicketMetadata,
-  ConfidenceBar,
-  GSDStateIndicator,
-  CustomerInfoCard,
-  InternalNotes,
-  TimelineView,
-  ReplyBox,
-} from './tickets';
+export { default as ROIDashboard } from './ROIDashboard';
+export { default as GrowthNudge } from './GrowthNudge';
+export { default as ConfidenceTrend } from './ConfidenceTrend';
+export { default as AdaptationTracker } from './AdaptationTracker';
+export { default as CSATTrends } from './CSATTrends';
+export { default as DriftDetection } from './DriftDetection';
+export { default as QAScores } from './QAScores';
+export { default as TicketForecast } from './TicketForecast';
+export { default as TrendChart } from './TrendChart';
+export { default as CategoryChart } from './CategoryChart';
+export { default as SLAChart } from './SLAChart';
+export { default as ResponseTimeChart } from './ResponseTimeChart';
+export { default as AgentPerformanceTable } from './AgentPerformanceTable';
+export { default as ChannelCard } from './ChannelCard';

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSocket } from '@/lib/socket';
+import { useSocket } from '@/contexts/SocketContext';
 
 // ── Navigation Items ──────────────────────────────────────────────────
 
@@ -13,7 +13,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
-  badge?: string | number;
+  badgeKey?: 'tickets' | 'approvals' | 'notifications';
 }
 
 // ── Sidebar Props ─────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ interface NavItem {
 interface DashboardSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  onOpenJarvis?: () => void;
 }
 
 // ── Icon Components (inline SVG to avoid extra deps) ──────────────────
@@ -46,6 +47,16 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
     </svg>
   ),
+  customers: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+    </svg>
+  ),
+  conversations: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+    </svg>
+  ),
   approvals: (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
@@ -57,9 +68,39 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
     </svg>
   ),
+  integrations: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+    </svg>
+  ),
+  analytics: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+    </svg>
+  ),
+  knowledgeBase: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+    </svg>
+  ),
+  billing: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+    </svg>
+  ),
+  notifications: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    </svg>
+  ),
   jarvis: (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+    </svg>
+  ),
+  shieldCheck: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
     </svg>
   ),
   collapse: (
@@ -81,18 +122,47 @@ const Icons = {
 
 // ── DashboardSidebar Component ───────────────────────────────────────
 
-export default function DashboardSidebar({ collapsed, onToggle }: DashboardSidebarProps) {
+export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { badgeCounts } = useSocket();
 
+  // Pages that have been built (Day 1-6) — rest show as "Coming Soon"
+  const builtPages = new Set([
+    '/dashboard',
+    '/dashboard/channels',
+    '/dashboard/customers',
+    '/dashboard/conversations',
+    '/dashboard/training',
+    '/dashboard/tickets',
+    '/dashboard/tickets/',
+    '/dashboard/agents',
+    '/dashboard/agents/',
+    '/dashboard/approvals',
+    '/dashboard/integrations',
+    '/dashboard/billing',
+    '/dashboard/notifications',
+    '/dashboard/analytics',
+    '/dashboard/knowledge-base',
+    '/dashboard/settings',
+    '/dashboard/settings/shadow-mode',
+    '/dashboard/shadow-log',
+  ]);
+
   const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: Icons.dashboard },
-    { label: 'Tickets', href: '/dashboard/tickets', icon: Icons.tickets, badge: badgeCounts.tickets || undefined },
+    { label: 'Tickets', href: '/dashboard/tickets', icon: Icons.tickets, badgeKey: 'tickets' },
+    { label: 'Customers', href: '/dashboard/customers', icon: Icons.customers },
+    { label: 'Conversations', href: '/dashboard/conversations', icon: Icons.conversations },
     { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels },
+    { label: 'Integrations', href: '/dashboard/integrations', icon: Icons.integrations },
     { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents },
-    { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals, badge: badgeCounts.approvals || undefined },
-    { label: 'Jarvis AI', href: '/jarvis', icon: Icons.jarvis },
+    { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals, badgeKey: 'approvals' },
+    { label: 'Shadow Log', href: '/dashboard/shadow-log', icon: Icons.shieldCheck },
+    { label: 'Analytics', href: '/dashboard/analytics', icon: Icons.analytics },
+    { label: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: Icons.knowledgeBase },
+    { label: 'Billing', href: '/dashboard/billing', icon: Icons.billing },
+    { label: 'Notifications', href: '/dashboard/notifications', icon: Icons.notifications, badgeKey: 'notifications' },
   ];
 
   const bottomItems: NavItem[] = [
@@ -104,6 +174,12 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
     return pathname.startsWith(href);
   };
 
+  const getBadgeCount = (item: NavItem): number | null => {
+    if (!item.badgeKey) return null;
+    const count = badgeCounts[item.badgeKey] || 0;
+    return count > 0 ? count : null;
+  };
+
   return (
     <aside
       className={cn(
@@ -112,13 +188,13 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       )}
     >
       {/* ── Logo / Brand ──────────────────────────────────────────── */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-white/[0.06]">
+      <div className="h-14 flex items-center justify-between px-4 border-b border-white/[0.06]">
         {!collapsed && (
           <Link href="/dashboard" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <span className="text-white font-bold text-sm">P</span>
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <span className="text-white font-bold text-xs">P</span>
             </div>
-            <span className="text-white font-semibold text-[15px] tracking-tight">
+            <span className="text-white font-semibold text-sm tracking-tight">
               PARWA
             </span>
           </Link>
@@ -133,78 +209,116 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       </div>
 
       {/* ── Navigation ───────────────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-jarvis">
+      <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-jarvis" aria-label="Main navigation">
         <div className="space-y-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-                isActive(item.href)
-                  ? 'bg-orange-500/10 text-orange-400 shadow-sm shadow-orange-500/5'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
-              )}
-              title={collapsed ? item.label : undefined}
-            >
-              <span className={cn(
-                'shrink-0 transition-colors',
-                isActive(item.href) ? 'text-orange-400' : 'text-zinc-500 group-hover:text-zinc-300'
-              )}>
-                {item.icon}
-              </span>
-              {!collapsed && <span>{item.label}</span>}
-              {!collapsed && item.badge !== undefined && Number(item.badge) > 0 && (
-                <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-orange-500/15 text-orange-400 text-[11px] font-bold flex items-center justify-center">
-                  {Number(item.badge) > 99 ? '99+' : item.badge}
+          {navItems.map((item) => {
+            const badgeCount = getBadgeCount(item);
+            const isBuilt = builtPages.has(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative',
+                  isActive(item.href)
+                    ? 'bg-orange-500/10 text-orange-400 shadow-sm shadow-orange-500/5'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]',
+                  !isBuilt && 'opacity-60'
+                )}
+                title={collapsed ? item.label : undefined}
+              >
+                <span className={cn(
+                  'shrink-0 transition-colors',
+                  isActive(item.href) ? 'text-orange-400' : 'text-zinc-500'
+                )}>
+                  {item.icon}
                 </span>
-              )}
-              {collapsed && item.badge !== undefined && Number(item.badge) > 0 && (
-                <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center">
-                  {Number(item.badge) > 99 ? '99+' : item.badge}
-                </span>
-              )}
-            </Link>
-          ))}
+                {!collapsed && (
+                  <>
+                    <span className="flex-1">{item.label}</span>
+                    {!isBuilt && (
+                      <span className="text-[8px] text-zinc-600 bg-white/[0.04] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">
+                        Soon
+                      </span>
+                    )}
+                    {badgeCount != null && (
+                      <span className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold bg-[#FF7F11]/15 text-[#FF7F11] rounded-full px-1">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                  </>
+                )}
+                {collapsed && badgeCount != null && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] flex items-center justify-center text-[8px] font-bold bg-[#FF7F11] text-white rounded-full">
+                    {badgeCount > 9 ? '9+' : badgeCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </div>
       </nav>
 
       {/* ── Bottom Section ────────────────────────────────────────── */}
       <div className="border-t border-white/[0.06] p-3 space-y-1">
-        {bottomItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-              isActive(item.href)
-                ? 'bg-orange-500/10 text-orange-400'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
-            )}
-            title={collapsed ? item.label : undefined}
-          >
-            <span className={cn(
-              'shrink-0',
-              isActive(item.href) ? 'text-orange-400' : 'text-zinc-500'
-            )}>
-              {item.icon}
-            </span>
-            {!collapsed && <span>{item.label}</span>}
-          </Link>
-        ))}
+        {/* Jarvis Button */}
+        <button
+          onClick={onOpenJarvis}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 transition-all duration-200"
+          title="Jarvis AI Assistant"
+        >
+          <span className="shrink-0">{Icons.jarvis}</span>
+          {!collapsed && <span>Jarvis</span>}
+        </button>
+
+        {bottomItems.map((item) => {
+          const isBuilt = builtPages.has(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+                isActive(item.href)
+                  ? 'bg-orange-500/10 text-orange-400'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]',
+                !isBuilt && 'opacity-60'
+              )}
+              title={collapsed ? item.label : undefined}
+            >
+              <span className={cn(
+                'shrink-0',
+                isActive(item.href) ? 'text-orange-400' : 'text-zinc-500'
+              )}>
+                {item.icon}
+              </span>
+              {!collapsed && (
+                <>
+                  <span>{item.label}</span>
+                  {!isBuilt && (
+                    <span className="text-[8px] text-zinc-600 bg-white/[0.04] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider ml-auto">
+                      Soon
+                    </span>
+                  )}
+                </>
+              )}
+            </Link>
+          );
+        })}
 
         {/* ── User Info + Logout ──────────────────────────────────── */}
         {!collapsed && user && (
           <div className="mt-3 pt-3 border-t border-white/[0.06]">
             <div className="flex items-center gap-3 px-3 py-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white text-xs font-semibold shrink-0">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white text-xs font-semibold shrink-0">
                 {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-zinc-200 truncate">
                   {user.full_name || 'User'}
                 </p>
-                <p className="text-xs text-zinc-500 truncate">
+                <p className="text-[11px] text-zinc-500 truncate">
                   {user.company_name || user.email}
                 </p>
               </div>

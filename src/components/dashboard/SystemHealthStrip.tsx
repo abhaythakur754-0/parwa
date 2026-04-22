@@ -1,148 +1,181 @@
 /**
  * PARWA SystemHealthStrip — Day 2 (O1.1)
  *
- * Horizontal strip at the top of the dashboard showing health of all services:
- * LLM, Redis, PostgreSQL, Email, SMS, Chat, Voice.
- * Auto-updates via Socket.io system.status events.
- * Click any item for details dropdown.
+ * Horizontal health bar showing status of all system services:
+ * LLM, Redis, Database, Email, SMS, Chat, Voice.
+ * Auto-updates via Socket.io system events.
+ * Polls /api/system/status every 30s as fallback.
  */
 
 'use client';
 
-import React, { useState } from 'react';
-import { useSocket } from '@/lib/socket';
+import React, { useState, useEffect, useCallback } from 'react';
+import { cn } from '@/lib/utils';
+import { get } from '@/lib/api';
+import { useSocket } from '@/contexts/SocketContext';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
-interface ServiceHealth {
-  name: string;
-  status: 'healthy' | 'degraded' | 'down' | 'unknown';
+interface ServiceStatus {
+  status: string;
   latency_ms?: number;
-  detail?: string;
 }
 
-// ── Default services to show ───────────────────────────────────────────
-
-const DEFAULT_SERVICES: ServiceHealth[] = [
-  { name: 'LLM', status: 'unknown' },
-  { name: 'Redis', status: 'unknown' },
-  { name: 'Database', status: 'unknown' },
-  { name: 'Email', status: 'unknown' },
-  { name: 'SMS', status: 'unknown' },
-  { name: 'Chat', status: 'unknown' },
-  { name: 'Voice', status: 'unknown' },
-];
-
-// ── Icons ──────────────────────────────────────────────────────────────
-
-function StatusIcon({ status }: { status: string }) {
-  if (status === 'healthy') {
-    return (
-      <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-      </svg>
-    );
-  }
-  if (status === 'degraded') {
-    return (
-      <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-      </svg>
-    );
-  }
-  return (
-    <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-    </svg>
-  );
+interface SystemHealthData {
+  status: 'healthy' | 'degraded' | 'down';
+  services: Record<string, ServiceStatus>;
+  message?: string;
 }
+
+const SERVICE_LABELS: Record<string, { label: string; icon: string }> = {
+  llm: { label: 'LLM', icon: 'AI' },
+  redis: { label: 'Redis', icon: 'DB' },
+  postgres: { label: 'Database', icon: 'PG' },
+  email: { label: 'Email', icon: 'EM' },
+  sms: { label: 'SMS', icon: 'SM' },
+  chat: { label: 'Chat', icon: 'CH' },
+  voice: { label: 'Voice', icon: 'VO' },
+  celery: { label: 'Worker', icon: 'WK' },
+  socketio: { label: 'WebSocket', icon: 'WS' },
+};
 
 // ── Component ──────────────────────────────────────────────────────────
 
 export default function SystemHealthStrip() {
-  const { systemStatus, isConnected } = useSocket();
-  const [expandedService, setExpandedService] = useState<string | null>(null);
+  const { isConnected, systemStatus } = useSocket();
+  const [healthData, setHealthData] = useState<SystemHealthData | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
 
-  // Merge Socket.io status with defaults
-  const services: ServiceHealth[] = DEFAULT_SERVICES.map((svc) => {
-    if (systemStatus?.services) {
-      const key = svc.name.toLowerCase();
-      const remote = systemStatus.services[key] || systemStatus.services[svc.name];
-      if (remote) {
-        return {
-          ...svc,
-          status: remote.status as ServiceHealth['status'],
-          latency_ms: remote.latency_ms,
-        };
-      }
+  const fetchHealth = useCallback(async () => {
+    try {
+      setIsPolling(true);
+      const data = await get<SystemHealthData>('/api/system/status');
+      setHealthData(data);
+    } catch {
+      // API not available — use Socket.io data
+    } finally {
+      setIsPolling(false);
     }
-    // If overall status is healthy and no per-service data, assume healthy when connected
-    if (isConnected && systemStatus?.status === 'healthy') {
-      return { ...svc, status: 'healthy' };
-    }
-    return svc;
-  });
+  }, []);
 
-  const overallStatus = systemStatus?.status || (isConnected ? 'healthy' : 'down');
+  // Initial fetch + 30s polling
+  useEffect(() => {
+    fetchHealth();
+    const interval = setInterval(fetchHealth, 30000);
+    return () => clearInterval(interval);
+  }, [fetchHealth]);
+
+  // Derive effective status
+  const effectiveStatus = isConnected ? systemStatus.status : (healthData?.status || 'degraded');
+  const services = healthData?.services || {};
+
+  const hasIssues = effectiveStatus !== 'healthy';
+  const serviceEntries = Object.entries(SERVICE_LABELS);
 
   return (
-    <div className="rounded-xl bg-[#141414] border border-white/[0.06] p-3">
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${
-            overallStatus === 'healthy' ? 'bg-emerald-400' :
-            overallStatus === 'degraded' ? 'bg-amber-400' : 'bg-red-400'
-          }`} />
-          <span className="text-xs font-medium text-zinc-400">System Health</span>
-        </div>
-        <span className="text-[11px] text-zinc-600">
-          {isConnected ? 'Live' : 'Reconnecting...'}
-        </span>
-      </div>
-
-      {/* Service indicators */}
-      <div className="flex flex-wrap items-center gap-3">
-        {services.map((svc) => (
-          <button
-            key={svc.name}
-            onClick={() => setExpandedService(expandedService === svc.name ? null : svc.name)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all hover:bg-white/[0.05] ${
-              svc.status === 'healthy'
-                ? 'text-zinc-300'
-                : svc.status === 'degraded'
-                  ? 'text-amber-400 bg-amber-500/5'
-                  : svc.status === 'down'
-                    ? 'text-red-400 bg-red-500/5'
-                    : 'text-zinc-600'
-            }`}
-          >
-            <StatusIcon status={svc.status} />
-            <span>{svc.name}</span>
-            {svc.latency_ms !== undefined && (
-              <span className="text-[10px] text-zinc-500 ml-1">
-                {svc.latency_ms}ms
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Expanded detail */}
-      {expandedService && (
-        <div className="mt-2 pt-2 border-t border-white/[0.04]">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-400">
-              {services.find(s => s.name === expandedService)?.name}:
-              {' '}
-              {services.find(s => s.name === expandedService)?.status}
-            </span>
-            <span className="text-[11px] text-zinc-600">
-              {services.find(s => s.name === expandedService)?.latency_ms
-                ? `${services.find(s => s.name === expandedService)?.latency_ms}ms response time`
-                : 'No latency data'}
+    <div className={cn(
+      'rounded-xl border overflow-hidden transition-all duration-300',
+      hasIssues
+        ? 'bg-red-500/[0.04] border-red-500/15'
+        : 'bg-[#1A1A1A] border-white/[0.06]'
+    )}>
+      {/* Compact bar */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.02] transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          {/* Overall status dot */}
+          <div className="flex items-center gap-1.5">
+            <div className={cn(
+              'w-2 h-2 rounded-full',
+              effectiveStatus === 'healthy' ? 'bg-emerald-400'
+              : effectiveStatus === 'degraded' ? 'bg-amber-400 animate-pulse'
+              : 'bg-red-400 animate-pulse'
+            )} />
+            <span className={cn(
+              'text-[11px] font-medium',
+              effectiveStatus === 'healthy' ? 'text-emerald-400'
+              : effectiveStatus === 'degraded' ? 'text-amber-400'
+              : 'text-red-400'
+            )}>
+              {effectiveStatus === 'healthy' ? 'All Systems Operational' : hasIssues ? 'System Issues Detected' : 'Checking...'}
             </span>
           </div>
+
+          {/* Service dots */}
+          <div className="hidden sm:flex items-center gap-1.5 ml-2">
+            {serviceEntries.slice(0, 7).map(([key, { label }]) => {
+              const svc = services[key];
+              const status = svc?.status || 'unknown';
+              return (
+                <div
+                  key={key}
+                  className="flex items-center gap-1"
+                  title={`${label}: ${status}`}
+                >
+                  <div className={cn(
+                    'w-1.5 h-1.5 rounded-full',
+                    status === 'healthy' || status === 'ok' ? 'bg-emerald-400'
+                    : status === 'degraded' || status === 'warning' ? 'bg-amber-400'
+                    : status === 'down' || status === 'error' ? 'bg-red-400'
+                    : 'bg-zinc-600'
+                  )} />
+                  <span className="text-[9px] text-zinc-600">{label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Expand toggle */}
+        <svg
+          className={cn('w-3.5 h-3.5 text-zinc-500 transition-transform duration-200', isExpanded && 'rotate-180')}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <div className="px-4 py-3 border-t border-white/[0.04]">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+            {serviceEntries.map(([key, { label, icon }]) => {
+              const svc = services[key];
+              const status = svc?.status || 'unknown';
+              const latency = svc?.latency_ms;
+
+              return (
+                <div
+                  key={key}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]"
+                >
+                  <div className={cn(
+                    'w-2 h-2 rounded-full shrink-0',
+                    status === 'healthy' || status === 'ok' ? 'bg-emerald-400'
+                    : status === 'degraded' || status === 'warning' ? 'bg-amber-400'
+                    : status === 'down' || status === 'error' ? 'bg-red-400'
+                    : 'bg-zinc-600'
+                  )} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-zinc-300 font-medium">{label}</p>
+                    <p className="text-[10px] text-zinc-600">
+                      {status === 'healthy' || status === 'ok' ? 'Healthy'
+                        : status === 'degraded' || status === 'warning' ? 'Degraded'
+                        : status === 'down' || status === 'error' ? 'Down'
+                        : 'Unknown'}
+                      {latency != null && ` · ${latency}ms`}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {healthData?.message && (
+            <p className="text-[11px] text-zinc-500 mt-2">{healthData.message}</p>
+          )}
         </div>
       )}
     </div>

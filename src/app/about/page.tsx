@@ -15,7 +15,6 @@ export default function AboutPage() {
           Back to Home
         </Link>
 
-        {/* Hero */}
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
             About <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">PARWA</span>
@@ -25,7 +24,6 @@ export default function AboutPage() {
           </p>
         </div>
 
-        {/* Values */}
         <div className="grid sm:grid-cols-3 gap-6 mb-12">
           {[
             { icon: Bot, title: 'AI-First', desc: '700+ features built around AI agents that learn and improve with every interaction.' },
@@ -47,7 +45,6 @@ export default function AboutPage() {
           ))}
         </div>
 
-        {/* Mission */}
         <div
           className="rounded-2xl p-8 sm:p-10"
           style={{
@@ -61,11 +58,8 @@ export default function AboutPage() {
           </div>
           <p className="text-white/60 leading-relaxed">
             PARWA was founded to make world-class customer support accessible to every business.
-            We believe AI shouldn&apos;t replace humans — it should empower them. Our platform handles
-            the repetitive 80% of tickets automatically, freeing your team to focus on complex,
-            high-value interactions that build real customer relationships. From startups to
-            enterprises, PARWA scales with your needs while keeping costs predictable and
-            transparent.
+            Our platform handles the repetitive 80% of tickets automatically, freeing your team to
+            focus on complex, high-value interactions.
           </p>
         </div>
       </div>

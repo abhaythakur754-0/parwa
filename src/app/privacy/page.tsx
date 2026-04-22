@@ -40,9 +40,7 @@ export default function PrivacyPage() {
               <h2 className="text-lg font-semibold text-white mb-2">2. How We Use Your Data</h2>
               <p className="text-white/60 leading-relaxed">
                 Your data is used to provide and improve our AI customer support services,
-                personalize your experience, and communicate important updates. Customer support
-                conversations are used to train and improve our AI models only within your
-                organization&apos;s tenant isolation.
+                personalize your experience, and communicate important updates.
               </p>
             </section>
 
