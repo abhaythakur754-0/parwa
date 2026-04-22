@@ -116,7 +116,6 @@ def before_breadcrumb_handler(crumb, hint):
 
 def capture_exception(exc: Exception, extra: dict = None):
     """Manually capture an exception to Sentry."""
-    global _sentry_initialized
     if not _sentry_initialized:
         return
 
@@ -131,7 +130,6 @@ def capture_exception(exc: Exception, extra: dict = None):
 
 def capture_message(message: str, level: str = "info"):
     """Manually capture a message to Sentry."""
-    global _sentry_initialized
     if not _sentry_initialized:
         return
 
