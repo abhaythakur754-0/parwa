@@ -436,6 +436,11 @@ class DeadLetterWebhook(Base):
     last_error = Column(Text, nullable=True)
     processed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.utcnow(),
+        onupdate=lambda: datetime.utcnow(),
+    )
 
 
 # ── Webhook Health Stat Model (Day 5: WH2) ──────────────────────────────────

@@ -363,11 +363,108 @@ class PaymentFailureService:
                 self.ACTIVE_STATUS,
             )
 
-            # TODO: In production, trigger these async tasks:
-            # - Resume AI agents for this company
-            # - Unfreeze tickets
-            # - Send service_resumed email
-            # - Emit Socket.io event for real-time UI update
+            # Resume side-effects after payment recovery
+            try:
+                # Resume AI agents for this company
+                try:
+                    from app.services.agent_provisioning_service import (
+                        AgentProvisioningService,
+                    )
+                    provisioner = AgentProvisioningService()
+                    provisioner.resume_company_agents(
+                        company_id=str(company_id), db=db,
+                    )
+                    logger.info(
+                        "payment_resume_agents_resumed company_id=%s",
+                        company_id,
+                    )
+                except Exception as agent_err:
+                    logger.warning(
+                        "payment_resume_agents_failed company_id=%s error=%s",
+                        company_id, str(agent_err)[:200],
+                    )
+
+                # Unfreeze tickets that were frozen during payment failure
+                try:
+                    from database.models.tickets import Ticket
+                    unfrozen_count = db.query(Ticket).filter(
+                        Ticket.company_id == str(company_id),
+                        Ticket.status == "frozen",
+                    ).update({"status": "open"})
+                    db.commit()
+                    logger.info(
+                        "payment_resume_tickets_unfrozen company_id=%s count=%d",
+                        company_id, unfrozen_count,
+                    )
+                except Exception as ticket_err:
+                    logger.warning(
+                        "payment_resume_tickets_failed company_id=%s error=%s",
+                        company_id, str(ticket_err)[:200],
+                    )
+
+                # Send service_resumed email notification
+                try:
+                    from app.services.email_service import send_email
+                    from database.models.core import User
+                    company_owner = db.query(User).filter(
+                        User.company_id == str(company_id),
+                        User.role == "owner",
+                    ).first()
+                    if company_owner:
+                        send_email(
+                            to=company_owner.email,
+                            subject="PARWA: Service Resumed",
+                            html_content=(
+                                "<html><body>"
+                                f"<h2>Welcome Back!</h2>"
+                                f"<p>Hello {company_owner.full_name or 'there'},</p>"
+                                f"<p>Your payment was received and your "
+                                f"PARWA service has been fully resumed.</p>"
+                                f"<p><strong>Company:</strong> {company.name}</p>"
+                                f"<p>Your AI agents are now active and all "
+                                f"previously frozen tickets have been unfrozen.</p>"
+                                "</body></html>"
+                            ),
+                        )
+                        logger.info(
+                            "payment_resume_email_sent company_id=%s",
+                            company_id,
+                        )
+                except Exception as email_err:
+                    logger.warning(
+                        "payment_resume_email_failed company_id=%s error=%s",
+                        company_id, str(email_err)[:200],
+                    )
+
+                # Emit Socket.io event for real-time UI update
+                try:
+                    from app.core.event_emitter import EventEmitter
+                    emitter = EventEmitter()
+                    emitter.emit_to_company(
+                        company_id=str(company_id),
+                        event_name="billing:service_resumed",
+                        data={
+                            "company_id": str(company_id),
+                            "status": "active",
+                            "resumed_at": now.isoformat(),
+                            "message": "Service resumed after successful payment",
+                        },
+                    )
+                    logger.info(
+                        "payment_resume_socket_emitted company_id=%s",
+                        company_id,
+                    )
+                except Exception as socket_err:
+                    logger.warning(
+                        "payment_resume_socket_failed company_id=%s error=%s",
+                        company_id, str(socket_err)[:200],
+                    )
+
+            except Exception as side_err:
+                logger.error(
+                    "payment_resume_side_effects_failed company_id=%s error=%s",
+                    company_id, str(side_err)[:200],
+                )
 
             return {
                 "status": "resumed",

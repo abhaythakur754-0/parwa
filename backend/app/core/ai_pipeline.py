@@ -614,13 +614,12 @@ class AIPipeline:
             )
 
         # Stage 11: Output Guardrails
-        # TODO: Wire guardrails_engine.py layers here for production
-        # Currently runs a simplified single-pass check via _stage_guardrails.
-        # For full production hardening, each GuardrailLayer (CONTENT_SAFETY,
-        # TOPIC_RELEVANCE, HALLUCINATION_CHECK, POLICY_COMPLIANCE, etc.)
-        # should run independently with their own thresholds, and blocked
-        # responses should be routed to human review (BC-009 approval workflow).
-        # See: app/core/guardrails_engine.py GuardrailsEngine.run_full_check()
+        # Runs GuardrailsEngine.run_full_check() with all 8 layers:
+        # CONTENT_SAFETY, TOPIC_RELEVANCE, HALLUCINATION_CHECK,
+        # POLICY_COMPLIANCE, TONE_VALIDATION, LENGTH_CONTROL,
+        # PII_LEAK_PREVENTION, CONFIDENCE_GATE.
+        # Blocked responses are routed to safe fallback (BC-009).
+        # See: _stage_guardrails() at line ~1199 for full implementation.
         self._run_stage_sync("guardrails", ctx, self._stage_guardrails)
 
         # If guardrails blocked, use safe fallback

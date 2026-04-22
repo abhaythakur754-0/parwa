@@ -642,7 +642,10 @@ class PaddleService:
         """
         Get current payment status for a session.
 
-        Looks up the payment status from the session's stored payment data.
+        Queries the database (and optionally Redis) for payment
+        information linked to this session, including active payment
+        failures, subscription status, and recent successful payment
+        webhook events.
 
         Args:
             session_id: Jarvis session ID
@@ -650,23 +653,19 @@ class PaddleService:
         Returns:
             Dict with payment status:
             {
-                "status": "none" | "pending" | "completed" | "failed",
+                "status": "none" | "pending" | "completed" | "failed" | "canceled",
                 "paddle_transaction_id": str | null,
                 "amount": str | null,
                 "currency": str,
                 "paid_at": str | null,
                 "pack_type": "free" | "demo" | "subscription",
+                "session_id": str,
             }
-
-        Note:
-            This is a stub that returns default values.
-            In production, this would query the database or session store
-            for the actual payment state linked to this session.
         """
         logger.info("paddle_service_get_payment_status session_id=%s", session_id)
 
-        # Default: no payment made
-        return {
+        # Default result when nothing is found
+        result: Dict[str, Any] = {
             "status": "none",
             "paddle_transaction_id": None,
             "amount": None,
@@ -675,6 +674,179 @@ class PaddleService:
             "pack_type": "free",
             "session_id": session_id,
         }
+
+        # ── Resolve company_id and paddle_subscription_id ────────
+        company_id: Optional[str] = None
+        paddle_subscription_id: Optional[str] = None
+
+        try:
+            from app.core.redis import get_redis
+
+            redis_client = await get_redis()
+            session_key = f"parwa:session:{session_id}"
+            meta = await redis_client.hgetall(session_key)
+            if meta:
+                raw_cid = meta.get("company_id") or meta.get(b"company_id")
+                if raw_cid is not None:
+                    company_id = (
+                        raw_cid.decode("utf-8")
+                        if isinstance(raw_cid, bytes)
+                        else str(raw_cid)
+                    )
+                raw_sid = (
+                    meta.get("paddle_subscription_id")
+                    or meta.get(b"paddle_subscription_id")
+                )
+                if raw_sid is not None:
+                    paddle_subscription_id = (
+                        raw_sid.decode("utf-8")
+                        if isinstance(raw_sid, bytes)
+                        else str(raw_sid)
+                    )
+        except Exception as exc:
+            logger.debug(
+                "paddle_service_redis_unavailable error=%s", str(exc),
+            )
+
+        if not company_id:
+            logger.info(
+                "paddle_service_no_company_for_session session_id=%s",
+                session_id,
+            )
+            return result
+
+        # ── Database queries ─────────────────────────────────────
+        from database.base import SessionLocal
+        from database.models.billing import Subscription
+        from database.models.billing_extended import PaymentFailure
+        from database.models.webhook_event import WebhookEvent
+
+        try:
+            with SessionLocal() as db:
+                # 1. Check for unresolved payment failures
+                failure = (
+                    db.query(PaymentFailure)
+                    .filter(
+                        PaymentFailure.company_id == company_id,
+                        PaymentFailure.resolved.is_(False),
+                    )
+                    .order_by(PaymentFailure.created_at.desc())
+                    .first()
+                )
+
+                if failure:
+                    result["status"] = "failed"
+                    result["failure_code"] = failure.failure_code
+                    result["failure_reason"] = failure.failure_reason
+                    if failure.paddle_transaction_id:
+                        result["paddle_transaction_id"] = (
+                            failure.paddle_transaction_id
+                        )
+                    if failure.amount_attempted is not None:
+                        result["amount"] = str(failure.amount_attempted)
+                    result["currency"] = failure.currency or "USD"
+
+                # 2. Check subscription status
+                sub_q = db.query(Subscription).filter(
+                    Subscription.company_id == company_id,
+                )
+                if paddle_subscription_id:
+                    sub_q = sub_q.filter(
+                        Subscription.paddle_subscription_id
+                        == paddle_subscription_id,
+                    )
+                subscription = sub_q.order_by(
+                    Subscription.created_at.desc(),
+                ).first()
+
+                if subscription:
+                    sub_status = (subscription.status or "").lower()
+                    if sub_status in ("active", "trialing"):
+                        result["status"] = "completed"
+                        result["pack_type"] = "subscription"
+                        result["tier"] = subscription.tier
+                        result["currency"] = "USD"
+                        if subscription.paddle_subscription_id:
+                            result["paddle_subscription_id"] = (
+                                subscription.paddle_subscription_id
+                            )
+                    elif sub_status == "past_due":
+                        if result["status"] != "failed":
+                            result["status"] = "failed"
+                            result["pack_type"] = "subscription"
+                    elif sub_status == "canceled":
+                        if result["status"] == "none":
+                            result["status"] = "canceled"
+                            result["pack_type"] = "subscription"
+
+                # 3. Check for recent successful payment webhook events
+                recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+                events = (
+                    db.query(WebhookEvent)
+                    .filter(
+                        WebhookEvent.company_id == company_id,
+                        WebhookEvent.event_type.in_([
+                            "transaction.paid",
+                            "transaction.completed",
+                        ]),
+                        WebhookEvent.created_at >= recent_cutoff,
+                    )
+                    .order_by(WebhookEvent.created_at.desc())
+                    .limit(10)
+                    .all()
+                )
+
+                for evt in events:
+                    payload = evt.payload or {}
+                    # custom_data may be at top level or nested under
+                    # data.custom_data depending on Paddle event shape
+                    custom_data = (
+                        payload.get("custom_data")
+                        or payload.get("data", {}).get("custom_data", {})
+                    )
+                    evt_session_id = custom_data.get("session_id", "")
+                    if evt_session_id != session_id:
+                        continue
+
+                    # Found a matching successful payment event
+                    evt_data = (
+                        payload.get("data", {}).get("transaction", {})
+                    )
+                    result["status"] = "completed"
+                    if evt.completed_at:
+                        result["paid_at"] = evt.completed_at.isoformat()
+                    txn_id = (
+                        evt_data.get("id")
+                        or evt_data.get("transaction_id")
+                    )
+                    if txn_id:
+                        result["paddle_transaction_id"] = txn_id
+                    totals = evt_data.get("details", {}).get("totals", {})
+                    amt = (
+                        totals.get("total")
+                        or evt_data.get("total")
+                        or evt_data.get("amount")
+                    )
+                    if amt is not None:
+                        result["amount"] = str(amt)
+                    cur = (
+                        evt_data.get("details", {}).get("currency_code")
+                        or evt_data.get("currency_code", "USD")
+                    )
+                    result["currency"] = cur
+                    pack = custom_data.get("pack_type", "demo")
+                    result["pack_type"] = pack
+                    break  # use the most recent match
+
+        except Exception as exc:
+            logger.error(
+                "paddle_service_get_payment_status_error "
+                "session_id=%s error=%s",
+                session_id,
+                str(exc),
+            )
+
+        return result
 
     # ── Idempotency ──────────────────────────────────────────────────────
 

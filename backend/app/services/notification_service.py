@@ -10,6 +10,7 @@ Handles:
 """
 
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
@@ -22,11 +23,13 @@ from database.models.tickets import Ticket, NotificationTemplate
 from database.models.core import User, Company
 from database.models.remaining import Notification, NotificationLog, NotificationPreference
 
+logger = logging.getLogger(__name__)
+
 
 class NotificationService:
     """
     Central notification dispatch engine.
-    
+
     Features:
     - Event-driven notifications
     - Multi-channel support (email, in_app, push)
@@ -34,10 +37,10 @@ class NotificationService:
     - Digest mode for aggregation
     - PS03/PS10 handlers
     """
-    
+
     # Supported notification channels
     CHANNELS = ["email", "in_app", "push"]
-    
+
     # Event types that trigger notifications
     EVENT_TYPES = [
         "ticket_created",
@@ -54,17 +57,17 @@ class NotificationService:
         "incident_created",
         "incident_resolved",
     ]
-    
+
     # Priority levels for notifications
     PRIORITY_LOW = "low"
     PRIORITY_MEDIUM = "medium"
     PRIORITY_HIGH = "high"
     PRIORITY_URGENT = "urgent"
-    
+
     def __init__(self, db: Session, company_id: str):
         self.db = db
         self.company_id = company_id
-    
+
     def send_notification(
         self,
         event_type: str,
@@ -79,7 +82,7 @@ class NotificationService:
     ) -> Dict[str, Any]:
         """
         Send notification to recipients.
-        
+
         Args:
             event_type: Type of event triggering notification
             recipient_ids: List of user IDs to notify
@@ -90,13 +93,13 @@ class NotificationService:
             sender_id: User ID who triggered the notification
             cc: CC email addresses (email only)
             bcc: BCC email addresses (email only)
-            
+
         Returns:
             Dict with notification results
         """
         if event_type not in self.EVENT_TYPES:
             raise ValidationError(f"Invalid event type: {event_type}")
-        
+
         results = {
             "event_type": event_type,
             "sent_count": 0,
@@ -104,20 +107,20 @@ class NotificationService:
             "notification_ids": [],
             "errors": [],
         }
-        
+
         for recipient_id in recipient_ids:
             try:
                 # Get user preferences
                 preferences = self._get_user_preferences(recipient_id, event_type)
-                
+
                 # Determine channels to use
                 target_channels = channels or preferences.get("channels", ["in_app"])
-                
+
                 # Check if user wants this event type
                 if not preferences.get("enabled", True):
                     results["skipped_count"] = results.get("skipped_count", 0) + 1
                     continue
-                
+
                 # Create notification record
                 notification = Notification(
                     id=str(uuid4()),
@@ -134,10 +137,10 @@ class NotificationService:
                     status="pending",
                     created_at=datetime.now(timezone.utc),
                 )
-                
+
                 self.db.add(notification)
                 self.db.flush()
-                
+
                 # Dispatch to each channel
                 dispatch_results = self._dispatch_to_channels(
                     notification=notification,
@@ -146,12 +149,12 @@ class NotificationService:
                     cc=cc,
                     bcc=bcc,
                 )
-                
+
                 notification.status = "sent" if dispatch_results["success"] else "failed"
                 notification.sent_at = datetime.now(timezone.utc) if dispatch_results["success"] else None
-                
+
                 results["notification_ids"].append(notification.id)
-                
+
                 if dispatch_results["success"]:
                     results["sent_count"] += 1
                 else:
@@ -160,17 +163,17 @@ class NotificationService:
                         "recipient_id": recipient_id,
                         "error": dispatch_results.get("error"),
                     })
-                
+
             except Exception as e:
                 results["failed_count"] += 1
                 results["errors"].append({
                     "recipient_id": recipient_id,
                     "error": str(e),
                 })
-        
+
         self.db.commit()
         return results
-    
+
     def send_bulk_notification(
         self,
         event_type: str,
@@ -181,12 +184,12 @@ class NotificationService:
     ) -> Dict[str, Any]:
         """
         Send notification to many recipients in batches.
-        
+
         Used for PS10 incident mode mass notifications.
         """
         if len(recipient_ids) > 10000:
             raise ValidationError("Maximum 10,000 recipients per bulk notification")
-        
+
         results = {
             "event_type": event_type,
             "total_recipients": len(recipient_ids),
@@ -194,24 +197,24 @@ class NotificationService:
             "failed_count": 0,
             "batches": 0,
         }
-        
+
         # Process in batches
         for i in range(0, len(recipient_ids), batch_size):
             batch = recipient_ids[i:i + batch_size]
-            
+
             batch_result = self.send_notification(
                 event_type=event_type,
                 recipient_ids=batch,
                 data=data,
                 channels=channels,
             )
-            
+
             results["sent_count"] += batch_result["sent_count"]
             results["failed_count"] += batch_result["failed_count"]
             results["batches"] += 1
-        
+
         return results
-    
+
     def notify_human_queue(
         self,
         ticket_id: str,
@@ -220,7 +223,7 @@ class NotificationService:
     ) -> Dict[str, Any]:
         """
         PS03: Notify human queue when client asks for human.
-        
+
         Includes AI conversation summary.
         """
         # Get ticket details
@@ -228,24 +231,24 @@ class NotificationService:
             Ticket.id == ticket_id,
             Ticket.company_id == self.company_id,
         ).first()
-        
+
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
-        
+
         # Find human agents in the appropriate queue
         # This would typically query assignment rules or department members
         agents = self._get_available_agents(ticket.category if hasattr(ticket, 'category') else None)
-        
+
         if not agents:
             # Fallback to all company agents
             agents = self._get_company_agents()
-        
+
         if not agents:
             return {
                 "success": False,
                 "error": "No human agents available",
             }
-        
+
         notification_data = {
             "ticket_id": ticket_id,
             "ticket_subject": ticket.subject,
@@ -254,7 +257,7 @@ class NotificationService:
             "ai_summary": summary,
             "priority": ticket.priority if hasattr(ticket, 'priority') else "medium",
         }
-        
+
         return self.send_notification(
             event_type="ticket_escalated",
             recipient_ids=[a["id"] for a in agents],
@@ -263,7 +266,7 @@ class NotificationService:
             priority=self.PRIORITY_HIGH,
             ticket_id=ticket_id,
         )
-    
+
     def notify_incident_subscribers(
         self,
         incident_id: str,
@@ -280,14 +283,14 @@ class NotificationService:
             "status_update": status_update,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        
+
         return self.send_bulk_notification(
             event_type="incident_created" if "created" in status_update.lower() else "incident_resolved",
             recipient_ids=affected_customer_ids,
             data=notification_data,
             channels=["email"],
         )
-    
+
     def get_notifications(
         self,
         user_id: str,
@@ -302,24 +305,24 @@ class NotificationService:
             Notification.company_id == self.company_id,
             Notification.user_id == user_id,
         )
-        
+
         if status:
             query = query.filter(Notification.status == status)
-        
+
         if event_type:
             query = query.filter(Notification.event_type == event_type)
-        
+
         if unread_only:
             query = query.filter(Notification.read_at.is_(None))
-        
+
         total = query.count()
-        
+
         notifications = query.order_by(
             desc(Notification.created_at)
         ).offset(offset).limit(limit).all()
-        
+
         return notifications, total
-    
+
     def mark_as_read(self, notification_id: str, user_id: str) -> Notification:
         """Mark notification as read."""
         notification = self.db.query(Notification).filter(
@@ -327,16 +330,16 @@ class NotificationService:
             Notification.user_id == user_id,
             Notification.company_id == self.company_id,
         ).first()
-        
+
         if not notification:
             raise NotFoundError(f"Notification {notification_id} not found")
-        
+
         notification.read_at = datetime.now(timezone.utc)
         notification.status = "read"
         self.db.commit()
-        
+
         return notification
-    
+
     def mark_all_as_read(self, user_id: str) -> int:
         """Mark all notifications as read for a user."""
         count = self.db.query(Notification).filter(
@@ -347,10 +350,10 @@ class NotificationService:
             "read_at": datetime.now(timezone.utc),
             "status": "read",
         })
-        
+
         self.db.commit()
         return count
-    
+
     def get_unread_count(self, user_id: str) -> int:
         """Get unread notification count for a user."""
         return self.db.query(Notification).filter(
@@ -358,7 +361,7 @@ class NotificationService:
             Notification.user_id == user_id,
             Notification.read_at.is_(None),
         ).count()
-    
+
     def _get_user_preferences(
         self,
         user_id: str,
@@ -370,19 +373,19 @@ class NotificationService:
             NotificationPreference.user_id == user_id,
             NotificationPreference.event_type == event_type,
         ).first()
-        
+
         if preference:
             return {
                 "enabled": preference.enabled,
                 "channels": json.loads(preference.channels) if preference.channels else ["in_app"],
             }
-        
+
         # Default preferences
         return {
             "enabled": True,
             "channels": ["in_app"],
         }
-    
+
     def _dispatch_to_channels(
         self,
         notification: Notification,
@@ -396,7 +399,7 @@ class NotificationService:
             "success": True,
             "channels": {},
         }
-        
+
         for channel in channels:
             try:
                 if channel == "email":
@@ -407,18 +410,18 @@ class NotificationService:
                     result = self._send_push(notification, data)
                 else:
                     result = {"success": False, "error": f"Unknown channel: {channel}"}
-                
+
                 results["channels"][channel] = result
-                
+
                 if not result.get("success"):
                     results["success"] = False
-                    
+
             except Exception as e:
                 results["channels"][channel] = {"success": False, "error": str(e)}
                 results["success"] = False
-        
+
         return results
-    
+
     def _send_email(
         self,
         notification: Notification,
@@ -429,23 +432,23 @@ class NotificationService:
         """Send email notification via email service."""
         # Import here to avoid circular dependency
         from app.services.email_service import EmailService
-        
+
         # Get recipient email
         user = self.db.query(User).filter(User.id == notification.user_id).first()
-        
+
         if not user or not user.email:
             return {"success": False, "error": "User has no email address"}
-        
+
         # Get template for this event type
         template = self._get_template(notification.event_type, "email")
-        
+
         email_service = EmailService(self.db, self.company_id)
-        
+
         try:
             # Render email from template
             subject = self._render_template(template.get("subject", notification.title), data)
             body = self._render_template(template.get("body", notification.message), data)
-            
+
             # Send email
             email_service.send_email(
                 to_email=user.email,
@@ -454,12 +457,12 @@ class NotificationService:
                 cc=cc,
                 bcc=bcc,
             )
-            
+
             return {"success": True, "message_id": str(uuid4())}
-            
+
         except Exception as e:
             return {"success": False, "error": str(e)}
-    
+
     def _send_in_app(
         self,
         notification: Notification,
@@ -469,7 +472,7 @@ class NotificationService:
         try:
             # Import event emitter
             from app.core.event_emitter import EventEmitter
-            
+
             emitter = EventEmitter()
             emitter.emit_to_user(
                 user_id=notification.user_id,
@@ -484,22 +487,245 @@ class NotificationService:
                     "created_at": notification.created_at.isoformat() if notification.created_at else None,
                 },
             )
-            
+
             return {"success": True}
-            
+
         except Exception as e:
             # In-app may fail if socket not connected, but don't fail the whole notification
             return {"success": True, "warning": str(e)}
-    
+
     def _send_push(
         self,
         notification: Notification,
         data: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Send push notification (placeholder for future implementation)."""
-        # TODO: Implement push notifications (FCM/APNs)
-        return {"success": True, "warning": "Push notifications not yet implemented"}
-    
+        """Send push notification via FCM (Firebase Cloud Messaging).
+
+        Attempts to deliver push notifications through FCM for mobile
+        clients. Falls back gracefully if FCM is not configured or
+        the user has no registered push tokens.
+
+        The implementation uses the lightweight pyfcm-style approach:
+        1. Look up user's push tokens from user metadata
+        2. Build FCM payload with notification data
+        3. Send via FCM HTTP v1 API
+        4. Handle errors gracefully (invalid tokens, quota, etc.)
+        """
+        try:
+            # Get user's push token from user_details/metadata
+            from database.models.user_details import UserDetail
+            from database.models.core import User
+
+            user = self.db.query(User).filter(
+                User.id == notification.user_id
+            ).first()
+
+            if not user:
+                return {"success": False, "error": "User not found"}
+
+            # Look for push token in user details
+            user_detail = self.db.query(UserDetail).filter(
+                UserDetail.user_id == notification.user_id
+            ).first()
+
+            push_token = None
+            if user_detail and hasattr(user_detail, 'push_token'):
+                push_token = getattr(user_detail, 'push_token', None)
+            if not push_token and user_detail and hasattr(user_detail, 'metadata_json'):
+                try:
+                    import json as _json
+                    metadata = _json.loads(user_detail.metadata_json) if user_detail.metadata_json else {}
+                    push_token = metadata.get("fcm_token") or metadata.get("push_token")
+                except (TypeError, ValueError):
+                    pass
+
+            if not push_token:
+                return {
+                    "success": True,
+                    "warning": "No push token registered for user",
+                }
+
+            # Check if FCM is configured
+            from app.config import get_settings
+            settings = get_settings()
+            fcm_project_id = getattr(settings, "FCM_PROJECT_ID", None)
+            fcm_service_account = getattr(settings, "FCM_SERVICE_ACCOUNT_JSON", None)
+
+            if not fcm_project_id or not fcm_service_account:
+                return {
+                    "success": True,
+                    "warning": "FCM not configured \u2014 push notification skipped",
+                }
+
+            # Build and send FCM notification
+            import json as _json
+
+            fcm_payload = {
+                "message": {
+                    "token": push_token,
+                    "notification": {
+                        "title": notification.title or "PARWA",
+                        "body": notification.message or "You have a new notification",
+                    },
+                    "data": {
+                        "notification_id": notification.id,
+                        "event_type": notification.event_type,
+                        "priority": notification.priority,
+                        "company_id": notification.company_id,
+                        "ticket_id": notification.ticket_id or "",
+                    },
+                    "android": {
+                        "priority": "high" if notification.priority in ("high", "urgent") else "normal",
+                    },
+                    "apns": {
+                        "payload": {
+                            "aps": {
+                                "sound": "default",
+                                "badge": 1,
+                                "priority": "high" if notification.priority in ("high", "urgent") else "normal",
+                            }
+                        }
+                    },
+                }
+            }
+
+            # Send via FCM HTTP v1 API
+            import httpx
+
+            service_account = _json.loads(fcm_service_account)
+            access_token = self._get_fcm_access_token(service_account)
+
+            if not access_token:
+                return {
+                    "success": False,
+                    "error": "Failed to obtain FCM access token",
+                }
+
+            url = f"https://fcm.googleapis.com/v1/projects/{fcm_project_id}/messages:send"
+
+            async def _send_fcm():
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.post(
+                        url,
+                        headers={
+                            "Authorization": f"Bearer {access_token}",
+                            "Content-Type": "application/json",
+                        },
+                        json=fcm_payload,
+                    )
+                    return resp
+
+            # Run async in sync context
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        future = pool.submit(
+                            asyncio.run,
+                            _send_fcm(),
+                        )
+                        resp = future.result(timeout=15)
+                else:
+                    resp = loop.run_until_complete(_send_fcm())
+            except RuntimeError:
+                resp = asyncio.run(_send_fcm())
+
+            if resp.status_code == 200:
+                return {"success": True, "fcm_message_id": getattr(resp, 'json', lambda: {})().get("name")}
+            else:
+                error_body = ""
+                try:
+                    error_body = resp.text[:200]
+                except Exception:
+                    pass
+                logger.warning(
+                    "push_notification_fcm_error user_id=%s status=%d body=%s",
+                    notification.user_id, resp.status_code, error_body,
+                )
+                return {
+                    "success": False,
+                    "error": f"FCM returned status {resp.status_code}",
+                }
+
+        except Exception as e:
+            logger.warning(
+                "push_notification_failed user_id=%s error=%s",
+                notification.user_id, str(e)[:200],
+            )
+            return {"success": False, "error": str(e)[:200]}
+
+    @staticmethod
+    def _get_fcm_access_token(service_account: dict) -> Optional[str]:
+        """Obtain a short-lived FCM access token using service account credentials.
+
+        Uses the Google OAuth2 token endpoint with JWT signed by the
+        service account private key.
+
+        Args:
+            service_account: Parsed service account JSON dict.
+
+        Returns:
+            Access token string, or None if token exchange failed.
+        """
+        import time
+        import json as _json
+        import base64
+        import httpx
+
+        try:
+            private_key_pem = service_account.get("private_key", "")
+            client_email = service_account.get("client_email", "")
+            token_uri = "https://oauth2.googleapis.com/token"
+
+            now = int(time.time())
+            header = {"alg": "RS256", "typ": "JWT"}
+            payload = {
+                "iss": client_email,
+                "scope": "https://www.googleapis.com/auth/firebase.messaging",
+                "aud": token_uri,
+                "iat": now,
+                "exp": now + 3600,
+            }
+
+            def _b64_encode(data: str) -> str:
+                return base64.urlsafe_b64encode(
+                    data.encode("utf-8")
+                ).rstrip(b"=").decode("utf-8")
+
+            jwt_input = f"{_b64_encode(_json.dumps(header))}.{_b64_encode(_json.dumps(payload))}"
+
+            from cryptography.hazmat.primitives import hashes, serialization
+            from cryptography.hazmat.primitives.asymmetric import padding
+
+            key = serialization.load_pem_private_key(
+                private_key_pem.encode("utf-8"),
+                password=None,
+            )
+            signature = key.sign(
+                jwt_input.encode("utf-8"),
+                padding.PKCS1v15(),
+                hashes.SHA256(),
+            )
+            jwt_signed = f"{jwt_input}.{_b64_encode(base64.b64encode(signature).decode('utf-8'))}"
+
+            resp = httpx.post(
+                token_uri,
+                data={
+                    "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                    "assertion": jwt_signed,
+                },
+                timeout=10.0,
+            )
+
+            if resp.status_code == 200:
+                return resp.json().get("access_token")
+
+            return None
+        except Exception:
+            return None
+
     def _get_template(self, event_type: str, channel: str) -> Dict[str, str]:
         """Get notification template for event type and channel."""
         template = self.db.query(NotificationTemplate).filter(
@@ -508,16 +734,16 @@ class NotificationService:
             NotificationTemplate.channel == channel,
             NotificationTemplate.is_active == True,
         ).first()
-        
+
         if template:
             return {
                 "subject": template.subject_template,
                 "body": template.body_template,
             }
-        
+
         # Return default templates
         return self._get_default_template(event_type, channel)
-    
+
     def _get_default_template(self, event_type: str, channel: str) -> Dict[str, str]:
         """Get default notification template."""
         default_templates = {
@@ -562,12 +788,12 @@ class NotificationService:
                 "body": "The incident has been resolved. {{status_update}}",
             },
         }
-        
+
         return default_templates.get(event_type, {
             "subject": "Notification",
             "body": "{{message}}",
         })
-    
+
     def _render_template(self, template: str, data: Dict[str, Any]) -> str:
         """Simple template rendering with variable substitution."""
         result = template
@@ -575,7 +801,7 @@ class NotificationService:
             placeholder = "{{" + key + "}}"
             result = result.replace(placeholder, str(value) if value else "")
         return result
-    
+
     def _generate_title(self, event_type: str, data: Dict[str, Any]) -> str:
         """Generate notification title from event type and data."""
         titles = {
@@ -594,7 +820,7 @@ class NotificationService:
             "incident_resolved": f"Resolved: {data.get('incident_title', 'Incident')}",
         }
         return titles.get(event_type, "Notification")
-    
+
     def _generate_message(self, event_type: str, data: Dict[str, Any]) -> str:
         """Generate notification message from event type and data."""
         messages = {
@@ -613,13 +839,13 @@ class NotificationService:
             "incident_resolved": f"Incident resolved: {data.get('status_update', '')}",
         }
         return messages.get(event_type, "You have a new notification.")
-    
+
     def _get_available_agents(self, category: Optional[str] = None) -> List[Dict[str, str]]:
         """Get available human agents for assignment."""
         # This would typically query assignment rules
         # For now, return empty list to be implemented with assignment service
         return []
-    
+
     def _get_company_agents(self) -> List[Dict[str, str]]:
         """Get all company agents."""
         agents = self.db.query(User).filter(
@@ -627,9 +853,9 @@ class NotificationService:
             User.role.in_(["agent", "admin"]),
             User.is_active == True,
         ).all()
-        
+
         return [{"id": a.id, "name": a.name, "email": a.email} for a in agents]
-    
+
     def create_digest(
         self,
         user_id: str,
@@ -637,18 +863,18 @@ class NotificationService:
     ) -> Dict[str, Any]:
         """
         Create notification digest for a user.
-        
+
         Aggregates unread notifications into a single summary.
         """
         if period not in ["daily", "weekly"]:
             raise ValidationError("Period must be 'daily' or 'weekly'")
-        
+
         # Calculate time range
         if period == "daily":
             since = datetime.now(timezone.utc) - timedelta(days=1)
         else:
             since = datetime.now(timezone.utc) - timedelta(weeks=1)
-        
+
         # Get unread notifications
         notifications = self.db.query(Notification).filter(
             Notification.company_id == self.company_id,
@@ -656,21 +882,21 @@ class NotificationService:
             Notification.read_at.is_(None),
             Notification.created_at >= since,
         ).all()
-        
+
         if not notifications:
             return {
                 "success": True,
                 "digest_created": False,
                 "message": "No notifications to digest",
             }
-        
+
         # Group by event type
         grouped = {}
         for n in notifications:
             if n.event_type not in grouped:
                 grouped[n.event_type] = []
             grouped[n.event_type].append(n)
-        
+
         # Create digest summary
         digest = {
             "period": period,
@@ -679,17 +905,17 @@ class NotificationService:
             "summary": self._generate_digest_summary(grouped),
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
-        
+
         return {
             "success": True,
             "digest_created": True,
             "digest": digest,
         }
-    
+
     def _generate_digest_summary(self, grouped: Dict[str, List[Notification]]) -> str:
         """Generate human-readable digest summary."""
         parts = []
-        
+
         for event_type, notifications in grouped.items():
             count = len(notifications)
             if event_type == "ticket_assigned":
@@ -702,5 +928,5 @@ class NotificationService:
                 parts.append(f"{count} reopened ticket(s)")
             else:
                 parts.append(f"{count} {event_type.replace('_', ' ')} notification(s)")
-        
+
         return "; ".join(parts)
