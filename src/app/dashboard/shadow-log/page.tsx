@@ -87,6 +87,22 @@ function SpinnerIcon({ className }: { className?: string }) {
   );
 }
 
+function CheckboxSquareIcon({ className, checked }: { className?: string; checked?: boolean }) {
+  if (checked) {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="3" width="18" height="18" rx="4" fill="#FF7F11" stroke="#FF7F11" strokeWidth="2" />
+        <path d="M8 12.5l2.5 2.5 5.5-5.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 // ── Format Helpers ─────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -247,6 +263,10 @@ export default function ShadowLogPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
+  // ── Batch Selection ────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchLoading, setBatchLoading] = useState(false);
+
   // ── Filters ─────────────────────────────────────────────────────────────
   const [filterAction, setFilterAction] = useState('');
   const [filterMode, setFilterMode] = useState<SystemMode | ''>('');
@@ -372,6 +392,63 @@ export default function ShadowLogPage() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success('CSV exported');
+  };
+
+  // ── Batch Handlers ─────────────────────────────────────────────────────
+  const pendingEntries = entries.filter(e => !e.manager_decision);
+  const allPendingSelected = pendingEntries.length > 0 && pendingEntries.every(e => selectedIds.has(e.id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllPending = () => {
+    if (allPendingSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pendingEntries.map(e => e.id)));
+    }
+  };
+
+  const handleBatchApprove = async () => {
+    if (selectedIds.size === 0) return;
+    setBatchLoading(true);
+    try {
+      const ids = Array.from(selectedIds);
+      await shadowApi.batchResolve(ids, 'approved');
+      toast.success(`${ids.length} action(s) approved`);
+      setSelectedIds(new Set());
+      // Optimistic: remove resolved items from displayed list
+      setEntries(prev => prev.filter(e => !ids.includes(e.id)));
+      loadStats();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  const handleBatchReject = async () => {
+    if (selectedIds.size === 0) return;
+    setBatchLoading(true);
+    try {
+      const ids = Array.from(selectedIds);
+      await shadowApi.batchResolve(ids, 'rejected');
+      toast.success(`${ids.length} action(s) rejected`);
+      setSelectedIds(new Set());
+      // Optimistic: remove resolved items from displayed list
+      setEntries(prev => prev.filter(e => !ids.includes(e.id)));
+      loadStats();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setBatchLoading(false);
+    }
   };
 
   const handleSort = (field: string) => {
@@ -620,6 +697,18 @@ export default function ShadowLogPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/[0.06]">
+                    <th className="px-3 py-3 w-10">
+                      <button
+                        onClick={toggleSelectAllPending}
+                        className="flex items-center justify-center"
+                        title={allPendingSelected ? 'Deselect all pending' : 'Select all pending'}
+                      >
+                        <CheckboxSquareIcon
+                          className={cn('w-4 h-4 text-zinc-600 hover:text-zinc-400 transition-colors', allPendingSelected && 'text-[#FF7F11]')}
+                          checked={allPendingSelected || undefined}
+                        />
+                      </button>
+                    </th>
                     <th
                       onClick={() => handleSort('created_at')}
                       className="px-4 py-3 text-left text-[10px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 transition-colors"
@@ -654,9 +743,28 @@ export default function ShadowLogPage() {
                           className={cn(
                             'hover:bg-white/[0.02] transition-colors cursor-pointer',
                             isExpanded && 'bg-white/[0.03]',
+                            selectedIds.has(entry.id) && 'bg-[#FF7F11]/[0.04]',
                           )}
                           onClick={() => setExpandedId(isExpanded ? null : entry.id)}
                         >
+                          <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                            {!entry.manager_decision ? (
+                              <button
+                                onClick={() => toggleSelect(entry.id)}
+                                className="flex items-center justify-center"
+                              >
+                                <CheckboxSquareIcon
+                                  className={cn(
+                                    'w-4 h-4 transition-colors',
+                                    selectedIds.has(entry.id) ? 'text-[#FF7F11]' : 'text-zinc-600 hover:text-zinc-400',
+                                  )}
+                                  checked={selectedIds.has(entry.id) || undefined}
+                                />
+                              </button>
+                            ) : (
+                              <span className="w-4 h-4 block" />
+                            )}
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="text-zinc-300 text-xs">{formatDateTime(entry.created_at)}</div>
                             <div className="text-[10px] text-zinc-600">{formatRelativeTime(entry.created_at)}</div>
@@ -709,7 +817,7 @@ export default function ShadowLogPage() {
                         {/* ── Expanded Row ────────────────────────────────── */}
                         {isExpanded && (
                           <tr>
-                            <td colSpan={7} className="px-4 py-4 bg-white/[0.02]">
+                            <td colSpan={8} className="px-4 py-4 bg-white/[0.02]">
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 {/* Action Payload */}
                                 <div>
@@ -800,6 +908,42 @@ export default function ShadowLogPage() {
           </div>
         )}
       </div>
+
+      {/* ── Batch Action Bar (fixed bottom) ────────────────────────────── */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#FF7F11]/20 bg-[#141414]/95 backdrop-blur-sm shadow-lg shadow-black/30">
+          <div className="mx-auto max-w-6xl px-4 py-3 flex items-center gap-3">
+            <span className="text-sm font-medium text-[#FF7F11]">
+              {selectedIds.size} selected
+            </span>
+            <div className="h-4 w-px bg-white/[0.08]" />
+            <button
+              onClick={handleBatchApprove}
+              disabled={batchLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/25 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-50 transition-colors"
+            >
+              {batchLoading ? <SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
+              Approve Selected
+            </button>
+            <button
+              onClick={handleBatchReject}
+              disabled={batchLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-500/15 border border-red-500/25 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/25 disabled:opacity-50 transition-colors"
+            >
+              {batchLoading ? <SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> : <XMarkIcon className="w-3.5 h-3.5" />}
+              Reject Selected
+            </button>
+            <div className="ml-auto">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                Clear selection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

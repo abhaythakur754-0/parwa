@@ -334,6 +334,21 @@ export async function initializeColdStart(
   });
 }
 
+export async function initializeAllColdStart(
+  options?: { default_industry?: string }
+): Promise<{
+  status: string;
+  initialized_count: number;
+  errors: string[];
+}> {
+  const searchParams = new URLSearchParams();
+  if (options?.default_industry) searchParams.set('default_industry', options.default_industry);
+
+  return apiFetch(`/api/v1/training/cold-start/initialize-all?${searchParams.toString()}`, {
+    method: 'POST',
+  });
+}
+
 export async function listIndustryTemplates(): Promise<{
   templates: IndustryTemplate[];
   total: number;

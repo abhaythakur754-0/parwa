@@ -288,6 +288,65 @@ def evaluate_action(
     return result
 
 
+@router.post("/batch-resolve")
+def batch_resolve_actions(
+    body: BatchResolveRequest,
+    user: User = Depends(get_current_user),
+):
+    """Batch approve or reject multiple pending shadow actions.
+
+    Processes all provided IDs in a single transaction. Items that
+    have already been resolved are skipped.
+    """
+    from app.services.shadow_mode_service import ShadowModeService, VALID_DECISIONS
+
+    company_id = user.company_id
+    if not company_id:
+        raise AuthorizationError(message="User has no associated company")
+
+    if body.decision not in VALID_DECISIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid decision: {body.decision}. Must be one of: {', '.join(sorted(VALID_DECISIONS))}",
+        )
+
+    svc = ShadowModeService()
+
+    result = svc.batch_resolve(
+        company_id=str(company_id),
+        shadow_log_ids=body.ids,
+        decision=body.decision,
+        manager_id=user.id,
+        note=body.note,
+    )
+
+    # Emit batch resolve event
+    try:
+        from app.core.event_emitter import emit_shadow_event
+        import asyncio
+
+        asyncio.get_event_loop().create_task(
+            emit_shadow_event(
+                company_id=str(company_id),
+                event_type="shadow:action_resolved",
+                payload={
+                    "company_id": str(company_id),
+                    "shadow_log_ids": body.ids,
+                    "decision": body.decision,
+                    "manager_id": user.id,
+                    "note": body.note,
+                    "batch": True,
+                    "resolved": result.get("resolved", 0),
+                    "skipped": result.get("skipped", 0),
+                },
+            )
+        )
+    except Exception:
+        logger.warning("Failed to emit shadow batch resolve event")
+
+    return result
+
+
 @router.post("/{shadow_id}/approve")
 def approve_action(
     shadow_id: str,

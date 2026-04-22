@@ -120,6 +120,7 @@ from app.api.sla import router as sla_router  # SLA management
 from app.api.technique_config import router as technique_config_router  # Technique configuration
 from app.api.triggers import router as triggers_router  # Triggers
 from app.api.workflow import router as workflow_router  # Workflow management
+from app.api.escalation import router as escalation_router  # Escalation framework API
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
@@ -419,6 +420,7 @@ app.include_router(sla_router)  # SLA management
 app.include_router(technique_config_router)  # Technique configuration
 app.include_router(triggers_router)  # Triggers
 app.include_router(workflow_router)  # Workflow management
+app.include_router(escalation_router)  # Escalation framework API
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
