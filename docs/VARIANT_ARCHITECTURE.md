@@ -2,7 +2,7 @@
 
 > **Status**: Architecture Document — Pre-Implementation  
 > **Last Updated**: 2026-04-23  
-> **Scope**: Variant naming, inheritance, smart routing, multi-instance hiring, utilization, overflow, AI pipeline awareness
+> **Scope**: Variant naming, inheritance, smart routing, multi-instance hiring, utilization, overflow, AI pipeline awareness, cross-system connections, end-to-end data flows
 
 ---
 
@@ -21,6 +21,8 @@
 11. [Database Schema Changes](#11-database-schema-changes)
 12. [Naming Migration Plan](#12-naming-migration-plan)
 13. [Implementation Roadmap](#13-implementation-roadmap)
+14. [Cross-System Connections](#14-cross-system-connections)
+15. [Data Flow: End-to-End Ticket Journey](#15-data-flow-end-to-end-ticket-journey)
 
 ---
 
@@ -1135,6 +1137,552 @@ def canonicalize_variant(variant_name: str) -> str:
 - [ ] Create period-end downgrade cron job
 - [ ] Add upgrade/downgrade API endpoints
 - [ ] Test cross-variant scenarios
+
+---
+
+## 14. Cross-System Connections
+
+The Variant System is NOT an isolated module — it touches nearly every system in Parwa. This section maps every connection point, how data flows between systems, and what changes when variants are involved.
+
+### 14.1 Complete System Connection Map
+
+```
+                              ┌─────────────────────┐
+                              │   VARIANT SYSTEM     │
+                              │  (Source of Truth)   │
+                              └──────────┬──────────┘
+                                         │
+           ┌──────────────┬──────────────┼──────────────┬──────────────┐
+           │              │              │              │              │
+    ┌──────▼──────┐ ┌─────▼──────┐ ┌────▼─────┐ ┌────▼──────┐ ┌────▼──────┐
+    │  Dashboard  │ │  Tickets   │ │   AI     │ │  Shadow   │ │  Billing  │
+    │  System     │ │  System    │ │ Pipeline │ │  Mode     │ │  System   │
+    └──────┬──────┘ └─────┬──────┘ └────┬─────┘ └────┬──────┘ └────┬──────┘
+           │              │              │              │              │
+    ┌──────▼──────┐ ┌─────▼──────┐ ┌────▼─────┐ ┌────▼──────┐ ┌────▼──────┐
+    │  Channels   │ │   RAG /    │ │ Entitle- │ │   Token   │ │  Onboard │
+    │  (Email/    │ │   KB       │ │ ment     │ │  Budget   │ │  /Cold   │
+    │   Chat/SMS) │ │            │ │Middleware│ │  Service  │ │  Start   │
+    └─────────────┘ └────────────┘ └──────────┘ └──────────┘ └──────────┘
+```
+
+### 14.2 Dashboard Connection
+
+**Current State**: The dashboard (`/api/dashboard/`) shows company-wide metrics (ticket summary, KPIs, SLA, volume trend, activity feed) with NO variant awareness.
+
+**Target State**: The dashboard must show per-instance and per-variant metrics.
+
+| Dashboard Widget | Current Behavior | Variant-Aware Behavior |
+|-----------------|-----------------|----------------------|
+| **Ticket Summary** | Total open/closed/pending | Breakdown by variant instance (Mini: 45 open, Parwa: 120 open, High: 30 open) |
+| **KPI Cards** | Company-wide averages | Per-variant KPIs + company aggregate; color-coded by variant |
+| **Volume Trend** | Single trend line | Stacked area chart: tickets per variant instance over time |
+| **SLA Metrics** | Single SLA target | Per-variant SLA (Mini: 99.5%, Parwa: 99.9%, High: 99.99%) |
+| **Utilization** | Not shown | Per-instance capacity bars with green/amber/red indicators |
+| **Cost Widget** | Not shown | Monthly spend per instance, total spend, projected next month |
+| **Activity Feed** | All tickets mixed | Filterable by instance/variant; overflow events visible |
+| **Savings Widget** | Not shown | "AI resolved tickets" per variant, cost savings per tier |
+
+**API Changes Required**:
+
+```python
+# GET /api/dashboard/home — add variant breakdown
+{
+    "ticket_summary": {
+        "total_open": 195,
+        "by_variant": {
+            "mini_parwa": {"open": 45, "in_progress": 12},
+            "parwa": {"open": 120, "in_progress": 35},
+            "high_parwa": {"open": 30, "in_progress": 8},
+        },
+        "by_instance": [
+            {"instance_id": "inst_1", "name": "US Support", "open": 45, "variant": "mini_parwa"},
+            {"instance_id": "inst_2", "name": "EU Support", "open": 120, "variant": "parwa"},
+        ]
+    },
+    "utilization": {
+        "by_variant": {
+            "mini_parwa": {"pct": 90.0, "status": "approaching", "color": "amber"},
+            "parwa": {"pct": 68.0, "status": "healthy", "color": "green"},
+            "high_parwa": {"pct": 12.0, "status": "healthy", "color": "green"},
+        }
+    },
+    "overflow_events_today": 3,  # Tickets that overflowed to higher variant
+}
+```
+
+### 14.3 Tickets System Connection
+
+**Current State**: Tickets reference `plan_tier` for attachment limits but have NO variant instance tracking.
+
+**Target State**: Every ticket must be associated with a variant instance and tracked through the overflow chain.
+
+| Ticket Field | Current | Target |
+|-------------|---------|--------|
+| `variant_type` | Not stored on ticket | Stored at creation time based on routing |
+| `instance_id` | Not on ticket | FK to `variant_instances.id` — which instance is handling it |
+| `overflow_from` | Not tracked | If ticket overflowed, which variant it was originally routed to |
+| `overflow_to` | Not tracked | Which variant it overflowed to |
+| `routing_strategy` | Not stored | `smart_overflow`, `channel_pinned`, `least_loaded`, etc. |
+
+**Ticket Creation Flow with Variants**:
+
+```
+1. Customer sends message → Ticket created
+2. Smart Router V2 evaluates:
+   a. Signal extraction → complexity score
+   b. Channel → channel-pinned instance check
+   c. Customer tier → VIP routing preference
+3. Router selects instance (with overflow if needed)
+4. Ticket record updated:
+   - instance_id = selected instance
+   - variant_type = instance's variant type
+   - routing_strategy = "smart_overflow"
+   - overflow_from = None (or original variant if overflowed)
+5. Instance's active_tickets_count incremented
+6. Ticket enters AI pipeline with variant_type from instance
+```
+
+**Ticket Lifecycle Variant Interactions**:
+
+```
+[Ticket Created] → [Routed to Instance] → [AI Pipeline (variant-aware)]
+                                              ↓
+                                         [Response Generated]
+                                              ↓
+                                    ┌─── Confidence ≥ Threshold? ───┐
+                                    │                                │
+                                 YES                                NO
+                                    │                                │
+                              [Auto-send]                    [Shadow Mode Hold]
+                                    │                                │
+                              [Ticket Closed]           [Manager Approves/Rejects]
+```
+
+**Key API Files**:
+- `backend/app/api/tickets.py` — Line 650: `plan_tier = current_user.get("plan_tier", "starter")` → must canonicalize and use for instance routing
+- `backend/app/api/ticket_analytics.py` — Must add per-variant breakdown
+- `backend/app/api/ticket_assignment.py` — Must integrate with Smart Router V2
+- `backend/app/api/ticket_lifecycle.py` — Must update instance counters on status changes
+
+### 14.4 Shadow Mode Connection
+
+**Current State**: Shadow mode operates at company level with 3 modes (shadow, supervised, graduated). NO variant awareness — all instances share the same mode.
+
+**Target State**: Shadow mode behavior varies by variant, with different auto-execute thresholds and risk tolerances.
+
+| Shadow Mode Aspect | Mini Parwa | Parwa | High Parwa |
+|-------------------|-----------|-------|------------|
+| **Default Mode** | `shadow` (most restrictive) | `supervised` | `graduated` (most autonomous) |
+| **Auto-execute Risk Threshold** | 0.3 (only low-risk) | 0.5 (moderate risk OK) | 0.7 (high-risk auto-execute) |
+| **Undo Window** | 30 min (default) | 30 min | 60 min (more time) |
+| **Per-Category Defaults** | All shadow | Refund: supervised, FAQ: graduated | Most categories: graduated |
+| **Approval Required For** | ALL actions | Refunds, SMS, escalations | Only high-risk (refund > $500) |
+| **Batch Approve** | Not available | Available | Available with auto-approve rules |
+
+**Shadow Mode Variant Flow**:
+
+```
+AI Pipeline produces response
+       │
+       ▼
+Shadow Mode Interceptor evaluates:
+  1. Company-wide mode setting (shadow/supervised/graduated)
+  2. Per-category preference (if any)
+  3. VARIANT-SPECIFIC defaults:
+     - mini_parwa → more conservative, always require approval
+     - parwa → balanced, auto-execute moderate risk
+     - high_parwa → aggressive, auto-execute most actions
+  4. Risk score from 4-layer evaluation
+       │
+       ▼
+Decision:
+  risk < variant_threshold AND mode allows → AUTO-EXECUTE + log to undo queue
+  risk ≥ variant_threshold → HOLD for manager approval
+```
+
+**Code Integration Points**:
+- `backend/app/interceptors/base_interceptor.py` — `ShadowInterceptor.evaluate_shadow()` must receive `variant_type` and apply variant-specific thresholds
+- `backend/app/interceptors/email_shadow.py` — Email actions with variant-aware risk thresholds
+- `backend/app/interceptors/chat_shadow.py` — Chat actions with variant-aware auto-execute
+- `backend/app/interceptors/sms_shadow.py` — SMS: Mini must always hold, Parwa+ can auto-execute
+- `backend/app/interceptors/voice_shadow.py` — Voice: Only High Parwa gets auto-execute
+- `backend/app/api/shadow.py` — Config endpoint must return variant-specific thresholds
+- `backend/app/services/shadow_mode_service.py` — `evaluate_action_risk()` must factor in variant type
+
+**Variant Shadow Config**:
+
+```python
+VARIANT_SHADOW_DEFAULTS = {
+    "mini_parwa": {
+        "default_mode": "shadow",
+        "auto_execute_threshold": 0.3,
+        "undo_window_minutes": 30,
+        "always_require_approval": ["refund", "sms", "escalation"],
+    },
+    "parwa": {
+        "default_mode": "supervised",
+        "auto_execute_threshold": 0.5,
+        "undo_window_minutes": 30,
+        "always_require_approval": ["refund", "escalation"],
+    },
+    "high_parwa": {
+        "default_mode": "graduated",
+        "auto_execute_threshold": 0.7,
+        "undo_window_minutes": 60,
+        "always_require_approval": ["high_value_refund"],  # Only >$500 refunds
+    },
+}
+```
+
+### 14.5 Billing System Connection
+
+**Current State**: Billing uses `VariantType` enum (`STARTER/GROWTH/HIGH`) with a single subscription per company.
+
+**Target State**: Billing must support per-instance subscriptions with canonical naming.
+
+| Billing Component | Current | Target |
+|------------------|---------|--------|
+| `VariantType` enum | `STARTER/GROWTH/HIGH` | `MINI_PARWA/PARWA/HIGH_PARWA` |
+| `Subscription.tier` | `"starter"/"growth"/"high"` | `"mini_parwa"/"parwa"/"high_parwa"` |
+| Paddle price IDs | `price_starter_*` | `price_mini_parwa_*` |
+| Per-instance billing | Not supported | Each instance = separate Paddle subscription item |
+| Invoice line items | One line per subscription | One line per instance (e.g., "Mini Parwa - US Team: $999") |
+| Proration | Per subscription change | Per instance change (upgrade/downgrade/cancel) |
+| Webhook handling | Single subscription events | Must match instance-level Paddle items |
+| Downgrade handling | `pending_downgrade_tier` on Subscription | `pending_downgrade_variant` on VariantInstance |
+
+**Billing Flow for Multi-Instance**:
+
+```
+Company purchases 2nd instance (Parwa):
+1. Create VariantInstance(variant_type="parwa", instance_name="EU Team")
+2. Paddle: Add subscription item to existing subscription
+3. Invoice: New line item "Parwa - EU Team: $2,499/mo"
+4. Proration: Charge for remaining days in current period
+5. Instance becomes active immediately
+6. Smart Router can now route tickets to this instance
+```
+
+**Key Billing Files**:
+- `backend/app/api/billing.py` — All endpoints need instance-level awareness
+- `backend/app/api/billing_webhooks.py` — Must route Paddle events to correct instance
+- `backend/app/services/subscription_service.py` — Lines 154-155 use old `VariantType`; must update
+- `backend/app/schemas/billing.py` — `VariantType` enum rename, new instance schemas
+- `backend/app/services/variant_addon_service.py` — Must accept `instance_id` for per-instance add-ons
+
+### 14.6 Channel System Connection
+
+**Current State**: Channels (email, chat, SMS, voice, social) have NO variant awareness. All channels treated equally.
+
+**Target State**: Channel availability and AI quality vary by variant.
+
+| Channel | Mini Parwa | Parwa | High Parwa |
+|---------|-----------|-------|------------|
+| **Email** | Full AI | Full AI | Full AI + priority routing |
+| **Chat** | Full AI | Full AI | Full AI + priority routing |
+| **SMS** | AI-assisted only | Full AI | Full AI + auto-send |
+| **Voice** | NOT available | AI-assisted | Full AI with voice slots |
+| **Social** | AI-assisted only | Full AI | Full AI + proactive |
+| **WhatsApp** | Not available | Full AI | Full AI + proactive |
+| **Web Widget** | Basic | Advanced | Advanced + custom branding |
+
+**Channel-Instance Pinning**:
+
+Each instance can be pinned to specific channels via `channel_assignment` (JSON array on `VariantInstance`):
+
+```python
+# Instance "E-commerce Team" pinned to email + chat
+instance.channel_assignment = ["email", "chat"]
+
+# Instance "VIP Support" pinned to voice + whatsapp
+instance.channel_assignment = ["voice", "whatsapp"]
+```
+
+When a ticket arrives on a pinned channel, the router first checks instances pinned to that channel before falling back to general routing.
+
+**Voice Channel Special Rules**:
+- Mini Parwa: `voice_slots = 0` → No voice at all
+- Parwa: `voice_slots = 2` → Up to 2 simultaneous voice sessions
+- High Parwa: `voice_slots = 5` → Up to 5 simultaneous voice sessions
+
+**Channel API Files**:
+- `backend/app/api/channels.py` — Must check variant entitlements
+- `backend/app/api/email_channel.py` — Shadow mode variant thresholds
+- `backend/app/api/sms_channel.py` — Must block SMS AI for mini_parwa if needed
+- `backend/app/api/twilio_channels.py` — Voice slot enforcement per variant
+
+### 14.7 Knowledge Base (RAG) Connection
+
+**Current State**: RAG retrieval is the same for all variants. The `variant_type` is passed to the RAG endpoint but ignored.
+
+**Target State**: RAG depth, chunk count, reranking, and retrieval strategy vary by variant.
+
+| RAG Feature | Mini Parwa | Parwa | High Parwa |
+|-------------|-----------|-------|------------|
+| **Top-K Results** | 3 | 5 | 10 |
+| **Reranking** | No | Yes (cross-encoder) | Yes (cross-encoder + MMR diversity) |
+| **Chunk Size** | 512 tokens | 768 tokens | 1024 tokens |
+| **Hybrid Search** | Vector only | BM25 + Vector | BM25 + Vector + Knowledge Graph |
+| **Citation** | No citations | Source links | Full citations with confidence |
+| **Cross-Lingual** | No | No | Yes |
+| **Context Compression** | No | Yes | Yes + summarization |
+| **Multi-Source Fusion** | No | No | Yes (KB + docs + web) |
+
+**RAG Endpoint Integration**:
+- `backend/app/api/rag.py` — Line 72: `variant_type = body.get("variant_type", "parwa")` — must use for depth config
+- Line 73: Validates against `("mini_parwa", "parwa", "parwa_high")` — must update to `high_parwa`
+
+### 14.8 AI Agent System Connection
+
+**Current State**: AI agents are limited by plan tier but not by instance.
+
+**Target State**: AI agent limits are per-instance, and agent capabilities vary by variant.
+
+| Agent Feature | Mini Parwa | Parwa | High Parwa |
+|--------------|-----------|-------|------------|
+| **Max AI Agents** | 1 | 3 | 5 |
+| **Agent Type** | FAQ bot only | FAQ + Triage + Escalation | All types including proactive |
+| **Proactive Engagement** | No | No | Yes |
+| **Multi-Step Conversations** | No | Yes (limited) | Yes (full) |
+| **Custom Agent Training** | No | Yes | Yes + fine-tuning |
+| **Agent Collaboration** | No | No | Yes (agent teams) |
+
+**Agent Provisioning Integration**:
+- `backend/app/api/agent_provisioning.py` — Line 85: `tier: str` field → must resolve to instance-level limit
+- Line 226: `Get agent limit information for the company's subscription tier` → must be per-instance
+
+### 14.9 Entitlement Middleware Connection
+
+**Current State**: Already exists and works! `entitlement_middleware.py` checks feature availability per variant type with instance-level overrides.
+
+**Key Point**: The entitlement system already uses canonical names (`mini_parwa`, `parwa`, `parwa_high`) internally, but pricing displays wrong values.
+
+**Changes Needed**:
+- Fix `PLAN_PRICING` in `entitlement_middleware.py` — currently shows `$499/mo` for Mini and `$9,999/mo` for High (wrong)
+- Rename `parwa_high` → `high_parwa` in `PLAN_DISPLAY_NAMES`, `PLAN_PRICING`, `ORDERED_VARIANT_TYPES`
+- Add `VARIANT_LEVELS` key `high_parwa` (currently `parwa_high`)
+
+**Current (Wrong) Values**:
+```python
+PLAN_PRICING = {
+    "mini_parwa": "$499/mo",     # WRONG — should be $999/mo
+    "parwa": "$2,499/mo",        # Correct
+    "parwa_high": "$9,999/mo",   # WRONG name and price — should be high_parwa / $3,999/mo
+}
+```
+
+### 14.10 Token Budget Service Connection
+
+**Current State**: `TokenBudgetService` already has variant-aware token budgets with per-variant max tokens.
+
+**Current Config** (already correct naming, just needs `parwa_high` → `high_parwa`):
+```python
+VARIANT_TOKEN_BUDGETS = {
+    "mini_parwa": {"max_tokens": 4096, ...},
+    "parwa": {"max_tokens": 8192, ...},
+    "parwa_high": {"max_tokens": 16384, ...},  # Rename to high_parwa
+}
+```
+
+**Target Token Budgets** (with updated names and refined thresholds):
+
+| Variant | Max Tokens | Warning Threshold | Critical Threshold | Effective Max (after 10% safety margin) |
+|---------|-----------|------------------|-------------------|---------------------------------------|
+| Mini Parwa | 4,096 | 70% | 90% | 3,686 |
+| Parwa | 8,192 | 70% | 90% | 7,372 |
+| High Parwa | 16,384 | 75% | 92% | 14,745 |
+
+### 14.11 Onboarding & Cold Start Connection
+
+**Current State**: Onboarding already maps company size to variant type.
+
+```python
+# backend/app/api/onboarding.py — Lines 248-258
+variant_type = "mini_parwa"  # Default
+size_to_variant = {
+    "1-10": "mini_parwa",
+    "11-50": "parwa",
+    "51-200": "parwa",
+    "200+": "high_parwa",  # Currently "parwa_high" — needs rename
+}
+```
+
+**Changes Needed**:
+- Update `size_to_variant` to use `high_parwa` instead of `parwa_high`
+- Cold start service (`variant_instance_service.py`) must create the initial `VariantInstance` record during onboarding
+- `VARIANT_PRIORITY` in `variant_instance_service.py` uses `"parwa_high": 3` → rename to `"high_parwa": 3`
+
+### 14.12 Cold Start Service Connection
+
+**Current State**: `cold_start_service.py` recovers tenant warmup with variant type.
+
+**Integration**: When a new company onboards:
+1. Cold start service determines `variant_type` from company size
+2. `variant_instance_service.register_instance()` creates the first instance
+3. `variant_capability_service.initialize_variant_matrix()` populates 170+ feature capabilities
+4. Token budget is initialized for the variant
+5. Shadow mode defaults are set based on variant
+
+### 14.13 Monitoring & Analytics Connection
+
+**Current State**: Monitoring exists but aggregates everything company-wide.
+
+**Variant-Aware Monitoring Metrics**:
+
+| Metric | Per-Instance | Per-Variant | Company-Wide |
+|--------|-------------|-------------|-------------|
+| Ticket volume | Yes | Sum of instances | Sum of all |
+| AI confidence scores | Yes | Average of instances | Average of all |
+| Response time | Yes | Average of instances | Average of all |
+| Overflow events | Yes | Count per variant | Total count |
+| Token usage | Yes | Sum of instances | Sum of all |
+| Cost per ticket | Yes | Average per variant | Weighted average |
+| SLA compliance | Per-instance SLA | Variant-specific SLA | Weighted SLA |
+| Shadow mode holds | Yes | Count per variant | Total count |
+
+**Monitoring Service Files**:
+- `backend/app/core/ai_monitoring_service.py` — Must store `variant_type` and `instance_id` per query
+- `backend/app/api/agent_dashboard.py` — Must add variant breakdown
+- `backend/app/api/ticket_analytics.py` — Must add per-variant ticket analytics
+
+### 14.14 Webhook & Event System Connection
+
+**New Variant Events** (to be emitted):
+
+| Event | Trigger | Payload |
+|-------|---------|---------|
+| `variant:instance_created` | New instance purchased | `instance_id`, `variant_type`, `company_id` |
+| `variant:instance_suspended` | Instance suspended | `instance_id`, `reason` |
+| `variant:instance_upgraded` | Instance tier upgraded | `instance_id`, `old_variant`, `new_variant` |
+| `variant:instance_downgraded` | Instance downgraded at period end | `instance_id`, `old_variant`, `new_variant` |
+| `variant:overflow_triggered` | Ticket overflowed to higher variant | `ticket_id`, `from_instance`, `to_instance` |
+| `variant:limit_exceeded` | Instance hit hard limit | `instance_id`, `limit_type`, `current`, `max` |
+| `variant:addon_added` | Industry add-on attached to instance | `instance_id`, `addon_id` |
+| `variant:addon_removed` | Industry add-on removed from instance | `instance_id`, `addon_id` |
+| `variant:utilization_warning` | Instance reached 80%/95% | `instance_id`, `pct`, `status` |
+
+### 14.15 Complete Feature Registry (170+ Features by Variant)
+
+The existing `FEATURE_REGISTRY` in `variant_capability_service.py` defines 170+ features mapped to variant levels. Here is the summary by category and variant:
+
+| Category | Mini Parwa (Level 1) | Parwa (Level 2) | High Parwa (Level 3) |
+|----------|---------------------|-----------------|---------------------|
+| **Routing** | 6 features | +2 more | 0 additional |
+| **Classification** | 5 features | +3 more | +3 more |
+| **RAG** | 4 features | +4 more | +4 more |
+| **Confidence** | 2 features | 0 additional | 0 additional |
+| **Response Gen** | 3 features | +5 more | +3 more |
+| **Technique (Tier 1)** | 3 features | — | — |
+| **Technique (Tier 2)** | — | 7 features | — |
+| **Technique (Tier 3)** | — | — | 6 features |
+| **Guardrails** | 7 features | +3 more | +1 more |
+| **Monitoring** | 5 features | +4 more | +3 more |
+| **Orchestration** | 5 features | +8 more | +4 more |
+| **Signals** | 4 features | +7 more | 0 additional |
+| **GSD/State** | — | 3 features | +1 more |
+| **Channels** | 2 features | +3 more | +1 more |
+| **Additional** | 1 feature | +10 more | +11 more |
+| **TOTAL** | ~47 features | ~64 features | ~89 features |
+
+**Key Feature Gating Examples**:
+- `F-054`: Smart Router (3-tier LLM) → Level 1 (all variants)
+- `F-056`: Context Window Manager → Level 2 (Parwa+ only)
+- `F-068`: Multi-Intent Detection → Level 3 (High Parwa only)
+- `F-088`: Multi-Source Fusion → Level 3 (High Parwa only)
+- `F-106`: Response A/B Testing → Level 3 (High Parwa only)
+- `F-150`: CLARA (Contrastive Learning) → Level 3 (High Parwa only)
+- `F-204`: Auto-Scaling Orchestration → Level 3 (High Parwa only)
+- `F-253`: Voice Channel AI → Level 3 (High Parwa only)
+
+---
+
+## 15. Data Flow: End-to-End Ticket Journey
+
+This section shows the complete journey of a ticket from creation to resolution, showing every variant touchpoint.
+
+### 15.1 Ticket Creation Journey
+
+```
+Step 1: CUSTOMER SENDS MESSAGE
+   │  Channel: email/chat/SMS/voice
+   │  Company: comp_xyz (has 1x Mini Parwa + 1x High Parwa)
+   ▼
+Step 2: CHANNEL INTERCEPTOR
+   │  email_shadow.py / chat_shadow.py / sms_shadow.py / voice_shadow.py
+   │  → Checks: Is this channel available for this company's variants?
+   │  → Mini Parwa: email, chat OK; voice NOT OK
+   │  → High Parwa: all channels OK
+   ▼
+Step 3: ENTITLEMENT CHECK
+   │  entitlement_middleware.py → check_entitlement()
+   │  → Is the requested AI feature available for this variant?
+   │  → Example: "F-253 Voice Channel AI" requires Level 3 (High Parwa)
+   ▼
+Step 4: SMART ROUTER V2
+   │  smart_router_v2.py → route_ticket()
+   │  → Signal extraction: complexity = 0.8 (high)
+   │  → Ideal variant: high_parwa
+   │  → Find least-loaded High Parwa instance: "VIP Support" (12/15,000 tickets)
+   │  → Route to inst_high_001
+   ▼
+Step 5: LIMIT CHECK
+   │  limit_overflow_engine.py → check_and_route()
+   │  → inst_high_001: 12/15,000 tickets → ALLOW
+   │  → If full: overflow chain → try another High Parwa → suggest purchase
+   ▼
+Step 6: TOKEN BUDGET INIT
+   │  token_budget_service.py → initialize_budget()
+   │  → variant_type = "high_parwa"
+   │  → max_tokens = 14,745 (16,384 - 10% safety margin)
+   ▼
+Step 7: AI PIPELINE (13 stages, variant-aware)
+   │  ai_pipeline.py → process(PipelineContext)
+   │  → variant_type = "high_parwa"
+   │  → config = VARIANT_PIPELINE_CONFIG["high_parwa"]
+   │
+   │  Stage 1: Edge Case Detection — variant-aware handler filtering
+   │  Stage 2: Prompt Injection Scan — standard for all
+   │  Stage 3: Signal Extraction — all 10 signals
+   │  Stage 4: Classification — AI-powered (High Parwa has SmartRouter)
+   │  Stage 5: Sentiment Analysis — full analysis
+   │  Stage 6: Smart Router — Light/Medium/Heavy model by complexity
+   │  Stage 7: Technique Router — all tiers available (including CLARA, GoT)
+   │  Stage 8: RAG Retrieval — top-10, rerank, deep context, citations
+   │  Stage 9: Response Generation — up to 2000 chars, brand voice applied
+   │  Stage 10: CLARA Quality Gate — 5-stage quality check
+   │  Stage 11: Guardrails — premium (8 layers + custom rules + AI guardrails)
+   │  Stage 12: Confidence Scoring — threshold 80%
+   │  Stage 13: Brand Voice — applied with custom rules
+   ▼
+Step 8: SHADOW MODE EVALUATION
+   │  shadow_mode_service.py → evaluate_action_risk()
+   │  → High Parwa default: "graduated" mode
+   │  → auto_execute_threshold: 0.7
+   │  → Risk score: 0.4 → AUTO-EXECUTE (below 0.7 threshold)
+   │  → Log to undo queue (60-minute undo window)
+   ▼
+Step 9: TICKET RESOLUTION
+   │  → Response auto-sent to customer
+   │  → Instance counters updated: active_tickets_count - 1
+   │  → Utilization snapshot updated
+   │  → Overflow audit log (if overflow occurred)
+   │  → AI monitoring record saved with variant_type + instance_id
+```
+
+### 15.2 Comparison: Same Ticket on Different Variants
+
+| Step | Mini Parwa | Parwa | High Parwa |
+|------|-----------|-------|------------|
+| Router model | Light only | Medium | Heavy |
+| Technique | Chain-of-Thought | CRP + Self-Consistency | CLARA + Graph-of-Thought |
+| RAG depth | top-3, no rerank | top-5, with rerank | top-10, rerank + citations |
+| Response length | 500 chars | 1000 chars | 2000 chars |
+| Confidence threshold | 60% | 70% | 80% |
+| Shadow mode | HOLD (shadow) | Conditional (supervised) | AUTO-EXECUTE (graduated) |
+| Brand voice | Not applied | Applied | Applied + custom |
+| Token budget | 3,686 tokens | 7,372 tokens | 14,745 tokens |
+| Voice available | No | AI-assisted | Full AI |
 
 ---
 
