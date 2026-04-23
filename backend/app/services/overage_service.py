@@ -47,6 +47,8 @@ from database.models.core import Company
 
 import os
 
+logger = logging.getLogger("parwa.services.overage")
+
 OVERAGE_PRICE_ID = os.getenv("PADDLE_OVERAGE_PRICE_ID", "")
 
 # Validation: overage price ID must be a real Paddle price ID, not a placeholder.
@@ -58,8 +60,6 @@ if not OVERAGE_PRICE_ID or OVERAGE_PRICE_ID.startswith("pri_overage"):
         "to your actual Paddle overage price ID (starts with 'pri_').",
         OVERAGE_PRICE_ID or "(empty)",
     )
-
-logger = logging.getLogger("parwa.services.overage")
 
 # Overage rate: $0.10 per ticket
 OVERAGE_RATE_PER_TICKET = Decimal("0.10")

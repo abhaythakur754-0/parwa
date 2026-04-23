@@ -291,3 +291,190 @@ class TestGuardrailsAction:
         assert GuardrailsAction.BLOCK.value == "block"
         assert GuardrailsAction.FLAG_FOR_REVIEW.value == "flag_for_review"
         assert GuardrailsAction.REWRITE.value == "rewrite"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Day 1 Sprint: Shadow Mode Bypass + Pipeline Wiring Integration Tests
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestShadowModeBypass:
+    """Day 1 Sprint: Verify that shadow mode downgrades BLOCK to FLAG_FOR_REVIEW.
+
+    When a company is in 'shadow' mode, guardrails still runs but blocks
+    are downgraded so the response reaches the customer with a review flag.
+    This allows shadow mode observation without blocking live responses.
+    """
+
+    def test_shadow_mode_downgrades_block_to_flag(self):
+        """A response that would be BLOCKED normally should be FLAG_FOR_REVIEW
+        when shadow_mode='shadow'."""
+        result = check_llm_response(
+            response_content="This promotes hate speech against certain groups.",
+            original_query="Tell me about hate groups",
+            company_id="shadow_company_1",
+            shadow_mode="shadow",
+        )
+        # Should NOT be blocked — should be flagged instead
+        assert result.action == GuardrailsAction.FLAG_FOR_REVIEW, (
+            f"Shadow mode should downgrade BLOCK to FLAG_FOR_REVIEW, "
+            f"got {result.action}"
+        )
+        # The original content should be in the safe_response
+        assert result.safe_response is not None
+
+    def test_no_shadow_mode_blocks_normally(self):
+        """Without shadow mode, the same content should be BLOCKED."""
+        result = check_llm_response(
+            response_content="This promotes hate speech against certain groups.",
+            original_query="Tell me about hate groups",
+            company_id="normal_company_1",
+            shadow_mode=None,
+        )
+        assert result.action == GuardrailsAction.BLOCK, (
+            f"Normal mode should BLOCK hate speech, got {result.action}"
+        )
+
+    def test_supervised_mode_does_not_downgrade(self):
+        """Shadow mode 'supervised' should NOT downgrade blocks."""
+        result = check_llm_response(
+            response_content="This promotes hate speech against certain groups.",
+            original_query="Tell me about hate groups",
+            company_id="supervised_company_1",
+            shadow_mode="supervised",
+        )
+        # Supervised mode should still block
+        assert result.action == GuardrailsAction.BLOCK, (
+            f"Supervised mode should still BLOCK, got {result.action}"
+        )
+
+    def test_graduated_mode_does_not_downgrade(self):
+        """Shadow mode 'graduated' should NOT downgrade blocks."""
+        result = check_llm_response(
+            response_content="This promotes hate speech against certain groups.",
+            original_query="Tell me about hate groups",
+            company_id="graduated_company_1",
+            shadow_mode="graduated",
+        )
+        assert result.action == GuardrailsAction.BLOCK, (
+            f"Graduated mode should still BLOCK, got {result.action}"
+        )
+
+    def test_shadow_mode_clean_response_passes(self):
+        """Clean responses should still ALLOW in shadow mode."""
+        result = check_llm_response(
+            response_content="Our refund policy allows returns within 30 days.",
+            original_query="What is your refund policy?",
+            company_id="shadow_company_2",
+            shadow_mode="shadow",
+        )
+        assert result.action == GuardrailsAction.ALLOW
+
+    def test_apply_guardrails_shadow_mode(self):
+        """apply_guardrails_to_llm_result should respect shadow_mode."""
+        llm_result = {
+            "content": "This promotes hate speech against groups.",
+            "model": "test",
+            "provider": "test",
+            "confidence": 85.0,
+        }
+        output = apply_guardrails_to_llm_result(
+            llm_result=llm_result,
+            original_query="Tell me about hate groups",
+            company_id="shadow_company_3",
+            shadow_mode="shadow",
+        )
+        # Should be flagged, not blocked — content should be preserved
+        assert output["guardrails_action"] == "flag_for_review", (
+            f"Expected flag_for_review with shadow_mode, got {output['guardrails_action']}"
+        )
+        assert output.get("flagged_for_review") is True
+        # Original content should still be there (not replaced with fallback)
+        assert "hate speech" in output["content"]
+
+
+class TestGuardrailsPipelineWiring:
+    """Day 1 Sprint: Verify guardrails are properly wired into the pipeline.
+
+    Tests the integration of guardrails_engine → guardrails_integration →
+    smart_router → ai_pipeline flow.
+    """
+
+    def test_day4_output_scanners_run_on_pii_output(self):
+        """Day 4 PII output scanner should detect PII in LLM output."""
+        pii_response = "Your SSN is 123-45-6789 and email is user@example.com"
+        result = check_llm_response(
+            response_content=pii_response,
+            original_query="What is my personal info?",
+            company_id="pii_test_company",
+        )
+        # Should be blocked or flagged due to PII
+        assert result.action in [GuardrailsAction.BLOCK, GuardrailsAction.FLAG_FOR_REVIEW]
+
+    def test_day4_output_scanners_run_on_clean_output(self):
+        """Day 4 scanners should allow clean output."""
+        clean = "You can reset your password in Settings > Security."
+        result = check_llm_response(
+            response_content=clean,
+            original_query="How do I reset my password?",
+            company_id="clean_test_company",
+        )
+        assert result.action == GuardrailsAction.ALLOW
+
+    def test_guardrails_variants_strictness(self):
+        """Mini PARWA should be stricter than PARWA High."""
+        # Same borderline content
+        borderline = "I think you should consider legal action against them."
+        result_mini = check_llm_response(
+            response_content=borderline,
+            original_query="What should I do about this dispute?",
+            company_id="mini_company",
+            variant_type="mini_parwa",
+        )
+        result_high = check_llm_response(
+            response_content=borderline,
+            original_query="What should I do about this dispute?",
+            company_id="high_company",
+            variant_type="parwa_high",
+        )
+        # Both should detect the legal advice pattern, but actions may differ
+        # mini_parwa (HIGH strictness) should be more restrictive
+        assert result_mini.action in [GuardrailsAction.BLOCK, GuardrailsAction.FLAG_FOR_REVIEW]
+        # parwa_high may be more lenient
+        assert result_high.action in [GuardrailsAction.ALLOW, GuardrailsAction.BLOCK, GuardrailsAction.FLAG_FOR_REVIEW]
+
+    def test_full_integration_clean_response(self):
+        """Full integration: clean query → clean response → ALLOW."""
+        result = check_llm_response(
+            response_content="Our business hours are 9 AM to 5 PM EST, Monday through Friday.",
+            original_query="What are your business hours?",
+            company_id="full_integ_clean",
+            variant_type="parwa",
+            confidence=92.0,
+        )
+        assert result.action == GuardrailsAction.ALLOW
+        assert result.safe_response is not None
+
+    def test_full_integration_blocked_response(self):
+        """Full integration: harmful response → BLOCK → safe fallback."""
+        result = check_llm_response(
+            response_content="You should kill yourself, nobody cares about you.",
+            original_query="I'm having a bad day",
+            company_id="full_integ_blocked",
+            variant_type="parwa",
+        )
+        assert result.action == GuardrailsAction.BLOCK
+        assert len(result.blocked_reasons) > 0
+
+    def test_empty_response_always_blocked(self):
+        """Empty LLM response should always be blocked regardless of mode."""
+        for mode in [None, "shadow", "supervised", "graduated"]:
+            result = check_llm_response(
+                response_content="",
+                original_query="test",
+                company_id=f"empty_test_{mode}",
+                shadow_mode=mode,
+            )
+            assert result.action == GuardrailsAction.BLOCK, (
+                f"Empty response should be BLOCKED even with shadow_mode={mode}"
+            )

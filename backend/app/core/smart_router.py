@@ -935,6 +935,7 @@ class SmartRouter:
         temperature: float = 0.7,
         max_tokens: int = 1000,
         enable_guardrails: bool = True,
+        shadow_mode: Optional[str] = None,
     ) -> dict:
         """Execute LLM call with automatic guardrails check.
 
@@ -954,6 +955,9 @@ class SmartRouter:
             temperature: LLM temperature.
             max_tokens: Maximum tokens to generate.
             enable_guardrails: Set False to skip guardrails (for internal steps).
+            shadow_mode: Current shadow mode for the company (None, 'shadow',
+                         'supervised', 'graduated'). When 'shadow', blocks are
+                         downgraded to flags so responses still reach the customer.
 
         Returns:
             Dict with LLM response and guardrails metadata:
@@ -990,6 +994,7 @@ class SmartRouter:
                 original_query=original_query,
                 company_id=company_id,
                 variant_type=variant_type,
+                shadow_mode=shadow_mode,
             )
             return guarded_result
 
@@ -1013,10 +1018,12 @@ class SmartRouter:
         temperature: float = 0.7,
         max_tokens: int = 1000,
         enable_guardrails: bool = True,
+        shadow_mode: Optional[str] = None,
     ) -> dict:
         """Async version of execute_llm_call_with_guardrails.
 
         Same behavior as sync version but for async contexts.
+        Day 1 Sprint: Added shadow_mode parameter for shadow mode bypass.
         """
         # Execute the base LLM call
         result = await self.async_execute_llm_call(
@@ -1046,6 +1053,7 @@ class SmartRouter:
                 original_query=original_query,
                 company_id=company_id,
                 variant_type=variant_type,
+                shadow_mode=shadow_mode,
             )
             return guarded_result
 
