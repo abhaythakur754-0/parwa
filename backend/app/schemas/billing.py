@@ -65,7 +65,7 @@ VARIANT_LIMITS = {
         "voice_slots": 0,
         "kb_docs": 100,
         "price": Decimal("999.00"),
-        "yearly_price": Decimal("9990.00"),
+        "yearly_price": Decimal("9590.00"),
     },
     VariantType.GROWTH: {
         "monthly_tickets": 5000,
@@ -74,7 +74,7 @@ VARIANT_LIMITS = {
         "voice_slots": 2,
         "kb_docs": 500,
         "price": Decimal("2499.00"),
-        "yearly_price": Decimal("24990.00"),
+        "yearly_price": Decimal("23990.00"),
     },
     VariantType.HIGH: {
         "monthly_tickets": 15000,
@@ -83,7 +83,7 @@ VARIANT_LIMITS = {
         "voice_slots": 5,
         "kb_docs": 2000,
         "price": Decimal("3999.00"),
-        "yearly_price": Decimal("39990.00"),
+        "yearly_price": Decimal("38390.00"),
     },
 }
 
@@ -183,6 +183,7 @@ class VariantLimits(BaseModel):
     voice_slots: int
     kb_docs: int
     price: Decimal
+    yearly_price: Optional[Decimal] = None
 
 
 # ── Subscription Schemas ──────────────────────────────────────────────────

@@ -27,10 +27,8 @@ from app.interceptors.voice_shadow import (
     get_hold_message,
     should_intercept_voice,
 )
-from app.interceptors.chat_shadow import (
-    ChatShadowInterceptor,
-    ChatShadowQueue,
-)
+from app.interceptors.chat_shadow import ChatShadowInterceptor
+from database.models.shadow_mode import ChatShadowQueue
 from app.interceptors.base_interceptor import ShadowInterceptor
 
 __all__ = [

@@ -324,7 +324,7 @@ def process_chat_queue_batch(self, company_id: str, queue_ids: List[str]) -> Dic
             try:
                 # Get the queue entry to find manager_id
                 from database.base import SessionLocal
-                from app.interceptors.chat_shadow import ChatShadowQueue
+                from database.models.shadow_mode import ChatShadowQueue
                 
                 with SessionLocal() as db:
                     entry = db.query(ChatShadowQueue).filter(

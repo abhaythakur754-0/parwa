@@ -121,6 +121,7 @@ class PipelineContext:
     guardrails_blocked: bool = False
     guardrails_severity: str = "none"
     guardrails_report: Optional[dict] = None
+    day4_output_issues: list = field(default_factory=list)
 
     # Stage 12: Confidence
     confidence_score: float = 0.0
@@ -1200,12 +1201,34 @@ class AIPipeline:
 
         D5-6 FIX: Guardrails now runs AFTER a preliminary confidence estimate.
         D5-7 FIX: Pass urgency/frustration so escalation rules can fire.
+        Day 1 Sprint: Run Day 4 output scanners (PII, Prompt Injection, Info Leak)
+        BEFORE main guardrails engine. Shadow mode bypass: if the company is
+        in 'shadow' mode, blocks are downgraded to flags so responses are
+        still delivered but flagged for review.
         """
         engine = self._get_guardrails_engine()
         if not engine or not ctx.response_text:
             return
 
         try:
+            # ── Day 4 Output Scanners (Layers 9-11) ───────────────
+            day4_issues = []
+            try:
+                from app.core.guardrails_integration import _run_day4_output_scanners
+                day4_issues = _run_day4_output_scanners(
+                    response_content=ctx.response_text,
+                    original_query=ctx.query,
+                    company_id=ctx.company_id,
+                )
+                if day4_issues:
+                    ctx.day4_output_issues = day4_issues
+                    logger.info(
+                        "Day 4 output scanners found %d issue(s) for company_id=%s",
+                        len(day4_issues), ctx.company_id,
+                    )
+            except Exception as day4_exc:
+                logger.error("Day 4 output scanners failed: %s", day4_exc)
+
             # D5-6: Use CLARA score as confidence (runs before guardrails)
             confidence_val = ctx.clara_score if ctx.clara_passed else ctx.confidence_score or 50.0
             report = engine.run_full_check(
@@ -1224,6 +1247,37 @@ class AIPipeline:
                         ctx.guardrails_severity = report.severity or "high"
                 if hasattr(report, "to_dict"):
                     ctx.guardrails_report = report.to_dict()
+
+            # Day 4 issues can also trigger a block
+            for issue in day4_issues:
+                if issue.get("severity") in ("critical", "high"):
+                    ctx.guardrails_blocked = True
+                    if not ctx.guardrails_severity or ctx.guardrails_severity == "none":
+                        ctx.guardrails_severity = issue["severity"]
+
+            # ── Shadow Mode Bypass ────────────────────────────────
+            # If company is in shadow mode, downgrade BLOCK to flag
+            # so the response is still delivered but flagged for review.
+            if ctx.guardrails_blocked:
+                try:
+                    from app.services.shadow_mode_service import ShadowModeService
+                    shadow_svc = ShadowModeService()
+                    eval_result = shadow_svc.evaluate_action_risk(
+                        company_id=ctx.company_id,
+                        action_type="ai_response",
+                        payload={"query": ctx.query},
+                    )
+                    if eval_result.get("mode") == "shadow":
+                        logger.info(
+                            "Shadow mode bypass: downgrading guardrails BLOCK "
+                            "to FLAG_FOR_REVIEW for company_id=%s",
+                            ctx.company_id,
+                        )
+                        ctx.guardrails_blocked = False
+                        ctx.guardrails_passed = False  # Not passed, but not blocked either
+                except Exception as shadow_exc:
+                    logger.debug("Shadow mode check failed, keeping guardrails block: %s", shadow_exc)
+
         except Exception as exc:
             logger.error("Guardrails check failed: %s", exc)
 

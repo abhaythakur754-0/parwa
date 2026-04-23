@@ -13,91 +13,11 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Index, Boolean
-from sqlalchemy.dialects.postgresql import JSONB
-
 from database.base import Base, SessionLocal
+from database.models.shadow_mode import ChatShadowQueue
 from app.interceptors.base_interceptor import ShadowInterceptor
 
 logger = logging.getLogger("parwa.interceptors.chat")
-
-
-# ── Chat Shadow Queue Model ────────────────────────────────────────
-
-def _uuid() -> str:
-    import uuid
-    return str(uuid.uuid4())
-
-
-class ChatShadowQueue(Base):
-    """
-    Queue for chat widget messages held in shadow mode pending manager approval.
-
-    When an outbound chat message is intercepted and requires_hold is True,
-    the message is saved here until a manager approves or rejects it.
-
-    BC-001: company_id is required on every record.
-    """
-    __tablename__ = "chat_shadow_queue"
-
-    id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(
-        String(36),
-        ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    # Link to the shadow log entry
-    shadow_log_id = Column(
-        String(36),
-        ForeignKey("shadow_log.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    # Chat session details
-    session_id = Column(String(100), nullable=False)
-    conversation_id = Column(String(36), ForeignKey("conversations.id"), nullable=True)
-    # Message details
-    message_text = Column(Text, nullable=False)
-    message_type = Column(String(20), default="text")  # text, card, carousel, etc.
-    attachments = Column(JSONB, nullable=True)  # List of attachment metadata
-    quick_replies = Column(JSONB, nullable=True)  # Quick reply options
-    # Customer info
-    customer_id = Column(String(36), ForeignKey("customers.id"), nullable=True)
-    visitor_id = Column(String(100), nullable=True)  # For anonymous visitors
-    # AI metadata
-    suggested_response = Column(Text, nullable=True)  # Original AI suggestion
-    confidence_score = Column(String(10), nullable=True)  # AI confidence level
-    # Status tracking
-    status = Column(String(20), nullable=False, default="pending")
-    # pending, approved, rejected, sent, failed
-    approved_by = Column(String(36), ForeignKey("users.id"), nullable=True)
-    approved_at = Column(DateTime(timezone=True), nullable=True)
-    rejection_reason = Column(Text, nullable=True)
-    sent_at = Column(DateTime(timezone=True), nullable=True)
-    message_uuid = Column(String(100), nullable=True)  # Chat message UUID
-    error_message = Column(Text, nullable=True)
-    # Edit tracking
-    was_edited = Column(Boolean, default=False)
-    original_message = Column(Text, nullable=True)  # Before manager edit
-    edited_message = Column(Text, nullable=True)  # Manager's edited version
-    created_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.utcnow(),
-        nullable=False,
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
-        nullable=False,
-    )
-
-    __table_args__ = (
-        Index("idx_chat_shadow_queue_company_status", "company_id", "status"),
-        Index("idx_chat_shadow_queue_session", "session_id"),
-        Index("idx_chat_shadow_queue_created", "created_at"),
-    )
 
 
 # ── Chat Shadow Interceptor ────────────────────────────────────────

@@ -6,10 +6,14 @@ Every LLM response passes through guardrails BEFORE reaching the customer.
 
 Integration Flow:
 1. Smart Router executes LLM call
-2. Response passes through GuardrailsEngine.run_full_scan()
-3. If BLOCKED → Route to BlockedResponseManager
-4. If FLAG_FOR_REVIEW → Deliver with metadata flag
-5. If ALLOW → Deliver normally
+2. Response passes through Day 4 output scanners (PII → Prompt Injection → Info Leak)
+3. Response passes through GuardrailsEngine.run_full_scan() (Layers 1-8)
+4. If BLOCKED → Route to BlockedResponseManager
+5. If FLAG_FOR_REVIEW → Deliver with metadata flag
+6. If ALLOW → Deliver normally
+
+Day 1 Sprint: Wire Day 4 output scanners into the live pipeline,
+add shadow mode bypass, add Prometheus metrics.
 
 BC-007: All AI through Smart Router
 BC-009: Approval workflow for blocked responses
@@ -19,6 +23,7 @@ BC-001: company_id is always second parameter
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -29,6 +34,38 @@ if TYPE_CHECKING:
     from app.core.blocked_response_manager import BlockedResponseManager
 
 logger = logging.getLogger("parwa.guardrails_integration")
+
+
+# ── Prometheus Metrics (Day 1 Sprint) ──────────────────────────────
+
+try:
+    from app.core.metrics import get_registry
+
+    _metrics_registry = get_registry()
+    _guardrails_total = _metrics_registry.counter(
+        "parwa_guardrails_checks_total",
+        "Total guardrails checks",
+        ["company_id", "variant_type", "action"],
+    )
+    _guardrails_duration = _metrics_registry.histogram(
+        "parwa_guardrails_check_duration_seconds",
+        "Guardrails check duration",
+        ["company_id", "variant_type"],
+    )
+    _guardrails_blocks = _metrics_registry.counter(
+        "parwa_guardrails_blocks_total",
+        "Total responses blocked by guardrails",
+        ["company_id", "variant_type", "layer"],
+    )
+    _output_scans_total = _metrics_registry.counter(
+        "parwa_output_scans_total",
+        "Total Day 4 output scans",
+        ["company_id", "scanner", "action"],
+    )
+    _METRICS_ENABLED = True
+except Exception:
+    _METRICS_ENABLED = False
+    logger.debug("Prometheus metrics not available for guardrails integration")
 
 
 class GuardrailsAction(str, Enum):
@@ -62,10 +99,17 @@ def check_llm_response(
     variant_type: str = "parwa",
     confidence: float = 85.0,
     engine: Optional["GuardrailsEngine"] = None,
+    shadow_mode: Optional[str] = None,
 ) -> GuardrailsCheckResult:
     """Check LLM response through all guardrail layers.
 
     This is the main integration point called after LLM generation.
+    Runs Day 4 output scanners (PII, Prompt Injection, Info Leak)
+    BEFORE the main guardrails engine.
+
+    Day 1 Sprint: Added shadow_mode parameter — when shadow mode is
+    'shadow' (observation only), guardrails still runs but actions
+    are downgraded to FLAG_FOR_REVIEW instead of BLOCK.
 
     Args:
         response_content: The LLM-generated response text.
@@ -74,6 +118,9 @@ def check_llm_response(
         variant_type: PARWA variant for strictness level.
         confidence: AI confidence score from LLM.
         engine: Optional pre-configured GuardrailsEngine.
+        shadow_mode: Current shadow mode for the company (None, 'shadow',
+                     'supervised', 'graduated'). When 'shadow', blocks are
+                     downgraded to flags.
 
     Returns:
         GuardrailsCheckResult with action and details.
@@ -86,6 +133,15 @@ def check_llm_response(
             company_id=company_id,
         )
 
+    start_time = time.monotonic()
+
+    # ── Day 4 Output Scanners (run BEFORE main guardrails) ────────────
+    day4_issues = _run_day4_output_scanners(
+        response_content=response_content,
+        original_query=original_query,
+        company_id=company_id,
+    )
+
     # Lazy import to avoid circular dependencies
     from app.core.guardrails_engine import GuardrailsEngine
 
@@ -93,7 +149,7 @@ def check_llm_response(
     guardrails_engine = engine or GuardrailsEngine()
 
     try:
-        # Run full guardrail scan
+        # Run full guardrail scan (Layers 1-8)
         report = guardrails_engine.run_full_check(
             query=original_query,
             response=response_content,
@@ -115,6 +171,50 @@ def check_llm_response(
                     blocked_reasons.append(f"{result.layer}: {result.reason}")
                 elif result.action == "flag_for_review":
                     flagged_layers.append(result.layer)
+
+        # Add Day 4 scanner results to reasons
+        for issue in day4_issues:
+            if issue["severity"] in ("critical", "high"):
+                blocked_reasons.append(issue["reason"])
+            else:
+                flagged_layers.append(issue["scanner"])
+
+        # Shadow mode bypass: downgrade BLOCK to FLAG_FOR_REVIEW
+        if shadow_mode == "shadow" and action == GuardrailsAction.BLOCK:
+            logger.info(
+                "Shadow mode bypass: downgrading BLOCK to FLAG_FOR_REVIEW "
+                "for company_id=%s shadow_mode=%s",
+                company_id, shadow_mode,
+            )
+            action = GuardrailsAction.FLAG_FOR_REVIEW
+            flagged_layers.extend(
+                [r.split(":")[0] for r in blocked_reasons]
+            )
+            blocked_reasons = []
+
+        # Record Prometheus metrics
+        duration = time.monotonic() - start_time
+        if _METRICS_ENABLED:
+            try:
+                _guardrails_total.labels(
+                    company_id=company_id,
+                    variant_type=variant_type,
+                    action=action.value,
+                ).inc()
+                _guardrails_duration.labels(
+                    company_id=company_id,
+                    variant_type=variant_type,
+                ).observe(duration)
+                if action == GuardrailsAction.BLOCK:
+                    for reason in blocked_reasons:
+                        layer = reason.split(":")[0] if ":" in reason else "unknown"
+                        _guardrails_blocks.labels(
+                            company_id=company_id,
+                            variant_type=variant_type,
+                            layer=layer,
+                        ).inc()
+            except Exception:
+                logger.debug("Failed to record guardrails metrics")
 
         return GuardrailsCheckResult(
             action=action,
@@ -228,6 +328,152 @@ def _get_safe_fallback_response(blocked_reasons: List[str]) -> str:
     )
 
 
+# ── Day 4 Output Scanners (Day 1 Sprint wiring) ──────────────────
+
+
+def _run_day4_output_scanners(
+    response_content: str,
+    original_query: str,
+    company_id: str,
+) -> List[Dict[str, Any]]:
+    """Run Day 4 output scanners on LLM response BEFORE main guardrails.
+
+    Scans in order: PII Output Scan → Prompt Injection Output Scan → Info Leak Guard.
+    This implements layers 9-11 from the guardrails engine TODO list.
+
+    Each scanner is called defensively — a failure in one scanner
+    does not prevent others from running (BC-012).
+
+    Args:
+        response_content: The LLM-generated response text.
+        original_query: The customer's original query.
+        company_id: Tenant identifier (BC-001).
+
+    Returns:
+        List of issue dicts with keys: scanner, severity, reason.
+        Empty list means all scanners passed.
+    """
+    issues: List[Dict[str, Any]] = []
+
+    # Scanner 1: PII Output Scan (Layer 11)
+    try:
+        from app.core.pii_redaction_engine import PIIDetector
+        pii_detector = PIIDetector()
+        pii_matches = pii_detector.detect(response_content)
+        if pii_matches:
+            high_conf_pii = [m for m in pii_matches if m.confidence >= 0.80]
+            if high_conf_pii:
+                pii_types = sorted({m.pii_type for m in high_conf_pii})
+                issues.append({
+                    "scanner": "pii_output_scan",
+                    "severity": "critical",
+                    "reason": (
+                        f"PII detected in LLM output: "
+                        f"{', '.join(pii_types)} "
+                        f"({len(high_conf_pii)} instance(s))"
+                    ),
+                })
+                logger.warning(
+                    "PII detected in LLM output for company_id=%s types=%s count=%d",
+                    company_id, pii_types, len(high_conf_pii),
+                )
+        # Record metrics
+        if _METRICS_ENABLED:
+            try:
+                action = "block" if pii_matches and any(
+                    m.confidence >= 0.80 for m in pii_matches
+                ) else "allow"
+                _output_scans_total.labels(
+                    company_id=company_id,
+                    scanner="pii_output_scan",
+                    action=action,
+                ).inc()
+            except Exception:
+                pass
+    except Exception as e:
+        logger.error("PII output scan failed for company_id=%s: %s", company_id, e)
+
+    # Scanner 2: Prompt Injection Output Scan (Layer 10)
+    try:
+        from app.core.prompt_injection_defense import PromptInjectionDetector
+        injection_detector = PromptInjectionDetector()
+        injection_result = injection_detector.scan(
+            query=response_content,  # Scan the OUTPUT for injection remnants
+            company_id=company_id,
+        )
+        if injection_result and getattr(injection_result, "is_injection", False):
+            issues.append({
+                "scanner": "prompt_injection_output",
+                "severity": "high",
+                "reason": (
+                    f"Prompt injection remnants in LLM output: "
+                    f"{getattr(injection_result, 'reason', 'unknown')}"
+                ),
+            })
+            logger.warning(
+                "Prompt injection remnants in LLM output for company_id=%s",
+                company_id,
+            )
+        # Record metrics
+        if _METRICS_ENABLED:
+            try:
+                action = "block" if injection_result and getattr(
+                    injection_result, "is_injection", False
+                ) else "allow"
+                _output_scans_total.labels(
+                    company_id=company_id,
+                    scanner="prompt_injection_output",
+                    action=action,
+                ).inc()
+            except Exception:
+                pass
+    except Exception as e:
+        logger.error("Prompt injection output scan failed for company_id=%s: %s", company_id, e)
+
+    # Scanner 3: Info Leak Guard (Layer 9)
+    try:
+        from app.core.info_leak_guard import InfoLeakGuard
+        info_leak_guard = InfoLeakGuard()
+        leak_result = info_leak_guard.scan(
+            response=response_content,
+            company_id=company_id,
+        )
+        if leak_result and getattr(leak_result, "has_leak", False):
+            leak_action = getattr(leak_result, "action", "allow")
+            categories = sorted({
+                m.category for m in getattr(leak_result, "matches", [])
+            })
+            severity = "high" if leak_action == "block" else "medium"
+            issues.append({
+                "scanner": "info_leak_guard",
+                "severity": severity,
+                "reason": (
+                    f"Information leak in LLM output: "
+                    f"categories={', '.join(categories)} "
+                    f"action={leak_action}"
+                ),
+            })
+            logger.warning(
+                "Info leak detected in LLM output for company_id=%s categories=%s",
+                company_id, categories,
+            )
+        # Record metrics
+        if _METRICS_ENABLED:
+            try:
+                action = getattr(leak_result, "action", "allow") if leak_result else "allow"
+                _output_scans_total.labels(
+                    company_id=company_id,
+                    scanner="info_leak_guard",
+                    action=action,
+                ).inc()
+            except Exception:
+                pass
+    except Exception as e:
+        logger.error("Info leak output scan failed for company_id=%s: %s", company_id, e)
+
+    return issues
+
+
 # ── Smart Router Integration Helper ──────────────────────────────────
 
 
@@ -236,17 +482,21 @@ def apply_guardrails_to_llm_result(
     original_query: str,
     company_id: str,
     variant_type: str = "parwa",
+    shadow_mode: Optional[str] = None,
 ) -> dict:
     """Apply guardrails to an LLM result dict from Smart Router.
 
     This is the primary integration point for Smart Router.
     Call this AFTER Smart Router executes the LLM call.
 
+    Day 1 Sprint: Added shadow_mode parameter for shadow mode bypass.
+
     Args:
         llm_result: Dict with 'content' key from Smart Router.
         original_query: The customer's original query.
         company_id: Tenant identifier.
         variant_type: PARWA variant type.
+        shadow_mode: Current shadow mode for the company.
 
     Returns:
         Modified dict with guardrails applied:
@@ -265,6 +515,7 @@ def apply_guardrails_to_llm_result(
         company_id=company_id,
         variant_type=variant_type,
         confidence=confidence,
+        shadow_mode=shadow_mode,
     )
 
     # Build output dict

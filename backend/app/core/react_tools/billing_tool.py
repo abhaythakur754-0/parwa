@@ -30,11 +30,11 @@ logger = logging.getLogger(__name__)
 
 _PLANS = [
     {"plan_id": "PARWA-STARTER-MO", "name": "Mini PARWA", "price": 999.00},
-    {"plan_id": "PARWA-STARTER-YR", "name": "Mini PARWA (Annual)", "price": 9990.00},
+    {"plan_id": "PARWA-STARTER-YR", "name": "Mini PARWA (Annual)", "price": 9590.00},
     {"plan_id": "PARWA-GROWTH-MO", "name": "PARWA", "price": 2499.00},
-    {"plan_id": "PARWA-GROWTH-YR", "name": "PARWA (Annual)", "price": 24990.00},
+    {"plan_id": "PARWA-GROWTH-YR", "name": "PARWA (Annual)", "price": 23990.00},
     {"plan_id": "PARWA-HIGH-MO", "name": "PARWA High", "price": 3999.00},
-    {"plan_id": "PARWA-HIGH-YR", "name": "PARWA High (Annual)", "price": 39990.00},
+    {"plan_id": "PARWA-HIGH-YR", "name": "PARWA High (Annual)", "price": 38390.00},
 ]
 
 _PAYMENT_METHODS = ["visa_****4242", "mastercard_****8888", "amex_****1234", "bank_acct_****5678"]

@@ -375,25 +375,27 @@ export default function BillingPage() {
     }
     try {
       await billingApi.cancelFeedback({ reason: cancelReason, feedback: cancelFeedback });
+      // Fetch the actual save offer from the backend before showing step 2
+      const offerData = await billingApi.applySaveOffer();
+      setSaveOfferData(offerData);
       setCancelStep(2);
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   };
 
-  const handleCancelStep2 = async () => {
-    try {
-      const data = await billingApi.applySaveOffer();
-      setSaveOfferData(data);
-      toast.success(data.message);
-      setCancelModalOpen(false);
-      setCancelStep(1);
-      setCancelReason('');
-      setCancelFeedback('');
-      loadSummary();
-    } catch (error) {
-      toast.error(getErrorMessage(error));
+  const handleAcceptOffer = async () => {
+    // User accepted the save offer — it was already applied in step 1 fetch
+    if (saveOfferData) {
+      toast.success(saveOfferData.message || 'Discount applied! Your subscription has been updated.');
     }
+    setCancelModalOpen(false);
+    setCancelStep(1);
+    setCancelReason('');
+    setCancelFeedback('');
+    setCancelConfirmCheck(false);
+    setSaveOfferData(null);
+    loadSummary();
   };
 
   const handleCancelStep3 = async () => {
@@ -1137,12 +1139,20 @@ export default function BillingPage() {
             <div className="space-y-5">
               <div className="rounded-xl border border-[#FF7F11]/30 bg-[#FF7F11]/5 p-5 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#FF7F11]/10 mb-3">
-                  <span className="text-2xl font-bold text-[#FF7F11]">20%</span>
+                  <span className="text-2xl font-bold text-[#FF7F11]">{saveOfferData?.discount_percentage ?? 20}%</span>
                 </div>
-                <h4 className="text-lg font-bold text-white mb-1">Stay for 20% Off</h4>
+                <h4 className="text-lg font-bold text-white mb-1">
+                  Stay for {saveOfferData?.discount_percentage ?? 20}% Off
+                </h4>
                 <p className="text-sm text-zinc-400">
-                  We&apos;ll give you 20% off your next 3 billing cycles. That&apos;s a significant saving!
+                  {saveOfferData?.message || `We'll give you ${saveOfferData?.discount_percentage ?? 20}% off your next ${saveOfferData?.discount_months ?? 3} billing cycles. That's a significant saving!`}
                 </p>
+                {saveOfferData?.original_price && saveOfferData?.discounted_price && (
+                  <div className="mt-3 flex items-center justify-center gap-3 text-sm">
+                    <span className="line-through text-zinc-500">{saveOfferData.original_price}</span>
+                    <span className="font-semibold text-[#FF7F11]">{saveOfferData.discounted_price}</span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-3 pt-2">
                 <button
@@ -1152,11 +1162,11 @@ export default function BillingPage() {
                   No Thanks, Cancel Anyway
                 </button>
                 <button
-                  onClick={handleCancelStep2}
+                  onClick={handleAcceptOffer}
                   className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#FF7F11] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#FF7F11]/90 transition-colors"
                 >
                   <CheckIcon className="h-4 w-4" />
-                  Claim 20% Off
+                  Claim {saveOfferData?.discount_percentage ?? 20}% Off
                 </button>
               </div>
             </div>

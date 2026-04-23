@@ -46,7 +46,18 @@ from database.models.billing_extended import UsageRecord, CompanyVariant, get_va
 from database.models.core import Company
 
 import os
-OVERAGE_PRICE_ID = os.getenv("PADDLE_OVERAGE_PRICE_ID", "pri_overage")
+
+OVERAGE_PRICE_ID = os.getenv("PADDLE_OVERAGE_PRICE_ID", "")
+
+# Validation: overage price ID must be a real Paddle price ID, not a placeholder.
+# In production, the PADDLE_OVERAGE_PRICE_ID env var MUST be set.
+if not OVERAGE_PRICE_ID or OVERAGE_PRICE_ID.startswith("pri_overage"):
+    logger.warning(
+        "PADDLE_OVERAGE_PRICE_ID is not set or uses placeholder '%s'. "
+        "Overage charges will fail in production. Set PADDLE_OVERAGE_PRICE_ID "
+        "to your actual Paddle overage price ID (starts with 'pri_').",
+        OVERAGE_PRICE_ID or "(empty)",
+    )
 
 logger = logging.getLogger("parwa.services.overage")
 
@@ -155,7 +166,7 @@ class OverageService:
             # V6: Add variant addon tickets for effective limit
             active_addons = db.query(CompanyVariant).filter(
                 CompanyVariant.company_id == str(company_id),
-                CompanyVariant.status.in_("active", "inactive"),
+                CompanyVariant.status.in_(["active", "inactive"]),
             ).all()
             addon_tickets = sum(v.tickets_added for v in active_addons)
             ticket_limit += addon_tickets
@@ -362,6 +373,13 @@ class OverageService:
             Dict with charge_id and status
         """
         try:
+            # Validate overage price ID before submitting to Paddle
+            if not OVERAGE_PRICE_ID or OVERAGE_PRICE_ID.startswith("pri_overage"):
+                raise OverageError(
+                    f"Invalid overage price ID '{OVERAGE_PRICE_ID}'. "
+                    "Set PADDLE_OVERAGE_PRICE_ID environment variable to a valid Paddle price ID."
+                )
+
             # Create one-time charge in Paddle
             result = await paddle.create_transaction(
                 customer_id=company.paddle_customer_id,
@@ -508,7 +526,7 @@ class OverageService:
             # V6: Add variant addon tickets for effective limit
             active_addons = db.query(CompanyVariant).filter(
                 CompanyVariant.company_id == str(company_id),
-                CompanyVariant.status.in_("active", "inactive"),
+                CompanyVariant.status.in_(["active", "inactive"]),
             ).all()
             addon_tickets = sum(v.tickets_added for v in active_addons)
             ticket_limit += addon_tickets
@@ -688,7 +706,7 @@ class OverageService:
             # V6: Add variant addon tickets
             active_addons = db.query(CompanyVariant).filter(
                 CompanyVariant.company_id == str(company_id),
-                CompanyVariant.status.in_("active", "inactive"),
+                CompanyVariant.status.in_(["active", "inactive"]),
             ).all()
             addon_tickets = sum(v.tickets_added for v in active_addons)
 
