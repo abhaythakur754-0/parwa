@@ -39,8 +39,6 @@ def main():
         "--queues=default,ai_heavy,ai_light,email,webhook,analytics,training,knowledge,dead_letter",
         # Prevent memory leaks from long-running tasks
         "--max-tasks-per-child=1000",
-        # Let broker handle liveness (reduces noise in logs)
-        "--without-heartbeat",
     ])
 
 

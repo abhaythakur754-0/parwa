@@ -6,6 +6,9 @@ Plus shadow queue tables for channel interceptors:
 - SmsShadowQueue: Holds outbound SMS messages awaiting approval
 - ChatShadowQueue: Holds outbound chat messages awaiting approval
 
+Note: ChatShadowQueue was previously in backend/app/interceptors/chat_shadow.py
+and has been moved here for consistency with other shadow queue models.
+
 Dual-control system that allows AI actions to be executed in shadow mode
 (observation only), supervised (requires manager approval), or graduated
 (auto-approved based on confidence).

@@ -586,6 +586,7 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
             "voice_slots": 0,
             "kb_docs": 100,
             "price_monthly": Decimal("999.00"),
+            "price_yearly": Decimal("9590.40"),  # 999 * 12 * 0.80 = 9590.40 (20% discount)
         },
         "growth": {
             "monthly_tickets": 5000,
@@ -594,6 +595,7 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
             "voice_slots": 2,
             "kb_docs": 500,
             "price_monthly": Decimal("2499.00"),
+            "price_yearly": Decimal("23990.40"),  # 2499 * 12 * 0.80 = 23990.40 (20% discount)
         },
         "high": {
             "monthly_tickets": 15000,
@@ -602,6 +604,7 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
             "voice_slots": 5,
             "kb_docs": 2000,
             "price_monthly": Decimal("3999.00"),
+            "price_yearly": Decimal("38390.40"),  # 3999 * 12 * 0.80 = 38390.40 (20% discount)
         },
     }
     return LIMITS.get(variant_name.lower())
