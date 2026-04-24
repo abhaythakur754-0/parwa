@@ -590,6 +590,74 @@ def dispatch_training_mistake_check(self):
 @app.task(
     base=ParwaBaseTask,
     bind=True,
+    queue="default",
+    name="app.tasks.periodic.rebalance_workload",
+    max_retries=1,
+)
+def rebalance_workload_all_companies(self):
+    """60-second workload rebalancer across all companies.
+
+    Checks instance utilization and migrates tickets from overloaded
+    instances to underloaded ones. Runs every 60 seconds via Celery Beat.
+
+    Mini Parwa Feature: Workload distribution optimization.
+    BC-004: Runs every 60 seconds via Celery Beat.
+    """
+    try:
+        from database.base import SessionLocal
+        from database.models.core import Company
+        from app.services.variant_orchestration_service import rebalance_workload
+
+        db = SessionLocal()
+        try:
+            # Get all active companies
+            companies = db.query(Company).filter(
+                Company.subscription_status == "active",
+            ).all()
+
+            total_rebalanced = 0
+            total_migrated = 0
+            errors = 0
+
+            for company in companies:
+                try:
+                    result = rebalance_workload(db, str(company.id))
+                    total_rebalanced += result.get("rebalanced_instances", 0)
+                    total_migrated += result.get("migrated_tickets", 0)
+                except Exception as company_exc:
+                    logger.warning(
+                        "rebalance_company_failed company_id=%s error=%s",
+                        str(company.id),
+                        str(company_exc)[:100],
+                    )
+                    errors += 1
+
+            logger.info(
+                "rebalance_workload_all completed companies=%d rebalanced=%d migrated=%d errors=%d",
+                len(companies),
+                total_rebalanced,
+                total_migrated,
+                errors,
+            )
+            return {
+                "status": "ok",
+                "companies_processed": len(companies),
+                "rebalanced_instances": total_rebalanced,
+                "migrated_tickets": total_migrated,
+                "errors": errors,
+            }
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(
+            "rebalance_workload_all failed error=%s", exc,
+        )
+        return {"status": "failed", "error": str(exc)[:200]}
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
     queue="knowledge",
     name="app.tasks.periodic.reindex_all_knowledge_documents",
     max_retries=1,
