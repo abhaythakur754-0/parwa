@@ -82,7 +82,7 @@ class TestRegisterUser:
         assert result.user.role == "owner"
 
     def test_register_default_company_tier(self, _setup_db):
-        """New company gets 'starter' subscription tier."""
+        """New company gets 'mini_parwa' subscription tier."""
         db = _setup_db
         result = register_user(
             db=db,

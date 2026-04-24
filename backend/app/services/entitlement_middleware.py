@@ -41,13 +41,13 @@ from app.exceptions import ParwaBaseError
 PLAN_DISPLAY_NAMES = {
     "mini_parwa": "Mini PARWA",
     "parwa": "PARWA",
-    "parwa_high": "PARWA High",
+    "high_parwa": "PARWA High",
 }
 
 PLAN_PRICING = {
     "mini_parwa": "$499/mo",
     "parwa": "$2,499/mo",
-    "parwa_high": "$9,999/mo",
+    "high_parwa": "$9,999/mo",
 }
 
 # Minimum variant type required for upgrade suggestion
@@ -55,7 +55,7 @@ PLAN_PRICING = {
 ORDERED_VARIANT_TYPES = [
     "mini_parwa",
     "parwa",
-    "parwa_high",
+    "high_parwa",
 ]
 
 

@@ -108,7 +108,7 @@ class TestSocketIOJWTAuth:
             "company_id": "acme",
             "email": "test@example.com",
             "role": "owner",
-            "plan": "starter",
+            "plan": "mini_parwa",
             "type": "access",
             "exp": now - timedelta(hours=1),
             "iat": now - timedelta(hours=2),

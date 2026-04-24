@@ -296,7 +296,7 @@ class AIMonitoringService:
 
         Args:
             company_id: Tenant identifier (BC-001).
-            variant_type: PARWA variant (mini_parwa, parwa, parwa_high).
+            variant_type: PARWA variant (mini_parwa, parwa, high_parwa).
             query: The original customer query.
             response: The AI-generated response.
             routing_decision: Dict with provider, model_id, tier, step.

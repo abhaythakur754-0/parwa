@@ -81,7 +81,7 @@ def _make_mock_subscription(**overrides):
     sub.id = str(uuid4())
     sub.company_id = str(uuid4())
     sub.status = "active"
-    sub.tier = "growth"
+    sub.tier = "parwa"
     sub.created_at = datetime.now(timezone.utc)
     for key, value in overrides.items():
         setattr(sub, key, value)

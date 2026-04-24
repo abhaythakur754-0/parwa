@@ -128,9 +128,9 @@ class TestGap1_RAGEmptyQuery:
     async def test_empty_string_variant_tier_recorded(self):
         """Empty query still records the variant_tier_used."""
         result = await self.retriever.retrieve(
-            query="", company_id="c1", variant_type="parwa_high",
+            query="", company_id="c1", variant_type="high_parwa",
         )
-        assert result.variant_tier_used == "parwa_high"
+        assert result.variant_tier_used == "high_parwa"
 
     @pytest.mark.asyncio
     async def test_empty_string_no_exception_raised(self):
@@ -371,7 +371,7 @@ class TestGap4_SentimentMapperRule6:
 
     Rule 6: frustration < 30 + sentiment <= 0.7 → UoT (Tier 3) + Step-Back (Tier 2)
     For mini_parwa: UoT should be BLOCKED and replaced with T1 fallback.
-    For parwa_high: both UoT and Step-Back should be recommended.
+    For high_parwa: both UoT and Step-Back should be recommended.
     """
 
     def setup_method(self):
@@ -423,14 +423,14 @@ class TestGap4_SentimentMapperRule6:
         assert "step_back" not in tech_ids
         assert "gsd" in tech_ids
 
-    def test_parwa_high_allows_uot_rule6(self):
-        """parwa_high allows CoT (Tier 2) and Step-Back (Tier 2) in Rule 6."""
+    def test_high_parwa_allows_uot_rule6(self):
+        """high_parwa allows CoT (Tier 2) and Step-Back (Tier 2) in Rule 6."""
         result = self.mapper.map(
             frustration_score=10,
             sentiment_score=0.5,
             urgency_level="low",
             customer_tier="free",
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
         tech_ids = [t.value for t in result.recommended_techniques]
         # G9-GAP-04: Rule 6 now uses CoT + Step-Back (both Tier 2)
@@ -438,14 +438,14 @@ class TestGap4_SentimentMapperRule6:
         assert "step_back" in tech_ids
         assert "universe_of_thoughts" not in tech_ids
 
-    def test_parwa_high_allows_step_back_rule6(self):
-        """parwa_high allows Step-Back (Tier 2) in Rule 6."""
+    def test_high_parwa_allows_step_back_rule6(self):
+        """high_parwa allows Step-Back (Tier 2) in Rule 6."""
         result = self.mapper.map(
             frustration_score=10,
             sentiment_score=0.5,
             urgency_level="low",
             customer_tier="free",
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
         tech_ids = [t.value for t in result.recommended_techniques]
         assert "step_back" in tech_ids
@@ -1129,7 +1129,7 @@ class TestGap12_RAGVariantValidation:
 
     def test_variant_config_known_variants_exist(self):
         """All known variants exist in VARIANT_CONFIG."""
-        for variant in ["mini_parwa", "parwa", "parwa_high"]:
+        for variant in ["mini_parwa", "parwa", "high_parwa"]:
             assert variant in VARIANT_CONFIG
 
     @pytest.mark.asyncio

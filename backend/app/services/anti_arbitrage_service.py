@@ -3,12 +3,12 @@ Anti-Arbitrage Service (F-159)
 
 Detects and prevents multi-instance capacity gaming across PARWA variants.
 Malicious tenants could create many cheap mini_parwa instances to get the
-capacity of a parwa_high instance for less money.
+capacity of a high_parwa instance for less money.
 
 Pricing Context:
   mini_parwa: $999 / 2,000 tickets  (weight=1.0)
   parwa:      $2,499 / 5,000 tickets (weight=2.5)
-  parwa_high: $3,999 / 15,000 tickets (weight=7.5)
+  high_parwa: $3,999 / 15,000 tickets (weight=7.5)
 
 GAP Fixes:
   W9-GAP-014 (HIGH):   Atomic check with Redis INCR + Lua script for
@@ -108,7 +108,7 @@ class AntiArbitrageConfig:
     capacity_weights map variant types to a normalised weight that
     represents their relative capacity.  The sum of weights across
     all of a tenant's instances must not exceed max_weighted_capacity
-    (default 7.5 = 1 parwa_high).
+    (default 7.5 = 1 high_parwa).
     """
     max_instances_per_variant: int = 10
     max_weighted_capacity: float = 7.5
@@ -116,14 +116,14 @@ class AntiArbitrageConfig:
         default_factory=lambda: {
             "mini_parwa": 1.0,
             "parwa": 2.5,
-            "parwa_high": 7.5,
+            "high_parwa": 7.5,
         },
     )
     ticket_limits: Dict[str, int] = field(
         default_factory=lambda: {
             "mini_parwa": 2000,
             "parwa": 5000,
-            "parwa_high": 15000,
+            "high_parwa": 15000,
         },
     )
     alert_thresholds: Dict[str, int] = field(
@@ -214,7 +214,7 @@ return {new_cap, new_cnt}
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
 
-VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "parwa_high"}
+VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "high_parwa"}
 
 _RAPID_CREATION_WINDOW_SECONDS = 600  # 10 minutes
 
@@ -256,7 +256,7 @@ class AntiArbitrageService:
 
     Detects and prevents tenants from gaming capacity by spawning
     many cheap mini_parwa instances instead of purchasing a single
-    parwa_high instance.
+    high_parwa instance.
 
     All public methods accept ``company_id`` as their first argument
     (BC-001) and are wrapped in try/except for graceful degradation

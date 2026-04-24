@@ -21,7 +21,7 @@ StateGraph with nodes for each pipeline step. Three variant tiers:
 
   - mini_parwa (L1):  3-step simplified pipeline
   - parwa      (L2):  6-step standard pipeline
-  - parwa_high (L3):  9-step full pipeline
+  - high_parwa (L3):  9-step full pipeline
 
 Each step is a node in the graph. The engine executes steps
 sequentially, tracks per-step results, and handles timeouts.
@@ -137,7 +137,7 @@ VARIANT_PIPELINE_CONFIG: Dict[str, Dict[str, Any]] = {
         "timeout_seconds": 30.0,
         "description": "Standard 6-step pipeline for L2 tier",
     },
-    "parwa_high": {
+    "high_parwa": {
         "steps": [
             "classify",
             "extract_signals",
@@ -441,7 +441,7 @@ class LangGraphWorkflow:
         builders = {
             "mini_parwa": self._build_mini_parwa_pipeline,
             "parwa": self._build_parwa_pipeline,
-            "parwa_high": self._build_parwa_high_pipeline,
+            "high_parwa": self._build_high_parwa_pipeline,
         }
         builder = builders.get(variant_type, self._build_parwa_pipeline)
         return builder()
@@ -488,7 +488,7 @@ class LangGraphWorkflow:
         ]
         return [self._make_step(sid) for sid in step_ids]
 
-    def _build_parwa_high_pipeline(self) -> List[WorkflowStep]:
+    def _build_high_parwa_pipeline(self) -> List[WorkflowStep]:
         """9-step full pipeline.
 
         classify -> extract_signals -> technique_select ->

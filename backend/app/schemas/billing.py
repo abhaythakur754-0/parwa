@@ -18,9 +18,9 @@ from pydantic import BaseModel, Field, field_validator
 
 class VariantType(str, Enum):
     """PARWA subscription variants."""
-    STARTER = "starter"
-    GROWTH = "growth"
-    HIGH = "high"
+    MINI_PARWA = "mini_parwa"
+    PARWA = "parwa"
+    HIGH_PARWA = "high_parwa"
 
 
 class SubscriptionStatus(str, Enum):
@@ -58,7 +58,7 @@ class BillingFrequency(str, Enum):
 
 
 VARIANT_LIMITS = {
-    VariantType.STARTER: {
+    VariantType.MINI_PARWA: {
         "monthly_tickets": 2000,
         "ai_agents": 1,
         "team_members": 3,
@@ -67,7 +67,7 @@ VARIANT_LIMITS = {
         "price": Decimal("999.00"),
         "yearly_price": Decimal("9590.00"),
     },
-    VariantType.GROWTH: {
+    VariantType.PARWA: {
         "monthly_tickets": 5000,
         "ai_agents": 3,
         "team_members": 10,
@@ -76,7 +76,7 @@ VARIANT_LIMITS = {
         "price": Decimal("2499.00"),
         "yearly_price": Decimal("23990.00"),
     },
-    VariantType.HIGH: {
+    VariantType.HIGH_PARWA: {
         "monthly_tickets": 15000,
         "ai_agents": 5,
         "team_members": 25,

@@ -762,14 +762,14 @@ class TestGap5GSDTransitionValidation:
         result = await gsd_engine.transition(state, GSDState.GREETING)
         assert result.gsd_state == GSDState.GREETING
 
-    def test_parwa_high_allows_diagnosis_loop(self, gsd_engine):
+    def test_high_parwa_allows_diagnosis_loop(self, gsd_engine):
         """Test that PARWA_HIGH allows DIAGNOSIS loop after HUMAN_HANDOFF."""
-        config = GSDConfig(company_id="test_high", variant="parwa_high")
+        config = GSDConfig(company_id="test_high", variant="high_parwa")
         gsd_engine.update_config("test_high", config)
         
         # HUMAN_HANDOFF -> DIAGNOSIS should be valid in PARWA_HIGH
         result = asyncio.run(gsd_engine.can_transition_with_variant(
-            "human_handoff", "diagnosis", "parwa_high"
+            "human_handoff", "diagnosis", "high_parwa"
         ))
         assert result, "HUMAN_HANDOFF -> DIAGNOSIS should be valid for PARWA_HIGH"
 

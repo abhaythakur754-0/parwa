@@ -21,7 +21,7 @@ def upgrade() -> None:
         sa.Column('id', sa.String(36), primary_key=True),
         sa.Column('name', sa.String(255), nullable=False),
         sa.Column('industry', sa.String(255)),
-        sa.Column('subscription_tier', sa.String(50), nullable=False, server_default='starter'),
+        sa.Column('subscription_tier', sa.String(50), nullable=False, server_default='mini_parwa'),
         sa.Column('subscription_status', sa.String(50), nullable=False, server_default='trialing'),
         sa.Column('mode', sa.String(50), nullable=False, server_default='shadow'),
         sa.Column('paddle_customer_id', sa.String(255)),

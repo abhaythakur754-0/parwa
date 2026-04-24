@@ -399,7 +399,7 @@ class TestVariantWeights:
         self.extractor = SignalExtractor()
 
     def test_all_variants_have_weights(self):
-        for variant in ("mini_parwa", "parwa", "parwa_high"):
+        for variant in ("mini_parwa", "parwa", "high_parwa"):
             weights = self.extractor.get_variant_weights(variant)
             assert "complexity" in weights
             assert "intent" in weights

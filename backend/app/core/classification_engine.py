@@ -2,7 +2,7 @@
 AI-Powered Multi-Label Intent Classification Engine (F-062)
 
 Classifies ticket text into primary + secondary intents using:
-1. Smart Router AI classification (parwa/parwa_high variants)
+1. Smart Router AI classification (parwa/high_parwa variants)
 2. Keyword-based fallback (always available, all variants)
 
 Supports 12 intent types (6 core + 6 extended from technique_router).
@@ -300,8 +300,8 @@ class ClassificationEngine:
             )
             return self._default_result("too_short")
 
-        # ── AI classification (parwa/parwa_high only) ────────────
-        if use_ai and self.smart_router and variant_type in ("parwa", "parwa_high"):
+        # ── AI classification (parwa/high_parwa only) ────────────
+        if use_ai and self.smart_router and variant_type in ("parwa", "high_parwa"):
             try:
                 return await self._classify_with_ai(
                     cleaned, company_id, variant_type,

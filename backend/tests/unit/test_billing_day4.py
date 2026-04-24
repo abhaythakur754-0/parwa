@@ -119,7 +119,7 @@ class TestCancelSaveOffer:
         company_id = uuid.uuid4()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.billing_frequency = "monthly"
         mock_sub.metadata_json = {}
         mock_sub.company_id = str(company_id)
@@ -150,7 +150,7 @@ class TestCancelSaveOffer:
         company_id = uuid.uuid4()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"
+        mock_sub.tier = "mini_parwa"
         mock_sub.billing_frequency = "monthly"
         mock_sub.metadata_json = None
 
@@ -225,7 +225,7 @@ class TestCancelConfirm:
         mock_sub = MagicMock()
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(company_id)
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.status = "active"
         mock_sub.cancel_at_period_end = False
         mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=15)
@@ -269,7 +269,7 @@ class TestCancelConfirm:
         mock_sub = MagicMock()
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(company_id)
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.status = "active"
         mock_sub.cancel_at_period_end = False
         mock_sub.paddle_subscription_id = None
@@ -320,7 +320,7 @@ class TestCancelEffectiveImmediately:
         mock_sub = MagicMock()
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(company_id)
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.status = "active"
         mock_sub.cancel_at_period_end = False
         mock_sub.paddle_subscription_id = None
@@ -363,7 +363,7 @@ class TestCancelEffectiveImmediately:
         mock_sub = MagicMock()
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(company_id)
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.status = "active"
         mock_sub.cancel_at_period_end = False
         mock_sub.current_period_end = period_end
@@ -402,7 +402,7 @@ class TestCancelEffectiveImmediately:
         mock_sub = MagicMock()
         mock_sub.id = str(uuid.uuid4())
         mock_sub.company_id = str(company_id)
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.status = "active"
         mock_sub.cancel_at_period_end = False
         mock_sub.paddle_subscription_id = paddle_sub_id
@@ -1081,7 +1081,7 @@ class TestResubscribeWithinRetention:
             }):
                 result = asyncio.run(service.resubscribe(
                     company_id=company_id,
-                    variant="growth",
+                    variant="parwa",
                     restore_data=True,
                 ))
 
@@ -1117,7 +1117,7 @@ class TestResubscribeWithinRetention:
         mock_core.User = MagicMock()
         mock_core.Channel = MagicMock()
         with patch.dict(sys.modules, {"database.models.core": mock_core}):
-            result = asyncio.run(service._restore_archived_data(mock_db, "company-1", "growth"))
+            result = asyncio.run(service._restore_archived_data(mock_db, "company-1", "parwa"))
 
         assert result["agents_restored"] == 1
         assert mock_agent.status == "active"
@@ -1169,7 +1169,7 @@ class TestResubscribeAfterRetention:
         with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
             result = asyncio.run(service.resubscribe(
                 company_id=company_id,
-                variant="growth",
+                variant="parwa",
                 restore_data=True,
             ))
 
@@ -1200,7 +1200,7 @@ class TestResubscribeAfterRetention:
             with pytest.raises(SubscriptionError):
                 asyncio.run(service.resubscribe(
                     company_id=company_id,
-                    variant="starter",
+                    variant="mini_parwa",
                 ))
 
     def test_resubscribe_active_sub_raises(self):
@@ -1228,7 +1228,7 @@ class TestResubscribeAfterRetention:
             with pytest.raises(SubscriptionAlreadyExistsError):
                 asyncio.run(service.resubscribe(
                     company_id=company_id,
-                    variant="starter",
+                    variant="mini_parwa",
                 ))
 
 
@@ -1252,7 +1252,7 @@ class TestResubscribePlanChange:
         mock_canceled_sub.id = str(uuid.uuid4())
         mock_canceled_sub.company_id = str(company_id)
         mock_canceled_sub.status = "canceled"
-        mock_canceled_sub.tier = "growth"  # Was on growth
+        mock_canceled_sub.tier = "parwa"  # Was on growth
         mock_canceled_sub.service_stopped_at = datetime.now(timezone.utc) - timedelta(days=5)
         mock_canceled_sub.updated_at = datetime.now(timezone.utc) - timedelta(days=5)
         mock_canceled_sub.created_at = datetime.now(timezone.utc) - timedelta(days=40)
@@ -1331,7 +1331,7 @@ class TestResubscribePlanChange:
         with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
             result = asyncio.run(service.resubscribe(
                 company_id=company_id,
-                variant="growth",
+                variant="parwa",
                 billing_frequency="yearly",
             ))
 

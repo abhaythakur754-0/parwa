@@ -157,10 +157,10 @@ class TestGetSLATarget:
     def test_sla_target_growth_plan(self, priority_service):
         """Test SLA targets improve for growth plan."""
         starter_targets = priority_service.get_sla_target(
-            TicketPriority.high.value, "starter"
+            TicketPriority.high.value, "mini_parwa"
         )
         growth_targets = priority_service.get_sla_target(
-            TicketPriority.high.value, "growth"
+            TicketPriority.high.value, "parwa"
         )
         assert growth_targets["first_response_minutes"] < starter_targets["first_response_minutes"]
 

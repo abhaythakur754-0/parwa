@@ -164,11 +164,11 @@ class TestUpdateSubscription:
             f"/api/admin/clients/{owner['company_id']}"
             f"/subscription",
             headers=_auth_headers(token),
-            json={"tier": "growth", "status": "active"},
+            json={"tier": "parwa", "status": "active"},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["subscription_tier"] == "growth"
+        assert data["subscription_tier"] == "parwa"
         assert data["subscription_status"] == "active"
 
 

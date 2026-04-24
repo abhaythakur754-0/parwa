@@ -40,7 +40,7 @@ class ClassifyRequest(BaseModel):
     company_id: str = Field(..., description="Tenant company ID (BC-001)")
     variant_type: str = Field(
         default="parwa",
-        description="PARWA variant: mini_parwa, parwa, parwa_high",
+        description="PARWA variant: mini_parwa, parwa, high_parwa",
     )
     use_ai: bool = Field(
         default=True,

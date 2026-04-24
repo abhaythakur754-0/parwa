@@ -350,7 +350,7 @@ class GuardrailConfig:
 
     Attributes:
         company_id: Tenant identifier (BC-001).
-        variant_type: PARWA variant (mini_parwa, parwa, parwa_high).
+        variant_type: PARWA variant (mini_parwa, parwa, high_parwa).
         strictness_level: How strict to apply guards.
         enabled_layers: Which guard layers are active.
         custom_rules: Tenant-specific custom rules.
@@ -410,7 +410,7 @@ class GuardrailsReport:
 VARIANT_STRICTNESS: Dict[str, StrictnessLevel] = {
     "mini_parwa": StrictnessLevel.HIGH,
     "parwa": StrictnessLevel.MEDIUM,
-    "parwa_high": StrictnessLevel.LOW,
+    "high_parwa": StrictnessLevel.LOW,
 }
 
 # Default confidence thresholds per variant:
@@ -420,7 +420,7 @@ VARIANT_STRICTNESS: Dict[str, StrictnessLevel] = {
 VARIANT_CONFIDENCE_THRESHOLDS: Dict[str, float] = {
     "mini_parwa": 95.0,
     "parwa": 85.0,
-    "parwa_high": 75.0,
+    "high_parwa": 75.0,
 }
 
 # Strictness-to-action mapping (controls how violations are handled)

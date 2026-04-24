@@ -210,7 +210,7 @@ class VariantType(str, Enum):
     """PARWA variant identifiers with associated quality tiers."""
     MINI_PARWA = "mini_parwa"
     PARWA = "parwa"
-    PARWA_HIGH = "parwa_high"
+    PARWA_HIGH = "high_parwa"
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -280,7 +280,7 @@ class ConfidenceConfig:
 
     Attributes:
         company_id: Tenant identifier (BC-001).
-        variant_type: PARWA variant (mini_parwa, parwa, parwa_high).
+        variant_type: PARWA variant (mini_parwa, parwa, high_parwa).
         threshold: Minimum overall score to pass (0-100).
         signal_weights: Override default weights per signal name.
         enabled_signals: Which signals to evaluate (empty = all).
@@ -611,7 +611,7 @@ class ConfidenceScoringEngine:
         """Get the default signal weights for a variant type.
 
         Args:
-            variant_type: PARWA variant (mini_parwa, parwa, parwa_high).
+            variant_type: PARWA variant (mini_parwa, parwa, high_parwa).
 
         Returns:
             Dict mapping signal names to their default weights.
@@ -624,7 +624,7 @@ class ConfidenceScoringEngine:
         """Get the default confidence threshold for a variant type.
 
         Args:
-            variant_type: PARWA variant (mini_parwa, parwa, parwa_high).
+            variant_type: PARWA variant (mini_parwa, parwa, high_parwa).
 
         Returns:
             Threshold score (0-100) required to pass.

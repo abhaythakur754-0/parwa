@@ -435,12 +435,12 @@ class TestGuardrailsPipelineWiring:
             response_content=borderline,
             original_query="What should I do about this dispute?",
             company_id="high_company",
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
         # Both should detect the legal advice pattern, but actions may differ
         # mini_parwa (HIGH strictness) should be more restrictive
         assert result_mini.action in [GuardrailsAction.BLOCK, GuardrailsAction.FLAG_FOR_REVIEW]
-        # parwa_high may be more lenient
+        # high_parwa may be more lenient
         assert result_high.action in [GuardrailsAction.ALLOW, GuardrailsAction.BLOCK, GuardrailsAction.FLAG_FOR_REVIEW]
 
     def test_full_integration_clean_response(self):

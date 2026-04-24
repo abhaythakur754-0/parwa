@@ -135,8 +135,8 @@ class TestProration30DayDivisor:
 
         # Even with a period that spans 31 calendar days, divisor should be 30
         proration = service._calculate_proration(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=datetime(2024, 1, 1, tzinfo=timezone.utc),
             billing_cycle_end=datetime(2024, 1, 31, tzinfo=timezone.utc),
             billing_frequency="monthly",
@@ -153,8 +153,8 @@ class TestProration30DayDivisor:
         service = SubscriptionService()
 
         proration = service._calculate_proration(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=datetime(2024, 1, 1, tzinfo=timezone.utc),
             billing_cycle_end=datetime(2024, 12, 31, tzinfo=timezone.utc),
             billing_frequency="yearly",
@@ -178,8 +178,8 @@ class TestProration30DayDivisor:
 
         # Starter is $999/month
         proration = service._calculate_proration(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=datetime(2024, 1, 1, tzinfo=timezone.utc),
             billing_cycle_end=datetime(2024, 1, 31, tzinfo=timezone.utc),
             billing_frequency="monthly",
@@ -211,8 +211,8 @@ class TestPeriodEndTransitions:
             mock_sub = MagicMock()
             mock_sub.id = "sub-1"
             mock_sub.company_id = "company-1"
-            mock_sub.tier = "growth"
-            mock_sub.pending_downgrade_tier = "starter"
+            mock_sub.tier = "parwa"
+            mock_sub.pending_downgrade_tier = "mini_parwa"
             mock_sub.current_period_end = datetime.now(timezone.utc)
 
             mock_db = MagicMock()
@@ -261,8 +261,8 @@ class TestPeriodEndTransitions:
         service = SubscriptionService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"
-        mock_sub.pending_downgrade_tier = "starter"
+        mock_sub.tier = "parwa"
+        mock_sub.pending_downgrade_tier = "mini_parwa"
         mock_sub.cancel_at_period_end = True
         mock_sub.pending_downgrade_at = None
         mock_sub.company_id = "company-1"
@@ -270,7 +270,7 @@ class TestPeriodEndTransitions:
         mock_sub.paddle_subscription_id = None
 
         mock_company = MagicMock()
-        mock_company.subscription_tier = "growth"
+        mock_company.subscription_tier = "parwa"
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value.first.return_value = mock_company
@@ -281,12 +281,12 @@ class TestPeriodEndTransitions:
         }):
             service._apply_pending_downgrade(mock_db, mock_sub)
 
-        assert mock_sub.tier == "starter"
+        assert mock_sub.tier == "mini_parwa"
         assert mock_sub.pending_downgrade_tier is None
         assert mock_sub.cancel_at_period_end is False
-        assert mock_sub.previous_tier == "growth"
+        assert mock_sub.previous_tier == "parwa"
         assert mock_sub.downgrade_executed_at is not None
-        assert mock_company.subscription_tier == "starter"
+        assert mock_company.subscription_tier == "mini_parwa"
 
     def test_apply_scheduled_cancellation_updates_status(self):
         """D3: Applying cancellation should set status to canceled."""
@@ -360,7 +360,7 @@ class TestResourceCleanup:
             ]
 
             result = service._cleanup_resources_on_downgrade(
-                mock_db, "company-1", "high", "starter"
+                mock_db, "company-1", "high", "mini_parwa"
             )
 
         # Starter limits: 1 agent, 3 members, 100 docs, 0 voice
@@ -392,7 +392,7 @@ class TestResourceCleanup:
         ]
 
         result = service._cleanup_resources_on_downgrade(
-            mock_db, "company-1", "starter", "starter"
+            mock_db, "company-1", "mini_parwa", "mini_parwa"
         )
 
         assert result["agents_paused"] == 0  # Within limit
@@ -414,8 +414,8 @@ class TestPreDowngradeWarning:
 
         mock_sub = MagicMock()
         mock_sub.company_id = "company-1"
-        mock_sub.tier = "growth"
-        mock_sub.pending_downgrade_tier = "starter"
+        mock_sub.tier = "parwa"
+        mock_sub.pending_downgrade_tier = "mini_parwa"
         mock_sub.current_period_end = (
             datetime.now(timezone.utc) + timedelta(days=5)
         )
@@ -447,8 +447,8 @@ class TestPreDowngradeWarning:
             ]
             data = service._build_downgrade_warning_data(mock_db, mock_sub)
 
-        assert data["current_tier"] == "growth"
-        assert data["new_tier"] == "starter"
+        assert data["current_tier"] == "parwa"
+        assert data["new_tier"] == "mini_parwa"
         assert data["days_until_change"] == 7
         assert "affected_resources" in data
         assert data["affected_resources"]["agents_to_pause"] == 2  # 3 - 1
@@ -475,8 +475,8 @@ class TestDowngradeUndo:
 
         test_id = uuid.uuid4()
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"
-        mock_sub.previous_tier = "growth"
+        mock_sub.tier = "mini_parwa"
+        mock_sub.previous_tier = "parwa"
         mock_sub.downgrade_executed_at = (
             datetime.now(timezone.utc) - timedelta(hours=12)
         )  # 12 hours ago — within window
@@ -490,7 +490,7 @@ class TestDowngradeUndo:
         mock_sub.paddle_subscription_id = None
         mock_sub.created_at = datetime.now(timezone.utc) - timedelta(days=30)
         mock_sub.pending_downgrade_tier = None
-        mock_sub.previous_tier = "growth"
+        mock_sub.previous_tier = "parwa"
         mock_sub.days_in_period = 30
 
         mock_company = MagicMock()
@@ -511,7 +511,7 @@ class TestDowngradeUndo:
             with patch("app.services.subscription_service.SessionLocal", return_value=mock_db):
                 result = asyncio.run(service.undo_downgrade(uuid.uuid4()))
 
-        assert mock_sub.tier == "growth"
+        assert mock_sub.tier == "parwa"
         assert mock_sub.previous_tier is None
         assert mock_sub.downgrade_executed_at is None
         assert mock_restore.called
@@ -526,8 +526,8 @@ class TestDowngradeUndo:
         service = SubscriptionService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"
-        mock_sub.previous_tier = "growth"
+        mock_sub.tier = "mini_parwa"
+        mock_sub.previous_tier = "parwa"
         mock_sub.downgrade_executed_at = (
             datetime.now(timezone.utc) - timedelta(hours=25)
         )  # 25 hours ago — expired
@@ -588,7 +588,7 @@ class TestBillingFrequencyModel:
 
         sub = Subscription(
             company_id=str(uuid.uuid4()),
-            tier="starter",
+            tier="mini_parwa",
             status="active",
         )
         assert sub.billing_frequency == "monthly"
@@ -648,8 +648,8 @@ class TestYearlyPricing:
 
         service = SubscriptionService()
 
-        monthly_price = service._get_variant_price("starter", "monthly")
-        yearly_price = service._get_variant_price("starter", "yearly")
+        monthly_price = service._get_variant_price("mini_parwa", "monthly")
+        yearly_price = service._get_variant_price("mini_parwa", "yearly")
 
         assert monthly_price == Decimal("999.00")
         assert yearly_price == Decimal("9990.00")
@@ -667,8 +667,8 @@ class TestYearlyPricing:
         mock_settings.PADDLE_YEARLY_PRICE_IDS = ""
 
         with patch("app.config.get_settings", return_value=mock_settings):
-            monthly_id = service._get_paddle_price_id("starter", "monthly")
-            yearly_id = service._get_paddle_price_id("starter", "yearly")
+            monthly_id = service._get_paddle_price_id("mini_parwa", "monthly")
+            yearly_id = service._get_paddle_price_id("mini_parwa", "yearly")
 
         assert monthly_id != yearly_id
         assert "yearly" in yearly_id.lower() or "_yearly" in yearly_id.lower()
@@ -690,7 +690,7 @@ class TestFrequencySwitch:
 
         test_company_id = uuid.uuid4()
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.billing_frequency = "monthly"
         mock_sub.company_id = str(test_company_id)
         mock_sub.paddle_subscription_id = None
@@ -732,7 +732,7 @@ class TestFrequencySwitch:
         test_company_id = uuid.uuid4()
         mock_sub = MagicMock()
         mock_sub.billing_frequency = "yearly"
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.company_id = str(test_company_id)
         mock_sub.id = str(uuid.uuid4())
         mock_sub.status = "active"
@@ -785,7 +785,7 @@ class TestUsagePeriodAlignment:
         mock_sub.current_period_start = now
         mock_sub.current_period_end = period_end
         mock_sub.days_in_period = BILLING_PERIOD_DAYS
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value \
@@ -798,7 +798,7 @@ class TestUsagePeriodAlignment:
 
         assert result["billing_frequency"] == "monthly"
         assert result["days_in_period"] == BILLING_PERIOD_DAYS
-        assert result["tier"] == "growth"
+        assert result["tier"] == "parwa"
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -816,8 +816,8 @@ class TestYearlyUpgradeDowngrade:
         service = SubscriptionService()
 
         proration = service._calculate_proration(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=datetime(2024, 1, 1, tzinfo=timezone.utc),
             billing_cycle_end=datetime(2024, 12, 31, tzinfo=timezone.utc),
             billing_frequency="yearly",
@@ -836,7 +836,7 @@ class TestYearlyUpgradeDowngrade:
 
         test_company_id = uuid.uuid4()
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.status = "active"
         mock_sub.billing_frequency = "yearly"
         mock_sub.company_id = str(test_company_id)
@@ -863,12 +863,12 @@ class TestYearlyUpgradeDowngrade:
             result = asyncio.run(
                 service.downgrade_subscription(
                     company_id=test_company_id,
-                    new_variant="starter",
+                    new_variant="mini_parwa",
                 )
             )
 
         # Should schedule downgrade regardless of frequency
-        assert mock_sub.pending_downgrade_tier == "starter"
+        assert mock_sub.pending_downgrade_tier == "mini_parwa"
         assert mock_sub.cancel_at_period_end is True
 
 
@@ -893,7 +893,7 @@ class TestYearlyRenewal:
         mock_sub.cancel_at_period_end = False
         mock_sub.pending_downgrade_tier = None
         mock_sub.company_id = "company-1"
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.billing_frequency = "yearly"
         mock_sub.current_period_end = now - timedelta(days=1)  # Expired
 
@@ -949,12 +949,12 @@ class TestValidationEdgeCases:
 
         service = SubscriptionService()
 
-        assert service._is_upgrade("starter", "growth") is True
-        assert service._is_upgrade("starter", "high") is True
-        assert service._is_upgrade("growth", "high") is True
-        assert service._is_upgrade("growth", "starter") is False
-        assert service._is_upgrade("high", "starter") is False
-        assert service._is_upgrade("starter", "starter") is False
+        assert service._is_upgrade("mini_parwa", "parwa") is True
+        assert service._is_upgrade("mini_parwa", "high") is True
+        assert service._is_upgrade("parwa", "high") is True
+        assert service._is_upgrade("parwa", "mini_parwa") is False
+        assert service._is_upgrade("high", "mini_parwa") is False
+        assert service._is_upgrade("mini_parwa", "mini_parwa") is False
 
     def test_subscription_info_has_day2_fields(self):
         """SubscriptionInfo schema should include Day 2 fields."""
@@ -963,18 +963,18 @@ class TestValidationEdgeCases:
         info = SubscriptionInfo(
             id=uuid.uuid4(),
             company_id=uuid.uuid4(),
-            variant="starter",
+            variant="mini_parwa",
             status="active",
             created_at=datetime.now(timezone.utc),
             billing_frequency=BillingFrequency.YEARLY,
-            pending_downgrade_tier="starter",
-            previous_tier="growth",
+            pending_downgrade_tier="mini_parwa",
+            previous_tier="parwa",
             days_in_period=365,
         )
 
         assert info.billing_frequency == BillingFrequency.YEARLY
-        assert info.pending_downgrade_tier == "starter"
-        assert info.previous_tier == "growth"
+        assert info.pending_downgrade_tier == "mini_parwa"
+        assert info.previous_tier == "parwa"
         assert info.days_in_period == 365
 
 

@@ -68,16 +68,16 @@ class TicketLifecycleService:
             return {"in_scope": True, "reason": None}
         
         # Check plan capabilities (simplified)
-        plan_tier = getattr(company, 'plan_tier', 'starter')
+        plan_tier = getattr(company, 'plan_tier', 'mini_parwa')
         
         # Define scope limits by plan
         scope_limits = {
-            "starter": {"ai_responses": 10, "channels": ["email"]},
-            "growth": {"ai_responses": 50, "channels": ["email", "chat"]},
+            "mini_parwa": {"ai_responses": 10, "channels": ["email"]},
+            "parwa": {"ai_responses": 50, "channels": ["email", "chat"]},
             "high": {"ai_responses": -1, "channels": ["email", "chat", "sms", "voice"]},
         }
         
-        limits = scope_limits.get(plan_tier, scope_limits["starter"])
+        limits = scope_limits.get(plan_tier, scope_limits["mini_parwa"])
         
         result = {
             "in_scope": True,

@@ -5,7 +5,7 @@ Comprehensive tests covering:
 - Data classes: SignalScore, ConfidenceResult, ConfidenceConfig
 - Signal evaluators: all 7 signals with good/bad/edge cases
 - Overall scoring: weighted average, pass/fail, clamping
-- Variant thresholds: mini_parwa=95, parwa=85, parwa_high=75
+- Variant thresholds: mini_parwa=95, parwa=85, high_parwa=75
 - Custom config: weight overrides, enabled signals, threshold overrides
 - Batch scoring: multiple responses, error isolation
 - Config management: get default, update, cache per company, reset
@@ -270,8 +270,8 @@ class TestDefaults:
     def test_parwa_threshold_85(self):
         assert DEFAULT_THRESHOLDS["parwa"] == 85.0
 
-    def test_parwa_high_threshold_75(self):
-        assert DEFAULT_THRESHOLDS["parwa_high"] == 75.0
+    def test_high_parwa_threshold_75(self):
+        assert DEFAULT_THRESHOLDS["high_parwa"] == 75.0
 
     def test_all_signal_names_count(self):
         assert len(ALL_SIGNAL_NAMES) == 7
@@ -317,7 +317,7 @@ class TestEngineInitAndConfig:
     def test_update_config_overwrites(self, engine):
         cfg1 = ConfidenceConfig(
             company_id=COMPANY_ID,
-            variant_type="parwa_high",
+            variant_type="high_parwa",
             threshold=75.0,
         )
         engine.update_config(COMPANY_ID, cfg1)
@@ -347,8 +347,8 @@ class TestEngineInitAndConfig:
     def test_get_threshold_parwa(self, engine):
         assert engine.get_threshold("parwa") == 85.0
 
-    def test_get_threshold_parwa_high(self, engine):
-        assert engine.get_threshold("parwa_high") == 75.0
+    def test_get_threshold_high_parwa(self, engine):
+        assert engine.get_threshold("high_parwa") == 75.0
 
     def test_get_threshold_unknown_variant_defaults_to_parwa(self, engine):
         assert engine.get_threshold("nonexistent") == 85.0
@@ -356,7 +356,7 @@ class TestEngineInitAndConfig:
     def test_update_config_forces_company_id(self, engine):
         cfg = ConfidenceConfig(
             company_id="wrong-id",
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
         engine.update_config(COMPANY_ID, cfg)
         assert engine.get_config(COMPANY_ID).company_id == COMPANY_ID
@@ -596,7 +596,7 @@ class TestHallucinationRiskSignal:
     def test_fabricated_stats_detected(self, engine):
         result = engine.score_response(
             COMPANY_ID,
-            "growth",
+            "parwa",
             "According to our latest 2024 report, 85% increase in sales.",
         )
         sr = _get_signal(result, "hallucination_risk")
@@ -990,10 +990,10 @@ class TestVariantThresholds:
         )
         assert result.threshold == 85.0
 
-    def test_parwa_high_75_threshold(self, engine):
+    def test_high_parwa_75_threshold(self, engine):
         config = ConfidenceConfig(
             company_id=COMPANY_ID,
-            variant_type="parwa_high",
+            variant_type="high_parwa",
             threshold=75.0,
         )
         result = engine.score_response(
@@ -1013,9 +1013,9 @@ class TestVariantThresholds:
         )
         assert result.threshold == 50.0
 
-    def test_high_score_passes_parwa_high(self, engine):
+    def test_high_score_passes_high_parwa(self, engine):
         config = ConfidenceConfig(
-            company_id=COMPANY_ID, variant_type="parwa_high"
+            company_id=COMPANY_ID, variant_type="high_parwa"
         )
         text = "refund policy return exchange"
         result = engine.score_response(
@@ -1148,7 +1148,7 @@ class TestBatchScoring:
                 "response": "r2",
                 "config": ConfidenceConfig(
                     company_id=COMPANY_ID,
-                    variant_type="parwa_high",
+                    variant_type="high_parwa",
                     threshold=75.0,
                 ),
             },
@@ -1189,7 +1189,7 @@ class TestConfigManagement:
             company_id="co-a", variant_type="mini_parwa", threshold=95.0
         )
         cfg_b = ConfidenceConfig(
-            company_id="co-b", variant_type="parwa_high", threshold=75.0
+            company_id="co-b", variant_type="high_parwa", threshold=75.0
         )
         engine.update_config("co-a", cfg_a)
         engine.update_config("co-b", cfg_b)

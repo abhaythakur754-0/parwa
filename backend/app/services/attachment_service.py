@@ -62,8 +62,8 @@ class AttachmentService:
 
     # File size limits per plan tier (in bytes)
     PLAN_SIZE_LIMITS = {
-        "starter": 5 * 1024 * 1024,      # 5 MB
-        "growth": 25 * 1024 * 1024,      # 25 MB
+        "mini_parwa": 5 * 1024 * 1024,      # 5 MB
+        "parwa": 25 * 1024 * 1024,      # 25 MB
         "high": 100 * 1024 * 1024,       # 100 MB
         "enterprise": 500 * 1024 * 1024, # 500 MB
     }
@@ -81,7 +81,7 @@ class AttachmentService:
         "aspx", "jsp", "cgi", "dll", "so", "dylib",
     }
 
-    def __init__(self, db: Session, company_id: str, plan_tier: str = "starter"):
+    def __init__(self, db: Session, company_id: str, plan_tier: str = "mini_parwa"):
         self.db = db
         self.company_id = company_id
         self.plan_tier = plan_tier

@@ -272,7 +272,7 @@ class TestVariantGating:
         mock_router.async_execute_llm_call.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_parwa_high_uses_ai(self):
+    async def test_high_parwa_uses_ai(self):
         mock_router = MagicMock()
         mock_router.async_execute_llm_call = AsyncMock(
             return_value={
@@ -282,7 +282,7 @@ class TestVariantGating:
         )
         engine = ClassificationEngine(smart_router=mock_router)
         result = await engine.classify(
-            "bill issue", variant_type="parwa_high", use_ai=True,
+            "bill issue", variant_type="high_parwa", use_ai=True,
         )
         mock_router.async_execute_llm_call.assert_called_once()
 

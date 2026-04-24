@@ -771,8 +771,8 @@ class TestDay29Integration:
 
     def test_plan_tier_enum_values(self):
         """Test that all plan tier values are defined."""
-        assert PlanTier.starter.value == "starter"
-        assert PlanTier.growth.value == "growth"
+        assert PlanTier.starter.value == "mini_parwa"
+        assert PlanTier.growth.value == "parwa"
         assert PlanTier.high.value == "high"
 
     def test_bulk_action_service_initialization(self):

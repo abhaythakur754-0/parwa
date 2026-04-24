@@ -126,7 +126,7 @@ def _get_company_variant_type(db, company_id: str) -> str:
         priority = {
             "mini_parwa": 1,
             "parwa": 2,
-            "parwa_high": 3,
+            "high_parwa": 3,
         }
         sorted_instances = sorted(
             instances,

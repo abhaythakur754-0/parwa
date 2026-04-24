@@ -122,8 +122,8 @@ def upgrade() -> None:
     op.execute("""
         INSERT INTO variant_limits (id, variant_name, monthly_tickets, ai_agents, team_members, voice_slots, kb_docs, price_monthly)
         VALUES
-            ('variant-starter-001', 'starter', 2000, 1, 3, 0, 100, 999.00),
-            ('variant-growth-001', 'growth', 5000, 3, 10, 2, 500, 2499.00),
+            ('variant-starter-001', 'mini_parwa', 2000, 1, 3, 0, 100, 999.00),
+            ('variant-growth-001', 'parwa', 5000, 3, 10, 2, 500, 2499.00),
             ('variant-high-001', 'high', 15000, 5, 25, 5, 2000, 3999.00)
     """)
 

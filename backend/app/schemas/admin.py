@@ -217,8 +217,8 @@ class AdminClientResponse(BaseModel):
 
 
 class SubscriptionTier(str, Enum):
-    starter = "starter"
-    growth = "growth"
+    starter = "mini_parwa"
+    growth = "parwa"
     high_volume = "high_volume"
     enterprise = "enterprise"
 

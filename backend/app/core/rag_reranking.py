@@ -9,7 +9,7 @@ Variant-specific behaviour
 --------------------------
   mini_parwa   — SKIP reranking, return chunks sorted by original score.
   parwa        — Cross-encoder reranking (cosine + keyword overlap).
-  parwa_high   — Retrieve → Rewrite query → Rerank (3-step pipeline).
+  high_parwa   — Retrieve → Rewrite query → Rerank (3-step pipeline).
 
 BC-001: Tenant isolation — every operation is scoped to company_id.
 BC-008: Graceful degradation — failures produce partial/empty results,
@@ -50,7 +50,7 @@ class RerankStrategy(Enum):
 
     SKIP = "skip"                      # mini_parwa — no reranking
     CROSS_ENCODER = "cross_encoder"    # parwa    — cosine + keyword
-    REWRITE_RERANK = "rewrite_rerank"  # parwa_high — rewrite then rerank
+    REWRITE_RERANK = "rewrite_rerank"  # high_parwa — rewrite then rerank
 
 
 VARIANT_RERANK_CONFIG: Dict[str, Dict[str, Any]] = {
@@ -66,7 +66,7 @@ VARIANT_RERANK_CONFIG: Dict[str, Dict[str, Any]] = {
         "timeout_seconds": 10,
         "default_top_k": 5,
     },
-    "parwa_high": {
+    "high_parwa": {
         "strategy": RerankStrategy.REWRITE_RERANK,
         "max_context_tokens": 16384,
         "timeout_seconds": 15,
@@ -318,7 +318,7 @@ class MetadataFilter:
 class QueryRewriter:
     """Expand and refine a user query using retrieved chunk content.
 
-    Used exclusively by the ``parwa_high`` variant.  The rewriter reads the
+    Used exclusively by the ``high_parwa`` variant.  The rewriter reads the
     top retrieved chunks, extracts high-value terms, and produces a richer
     query that can improve reranking precision.
 
@@ -731,7 +731,7 @@ class CrossEncoderReranker:
       mini_parwa   — Skips reranking entirely; returns chunks sorted by
                      original vector similarity score.
       parwa        — Cross-encoder reranking (cosine + keyword overlap).
-      parwa_high   — Full 3-step pipeline: retrieve → rewrite query → rerank.
+      high_parwa   — Full 3-step pipeline: retrieve → rewrite query → rerank.
 
     BC-001: All operations scoped to company_id.
     BC-008: Failures produce best-effort results, never exceptions.
@@ -767,7 +767,7 @@ class CrossEncoderReranker:
             chunks:       Retrieved chunks from ``RAGRetriever``.
             query:        User query.
             company_id:   Tenant identifier (BC-001).
-            variant_type: One of ``mini_parwa``, ``parwa``, ``parwa_high``.
+            variant_type: One of ``mini_parwa``, ``parwa``, ``high_parwa``.
             top_k:        Maximum number of chunks to return.
             filters:      Optional metadata filters.
 
@@ -832,7 +832,7 @@ class CrossEncoderReranker:
 
         return result
 
-    # ── Full Pipeline (parwa_high) ─────────────────────────────
+    # ── Full Pipeline (high_parwa) ─────────────────────────────
 
     async def _execute_rewrite_rerank(
         self,
@@ -842,7 +842,7 @@ class CrossEncoderReranker:
         top_k: int,
         filters: Optional[Dict[str, Any]],
     ) -> RAGResult:
-        """Execute the 3-step pipeline for parwa_high.
+        """Execute the 3-step pipeline for high_parwa.
 
         Steps:
         1. Rewrite the query using chunk content.
@@ -878,7 +878,7 @@ class CrossEncoderReranker:
         logger.info(
             "rerank_rewrite_rerank_complete",
             company_id=company_id,
-            variant_type="parwa_high",
+            variant_type="high_parwa",
             original_query=query[:80],
             rewritten_query=rewritten_query[:80],
             chunks_input=len(chunks),
@@ -890,7 +890,7 @@ class CrossEncoderReranker:
             chunks=final_chunks,
             total_found=len(reranked),
             retrieval_time_ms=retrieval_time_ms,
-            variant_tier_used="parwa_high",
+            variant_tier_used="high_parwa",
         )
 
     # ── Cross-Encoder Scoring ──────────────────────────────────
@@ -1261,7 +1261,7 @@ class CrossEncoderReranker:
             variant_tier_used=variant_type,
         )
 
-    # ── Strategy: REWRITE_RERANK (parwa_high) ─────────────────
+    # ── Strategy: REWRITE_RERANK (high_parwa) ─────────────────
 
     async def _strategy_rewrite_rerank(
         self,
@@ -1272,7 +1272,7 @@ class CrossEncoderReranker:
         top_k: int,
         filters: Optional[Dict[str, Any]],
     ) -> RAGResult:
-        """parwa_high strategy: rewrite → rerank → filter."""
+        """high_parwa strategy: rewrite → rerank → filter."""
         return await self._execute_rewrite_rerank(
             chunks=chunks,
             query=query,
@@ -1360,7 +1360,7 @@ class CrossEncoderReranker:
             chunks:       Retrieved chunks from ``RAGRetriever``.
             query:        User query.
             company_id:   Tenant identifier (BC-001).
-            variant_type: One of ``mini_parwa``, ``parwa``, ``parwa_high``.
+            variant_type: One of ``mini_parwa``, ``parwa``, ``high_parwa``.
             top_k:        Maximum chunks to return.
             filters:      Optional metadata filters.
 

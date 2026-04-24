@@ -40,7 +40,7 @@ def create_access_token(
     company_id: str,
     email: str,
     role: str,
-    plan: str = "starter",
+    plan: str = "mini_parwa",
 ) -> str:
     """Create a short-lived JWT access token.
 

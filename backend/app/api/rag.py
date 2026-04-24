@@ -55,7 +55,7 @@ async def rag_search(
     Body:
       - query (required): Search query string
       - company_id (required): Tenant identifier
-      - variant_type (optional): mini_parwa | parwa | parwa_high (default: parwa)
+      - variant_type (optional): mini_parwa | parwa | high_parwa (default: parwa)
       - top_k (optional): Maximum results (default: variant-specific)
       - filters (optional): Metadata filters dict
       - similarity_threshold (optional): Minimum similarity score
@@ -70,10 +70,10 @@ async def rag_search(
         )
 
     variant_type = body.get("variant_type", "parwa")
-    if variant_type not in ("mini_parwa", "parwa", "parwa_high"):
+    if variant_type not in ("mini_parwa", "parwa", "high_parwa"):
         raise ValidationError(
             message=f"Invalid variant_type: {variant_type}",
-            details={"allowed": ["mini_parwa", "parwa", "parwa_high"]},
+            details={"allowed": ["mini_parwa", "parwa", "high_parwa"]},
         )
 
     target_company_id = body.get("company_id", company_id)

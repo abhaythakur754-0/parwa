@@ -212,14 +212,14 @@ class TestPlanClaim:
     """L13: Tests for plan claim in JWT."""
 
     def test_default_plan_is_starter(self):
-        """Default plan should be 'starter'."""
+        """Default plan should be 'mini_parwa'."""
         payload = verify_access_token(
             create_access_token(
                 user_id="u1", company_id="c1",
                 email="a@b.com", role="owner",
             )
         )
-        assert payload.get("plan") == "starter"
+        assert payload.get("plan") == "mini_parwa"
 
     def test_custom_plan_in_token(self):
         """Custom plan should be stored in token."""
@@ -227,10 +227,10 @@ class TestPlanClaim:
             create_access_token(
                 user_id="u1", company_id="c1",
                 email="a@b.com", role="owner",
-                plan="growth",
+                plan="parwa",
             )
         )
-        assert payload.get("plan") == "growth"
+        assert payload.get("plan") == "parwa"
 
     def test_enterprise_plan(self):
         """Enterprise plan should be stored correctly."""

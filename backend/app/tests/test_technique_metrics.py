@@ -79,7 +79,7 @@ def populated_collector(collector):
     for i in range(7):
         collector.record_execution(
             technique_id=TechniqueID.CHAIN_OF_THOUGHT,
-            variant="parwa_high",
+            variant="high_parwa",
             company_id="company_a",
             status="success",
             tokens_used=350 + i * 20,
@@ -88,7 +88,7 @@ def populated_collector(collector):
     for i in range(2):
         collector.record_execution(
             technique_id=TechniqueID.CHAIN_OF_THOUGHT,
-            variant="parwa_high",
+            variant="high_parwa",
             company_id="company_a",
             status="timeout",
             tokens_used=400,
@@ -97,7 +97,7 @@ def populated_collector(collector):
     # Timeout/error records
     collector.record_execution(
         technique_id=TechniqueID.REACT,
-        variant="parwa_high",
+        variant="high_parwa",
         company_id="company_a",
         status="timeout",
         tokens_used=300,
@@ -290,9 +290,9 @@ class TestVariantIsolation:
         assert summary is not None
         assert summary.total_executions == 5
 
-    def test_variant_summary_parwa_high(self, populated_collector):
+    def test_variant_summary_high_parwa(self, populated_collector):
         summary = populated_collector.get_variant_summary(
-            "parwa_high",
+            "high_parwa",
         )
         assert summary is not None
         assert summary.total_executions > 0
@@ -305,11 +305,11 @@ class TestVariantIsolation:
         all_v = populated_collector.get_all_variant_summaries()
         assert "parwa" in all_v
         assert "mini_parwa" in all_v
-        assert "parwa_high" in all_v
+        assert "high_parwa" in all_v
 
     def test_variant_technique_counts(self, populated_collector):
         summary = populated_collector.get_variant_summary(
-            "parwa_high",
+            "high_parwa",
         )
         assert "chain_of_thought" in summary.technique_counts
         assert "react" in summary.technique_counts
@@ -955,7 +955,7 @@ class TestEdgeCases:
 
     def test_all_variants_constant(self):
         assert "parwa" in VALID_VARIANTS
-        assert "parwa_high" in VALID_VARIANTS
+        assert "high_parwa" in VALID_VARIANTS
         assert "mini_parwa" in VALID_VARIANTS
         assert len(VALID_VARIANTS) == 3
 

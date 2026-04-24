@@ -100,7 +100,7 @@ class SubscriptionService:
         service = SubscriptionService()
         subscription = await service.create_subscription(
             company_id=uuid,
-            variant="growth",
+            variant="parwa",
             payment_method_id="pm_123"
         )
     """
@@ -115,7 +115,7 @@ class SubscriptionService:
     }
 
     # Valid variant names
-    VALID_VARIANTS = {"starter", "growth", "high"}
+    VALID_VARIANTS = {"mini_parwa", "parwa", "high_parwa"}
 
     # Valid billing frequencies
     VALID_FREQUENCIES = {"monthly", "yearly"}
@@ -1736,7 +1736,7 @@ class SubscriptionService:
 
     def _is_upgrade(self, old_variant: str, new_variant: str) -> bool:
         """Check if new_variant is an upgrade from old_variant."""
-        tier_order = {"starter": 1, "growth": 2, "high": 3}
+        tier_order = {"mini_parwa": 1, "parwa": 2, "high_parwa": 3}
         return tier_order.get(new_variant, 0) > tier_order.get(old_variant, 0)
 
     def _calculate_proration(
@@ -1836,9 +1836,9 @@ class SubscriptionService:
 
         # Monthly price map
         monthly_map = {
-            "starter": getattr(settings, "PADDLE_PRICE_STARTER", "pri_starter"),
-            "growth": getattr(settings, "PADDLE_PRICE_GROWTH", "pri_growth"),
-            "high": getattr(settings, "PADDLE_PRICE_HIGH", "pri_high"),
+            "mini_parwa": getattr(settings, "PADDLE_PRICE_MINI_PARWA", "pri_mini_parwa"),
+            "parwa": getattr(settings, "PADDLE_PRICE_PARWA", "pri_parwa"),
+            "high_parwa": getattr(settings, "PADDLE_PRICE_HIGH_PARWA", "pri_high_parwa"),
         }
 
         if billing_frequency == "yearly":
@@ -1849,23 +1849,23 @@ class SubscriptionService:
                     import json
                     yearly_ids = json.loads(yearly_ids_str)
                     yearly_map = {
-                        "starter": yearly_ids.get("starter", "pri_starter_yearly"),
-                        "growth": yearly_ids.get("growth", "pri_growth_yearly"),
-                        "high": yearly_ids.get("high", "pri_high_yearly"),
+                        "mini_parwa": yearly_ids.get("mini_parwa", "pri_mini_parwa_yearly"),
+                        "parwa": yearly_ids.get("parwa", "pri_parwa_yearly"),
+                        "high_parwa": yearly_ids.get("high_parwa", "pri_high_parwa_yearly"),
                     }
-                    return yearly_map.get(variant, monthly_map.get(variant, "pri_starter"))
+                    return yearly_map.get(variant, monthly_map.get(variant, "pri_mini_parwa"))
                 except (json.JSONDecodeError, TypeError):
                     pass
 
             # Default yearly price IDs
             yearly_defaults = {
-                "starter": "pri_starter_yearly",
-                "growth": "pri_growth_yearly",
-                "high": "pri_high_yearly",
+                "mini_parwa": "pri_mini_parwa_yearly",
+                "parwa": "pri_parwa_yearly",
+                "high_parwa": "pri_high_parwa_yearly",
             }
-            return yearly_defaults.get(variant, monthly_map.get(variant, "pri_starter"))
+            return yearly_defaults.get(variant, monthly_map.get(variant, "pri_mini_parwa"))
 
-        return monthly_map.get(variant, "pri_starter")
+        return monthly_map.get(variant, "pri_mini_parwa")
 
     def _to_subscription_info(self, subscription: Subscription) -> SubscriptionInfo:
         """Convert Subscription model to SubscriptionInfo schema."""

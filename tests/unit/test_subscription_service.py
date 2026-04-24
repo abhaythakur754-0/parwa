@@ -103,7 +103,7 @@ class TestSubscriptionCreation:
             mock_subscription = MagicMock()
             mock_subscription.id = mock_subscription_id
             mock_subscription.company_id = str(sample_company_id)
-            mock_subscription.tier = "starter"
+            mock_subscription.tier = "mini_parwa"
             mock_subscription.status = "active"
             mock_subscription.current_period_start = datetime.now(timezone.utc)
             mock_subscription.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
@@ -132,7 +132,7 @@ class TestSubscriptionCreation:
 
             result = await subscription_service.create_subscription(
                 company_id=sample_company_id,
-                variant="starter",
+                variant="mini_parwa",
             )
 
             assert result is not None
@@ -143,7 +143,7 @@ class TestSubscriptionCreation:
         self, subscription_service, mock_db_session, sample_company_id
     ):
         """Test creating subscriptions for all variant types."""
-        variants = ["starter", "growth", "high"]
+        variants = ["mini_parwa", "parwa", "high"]
 
         for variant in variants:
             mock_subscription = MagicMock()
@@ -191,7 +191,7 @@ class TestSubscriptionCreation:
             with pytest.raises(SubscriptionAlreadyExistsError):
                 await subscription_service.create_subscription(
                     company_id=sample_company_id,
-                    variant="starter",
+                    variant="mini_parwa",
                 )
 
     @pytest.mark.asyncio
@@ -219,7 +219,7 @@ class TestSubscriptionRetrieval:
         mock_subscription = MagicMock()
         mock_subscription.id = str(uuid4())
         mock_subscription.company_id = str(sample_company_id)
-        mock_subscription.tier = "growth"
+        mock_subscription.tier = "parwa"
         mock_subscription.status = "active"
         mock_subscription.current_period_start = datetime.now(timezone.utc)
         mock_subscription.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
@@ -261,17 +261,17 @@ class TestSubscriptionUpgrade:
     def test_is_upgrade_correct(self, subscription_service):
         """Test upgrade detection logic."""
         # Starter to Growth
-        assert subscription_service._is_upgrade("starter", "growth") is True
+        assert subscription_service._is_upgrade("mini_parwa", "parwa") is True
         # Starter to High
-        assert subscription_service._is_upgrade("starter", "high") is True
+        assert subscription_service._is_upgrade("mini_parwa", "high") is True
         # Growth to High
-        assert subscription_service._is_upgrade("growth", "high") is True
+        assert subscription_service._is_upgrade("parwa", "high") is True
         # Growth to Starter (not upgrade)
-        assert subscription_service._is_upgrade("growth", "starter") is False
+        assert subscription_service._is_upgrade("parwa", "mini_parwa") is False
         # High to Growth (not upgrade)
-        assert subscription_service._is_upgrade("high", "growth") is False
+        assert subscription_service._is_upgrade("high", "parwa") is False
         # Same tier (not upgrade)
-        assert subscription_service._is_upgrade("starter", "starter") is False
+        assert subscription_service._is_upgrade("mini_parwa", "mini_parwa") is False
 
     def test_calculate_proration_mid_month(self, subscription_service):
         """Test proration calculation in middle of billing period."""
@@ -283,14 +283,14 @@ class TestSubscriptionUpgrade:
             period_end = period_start.replace(month=now.month + 1)
 
         proration = subscription_service._calculate_proration(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=period_start,
             billing_cycle_end=period_end,
         )
 
-        assert proration["old_variant"] == "starter"
-        assert proration["new_variant"] == "growth"
+        assert proration["old_variant"] == "mini_parwa"
+        assert proration["new_variant"] == "parwa"
         assert proration["old_price"] == Decimal("999.00")
         assert proration["new_price"] == Decimal("2499.00")
         assert proration["unused_amount"] > Decimal("0")
@@ -310,7 +310,7 @@ class TestSubscriptionUpgrade:
             period_end = period_start.replace(month=now.month + 1)
 
         proration = subscription_service._calculate_proration(
-            old_variant="starter",
+            old_variant="mini_parwa",
             new_variant="high",
             billing_cycle_start=period_start,
             billing_cycle_end=period_end,
@@ -329,7 +329,7 @@ class TestSubscriptionUpgrade:
         period_end = now
 
         proration = subscription_service._calculate_proration(
-            old_variant="growth",
+            old_variant="parwa",
             new_variant="high",
             billing_cycle_start=period_start,
             billing_cycle_end=period_end,
@@ -352,7 +352,7 @@ class TestSubscriptionDowngrade:
         mock_subscription = MagicMock()
         mock_subscription.id = str(uuid4())
         mock_subscription.company_id = str(sample_company_id)
-        mock_subscription.tier = "growth"
+        mock_subscription.tier = "parwa"
         mock_subscription.status = "active"
         mock_subscription.current_period_start = datetime.now(timezone.utc)
         mock_subscription.current_period_end = datetime.now(timezone.utc) + timedelta(days=15)
@@ -369,12 +369,12 @@ class TestSubscriptionDowngrade:
 
             result = await subscription_service.downgrade_subscription(
                 company_id=sample_company_id,
-                new_variant="starter",
+                new_variant="mini_parwa",
             )
 
             assert "scheduled_change" in result
-            assert result["scheduled_change"]["current_variant"] == "growth"
-            assert result["scheduled_change"]["new_variant"] == "starter"
+            assert result["scheduled_change"]["current_variant"] == "parwa"
+            assert result["scheduled_change"]["new_variant"] == "mini_parwa"
 
     @pytest.mark.asyncio
     async def test_downgrade_high_to_growth(
@@ -401,10 +401,10 @@ class TestSubscriptionDowngrade:
 
             result = await subscription_service.downgrade_subscription(
                 company_id=sample_company_id,
-                new_variant="growth",
+                new_variant="parwa",
             )
 
-            assert result["scheduled_change"]["new_variant"] == "growth"
+            assert result["scheduled_change"]["new_variant"] == "parwa"
 
 
 # ── Cancellation Tests ─────────────────────────────────────────────────────
@@ -420,7 +420,7 @@ class TestSubscriptionCancellation:
         mock_subscription = MagicMock()
         mock_subscription.id = str(uuid4())
         mock_subscription.company_id = str(sample_company_id)
-        mock_subscription.tier = "growth"
+        mock_subscription.tier = "parwa"
         mock_subscription.status = "active"
         mock_subscription.current_period_start = datetime.now(timezone.utc)
         mock_subscription.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
@@ -473,7 +473,7 @@ class TestSubscriptionCancellation:
         mock_subscription = MagicMock()
         mock_subscription.id = str(uuid4())
         mock_subscription.company_id = str(sample_company_id)
-        mock_subscription.tier = "starter"
+        mock_subscription.tier = "mini_parwa"
         mock_subscription.status = "active"
         mock_subscription.current_period_start = datetime.now(timezone.utc)
         mock_subscription.current_period_end = datetime.now(timezone.utc) + timedelta(days=25)
@@ -549,7 +549,7 @@ class TestSubscriptionReactivation:
         mock_subscription = MagicMock()
         mock_subscription.id = str(uuid4())
         mock_subscription.company_id = str(sample_company_id)
-        mock_subscription.tier = "growth"
+        mock_subscription.tier = "parwa"
         mock_subscription.status = "active"
         mock_subscription.cancel_at_period_end = True  # Pending cancellation
         mock_subscription.paddle_subscription_id = None
@@ -591,12 +591,12 @@ class TestVariantPrices:
 
     def test_get_variant_price_starter(self, subscription_service):
         """Test getting starter variant price."""
-        price = subscription_service._get_variant_price("starter")
+        price = subscription_service._get_variant_price("mini_parwa")
         assert price == Decimal("999.00")
 
     def test_get_variant_price_growth(self, subscription_service):
         """Test getting growth variant price."""
-        price = subscription_service._get_variant_price("growth")
+        price = subscription_service._get_variant_price("parwa")
         assert price == Decimal("2499.00")
 
     def test_get_variant_price_high(self, subscription_service):
@@ -659,8 +659,8 @@ class TestDecimalPrecision:
             period_end = period_start.replace(month=now.month + 1)
 
         proration = subscription_service._calculate_proration(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=period_start,
             billing_cycle_end=period_end,
         )
@@ -683,8 +683,8 @@ class TestDecimalPrecision:
             period_end = period_start.replace(month=now.month + 1)
 
         proration = subscription_service._calculate_proration(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=period_start,
             billing_cycle_end=period_end,
         )

@@ -73,12 +73,12 @@ def mini_parwa_context():
 
 
 @pytest.fixture
-def parwa_high_context():
-    """Pipeline context with parwa_high variant."""
+def high_parwa_context():
+    """Pipeline context with high_parwa variant."""
     return PipelineContext(
         company_id="co_test",
         ticket_id="tkt_3",
-        variant="parwa_high",
+        variant="high_parwa",
         intent="refund_request",
     )
 
@@ -139,8 +139,8 @@ class TestConstructor:
         }
         assert expected_intents.issubset(intents)
 
-    def test_enhanced_templates_registered_for_parwa_high_intents(self, handler):
-        """parwa_high enhanced templates should be added to existing intents."""
+    def test_enhanced_templates_registered_for_high_parwa_intents(self, handler):
+        """high_parwa enhanced templates should be added to existing intents."""
         refund_templates = handler._fallback_templates.get("refund_request", [])
         assert len(refund_templates) >= 2
 
@@ -315,13 +315,13 @@ class TestGetDegradationLevel:
         level = handler.get_degradation_level(mini_parwa_context)
         assert level == DegradationLevel.CRITICAL.value
 
-    def test_human_handoff_parwa_high(self, handler, parwa_high_context):
-        """4 FAILED out of 4 max for parwa_high → human_handoff."""
+    def test_human_handoff_high_parwa(self, handler, high_parwa_context):
+        """4 FAILED out of 4 max for high_parwa → human_handoff."""
         for sid in ["a", "b", "c", "d"]:
-            parwa_high_context.failures.append(StageFailure(
+            high_parwa_context.failures.append(StageFailure(
                 sid, "err", PipelineStageStatus.FAILED, "2025-01-01T00:00:00Z",
             ))
-        level = handler.get_degradation_level(parwa_high_context)
+        level = handler.get_degradation_level(high_parwa_context)
         assert level == DegradationLevel.HUMAN_HANDOFF.value
 
     def test_skipped_does_not_count_toward_handoff(self, handler, parwa_context):
@@ -379,10 +379,10 @@ class TestGenerateDegradedResponse:
         assert isinstance(response, str)
         assert len(response) > 0
 
-    def test_parwa_high_with_signals_uses_enhanced_template(self, handler):
-        """parwa_high with required signals should use enhanced template."""
+    def test_high_parwa_with_signals_uses_enhanced_template(self, handler):
+        """high_parwa with required signals should use enhanced template."""
         ctx = _make_context(
-            variant="parwa_high",
+            variant="high_parwa",
             intent="refund_request",
             available_signals=["order_id", "amount"],
             signals={"order_id": "ORD-999", "amount": "$50"},
@@ -511,13 +511,13 @@ class TestShouldTriggerHumanHandoff:
             ))
         assert handler.should_trigger_human_handoff(parwa_context) is True
 
-    def test_parwa_high_threshold_4(self, handler, parwa_high_context):
-        """parwa_high should trigger handoff at 4 failures."""
+    def test_high_parwa_threshold_4(self, handler, high_parwa_context):
+        """high_parwa should trigger handoff at 4 failures."""
         for sid in ["a", "b", "c", "d"]:
-            parwa_high_context.failures.append(StageFailure(
+            high_parwa_context.failures.append(StageFailure(
                 sid, "err", PipelineStageStatus.FAILED, "2025-01-01T00:00:00Z",
             ))
-        assert handler.should_trigger_human_handoff(parwa_high_context) is True
+        assert handler.should_trigger_human_handoff(high_parwa_context) is True
 
     def test_skipped_does_not_trigger(self, handler, parwa_context):
         """SKIPPED stages should not count toward handoff."""
@@ -634,19 +634,19 @@ class TestGetFallbackTemplate:
         # Falls back to "general" which has templates
         assert tmpl is not None
 
-    def test_parwa_high_signal_aware_template_preferred(self, handler):
-        """parwa_high with all required signals should prefer enhanced template."""
+    def test_high_parwa_signal_aware_template_preferred(self, handler):
+        """high_parwa with all required signals should prefer enhanced template."""
         tmpl = handler.get_fallback_template(
-            "refund_request", "parwa_high",
+            "refund_request", "high_parwa",
             ["order_id", "amount"],
         )
         assert tmpl is not None
         assert "24 hours" in tmpl or "recent transaction" in tmpl.lower()
 
-    def test_parwa_high_without_signals_uses_base(self, handler):
-        """parwa_high enhanced template requires signals; without them, base is used."""
+    def test_high_parwa_without_signals_uses_base(self, handler):
+        """high_parwa enhanced template requires signals; without them, base is used."""
         tmpl = handler.get_fallback_template(
-            "refund_request", "parwa", [],  # Use parwa variant, not parwa_high
+            "refund_request", "parwa", [],  # Use parwa variant, not high_parwa
         )
         assert tmpl is not None
         assert "refund" in tmpl.lower()

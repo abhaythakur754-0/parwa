@@ -647,7 +647,7 @@ async def upload_attachment(
     """
     company_id = current_user.get("company_id")
     user_id = current_user.get("user_id")
-    plan_tier = current_user.get("plan_tier", "starter")
+    plan_tier = current_user.get("plan_tier", "mini_parwa")
 
     # Get file from request
     form = await request.form()

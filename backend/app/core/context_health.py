@@ -73,7 +73,7 @@ _VARIANT_HEALTH_CONFIGS: Dict[str, Dict[str, float]] = {
         "relevance_decay_rate": 0.10,
         "freshness_decay_minutes": 30,
     },
-    "parwa_high": {
+    "high_parwa": {
         "token_budget_threshold": 0.7,
         "compression_ratio_threshold": 0.5,
         "relevance_decay_rate": 0.05,

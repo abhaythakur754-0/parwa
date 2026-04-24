@@ -2,7 +2,7 @@
 Variant AI Capability Matrix Service (SG-01).
 
 Single source of truth for mapping 170+ AI features to
-variant tiers (mini_parwa, parwa, parwa_high) with
+variant tiers (mini_parwa, parwa, high_parwa) with
 instance-level override support.
 
 BC-001: All queries filtered by company_id.
@@ -24,13 +24,13 @@ from app.exceptions import ParwaBaseError
 # Each feature maps to minimum variant tier required:
 #   mini_parwa  = 1
 #   parwa       = 2
-#   parwa_high  = 3
+#   high_parwa  = 3
 # A variant can access all features at or below its level.
 
 VARIANT_LEVELS = {
     "mini_parwa": 1,
     "parwa": 2,
-    "parwa_high": 3,
+    "high_parwa": 3,
 }
 
 # Feature definitions: {feature_id: {
@@ -117,7 +117,7 @@ _confidence = [
      "monitoring", 1, None, {}),
     ("SG-04", "Variant-Specific Confidence Thresholds",
      "monitoring", 1,
-     None, {"mini_parwa": 95, "parwa": 85, "parwa_high": 75}),
+     None, {"mini_parwa": 95, "parwa": 85, "high_parwa": 75}),
 ]
 for fid, name, cat, lvl, tt, cfg in _confidence:
     FEATURE_REGISTRY[fid] = {
@@ -184,7 +184,7 @@ for fid, name, cat, lvl, tt, cfg in _tier2:
         "config": cfg,
     }
 
-# ── Technique Features (Tier 3 — parwa_high only) ─────────────
+# ── Technique Features (Tier 3 — high_parwa only) ─────────────
 _tier3 = [
     ("F-150", "CLARA (Contrastive Learning)",
      "technique", 3, "tier_3", {}),

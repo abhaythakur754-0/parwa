@@ -5,7 +5,7 @@ Handles knowledge base search/retrieval for generating AI responses.
 Variant-specific complexity tiers:
   - mini_parwa: basic vector search only (cosine similarity, top-k)
   - parwa: + metadata filtering (document_type, date range, tags)
-  - parwa_high: full pipeline (vector search + metadata + reranking + citations)
+  - high_parwa: full pipeline (vector search + metadata + reranking + citations)
 
 BC-001: Tenant isolation — all queries scoped to company_id.
 BC-008: Graceful degradation — fallback to keyword search on vector failure.
@@ -52,7 +52,7 @@ VARIANT_CONFIG = {
         "use_query_expansion": False,
         "max_retrieval_time_ms": 3000,
     },
-    "parwa_high": {
+    "high_parwa": {
         "similarity_threshold": 0.7,
         "default_top_k": 10,
         "use_metadata_filters": True,
@@ -63,7 +63,7 @@ VARIANT_CONFIG = {
     },
 }
 
-# ── Query expansion synonyms for parwa_high ──────────────────────────
+# ── Query expansion synonyms for high_parwa ──────────────────────────
 
 QUERY_SYNONYMS: Dict[str, List[str]] = {
     "refund": ["reimburse", "return", "money back", "credit"],
@@ -93,7 +93,7 @@ class RAGChunk:
     content: str
     score: float
     metadata: Dict[str, Any] = field(default_factory=dict)
-    citation: Optional[str] = None  # parwa_high only
+    citation: Optional[str] = None  # high_parwa only
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -141,7 +141,7 @@ class RAGRetriever:
     Supports three variant tiers with increasing complexity:
     - mini_parwa: Basic vector search
     - parwa: + metadata filtering
-    - parwa_high: + reranking + citation tracking + query expansion
+    - high_parwa: + reranking + citation tracking + query expansion
 
     BC-001: All queries scoped to company_id.
     BC-008: Falls back to keyword search if vector search fails.
@@ -164,7 +164,7 @@ class RAGRetriever:
         Args:
             query: User query to search for.
             company_id: Tenant identifier (BC-001).
-            variant_type: One of mini_parwa, parwa, parwa_high.
+            variant_type: One of mini_parwa, parwa, high_parwa.
             top_k: Maximum results (defaults to variant config).
             similarity_threshold: Minimum similarity score.
             filters: Metadata filters (document_type, tags, date range).
@@ -225,7 +225,7 @@ class RAGRetriever:
                 start_time=start_time,
             )
 
-        # ── Step 3: Query expansion (parwa_high only) ───────────
+        # ── Step 3: Query expansion (high_parwa only) ───────────
         expanded_queries = [query]
         if config.get("use_query_expansion"):
             expanded_queries = self._expand_query(query)
@@ -287,11 +287,11 @@ class RAGRetriever:
                     )
                     all_chunks.append(chunk)
 
-        # ── Step 5: Reranking (parwa_high only) ──────────────────
+        # ── Step 5: Reranking (high_parwa only) ──────────────────
         if config.get("use_reranking") and all_chunks:
             all_chunks = self._rerank(query, all_chunks)
 
-        # ── Step 6: Citation tracking (parwa_high only) ──────────
+        # ── Step 6: Citation tracking (high_parwa only) ──────────
         if config.get("use_citation_tracking") and all_chunks:
             all_chunks = self._add_citations(all_chunks)
 
@@ -452,7 +452,7 @@ class RAGRetriever:
             degradation_used=True,
         )
 
-    # ── Query Expansion (parwa_high) ──────────────────────────────
+    # ── Query Expansion (high_parwa) ──────────────────────────────
 
     def _expand_query(self, query: str) -> List[str]:
         """Expand query with synonyms for better recall.
@@ -478,7 +478,7 @@ class RAGRetriever:
         # Return original + up to 2 expansions
         return [query] + expansions[:2]
 
-    # ── Reranking (parwa_high) ────────────────────────────────────
+    # ── Reranking (high_parwa) ────────────────────────────────────
 
     def _rerank(self, query: str, chunks: List[RAGChunk]) -> List[RAGChunk]:
         """Rerank chunks based on query-chunk similarity.
@@ -522,7 +522,7 @@ class RAGRetriever:
         reranked.sort(key=lambda c: c.score, reverse=True)
         return reranked
 
-    # ── Citation Tracking (parwa_high) ────────────────────────────
+    # ── Citation Tracking (high_parwa) ────────────────────────────
 
     def _add_citations(self, chunks: List[RAGChunk]) -> List[RAGChunk]:
         """Add citation references to chunks.

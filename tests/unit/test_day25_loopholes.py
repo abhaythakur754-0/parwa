@@ -593,14 +593,14 @@ class TestGAP13SLAConflicts:
         from backend.app.schemas.sla import SLAPolicyCreate
         # Both policies have same tier + priority
         policy1 = SLAPolicyCreate(
-            plan_tier="starter",
+            plan_tier="mini_parwa",
             priority="high",
             first_response_minutes=60,
             resolution_minutes=480,
             update_frequency_minutes=30
         )
         policy2 = SLAPolicyCreate(
-            plan_tier="starter",
+            plan_tier="mini_parwa",
             priority="high",
             first_response_minutes=120,  # Different values!
             resolution_minutes=960,

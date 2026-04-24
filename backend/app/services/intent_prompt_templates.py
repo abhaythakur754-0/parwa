@@ -486,14 +486,14 @@ class PromptTemplateRegistry:
         """Determine which variants can use this template."""
         # All variants can use empathetic and follow_up
         if response_type in ("empathetic", "follow_up"):
-            return ["mini_parwa", "parwa", "parwa_high"]
+            return ["mini_parwa", "parwa", "high_parwa"]
 
         # Resolution requires parwa or higher
         if response_type == "resolution":
-            return ["parwa", "parwa_high"]
+            return ["parwa", "high_parwa"]
 
         # Informational: all variants
-        return ["mini_parwa", "parwa", "parwa_high"]
+        return ["mini_parwa", "parwa", "high_parwa"]
 
     # ── Public API ────────────────────────────────────────────────────
 

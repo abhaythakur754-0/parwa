@@ -109,7 +109,7 @@ def register(
 ) -> AuthResponse:
     """Register a new user and create their company.
 
-    Creates both a Company (with 'starter' tier) and a User
+    Creates both a Company (with 'mini_parwa' tier) and a User
     with 'owner' role. Returns JWT tokens for immediate use.
 
     F-010: User registration.

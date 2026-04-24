@@ -65,7 +65,7 @@ def test_company(db_session):
         id=str(uuid4()),
         name="Test Company",
         industry="technology",
-        subscription_tier="starter",
+        subscription_tier="mini_parwa",
         subscription_status="active",
         paddle_customer_id="cust_test123",
     )
@@ -80,7 +80,7 @@ def test_subscription(db_session, test_company):
     subscription = Subscription(
         id=str(uuid4()),
         company_id=test_company.id,
-        tier="starter",
+        tier="mini_parwa",
         status="active",
         current_period_start=datetime.now(timezone.utc),
         current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
@@ -125,7 +125,7 @@ class TestRaceConditionInTicketCounting:
             id=str(uuid4()),
             name="Race Test Company",
             industry="technology",
-            subscription_tier="starter",
+            subscription_tier="mini_parwa",
             subscription_status="active",
         )
         db_session.add(company)
@@ -134,7 +134,7 @@ class TestRaceConditionInTicketCounting:
         subscription = Subscription(
             id=str(uuid4()),
             company_id=company.id,
-            tier="starter",
+            tier="mini_parwa",
             status="active",
             current_period_start=datetime.now(timezone.utc),
             current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
@@ -390,14 +390,14 @@ class TestTenantIsolationInOverage:
             id=str(uuid4()),
             name="Company A",
             industry="technology",
-            subscription_tier="starter",
+            subscription_tier="mini_parwa",
             subscription_status="active",
         )
         company_b = Company(
             id=str(uuid4()),
             name="Company B",
             industry="retail",
-            subscription_tier="growth",
+            subscription_tier="parwa",
             subscription_status="active",
         )
         db_session.add_all([company_a, company_b])
@@ -407,13 +407,13 @@ class TestTenantIsolationInOverage:
         sub_a = Subscription(
             id=str(uuid4()),
             company_id=company_a.id,
-            tier="starter",
+            tier="mini_parwa",
             status="active",
         )
         sub_b = Subscription(
             id=str(uuid4()),
             company_id=company_b.id,
-            tier="growth",
+            tier="parwa",
             status="active",
         )
         db_session.add_all([sub_a, sub_b])
@@ -465,14 +465,14 @@ class TestTenantIsolationInOverage:
             id=str(uuid4()),
             name="Company A",
             industry="technology",
-            subscription_tier="starter",
+            subscription_tier="mini_parwa",
             subscription_status="active",
         )
         company_b = Company(
             id=str(uuid4()),
             name="Company B",
             industry="retail",
-            subscription_tier="starter",
+            subscription_tier="mini_parwa",
             subscription_status="active",
         )
         db_session.add_all([company_a, company_b])

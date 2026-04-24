@@ -20,7 +20,7 @@ Pipeline:
 Per-variant capabilities:
   - mini_parwa (L1): simple drafts, 1 draft max
   - parwa (L2): + tone/brand matching, 3 drafts max
-  - parwa_high (L3): + multi-draft + personalization, 5 drafts max
+  - high_parwa (L3): + multi-draft + personalization, 5 drafts max
 
 GAP FIXES:
 - W9-GAP-019 (HIGH): Per-draft timeout (8s) + total timeout (30s)
@@ -81,21 +81,21 @@ _DEDUP_SIMILARITY_THRESHOLD: float = 0.85
 _VARIANT_MAX_DRAFTS: Dict[str, int] = {
     "mini_parwa": 1,
     "parwa": 3,
-    "parwa_high": 5,
+    "high_parwa": 5,
 }
 
 # Per-variant max response tokens
 _VARIANT_MAX_TOKENS: Dict[str, int] = {
     "mini_parwa": 256,
     "parwa": 512,
-    "parwa_high": 1024,
+    "high_parwa": 1024,
 }
 
 # Temperature settings per variant (higher = more creative)
 _VARIANT_TEMPERATURE: Dict[str, float] = {
     "mini_parwa": 0.5,
     "parwa": 0.7,
-    "parwa_high": 0.85,
+    "high_parwa": 0.85,
 }
 
 # Technique mapping for intent + sentiment combinations
@@ -204,7 +204,7 @@ class DraftRequest:
 
     query: str
     company_id: str
-    variant_type: str  # mini_parwa, parwa, parwa_high
+    variant_type: str  # mini_parwa, parwa, high_parwa
     agent_id: str
     ticket_id: Optional[str] = None
     conversation_history: Optional[List[str]] = None
@@ -1053,7 +1053,7 @@ class DraftComposer:
                 "\nGenerate a polished response that matches "
                 "the brand's tone and style guidelines."
             )
-        elif variant_type == "parwa_high":
+        elif variant_type == "high_parwa":
             parts.append(
                 "\nGenerate a personalized, nuanced response. "
                 "Consider the customer's history, tier, and "
@@ -1122,8 +1122,8 @@ class DraftComposer:
                 "from others in tone or emphasis."
             )
 
-        # ── parwa_high: Customer tier personalization ─────────────
-        if variant_type == "parwa_high" and customer_tier != "free":
+        # ── high_parwa: Customer tier personalization ─────────────
+        if variant_type == "high_parwa" and customer_tier != "free":
             parts.append(
                 f"\nThis is a {customer_tier} tier customer. "
                 "Provide premium, personalized service."

@@ -232,8 +232,8 @@ class TestBillingSchemas:
         """Test VariantType enum values."""
         from backend.app.schemas.billing import VariantType
 
-        assert VariantType.STARTER.value == "starter"
-        assert VariantType.GROWTH.value == "growth"
+        assert VariantType.STARTER.value == "mini_parwa"
+        assert VariantType.GROWTH.value == "parwa"
         assert VariantType.HIGH.value == "high"
 
     def test_subscription_status_enum(self):
@@ -425,7 +425,7 @@ class TestBillingExtendedModels:
         """Test getting starter variant limits."""
         from database.models.billing_extended import get_variant_limits
 
-        limits = get_variant_limits("starter")
+        limits = get_variant_limits("mini_parwa")
 
         assert limits is not None
         assert limits["monthly_tickets"] == 2000
@@ -439,7 +439,7 @@ class TestBillingExtendedModels:
         """Test getting growth variant limits."""
         from database.models.billing_extended import get_variant_limits
 
-        limits = get_variant_limits("growth")
+        limits = get_variant_limits("parwa")
 
         assert limits is not None
         assert limits["monthly_tickets"] == 5000
@@ -471,7 +471,7 @@ class TestBillingExtendedModels:
 
         limits1 = get_variant_limits("STARTER")
         limits2 = get_variant_limits("Starter")
-        limits3 = get_variant_limits("starter")
+        limits3 = get_variant_limits("mini_parwa")
 
         assert limits1 == limits2 == limits3
 

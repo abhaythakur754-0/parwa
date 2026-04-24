@@ -84,21 +84,21 @@ class PlanLimits:
 # ═════════════════════════════════════════════════════════════════════
 
 TIER_DISPLAY_NAMES = {
-    "starter": "Mini PARWA",
     "mini_parwa": "Mini PARWA",
-    "growth": "PARWA",
+    "mini_parwa": "Mini PARWA",
+    "parwa": "PARWA",
     "parwa": "PARWA",
     "high": "PARWA High",
-    "parwa_high": "PARWA High",
+    "high_parwa": "PARWA High",
 }
 
 TIER_PRICING = {
-    "starter": "$999/mo",
     "mini_parwa": "$999/mo",
-    "growth": "$2,499/mo",
+    "mini_parwa": "$999/mo",
+    "parwa": "$2,499/mo",
     "parwa": "$2,499/mo",
     "high": "$3,999/mo",
-    "parwa_high": "$3,999/mo",
+    "high_parwa": "$3,999/mo",
 }
 
 
@@ -179,12 +179,12 @@ class EntitlementService:
 
         # Map variant names to schema keys
         tier_mapping = {
-            "starter": "mini_parwa",
             "mini_parwa": "mini_parwa",
-            "growth": "parwa",
+            "mini_parwa": "mini_parwa",
             "parwa": "parwa",
-            "high": "parwa_high",
-            "parwa_high": "parwa_high",
+            "parwa": "parwa",
+            "high": "high_parwa",
+            "high_parwa": "high_parwa",
         }
 
         schema_key = tier_mapping.get(tier_lower, "mini_parwa")
@@ -231,12 +231,12 @@ class EntitlementService:
         current_display = TIER_DISPLAY_NAMES.get(current_tier, current_tier)
 
         # Determine which tier to suggest
-        if current_tier in ("starter", "mini_parwa"):
+        if current_tier in ("mini_parwa", "mini_parwa"):
             upgrade_tier = "PARWA"
             upgrade_price = TIER_PRICING["parwa"]
-        elif current_tier in ("growth", "parwa"):
+        elif current_tier in ("parwa", "parwa"):
             upgrade_tier = "PARWA High"
-            upgrade_price = TIER_PRICING["parwa_high"]
+            upgrade_price = TIER_PRICING["high_parwa"]
         else:
             upgrade_tier = None
             upgrade_price = None

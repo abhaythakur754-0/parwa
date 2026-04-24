@@ -338,7 +338,7 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
 VARIANT_MODEL_ACCESS: Dict[str, Set[ModelTier]] = {
     "mini_parwa": {ModelTier.LIGHT, ModelTier.GUARDRAIL},
     "parwa": {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.GUARDRAIL},
-    "parwa_high": {
+    "high_parwa": {
         ModelTier.LIGHT, ModelTier.MEDIUM,
         ModelTier.HEAVY, ModelTier.GUARDRAIL,
     },

@@ -140,7 +140,7 @@ VARIANT_HANDLER_WHITELIST: Dict[str, List[str]] = {
         "faq_match",
     ],
     "parwa": None,      # All handlers
-    "parwa_high": None, # All handlers
+    "high_parwa": None, # All handlers
 }
 
 # Compiled regex for system commands (module-level)
@@ -1191,7 +1191,7 @@ class EdgeCaseRegistry:
         """Initialize registry and register all handlers.
 
         Args:
-            variant: PARWA variant (mini_parwa, parwa, parwa_high).
+            variant: PARWA variant (mini_parwa, parwa, high_parwa).
             extra_handlers: Additional custom handlers to include.
         """
         self._variant = variant

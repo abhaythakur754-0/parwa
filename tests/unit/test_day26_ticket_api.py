@@ -30,7 +30,7 @@ def mock_current_user():
     return {
         "user_id": "user-123",
         "company_id": "company-123",
-        "plan_tier": "starter",
+        "plan_tier": "mini_parwa",
     }
 
 

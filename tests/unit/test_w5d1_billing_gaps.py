@@ -114,11 +114,11 @@ class TestPaymentFailureTenantIsolation:
         from database.models.billing_extended import get_variant_limits
 
         # Payment failure for Starter customer
-        starter_limits = get_variant_limits("starter")
+        starter_limits = get_variant_limits("mini_parwa")
         assert starter_limits["price_monthly"] == Decimal("999.00")
 
         # Payment failure for Growth customer
-        growth_limits = get_variant_limits("growth")
+        growth_limits = get_variant_limits("parwa")
         assert growth_limits["price_monthly"] == Decimal("2499.00")
 
 
@@ -355,8 +355,8 @@ class TestPartialPaymentRollback:
         audit = {
             "id": str(uuid4()),
             "company_id": str(uuid4()),
-            "old_variant": "starter",
-            "new_variant": "growth",
+            "old_variant": "mini_parwa",
+            "new_variant": "parwa",
             "old_price": Decimal("999.00"),
             "new_price": Decimal("2499.00"),
             "days_remaining": 15,
@@ -368,15 +368,15 @@ class TestPartialPaymentRollback:
         }
 
         # Audit should capture both old and new states for rollback capability
-        assert audit["old_variant"] == "starter"
-        assert audit["new_variant"] == "growth"
+        assert audit["old_variant"] == "mini_parwa"
+        assert audit["new_variant"] == "parwa"
         assert audit["old_price"] == Decimal("999.00")
         assert audit["new_price"] == Decimal("2499.00")
 
     def test_proration_audit_allows_state_reconstruction(self):
         """Verify proration audit has enough data to reconstruct previous state."""
         audit = {
-            "old_variant": "growth",
+            "old_variant": "parwa",
             "new_variant": "high",
             "old_price": Decimal("2499.00"),
             "new_price": Decimal("3999.00"),
@@ -387,7 +387,7 @@ class TestPartialPaymentRollback:
         }
 
         # Can reconstruct: old price, old variant, days info
-        assert audit["old_variant"] == "growth"
+        assert audit["old_variant"] == "parwa"
         assert audit["old_price"] == Decimal("2499.00")
         assert audit["days_remaining"] == 10
 
@@ -661,8 +661,8 @@ class TestProrationAuditEdgeCases:
         net_charge = new_charge - unused_amount
 
         audit = {
-            "old_variant": "starter",
-            "new_variant": "growth",
+            "old_variant": "mini_parwa",
+            "new_variant": "parwa",
             "old_price": old_price,
             "new_price": new_price,
             "days_remaining": days_remaining,
@@ -710,8 +710,8 @@ class TestProrationAuditEdgeCases:
     def test_proration_audit_complete_audit_trail(self):
         """Verify proration audit has complete audit trail for debugging."""
         audit = {
-            "old_variant": "starter",
-            "new_variant": "growth",
+            "old_variant": "mini_parwa",
+            "new_variant": "parwa",
             "old_price": Decimal("999.00"),
             "new_price": Decimal("2499.00"),
             "days_remaining": 15,
@@ -812,8 +812,8 @@ class TestVariantLimitsIntegrity:
         """Verify variant names are unique."""
         from database.models.billing_extended import get_variant_limits
 
-        starter = get_variant_limits("starter")
-        growth = get_variant_limits("growth")
+        starter = get_variant_limits("mini_parwa")
+        growth = get_variant_limits("parwa")
 
         assert starter is not None
         assert growth is not None
@@ -832,7 +832,7 @@ class TestVariantLimitsIntegrity:
             "price_monthly",
         ]
 
-        for variant_name in ["starter", "growth", "high"]:
+        for variant_name in ["mini_parwa", "parwa", "high"]:
             limits = get_variant_limits(variant_name)
             assert limits is not None
             for field in required_fields:
@@ -842,7 +842,7 @@ class TestVariantLimitsIntegrity:
         """Test that variant prices are Decimal."""
         from database.models.billing_extended import get_variant_limits
 
-        for variant_name in ["starter", "growth", "high"]:
+        for variant_name in ["mini_parwa", "parwa", "high"]:
             limits = get_variant_limits(variant_name)
             assert isinstance(limits["price_monthly"], Decimal)
 

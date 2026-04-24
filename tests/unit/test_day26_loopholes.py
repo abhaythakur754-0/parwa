@@ -95,7 +95,7 @@ def tag_service(mock_db, mock_company_id):
 @pytest.fixture
 def attachment_service(mock_db, mock_company_id):
     """Attachment service instance."""
-    return AttachmentService(mock_db, mock_company_id, "starter")
+    return AttachmentService(mock_db, mock_company_id, "mini_parwa")
 
 
 @pytest.fixture

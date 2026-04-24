@@ -83,7 +83,7 @@ class ResponseGenerationRequestSchema(BaseModel):
     conversation_id: str = Field(..., description="Conversation identifier")
     variant_type: str = Field(
         default="parwa",
-        description="One of: mini_parwa, parwa, parwa_high",
+        description="One of: mini_parwa, parwa, high_parwa",
     )
     customer_id: Optional[str] = Field(None, description="Customer identifier")
     conversation_history: Optional[List[dict]] = Field(
@@ -124,7 +124,7 @@ class BudgetInitSchema(BaseModel):
     """Schema for initializing a token budget."""
     variant_type: str = Field(
         default="parwa",
-        description="One of: mini_parwa, parwa, parwa_high",
+        description="One of: mini_parwa, parwa, high_parwa",
     )
 
 

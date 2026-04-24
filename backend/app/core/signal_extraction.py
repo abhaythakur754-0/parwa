@@ -147,7 +147,7 @@ class SignalExtractionRequest:
 
     query: str
     company_id: str
-    variant_type: str = "parwa"  # mini_parwa, parwa, parwa_high
+    variant_type: str = "parwa"  # mini_parwa, parwa, high_parwa
     customer_tier: str = "free"
     turn_count: int = 0
     previous_response_status: str = "none"
@@ -206,7 +206,7 @@ class SignalExtractor:
     VARIANT_WEIGHTS: Dict[str, Dict[str, float]] = {
         "mini_parwa": {"complexity": 0.3, "intent": 0.5, "sentiment": 0.2},
         "parwa": {"complexity": 0.4, "intent": 0.3, "sentiment": 0.3},
-        "parwa_high": {"complexity": 0.3, "intent": 0.3, "sentiment": 0.2, "monetary": 0.2},
+        "high_parwa": {"complexity": 0.3, "intent": 0.3, "sentiment": 0.2, "monetary": 0.2},
     }
 
     CACHE_TTL_SECONDS = 60

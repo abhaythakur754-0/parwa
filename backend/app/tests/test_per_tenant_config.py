@@ -55,8 +55,8 @@ def manager_mini() -> TenantConfigManager:
 
 @pytest.fixture
 def manager_high() -> TenantConfigManager:
-    """Config manager with parwa_high default."""
-    return TenantConfigManager(default_variant="parwa_high")
+    """Config manager with high_parwa default."""
+    return TenantConfigManager(default_variant="high_parwa")
 
 
 # ── Default Config per Variant ──────────────────────────────────
@@ -94,9 +94,9 @@ class TestDefaultConfigPerVariant:
         assert config.workflow.enable_human_checkpoint is True
         assert config.workflow.max_concurrent_workflows == 5
 
-    def test_parwa_high_defaults(self, manager_high):
+    def test_high_parwa_defaults(self, manager_high):
         config = manager_high.get_config("company_c")
-        assert config.workflow.variant_type == "parwa_high"
+        assert config.workflow.variant_type == "high_parwa"
         assert config.technique.token_budget_override == 3000
         assert config.compression.strategy == "priority_based"
         assert config.compression.level == "light"
@@ -219,10 +219,10 @@ class TestConfigMerging:
     def test_variant_change_via_workflow_override(self, manager):
         manager.update_config(
             "acme", "workflow",
-            {"variant_type": "parwa_high"},
+            {"variant_type": "high_parwa"},
         )
         config = manager.get_config("acme")
-        assert config.workflow.variant_type == "parwa_high"
+        assert config.workflow.variant_type == "high_parwa"
 
     def test_new_tenant_gets_default_variant(self, manager):
         config = manager.get_config("brand_new")

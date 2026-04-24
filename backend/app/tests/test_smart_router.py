@@ -2,7 +2,7 @@
 
 Covers:
 - Route returns valid RoutingDecision for each tier
-- Variant gating (mini_parwa, parwa, parwa_high)
+- Variant gating (mini_parwa, parwa, high_parwa)
 - Unknown variant defaults to mini_parwa
 - BC-008: route() NEVER crashes
 - ProviderHealthTracker shared state
@@ -83,14 +83,14 @@ class TestVariantGating:
         decision = router.route(COMPANY_ID, "parwa", AtomicStepType.MAD_ATOM_REASONING)
         assert decision.tier == ModelTier.MEDIUM
 
-    def test_parwa_high_gets_heavy(self, router: SmartRouter):
-        # DRAFT_RESPONSE_COMPLEX mapped to MEDIUM, but parwa_high should get it
-        decision = router.route(COMPANY_ID, "parwa_high", AtomicStepType.DRAFT_RESPONSE_COMPLEX)
-        # This step is mapped to MEDIUM, parwa_high should allow MEDIUM
+    def test_high_parwa_gets_heavy(self, router: SmartRouter):
+        # DRAFT_RESPONSE_COMPLEX mapped to MEDIUM, but high_parwa should get it
+        decision = router.route(COMPANY_ID, "high_parwa", AtomicStepType.DRAFT_RESPONSE_COMPLEX)
+        # This step is mapped to MEDIUM, high_parwa should allow MEDIUM
         assert decision.tier in (ModelTier.MEDIUM, ModelTier.LIGHT)
 
-    def test_parwa_high_allows_heavy_models(self, router: SmartRouter):
-        allowed = router._get_allowed_tiers("parwa_high")
+    def test_high_parwa_allows_heavy_models(self, router: SmartRouter):
+        allowed = router._get_allowed_tiers("high_parwa")
         assert ModelTier.HEAVY in allowed
 
 

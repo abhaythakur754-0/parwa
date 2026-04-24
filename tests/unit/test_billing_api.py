@@ -92,8 +92,8 @@ def mock_subscription_service(sample_subscription_info):
     service.downgrade_subscription = AsyncMock(return_value={
         "subscription": sample_subscription_info,
         "scheduled_change": {
-            "current_variant": "growth",
-            "new_variant": "starter",
+            "current_variant": "parwa",
+            "new_variant": "mini_parwa",
             "effective_date": datetime.now(timezone.utc) + timedelta(days=15),
         },
         "message": "Downgrade scheduled",
@@ -153,7 +153,7 @@ class TestGetSubscription:
             assert response.status_code == 200
             data = response.json()
             assert data["has_subscription"] is True
-            assert data["subscription"]["variant"] == "growth"
+            assert data["subscription"]["variant"] == "parwa"
 
     def test_get_subscription_not_found(
         self, app, sample_company_id, mock_subscription_service
@@ -195,12 +195,12 @@ class TestCreateSubscription:
             client = TestClient(app)
             response = client.post(
                 "/api/billing/subscription",
-                json={"variant": "growth"},
+                json={"variant": "parwa"},
             )
 
             assert response.status_code == 201
             data = response.json()
-            assert data["variant"] == "growth"
+            assert data["variant"] == "parwa"
 
     def test_create_subscription_invalid_variant(
         self, app, sample_company_id, mock_subscription_service
@@ -279,7 +279,7 @@ class TestUpdateSubscription:
             client = TestClient(app)
             response = client.patch(
                 "/api/billing/subscription",
-                json={"variant": "starter"},
+                json={"variant": "mini_parwa"},
             )
 
             assert response.status_code == 200
@@ -366,7 +366,7 @@ class TestReactivateSubscription:
 
             assert response.status_code == 200
             data = response.json()
-            assert data["variant"] == "growth"
+            assert data["variant"] == "parwa"
 
 
 # ── POST /proration/preview Tests ─────────────────────────────────────────
@@ -417,13 +417,13 @@ class TestProrationPreview:
             client = TestClient(app)
             response = client.post(
                 "/api/billing/proration/preview",
-                json={"new_variant": "growth"},
+                json={"new_variant": "parwa"},
             )
 
             assert response.status_code == 200
             data = response.json()
-            assert data["current_variant"] == "starter"
-            assert data["new_variant"] == "growth"
+            assert data["current_variant"] == "mini_parwa"
+            assert data["new_variant"] == "parwa"
 
 
 # ── GET /proration/history Tests ──────────────────────────────────────────

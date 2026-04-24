@@ -35,7 +35,7 @@ _DEFAULT_PRICE_IDS: Dict[str, str] = {
     # Plan price IDs
     "mini_parwa": "pri_mini_parwa_01",
     "parwa": "pri_parwa_01",
-    "parwa_high": "pri_parwa_high_01",
+    "high_parwa": "pri_high_parwa_01",
     # E-commerce variants
     "order_management": "pri_order_mgmt_01",
     "returns_refunds": "pri_returns_01",
@@ -97,13 +97,13 @@ DEMO_PACK_PRICE_ID = _PRICE_IDS.get("demo_pack", "pri_demo_pack_01")
 PLAN_PRICE_IDS: Dict[str, str] = {
     "mini_parwa": _PRICE_IDS.get("mini_parwa", "pri_mini_parwa_01"),
     "parwa": _PRICE_IDS.get("parwa", "pri_parwa_01"),
-    "parwa_high": _PRICE_IDS.get("parwa_high", "pri_parwa_high_01"),
+    "high_parwa": _PRICE_IDS.get("high_parwa", "pri_high_parwa_01"),
 }
 
 # Industry variant price IDs — all non-plan entries
 VARIANT_PRICE_IDS: Dict[str, str] = {
     k: v for k, v in _PRICE_IDS.items()
-    if k not in ("demo_pack", "mini_parwa", "parwa", "parwa_high")
+    if k not in ("demo_pack", "mini_parwa", "parwa", "high_parwa")
 }
 
 

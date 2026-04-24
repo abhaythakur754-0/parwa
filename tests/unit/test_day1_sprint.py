@@ -28,13 +28,13 @@ class TestYearlyPricing:
         # Import the PLAN_DATA
         import importlib
         billing_api = importlib.import_module("src.lib.billing-api")
-        assert billing_api.PLAN_DATA["starter"]["yearlyPrice"] == "$9,590"
+        assert billing_api.PLAN_DATA["mini_parwa"]["yearlyPrice"] == "$9,590"
 
     def test_frontend_growth_yearly_price(self):
         """Growth yearly price should be $23,990 (not $24,990)."""
         import importlib
         billing_api = importlib.import_module("src.lib.billing-api")
-        assert billing_api.PLAN_DATA["growth"]["yearlyPrice"] == "$23,990"
+        assert billing_api.PLAN_DATA["parwa"]["yearlyPrice"] == "$23,990"
 
     def test_frontend_high_yearly_price(self):
         """High yearly price should be $38,390 (not $39,990)."""

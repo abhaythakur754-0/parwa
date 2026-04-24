@@ -185,8 +185,8 @@ class TestRecordQuery:
         assert _parse_iso(result["timestamp"]) is not None
 
     def test_record_stores_variant(self, monitor):
-        result = monitor.record_query(COMPANY_ID, "parwa_high", "Q", "R")
-        assert result["variant_type"] == "parwa_high"
+        result = monitor.record_query(COMPANY_ID, "high_parwa", "Q", "R")
+        assert result["variant_type"] == "high_parwa"
 
     def test_record_stores_latency(self, monitor):
         result = monitor.record_query(COMPANY_ID, "parwa", "Q", "R", latency_ms=250.5)

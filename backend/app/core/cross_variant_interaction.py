@@ -50,14 +50,14 @@ logger = get_logger(__name__)
 CONFIDENCE_THRESHOLDS: Dict[str, float] = {
     "mini_parwa": 0.65,   # Tier 1 — escalate if confidence < 0.65
     "parwa": 0.45,        # Tier 2 — escalate if confidence < 0.45
-    "parwa_high": 0.30,   # Tier 3 — escalate if confidence < 0.30 (rare)
+    "high_parwa": 0.30,   # Tier 3 — escalate if confidence < 0.30 (rare)
 }
 
 # Ordered escalation chain — lowest to highest variant tier.
 ESCALATION_CHAIN: List[str] = [
     "mini_parwa",   # Tier 1 — Starter
     "parwa",        # Tier 2 — Growth
-    "parwa_high",   # Tier 3 — High
+    "high_parwa",   # Tier 3 — High
 ]
 
 VALID_VARIANTS: set = set(ESCALATION_CHAIN)
@@ -151,7 +151,7 @@ class ConfidenceEscalationResult:
         confidence_score: The original confidence score (echoed back).
         original_variant: The variant that produced the low-confidence
             response.
-        requires_human_review: True when ``parwa_high`` still produces
+        requires_human_review: True when ``high_parwa`` still produces
             a low-confidence response and no higher tier exists.
     """
 
@@ -517,7 +517,7 @@ class CrossVariantInteractionService:
         Each variant tier has a different confidence threshold (see
         ``CONFIDENCE_THRESHOLDS``).  When a variant's confidence falls
         below its threshold, the response is escalated to the next
-        higher tier.  If the variant is already ``parwa_high`` and
+        higher tier.  If the variant is already ``high_parwa`` and
         still has low confidence, the result is flagged for human review.
 
         The method also records the confidence score in the ticket's

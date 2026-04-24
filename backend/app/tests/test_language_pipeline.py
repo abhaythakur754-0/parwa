@@ -1302,7 +1302,7 @@ class TestFormattingContext:
             customer_tier="VIP",
             intent_type="ESCALATION",
         )
-        assert ctx.variant_type == "parwa_high"
+        assert ctx.variant_type == "high_parwa"
         assert ctx.formality_level == "high"
         assert ctx.customer_tier == "vip"
         assert ctx.intent_type == "escalation"
@@ -1402,8 +1402,8 @@ class TestFormatterRegistry:
         defaults = self.registry.get_defaults_for_variant("parwa")
         assert len(defaults) == 6
 
-    def test_get_defaults_parwa_high(self):
-        defaults = self.registry.get_defaults_for_variant("parwa_high")
+    def test_get_defaults_high_parwa(self):
+        defaults = self.registry.get_defaults_for_variant("high_parwa")
         assert len(defaults) == 15
 
     def test_get_defaults_unknown_variant(self):
@@ -1466,11 +1466,11 @@ class TestComposability:
         result = registry.apply_all(text, ctx)
         assert len(result.formatters_applied) == 6
 
-    def test_full_parwa_high_pipeline(self):
-        """parwa_high gets all 15 formatters."""
+    def test_full_high_parwa_pipeline(self):
+        """high_parwa gets all 15 formatters."""
         registry = create_default_registry()
         ctx = FormattingContext(
-            variant_type="parwa_high",
+            variant_type="high_parwa",
             brand_voice="professional",
             formality_level="high",
             intent_type="general",

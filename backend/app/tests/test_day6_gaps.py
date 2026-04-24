@@ -405,12 +405,12 @@ class TestVariantWeightDifferences:
         parwa = self.extractor.get_variant_weights("parwa")
         assert mini["complexity"] != parwa["complexity"]
 
-    def test_parwa_high_has_monetary_weight(self):
+    def test_high_parwa_has_monetary_weight(self):
         """Parwa High should have monetary weight, others don't."""
-        parwa_high = self.extractor.get_variant_weights("parwa_high")
+        high_parwa = self.extractor.get_variant_weights("high_parwa")
         parwa = self.extractor.get_variant_weights("parwa")
         mini = self.extractor.get_variant_weights("mini_parwa")
-        assert "monetary" in parwa_high
+        assert "monetary" in high_parwa
         assert "monetary" not in parwa
         assert "monetary" not in mini
 
@@ -419,17 +419,17 @@ class TestVariantWeightDifferences:
         query = "I have a complex technical problem with my API integration and database server"
         mini_weights = self.extractor.get_variant_weights("mini_parwa")
         parwa_weights = self.extractor.get_variant_weights("parwa")
-        parwa_high_weights = self.extractor.get_variant_weights("parwa_high")
+        high_parwa_weights = self.extractor.get_variant_weights("high_parwa")
 
         mini_complexity = self.extractor._extract_complexity(query, mini_weights)
         parwa_complexity = self.extractor._extract_complexity(query, parwa_weights)
-        parwa_high_complexity = self.extractor._extract_complexity(query, parwa_high_weights)
+        high_parwa_complexity = self.extractor._extract_complexity(query, high_parwa_weights)
 
         # All should be valid
-        for c in [mini_complexity, parwa_complexity, parwa_high_complexity]:
+        for c in [mini_complexity, parwa_complexity, high_parwa_complexity]:
             assert 0.0 <= c <= 1.0
         # Different weights should produce different results
-        assert mini_complexity != parwa_complexity or parwa_complexity != parwa_high_complexity
+        assert mini_complexity != parwa_complexity or parwa_complexity != high_parwa_complexity
 
 
 class TestConversationHistoryNoneItems:
@@ -1129,7 +1129,7 @@ class TestCacheIsolationAcrossVariants:
             query=query, company_id="c1", variant_type="parwa",
         )
         req_high = SignalExtractionRequest(
-            query=query, company_id="c1", variant_type="parwa_high",
+            query=query, company_id="c1", variant_type="high_parwa",
         )
 
         # Extract with all 3 variants (no cache mocking - fresh extraction)

@@ -72,7 +72,7 @@ class TestConstructor:
         """Should have capability definitions for all 3 variants."""
         assert "mini_parwa" in handler._capabilities
         assert "parwa" in handler._capabilities
-        assert "parwa_high" in handler._capabilities
+        assert "high_parwa" in handler._capabilities
 
     def test_mini_parwa_tier_1(self, handler):
         """mini_parwa should have max_tier=1."""
@@ -86,9 +86,9 @@ class TestConstructor:
         assert caps.max_tier == 2
         assert len(caps.allowed_techniques) == len(_TIER_1_TECHNIQUES) + len(_TIER_2_TECHNIQUES)
 
-    def test_parwa_high_tier_3(self, handler):
-        """parwa_high should have max_tier=3 with all 14 techniques."""
-        caps = handler._capabilities["parwa_high"]
+    def test_high_parwa_tier_3(self, handler):
+        """high_parwa should have max_tier=3 with all 14 techniques."""
+        caps = handler._capabilities["high_parwa"]
         assert caps.max_tier == 3
         assert len(caps.allowed_techniques) == 14
 
@@ -96,7 +96,7 @@ class TestConstructor:
         """Each variant should have a different confidence threshold."""
         mp = handler._capabilities["mini_parwa"].confidence_threshold
         pw = handler._capabilities["parwa"].confidence_threshold
-        ph = handler._capabilities["parwa_high"].confidence_threshold
+        ph = handler._capabilities["high_parwa"].confidence_threshold
         assert mp > pw > ph
 
     def test_empty_ticket_registry(self, handler):
@@ -234,9 +234,9 @@ class TestInitiateUpgrade:
         record = handler.initiate_upgrade("co_1", "parwa", "unknown_variant")
         assert record.status == TransitionStatus.ROLLED_BACK
 
-    def test_upgrade_parwa_to_parwa_high(self, handler):
-        """Valid upgrade parwa → parwa_high."""
-        record = handler.initiate_upgrade("co_1", "parwa", "parwa_high")
+    def test_upgrade_parwa_to_high_parwa(self, handler):
+        """Valid upgrade parwa → high_parwa."""
+        record = handler.initiate_upgrade("co_1", "parwa", "high_parwa")
         assert record.status == TransitionStatus.ACTIVE
         assert record.transition_type == TransitionType.UPGRADE
 
@@ -384,11 +384,11 @@ class TestInitiateDowngrade:
 
     def test_downgrade_creates_deactivation_notice(self, handler):
         """Downgrade should generate a deactivation notice."""
-        handler.register_ticket("co_1", "tkt_1", "parwa_high")
-        handler.initiate_downgrade("co_1", "parwa_high", "mini_parwa")
+        handler.register_ticket("co_1", "tkt_1", "high_parwa")
+        handler.initiate_downgrade("co_1", "high_parwa", "mini_parwa")
         notices = handler.get_deactivation_notices("co_1")
         assert len(notices) == 1
-        assert notices[0].variant_from == "parwa_high"
+        assert notices[0].variant_from == "high_parwa"
         assert notices[0].variant_to == "mini_parwa"
 
     def test_downgrade_invalid_direction(self, handler):
@@ -418,9 +418,9 @@ class TestRestrictedFeatures:
         assert "chain_of_thought_reasoning" in restricted
         assert "basic_classification" not in restricted  # shared feature
 
-    def test_parwa_high_to_parwa_features(self, handler):
-        """parwa_high → parwa should list tier-3 features."""
-        restricted = handler.get_restricted_features("co_1", "parwa_high", "parwa")
+    def test_high_parwa_to_parwa_features(self, handler):
+        """high_parwa → parwa should list tier-3 features."""
+        restricted = handler.get_restricted_features("co_1", "high_parwa", "parwa")
         assert "tree_of_thoughts" in restricted
         assert "reflexion_cycles" in restricted
         assert "chain_of_thought_reasoning" not in restricted  # still in parwa
@@ -448,15 +448,15 @@ class TestDeactivationNotices:
 
     def test_get_notices_after_downgrade(self, handler):
         """Should return notice after downgrade."""
-        handler.register_ticket("co_1", "tkt_1", "parwa_high")
-        handler.initiate_downgrade("co_1", "parwa_high", "mini_parwa")
+        handler.register_ticket("co_1", "tkt_1", "high_parwa")
+        handler.initiate_downgrade("co_1", "high_parwa", "mini_parwa")
         notices = handler.get_deactivation_notices("co_1")
         assert len(notices) == 1
 
     def test_acknowledge_notice(self, handler):
         """acknowledge_deactivation should mark notice as acknowledged."""
-        handler.register_ticket("co_1", "tkt_1", "parwa_high")
-        handler.initiate_downgrade("co_1", "parwa_high", "mini_parwa")
+        handler.register_ticket("co_1", "tkt_1", "high_parwa")
+        handler.initiate_downgrade("co_1", "high_parwa", "mini_parwa")
         notices = handler.get_deactivation_notices("co_1")
         notice_id = notices[0].notice_id
         assert handler.acknowledge_deactivation("co_1", notice_id) is True
@@ -468,8 +468,8 @@ class TestDeactivationNotices:
 
     def test_notice_has_message(self, handler):
         """Notice should have a human-readable message."""
-        handler.register_ticket("co_1", "tkt_1", "parwa_high")
-        handler.initiate_downgrade("co_1", "parwa_high", "mini_parwa")
+        handler.register_ticket("co_1", "tkt_1", "high_parwa")
+        handler.initiate_downgrade("co_1", "high_parwa", "mini_parwa")
         notice = handler.get_deactivation_notices("co_1")[0]
         assert "downgraded" in notice.message.lower()
         assert len(notice.restricted_features) > 0
@@ -490,7 +490,7 @@ class TestClearRestrictedCache:
         handler._feature_cache["co_1:reflexion_cycles"] = time.time()
         handler._feature_cache["co_1:basic_classification"] = time.time()
 
-        cleared = handler.clear_restricted_cache("co_1", "parwa_high", "parwa")
+        cleared = handler.clear_restricted_cache("co_1", "high_parwa", "parwa")
         assert "co_1:tree_of_thoughts" in cleared
         assert "co_1:reflexion_cycles" in cleared
         # basic_classification is still available in parwa
@@ -498,7 +498,7 @@ class TestClearRestrictedCache:
 
     def test_clear_cache_no_entries(self, handler):
         """Should return empty list when no cache entries."""
-        cleared = handler.clear_restricted_cache("co_1", "parwa_high", "parwa")
+        cleared = handler.clear_restricted_cache("co_1", "high_parwa", "parwa")
         assert cleared == []
 
 
@@ -601,7 +601,7 @@ class TestVariantCapabilities:
 
     def test_to_dict(self, handler):
         """to_dict should return a complete dict."""
-        caps = handler.get_variant_capabilities("parwa_high")
+        caps = handler.get_variant_capabilities("high_parwa")
         d = caps.to_dict()
         assert "variant_type" in d
         assert "max_tier" in d
@@ -633,9 +633,9 @@ class TestTechniqueAccess:
         assert "chain_of_thought" in techniques
         assert "tree_of_thoughts" not in techniques
 
-    def test_parwa_high_techniques(self, handler):
-        """parwa_high should have all 14 techniques."""
-        handler.register_ticket("co_1", "tkt_1", "parwa_high")
+    def test_high_parwa_techniques(self, handler):
+        """high_parwa should have all 14 techniques."""
+        handler.register_ticket("co_1", "tkt_1", "high_parwa")
         techniques = handler.get_technique_access_for_ticket("co_1", "tkt_1")
         assert "clara" in techniques
         assert "chain_of_thought" in techniques
@@ -705,9 +705,9 @@ class TestValidateTransition:
         assert is_valid is False
 
     def test_full_upgrade_path(self, handler):
-        """mini_parwa → parwa → parwa_high should both be valid."""
+        """mini_parwa → parwa → high_parwa should both be valid."""
         v1, _ = handler.validate_transition("mini_parwa", "parwa")
-        v2, _ = handler.validate_transition("parwa", "parwa_high")
+        v2, _ = handler.validate_transition("parwa", "high_parwa")
         assert v1 is True
         assert v2 is True
 
@@ -781,7 +781,7 @@ class TestEdgeCases:
         handler.register_ticket("co_1", "tkt_1", "mini_parwa")
         handler.initiate_upgrade("co_1", "mini_parwa", "parwa")
         # tkt_1 already has transition_pending=True
-        record2 = handler.initiate_upgrade("co_1", "parwa", "parwa_high")
+        record2 = handler.initiate_upgrade("co_1", "parwa", "high_parwa")
         assert record2.in_flight_tickets_affected == 0
 
     def test_ticket_not_found_on_turn_start(self, handler):
@@ -794,8 +794,8 @@ class TestEdgeCases:
 
     def test_multiple_downgrades(self, handler):
         """Multiple consecutive downgrades should each work."""
-        handler.register_ticket("co_1", "tkt_1", "parwa_high")
-        handler.initiate_downgrade("co_1", "parwa_high", "parwa")
+        handler.register_ticket("co_1", "tkt_1", "high_parwa")
+        handler.initiate_downgrade("co_1", "high_parwa", "parwa")
         # tkt_1 has pending variant=parwa, uses_old=True
         handler.on_turn_start("co_1", "tkt_1")  # turn 1: old
         handler.on_turn_start("co_1", "tkt_1")  # turn 2: switch to parwa
@@ -854,7 +854,7 @@ class TestThreadSafety:
     def test_concurrent_upgrade_and_downgrade(self, handler):
         """Concurrent upgrade and downgrade should not crash."""
         handler.register_ticket("co_1", "tkt_1", "parwa")
-        handler.register_ticket("co_2", "tkt_2", "parwa_high")
+        handler.register_ticket("co_2", "tkt_2", "high_parwa")
 
         errors = []
         def do_upgrade():
@@ -865,7 +865,7 @@ class TestThreadSafety:
 
         def do_downgrade():
             try:
-                handler.initiate_downgrade("co_2", "parwa_high", "parwa")
+                handler.initiate_downgrade("co_2", "high_parwa", "parwa")
             except Exception as e:
                 errors.append(str(e))
 

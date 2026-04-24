@@ -50,7 +50,7 @@ def mock_company():
     company = MagicMock()
     company.id = str(uuid4())
     company.subscription_status = "active"
-    company.subscription_tier = "growth"
+    company.subscription_tier = "parwa"
     return company
 
 
@@ -61,7 +61,7 @@ def mock_subscription():
     subscription.id = str(uuid4())
     subscription.company_id = str(uuid4())
     subscription.status = "active"
-    subscription.tier = "growth"
+    subscription.tier = "parwa"
     return subscription
 
 
@@ -85,8 +85,8 @@ HIGH_LIMITS = {
 }
 
 VARIANT_LIMITS_MAP = {
-    "starter": STARTER_LIMITS,
-    "growth": GROWTH_LIMITS,
+    "mini_parwa": STARTER_LIMITS,
+    "parwa": GROWTH_LIMITS,
     "high": HIGH_LIMITS,
 }
 
@@ -99,7 +99,7 @@ def _make_mock_session():
     return session
 
 
-def _setup_subscription_lookup(session, tier="starter"):
+def _setup_subscription_lookup(session, tier="mini_parwa"):
     """Configure mock session so _get_company_variant returns *tier*.
 
     Sets up the subscription query chain:
@@ -111,7 +111,7 @@ def _setup_subscription_lookup(session, tier="starter"):
 
 
 def _setup_no_subscription(session):
-    """Configure mock session so _get_company_variant falls back to 'starter'.
+    """Configure mock session so _get_company_variant falls back to 'mini_parwa'.
 
     Both the subscription and company queries return None.
     """
@@ -158,7 +158,7 @@ class TestGetVariantLimits:
 
         with patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=None), \
              patch('backend.app.services.variant_limit_service.SessionLocal', return_value=session):
-            result = service.get_variant_limits("starter")
+            result = service.get_variant_limits("mini_parwa")
 
         assert result["monthly_tickets"] == 2000
         assert result["ai_agents"] == 1
@@ -180,7 +180,7 @@ class TestGetVariantLimits:
 
         with patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=None), \
              patch('backend.app.services.variant_limit_service.SessionLocal', return_value=session):
-            result = service.get_variant_limits("growth")
+            result = service.get_variant_limits("parwa")
 
         assert result["monthly_tickets"] == 5000
         assert result["ai_agents"] == 3
@@ -252,13 +252,13 @@ class TestGetCompanyLimits:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="growth")
+        _setup_subscription_lookup(mock_db_session, tier="parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=GROWTH_LIMITS):
             result = service.get_company_limits(company_id)
 
-        assert result["variant"] == "growth"
+        assert result["variant"] == "parwa"
         assert result["monthly_tickets"] == 5000
         assert result["ai_agents"] == 3
         assert result["team_members"] == 10
@@ -281,7 +281,7 @@ class TestGetCompanyLimits:
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=STARTER_LIMITS):
             result = service.get_company_limits(company_id)
 
-        assert result["variant"] == "starter"
+        assert result["variant"] == "mini_parwa"
         assert result["monthly_tickets"] == 2000
         assert result["ai_agents"] == 1
         assert result["team_members"] == 3
@@ -297,13 +297,13 @@ class TestGetCompanyLimits:
         # --- growth ---
         company_id_a = uuid4()
         session_a = _make_mock_session()
-        _setup_subscription_lookup(session_a, tier="growth")
+        _setup_subscription_lookup(session_a, tier="parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=session_a), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=GROWTH_LIMITS):
             result_a = service.get_company_limits(company_id_a)
 
-        assert result_a["variant"] == "growth"
+        assert result_a["variant"] == "parwa"
         assert result_a["monthly_tickets"] == 5000
 
         # --- high ---
@@ -336,7 +336,7 @@ class TestCheckTicketLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="starter")
+        _setup_subscription_lookup(mock_db_session, tier="mini_parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=STARTER_LIMITS):
@@ -359,7 +359,7 @@ class TestCheckTicketLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="starter")
+        _setup_subscription_lookup(mock_db_session, tier="mini_parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=STARTER_LIMITS):
@@ -379,7 +379,7 @@ class TestCheckTicketLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="growth")
+        _setup_subscription_lookup(mock_db_session, tier="parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=GROWTH_LIMITS):
@@ -402,7 +402,7 @@ class TestCheckTicketLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="starter")
+        _setup_subscription_lookup(mock_db_session, tier="mini_parwa")
 
         # Mock the UsageRecord sum query: db.query(func.sum(...)).filter(...).scalar()
         mock_db_session.query.return_value.filter.return_value.scalar.return_value = 750
@@ -414,7 +414,7 @@ class TestCheckTicketLimit:
         assert result["allowed"] is True
         assert result["current_usage"] == 750
         assert result["remaining"] == 1250
-        assert result["variant"] == "starter"
+        assert result["variant"] == "mini_parwa"
 
         # Verify scalar was called (UsageRecord sum query executed)
         mock_db_session.query.return_value.filter.return_value.scalar.assert_called()
@@ -436,7 +436,7 @@ class TestCheckTeamMemberLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="growth")
+        _setup_subscription_lookup(mock_db_session, tier="parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=GROWTH_LIMITS):
@@ -456,7 +456,7 @@ class TestCheckTeamMemberLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="starter")
+        _setup_subscription_lookup(mock_db_session, tier="mini_parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=STARTER_LIMITS):
@@ -476,7 +476,7 @@ class TestCheckTeamMemberLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="starter")
+        _setup_subscription_lookup(mock_db_session, tier="mini_parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=STARTER_LIMITS):
@@ -504,7 +504,7 @@ class TestCheckAIAgentLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="growth")
+        _setup_subscription_lookup(mock_db_session, tier="parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=GROWTH_LIMITS):
@@ -524,7 +524,7 @@ class TestCheckAIAgentLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="growth")
+        _setup_subscription_lookup(mock_db_session, tier="parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=GROWTH_LIMITS):
@@ -574,7 +574,7 @@ class TestCheckVoiceSlotLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="starter")
+        _setup_subscription_lookup(mock_db_session, tier="mini_parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=STARTER_LIMITS):
@@ -594,7 +594,7 @@ class TestCheckVoiceSlotLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="growth")
+        _setup_subscription_lookup(mock_db_session, tier="parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=GROWTH_LIMITS):
@@ -642,7 +642,7 @@ class TestCheckKBDocLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="starter")
+        _setup_subscription_lookup(mock_db_session, tier="mini_parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=STARTER_LIMITS):
@@ -662,7 +662,7 @@ class TestCheckKBDocLimit:
         service = VariantLimitService()
         company_id = uuid4()
 
-        _setup_subscription_lookup(mock_db_session, tier="growth")
+        _setup_subscription_lookup(mock_db_session, tier="parwa")
 
         with patch('backend.app.services.variant_limit_service.SessionLocal', return_value=mock_db_session), \
              patch('backend.app.services.variant_limit_service.get_variant_limits', return_value=GROWTH_LIMITS):
@@ -718,7 +718,7 @@ class TestEnforceLimit:
             "current_usage": 100,
             "limit": 2000,
             "remaining": 1900,
-            "variant": "starter",
+            "variant": "mini_parwa",
             "message": "100/2000 tickets used this month. 1900 remaining.",
         }
 
@@ -747,7 +747,7 @@ class TestEnforceLimit:
             "current_usage": 2000,
             "limit": 2000,
             "remaining": 0,
-            "variant": "starter",
+            "variant": "mini_parwa",
             "message": "Ticket limit exceeded: 2000/2000. Upgrade your plan for more capacity.",
         }
 
@@ -777,7 +777,7 @@ class TestEnforceLimit:
             "current_usage": 3,
             "limit": 3,
             "remaining": 0,
-            "variant": "growth",
+            "variant": "parwa",
             "message": "Ai Agents limit exceeded: 3/3. Upgrade your plan to add more AI agents.",
         }
 
@@ -820,7 +820,7 @@ class TestEnforceLimit:
             "current_usage": 0,
             "limit": 999,
             "remaining": 999,
-            "variant": "growth",
+            "variant": "parwa",
             "message": "0/999 in use. 999 remaining.",
         }
         blocked_result = {
@@ -829,7 +829,7 @@ class TestEnforceLimit:
             "current_usage": 999,
             "limit": 999,
             "remaining": 0,
-            "variant": "growth",
+            "variant": "parwa",
             "message": f"{limit_type} limit exceeded: 999/999.",
         }
 
@@ -876,18 +876,18 @@ class TestGetAllLimitChecks:
             "current_usage": 100,
             "limit": 2000,
             "remaining": 1900,
-            "variant": "starter",
+            "variant": "mini_parwa",
             "message": "100/2000 tickets used this month. 1900 remaining.",
         }
 
-        with patch.object(service, '_get_company_variant', return_value="starter"), \
+        with patch.object(service, '_get_company_variant', return_value="mini_parwa"), \
              patch.object(service, 'get_variant_limits', return_value=STARTER_LIMITS), \
              patch.object(service, 'check_ticket_limit', return_value=ticket_result), \
              patch.object(service, '_query_resource_count', return_value=0):
             result = service.get_all_limit_checks(company_id)
 
         assert result["company_id"] == str(company_id)
-        assert result["variant"] == "starter"
+        assert result["variant"] == "mini_parwa"
         assert "checks" in result
         expected_keys = {"tickets", "team_members", "ai_agents", "voice_slots", "kb_docs"}
         assert set(result["checks"].keys()) == expected_keys
@@ -917,7 +917,7 @@ class TestGetAllLimitChecks:
             "current_usage": 4000,
             "limit": 5000,
             "remaining": 1000,
-            "variant": "growth",
+            "variant": "parwa",
             "message": "4000/5000 tickets used this month. 1000 remaining.",
         }
 
@@ -925,14 +925,14 @@ class TestGetAllLimitChecks:
         # voice=2 (limit 2 → blocked), kb=499 (limit 500 → allowed)
         resource_counts = [8, 3, 2, 499]
 
-        with patch.object(service, '_get_company_variant', return_value="growth"), \
+        with patch.object(service, '_get_company_variant', return_value="parwa"), \
              patch.object(service, 'get_variant_limits', return_value=GROWTH_LIMITS), \
              patch.object(service, 'check_ticket_limit', return_value=ticket_result), \
              patch.object(service, '_query_resource_count', side_effect=resource_counts):
             result = service.get_all_limit_checks(company_id)
 
         checks = result["checks"]
-        assert result["variant"] == "growth"
+        assert result["variant"] == "parwa"
 
         # tickets: 4000/5000 → allowed
         assert checks["tickets"]["allowed"] is True

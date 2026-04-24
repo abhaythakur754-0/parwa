@@ -7,7 +7,7 @@ Each formatter is independent and composable.
 Per-variant defaults:
 - mini_parwa: TokenLimit + Markdown + Whitespace (3 formatters)
 - parwa: + Citation + Tone + Length (6 formatters)
-- parwa_high: all 15 formatters
+- high_parwa: all 15 formatters
 
 Parent: Week 9 Day 7
 """
@@ -782,7 +782,7 @@ class FormatterRegistry:
             "token_limit", "markdown", "whitespace",
             "citation", "tone", "length",
         ],
-        "parwa_high": [
+        "high_parwa": [
             "token_limit", "markdown", "citation", "tone", "length",
             "code_block", "list", "bold", "link", "emoji",
             "whitespace", "signature", "disambiguation",
@@ -881,7 +881,7 @@ class FormatterRegistry:
         """Get default formatter list for a variant type.
 
         Args:
-            variant_type: mini_parwa, parwa, or parwa_high.
+            variant_type: mini_parwa, parwa, or high_parwa.
 
         Returns:
             List of formatter names.

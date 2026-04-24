@@ -105,7 +105,7 @@ def mock_company():
     company = Company()
     company.id = "test-company-123"
     company.name = "Test Company"
-    company.plan_tier = "growth"
+    company.plan_tier = "parwa"
     company.is_suspended = False
     company.created_at = datetime.utcnow()
     return company
@@ -229,7 +229,7 @@ def mock_ticket(company_id, customer_id):
     ticket.parent_ticket_id = None
     ticket.duplicate_of_id = None
     ticket.metadata_json = "{}"
-    ticket.plan_snapshot = "growth"
+    ticket.plan_snapshot = "parwa"
     ticket.variant_version = "v1"
     ticket.client_timezone = "UTC"
     ticket.created_at = datetime.utcnow()
@@ -399,7 +399,7 @@ def mock_sla_policy(company_id):
     policy = SLAPolicy()
     policy.id = "sla-policy-123"
     policy.company_id = company_id
-    policy.plan_tier = "growth"
+    policy.plan_tier = "parwa"
     policy.priority = TicketPriority.medium.value
     policy.first_response_minutes = 240  # 4 hours
     policy.resolution_minutes = 1440  # 24 hours

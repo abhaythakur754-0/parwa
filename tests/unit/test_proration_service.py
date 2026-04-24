@@ -71,8 +71,8 @@ class TestProrationCalculation:
 
         result = await proration_service.calculate_upgrade_proration(
             company_id=sample_company_id,
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=start,
             billing_cycle_end=end,
         )
@@ -92,7 +92,7 @@ class TestProrationCalculation:
 
         result = await proration_service.calculate_upgrade_proration(
             company_id=sample_company_id,
-            old_variant="growth",
+            old_variant="parwa",
             new_variant="high",
             billing_cycle_start=start,
             billing_cycle_end=end,
@@ -112,7 +112,7 @@ class TestProrationCalculation:
 
         result = await proration_service.calculate_upgrade_proration(
             company_id=sample_company_id,
-            old_variant="starter",
+            old_variant="mini_parwa",
             new_variant="high",
             billing_cycle_start=start,
             billing_cycle_end=end,
@@ -133,8 +133,8 @@ class TestProrationCalculation:
         with pytest.raises(ProrationError) as exc_info:
             await proration_service.calculate_upgrade_proration(
                 company_id=sample_company_id,
-                old_variant="growth",
-                new_variant="starter",  # This is a downgrade
+                old_variant="parwa",
+                new_variant="mini_parwa",  # This is a downgrade
                 billing_cycle_start=start,
                 billing_cycle_end=end,
             )
@@ -158,8 +158,8 @@ class TestBillingPeriodValidation:
         with pytest.raises(InvalidProrationPeriodError):
             await proration_service.calculate_upgrade_proration(
                 company_id=sample_company_id,
-                old_variant="starter",
-                new_variant="growth",
+                old_variant="mini_parwa",
+                new_variant="parwa",
                 billing_cycle_start=start,
                 billing_cycle_end=end,
             )
@@ -174,8 +174,8 @@ class TestBillingPeriodValidation:
         with pytest.raises(InvalidProrationPeriodError):
             await proration_service.calculate_upgrade_proration(
                 company_id=sample_company_id,
-                old_variant="starter",
-                new_variant="growth",
+                old_variant="mini_parwa",
+                new_variant="parwa",
                 billing_cycle_start=same_day,
                 billing_cycle_end=same_day,
             )
@@ -191,8 +191,8 @@ class TestBillingPeriodValidation:
         with pytest.raises(InvalidProrationPeriodError) as exc_info:
             await proration_service.calculate_upgrade_proration(
                 company_id=sample_company_id,
-                old_variant="starter",
-                new_variant="growth",
+                old_variant="mini_parwa",
+                new_variant="parwa",
                 billing_cycle_start=start,
                 billing_cycle_end=end,
             )
@@ -232,8 +232,8 @@ class TestProrationEdgeCases:
         end = date(2024, 2, 1)
 
         result = await proration_service.calculate_first_day_proration(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=start,
             billing_cycle_end=end,
         )
@@ -257,8 +257,8 @@ class TestProrationEdgeCases:
         end = date(2024, 2, 1)
 
         result = await proration_service.calculate_last_day_proration(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=start,
             billing_cycle_end=end,
         )
@@ -279,8 +279,8 @@ class TestProrationEdgeCases:
         """Test mid-month proration calculation."""
         result = await proration_service.calculate_mid_month_proration(
             company_id=sample_company_id,
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             days_into_period=15,  # Halfway through
         )
 
@@ -301,8 +301,8 @@ class TestUpgradeEstimate:
     ):
         """Test quick upgrade cost estimation."""
         estimate = await proration_service.estimate_upgrade_cost(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             days_remaining=15,
             days_in_period=30,
         )
@@ -324,8 +324,8 @@ class TestUpgradeEstimate:
     ):
         """Test upgrade estimate for half period remaining."""
         estimate = await proration_service.estimate_upgrade_cost(
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             days_remaining=15,
             days_in_period=30,
         )
@@ -353,8 +353,8 @@ class TestProrationAudit:
         # Calculate proration first
         result = await proration_service.calculate_upgrade_proration(
             company_id=sample_company_id,
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=start,
             billing_cycle_end=end,
         )
@@ -403,8 +403,8 @@ class TestDecimalPrecision:
 
         result = await proration_service.calculate_upgrade_proration(
             company_id=sample_company_id,
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=start,
             billing_cycle_end=end,
         )
@@ -425,8 +425,8 @@ class TestDecimalPrecision:
 
         result = await proration_service.calculate_upgrade_proration(
             company_id=sample_company_id,
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=start,
             billing_cycle_end=end,
         )
@@ -459,13 +459,13 @@ class TestVariantValidation:
 
     def test_validate_variant_lowercase(self, proration_service):
         """Test that variant is lowercased."""
-        assert proration_service._validate_variant("STARTER") == "starter"
-        assert proration_service._validate_variant("Growth") == "growth"
+        assert proration_service._validate_variant("STARTER") == "mini_parwa"
+        assert proration_service._validate_variant("Growth") == "parwa"
         assert proration_service._validate_variant("HIGH") == "high"
 
     def test_validate_variant_stripped(self, proration_service):
         """Test that variant is stripped of whitespace."""
-        assert proration_service._validate_variant("  starter  ") == "starter"
+        assert proration_service._validate_variant("  starter  ") == "mini_parwa"
 
     def test_validate_variant_invalid(self, proration_service):
         """Test that invalid variant raises error."""
@@ -483,16 +483,16 @@ class TestUpgradeDetection:
 
     def test_is_upgrade_true(self, proration_service):
         """Test cases where it IS an upgrade."""
-        assert proration_service._is_upgrade("starter", "growth") is True
-        assert proration_service._is_upgrade("starter", "high") is True
-        assert proration_service._is_upgrade("growth", "high") is True
+        assert proration_service._is_upgrade("mini_parwa", "parwa") is True
+        assert proration_service._is_upgrade("mini_parwa", "high") is True
+        assert proration_service._is_upgrade("parwa", "high") is True
 
     def test_is_upgrade_false(self, proration_service):
         """Test cases where it is NOT an upgrade."""
-        assert proration_service._is_upgrade("growth", "starter") is False
-        assert proration_service._is_upgrade("high", "growth") is False
-        assert proration_service._is_upgrade("high", "starter") is False
-        assert proration_service._is_upgrade("starter", "starter") is False
+        assert proration_service._is_upgrade("parwa", "mini_parwa") is False
+        assert proration_service._is_upgrade("high", "parwa") is False
+        assert proration_service._is_upgrade("high", "mini_parwa") is False
+        assert proration_service._is_upgrade("mini_parwa", "mini_parwa") is False
 
 
 # ── Downgrade Date Tests ───────────────────────────────────────────────────
@@ -549,20 +549,20 @@ class TestGapFixesProration:
             svc._validate_variant("")
 
     def test_validate_variant_whitespace(self):
-        """_validate_variant('  growth  ') should succeed and return 'growth'."""
+        """_validate_variant('  growth  ') should succeed and return 'parwa'."""
         svc = ProrationService()
         result = svc._validate_variant("  growth  ")
-        assert result == "growth"
+        assert result == "parwa"
 
     def test_is_upgrade_same_variant(self):
         """_is_upgrade with identical variants should return False."""
         svc = ProrationService()
-        assert svc._is_upgrade("starter", "starter") is False
+        assert svc._is_upgrade("mini_parwa", "mini_parwa") is False
 
     def test_is_upgrade_downgrade(self):
         """_is_upgrade for a downgrade (growth -> starter) should return False."""
         svc = ProrationService()
-        assert svc._is_upgrade("growth", "starter") is False
+        assert svc._is_upgrade("parwa", "mini_parwa") is False
 
     def test_round_precision(self):
         """_round should correctly round to 2 decimal places with ROUND_HALF_UP."""

@@ -42,7 +42,7 @@ def mock_company():
     company = MagicMock()
     company.id = str(uuid4())
     company.subscription_status = "active"
-    company.subscription_tier = "growth"
+    company.subscription_tier = "parwa"
     return company
 
 
@@ -53,7 +53,7 @@ def mock_subscription():
     subscription.id = str(uuid4())
     subscription.company_id = str(uuid4())
     subscription.status = "active"
-    subscription.tier = "growth"
+    subscription.tier = "parwa"
     return subscription
 
 

@@ -57,7 +57,7 @@ class TestGetProfile:
         data = resp.json()
         assert data["name"] == "Test Co"
         assert data["industry"] == "technology"
-        assert data["subscription_tier"] == "starter"
+        assert data["subscription_tier"] == "mini_parwa"
         assert data["mode"] == "shadow"
         assert "id" in data
         assert "created_at" in data

@@ -46,7 +46,7 @@ def _create_user_with_sessions(db, num_sessions=3):
     company = Company(
         name=f"Co-{uid}",
         industry="tech",
-        subscription_tier="starter",
+        subscription_tier="mini_parwa",
         subscription_status="active",
         mode="shadow",
     )
@@ -135,7 +135,7 @@ class TestListSessions:
         uid = secrets.token_hex(6)
         company = Company(
             name=f"Co-{uid}", industry="tech",
-            subscription_tier="starter",
+            subscription_tier="mini_parwa",
             subscription_status="active", mode="shadow",
         )
         db.add(company)

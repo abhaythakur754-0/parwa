@@ -117,7 +117,7 @@ class PriorityService:
     def get_sla_target(
         self,
         priority: str,
-        plan_tier: str = "starter",
+        plan_tier: str = "mini_parwa",
     ) -> Dict[str, int]:
         """Get SLA targets for a priority level.
 
@@ -135,8 +135,8 @@ class PriorityService:
 
         # Adjust based on plan tier
         multipliers = {
-            "starter": 1.0,
-            "growth": 0.75,  # Better SLAs for higher tiers
+            "mini_parwa": 1.0,
+            "parwa": 0.75,  # Better SLAs for higher tiers
             "high": 0.5,
             "enterprise": 0.4,
         }

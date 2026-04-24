@@ -21,7 +21,7 @@ class FileUploadRequest(BaseModel):
         description="MIME type of the uploaded file.",
     )
     tier: str = Field(
-        default="starter",
+        default="mini_parwa",
         description="Subscription tier for file size limits (starter/growth/high).",
     )
     metadata: Optional[Dict[str, Any]] = Field(

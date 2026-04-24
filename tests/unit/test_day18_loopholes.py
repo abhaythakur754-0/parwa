@@ -58,7 +58,7 @@ class TestClientFactoryLoopholes:
             )
 
     def test_l43_provision_defaults_to_starter_not_free(self):
-        """L43: Default tier should be 'starter' not something
+        """L43: Default tier should be 'mini_parwa' not something
         more permissive."""
         from backend.app.services.client_factory import (
             get_plan_entitlements,
@@ -150,7 +150,7 @@ class TestClientFactoryLoopholes:
 
         c = Company(
             id=str(uuid.uuid4()), name="B",
-            industry="tech", subscription_tier="starter",
+            industry="tech", subscription_tier="mini_parwa",
             subscription_status="active", mode="shadow",
         )
         self.db.add(c)
@@ -198,9 +198,9 @@ class TestClientFactoryLoopholes:
         from backend.app.services.client_factory import (
             get_plan_entitlements,
         )
-        starter = get_plan_entitlements("starter")
+        starter = get_plan_entitlements("mini_parwa")
         assert starter["voice"] is False
-        growth = get_plan_entitlements("growth")
+        growth = get_plan_entitlements("parwa")
         assert growth["voice"] is True
         assert growth["voice_slots"] == 2
         high = get_plan_entitlements("high")
@@ -214,8 +214,8 @@ class TestClientFactoryLoopholes:
         )
         with pytest.raises(ValueError) as exc_info:
             get_plan_entitlements("invalid")
-        assert "starter" in str(exc_info.value)
-        assert "growth" in str(exc_info.value)
+        assert "mini_parwa" in str(exc_info.value)
+        assert "parwa" in str(exc_info.value)
 
 
 class TestMigrationSecurityLoopholes:

@@ -35,7 +35,7 @@ logger = get_logger("client_factory")
 # ── Plan Entitlements ────────────────────────────────────────────────
 
 PLAN_ENTITLEMENTS = {
-    "starter": {
+    "mini_parwa": {
         "max_tickets_per_month": 2_000,
         "max_agents": 1,
         "channels": ["email", "live_chat"],
@@ -46,7 +46,7 @@ PLAN_ENTITLEMENTS = {
         "max_team_members": 3,
         "max_file_size_mb": 10,
     },
-    "growth": {
+    "parwa": {
         "max_tickets_per_month": 5_000,
         "max_agents": 3,
         "channels": ["email", "live_chat", "sms"],
@@ -83,7 +83,7 @@ def get_plan_entitlements(tier: str) -> Dict[str, Any]:
     Raises:
         ValueError: If tier is not recognized.
     """
-    tier_lower = tier.lower().strip() if tier else "starter"
+    tier_lower = tier.lower().strip() if tier else "mini_parwa"
     entitlements = PLAN_ENTITLEMENTS.get(tier_lower)
     if not entitlements:
         raise ValueError(
@@ -102,7 +102,7 @@ def provision_company(
     owner_password_hash: str,
     owner_full_name: Optional[str] = None,
     industry: Optional[str] = None,
-    tier: str = "starter",
+    tier: str = "mini_parwa",
     db: Optional[Session] = None,
 ) -> Dict[str, Any]:
     """Provision a new tenant company with all initial resources.
@@ -140,7 +140,7 @@ def provision_company(
     if not owner_password_hash or not owner_password_hash.strip():
         raise ValueError("Owner password hash is required")
 
-    tier_lower = tier.lower().strip() if tier else "starter"
+    tier_lower = tier.lower().strip() if tier else "mini_parwa"
     if tier_lower not in PLAN_ENTITLEMENTS:
         raise ValueError(
             f"Unknown plan tier '{tier}'. "

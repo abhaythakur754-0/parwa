@@ -72,7 +72,7 @@ def sample_company(db_session, company_id):
         id=company_id,
         name="Test Company",
         industry="tech",
-        subscription_tier="growth",
+        subscription_tier="parwa",
         subscription_status="active",
     )
     db_session.add(company)
@@ -817,7 +817,7 @@ class TestAssignmentService:
             id=other_company_id,
             name="Other Company",
             industry="tech",
-            subscription_tier="starter",
+            subscription_tier="mini_parwa",
             subscription_status="active",
         )
         db_session.add(other_company)

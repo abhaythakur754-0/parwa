@@ -199,7 +199,7 @@ class TestL50_FileSizeIntegerOverflow:
             validate_file_upload(
                 "big.pdf", "application/pdf",
                 100 * 1024 * 1024,  # 100MB
-                tier="starter",
+                tier="mini_parwa",
             )
 
 

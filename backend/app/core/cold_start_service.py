@@ -168,7 +168,7 @@ PREWARM_COMBOS: List[PREWARM_COMBO] = [
 VARIANT_TIER_MAP: Dict[str, List[str]] = {
     "mini_parwa": ["light", "guardrail"],
     "parwa": ["light", "medium", "guardrail"],
-    "parwa_high": ["light", "medium", "heavy", "guardrail"],
+    "high_parwa": ["light", "medium", "heavy", "guardrail"],
 }
 
 

@@ -124,12 +124,12 @@ class TestVariantFiltering:
         template = self.registry.get_template("refund", "resolution", "parwa")
         assert template is not None
 
-    def test_parwa_high_gets_resolution(self):
-        template = self.registry.get_template("refund", "resolution", "parwa_high")
+    def test_high_parwa_gets_resolution(self):
+        template = self.registry.get_template("refund", "resolution", "high_parwa")
         assert template is not None
 
     def test_all_variants_get_empathetic(self):
-        for variant in ("mini_parwa", "parwa", "parwa_high"):
+        for variant in ("mini_parwa", "parwa", "high_parwa"):
             template = self.registry.get_template("billing", "empathetic", variant)
             assert template is not None, f"empathetic not available for {variant}"
 

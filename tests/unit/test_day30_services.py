@@ -649,7 +649,7 @@ class TestIdentityResolutionService:
         mock_ticket.status = "open"
         mock_ticket.created_at = datetime.utcnow()
         mock_ticket.plan_snapshot = json.dumps({
-            "plan_tier": "growth",
+            "plan_tier": "parwa",
             "grandfathered": True,
             "grandfathered_since": datetime.utcnow().isoformat(),
         })
@@ -660,7 +660,7 @@ class TestIdentityResolutionService:
 
         assert len(result) == 1
         assert result[0]["ticket_id"] == "ticket-123"
-        assert result[0]["plan_tier"] == "growth"
+        assert result[0]["plan_tier"] == "parwa"
 
     def test_get_match_logs(self, identity_service, mock_db):
         """Test getting identity match logs."""
@@ -939,10 +939,10 @@ class TestDay30Loopholes:
         mock_ticket.plan_snapshot = None
 
         # Snapshot plan
-        service.snapshot_plan_for_ticket(mock_ticket, "growth")
+        service.snapshot_plan_for_ticket(mock_ticket, "parwa")
 
         plan_snapshot = json.loads(mock_ticket.plan_snapshot)
-        assert plan_snapshot["plan_tier"] == "growth"
+        assert plan_snapshot["plan_tier"] == "parwa"
         assert plan_snapshot["grandfathered"] is True
 
     def test_gap8_bulk_identity_limit(self, mock_db):

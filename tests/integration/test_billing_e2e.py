@@ -44,7 +44,7 @@ def mock_company():
     company = MagicMock()
     company.id = str(uuid4())
     company.subscription_status = "active"
-    company.subscription_tier = "starter"
+    company.subscription_tier = "mini_parwa"
     company.paddle_customer_id = "cust_123"
     company.paddle_subscription_id = None
     return company
@@ -56,7 +56,7 @@ def mock_active_subscription(mock_company):
     sub = MagicMock()
     sub.id = str(uuid4())
     sub.company_id = mock_company.id
-    sub.tier = "starter"
+    sub.tier = "mini_parwa"
     sub.status = "active"
     sub.current_period_start = datetime.now(timezone.utc)
     sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
@@ -111,7 +111,7 @@ class TestSubscriptionLifecycle:
         mock_sub = MagicMock()
         mock_sub.id = str(uuid4())
         mock_sub.company_id = str(company_id)
-        mock_sub.tier = "starter"
+        mock_sub.tier = "mini_parwa"
         mock_sub.status = "active"
         mock_sub.current_period_start = datetime.now(timezone.utc)
         mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
@@ -131,7 +131,7 @@ class TestSubscriptionLifecycle:
             mock_db.add = MagicMock()
 
             result = await service.create_subscription(
-                company_id=company_id, variant="starter",
+                company_id=company_id, variant="mini_parwa",
             )
 
         assert result.variant == VariantType.STARTER
@@ -162,7 +162,7 @@ class TestSubscriptionLifecycle:
             info.status = MagicMock(value="active")
             with patch.object(service, '_to_subscription_info', return_value=info):
                 result = await service.create_subscription(
-                    company_id=company_id, variant="growth",
+                    company_id=company_id, variant="parwa",
                 )
 
         assert result.variant == VariantType.GROWTH
@@ -216,7 +216,7 @@ class TestSubscriptionLifecycle:
 
             with pytest.raises(SubscriptionAlreadyExistsError):
                 await service.create_subscription(
-                    company_id=company_id, variant="growth",
+                    company_id=company_id, variant="parwa",
                 )
 
     @pytest.mark.asyncio
@@ -248,7 +248,7 @@ class TestUpgradeDowngrade:
         sub = MagicMock()
         sub.id = str(uuid4())
         sub.company_id = mock_company.id
-        sub.tier = "growth"
+        sub.tier = "parwa"
         sub.status = "active"
         sub.current_period_start = datetime.now(timezone.utc) - timedelta(days=10)
         sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=20)
@@ -268,10 +268,10 @@ class TestUpgradeDowngrade:
 
         service = SubscriptionService()
         mock_sub = self._build_growth_sub(mock_company)
-        mock_sub.tier = "starter"  # Simulate existing starter sub
+        mock_sub.tier = "mini_parwa"  # Simulate existing starter sub
 
         info = MagicMock()
-        info.variant = MagicMock(value="growth")
+        info.variant = MagicMock(value="parwa")
 
         with patch('backend.app.services.subscription_service.SessionLocal') as mock_sl, \
              patch.object(service, '_to_subscription_info', return_value=info), \
@@ -284,12 +284,12 @@ class TestUpgradeDowngrade:
             mock_db.refresh = MagicMock()
 
             result = await service.upgrade_subscription(
-                company_id=uuid4(), new_variant="growth",
+                company_id=uuid4(), new_variant="parwa",
             )
 
         assert result["proration"] is not None
-        assert result["proration"]["old_variant"] == "starter"
-        assert result["proration"]["new_variant"] == "growth"
+        assert result["proration"]["old_variant"] == "mini_parwa"
+        assert result["proration"]["new_variant"] == "parwa"
         assert result["proration"]["old_price"] == Decimal("999.00")
         assert result["proration"]["new_price"] == Decimal("2499.00")
 
@@ -300,7 +300,7 @@ class TestUpgradeDowngrade:
 
         service = SubscriptionService()
         mock_sub = self._build_growth_sub(mock_company)
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
 
         info = MagicMock()
         info.variant = MagicMock(value="high")
@@ -320,7 +320,7 @@ class TestUpgradeDowngrade:
             )
 
         assert result["proration"] is not None
-        assert result["proration"]["old_variant"] == "growth"
+        assert result["proration"]["old_variant"] == "parwa"
         assert result["proration"]["new_variant"] == "high"
         assert result["proration"]["net_charge"] > 0
 
@@ -333,7 +333,7 @@ class TestUpgradeDowngrade:
         mock_sub = self._build_growth_sub(mock_company)
 
         info = MagicMock()
-        info.variant = MagicMock(value="growth")
+        info.variant = MagicMock(value="parwa")
 
         with patch('backend.app.services.subscription_service.SessionLocal') as mock_sl, \
              patch.object(service, '_to_subscription_info', return_value=info):
@@ -342,12 +342,12 @@ class TestUpgradeDowngrade:
                 .with_for_update.return_value.first.return_value = mock_sub
 
             result = await service.downgrade_subscription(
-                company_id=uuid4(), new_variant="starter",
+                company_id=uuid4(), new_variant="mini_parwa",
             )
 
         assert "scheduled_change" in result
-        assert result["scheduled_change"]["current_variant"] == "growth"
-        assert result["scheduled_change"]["new_variant"] == "starter"
+        assert result["scheduled_change"]["current_variant"] == "parwa"
+        assert result["scheduled_change"]["new_variant"] == "mini_parwa"
         assert result["scheduled_change"]["effective_date"] is not None
         assert "scheduled" in result["message"].lower()
 
@@ -360,7 +360,7 @@ class TestUpgradeDowngrade:
         mock_sub = self._build_growth_sub(mock_company)
 
         info = MagicMock()
-        info.variant = MagicMock(value="growth")
+        info.variant = MagicMock(value="parwa")
 
         with patch('backend.app.services.subscription_service.SessionLocal') as mock_sl, \
              patch.object(service, '_to_subscription_info', return_value=info):
@@ -369,7 +369,7 @@ class TestUpgradeDowngrade:
                 .with_for_update.return_value.first.return_value = mock_sub
 
             result = await service.upgrade_subscription(
-                company_id=uuid4(), new_variant="growth",
+                company_id=uuid4(), new_variant="parwa",
             )
 
         assert result["proration"] is None
@@ -758,7 +758,7 @@ class TestVariantLimitEnforcement:
         service = VariantLimitService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"
+        mock_sub.tier = "mini_parwa"
         mock_sub.status = "active"
 
         with patch('backend.app.services.variant_limit_service.SessionLocal',
@@ -785,7 +785,7 @@ class TestVariantLimitEnforcement:
         service = VariantLimitService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"
+        mock_sub.tier = "mini_parwa"
         mock_sub.status = "active"
 
         with patch('backend.app.services.variant_limit_service.SessionLocal',
@@ -808,7 +808,7 @@ class TestVariantLimitEnforcement:
         service = VariantLimitService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"
+        mock_sub.tier = "mini_parwa"
         mock_sub.status = "active"
 
         with patch('backend.app.services.variant_limit_service.SessionLocal',
@@ -838,7 +838,7 @@ class TestVariantLimitEnforcement:
         service = VariantLimitService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"
+        mock_sub.tier = "mini_parwa"
         mock_sub.status = "active"
 
         with patch('backend.app.services.variant_limit_service.SessionLocal',

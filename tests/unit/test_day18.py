@@ -23,7 +23,7 @@ class TestPlanEntitlements:
 
     def test_get_plan_entitlements_starter(self):
         from backend.app.services.client_factory import get_plan_entitlements
-        e = get_plan_entitlements("starter")
+        e = get_plan_entitlements("mini_parwa")
         assert e["max_agents"] == 1
         assert e["max_tickets_per_month"] == 2_000
         assert e["voice"] is False
@@ -31,7 +31,7 @@ class TestPlanEntitlements:
 
     def test_get_plan_entitlements_growth(self):
         from backend.app.services.client_factory import get_plan_entitlements
-        e = get_plan_entitlements("growth")
+        e = get_plan_entitlements("parwa")
         assert e["max_agents"] == 3
         assert e["voice"] is True
         assert e["voice_slots"] == 2
@@ -102,7 +102,7 @@ class TestProvisionCompany:
             owner_email="owner@test.com",
             owner_password_hash="$2b$12$hash",
             owner_full_name="Test Owner",
-            tier="starter",
+            tier="mini_parwa",
             industry="technology",
             db=self.db,
         )
@@ -118,7 +118,7 @@ class TestProvisionCompany:
             Company.name == "Test Corp"
         ).first()
         assert company is not None
-        assert company.subscription_tier == "starter"
+        assert company.subscription_tier == "mini_parwa"
         assert company.mode == "shadow"
 
         owner = self.db.query(User).filter(
@@ -141,7 +141,7 @@ class TestProvisionCompany:
             name="Growth Corp",
             owner_email="owner2@test.com",
             owner_password_hash="$2b$12$hash",
-            tier="growth",
+            tier="parwa",
             industry="technology",
             db=self.db,
         )
@@ -265,7 +265,7 @@ class TestCheckEntitlement:
         yield
         self.db.close()
 
-    def _create_company(self, tier="starter"):
+    def _create_company(self, tier="mini_parwa"):
         from database.models.core import Company
         import uuid
         c = Company(
@@ -282,14 +282,14 @@ class TestCheckEntitlement:
 
     def test_check_entitlement_under_limit(self):
         from backend.app.services.client_factory import check_entitlement
-        c = self._create_company("starter")
+        c = self._create_company("mini_parwa")
         assert check_entitlement(
             c.id, "max_agents", 0, self.db,
         ) is True
 
     def test_check_entitlement_at_limit(self):
         from backend.app.services.client_factory import check_entitlement
-        c = self._create_company("starter")
+        c = self._create_company("mini_parwa")
         # starter has max_agents=1, current=1 means NOT under
         assert check_entitlement(
             c.id, "max_agents", 1, self.db,
@@ -297,7 +297,7 @@ class TestCheckEntitlement:
 
     def test_check_entitlement_unknown_key(self):
         from backend.app.services.client_factory import check_entitlement
-        c = self._create_company("starter")
+        c = self._create_company("mini_parwa")
         # No limit defined → always True
         assert check_entitlement(
             c.id, "unknown_key", 999, self.db,
@@ -309,7 +309,7 @@ class TestCheckEntitlement:
         )
         from database.models.core import User
 
-        c = self._create_company("starter")
+        c = self._create_company("mini_parwa")
         # Starter max_team_members=3, owner already exists
         assert check_team_member_limit(c.id, self.db) is True
 
@@ -331,7 +331,7 @@ class TestCheckEntitlement:
         from backend.app.services.client_factory import check_agent_limit
         from database.models.core import Agent
 
-        c = self._create_company("starter")
+        c = self._create_company("mini_parwa")
         # Starter max_agents=1, default agent from provision
         assert check_agent_limit(c.id, self.db) is True
 

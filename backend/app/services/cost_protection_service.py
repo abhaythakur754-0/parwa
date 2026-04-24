@@ -58,7 +58,7 @@ class AlertLevel(str, Enum):
 DEFAULT_VARIANT_LIMITS = {
     "mini_parwa": {"daily": 500_000, "monthly": 15_000_000},
     "parwa": {"daily": 2_000_000, "monthly": 60_000_000},
-    "parwa_high": {"daily": 5_000_000, "monthly": 150_000_000},
+    "high_parwa": {"daily": 5_000_000, "monthly": 150_000_000},
 }
 
 # Per-tier daily request limits to protect MEDIUM bottleneck

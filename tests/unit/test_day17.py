@@ -110,7 +110,7 @@ class TestPaginateQuery:
                     id=str(uuid.uuid4()),
                     name=f"PagTest Co {uuid.uuid4().hex[:6]}",
                     industry="test_industry",
-                    subscription_tier="starter",
+                    subscription_tier="mini_parwa",
                     mode="shadow",
                 )
                 db.add(c)
@@ -194,7 +194,7 @@ class TestFilterParams:
         try:
             query = db.query(Company)
             filters = [
-                FilterParams(field="subscription_tier", operator="eq", value="starter"),
+                FilterParams(field="subscription_tier", operator="eq", value="mini_parwa"),
             ]
             filtered = apply_filters(query, Company, filters)
             assert filtered is not None
@@ -676,7 +676,7 @@ class TestFileStorageSchemas:
         from backend.app.schemas.file_storage import FileUploadRequest
 
         req = FileUploadRequest(content_type="application/pdf")
-        assert req.tier == "starter"
+        assert req.tier == "mini_parwa"
         assert req.metadata is None
 
     def test_upload_response_fields(self):

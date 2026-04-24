@@ -56,7 +56,7 @@ from shared.utils.security import (
 logger = get_logger("auth_service")
 
 # Default subscription tier for new companies
-_DEFAULT_TIER = "starter"
+_DEFAULT_TIER = "mini_parwa"
 _DEFAULT_INDUSTRY = "general"
 
 # Progressive lockout config (L11)
@@ -594,11 +594,11 @@ def _create_token_pair(
             db.delete(old_token)
 
     # Get plan from company (L13)
-    plan = "starter"
+    plan = "mini_parwa"
     if company:
         plan = getattr(
-            company, "subscription_tier", "starter"
-        ) or "starter"
+            company, "subscription_tier", "mini_parwa"
+        ) or "mini_parwa"
 
     # Create access token (JWT with plan claim)
     access_token = create_access_token(

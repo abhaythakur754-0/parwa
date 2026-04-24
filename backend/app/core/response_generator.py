@@ -67,21 +67,21 @@ _GENERATION_TIMEOUT_SECONDS: float = 30.0
 _VARIANT_MAX_RESPONSE_TOKENS: Dict[str, int] = {
     "mini_parwa": 256,
     "parwa": 512,
-    "parwa_high": 1024,
+    "high_parwa": 1024,
 }
 
 # Variant-specific RAG top-k
 _VARIANT_RAG_TOP_K: Dict[str, int] = {
     "mini_parwa": 3,
     "parwa": 5,
-    "parwa_high": 10,
+    "high_parwa": 10,
 }
 
 # Variant-specific context window tokens for assembly
 _VARIANT_CONTEXT_TOKENS: Dict[str, int] = {
     "mini_parwa": 2048,
     "parwa": 4096,
-    "parwa_high": 8192,
+    "high_parwa": 8192,
 }
 
 
@@ -97,7 +97,7 @@ class ResponseGenerationRequest:
     query: str
     company_id: str
     conversation_id: str
-    variant_type: str  # mini_parwa, parwa, parwa_high
+    variant_type: str  # mini_parwa, parwa, high_parwa
     customer_id: Optional[str] = None
     conversation_history: Optional[List[dict]] = None
     customer_metadata: Optional[dict] = None
@@ -1133,7 +1133,7 @@ class ResponseGenerator:
             )
 
         # ── Citation format ───────────────────────────────────────
-        if request.variant_type == "parwa_high":
+        if request.variant_type == "high_parwa":
             parts.append(
                 "\n**Citation format:** When referencing source material, "
                 "use inline citations like [1], [2], etc. "

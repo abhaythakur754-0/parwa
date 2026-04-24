@@ -825,7 +825,7 @@ def get_variant_metrics(
     """Get per-variant execution summaries.
 
     Returns aggregated metrics for each variant (mini_parwa, parwa,
-    parwa_high) including execution counts, success rates, and
+    high_parwa) including execution counts, success rates, and
     per-technique breakdowns.
     """
     try:

@@ -291,7 +291,7 @@ class TestReActBillingToolPlanNames:
         source = inspect.getsource(BillingTool)
 
         # At least one actual plan name should exist
-        has_mini = "Mini PARWA" in source or "mini_parwa" in source or "starter" in source
+        has_mini = "Mini PARWA" in source or "mini_parwa" in source or "mini_parwa" in source
         has_parwa = "PARWA" in source and "$2,499" in source
         has_high = "PARWA High" in source or "parwa_high" in source or "$3,999" in source
 

@@ -125,13 +125,13 @@ class TestConstants:
 
     def test_plan_limits_exist(self):
         assert "free" in PLAN_LIMITS
-        assert "starter" in PLAN_LIMITS
-        assert "growth" in PLAN_LIMITS
+        assert "mini_parwa" in PLAN_LIMITS
+        assert "parwa" in PLAN_LIMITS
         assert "pro" in PLAN_LIMITS
         assert "enterprise" in PLAN_LIMITS
 
     def test_plan_limits_growth(self):
-        assert PLAN_LIMITS["growth"] == 5
+        assert PLAN_LIMITS["parwa"] == 5
 
     def test_max_consecutive_errors(self):
         assert MAX_CONSECUTIVE_ERRORS == 3

@@ -39,13 +39,13 @@ def mock_company_id():
 @pytest.fixture
 def attachment_service(mock_db, mock_company_id):
     """Attachment service instance."""
-    return AttachmentService(mock_db, mock_company_id, plan_tier="starter")
+    return AttachmentService(mock_db, mock_company_id, plan_tier="mini_parwa")
 
 
 @pytest.fixture
 def attachment_service_growth(mock_db, mock_company_id):
     """Attachment service with growth plan."""
-    return AttachmentService(mock_db, mock_company_id, plan_tier="growth")
+    return AttachmentService(mock_db, mock_company_id, plan_tier="parwa")
 
 
 # ── FILE VALIDATION TESTS ───────────────────────────────────────────────────

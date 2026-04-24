@@ -1126,7 +1126,7 @@ class TestAdditionalCoverage:
             svc.get_template(company_id="   ", name="customer_support_system")
 
     def test_valid_variant_types_constant(self):
-        expected = {"mini_parwa", "parwa", "parwa_high"}
+        expected = {"mini_parwa", "parwa", "high_parwa"}
         assert VALID_VARIANT_TYPES == expected
 
     def test_template_dataclass_defaults(self):

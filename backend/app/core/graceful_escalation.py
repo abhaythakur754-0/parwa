@@ -145,7 +145,7 @@ class EscalationContext:
         severity: EscalationSeverity value (may be overridden by rules).
         description: Human-readable description of the escalation reason.
         gsd_state: Current GSD state if applicable.
-        variant: PARWA variant (mini_parwa, parwa, parwa_high).
+        variant: PARWA variant (mini_parwa, parwa, high_parwa).
         agent_id: ID of the AI agent that detected the issue.
         frustration_score: Current customer frustration (0-100).
         confidence_score: Current AI confidence (0.0-1.0).

@@ -47,7 +47,7 @@ class TestGetDB:
         unique_id = "co-test-get-db-unique"
         co = Company(
             id=unique_id, name="Test", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.commit()
@@ -108,7 +108,7 @@ class TestEngineConfig:
         from database.models.core import Company
         db.add(Company(
             id="co1", name="Test", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         ))
         db.commit()
         assert db.query(Company).count() == 1

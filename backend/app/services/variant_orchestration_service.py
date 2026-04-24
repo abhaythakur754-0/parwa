@@ -43,7 +43,7 @@ logger = logging.getLogger("parwa.orchestration")
 VARIANT_PRIORITY = {
     "mini_parwa": 1,
     "parwa": 2,
-    "parwa_high": 3,
+    "high_parwa": 3,
 }
 
 VALID_STRATEGIES = {

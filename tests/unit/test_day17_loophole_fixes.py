@@ -344,14 +344,14 @@ class TestL50Harden_FileSizeValidation:
         from backend.app.core.storage import validate_file_upload
 
         # Exactly at limit should pass
-        result = validate_file_upload("f.pdf", "application/pdf", 10 * 1024 * 1024, tier="starter")
+        result = validate_file_upload("f.pdf", "application/pdf", 10 * 1024 * 1024, tier="mini_parwa")
         assert result == "f.pdf"
 
     def test_one_byte_over_limit(self):
         from backend.app.core.storage import validate_file_upload
 
         with pytest.raises(ValueError, match="exceeds"):
-            validate_file_upload("f.pdf", "application/pdf", 10 * 1024 * 1024 + 1, tier="starter")
+            validate_file_upload("f.pdf", "application/pdf", 10 * 1024 * 1024 + 1, tier="mini_parwa")
 
 
 class TestL51Harden_CompanyIsolation:

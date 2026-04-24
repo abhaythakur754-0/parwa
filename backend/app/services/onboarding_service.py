@@ -781,9 +781,9 @@ def activate_ai(
                     "1_10": "mini_parwa",
                     "11_50": "parwa",
                     "51_200": "parwa",
-                    "201_500": "parwa_high",
-                    "501_1000": "parwa_high",
-                    "1000_plus": "parwa_high",
+                    "201_500": "high_parwa",
+                    "501_1000": "high_parwa",
+                    "1000_plus": "high_parwa",
                 }
                 variant_type = size_to_variant.get(details.company_size, "mini_parwa")
 

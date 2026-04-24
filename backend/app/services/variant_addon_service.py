@@ -361,7 +361,7 @@ class VariantAddonService:
             subscription = self._get_subscription(db, str(company_id))
             tier_key = (
                 subscription.tier.lower().strip()
-                if subscription else "starter"
+                if subscription else "mini_parwa"
             )
             variant_type = VariantType(tier_key)
             base_limits = VARIANT_LIMITS[variant_type]

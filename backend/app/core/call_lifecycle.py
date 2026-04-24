@@ -11,7 +11,7 @@ Core Responsibilities:
 - Handle retries, timeouts, and graceful degradation on failure
 - Emit lifecycle events to registered listeners for monitoring
 - Maintain per-company history and aggregated statistics
-- Support three PARWA variants: mini_parwa, parwa, parwa_high
+- Support three PARWA variants: mini_parwa, parwa, high_parwa
 
 Pipeline stages (variant-dependent):
   mini_parwa:  signal_extraction → intent_classification →
@@ -19,7 +19,7 @@ Pipeline stages (variant-dependent):
   parwa:       signal_extraction → intent_classification → rag_retrieval →
                context_compression → response_generation →
                guardrails_check → post_processing
-  parwa_high:  (same as parwa)
+  high_parwa:  (same as parwa)
 
 Building Codes: BC-001, BC-008, BC-012
 """
@@ -224,7 +224,7 @@ _PIPELINE_STAGES: Dict[str, List[str]] = {
         "guardrails_check",
         "post_processing",
     ],
-    "parwa_high": [
+    "high_parwa": [
         "signal_extraction",
         "intent_classification",
         "rag_retrieval",
@@ -478,7 +478,7 @@ class CallLifecycleManager:
         Args:
             company_id: Tenant identifier (BC-001).
             ticket_id:  Ticket being processed.
-            variant:    PARWA variant (mini_parwa, parwa, parwa_high).
+            variant:    PARWA variant (mini_parwa, parwa, high_parwa).
             metadata:   Optional arbitrary metadata to attach.
 
         Returns:
@@ -1456,7 +1456,7 @@ class CallLifecycleManager:
         """Return the ordered list of pipeline stages for a variant.
 
         Args:
-            variant: PARWA variant (mini_parwa, parwa, parwa_high).
+            variant: PARWA variant (mini_parwa, parwa, high_parwa).
 
         Returns:
             Ordered list of stage name strings.

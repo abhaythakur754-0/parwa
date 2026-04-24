@@ -66,7 +66,7 @@ PAYMENT_STATUSES = ("pending", "paid", "failed", "refunded", "expired")
 TIER_AGENT_LIMITS: Dict[str, int] = {
     "mini_parwa": 1,
     "parwa": 3,
-    "parwa_high": 10,
+    "high_parwa": 10,
 }
 
 

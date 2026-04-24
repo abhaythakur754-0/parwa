@@ -9,7 +9,7 @@ on Days 6-7.
 Architecture:
   mini_parwa  (starter)  → Tier 1 only
   parwa       (growth)   → Tier 1 + Tier 2
-  parwa_high  (high)     → Tier 1 + Tier 2 + Tier 3
+  high_parwa  (high)     → Tier 1 + Tier 2 + Tier 3
 
 GAP Fixes:
   W9-GAP-029 (HIGH): Cache tier access decisions for 60s
@@ -63,7 +63,7 @@ _DOWNGRADE_FALLBACK: Dict[str, str] = {
 }
 
 # Known variant types
-VALID_VARIANTS = ("mini_parwa", "parwa", "parwa_high")
+VALID_VARIANTS = ("mini_parwa", "parwa", "high_parwa")
 
 # Technique → tier mapping
 _TECHNIQUE_TO_TIER: Dict[str, str] = {
@@ -229,9 +229,9 @@ class TechniqueTierAccessChecker:
             fallback_map=t2_fallback,
         )
 
-        # parwa_high: Tier 1 + Tier 2 + Tier 3 (all)
-        self._configs["parwa_high"] = VariantTierConfig(
-            variant_type="parwa_high",
+        # high_parwa: Tier 1 + Tier 2 + Tier 3 (all)
+        self._configs["high_parwa"] = VariantTierConfig(
+            variant_type="high_parwa",
             max_tier=3,
             allowed_techniques=all_techniques,
             blocked_techniques=[],
@@ -525,7 +525,7 @@ class TechniqueTierAccessChecker:
     ) -> TierAccessResult:
         """
         Check what happens when escalating a technique
-        across variants (e.g., parwa → parwa_high).
+        across variants (e.g., parwa → high_parwa).
 
         Returns the access result from the *target* variant
         perspective so callers know whether the upgrade

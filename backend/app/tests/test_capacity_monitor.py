@@ -98,11 +98,11 @@ class TestSlotAcquisition:
                 COMPANY_ID, "mini_parwa", f"tkt_{i}"
             ) is True
 
-    def test_acquire_parwa_high_limit(self, monitor):
-        default = DEFAULT_MAX_CONCURRENT["parwa_high"]
+    def test_acquire_high_parwa_limit(self, monitor):
+        default = DEFAULT_MAX_CONCURRENT["high_parwa"]
         for i in range(default):
             assert monitor.acquire_slot(
-                COMPANY_ID, "parwa_high", f"tkt_{i}"
+                COMPANY_ID, "high_parwa", f"tkt_{i}"
             ) is True
 
     def test_acquire_with_metadata(self, monitor):
@@ -718,12 +718,12 @@ class TestEdgeCases:
     def test_default_concurrent_values(self):
         assert DEFAULT_MAX_CONCURRENT["mini_parwa"] == 5
         assert DEFAULT_MAX_CONCURRENT["parwa"] == 10
-        assert DEFAULT_MAX_CONCURRENT["parwa_high"] == 3
+        assert DEFAULT_MAX_CONCURRENT["high_parwa"] == 3
 
     def test_all_variants_covered(self):
         assert "mini_parwa" in ALL_VARIANTS
         assert "parwa" in ALL_VARIANTS
-        assert "parwa_high" in ALL_VARIANTS
+        assert "high_parwa" in ALL_VARIANTS
 
     def test_reset_clears_all(self, monitor):
         monitor.configure_limits(COMPANY_ID, "parwa", 5)

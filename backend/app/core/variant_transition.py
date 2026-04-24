@@ -46,13 +46,13 @@ logger = get_logger(__name__)
 VALID_VARIANT_TYPES: List[str] = [
     "mini_parwa",
     "parwa",
-    "parwa_high",
+    "high_parwa",
 ]
 
 VARIANT_RANKING: Dict[str, int] = {
     "mini_parwa": 1,
     "parwa": 2,
-    "parwa_high": 3,
+    "high_parwa": 3,
 }
 
 # All 14 reasoning techniques across three tiers
@@ -298,7 +298,7 @@ class VariantTransitionHandler:
         """Initialize the handler with variant capabilities, registries, and locks.
 
         Pre-defines capability maps for all three variant types
-        (mini_parwa, parwa, parwa_high) and initializes empty
+        (mini_parwa, parwa, high_parwa) and initializes empty
         in-memory registries for tickets, transitions, and notices.
         """
         # Thread-safe lock for all mutable state
@@ -392,8 +392,8 @@ class VariantTransitionHandler:
             features=list(parwa_features),
         )
 
-        # parwa_high: Tier 1 + Tier 2 + Tier 3 — High tier (all 14 techniques)
-        parwa_high_features: List[str] = [
+        # high_parwa: Tier 1 + Tier 2 + Tier 3 — High tier (all 14 techniques)
+        high_parwa_features: List[str] = [
             "basic_classification",
             "sentiment_analysis",
             "context_compression",
@@ -418,8 +418,8 @@ class VariantTransitionHandler:
             "priority_queue_access",
             "dedicated_ai_agents",
         ]
-        self._capabilities["parwa_high"] = VariantCapabilities(
-            variant_type="parwa_high",
+        self._capabilities["high_parwa"] = VariantCapabilities(
+            variant_type="high_parwa",
             max_tier=3,
             allowed_techniques=list(
                 _TIER_1_TECHNIQUES + _TIER_2_TECHNIQUES + _TIER_3_TECHNIQUES
@@ -427,7 +427,7 @@ class VariantTransitionHandler:
             smart_router_tiers=["light", "medium", "heavy"],
             confidence_threshold=0.75,
             max_agents=5,
-            features=list(parwa_high_features),
+            features=list(high_parwa_features),
         )
 
     # ── Timestamp Helper ───────────────────────────────────────────

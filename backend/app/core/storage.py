@@ -66,8 +66,8 @@ MAX_FILE_SIZE: int = 50 * 1024 * 1024
 Starter: 10 MB, Growth: 25 MB, High: 50 MB.
 """
 MAX_FILE_SIZE_BY_TIER: dict = {
-    "starter": 10 * 1024 * 1024,
-    "growth": 25 * 1024 * 1024,
+    "mini_parwa": 10 * 1024 * 1024,
+    "parwa": 25 * 1024 * 1024,
     "high": 50 * 1024 * 1024,
 }
 
@@ -1277,7 +1277,7 @@ def validate_file_upload(
     filename: str,
     content_type: str,
     file_size: int,
-    tier: str = "starter",
+    tier: str = "mini_parwa",
 ) -> str:
     """Validate a file upload before processing.
 

@@ -1,7 +1,7 @@
 """Tests for Shared GSD Manager (shared_gsd.py)
 
 Covers:
-- Valid transition lookup (parwa, mini_parwa, parwa_high variants)
+- Valid transition lookup (parwa, mini_parwa, high_parwa variants)
 - Transition reason explanation
 - Transition recording
 - Transition history retrieval
@@ -99,9 +99,9 @@ class TestValidTransitions:
         )
         assert "human_handoff" not in targets
 
-    def test_parwa_high_has_escalate(self, manager):
+    def test_high_parwa_has_escalate(self, manager):
         targets = manager.get_valid_transitions(
-            "diagnosis", variant="parwa_high"
+            "diagnosis", variant="high_parwa"
         )
         assert "escalate" in targets
 

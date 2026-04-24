@@ -12,7 +12,7 @@ Categories:
   - model:      Model tier, temperature, fallback
 
 Features:
-  - Default config per variant type (mini_parwa, parwa, parwa_high)
+  - Default config per variant type (mini_parwa, parwa, high_parwa)
   - Per-company overrides merged with defaults
   - Config validation with type checking
   - Config versioning (change history)
@@ -135,7 +135,7 @@ CATEGORY_SCHEMAS: Dict[str, Dict[str, Any]] = {
 
 VALID_STRATEGIES = {"hybrid", "priority_based", "extractive", "sliding_window"}
 VALID_LEVELS = {"none", "light", "moderate", "aggressive"}
-VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "parwa_high"}
+VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "high_parwa"}
 VALID_MODEL_TIERS = {"light", "medium", "heavy"}
 
 
@@ -207,8 +207,8 @@ def _parwa_defaults() -> TenantFullConfig:
     )
 
 
-def _parwa_high_defaults() -> TenantFullConfig:
-    """Default config for parwa_high variant."""
+def _high_parwa_defaults() -> TenantFullConfig:
+    """Default config for high_parwa variant."""
     return TenantFullConfig(
         technique=TenantTechniqueConfig(
             enabled_techniques=[
@@ -228,7 +228,7 @@ def _parwa_high_defaults() -> TenantFullConfig:
             preserve_recent_n=5,
         ),
         workflow=TenantWorkflowConfig(
-            variant_type="parwa_high",
+            variant_type="high_parwa",
             enable_human_checkpoint=True,
             checkpoint_timeout_seconds=600.0,
             max_concurrent_workflows=2,
@@ -245,7 +245,7 @@ def _parwa_high_defaults() -> TenantFullConfig:
 VARIANT_DEFAULTS: Dict[str, Callable[[], TenantFullConfig]] = {
     "mini_parwa": _mini_parwa_defaults,
     "parwa": _parwa_defaults,
-    "parwa_high": _parwa_high_defaults,
+    "high_parwa": _high_parwa_defaults,
 }
 
 

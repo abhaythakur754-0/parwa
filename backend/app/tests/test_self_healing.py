@@ -55,7 +55,7 @@ COMPANY_ID = "test-company-healing"
 ANOTHER_COMPANY = "test-company-healing-2"
 VARIANT_PARWA = "parwa"
 VARIANT_MINI = "mini_parwa"
-VARIANT_HIGH = "parwa_high"
+VARIANT_HIGH = "high_parwa"
 PROVIDER = "google"
 MODEL_ID = "gemini-2.0-flash"
 TIER = "medium"
@@ -107,7 +107,7 @@ class TestHelperFunctions:
         assert _default_threshold("mini_parwa") == 95.0
 
     def test_default_threshold_high(self):
-        assert _default_threshold("parwa_high") == 75.0
+        assert _default_threshold("high_parwa") == 75.0
 
     def test_default_threshold_unknown(self):
         assert _default_threshold("unknown_variant") == 85.0
@@ -119,7 +119,7 @@ class TestHelperFunctions:
         assert _floor_threshold("mini_parwa") == 80.0
 
     def test_floor_threshold_high(self):
-        assert _floor_threshold("parwa_high") == 60.0
+        assert _floor_threshold("high_parwa") == 60.0
 
     def test_provider_key(self):
         key = _provider_key("google", "gemini-2.0-flash")

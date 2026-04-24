@@ -51,7 +51,7 @@ class TestPaymentFailureRaceCondition:
         company = MagicMock()
         company.id = "company_test_123"
         company.subscription_status = "active"
-        company.subscription_tier = "growth"
+        company.subscription_tier = "parwa"
         return company
 
     @pytest.mark.asyncio
@@ -258,7 +258,7 @@ class TestPartialServiceSuspension:
         company = MagicMock()
         company.id = "company_partial_test"
         company.subscription_status = "active"
-        company.subscription_tier = "growth"
+        company.subscription_tier = "parwa"
         return company
 
     @pytest.mark.asyncio

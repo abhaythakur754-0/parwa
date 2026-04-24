@@ -24,7 +24,7 @@ logger = get_logger("variant_instance_service")
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
 
-VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "parwa_high"}
+VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "high_parwa"}
 
 VALID_STATUSES = {"active", "inactive", "warming", "suspended"}
 
@@ -34,7 +34,7 @@ VALID_CHANNELS = {
 }
 
 VARIANT_PRIORITY = {
-    "parwa_high": 3,
+    "high_parwa": 3,
     "parwa": 2,
     "mini_parwa": 1,
 }
@@ -150,7 +150,7 @@ def _generate_redis_partition_key(
     """Generate Redis state partition key."""
     short_type = (
         variant_type.replace("mini_parwa", "min")
-        .replace("parwa_high", "high")
+        .replace("high_parwa", "high")
         .replace("parwa", "par")
     )
     return f"parwa:{company_id}:inst:{short_type}_{count}"
@@ -368,7 +368,7 @@ def get_highest_active_variant(
     Returns highest variant_type with at least one
     active instance.
 
-    Priority: parwa_high > parwa > mini_parwa.
+    Priority: high_parwa > parwa > mini_parwa.
     Returns None if no active instances.
     """
     _validate_company_id(company_id)

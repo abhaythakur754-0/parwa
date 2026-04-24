@@ -700,7 +700,7 @@ class SentimentAnalyzer:
         Args:
             query: Customer message text.
             company_id: Tenant identifier (BC-001).
-            variant_type: mini_parwa, parwa, parwa_high.
+            variant_type: mini_parwa, parwa, high_parwa.
             conversation_history: Previous messages for trend analysis.
             customer_metadata: Optional customer context (tier, VIP, etc.)
 

@@ -35,7 +35,7 @@ def db_session():
         id="comp-1",
         name="Test Co",
         industry="tech",
-        subscription_tier="starter",
+        subscription_tier="mini_parwa",
     )
     user = User(
         id="user-1",
@@ -59,7 +59,7 @@ def company2(db_session):
         id="comp-2",
         name="Other Co",
         industry="retail",
-        subscription_tier="growth",
+        subscription_tier="parwa",
     )
     db_session.add(comp)
     db_session.commit()

@@ -132,7 +132,7 @@ class TestConstants:
         )
         assert TIER_AGENT_LIMITS["mini_parwa"] == 1
         assert TIER_AGENT_LIMITS["parwa"] == 3
-        assert TIER_AGENT_LIMITS["parwa_high"] == 10
+        assert TIER_AGENT_LIMITS["high_parwa"] == 10
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -853,12 +853,12 @@ class TestGetAgentLimit:
         assert result["max_agents"] == 1  # default fallback
         assert result["can_add"] is True
 
-    def test_parwa_high_tier(
+    def test_high_parwa_tier(
         self, service, company_id,
     ):
         """Parwa High tier returns 10 max agents."""
         with patch.object(
-            service, "_get_company_tier", return_value="parwa_high",
+            service, "_get_company_tier", return_value="high_parwa",
         ), patch.object(
             service, "_count_active_agents", return_value=5,
         ):

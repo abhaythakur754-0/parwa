@@ -164,7 +164,7 @@ class TestWorkflowPipelineIntegration:
 
     def test_pipeline_metrics_reflect_multiple_variants(self):
         """Metrics correctly track different variant executions."""
-        for variant in ["mini_parwa", "parwa", "parwa_high"]:
+        for variant in ["mini_parwa", "parwa", "high_parwa"]:
             for i in range(3):
                 self.metrics.record_execution(
                     technique_id=TechniqueID.GSD.value,
@@ -177,7 +177,7 @@ class TestWorkflowPipelineIntegration:
 
         summary = self.metrics.get_all_variant_summaries()
         assert len(summary) == 3
-        for variant in ["mini_parwa", "parwa", "parwa_high"]:
+        for variant in ["mini_parwa", "parwa", "high_parwa"]:
             assert summary[variant].total_executions == 3
 
 
@@ -373,12 +373,12 @@ class TestCapacityTenantConfigIntegration:
         """Overall overflow status considers all variants."""
         self.capacity.configure_limits("co1", "mini_parwa", 1)
         self.capacity.configure_limits("co1", "parwa", 1)
-        self.capacity.configure_limits("co1", "parwa_high", 1)
+        self.capacity.configure_limits("co1", "high_parwa", 1)
 
         # Fill all
         self.capacity.acquire_slot("co1", "mini_parwa", "t1")
         self.capacity.acquire_slot("co1", "parwa", "t2")
-        self.capacity.acquire_slot("co1", "parwa_high", "t3")
+        self.capacity.acquire_slot("co1", "high_parwa", "t3")
 
         status = self.capacity.get_overflow_status("co1")
         assert status is not None
@@ -556,7 +556,7 @@ class TestEndToEndFullPipeline:
 
     def test_multiple_variants_pipeline(self):
         """All three variant types work through the pipeline."""
-        for variant in ["mini_parwa", "parwa", "parwa_high"]:
+        for variant in ["mini_parwa", "parwa", "high_parwa"]:
             self.capacity.configure_limits("co1", variant, 5)
             r = self._simulate_pipeline("co1", f"{variant}_t1", "test query", variant)
             assert r["capacity_acquired"] is True

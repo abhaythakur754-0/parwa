@@ -60,8 +60,8 @@ class ProrationService:
         # Calculate upgrade proration
         result = await service.calculate_upgrade_proration(
             company_id=uuid,
-            old_variant="starter",
-            new_variant="growth",
+            old_variant="mini_parwa",
+            new_variant="parwa",
             billing_cycle_start=date(2024, 1, 1),
             billing_cycle_end=date(2024, 2, 1),
         )
@@ -430,7 +430,7 @@ class ProrationService:
     def _validate_variant(self, variant: str) -> str:
         """Validate and normalize variant name."""
         variant_lower = variant.lower().strip()
-        valid_variants = {"starter", "growth", "high"}
+        valid_variants = {"mini_parwa", "parwa", "high"}
         if variant_lower not in valid_variants:
             raise ProrationError(
                 f"Invalid variant: {variant}. "
@@ -463,7 +463,7 @@ class ProrationService:
 
     def _is_upgrade(self, old_variant: str, new_variant: str) -> bool:
         """Check if new_variant is an upgrade from old_variant."""
-        tier_order = {"starter": 1, "growth": 2, "high": 3}
+        tier_order = {"mini_parwa": 1, "parwa": 2, "high": 3}
         return tier_order.get(new_variant, 0) > tier_order.get(old_variant, 0)
 
     def _get_variant_price(

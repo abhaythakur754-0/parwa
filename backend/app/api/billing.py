@@ -330,7 +330,7 @@ async def update_subscription(
         )
 
     # Check if upgrade or downgrade
-    tier_order = {"starter": 1, "growth": 2, "high": 3}
+    tier_order = {"mini_parwa": 1, "parwa": 2, "high": 3}
     is_upgrade = tier_order.get(new_variant, 0) > tier_order.get(
         current.variant.value, 0
     )
@@ -524,7 +524,7 @@ async def preview_upgrade(
     new_variant = data.new_variant.value
 
     # Check if upgrade
-    tier_order = {"starter": 1, "growth": 2, "high": 3}
+    tier_order = {"mini_parwa": 1, "parwa": 2, "high": 3}
     if tier_order.get(new_variant, 0) <= tier_order.get(current_variant, 0):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

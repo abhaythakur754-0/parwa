@@ -30,7 +30,7 @@ logger = get_logger("intent_technique_mapper")
 VARIANT_TIER_LIMITS: Dict[str, TechniqueTier] = {
     "mini_parwa": TechniqueTier.TIER_1,
     "parwa": TechniqueTier.TIER_2,
-    "parwa_high": TechniqueTier.TIER_3,
+    "high_parwa": TechniqueTier.TIER_3,
 }
 
 # ── Tier 1 Fallbacks: when T2/T3 blocked, use T1 equivalent ─────────

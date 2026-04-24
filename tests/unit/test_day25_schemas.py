@@ -208,13 +208,13 @@ class TestSLAPolicyCreate:
     def test_create_policy(self):
         from backend.app.schemas.sla import SLAPolicyCreate
         policy = SLAPolicyCreate(
-            plan_tier="starter",
+            plan_tier="mini_parwa",
             priority="high",
             first_response_minutes=240,
             resolution_minutes=1440,
             update_frequency_minutes=60
         )
-        assert policy.plan_tier == "starter"
+        assert policy.plan_tier == "mini_parwa"
         assert policy.priority == "high"
         assert policy.first_response_minutes == 240
 
@@ -223,7 +223,7 @@ class TestSLAPolicyCreate:
         from pydantic import ValidationError
         with pytest.raises(ValidationError):
             SLAPolicyCreate(
-                plan_tier="starter",
+                plan_tier="mini_parwa",
                 priority="high",
                 first_response_minutes=0,
                 resolution_minutes=1440,
@@ -235,7 +235,7 @@ class TestSLAPolicyCreate:
         from pydantic import ValidationError
         with pytest.raises(ValidationError):
             SLAPolicyCreate(
-                plan_tier="starter",
+                plan_tier="mini_parwa",
                 priority="urgent",
                 first_response_minutes=60,
                 resolution_minutes=240,

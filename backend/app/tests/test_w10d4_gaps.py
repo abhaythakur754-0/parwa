@@ -577,13 +577,13 @@ class TestGSDTransitionsAtomicityConsistency:
         assert "escalate" not in MINI_TRANSITION_TABLE.get("diagnosis", set())
 
     @pytest.mark.asyncio
-    async def test_parwa_high_allows_escalation_from_diagnosis(self):
+    async def test_high_parwa_allows_escalation_from_diagnosis(self):
         engine = GSDEngine()
         state = _make_conversation_state(gsd_state=GSDState.DIAGNOSIS)
 
-        # DIAGNOSIS can escalate to ESCALATE in parwa/parwa_high
+        # DIAGNOSIS can escalate to ESCALATE in parwa/high_parwa
         can = await engine.can_transition_with_variant(
-            GSDState.DIAGNOSIS, GSDState.ESCALATE, "parwa_high",
+            GSDState.DIAGNOSIS, GSDState.ESCALATE, "high_parwa",
         )
         assert can is True
 
@@ -829,7 +829,7 @@ class TestWorkflowConcurrentStatePersistence:
     @pytest.mark.asyncio
     async def test_different_variants_same_tenant_isolated(self):
         """Mini, PARWA, and High workflows for same tenant don't interfere."""
-        variants = ["mini_parwa", "parwa", "parwa_high"]
+        variants = ["mini_parwa", "parwa", "high_parwa"]
         results = {}
 
         async def run_variant(v):
@@ -845,15 +845,15 @@ class TestWorkflowConcurrentStatePersistence:
         # Mini has 3 steps, PARWA has 6, High has 9
         assert len(results["mini_parwa"].steps_completed) == 3
         assert len(results["parwa"].steps_completed) == 6
-        assert len(results["parwa_high"].steps_completed) == 9
+        assert len(results["high_parwa"].steps_completed) == 9
 
     def test_workflow_result_contains_expected_variant(self):
         wf = LangGraphWorkflow(config=WorkflowConfig(
-            company_id="co1", variant_type="parwa_high",
+            company_id="co1", variant_type="high_parwa",
         ))
         wf.build_graph()
 
-        assert wf._config.variant_type == "parwa_high"
+        assert wf._config.variant_type == "high_parwa"
         assert len(wf._steps) == 9
 
 
@@ -884,8 +884,8 @@ class TestConditionalBranchingLogic:
             "generate", "quality_gate", "format",
         ]
 
-    def test_parwa_high_has_correct_9_steps(self):
-        wf = LangGraphWorkflow(config=WorkflowConfig(variant_type="parwa_high"))
+    def test_high_parwa_has_correct_9_steps(self):
+        wf = LangGraphWorkflow(config=WorkflowConfig(variant_type="high_parwa"))
         wf.build_graph()
 
         step_ids = [s.step_id for s in wf._steps]
@@ -946,7 +946,7 @@ class TestHumanCheckpointTimeoutHandling:
         verifying the timeout check logic in the execute loop.
         """
         wf = LangGraphWorkflow(config=WorkflowConfig(
-            variant_type="parwa_high",
+            variant_type="high_parwa",
             max_pipeline_time_seconds=0.0,  # 0s — force immediate timeout
         ))
         wf.build_graph()
@@ -982,7 +982,7 @@ class TestHumanCheckpointTimeoutHandling:
     async def test_workflow_never_crashes_on_timeout(self):
         """BC-008: Even extreme timeouts should return a result, not crash."""
         wf = LangGraphWorkflow(config=WorkflowConfig(
-            variant_type="parwa_high",
+            variant_type="high_parwa",
             max_pipeline_time_seconds=0.0,
         ))
         wf.build_graph()
@@ -1065,7 +1065,7 @@ class TestContextCompressionQualityThresholds:
     async def test_aggressive_compression_at_80_percent_threshold(self):
         """At 80% budget, AGGRESSIVE compression should still keep critical info."""
         compressor = ContextCompressor(CompressionConfig(
-            variant_type="parwa_high",
+            variant_type="high_parwa",
             level=CompressionLevel.AGGRESSIVE,
             strategy=CompressionStrategy.EXTRACTIVE,
             max_tokens=500,
@@ -1363,7 +1363,7 @@ class TestTenantIsolationGraphSharing:
     def test_workflow_config_is_per_instance_not_global(self):
         """Each WorkflowConfig is independent; changing one does not affect others."""
         config_mini = WorkflowConfig(company_id="tenant_mini", variant_type="mini_parwa")
-        config_high = WorkflowConfig(company_id="tenant_high", variant_type="parwa_high")
+        config_high = WorkflowConfig(company_id="tenant_high", variant_type="high_parwa")
 
         wf_mini = LangGraphWorkflow(config=config_mini)
         wf_high = LangGraphWorkflow(config=config_high)
@@ -1374,7 +1374,7 @@ class TestTenantIsolationGraphSharing:
         assert len(wf_mini._steps) == 3
         assert len(wf_high._steps) == 9
         assert wf_mini._config.variant_type == "mini_parwa"
-        assert wf_high._config.variant_type == "parwa_high"
+        assert wf_high._config.variant_type == "high_parwa"
 
     @pytest.mark.asyncio
     async def test_concurrent_different_tenant_variants_do_not_interfere(self):
@@ -1391,12 +1391,12 @@ class TestTenantIsolationGraphSharing:
         await asyncio.gather(
             run_tenant("mini_parwa", "tenant_A"),
             run_tenant("parwa", "tenant_B"),
-            run_tenant("parwa_high", "tenant_C"),
+            run_tenant("high_parwa", "tenant_C"),
         )
 
         assert results["tenant_A"][0] == "mini_parwa"
         assert results["tenant_B"][0] == "parwa"
-        assert results["tenant_C"][0] == "parwa_high"
+        assert results["tenant_C"][0] == "high_parwa"
         assert len(results["tenant_A"][1].steps_completed) == 3
         assert len(results["tenant_B"][1].steps_completed) == 6
         assert len(results["tenant_C"][1].steps_completed) == 9
@@ -1405,7 +1405,7 @@ class TestTenantIsolationGraphSharing:
     async def test_reset_does_not_affect_other_instances(self):
         """Resetting one workflow engine does not affect another."""
         wf1 = LangGraphWorkflow(config=WorkflowConfig(variant_type="parwa"))
-        wf2 = LangGraphWorkflow(config=WorkflowConfig(variant_type="parwa_high"))
+        wf2 = LangGraphWorkflow(config=WorkflowConfig(variant_type="high_parwa"))
 
         wf1.build_graph()
         wf2.build_graph()
@@ -1425,7 +1425,7 @@ class TestTenantIsolationGraphSharing:
             level=CompressionLevel.NONE,
         ))
         comp_b = ContextCompressor(CompressionConfig(
-            variant_type="parwa_high",
+            variant_type="high_parwa",
             level=CompressionLevel.AGGRESSIVE,
         ))
 

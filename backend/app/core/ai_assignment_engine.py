@@ -7,7 +7,7 @@ Score-based multi-factor assignment:
 Variant differentiation:
   mini_parwa  — specialty + workload only (simpler), max 5 agents
   parwa       — full 4-factor scoring, max 10 agents
-  parwa_high  — full scoring + learning from history + reassignment optimization
+  high_parwa  — full scoring + learning from history + reassignment optimization
 
 GAP-027 FIX: Deterministic jitter via SHA-256 hash of ticket_id:agent_id
   so the same ticket always receives the same score per agent.
@@ -42,7 +42,7 @@ class VariantType(str, Enum):
     """PARWA variant tiers controlling assignment complexity."""
     MINI_PARWA = "mini_parwa"
     PARWA = "parwa"
-    PARWA_HIGH = "parwa_high"
+    PARWA_HIGH = "high_parwa"
 
 
 class AssignmentMethod(str, Enum):
@@ -63,7 +63,7 @@ JITTER_MAX = 10.0
 VARIANT_MAX_AGENTS: Dict[str, int] = {
     "mini_parwa": 5,
     "parwa": 10,
-    "parwa_high": 10,
+    "high_parwa": 10,
 }
 
 # Redis cache TTL for agent workloads (seconds)
@@ -146,7 +146,7 @@ class TicketAssignmentRequest:
     """
     ticket_id: str
     company_id: str
-    variant_type: str  # mini_parwa, parwa, parwa_high
+    variant_type: str  # mini_parwa, parwa, high_parwa
     intent_type: str  # refund, technical, billing, complaint, etc.
     priority: str  # low, medium, high, critical
     sentiment_score: float  # 0.0 – 1.0
@@ -403,7 +403,7 @@ class AIAssignmentEngine:
     Variant gating controls scoring depth:
       mini_parwa  — specialty + workload only
       parwa       — full 4-factor scoring
-      parwa_high  — full scoring + history learning
+      high_parwa  — full scoring + history learning
 
     BC-001: company_id isolates all data.
     BC-008: Falls back to rule-based or round-robin on failure.
@@ -421,11 +421,11 @@ class AIAssignmentEngine:
         self._assignment_service = assignment_service
         self._agent_profiles: Optional[List[_AgentProfile]] = None
 
-        # In-memory history store (parwa_high learning).  In production
+        # In-memory history store (high_parwa learning).  In production
         # this would be persisted in the database or a vector store.
         self._assignment_history: Dict[str, List[AssignmentEvent]] = {}
 
-        # Trained model weights (parwa_high).  Start with defaults.
+        # Trained model weights (high_parwa).  Start with defaults.
         self._model_weights: Dict[str, Dict[str, float]] = {
             "specialty": {"weight": 1.0, "bias": 0.0},
             "workload": {"weight": 1.0, "bias": 0.0},
@@ -619,7 +619,7 @@ class AIAssignmentEngine:
 
         scores = await self._calculate_scores(request, agents)
 
-        # parwa_high: incorporate historical reassignment patterns
+        # high_parwa: incorporate historical reassignment patterns
         variant = await self._detect_variant(company_id)
         if variant == VariantType.PARWA_HIGH.value:
             scores = await self._apply_reassignment_optimization(scores, ticket_id)
@@ -769,7 +769,7 @@ class AIAssignmentEngine:
     ) -> List[AssignmentEvent]:
         """Retrieve the assignment history for a ticket.
 
-        Uses in-memory store for parwa_high; falls back to AssignmentService
+        Uses in-memory store for high_parwa; falls back to AssignmentService
         for DB-backed history.
 
         Args:
@@ -910,7 +910,7 @@ class AIAssignmentEngine:
         weights = PRIORITY_WEIGHTS.get(priority, PRIORITY_WEIGHTS["medium"])
         tier_boost = CUSTOMER_TIER_BOOST.get(request.customer_tier, 0.0)
 
-        # parwa_high: apply trained model weight adjustments
+        # high_parwa: apply trained model weight adjustments
         if variant == VariantType.PARWA_HIGH.value:
             weights = self._apply_trained_weights(weights)
 
@@ -957,7 +957,7 @@ class AIAssignmentEngine:
                     request.ticket_id, agent.agent_id,
                 )
 
-            # Language match bonus (parwa_high)
+            # Language match bonus (high_parwa)
             language_bonus = 0.0
             if variant == VariantType.PARWA_HIGH.value:
                 if request.language in agent.languages:
@@ -1405,7 +1405,7 @@ class AIAssignmentEngine:
 
         return f"{prefix}. {'. '.join(parts)}"
 
-    # ── parwa_high: Advanced Features ────────────────────────────
+    # ── high_parwa: Advanced Features ────────────────────────────
 
     async def _detect_variant(self, company_id: str) -> str:
         """Detect which variant a company is on (stub).
@@ -1417,7 +1417,7 @@ class AIAssignmentEngine:
     def _apply_trained_weights(
         self, weights: Dict[str, float],
     ) -> Dict[str, float]:
-        """Apply trained model weight adjustments (parwa_high only)."""
+        """Apply trained model weight adjustments (high_parwa only)."""
         adjusted = dict(weights)
         for factor, config in self._model_weights.items():
             mult_key = f"{factor}_mult"
@@ -1431,7 +1431,7 @@ class AIAssignmentEngine:
         scores: List[AgentScore],
         ticket_id: str,
     ) -> List[AgentScore]:
-        """parwa_high: penalise agents who previously handled this ticket
+        """high_parwa: penalise agents who previously handled this ticket
         and had a negative outcome (escalation / reopened)."""
         # Stub — in production would query ticket outcome history
         return scores

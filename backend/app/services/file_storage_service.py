@@ -73,7 +73,7 @@ class FileStorageService:
         content_type: str,
         uploaded_by: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        tier: str = "starter",
+        tier: str = "mini_parwa",
     ) -> Dict[str, Any]:
         """Upload a file with validation and audit logging.
 

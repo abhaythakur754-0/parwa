@@ -7,7 +7,7 @@ DDoS attempts, or runaway processes across PARWA SaaS tenants.
 PARWA Variants:
   mini_parwa  (L1): lightweight tier  — 60 RPM,   5 concurrent
   parwa       (L2): standard tier     — 200 RPM,  20 concurrent
-  parwa_high  (L3): premium tier      — 600 RPM, 100 concurrent
+  high_parwa  (L3): premium tier      — 600 RPM, 100 concurrent
 
 Burst Detection Logic:
   - Tracks requests in a rolling 60-second window per company.
@@ -133,7 +133,7 @@ class BurstProtectionConfig:
         default_factory=lambda: {
             "mini_parwa": 60,
             "parwa": 200,
-            "parwa_high": 600,
+            "high_parwa": 600,
         },
     )
     burst_multiplier_threshold: float = 3.0
@@ -144,7 +144,7 @@ class BurstProtectionConfig:
         default_factory=lambda: {
             "mini_parwa": 5,
             "parwa": 20,
-            "parwa_high": 100,
+            "high_parwa": 100,
         },
     )
     error_rate_threshold_pct: float = 50.0
@@ -164,7 +164,7 @@ class BurstProtectionError(ParwaBaseError):
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
 
-VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "parwa_high"}
+VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "high_parwa"}
 
 # Maximum number of alerts retained per company (prevents
 # unbounded memory growth in long-running processes).
@@ -766,7 +766,7 @@ class UsageBurstProtectionService:
         company_id:
             Tenant identifier (BC-001).
         variant_type:
-            PARWA variant (``mini_parwa``, ``parwa``, ``parwa_high``).
+            PARWA variant (``mini_parwa``, ``parwa``, ``high_parwa``).
         response_time_ms:
             Wall-clock response time of the request.
         success:

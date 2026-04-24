@@ -51,7 +51,7 @@ def _create_user(db, email="test@example.com"):
     company = Company(
         name=f"Co-{uid}",
         industry="tech",
-        subscription_tier="starter",
+        subscription_tier="mini_parwa",
         subscription_status="active",
         mode="shadow",
     )

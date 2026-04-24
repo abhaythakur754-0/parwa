@@ -861,8 +861,8 @@ from decimal import Decimal as _Decimal
 def _get_variant_limits(variant_name: str):
     """Mock version of get_variant_limits from billing_extended."""
     _LIMITS = {
-        "starter": {"price_monthly": _Decimal("999.00")},
-        "growth": {"price_monthly": _Decimal("2499.00")},
+        "mini_parwa": {"price_monthly": _Decimal("999.00")},
+        "parwa": {"price_monthly": _Decimal("2499.00")},
         "enterprise": {"price_monthly": _Decimal("3999.00")},
     }
     return _LIMITS.get(variant_name)

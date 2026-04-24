@@ -108,8 +108,8 @@ class TestVariantTierMap:
     def test_parwa_has_guardrail(self):
         assert "guardrail" in VARIANT_TIER_MAP["parwa"]
 
-    def test_parwa_high_has_guardrail(self):
-        assert "guardrail" in VARIANT_TIER_MAP["parwa_high"]
+    def test_high_parwa_has_guardrail(self):
+        assert "guardrail" in VARIANT_TIER_MAP["high_parwa"]
 
     def test_mini_parwa_no_medium(self):
         assert "medium" not in VARIANT_TIER_MAP["mini_parwa"]
@@ -144,7 +144,7 @@ class TestColdFallbackModel:
         assert "model_id" in result
         assert "tier" in result
 
-    @pytest.mark.parametrize("variant", ["mini_parwa", "parwa", "parwa_high", "unknown"])
+    @pytest.mark.parametrize("variant", ["mini_parwa", "parwa", "high_parwa", "unknown"])
     def test_returns_model_for_any_variant(self, service: ColdStartService, variant: str):
         result = service.get_cold_fallback_model(COMPANY_ID, variant)
         assert result is not None
@@ -184,7 +184,7 @@ class TestHeavyTimeout:
             provider="groq", model_id="gpt-oss-120b", tier="heavy",
             status=WarmupStatus.warm, warmup_success=True,
         )
-        service.warmup_tenant(COMPANY_ID, "parwa_high")
+        service.warmup_tenant(COMPANY_ID, "high_parwa")
         # Check that _warmup_single_model was called with timeout_ms for heavy
         heavy_calls = [
             call for call in mock_method.call_args_list

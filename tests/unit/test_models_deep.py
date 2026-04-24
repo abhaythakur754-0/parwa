@@ -96,7 +96,7 @@ class TestUniqueConstraints:
         from database.models.core import User, Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.flush()
@@ -121,7 +121,7 @@ class TestUniqueConstraints:
         from database.models.core import APIKey, Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.flush()
@@ -146,7 +146,7 @@ class TestUniqueConstraints:
         from database.models.core import RefreshToken, User, Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         u = User(
             id="u1", company_id="co1", email="a@test.com",
@@ -178,7 +178,7 @@ class TestUniqueConstraints:
         from database.models.core import Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.flush()
@@ -210,7 +210,7 @@ class TestForeignKeyCascade:
         from database.models.core import User, Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.flush()
@@ -320,7 +320,7 @@ class TestNullableFields:
         from database.models.core import User, Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.flush()
@@ -340,7 +340,7 @@ class TestNullableFields:
         from database.models.core import User, Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.flush()
@@ -375,7 +375,7 @@ class TestNullableFields:
         from database.models.core import Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.flush()
@@ -402,7 +402,7 @@ class TestRelationships:
         from database.models.core import User, Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.flush()
@@ -426,7 +426,7 @@ class TestRelationships:
         from database.models.tickets import Ticket, TicketMessage
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.flush()
@@ -453,7 +453,7 @@ class TestRelationships:
         from database.models.core import Company
         co = Company(
             id="co1", name="Test Co", industry="tech",
-            subscription_tier="growth",
+            subscription_tier="parwa",
         )
         db.add(co)
         db.flush()

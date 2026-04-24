@@ -37,7 +37,7 @@ logger = get_logger("sentiment_technique_mapper")
 VARIANT_TIER_LIMITS: Dict[str, TechniqueTier] = {
     "mini_parwa": TechniqueTier.TIER_1,
     "parwa": TechniqueTier.TIER_2,
-    "parwa_high": TechniqueTier.TIER_3,
+    "high_parwa": TechniqueTier.TIER_3,
 }
 
 # ── Tier → Technique Info ───────────────────────────────────────────
@@ -148,7 +148,7 @@ class SentimentTechniqueMapper:
             customer_tier: free, pro, enterprise, vip.
             emotion: Primary emotion classification.
             is_vip: Whether customer is VIP.
-            variant_type: mini_parwa, parwa, parwa_high.
+            variant_type: mini_parwa, parwa, high_parwa.
             company_id: Tenant identifier (BC-001).
 
         Returns:

@@ -12,7 +12,7 @@ States (GSDState enum):
 Variant Support:
     mini_parwa  — Simplified linear flow (NEW → GREETING → DIAGNOSIS → RESOLUTION → CLOSED)
     parwa       — Full transitions with escalation support
-    parwa_high  — Full transitions + HUMAN_HANDOFF loop + DIAGNOSIS loop
+    high_parwa  — Full transitions + HUMAN_HANDOFF loop + DIAGNOSIS loop
 
 Design Patterns:
     - structlog for all logging and event emission
@@ -124,7 +124,7 @@ class GSDVariant(str, Enum):
     """PARWA variant identifiers for GSD configuration."""
     MINI_PARWA = "mini_parwa"
     PARWA = "parwa"
-    PARWA_HIGH = "parwa_high"
+    PARWA_HIGH = "high_parwa"
 
 
 @dataclass
@@ -444,7 +444,7 @@ class GSDEngine:
             company_id: Optional tenant identifier.
 
         Returns:
-            Variant string (mini_parwa, parwa, parwa_high).
+            Variant string (mini_parwa, parwa, high_parwa).
         """
         if company_id:
             config = self._tenant_configs.get(company_id)
@@ -465,7 +465,7 @@ class GSDEngine:
             company_id: Tenant identifier.
 
         Returns:
-            Variant string (mini_parwa, parwa, parwa_high).
+            Variant string (mini_parwa, parwa, high_parwa).
         """
         # 1. Try cached tenant config first (fast path)
         if company_id:

@@ -750,7 +750,7 @@ class TestSemanticClusteringV2:
                 ticket_id=f"high_{i}",
                 text=f"Complex enterprise query {i}",
                 confidence=0.9,
-                metadata={"variant": "parwa_high"},
+                metadata={"variant": "high_parwa"},
             )
             for i in range(5)
         ]
@@ -1065,7 +1065,7 @@ class TestConfidenceThresholdValidation:
         thresholds = {
             "mini_parwa": 95,
             "parwa": 85,
-            "parwa_high": 75,
+            "high_parwa": 75,
         }
         
         threshold = thresholds.get(variant, 85)
@@ -1083,7 +1083,7 @@ class TestConfidenceThresholdValidation:
         thresholds = {
             "mini_parwa": 95,
             "parwa": 85,
-            "parwa_high": 75,
+            "high_parwa": 75,
         }
         
         # PARWA should NOT auto-respond at 84
@@ -1095,17 +1095,17 @@ class TestConfidenceThresholdValidation:
         score = 85.0
         assert (score >= threshold) is True
 
-    def test_parwa_high_threshold_75(self):
+    def test_high_parwa_threshold_75(self):
         """Test PARWA High requires 75+ for auto-response."""
         thresholds = {
             "mini_parwa": 95,
             "parwa": 85,
-            "parwa_high": 75,
+            "high_parwa": 75,
         }
         
         # PARWA High should NOT auto-respond at 74
         score = 74.0
-        threshold = thresholds["parwa_high"]
+        threshold = thresholds["high_parwa"]
         assert (score >= threshold) is False
         
         # PARWA High should auto-respond at 75
@@ -1164,7 +1164,7 @@ class TestConfidenceThresholdValidation:
         resolution_rate = auto_resolved / total
         assert 0.3 <= resolution_rate <= 0.6  # Reasonable range for 85 threshold
 
-    def test_parwa_high_complex_case_handling(self):
+    def test_high_parwa_complex_case_handling(self):
         """Test PARWA High handles complex cases at 75 threshold."""
         threshold = 75
         
@@ -1291,7 +1291,7 @@ class TestDay26Integration:
         thresholds = {
             "mini_parwa": 95,
             "parwa": 85,
-            "parwa_high": 75,
+            "high_parwa": 75,
         }
         
         test_cases = [
@@ -1299,8 +1299,8 @@ class TestDay26Integration:
             (96, "mini_parwa", True),    # Above threshold
             (83, "parwa", False),        # Below threshold
             (88, "parwa", True),         # Above threshold
-            (73, "parwa_high", False),   # Below threshold
-            (80, "parwa_high", True),    # Above threshold
+            (73, "high_parwa", False),   # Below threshold
+            (80, "high_parwa", True),    # Above threshold
         ]
         
         for score, variant, expected_auto in test_cases:
@@ -1388,7 +1388,7 @@ class TestDay26EdgeCases:
 
     def test_confidence_boundary_values(self):
         """Test confidence threshold at exact boundary values."""
-        thresholds = {"mini_parwa": 95, "parwa": 85, "parwa_high": 75}
+        thresholds = {"mini_parwa": 95, "parwa": 85, "high_parwa": 75}
         
         # Test exactly at threshold
         for variant, threshold in thresholds.items():

@@ -569,7 +569,7 @@ class TestSentimentAnalyzer:
 
     @pytest.mark.asyncio
     async def test_variant_type_accepted(self):
-        for variant in ("mini_parwa", "parwa", "parwa_high"):
+        for variant in ("mini_parwa", "parwa", "high_parwa"):
             result = await self.analyzer.analyze(
                 "test query", company_id="c1", variant_type=variant,
             )
@@ -988,7 +988,7 @@ class TestSentimentTechniqueMapper:
             frustration_score=85, sentiment_score=0.15,
             urgency_level="high", customer_tier="vip",
             is_vip=True,
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
         assert result.escalation_recommended is True
         tech_ids = [t.value for t in result.recommended_techniques]
@@ -1021,13 +1021,13 @@ class TestSentimentTechniqueMapper:
                  "step_back", "thread_of_thought"}
         assert any(t in tech_ids for t in tier2) or len(result.blocked_techniques) > 0
 
-    def test_parwa_high_allows_tier3(self):
+    def test_high_parwa_allows_tier3(self):
         """Parwa High allows Tier 3 techniques."""
         result = self.mapper.map(
             frustration_score=85, sentiment_score=0.15,
             urgency_level="high", customer_tier="vip",
             is_vip=True,
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
         tech_ids = [t.value for t in result.recommended_techniques]
         tier3 = {"gst", "universe_of_thoughts", "tree_of_thoughts",
@@ -1134,7 +1134,7 @@ class TestSentimentTechniqueMapper:
         result = self.mapper.map(
             frustration_score=5, sentiment_score=0.8,
             urgency_level="low", customer_tier="free",
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
         tech_ids = [t.value for t in result.recommended_techniques]
         # Should have chain_of_thought, not heavy techniques like reflexion
@@ -1210,7 +1210,7 @@ class TestConcurrentAccess:
                 sentiment_score=1.0 - (i * 0.1),
                 urgency_level="low" if i < 5 else "high",
                 customer_tier="vip" if i % 3 == 0 else "free",
-                variant_type=["mini_parwa", "parwa", "parwa_high"][i % 3],
+                variant_type=["mini_parwa", "parwa", "high_parwa"][i % 3],
             )
 
         # Sync calls in a thread pool
@@ -1298,7 +1298,7 @@ class TestSentimentToTechniquePipeline:
             emotion=result.emotion,
             customer_tier="vip",
             is_vip=True,
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
 
         if result.frustration_score >= 80:

@@ -8,7 +8,7 @@ auto-scaling signals.
 Variant capacity defaults:
     mini_parwa   — 5 concurrent
     parwa        — 10 concurrent
-    parwa_high   — 3 concurrent (premium, resource-heavy)
+    high_parwa   — 3 concurrent (premium, resource-heavy)
 
 Thresholds:
     warning  — 70% utilization
@@ -79,14 +79,14 @@ class UtilizationSnapshot:
 DEFAULT_MAX_CONCURRENT: Dict[str, int] = {
     "mini_parwa": 5,
     "parwa": 10,
-    "parwa_high": 3,
+    "high_parwa": 3,
 }
 
 THRESHOLD_WARNING = 0.70
 THRESHOLD_CRITICAL = 0.90
 THRESHOLD_FULL = 0.95
 
-ALL_VARIANTS = ("mini_parwa", "parwa", "parwa_high")
+ALL_VARIANTS = ("mini_parwa", "parwa", "high_parwa")
 
 
 # ══════════════════════════════════════════════════════════════════

@@ -39,7 +39,7 @@ _LAST_NAMES = [
     "Martinez", "Nguyen", "Patel", "Quinn", "Robinson", "Singh",
     "Tanaka", "Williams",
 ]
-_TIERS = ["free", "starter", "professional", "enterprise"]
+_TIERS = ["free", "mini_parwa", "professional", "enterprise"]
 _CHANNELS = ["email", "chat", "phone", "in_app", "social"]
 _COUNTRIES = ["US", "CA", "GB", "DE", "FR", "AU", "JP", "IN", "BR", "MX"]
 

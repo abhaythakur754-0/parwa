@@ -283,7 +283,7 @@ class AIPipeline:
         """B5 FIX: Pass SmartRouter so AI classification actually fires.
 
         Without a smart_router, ClassificationEngine always falls back to
-        keyword-only classification even for parwa/parwa_high variants.
+        keyword-only classification even for parwa/high_parwa variants.
         """
         if self._classification_engine is None:
             try:
@@ -1321,7 +1321,7 @@ class AIPipeline:
                     ctx.confidence_auto_action = result.auto_action or False
 
             # Determine auto-action based on variant thresholds
-            thresholds = {"mini_parwa": 95, "parwa": 85, "parwa_high": 75}
+            thresholds = {"mini_parwa": 95, "parwa": 85, "high_parwa": 75}
             threshold = thresholds.get(ctx.variant_type, 75)
             ctx.confidence_auto_action = ctx.confidence_score >= threshold
             ctx.confidence_threshold = float(threshold)
@@ -1464,7 +1464,7 @@ async def process_ai_message(
         query: Customer's message text.
         company_id: Tenant identifier (BC-001).
         conversation_id: Conversation/session identifier.
-        variant_type: PARWA variant (mini_parwa/parwa/parwa_high).
+        variant_type: PARWA variant (mini_parwa/parwa/high_parwa).
         customer_id: Optional customer identifier.
         conversation_history: Previous messages for context.
         customer_metadata: Customer profile data.

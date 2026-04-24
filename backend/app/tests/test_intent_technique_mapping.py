@@ -43,8 +43,8 @@ class TestVariantTierLimits:
     def test_parwa_tier_2(self):
         assert VARIANT_TIER_LIMITS["parwa"] == TechniqueTier.TIER_2
 
-    def test_parwa_high_tier_3(self):
-        assert VARIANT_TIER_LIMITS["parwa_high"] == TechniqueTier.TIER_3
+    def test_high_parwa_tier_3(self):
+        assert VARIANT_TIER_LIMITS["high_parwa"] == TechniqueTier.TIER_3
 
 
 class TestGAP001VariantFiltering:
@@ -78,10 +78,10 @@ class TestGAP001VariantFiltering:
                 TechniqueID.THREAD_OF_THOUGHT,
             )
 
-    def test_parwa_high_gets_all(self):
+    def test_high_parwa_gets_all(self):
         """GAP-001: Parwa High gets all techniques including Tier 3."""
         result = self.mapper.map_intent(
-            intent="refund", variant_type="parwa_high",
+            intent="refund", variant_type="high_parwa",
         )
         assert TechniqueID.SELF_CONSISTENCY in result.selected_techniques
         assert result.fallback_applied is False
@@ -140,10 +140,10 @@ class TestBlockedTechniques:
         for blocked in result.blocked_techniques:
             assert blocked["fallback"] is not None
 
-    def test_no_blocked_for_parwa_high(self):
+    def test_no_blocked_for_high_parwa(self):
         mapper = IntentTechniqueMapper()
         result = mapper.map_intent(
-            intent="refund", variant_type="parwa_high",
+            intent="refund", variant_type="high_parwa",
         )
         assert len(result.blocked_techniques) == 0
 
@@ -196,7 +196,7 @@ class TestMappingResult:
     def test_get_variant_tier_limit(self):
         assert IntentTechniqueMapper.get_variant_tier_limit("mini_parwa") == TechniqueTier.TIER_1
         assert IntentTechniqueMapper.get_variant_tier_limit("parwa") == TechniqueTier.TIER_2
-        assert IntentTechniqueMapper.get_variant_tier_limit("parwa_high") == TechniqueTier.TIER_3
+        assert IntentTechniqueMapper.get_variant_tier_limit("high_parwa") == TechniqueTier.TIER_3
 
 
 class TestSpecificMappings:

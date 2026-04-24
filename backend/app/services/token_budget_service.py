@@ -44,7 +44,7 @@ VARIANT_TOKEN_BUDGETS: dict[str, dict[str, Any]] = {
         "warning_threshold": 0.7,
         "critical_threshold": 0.9,
     },
-    "parwa_high": {
+    "high_parwa": {
         "max_tokens": 16384,
         "warning_threshold": 0.7,
         "critical_threshold": 0.9,
@@ -409,7 +409,7 @@ class TokenBudgetService:
         Args:
             conversation_id: Unique conversation identifier.
             company_id: Tenant identifier (BC-001).
-            variant_type: One of mini_parwa, parwa, parwa_high.
+            variant_type: One of mini_parwa, parwa, high_parwa.
 
         Returns:
             TokenBudget with the initialized state.

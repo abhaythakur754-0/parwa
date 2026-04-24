@@ -67,7 +67,7 @@ class ABTestStatus(str, Enum):
 # VALID VARIANT TYPES
 # ══════════════════════════════════════════════════════════════════
 
-VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "parwa_high"}
+VALID_VARIANT_TYPES = {"mini_parwa", "parwa", "high_parwa"}
 
 # Regex for extracting Jinja2-style variables from templates.
 _VARIABLE_PATTERN = re.compile(r"\{\{\s*(\w+)\s*\}\}")
@@ -768,7 +768,7 @@ class PromptTemplateService:
             company_id: Tenant identifier (BC-001).
             name: Template name (e.g. ``"customer_support_system"``).
             variant_type: Optional variant filter (``mini_parwa``,
-                ``parwa``, ``parwa_high``).
+                ``parwa``, ``high_parwa``).
             version: Specific version number. ``None`` returns latest.
 
         Returns:

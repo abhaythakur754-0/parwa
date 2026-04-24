@@ -505,11 +505,11 @@ class TestBuildConfig:
         assert config.strictness_level == StrictnessLevel.HIGH.value
         assert config.confidence_threshold == 95.0
 
-    def test_parwa_high_defaults(self):
+    def test_high_parwa_defaults(self):
         from app.core.guardrails_engine import (
             _build_config, StrictnessLevel,
         )
-        config = _build_config("co1", "parwa_high")
+        config = _build_config("co1", "high_parwa")
         assert config.strictness_level == StrictnessLevel.LOW.value
         assert config.confidence_threshold == 75.0
 

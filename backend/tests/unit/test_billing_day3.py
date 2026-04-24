@@ -595,7 +595,7 @@ class TestEffectiveLimits:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 5000 tickets base
+        mock_sub.tier = "parwa"  # 5000 tickets base
         mock_sub.billing_frequency = "monthly"
 
         mock_v1 = MagicMock()
@@ -634,7 +634,7 @@ class TestEffectiveLimits:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 500 KB docs base
+        mock_sub.tier = "parwa"  # 500 KB docs base
         mock_sub.billing_frequency = "monthly"
 
         mock_v1 = MagicMock()
@@ -665,7 +665,7 @@ class TestEffectiveLimits:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 3 agents
+        mock_sub.tier = "parwa"  # 3 agents
         mock_sub.billing_frequency = "monthly"
 
         mock_v1 = MagicMock()
@@ -695,7 +695,7 @@ class TestEffectiveLimits:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 10 team
+        mock_sub.tier = "parwa"  # 10 team
         mock_sub.billing_frequency = "monthly"
 
         mock_v1 = MagicMock()
@@ -725,7 +725,7 @@ class TestEffectiveLimits:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 2 voice
+        mock_sub.tier = "parwa"  # 2 voice
         mock_sub.billing_frequency = "monthly"
 
         mock_v1 = MagicMock()
@@ -755,7 +755,7 @@ class TestEffectiveLimits:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 5000 tickets
+        mock_sub.tier = "parwa"  # 5000 tickets
         mock_sub.billing_frequency = "monthly"
 
         mock_v1 = MagicMock()
@@ -793,7 +793,7 @@ class TestEffectiveLimits:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 5000 tickets
+        mock_sub.tier = "parwa"  # 5000 tickets
         mock_sub.billing_frequency = "monthly"
 
         mock_v1 = MagicMock()
@@ -825,7 +825,7 @@ class TestEffectiveLimits:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"  # 2000 tickets, 100 KB
+        mock_sub.tier = "mini_parwa"  # 2000 tickets, 100 KB
         mock_sub.billing_frequency = "monthly"
 
         mock_db = MagicMock()
@@ -852,7 +852,7 @@ class TestEffectiveLimits:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"
+        mock_sub.tier = "mini_parwa"
         mock_sub.billing_frequency = "monthly"
 
         mock_v1 = MagicMock()
@@ -986,7 +986,7 @@ class TestVariantLimitServiceStacking:
         company_id = str(uuid.uuid4())
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 5000 base
+        mock_sub.tier = "parwa"  # 5000 base
 
         mock_db = MagicMock()
         # First call: _get_company_variant
@@ -1016,7 +1016,7 @@ class TestVariantLimitServiceStacking:
         company_id = str(uuid.uuid4())
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"  # 2000 base
+        mock_sub.tier = "mini_parwa"  # 2000 base
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value \
@@ -1041,7 +1041,7 @@ class TestVariantLimitServiceStacking:
         company_id = str(uuid.uuid4())
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 500 base KB docs
+        mock_sub.tier = "parwa"  # 500 base KB docs
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value \
@@ -1067,7 +1067,7 @@ class TestVariantLimitServiceStacking:
         company_id = str(uuid.uuid4())
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"  # 100 base KB docs
+        mock_sub.tier = "mini_parwa"  # 100 base KB docs
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value \
@@ -1091,7 +1091,7 @@ class TestVariantLimitServiceStacking:
         company_id = str(uuid.uuid4())
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 3 agents base
+        mock_sub.tier = "parwa"  # 3 agents base
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value \
@@ -1113,7 +1113,7 @@ class TestVariantLimitServiceStacking:
         company_id = str(uuid.uuid.uuid4())
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 10 team base
+        mock_sub.tier = "parwa"  # 10 team base
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value \
@@ -1135,7 +1135,7 @@ class TestVariantLimitServiceStacking:
         company_id = str(uuid.uuid4())
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 2 voice base
+        mock_sub.tier = "parwa"  # 2 voice base
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value \
@@ -1499,7 +1499,7 @@ class TestStackingRules:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "growth"  # 5000 tickets, 3 agents, 10 team, 2 voice, 500 KB
+        mock_sub.tier = "parwa"  # 5000 tickets, 3 agents, 10 team, 2 voice, 500 KB
         mock_sub.billing_frequency = "monthly"
 
         # All 4 variants active
@@ -1544,7 +1544,7 @@ class TestStackingRules:
         service = VariantAddonService()
 
         mock_sub = MagicMock()
-        mock_sub.tier = "starter"
+        mock_sub.tier = "mini_parwa"
         mock_sub.billing_frequency = "monthly"
 
         mock_db = MagicMock()

@@ -55,7 +55,7 @@ def company(db):
         id=comp_id,
         name="Test Co",
         industry="tech",
-        subscription_tier="starter",
+        subscription_tier="mini_parwa",
     )
     db.add(comp)
     db.commit()

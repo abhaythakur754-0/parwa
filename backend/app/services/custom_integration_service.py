@@ -94,8 +94,8 @@ VALID_STATUSES = {"draft", "active", "disabled", "error"}
 # Plan limits for custom integrations per tenant
 PLAN_LIMITS: Dict[str, int] = {
     "free": 2,
-    "starter": 3,
-    "growth": 5,
+    "mini_parwa": 3,
+    "parwa": 5,
     "pro": 20,
     "enterprise": 100,
 }
@@ -1192,7 +1192,7 @@ class CustomIntegrationService:
         )
 
         # Default to growth plan limit if plan cannot be determined
-        limit = PLAN_LIMITS.get("growth", 5)
+        limit = PLAN_LIMITS.get("parwa", 5)
 
         try:
             from database.models.core import Company

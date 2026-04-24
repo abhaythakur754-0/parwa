@@ -116,7 +116,7 @@ class SharedGSDManager:
 
         Args:
             current_state: Current GSD state string.
-            variant: PARWA variant (mini_parwa, parwa, parwa_high).
+            variant: PARWA variant (mini_parwa, parwa, high_parwa).
 
         Returns:
             Sorted list of valid target state strings.

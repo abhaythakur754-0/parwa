@@ -200,7 +200,7 @@ class MetricsPipeline:
 
         Args:
             technique_id: Technique identifier (e.g. 'clara').
-            variant_id: Execution variant (mini_parwa, parwa, parwa_high).
+            variant_id: Execution variant (mini_parwa, parwa, high_parwa).
             tenant_id: Tenant company identifier (BC-001).
             trigger_signal: Signal that triggered this execution.
             input_hash: Hash of the input data.

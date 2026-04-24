@@ -13,7 +13,7 @@ respecting per-variant token budgets. Five compression strategies:
 Per-variant compression levels:
   - mini_parwa (L1): NONE   — no compression
   - parwa      (L2): LIGHT  — ~30% reduction target
-  - parwa_high (L3): AGGRESSIVE — ~50% reduction target
+  - high_parwa (L3): AGGRESSIVE — ~50% reduction target
 
 BC-001: All public methods take company_id as the first parameter.
 BC-008: Every public method is wrapped in try/except; never crashes.
@@ -67,7 +67,7 @@ class CompressionLevel(str, Enum):
 _VARIANT_COMPRESSION_LEVELS: Dict[str, CompressionLevel] = {
     "mini_parwa": CompressionLevel.NONE,
     "parwa": CompressionLevel.LIGHT,
-    "parwa_high": CompressionLevel.AGGRESSIVE,
+    "high_parwa": CompressionLevel.AGGRESSIVE,
 }
 
 
@@ -726,7 +726,7 @@ class ContextCompressor:
 
         mini_parwa -> NONE
         parwa      -> LIGHT
-        parwa_high -> AGGRESSIVE
+        high_parwa -> AGGRESSIVE
         """
         return _VARIANT_COMPRESSION_LEVELS.get(
             variant_type, CompressionLevel.LIGHT,

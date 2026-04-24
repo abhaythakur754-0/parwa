@@ -5,7 +5,7 @@ Variant-specific training datasets with strict isolation at
 storage (Redis paths), processing (variant tag), vector index
 (tenant+variant metadata), model configs, and analytics.
 
-Variants mini_parwa / parwa / parwa_high cannot access each
+Variants mini_parwa / parwa / high_parwa cannot access each
 other's training data. Shared datasets at the ``shared``
 variant_type are accessible by all variants within a tenant.
 
@@ -41,7 +41,7 @@ logger = get_logger("training_data_isolation")
 # ── Constants ──────────────────────────────────────────────────────
 
 VALID_VARIANT_TYPES = frozenset(
-    {"mini_parwa", "parwa", "parwa_high", "shared"},
+    {"mini_parwa", "parwa", "high_parwa", "shared"},
 )
 
 # Key prefixes
@@ -1544,7 +1544,7 @@ class TrainingDataIsolationService:
                 "confidence_threshold": 0.85,
                 "models": ["gpt-4o", "claude-sonnet"],
             },
-            "parwa_high": {
+            "high_parwa": {
                 "max_tokens": 4096,
                 "temperature": 0.7,
                 "technique_tier": "tier_3",

@@ -491,7 +491,7 @@ def get_highest_active_variant(
     """Get the highest active variant type for the company.
 
     Returns the variant type with the highest tier that has
-    at least one active instance. Priority: parwa_high > parwa > mini_parwa.
+    at least one active instance. Priority: high_parwa > parwa > mini_parwa.
     """
     from app.services.variant_instance_service import (
         get_highest_active_variant,

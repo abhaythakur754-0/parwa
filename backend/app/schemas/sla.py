@@ -28,8 +28,8 @@ class Priority(str, Enum):
 
 class PlanTier(str, Enum):
     """Subscription plan tiers for SLA."""
-    starter = "starter"
-    growth = "growth"
+    starter = "mini_parwa"
+    growth = "parwa"
     high = "high"
 
 

@@ -74,7 +74,7 @@ def _setup_db():
 
 def _make_company(db, cid="comp_1", name="Test Corp"):
     c = Company(id=cid, name=name, industry="saas",
-                subscription_tier="growth", subscription_status="active")
+                subscription_tier="parwa", subscription_status="active")
     db.add(c)
     db.commit()
     return c

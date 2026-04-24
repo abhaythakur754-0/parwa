@@ -567,22 +567,22 @@ class TestRAGRetrieverVariants:
         assert result.variant_tier_used == "parwa"
 
     @pytest.mark.asyncio
-    async def test_parwa_high_variant(self):
-        """parwa_high uses full pipeline with reranking and citations."""
+    async def test_high_parwa_variant(self):
+        """high_parwa uses full pipeline with reranking and citations."""
         result = await self.retriever.retrieve(
             query="refund policy",
             company_id="c1",
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
-        assert result.variant_tier_used == "parwa_high"
+        assert result.variant_tier_used == "high_parwa"
 
     @pytest.mark.asyncio
-    async def test_parwa_high_has_citations(self):
-        """parwa_high adds citations to chunks."""
+    async def test_high_parwa_has_citations(self):
+        """high_parwa adds citations to chunks."""
         result = await self.retriever.retrieve(
             query="refund policy",
             company_id="c1",
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
         for chunk in result.chunks:
             assert chunk.citation is not None
@@ -611,12 +611,12 @@ class TestRAGRetrieverVariants:
             assert chunk.citation is None
 
     @pytest.mark.asyncio
-    async def test_parwa_high_citation_includes_source(self):
+    async def test_high_parwa_citation_includes_source(self):
         """Citations include document source."""
         result = await self.retriever.retrieve(
             query="refund policy",
             company_id="c1",
-            variant_type="parwa_high",
+            variant_type="high_parwa",
         )
         for chunk in result.chunks:
             if chunk.citation:
@@ -654,9 +654,9 @@ class TestRAGRetrieverThresholds:
         assert config["similarity_threshold"] == 0.6
 
     @pytest.mark.asyncio
-    async def test_parwa_high_high_threshold(self):
-        """parwa_high has highest threshold (0.7)."""
-        config = VARIANT_CONFIG["parwa_high"]
+    async def test_high_parwa_high_threshold(self):
+        """high_parwa has highest threshold (0.7)."""
+        config = VARIANT_CONFIG["high_parwa"]
         assert config["similarity_threshold"] == 0.7
 
     @pytest.mark.asyncio
@@ -725,12 +725,12 @@ class TestRAGRetrieverFilters:
         assert config["use_metadata_filters"] is False
 
     @pytest.mark.asyncio
-    async def test_parwa_high_applies_filters(self):
-        """parwa_high applies metadata filters."""
+    async def test_high_parwa_applies_filters(self):
+        """high_parwa applies metadata filters."""
         result = await self.retriever.retrieve(
             query="refund",
             company_id="c1",
-            variant_type="parwa_high",
+            variant_type="high_parwa",
             filters={"document_type": "guide"},
         )
         for chunk in result.chunks:
@@ -1078,7 +1078,7 @@ class TestRAGRetrieverCache:
 
 
 class TestRAGRetrieverQueryExpansion:
-    """Query expansion for parwa_high variant."""
+    """Query expansion for high_parwa variant."""
 
     def setup_method(self):
         self.retriever = RAGRetriever()
@@ -1107,7 +1107,7 @@ class TestRAGRetrieverQueryExpansion:
 
 
 class TestRAGRetrieverReranking:
-    """Reranking for parwa_high variant."""
+    """Reranking for high_parwa variant."""
 
     def test_rerank_preserves_chunks(self):
         """Reranking preserves chunk count."""
@@ -1156,13 +1156,13 @@ class TestRAGResultSerialization:
             retrieval_time_ms=10.5,
             query_embedding_time_ms=5.2,
             filters_applied={"document_type": "faq"},
-            variant_tier_used="parwa_high",
+            variant_tier_used="high_parwa",
             cached=False,
             degradation_used=False,
         )
         d = result.to_dict()
         assert d["total_found"] == 1
-        assert d["variant_tier_used"] == "parwa_high"
+        assert d["variant_tier_used"] == "high_parwa"
         assert d["cached"] is False
         assert len(d["chunks"]) == 1
         assert d["chunks"][0]["citation"] == "[Source: test.pdf]"
@@ -1511,7 +1511,7 @@ class TestVariantConfig:
 
     def test_all_variants_present(self):
         """All three variants have config entries."""
-        for variant in ("mini_parwa", "parwa", "parwa_high"):
+        for variant in ("mini_parwa", "parwa", "high_parwa"):
             assert variant in VARIANT_CONFIG
 
     def test_config_has_required_keys(self):
@@ -1530,13 +1530,13 @@ class TestVariantConfig:
         """Similarity thresholds increase with tier."""
         assert VARIANT_CONFIG["mini_parwa"]["similarity_threshold"] < \
                VARIANT_CONFIG["parwa"]["similarity_threshold"] < \
-               VARIANT_CONFIG["parwa_high"]["similarity_threshold"]
+               VARIANT_CONFIG["high_parwa"]["similarity_threshold"]
 
     def test_top_k_increasing(self):
         """Default top_k increases with tier."""
         assert VARIANT_CONFIG["mini_parwa"]["default_top_k"] < \
                VARIANT_CONFIG["parwa"]["default_top_k"] < \
-               VARIANT_CONFIG["parwa_high"]["default_top_k"]
+               VARIANT_CONFIG["high_parwa"]["default_top_k"]
 
 
 # =========================================================================

@@ -579,7 +579,7 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
     """
     # Hardcoded fallback (matches migration data)
     LIMITS = {
-        "starter": {
+        "mini_parwa": {
             "monthly_tickets": 2000,
             "ai_agents": 1,
             "team_members": 3,
@@ -588,7 +588,7 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
             "price_monthly": Decimal("999.00"),
             "price_yearly": Decimal("9590.40"),  # 999 * 12 * 0.80 = 9590.40 (20% discount)
         },
-        "growth": {
+        "parwa": {
             "monthly_tickets": 5000,
             "ai_agents": 3,
             "team_members": 10,
@@ -597,7 +597,7 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
             "price_monthly": Decimal("2499.00"),
             "price_yearly": Decimal("23990.40"),  # 2499 * 12 * 0.80 = 23990.40 (20% discount)
         },
-        "high": {
+        "high_parwa": {
             "monthly_tickets": 15000,
             "ai_agents": 5,
             "team_members": 25,

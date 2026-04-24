@@ -59,7 +59,7 @@ def _create_company(db, name="Test Corp"):
         id=str(uuid.uuid4()),
         name=name,
         industry="technology",
-        subscription_tier="starter",
+        subscription_tier="mini_parwa",
         mode="shadow",
     )
     db.add(company)
@@ -621,11 +621,11 @@ def test_subscription_enum_validation(client):
     resp = client.put(
         f"/api/admin/clients/{comp.id}/subscription",
         headers=_auth_header(token),
-        json={"tier": "growth", "status": "active"},
+        json={"tier": "parwa", "status": "active"},
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["subscription_tier"] == "growth"
+    assert data["subscription_tier"] == "parwa"
 
     # Try with another valid tier
     resp = client.put(

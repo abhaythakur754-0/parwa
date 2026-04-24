@@ -55,15 +55,15 @@ _LIMIT_LABEL_MAP = {
 }
 
 _HARDCODED_LIMITS: Dict[str, Dict[str, Any]] = {
-    "starter": {
+    "mini_parwa": {
         "monthly_tickets": 2000, "ai_agents": 1, "team_members": 3,
         "voice_slots": 0, "kb_docs": 100, "price": "999.00",
     },
-    "growth": {
+    "parwa": {
         "monthly_tickets": 5000, "ai_agents": 3, "team_members": 10,
         "voice_slots": 2, "kb_docs": 500, "price": "2499.00",
     },
-    "high": {
+    "high_parwa": {
         "monthly_tickets": 15000, "ai_agents": 5, "team_members": 25,
         "voice_slots": 5, "kb_docs": 2000, "price": "3999.00",
     },
@@ -176,7 +176,7 @@ class VariantLimitService:
     def _get_company_variant(self, db: Session, company_id: str) -> str:
         """Look up the subscription tier for a company.
 
-        Falls back to ``"starter"`` when the company has no active
+        Falls back to ``"mini_parwa"`` when the company has no active
         subscription (new / trial accounts).
         """
         subscription = (
@@ -197,10 +197,10 @@ class VariantLimitService:
             return company.subscription_tier.lower().strip()
 
         logger.info(
-            "variant_limit_default_starter company_id=%s reason=no_subscription",
+            "variant_limit_default_mini_parwa company_id=%s reason=no_subscription",
             company_id,
         )
-        return "starter"
+        return "mini_parwa"
 
     # ── Public API ──────────────────────────────────────────────────
 
@@ -249,7 +249,7 @@ class VariantLimitService:
             "variant_limits_fallback variant=%s source=hardcoded",
             variant_key,
         )
-        return dict(_HARDCODED_LIMITS.get(variant_key, _HARDCODED_LIMITS["starter"]))
+        return dict(_HARDCODED_LIMITS.get(variant_key, _HARDCODED_LIMITS["mini_parwa"]))
 
     def get_company_limits(self, company_id: Any) -> Dict[str, Any]:
         """Get effective limits for a company based on their subscription tier."""

@@ -10,7 +10,7 @@ Core Responsibilities:
 - Fallback response templates per intent (6 intents)
 - Automatic retry with reduced pipeline (skip failed stages)
 - Error context propagation to downstream stages
-- Per-variant degradation thresholds (mini_parwa / parwa / parwa_high)
+- Per-variant degradation thresholds (mini_parwa / parwa / high_parwa)
 - Human handoff trigger when too many stages fail
 
 Building Codes: BC-012, BC-007, BC-009, BC-001, BC-008
@@ -111,7 +111,7 @@ class PipelineContext:
     Attributes:
         company_id:          Tenant company identifier (BC-001).
         ticket_id:           Support ticket being processed.
-        variant:             PARWA variant (mini_parwa, parwa, parwa_high).
+        variant:             PARWA variant (mini_parwa, parwa, high_parwa).
         intent:              Detected customer intent (e.g. "refund_request").
         signals:             All extracted signals from upstream stages.
         stage_results:       Outputs from stages that completed successfully.
@@ -228,7 +228,7 @@ _VARIANT_DEGRADATION_CONFIGS: Dict[str, DegradationConfig] = {
         degraded_response_enabled=True,
         skip_failed_stages=True,
     ),
-    "parwa_high": DegradationConfig(
+    "high_parwa": DegradationConfig(
         max_failed_stages=4,
         retry_enabled=True,
         max_retries=2,
@@ -242,7 +242,7 @@ _VARIANT_DEGRADATION_CONFIGS: Dict[str, DegradationConfig] = {
 _VARIANT_CRITICAL_THRESHOLD: Dict[str, float] = {
     "mini_parwa": 0.5,   # 1+ failures out of 2
     "parwa": 0.5,         # 2+ failures out of 3
-    "parwa_high": 0.5,    # 2+ failures out of 4
+    "high_parwa": 0.5,    # 2+ failures out of 4
 }
 
 # Default fallback templates — one per supported intent
@@ -306,7 +306,7 @@ _DEFAULT_FALLBACK_TEMPLATES: List[FallbackTemplate] = [
     ),
 ]
 
-# Enhanced fallback templates for parwa_high (signal-aware)
+# Enhanced fallback templates for high_parwa (signal-aware)
 _PARWA_HIGH_ENHANCED_TEMPLATES: List[FallbackTemplate] = [
     FallbackTemplate(
         intent="refund_request",
@@ -475,12 +475,12 @@ class PartialFailureHandler:
         """Register all built-in fallback templates.
 
         Includes base templates for all intents plus enhanced
-        signal-aware templates for parwa_high variant.
+        signal-aware templates for high_parwa variant.
         """
         for tmpl in _DEFAULT_FALLBACK_TEMPLATES:
             self._fallback_templates[tmpl.intent].append(tmpl)
 
-        # Register parwa_high enhanced templates
+        # Register high_parwa enhanced templates
         for tmpl in _PARWA_HIGH_ENHANCED_TEMPLATES:
             self._fallback_templates[tmpl.intent].append(tmpl)
 
@@ -1183,7 +1183,7 @@ class PartialFailureHandler:
 
         Selection process:
         1. Look up templates registered for the given intent
-        2. Filter by variant compatibility (parwa_high gets enhanced)
+        2. Filter by variant compatibility (high_parwa gets enhanced)
         3. Prefer templates whose required_signals are all available
         4. Among matches, select the one with lowest priority number
         5. If no intent-specific match, fall back to "general"
@@ -1245,8 +1245,8 @@ class PartialFailureHandler:
         - Base score: 100 - priority (lower priority = higher base)
         - Signal match bonus: +50 if all required signals available
         - Partial signal bonus: +25 if some required signals available
-        - Variant match bonus: +20 for parwa_high enhanced templates
-          when variant is parwa_high
+        - Variant match bonus: +20 for high_parwa enhanced templates
+          when variant is high_parwa
 
         Args:
             template:         Template to score.
@@ -1271,7 +1271,7 @@ class PartialFailureHandler:
             score += 10.0
 
         # Variant-specific bonus for enhanced templates
-        if variant == "parwa_high" and template.priority == 0:
+        if variant == "high_parwa" and template.priority == 0:
             score += 20.0
 
         # Slight penalty for higher-priority (less relevant) templates

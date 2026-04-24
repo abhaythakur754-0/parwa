@@ -331,7 +331,7 @@ class TestRefundService:
 
         mock_sub = MagicMock()
         mock_sub.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(hours=2)
         mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=28)
         mock_sub.billing_frequency = "monthly"
@@ -364,7 +364,7 @@ class TestRefundService:
 
         mock_sub = MagicMock()
         mock_sub.created_at = datetime.now(timezone.utc) - timedelta(hours=48)
-        mock_sub.tier = "growth"
+        mock_sub.tier = "parwa"
         mock_sub.current_period_start = datetime.now(timezone.utc) - timedelta(hours=48)
         mock_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=26)
         mock_sub.billing_frequency = "monthly"

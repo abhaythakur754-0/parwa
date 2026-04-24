@@ -5,7 +5,7 @@ Comprehensive metrics tracking for reasoning technique executions:
 - Execution count, success/failure rate per technique
 - Average execution time per technique
 - Token usage tracking per technique
-- Per-variant metrics breakdown (mini_parwa, parwa, parwa_high)
+- Per-variant metrics breakdown (mini_parwa, parwa, high_parwa)
 - Per-company metrics isolation
 - Time-windowed metrics (last 1min, 5min, 15min, 1hr)
 - Metrics aggregation (sum, avg, p50, p95, p99)
@@ -46,7 +46,7 @@ TIME_WINDOWS_SECONDS = {
     "1hr": 3600,
 }
 
-VALID_VARIANTS = ("mini_parwa", "parwa", "parwa_high")
+VALID_VARIANTS = ("mini_parwa", "parwa", "high_parwa")
 
 
 # ── Data Structures ────────────────────────────────────────────────
@@ -158,7 +158,7 @@ class TechniqueMetricsCollector:
         Args:
             technique_id: Technique identifier (e.g. 'clara')
             variant: Execution variant
-                (mini_parwa, parwa, parwa_high)
+                (mini_parwa, parwa, high_parwa)
             company_id: Tenant company identifier
             status: Execution status
                 (success, failure, timeout, error)

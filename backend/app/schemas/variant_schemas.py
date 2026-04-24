@@ -56,7 +56,7 @@ class VariantInstanceCreate(BaseModel):
     variant_type: str = Field(
         min_length=1,
         max_length=50,
-        description="mini_parwa, parwa, or parwa_high",
+        description="mini_parwa, parwa, or high_parwa",
     )
     channel_assignment: Optional[list[str]] = Field(
         default=None,

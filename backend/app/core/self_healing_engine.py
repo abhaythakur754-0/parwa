@@ -2,7 +2,7 @@
 SG-20: AI Self-Healing Engine — Per-Variant Autonomous Recovery.
 
 Monitors AI engine health and automatically takes corrective actions
-when problems are detected. Each variant (mini_parwa, parwa, parwa_high)
+when problems are detected. Each variant (mini_parwa, parwa, high_parwa)
 has isolated healing state and independent rules.
 
 Healing Actions:
@@ -166,14 +166,14 @@ class VariantHealthSummary:
 _VARIANT_THRESHOLDS: Dict[str, float] = {
     "mini_parwa": 95.0,
     "parwa": 85.0,
-    "parwa_high": 75.0,
+    "high_parwa": 75.0,
 }
 
 # Minimum floor thresholds (never adjust below these)
 _VARIANT_FLOOR: Dict[str, float] = {
     "mini_parwa": 80.0,
     "parwa": 70.0,
-    "parwa_high": 60.0,
+    "high_parwa": 60.0,
 }
 
 # Default recovery traffic percentages per stage
