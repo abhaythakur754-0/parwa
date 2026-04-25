@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useVariant } from '@/contexts/VariantContext';
+import { MiniParwaWidget } from '@/components/variant';
 import {
   billingApi,
   PLAN_DATA,
@@ -188,6 +190,9 @@ function SectionError({ message, onRetry }: { message?: string; onRetry?: () => 
 // ════════════════════════════════════════════════════════════════════════════
 
 export default function BillingPage() {
+  // ── Variant Context ───────────────────────────────────────────────────
+  const { variant: userVariant } = useVariant();
+
   // ── State: Dashboard Summary (B1) ──────────────────────────────────────
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -534,6 +539,13 @@ export default function BillingPage() {
             Manage your subscription, usage, invoices, and payment methods.
           </p>
         </div>
+
+        {/* ── Mini Parwa Detailed Widget ─────────────────────────────────── */}
+        {userVariant === 'mini_parwa' && (
+          <div className="mb-6">
+            <MiniParwaWidget detailed />
+          </div>
+        )}
 
         {/* ── Payment Failure Alert (top) ─────────────────────────────── */}
         {!paymentFailureLoading && paymentFailure?.has_active_failure && (

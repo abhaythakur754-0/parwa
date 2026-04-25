@@ -5,3 +5,4 @@ export { VariantBadge, VariantBadgeCompact, VariantBadgeDetailed } from './Varia
 export { UsageMeters, QuickUsageSummary } from './UsageMeters';
 export { LimitWarningBanner, InlineLimitWarning } from './LimitWarningBanner';
 export { FeatureGate, UpgradePrompt, FeatureBadge, GatedNavItem } from './FeatureGate';
+export { MiniParwaWidget, RestrictedFeaturesBanner, FeatureLockBanner } from './MiniParwaWidget';

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/contexts/SocketContext';
+import { useVariant } from '@/contexts/VariantContext';
 import {
   WelcomeCard,
   TrendChart,
@@ -29,6 +30,7 @@ import {
 } from '@/components/dashboard';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import KPICard from '@/components/dashboard/KPICard';
+import { MiniParwaWidget, RestrictedFeaturesBanner } from '@/components/variant';
 import { analyticsApi } from '@/lib/analytics-api';
 import { dashboardApi, type DashboardHomeData } from '@/lib/dashboard-api';
 import { getErrorMessage } from '@/lib/api';
@@ -101,6 +103,7 @@ function formatPercent(n: number): string {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { latestTicketEvent, isConnected } = useSocket();
+  const { variant: userVariant } = useVariant();
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [agentData, setAgentData] = useState<AgentMetrics[]>([]);
@@ -183,6 +186,13 @@ export default function DashboardPage() {
 
       {/* ── Row 1: System Health Strip (Day 2 — O1.1) ─────────────── */}
       <SystemHealthStrip />
+
+      {/* ── Mini Parwa Widget: Usage & Limits (only for mini_parwa users) ── */}
+      {userVariant === 'mini_parwa' && (
+        <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-5">
+          <MiniParwaWidget />
+        </div>
+      )}
 
       {/* ── Row 2: Welcome Card + Header ───────────────────────────── */}
       <WelcomeCard
@@ -383,6 +393,11 @@ export default function DashboardPage() {
 
       {/* ── Row 15: Agent Performance Table ────────────────────────── */}
       <AgentPerformanceTable data={agentData} />
+
+      {/* ── Mini Parwa: Restricted Features Banner ── */}
+      {userVariant === 'mini_parwa' && (
+        <RestrictedFeaturesBanner />
+      )}
     </div>
   );
 }

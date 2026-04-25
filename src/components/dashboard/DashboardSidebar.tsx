@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
+import { useVariant } from '@/contexts/VariantContext';
 import { VariantBadgeCompact } from '@/components/variant';
 
 // ── Navigation Items ──────────────────────────────────────────────────
@@ -16,6 +17,7 @@ interface NavItem {
   icon: React.ReactNode;
   badgeKey?: 'tickets' | 'approvals' | 'notifications';
   roles?: string[]; // If undefined, visible to all authenticated users
+  featureGate?: string; // Feature to check for Mini Parwa restrictions
 }
 
 // ── Sidebar Props ─────────────────────────────────────────────────────
@@ -138,6 +140,7 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { badgeCounts } = useSocket();
+  const { variant: userVariant, isFeatureBlocked } = useVariant();
 
   // Pages that have been built (Day 1-6) — rest show as "Coming Soon"
   const builtPages = new Set([
@@ -169,7 +172,7 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
     { label: 'Customers', href: '/dashboard/customers', icon: Icons.customers },
     { label: 'Conversations', href: '/dashboard/conversations', icon: Icons.conversations, roles: ['owner', 'admin', 'agent'] },
     { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels, roles: ['owner', 'admin', 'agent'] },
-    { label: 'Integrations', href: '/dashboard/integrations', icon: Icons.integrations, roles: ['owner', 'admin'] },
+    { label: 'Integrations', href: '/dashboard/integrations', icon: Icons.integrations, roles: ['owner', 'admin'], featureGate: 'custom_integrations' },
     { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents, roles: ['owner', 'admin'] },
     { label: 'Approvals', href: '/dashboard/approvals', icon: Icons.approvals, badgeKey: 'approvals', roles: ['owner', 'admin', 'agent'] },
     { label: 'Escalations', href: '/dashboard/escalations', icon: Icons.alertTriangle, roles: ['owner', 'admin', 'agent'] },
@@ -203,6 +206,11 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
     if (!item.badgeKey) return null;
     const count = badgeCounts[item.badgeKey] || 0;
     return count > 0 ? count : null;
+  };
+
+  const isFeatureLocked = (item: NavItem): boolean => {
+    if (!item.featureGate) return false;
+    return isFeatureBlocked(item.featureGate);
   };
 
   return (
@@ -239,42 +247,49 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
           {visibleNavItems.map((item) => {
             const badgeCount = getBadgeCount(item);
             const isBuilt = builtPages.has(item.href);
+            const featureLocked = isFeatureLocked(item);
 
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={featureLocked ? '/dashboard/billing' : item.href}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative',
-                  isActive(item.href)
+                  isActive(item.href) && !featureLocked
                     ? 'bg-orange-500/10 text-orange-400 shadow-sm shadow-orange-500/5'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]',
-                  !isBuilt && 'opacity-60'
+                  !isBuilt && 'opacity-60',
+                  featureLocked && 'opacity-50'
                 )}
-                title={collapsed ? item.label : undefined}
+                title={collapsed ? item.label : featureLocked ? 'Upgrade to unlock this feature' : undefined}
               >
                 <span className={cn(
                   'shrink-0 transition-colors',
-                  isActive(item.href) ? 'text-orange-400' : 'text-zinc-500'
+                  isActive(item.href) && !featureLocked ? 'text-orange-400' : 'text-zinc-500'
                 )}>
                   {item.icon}
                 </span>
                 {!collapsed && (
                   <>
                     <span className="flex-1">{item.label}</span>
-                    {!isBuilt && (
+                    {!isBuilt && !featureLocked && (
                       <span className="text-[8px] text-zinc-600 bg-white/[0.04] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">
                         Soon
                       </span>
                     )}
-                    {badgeCount != null && (
+                    {featureLocked && (
+                      <span className="text-[8px] text-orange-400 bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">
+                        PRO
+                      </span>
+                    )}
+                    {badgeCount != null && !featureLocked && (
                       <span className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold bg-[#FF7F11]/15 text-[#FF7F11] rounded-full px-1">
                         {badgeCount > 99 ? '99+' : badgeCount}
                       </span>
                     )}
                   </>
                 )}
-                {collapsed && badgeCount != null && (
+                {collapsed && badgeCount != null && !featureLocked && (
                   <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] flex items-center justify-center text-[8px] font-bold bg-[#FF7F11] text-white rounded-full">
                     {badgeCount > 9 ? '9+' : badgeCount}
                   </span>
