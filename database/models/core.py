@@ -252,6 +252,7 @@ class APIKey(Base):
 
 class Agent(Base):
     __tablename__ = "agents"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(

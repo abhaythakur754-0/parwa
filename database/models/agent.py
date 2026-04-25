@@ -112,7 +112,7 @@ class Agent(Base):
             f"status IN ({_AGENT_STATUSES})",
             name="ck_agent_status",
         ),
-        {"schema": None},
+        {"schema": None, "extend_existing": True},
     )
 
 

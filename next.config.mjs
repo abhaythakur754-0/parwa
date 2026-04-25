@@ -7,6 +7,7 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   reactStrictMode: false,
+  turbopack: {},  // Empty turbopack config for Next.js 16 compatibility
   allowedDevOrigins: [
     "https://preview-chat-d6004c9f-0ad7-44f2-be53-375d6d382b20.space.z.ai",
     "*.space.z.ai",

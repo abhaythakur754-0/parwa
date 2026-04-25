@@ -8,9 +8,9 @@ BC-001: Every authenticated request carries company_id.
 BC-011: JWT verification on every protected endpoint.
 """
 
-from typing import Optional
+from typing import Dict, Optional
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from app.core.auth import verify_access_token
@@ -203,3 +203,26 @@ def optional_user(
         return get_current_user(authorization, db)
     except AuthenticationError:
         return None
+
+
+def get_tenant_context(
+    request: Request,
+    user: User = Depends(get_current_user),
+) -> Dict[str, str]:
+    """Extract tenant context from request and authenticated user.
+
+    BC-001: Every request carries company_id for tenant isolation.
+    Returns a dict with company_id for use in service layer.
+
+    Args:
+        request: The incoming request.
+        user: Authenticated user (from get_current_user).
+
+    Returns:
+        Dict with company_id.
+    """
+    return {
+        "company_id": str(user.company_id),
+        "user_id": str(user.id),
+        "role": user.role,
+    }

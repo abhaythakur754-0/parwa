@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from uuid import UUID
 
-from app.core.auth import get_current_user
+from app.api.deps import get_current_user
 from app.services.faq_service import get_faq_service, FAQService
 
 
