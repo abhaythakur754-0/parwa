@@ -157,3 +157,7 @@ twilio_2FA_recovery_code.txt
 
 # Uploaded files with sensitive data
 upload/
+.env
+.env.production
+backend/.env
+backend/.env.production
