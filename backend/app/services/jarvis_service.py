@@ -4172,7 +4172,24 @@ def _call_ai_provider(
 
 
 def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
-    """Try AI providers in order: Cerebras → Groq → Google. Returns content or None."""
+    """Try AI providers in order: z-ai-sdk (primary) → Cerebras → Groq → Google.
+    
+    z-ai-web-dev-sdk is the PRIMARY provider for demos and production.
+    Falls back to other providers if SDK is unavailable.
+    
+    Returns content or None.
+    """
+    # ── PRIMARY: z-ai-web-dev-sdk (Production Ready) ──
+    # This is the best experience for demo users
+    try:
+        content = _call_zai_sdk(messages)
+        if content:
+            logger.info("ai_provider_success", provider="z-ai-web-dev-sdk")
+            return content
+    except Exception as e:
+        logger.warning("z_ai_sdk_failed", error=str(e)[:100])
+    
+    # ── FALLBACK: Existing Providers ──
     providers = [
         ("cerebras", "https://api.cerebras.ai/v1/chat/completions"),
         ("groq", "https://api.groq.com/openai/v1/chat/completions"),
@@ -4183,9 +4200,69 @@ def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
         try:
             content = _call_single_provider(provider_name, endpoint, messages)
             if content:
+                logger.info("ai_provider_success", provider=provider_name)
                 return content
         except Exception:
             continue
+    return None
+
+
+def _call_zai_sdk(messages: List[Dict[str, str]]) -> Optional[str]:
+    """Call z-ai-web-dev-sdk for AI response (PRIMARY PROVIDER).
+    
+    This SDK provides the best AI experience for demos.
+    Uses Node.js subprocess for JavaScript SDK integration.
+    """
+    import subprocess
+    import json as json_mod
+    
+    # Convert messages to JSON string for Node.js
+    messages_json = json_mod.dumps(messages)
+    
+    # Create Node.js script to call the SDK
+    node_script = f"""
+const ZAI = require('z-ai-web-dev-sdk').default;
+(async () => {{
+    try {{
+        const zai = await ZAI.create();
+        const completion = await zai.chat.completions.create({{
+            messages: {messages_json},
+            temperature: 0.7,
+            max_tokens: 1024
+        }});
+        console.log(completion.choices[0].message.content);
+    }} catch(e) {{
+        console.error('SDK_ERROR:' + e.message);
+        process.exit(1);
+    }}
+}})();
+"""
+    
+    try:
+        result = subprocess.run(
+            ["node", "-e", node_script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd="/home/z/my-project/parwa"
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            output = result.stdout.strip()
+            # Check for error marker
+            if not output.startswith("SDK_ERROR:"):
+                return output
+        else:
+            # Log stderr for debugging
+            if result.stderr:
+                logger.debug("z_ai_sdk_stderr", stderr=result.stderr[:200])
+    except subprocess.TimeoutExpired:
+        logger.warning("z_ai_sdk_timeout")
+    except FileNotFoundError:
+        logger.warning("z_ai_sdk_node_not_found")
+    except Exception as e:
+        logger.warning("z_ai_sdk_error", error=str(e)[:100])
+    
     return None
 
 
