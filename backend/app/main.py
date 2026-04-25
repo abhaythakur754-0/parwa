@@ -122,6 +122,7 @@ from app.api.triggers import router as triggers_router  # Triggers
 from app.api.workflow import router as workflow_router  # Workflow management
 from app.api.escalation import router as escalation_router  # Escalation framework API
 from app.api.faqs import router as faqs_router  # FAQ Management (Mini Parwa Feature)
+from app.api.demo import router as demo_router  # Demo: Pre-purchase variant demo
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
@@ -423,6 +424,7 @@ app.include_router(triggers_router)  # Triggers
 app.include_router(workflow_router)  # Workflow management
 app.include_router(escalation_router)  # Escalation framework API
 app.include_router(faqs_router)  # FAQ Management (Mini Parwa Feature)
+app.include_router(demo_router)  # Demo: Pre-purchase variant demo (no auth required)
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
