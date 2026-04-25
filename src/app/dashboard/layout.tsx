@@ -6,6 +6,7 @@ import DashboardHeaderBar from '@/components/dashboard/DashboardHeaderBar';
 import { SocketProvider } from '@/contexts/SocketContext';
 import { JarvisProvider, useJarvisSidebar } from '@/components/jarvis/JarvisProvider';
 import { JarvisSidebar } from '@/components/jarvis/JarvisSidebar';
+import { VariantProvider } from '@/contexts/VariantContext';
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -53,9 +54,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <SocketProvider>
-      <JarvisProvider>
-        <DashboardLayoutInner>{children}</DashboardLayoutInner>
-      </JarvisProvider>
+      <VariantProvider>
+        <JarvisProvider>
+          <DashboardLayoutInner>{children}</DashboardLayoutInner>
+        </JarvisProvider>
+      </VariantProvider>
     </SocketProvider>
   );
 }

@@ -492,6 +492,24 @@ export default function BillingPage() {
     }
   };
 
+  // ── Switch Billing Frequency ────────────────────────────────────────────
+  const handleSwitchBillingFrequency = async () => {
+    const newFrequency = summary?.billing_frequency === 'yearly' ? 'monthly' : 'yearly';
+    const confirmMessage = newFrequency === 'yearly' 
+      ? 'Switch to yearly billing? You\'ll save 20% and the change will apply at your next billing cycle.'
+      : 'Switch to monthly billing? Your price will increase and the change will apply at your next billing cycle.';
+    
+    if (!confirm(confirmMessage)) return;
+    
+    try {
+      await billingApi.updateBillingFrequency({ billing_frequency: newFrequency });
+      toast.success(`Switched to ${newFrequency} billing`);
+      loadSummary();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   // ── Tier ordering for upgrade/downgrade logic ──────────────────────────
   const tierOrder: Record<VariantType, number> = { starter: 1, growth: 2, high: 3 };
   const isUpgrade = selectedVariant ? tierOrder[selectedVariant] > tierOrder[currentVariant] : false;
@@ -592,6 +610,26 @@ export default function BillingPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                {/* Billing Frequency Toggle */}
+                {!isCanceled && (
+                  <button
+                    onClick={handleSwitchBillingFrequency}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-white/[0.08] transition-colors"
+                    title={summary?.billing_frequency === 'yearly' ? 'Switch to monthly' : 'Switch to yearly (save 20%)'}
+                  >
+                    {summary?.billing_frequency === 'yearly' ? (
+                      <>
+                        <span>Monthly</span>
+                        <ArrowDownIcon className="h-3.5 w-3.5 text-zinc-500" />
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-green-400">Save 20%</span>
+                        <ArrowUpIcon className="h-3.5 w-3.5 text-green-400" />
+                      </>
+                    )}
+                  </button>
+                )}
                 {isCanceled && (
                   <button
                     onClick={handleReactivate}

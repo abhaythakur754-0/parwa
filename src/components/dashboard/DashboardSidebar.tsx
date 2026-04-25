@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
+import { VariantBadgeCompact } from '@/components/variant';
 
 // ── Navigation Items ──────────────────────────────────────────────────
 
@@ -334,6 +335,11 @@ export default function DashboardSidebar({ collapsed, onToggle, onOpenJarvis }: 
         {/* ── User Info + Logout ──────────────────────────────────── */}
         {!collapsed && user && (
           <div className="mt-3 pt-3 border-t border-white/[0.06]">
+            {/* Variant Badge */}
+            <div className="px-3 mb-2">
+              <VariantBadgeCompact />
+            </div>
+            
             <div className="flex items-center gap-3 px-3 py-2">
               <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white text-xs font-semibold shrink-0">
                 {user.full_name?.charAt(0)?.toUpperCase() || 'U'}

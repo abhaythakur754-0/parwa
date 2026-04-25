@@ -308,6 +308,9 @@ export const billingApi = {
   reactivateSubscription: () =>
     post<SubscriptionInfo>('/api/billing/subscription/reactivate'),
 
+  updateBillingFrequency: (data: { billing_frequency: BillingFrequency }) =>
+    patch<SubscriptionInfo>('/api/billing/subscription/frequency', data),
+
   // ── Cancel Flow ────────────────────────────────────────────────────────
 
   cancelFeedback: (data: { reason?: string; feedback?: string }) =>
