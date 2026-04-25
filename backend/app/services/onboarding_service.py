@@ -15,6 +15,11 @@ Services:
 - complete_step: Complete a wizard step with locking
 - accept_legal: Accept legal consents with server timestamps
 - activate_ai: Activate AI assistant with prerequisites check
+
+INTEGRATIONS:
+- Email: Welcome emails via Brevo (email_service.py)
+- SMS: Notifications via Twilio (sms_channel_service.py)
+- AI: Personalized greetings via z-ai-web-dev-sdk
 """
 
 import json
@@ -32,8 +37,119 @@ from app.services.user_details_service import check_ai_activation_prerequisites
 from app.tasks.knowledge_tasks import process_knowledge_document
 from database.models.onboarding import OnboardingSession, KnowledgeDocument, ConsentRecord
 from database.models.user_details import UserDetails
+from database.models.core import User, Company
 
 logger = get_logger("onboarding_service")
+
+
+# ── Integration Imports ────────────────────────────────────────────────
+
+def _send_welcome_email(user_email: str, user_name: str, ai_name: str) -> bool:
+    """Send welcome email after onboarding completion.
+    
+    Uses email_service.py which handles Brevo integration.
+    All credentials loaded from environment variables.
+    """
+    try:
+        from app.services.email_service import send_welcome_email as _do_send_welcome
+        dashboard_url = "https://app.parwa.ai/dashboard"
+        return _do_send_welcome(user_email, user_name, dashboard_url)
+    except Exception as e:
+        logger.warning("welcome_email_failed", error=str(e)[:200])
+        return False
+
+
+def _send_onboarding_sms(phone: str, company_name: str, ai_name: str) -> bool:
+    """Send SMS notification after onboarding (optional).
+    
+    Uses sms_channel_service.py which handles Twilio integration.
+    All credentials loaded from environment variables.
+    """
+    try:
+        # SMS is optional - requires company to have SMS config
+        import os
+        twilio_phone = os.environ.get("TWILIO_PHONE_NUMBER", "")
+        if not twilio_phone or not phone:
+            return False
+        
+        # Simple notification via environment Twilio config
+        import httpx
+        import base64
+        
+        account_sid = os.environ.get("TWILIO_ACCOUNT_SID", "")
+        auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
+        
+        if not all([account_sid, auth_token, twilio_phone]):
+            return False
+        
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
+        auth = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
+        
+        body = f"Welcome to {company_name}! Your AI assistant {ai_name} is now ready. Login at app.parwa.ai"
+        
+        response = httpx.post(
+            url,
+            data={"From": twilio_phone, "To": phone, "Body": body},
+            headers={"Authorization": f"Basic {auth}"},
+            timeout=10.0,
+        )
+        return response.status_code in (200, 201)
+    except Exception as e:
+        logger.warning("onboarding_sms_failed", error=str(e)[:200])
+        return False
+
+
+def _generate_ai_greeting(ai_name: str, ai_tone: str, company_name: str) -> str:
+    """Generate personalized AI greeting using z-ai-web-dev-sdk.
+    
+    Falls back to default greeting if AI generation fails.
+    """
+    try:
+        # Use SDK for AI greeting generation
+        import subprocess
+        import json as json_mod
+        
+        prompt = f"""Generate a warm, {ai_tone} greeting message for an AI assistant named {ai_name}.
+The assistant is joining a company called {company_name}.
+Keep it under 100 characters. Just the greeting message, no quotes or explanation.
+Example: "Hi! I'm Jarvis, your AI assistant. How can I help you today?"
+"""
+        
+        # Use CLI tool for quick AI generation
+        result = subprocess.run(
+            ["node", "-e", f"""
+const ZAI = require('z-ai-web-dev-sdk').default;
+(async () => {{
+    const zai = await ZAI.create();
+    const completion = await zai.chat.completions.create({{
+        messages: [
+            {{ role: 'system', content: 'You are a helpful assistant that generates brief, friendly greetings.' }},
+            {{ role: 'user', content: {json_mod.dumps(prompt)} }}
+        ]
+    }});
+    console.log(completion.choices[0].message.content);
+}})().catch(e => console.error(e.message));
+"""],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd="/home/z/my-project/parwa"
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            greeting = result.stdout.strip()
+            if len(greeting) <= 200:
+                return greeting
+    except Exception as e:
+        logger.warning("ai_greeting_generation_failed", error=str(e)[:100])
+    
+    # Fallback greeting
+    tone_greetings = {
+        "professional": f"Hello! I'm {ai_name}, your AI assistant. How may I assist you today?",
+        "friendly": f"Hi there! I'm {ai_name} - excited to help you out! What can I do for you?",
+        "casual": f"Hey! {ai_name} here. What's up? Let me know how I can help!",
+    }
+    return tone_greetings.get(ai_tone, tone_greetings["professional"])
 
 # Consent timestamp tolerance (5 minutes) — P20: configurable via env
 import os
@@ -741,11 +857,28 @@ def activate_ai(
             "ai_greeting": session.ai_greeting,
         }
 
+    # Get user and company info for integrations
+    user = db.query(User).filter(User.id == user_id).first()
+    company = db.query(Company).filter(Company.id == company_id).first()
+    user_email = user.email if user else None
+    user_name = user.full_name if user and user.full_name else user.email.split("@")[0] if user_email else "User"
+    company_name = company.name if company else "Your Company"
+    user_phone = user.phone if user else None
+
+    # Generate AI greeting if not provided
+    final_greeting = ai_greeting
+    if not final_greeting:
+        final_greeting = _generate_ai_greeting(
+            ai_name[:50] if ai_name else "Jarvis",
+            ai_tone if ai_tone in ["professional", "friendly", "casual"] else "professional",
+            company_name
+        )
+
     # Update AI config
     session.ai_name = ai_name[:50] if ai_name else "Jarvis"
     session.ai_tone = ai_tone if ai_tone in ["professional", "friendly", "casual"] else "professional"
     session.ai_response_style = ai_response_style if ai_response_style in ["concise", "detailed"] else "concise"
-    session.ai_greeting = ai_greeting[:500] if ai_greeting else None
+    session.ai_greeting = final_greeting[:500] if final_greeting else None
     session.status = "completed"
     session.completed_at = datetime.now(timezone.utc)
     session.updated_at = datetime.now(timezone.utc)
@@ -759,6 +892,45 @@ def activate_ai(
         company_id=company_id,
         ai_name=ai_name,
     )
+
+    # ── Send Welcome Communications (Background) ─────────────────────────────
+    # These are non-blocking and use environment variables for credentials
+
+    def _send_welcome_communications():
+        """Send welcome email and SMS in background thread."""
+        try:
+            # Send welcome email via Brevo
+            if user_email:
+                email_sent = _send_welcome_email(user_email, user_name, session.ai_name)
+                logger.info(
+                    "welcome_email_sent",
+                    user_id=user_id,
+                    email=user_email,
+                    success=email_sent
+                )
+        except Exception as e:
+            logger.warning("welcome_email_thread_failed", error=str(e)[:100])
+
+        try:
+            # Send welcome SMS via Twilio (optional)
+            if user_phone:
+                sms_sent = _send_onboarding_sms(user_phone, company_name, session.ai_name)
+                logger.info(
+                    "welcome_sms_sent",
+                    user_id=user_id,
+                    phone=user_phone[:4] + "****",
+                    success=sms_sent
+                )
+        except Exception as e:
+            logger.warning("welcome_sms_thread_failed", error=str(e)[:100])
+
+    # Run communications in background thread (non-blocking)
+    comm_thread = threading.Thread(
+        target=_send_welcome_communications,
+        daemon=True,
+        name=f"welcome-comm-{company_id[:8]}",
+    )
+    comm_thread.start()
 
     # P3 FIX: Trigger cold start warmup in a BACKGROUND THREAD so the
     # activation response returns immediately. Previously warmup_tenant()
