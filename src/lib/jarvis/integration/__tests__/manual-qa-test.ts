@@ -492,7 +492,7 @@ describe('Manual QA - JarvisOrchestrator', () => {
       validateCommands: true,
       auditLogging: true,
       maxCommandLength: 500,
-      forbiddenPatterns: ['(?i)(drop|delete|truncate)\\s+(table|database)'],
+      forbiddenPatterns: ['(drop|delete|truncate)\\s+(table|database)'],
     },
   });
 

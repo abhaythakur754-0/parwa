@@ -236,8 +236,9 @@ export class EventCapture {
         continue;
       }
 
+      // Wrap callback result in Promise.resolve to handle sync callbacks
       promises.push(
-        callback(event).catch((error) => {
+        Promise.resolve(callback(event)).catch((error) => {
           console.error(`[EventCapture] Callback ${id} error:`, error);
         })
       );
