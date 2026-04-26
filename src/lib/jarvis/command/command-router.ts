@@ -497,6 +497,156 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     required_permissions: [],
     variant_availability: ['mini_parwa', 'parwa', 'parwa_high'],
   },
+
+  // ── CRITICAL: Financial & Account Routes (ALWAYS require approval) ──
+  // Per PARWA documentation, these actions ALWAYS require human approval:
+  // - All refunds (any type, any amount)
+  // - All returns (any item)
+  // - Account changes (billing, security, email, password)
+  // - VIP customer actions
+  // - Policy exceptions
+  // - Financial transactions (credits, adjustments, discounts >$10)
+
+  {
+    intent: 'refund_request',
+    handler: 'refund_handler.process',
+    params_schema: {
+      required: [
+        { name: 'order_id', type: 'string', description: 'Order ID to refund' },
+      ],
+      optional: [
+        { name: 'amount', type: 'number', description: 'Refund amount' },
+        { name: 'reason', type: 'string', description: 'Reason for refund' },
+        { name: 'customer_id', type: 'string', description: 'Customer ID' },
+        { name: 'customer_tier', type: 'string', description: 'Customer tier (standard, premium, vip)' },
+      ],
+    },
+    risk_level: 'high',
+    execution_mode: 'draft', // ALWAYS requires approval
+    required_permissions: ['ticket.update'],
+    variant_availability: ['mini_parwa', 'parwa', 'parwa_high'],
+  },
+  {
+    intent: 'return_request',
+    handler: 'return_handler.process',
+    params_schema: {
+      required: [
+        { name: 'order_id', type: 'string', description: 'Order ID for return' },
+      ],
+      optional: [
+        { name: 'item_id', type: 'string', description: 'Specific item ID' },
+        { name: 'reason', type: 'string', description: 'Reason for return' },
+        { name: 'customer_id', type: 'string', description: 'Customer ID' },
+      ],
+    },
+    risk_level: 'high',
+    execution_mode: 'draft', // ALWAYS requires approval
+    required_permissions: ['ticket.update'],
+    variant_availability: ['mini_parwa', 'parwa', 'parwa_high'],
+  },
+  {
+    intent: 'email_change',
+    handler: 'account_handler.update_email',
+    params_schema: {
+      required: [
+        { name: 'customer_id', type: 'string', description: 'Customer ID' },
+      ],
+      optional: [
+        { name: 'old_email', type: 'string', description: 'Current email' },
+        { name: 'new_email', type: 'string', description: 'New email' },
+      ],
+    },
+    risk_level: 'high',
+    execution_mode: 'draft', // ALWAYS requires approval
+    required_permissions: ['ticket.update'],
+    variant_availability: ['mini_parwa', 'parwa', 'parwa_high'],
+  },
+  {
+    intent: 'password_change',
+    handler: 'account_handler.update_password',
+    params_schema: {
+      required: [
+        { name: 'customer_id', type: 'string', description: 'Customer ID' },
+      ],
+      optional: [],
+    },
+    risk_level: 'high',
+    execution_mode: 'draft', // ALWAYS requires approval
+    required_permissions: ['ticket.update'],
+    variant_availability: ['parwa', 'parwa_high'],
+  },
+  {
+    intent: 'billing_change',
+    handler: 'account_handler.update_billing',
+    params_schema: {
+      required: [
+        { name: 'customer_id', type: 'string', description: 'Customer ID' },
+      ],
+      optional: [
+        { name: 'new_address', type: 'string', description: 'New billing address' },
+      ],
+    },
+    risk_level: 'high',
+    execution_mode: 'draft', // ALWAYS requires approval
+    required_permissions: ['ticket.update'],
+    variant_availability: ['mini_parwa', 'parwa', 'parwa_high'],
+  },
+  {
+    intent: 'vip_action',
+    handler: 'vip_handler.special_action',
+    params_schema: {
+      required: [
+        { name: 'customer_id', type: 'string', description: 'VIP Customer ID' },
+        { name: 'action_type', type: 'string', description: 'Type of action' },
+      ],
+      optional: [
+        { name: 'discount_percent', type: 'number', description: 'Discount percentage' },
+        { name: 'credit_amount', type: 'number', description: 'Credit amount' },
+        { name: 'notes', type: 'string', description: 'Action notes' },
+      ],
+    },
+    risk_level: 'high',
+    execution_mode: 'draft', // ALWAYS requires approval
+    required_permissions: ['ticket.update'],
+    variant_availability: ['parwa', 'parwa_high'],
+  },
+  {
+    intent: 'policy_exception',
+    handler: 'policy_handler.exception',
+    params_schema: {
+      required: [
+        { name: 'ticket_id', type: 'string', description: 'Ticket ID' },
+        { name: 'exception_reason', type: 'string', description: 'Reason for exception' },
+      ],
+      optional: [
+        { name: 'policy_rule', type: 'string', description: 'Policy rule being excepted' },
+        { name: 'requested_action', type: 'string', description: 'Requested action' },
+      ],
+    },
+    risk_level: 'high',
+    execution_mode: 'draft', // ALWAYS requires approval
+    required_permissions: ['ticket.update'],
+    variant_availability: ['parwa', 'parwa_high'],
+  },
+  {
+    intent: 'financial_transaction',
+    handler: 'financial_handler.adjustment',
+    params_schema: {
+      required: [
+        { name: 'customer_id', type: 'string', description: 'Customer ID' },
+        { name: 'amount', type: 'number', description: 'Transaction amount' },
+        { name: 'transaction_type', type: 'string', description: 'Type: credit, adjustment, discount' },
+      ],
+      optional: [
+        { name: 'reason', type: 'string', description: 'Transaction reason' },
+        { name: 'ticket_id', type: 'string', description: 'Related ticket' },
+      ],
+    },
+    risk_level: 'high',
+    execution_mode: 'draft', // ALWAYS requires approval
+    required_permissions: ['ticket.update'],
+    variant_availability: ['parwa', 'parwa_high'],
+  },
 ];
 
 // ── Command Router Class ──────────────────────────────────────────────

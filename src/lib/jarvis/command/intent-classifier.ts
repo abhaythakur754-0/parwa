@@ -439,6 +439,137 @@ const INTENT_PATTERNS: IntentPattern[] = [
     context_boosts: {},
     weight: 1.0,
   },
+
+  // ── CRITICAL: Financial & Account Intents (ALWAYS require approval) ──
+  // These are matched with HIGH priority to ensure safety
+
+  // Refund Request
+  {
+    intent: 'refund_request',
+    category: 'ticket',
+    patterns: [
+      '(process|issue|create) (a )?refund',
+      'refund (for )?(order|customer|ticket)',
+      '(I want|need|request) (a )?refund',
+      'money back',
+      'refund \\$\\d+',
+      'refund (this|the )?(order|item|purchase)',
+    ],
+    keywords: ['refund', 'money back', 'reimburse', 'return money'],
+    context_boosts: { current_ticket: 0.3 },
+    weight: 2.0, // Higher weight to catch refund intent first
+  },
+
+  // Return Request
+  {
+    intent: 'return_request',
+    category: 'ticket',
+    patterns: [
+      '(process|create|initiate) (a )?return',
+      'return (this|the )?(item|product|order)',
+      '(I want|need) to return',
+      'return (for )?(exchange|replacement)',
+    ],
+    keywords: ['return', 'exchange', 'send back'],
+    context_boosts: { current_ticket: 0.3 },
+    weight: 2.0,
+  },
+
+  // Email Change
+  {
+    intent: 'email_change',
+    category: 'customer',
+    patterns: [
+      'change (the )?email',
+      'update (the )?email',
+      'new email (address)?',
+      '(set|switch) email (to )?',
+      'change (customer )?email (from|to)',
+    ],
+    keywords: ['email', 'change', 'update', 'new email'],
+    context_boosts: { current_customer: 0.5 },
+    weight: 1.5,
+  },
+
+  // Password Change
+  {
+    intent: 'password_change',
+    category: 'customer',
+    patterns: [
+      'change (the )?password',
+      'reset (the )?password',
+      'update (the )?password',
+      'new password',
+      '(set|update) password',
+    ],
+    keywords: ['password', 'change', 'reset', 'update', 'security'],
+    context_boosts: { current_customer: 0.5 },
+    weight: 1.5,
+  },
+
+  // Billing Change
+  {
+    intent: 'billing_change',
+    category: 'customer',
+    patterns: [
+      'change (the )?billing (address|info)',
+      'update (the )?billing (address|info)',
+      'new billing (address)?',
+      '(set|update) billing address',
+    ],
+    keywords: ['billing', 'address', 'payment', 'update'],
+    context_boosts: { current_customer: 0.5 },
+    weight: 1.5,
+  },
+
+  // VIP Action
+  {
+    intent: 'vip_action',
+    category: 'customer',
+    patterns: [
+      'vip (customer )?(discount|credit|action)',
+      '(special|exclusive) (discount|offer) for vip',
+      '(process|apply) (a )?discount for vip',
+      'vip (comp|credit|perk)',
+      '(premium|vip) customer (special|discount)',
+    ],
+    keywords: ['vip', 'premium', 'special', 'discount', 'credit', 'exclusive'],
+    context_boosts: { current_customer: 0.5 },
+    weight: 2.0,
+  },
+
+  // Policy Exception
+  {
+    intent: 'policy_exception',
+    category: 'ticket',
+    patterns: [
+      'policy exception',
+      'exception to (the )?policy',
+      'outside (the )?policy',
+      '(bend|break|override) (the )?policy',
+      'make (an )?exception',
+      'outside (return|refund) window',
+    ],
+    keywords: ['exception', 'policy', 'override', 'bypass', 'special case'],
+    context_boosts: { current_ticket: 0.5 },
+    weight: 2.0,
+  },
+
+  // Financial Transaction
+  {
+    intent: 'financial_transaction',
+    category: 'customer',
+    patterns: [
+      '(apply|process|issue) (a )?(credit|adjustment|discount)',
+      'credit (the )?customer',
+      '(give|apply) (\\d+%)? discount',
+      'financial adjustment',
+      'manual (credit|refund|adjustment)',
+    ],
+    keywords: ['credit', 'adjustment', 'discount', 'financial', 'manual'],
+    context_boosts: { current_customer: 0.5, current_ticket: 0.3 },
+    weight: 2.0,
+  },
 ];
 
 // ── Intent Classifier Class ──────────────────────────────────────────

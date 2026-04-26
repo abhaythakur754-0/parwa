@@ -84,9 +84,80 @@ export class SafeActionExecutor {
 
   /**
    * Check if action is safe for direct execution
+   *
+   * CRITICAL SAFETY RULES (per PARWA documentation):
+   * The following ALWAYS require approval regardless of variant or risk level:
+   * - All refunds (any type, any amount)
+   * - All returns (any item, any value)
+   * - Account changes (billing, security, email, password)
+   * - Policy exceptions (outside normal rules)
+   * - New decision types (AI hasn't seen before)
+   * - VIP customer actions (high-value accounts)
+   * - Financial transactions (credits, adjustments, discounts >$10)
    */
   isSafeForDirectExecution(action: CommandAction, context: CommandContext): boolean {
-    // Check risk level
+    // ── CRITICAL: Actions that ALWAYS require approval ──
+    const ALWAYS_REQUIRE_APPROVAL = [
+      // Refunds - any type, any amount
+      'refund_handler.process',
+      'refund_handler.create',
+      'refund_handler.execute',
+      'refund_handler.approve',
+      // Returns
+      'return_handler.process',
+      'return_handler.create',
+      // Account changes
+      'account_handler.update_email',
+      'account_handler.update_password',
+      'account_handler.update_billing',
+      'account_handler.update_security',
+      'account_handler.delete',
+      // VIP actions
+      'vip_handler.discount',
+      'vip_handler.credit',
+      'vip_handler.special_action',
+      // Policy exceptions
+      'policy_handler.exception',
+      'policy_handler.override',
+      // Financial transactions
+      'financial_handler.credit',
+      'financial_handler.adjustment',
+      'financial_handler.discount',
+    ];
+
+    // Check if this action requires approval by type
+    if (ALWAYS_REQUIRE_APPROVAL.includes(action.handler)) {
+      return false; // NEVER allow direct execution
+    }
+
+    // Check intent-based approval requirements
+    const approvalRequiredIntents = [
+      'refund_request',
+      'return_request',
+      'account_change',
+      'email_change',
+      'password_change',
+      'billing_change',
+      'vip_action',
+      'policy_exception',
+      'financial_transaction',
+    ];
+
+    if (action.type && approvalRequiredIntents.some(intent => action.type.includes(intent))) {
+      return false;
+    }
+
+    // Check action params for VIP customer flag
+    if (action.params?.is_vip === true || action.params?.customer_tier === 'vip') {
+      return false;
+    }
+
+    // Check action params for policy exception flag
+    if (action.params?.is_exception === true || action.params?.outside_policy === true) {
+      return false;
+    }
+
+    // ── Standard risk-based checks ──
     const allowedRiskLevels = {
       mini_parwa: ['low'],
       parwa: ['low', 'medium'],
