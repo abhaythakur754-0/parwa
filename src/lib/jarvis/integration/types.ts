@@ -494,10 +494,11 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   auditLogging: true,
   maxCommandLength: 1000,
   forbiddenPatterns: [
-    '(?i)(drop|delete|truncate)\\s+(table|database)',
-    '(?i)(insert|update)\\s+.*\\s+(password|credential)',
-    '(?i)<script[^>]*>.*?</script>',
-    '(?i)javascript:',
-    '(?i)on(error|load|click)\\s*=',
+    // Note: These patterns are used with case-insensitive flag 'i' in JarvisOrchestrator
+    '(drop|delete|truncate)\\s+(table|database)',
+    '(insert|update)\\s+.*\\s+(password|credential)',
+    '<script[^>]*>.*?</script>',
+    'javascript:',
+    'on(error|load|click)\\s*=',
   ],
 };

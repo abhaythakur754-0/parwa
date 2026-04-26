@@ -407,6 +407,7 @@ export class AuditLogger {
    * Query audit logs
    */
   queryLogs(filter: AuditFilter): AuditLogEntry[] {
+    this.flush(); // Ensure pending entries are included
     return this.logStore.query(filter);
   }
 
@@ -439,6 +440,7 @@ export class AuditLogger {
     logs: { totalEntries: number; oldestEntry: Date | null; newestEntry: Date | null };
     violations: { total: number; critical: number; high: number };
   } {
+    this.flush(); // Ensure pending entries are included
     const violations = this.violationStore.query({});
     return {
       logs: this.logStore.getStats(),

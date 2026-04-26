@@ -733,9 +733,9 @@ export class JarvisOrchestrator {
       return { valid: false, error: 'Command too long' };
     }
 
-    // Check forbidden patterns
+    // Check forbidden patterns (case-insensitive)
     for (const pattern of config.forbiddenPatterns) {
-      const regex = new RegExp(pattern);
+      const regex = new RegExp(pattern, 'i');
       if (regex.test(input)) {
         return { valid: false, error: 'Forbidden pattern detected' };
       }
