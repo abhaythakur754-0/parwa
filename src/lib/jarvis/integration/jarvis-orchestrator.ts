@@ -314,7 +314,7 @@ export class JarvisOrchestrator {
       // Get or create session
       if (!sessionId || !this.sessionManager.has(sessionId)) {
         sessionId = this.generateSessionId();
-        await this.createSession(sessionId, request.userId);
+        await this.createSession(sessionId, request.userId, request.userRole);
       }
 
       const session = this.sessionManager.get(sessionId)!;
@@ -666,9 +666,9 @@ export class JarvisOrchestrator {
 
   // ── Private Methods ─────────────────────────────────────────────
 
-  private async createSession(sessionId: string, userId: string): Promise<void> {
+  private async createSession(sessionId: string, userId: string, userRole: string = 'agent'): Promise<void> {
     const awarenessState = await this.awarenessEngine?.getState();
-    const commandContext = this.getDefaultCommandContext(sessionId);
+    const commandContext = this.getDefaultCommandContext(sessionId, userRole);
 
     this.sessionManager.create(
       sessionId,
@@ -703,7 +703,31 @@ export class JarvisOrchestrator {
     } as unknown as AwarenessState;
   }
 
-  private getDefaultCommandContext(sessionId: string): CommandContext {
+  private getDefaultCommandContext(sessionId: string, userRole: string = 'agent'): CommandContext {
+    // Default permissions based on user role
+    const rolePermissions: Record<string, string[]> = {
+      agent: [
+        'ticket.view', 'ticket.create', 'ticket.update', 'ticket.close', 'ticket.assign',
+        'customer.view', 'knowledge.view', 'notes.create', 'communication.send', 'communication.schedule',
+        'analytics.view', 'alerts.view'
+      ],
+      supervisor: [
+        'ticket.view', 'ticket.create', 'ticket.update', 'ticket.close', 'ticket.assign', 'ticket.escalate', 'ticket.merge',
+        'customer.view', 'knowledge.view', 'notes.create', 'communication.send', 'communication.schedule',
+        'analytics.view', 'analytics.export', 'alerts.view', 'alerts.manage', 'agent.view'
+      ],
+      manager: [
+        'ticket.view', 'ticket.create', 'ticket.update', 'ticket.close', 'ticket.assign', 'ticket.escalate', 'ticket.merge',
+        'customer.view', 'knowledge.view', 'notes.create', 'communication.send', 'communication.schedule',
+        'analytics.view', 'analytics.export', 'alerts.view', 'alerts.manage', 'agent.view'
+      ],
+      admin: [
+        'ticket.view', 'ticket.create', 'ticket.update', 'ticket.close', 'ticket.assign', 'ticket.escalate', 'ticket.merge',
+        'customer.view', 'knowledge.view', 'notes.create', 'communication.send', 'communication.schedule',
+        'analytics.view', 'analytics.export', 'alerts.view', 'alerts.manage', 'agent.view'
+      ],
+    };
+
     return {
       session_id: sessionId,
       tenant_id: this.config.organizationId,
@@ -714,6 +738,7 @@ export class JarvisOrchestrator {
       current_customer: null,
       active_filters: {},
       user_preferences: {},
+      permissions: rolePermissions[userRole] || rolePermissions.agent,
       created_at: new Date(),
       last_activity: new Date(),
     } as unknown as CommandContext;
@@ -735,9 +760,16 @@ export class JarvisOrchestrator {
 
     // Check forbidden patterns (case-insensitive)
     for (const pattern of config.forbiddenPatterns) {
-      const regex = new RegExp(pattern, 'i');
-      if (regex.test(input)) {
-        return { valid: false, error: 'Forbidden pattern detected' };
+      try {
+        const regex = new RegExp(pattern, 'i');
+        if (regex.test(input)) {
+          return { valid: false, error: 'Forbidden pattern detected' };
+        }
+      } catch (e) {
+        // If pattern is invalid, skip it (log in debug mode)
+        if (this.config.debug) {
+          console.warn(`Invalid regex pattern: ${pattern}`);
+        }
       }
     }
 

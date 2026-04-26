@@ -46,14 +46,22 @@ const ENTITY_PATTERNS: EntityPattern[] = [
     priority: 9,
   },
 
-  // Agent ID - formats: AGT-123, A123
+  // Agent ID - formats: AGT-123, A123, agent John, to John
   {
     type: 'agent_id',
     patterns: [
       /\b(?:AGT|A)-?\d+\b/gi,
       /\bagent\s*#?\s*(\d+)\b/gi,
+      /\bagent\s+([A-Z][a-zA-Z]+)/gi,
+      /\bto\s+(?:agent\s+)?([A-Z][a-zA-Z]+)/gi,
     ],
-    normalization: (v) => v.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+    normalization: (v) => {
+      // If it's a name, keep it as is; otherwise uppercase the ID
+      if (/^[A-Z][a-z]+$/.test(v)) {
+        return v;
+      }
+      return v.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    },
     priority: 9,
   },
 

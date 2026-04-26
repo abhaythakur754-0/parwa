@@ -285,6 +285,42 @@ export class SafeActionExecutor {
       undo_available: true,
     }));
 
+    this.registerHandler('ticket_handler.search', async (params) => ({
+      success: true,
+      data: [],
+      message: 'Ticket search completed',
+      undo_available: false,
+    }));
+
+    this.registerHandler('ticket_handler.prioritize', async (params) => ({
+      success: true,
+      data: params,
+      message: 'Ticket priority updated',
+      undo_available: true,
+    }));
+
+    this.registerHandler('ticket_handler.tag', async (params) => ({
+      success: true,
+      data: params,
+      message: 'Ticket tagged successfully',
+      undo_available: true,
+    }));
+
+    // Agent handlers
+    this.registerHandler('agent_handler.status', async (params) => ({
+      success: true,
+      data: { agents: [], status: 'available' },
+      message: 'Agent status retrieved',
+      undo_available: false,
+    }));
+
+    this.registerHandler('agent_handler.workload', async (params) => ({
+      success: true,
+      data: { workload: {} },
+      message: 'Workload retrieved',
+      undo_available: false,
+    }));
+
     // Customer handlers
     this.registerHandler('customer_handler.view', async (params) => ({
       success: true,

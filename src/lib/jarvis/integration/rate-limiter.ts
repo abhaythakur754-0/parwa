@@ -111,6 +111,8 @@ export class RateLimiter {
 
   constructor(config: RateLimitConfig, options?: Partial<RateLimiterOptions>) {
     this.config = config;
+    
+    // Start with defaults
     this.options = { ...DEFAULT_OPTIONS, ...options };
     
     // Initialize global bucket
@@ -246,11 +248,15 @@ export class RateLimiter {
    * Create a new rate limit entry
    */
   private createEntry(variant: Variant): RateLimitEntry {
+    // Get variant-specific defaults
     const variantConfig = VARIANT_LIMITS[variant];
-    const userLimit = variantConfig.userLimit ?? this.options.userLimit;
-    const commandsPerHour = variantConfig.commandsPerHour ?? this.options.commandsPerHour;
+    
+    // Use config values (from RateLimitConfig) if provided, otherwise fall back to variant limits then defaults
+    // config.requestsPerMinute comes from the test/user config
+    const userLimit = this.config.requestsPerMinute ?? variantConfig.userLimit ?? this.options.userLimit;
+    const commandsPerHour = this.config.commandsPerHour ?? variantConfig.commandsPerHour ?? this.options.commandsPerHour;
     const commandsPerDay = variantConfig.commandsPerDay ?? this.options.commandsPerDay;
-    const burst = variantConfig.burstAllowance ?? this.options.burstAllowance;
+    const burst = this.config.burstAllowance ?? variantConfig.burstAllowance ?? this.options.burstAllowance;
 
     return {
       user: {

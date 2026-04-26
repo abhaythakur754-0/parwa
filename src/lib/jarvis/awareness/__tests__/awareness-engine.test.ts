@@ -4,7 +4,7 @@
  * Comprehensive test suite for all Week 2 components.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -18,7 +18,7 @@ import type {
 // ── Mock Event Emitter ────────────────────────────────────────────────
 
 const createMockEmitter = () => ({
-  emit: vi.fn().mockResolvedValue(undefined),
+  emit: jest.fn().mockResolvedValue(undefined),
 });
 
 // ── Ticket Event Listener Tests ───────────────────────────────────────
@@ -351,7 +351,7 @@ describe('EventCapture', () => {
   });
 
   it('should subscribe to events', async () => {
-    const callback = vi.fn();
+    const callback = jest.fn();
     capture.subscribe('test-sub', callback);
 
     const event: AwarenessEvent = {

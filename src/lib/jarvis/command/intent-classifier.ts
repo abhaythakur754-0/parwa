@@ -41,17 +41,35 @@ const INTENT_PATTERNS: IntentPattern[] = [
     weight: 1.0,
   },
 
+  // Search Tickets - placed BEFORE view_ticket to catch "show my tickets" patterns
+  {
+    intent: 'search_tickets',
+    category: 'ticket',
+    patterns: [
+      'search (for )?tickets',
+      'find tickets',
+      'show (me )?(my )?tickets',
+      'list (my )?tickets',
+      'get (my )?tickets (with|where|about)',
+      'what tickets',
+      'my tickets',
+    ],
+    keywords: ['search', 'find', 'show', 'list', 'tickets', 'filter', 'my'],
+    context_boosts: {},
+    weight: 1.1, // Slightly higher weight to prefer over view_ticket
+  },
+
   // Ticket View
   {
     intent: 'view_ticket',
     category: 'ticket',
     patterns: [
-      '(show|view|display|get) (me )?(the )?ticket',
-      'open ticket',
-      'ticket details',
-      'what( is|\'s) (the status of )?ticket',
+      '(show|view|display|get) (me )?(the )?ticket \\w+',
+      'open ticket \\w+',
+      'ticket (\\w+ )?details',
+      'what( is|\'s) (the status of )?ticket \\w+',
     ],
-    keywords: ['show', 'view', 'ticket', 'details', 'status'],
+    keywords: ['view', 'ticket', 'details', 'status', 'open'],
     context_boosts: { current_ticket: 0.4 },
     weight: 1.0,
   },
@@ -127,22 +145,6 @@ const INTENT_PATTERNS: IntentPattern[] = [
       'join (these|the )?tickets',
     ],
     keywords: ['merge', 'combine', 'join', 'tickets'],
-    context_boosts: {},
-    weight: 1.0,
-  },
-
-  // Search Tickets
-  {
-    intent: 'search_tickets',
-    category: 'ticket',
-    patterns: [
-      'search (for )?tickets',
-      'find tickets',
-      'show (me )?tickets',
-      'list tickets',
-      'get tickets (with|where|about)',
-    ],
-    keywords: ['search', 'find', 'show', 'list', 'tickets', 'filter'],
     context_boosts: {},
     weight: 1.0,
   },
