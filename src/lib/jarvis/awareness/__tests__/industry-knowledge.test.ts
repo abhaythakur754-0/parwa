@@ -4,7 +4,6 @@
  * Tests for industry-specific knowledge loading and awareness.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import {
   IndustryKnowledgeLoader,
   createIndustryKnowledgeLoader,
