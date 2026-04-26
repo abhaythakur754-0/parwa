@@ -46,6 +46,7 @@ export {
 export type {
   JarvisConfig,
   JarvisState,
+  Industry,
   CacheConfig,
   RateLimitConfig,
   SecurityConfig,

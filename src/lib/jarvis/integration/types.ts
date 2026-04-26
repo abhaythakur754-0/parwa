@@ -21,11 +21,28 @@ export type Variant = VariantType;
 
 // ── Integration Configuration ─────────────────────────────────────
 
+export type Industry = 
+  | 'saas'
+  | 'ecommerce'
+  | 'logistics'
+  | 'finance'
+  | 'education'
+  | 'real_estate'
+  | 'manufacturing'
+  | 'consulting'
+  | 'agency'
+  | 'nonprofit'
+  | 'hospitality'
+  | 'retail'
+  | 'other';
+
 export interface JarvisConfig {
   /** Organization/tenant ID */
   organizationId: string;
   /** Variant level for capability gating */
   variant: Variant;
+  /** Industry for domain-specific knowledge */
+  industry?: Industry;
   /** Enable debug logging */
   debug?: boolean;
   /** Cache configuration */
@@ -80,6 +97,8 @@ export interface JarvisState {
   organizationId: string;
   /** Variant */
   variant: Variant;
+  /** Industry for domain-specific responses */
+  industry?: Industry;
   /** Awareness state from Awareness Engine */
   awareness: AwarenessState;
   /** Command context from Command Processing */

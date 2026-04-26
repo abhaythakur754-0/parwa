@@ -44,6 +44,18 @@ export type { SentimentPipelineConfig, SentimentInput } from './sentiment-pipeli
 export { MetricsCollector, createMetricsCollector, DEFAULT_METRICS_COLLECTOR_CONFIG, STANDARD_METRICS } from './metrics-collector';
 export type { MetricsCollectorConfig, MetricRecord } from './metrics-collector';
 
+// Industry Knowledge
+export { 
+  IndustryKnowledgeLoader, 
+  getIndustryKnowledgeLoader, 
+  createIndustryKnowledgeLoader 
+} from './industry-knowledge-loader';
+export type { 
+  IndustryKnowledge, 
+  IndustryConfig, 
+  IndustryVariant 
+} from './industry-knowledge-loader';
+
 // Re-export types
 export type {
   AwarenessEvent,

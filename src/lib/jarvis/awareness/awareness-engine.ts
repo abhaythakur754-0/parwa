@@ -19,6 +19,8 @@ import type {
   AwarenessEventType,
 } from '@/types/awareness';
 
+import type { Industry } from '../integration/types';
+
 import { TicketEventListener, DEFAULT_TICKET_LISTENER_CONFIG } from './ticket-event-listener';
 import { CustomerActivityTracker, DEFAULT_ACTIVITY_TRACKER_CONFIG } from './activity-tracker';
 import { SystemHealthMonitor, DEFAULT_CHECK_INTERVALS } from './health-monitor';
@@ -33,6 +35,7 @@ import { MetricsCollector, DEFAULT_METRICS_COLLECTOR_CONFIG } from './metrics-co
 export interface AwarenessEngineConfig {
   tenant_id: string;
   variant: 'mini_parwa' | 'parwa' | 'parwa_high';
+  industry?: Industry;
 }
 
 // ── Event Emitter Implementation ─────────────────────────────────────

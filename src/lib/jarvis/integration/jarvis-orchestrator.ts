@@ -14,6 +14,10 @@ import {
   createAwarenessEngine,
 } from '../awareness';
 import {
+  getIndustryKnowledgeLoader,
+  IndustryKnowledgeLoader,
+} from '../awareness/industry-knowledge-loader';
+import {
   CommandProcessor,
   getCommandProcessor,
   createCommandProcessor,
@@ -48,6 +52,7 @@ import type {
   DEFAULT_CACHE_CONFIG,
   DEFAULT_RATE_LIMIT_CONFIG,
   DEFAULT_SECURITY_CONFIG,
+  Industry,
 } from './types';
 
 // ── Session Manager ────────────────────────────────────────────────
@@ -65,7 +70,8 @@ class SessionManager {
     organizationId: string,
     variant: Variant,
     awarenessState: AwarenessState,
-    commandContext: CommandContext
+    commandContext: CommandContext,
+    industry?: Industry
   ): JarvisState {
     // Enforce max sessions
     if (this.sessions.size >= this.maxSessions) {
@@ -76,6 +82,7 @@ class SessionManager {
       sessionId,
       organizationId,
       variant,
+      industry,
       awareness: awarenessState,
       commandContext,
       activeDrafts: new Map(),
@@ -196,6 +203,7 @@ export class JarvisOrchestrator {
   private auditLogger: AuditLogger;
   private sessionManager: SessionManager;
   private eventEmitter: IntegrationEventEmitter;
+  private industryLoader: IndustryKnowledgeLoader;
   private startTime: Date;
   private isInitialized: boolean = false;
 
@@ -228,6 +236,9 @@ export class JarvisOrchestrator {
     );
 
     this.eventEmitter = new IntegrationEventEmitter();
+    
+    // Initialize industry knowledge loader
+    this.industryLoader = getIndustryKnowledgeLoader();
   }
 
   /**
@@ -236,10 +247,11 @@ export class JarvisOrchestrator {
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
-    // Initialize Awareness Engine
+    // Initialize Awareness Engine with industry
     this.awarenessEngine = await createAwarenessEngine({
       tenant_id: this.config.organizationId,
       variant: this.config.variant,
+      industry: this.config.industry,
     });
 
     // Initialize Command Processor
@@ -256,7 +268,10 @@ export class JarvisOrchestrator {
       sessionId: 'system',
       organizationId: this.config.organizationId,
       timestamp: new Date(),
-      payload: { message: 'JARVIS initialized' },
+      payload: { 
+        message: 'JARVIS initialized',
+        industry: this.config.industry || 'not_specified',
+      },
     });
   }
 
@@ -654,6 +669,48 @@ export class JarvisOrchestrator {
   }
 
   /**
+   * Get industry knowledge for the configured industry
+   */
+  async getIndustryKnowledge() {
+    return this.industryLoader.loadIndustryKnowledge(this.config.industry);
+  }
+
+  /**
+   * Get industry terminology
+   */
+  getIndustryTerminology(): Record<string, string> {
+    return this.industryLoader.getTerminology(this.config.industry);
+  }
+
+  /**
+   * Get common queries for the industry
+   */
+  getIndustryCommonQueries(): string[] {
+    return this.industryLoader.getCommonQueries(this.config.industry);
+  }
+
+  /**
+   * Check if message contains escalation triggers
+   */
+  hasEscalationTrigger(message: string): boolean {
+    return this.industryLoader.hasEscalationTrigger(this.config.industry, message);
+  }
+
+  /**
+   * Get response template for a scenario
+   */
+  getResponseTemplate(scenario: string): string | null {
+    return this.industryLoader.getResponseTemplate(this.config.industry, scenario);
+  }
+
+  /**
+   * Get configured industry
+   */
+  getIndustry(): Industry | undefined {
+    return this.config.industry;
+  }
+
+  /**
    * Shutdown JARVIS
    */
   async shutdown(): Promise<void> {
@@ -675,7 +732,8 @@ export class JarvisOrchestrator {
       this.config.organizationId,
       this.config.variant,
       awarenessState || this.getDefaultAwarenessState(),
-      commandContext
+      commandContext,
+      this.config.industry
     );
 
     this.auditLogger.logSession({

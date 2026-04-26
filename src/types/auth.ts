@@ -18,6 +18,7 @@ export interface User {
   is_verified: boolean;
   company_id: string;
   company_name?: string | null;
+  industry?: string | null;
   onboarding_completed?: boolean;
   created_at: string | null;
 }
