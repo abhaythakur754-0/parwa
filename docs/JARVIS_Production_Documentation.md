@@ -1,28 +1,31 @@
 # JARVIS PRODUCTION DOCUMENTATION
 ## PARWA AI Assistant - Complete Design Specification
 
-**Version:** 1.0  
+**Version:** 2.0  
 **Date:** April 2025  
-**Status:** Production Ready
+**Status:** Production Ready  
+**Inspired by:** Iron Man's Jarvis + OpenClaw Architecture
 
 ---
 
 ## Table of Contents
 
 1. [Executive Overview](#1-executive-overview)
-2. [Jarvis Lifecycle](#2-jarvis-lifecycle)
-3. [Awareness System](#3-awareness-system)
-4. [Control Capabilities](#4-control-capabilities)
-5. [Intelligence & Decision Making](#5-intelligence--decision-making)
-6. [Memory System](#6-memory-system)
-7. [Personality & Communication Style](#7-personality--communication-style)
-8. [Proactive Alert System](#8-proactive-alert-system)
-9. [Variant Tiers & Features](#9-variant-tiers--features)
-10. [Technical Architecture](#10-technical-architecture)
-11. [API Reference](#11-api-reference)
-12. [Database Schema](#12-database-schema)
-13. [Integration Points](#13-integration-points)
-14. [Example Conversations](#14-example-conversations)
+2. [Jarvis = UI + Superpowers](#2-jarvis--ui--superpowers)
+3. [Jarvis Lifecycle](#3-jarvis-lifecycle)
+4. [Awareness System](#4-awareness-system)
+5. [Control Capabilities](#5-control-capabilities)
+6. [Variant Integration](#6-variant-integration)
+7. [Intelligence & Decision Making](#7-intelligence--decision-making)
+8. [Memory System (OpenClaw-Inspired)](#8-memory-system-openclaw-inspired)
+9. [Personality & Communication Style](#9-personality--communication-style)
+10. [Proactive Alert System](#10-proactive-alert-system)
+11. [Variant Tiers & Features](#11-variant-tiers--features)
+12. [Technical Architecture](#12-technical-architecture)
+13. [API Reference](#13-api-reference)
+14. [Database Schema](#14-database-schema)
+15. [Integration Points](#15-integration-points)
+16. [Example Conversations](#16-example-conversations)
 
 ---
 
@@ -53,12 +56,79 @@ Unlike traditional chatbots, Jarvis:
 3. **Remembers everything** - Full memory of user's day and past interactions
 4. **Speaks up when important** - Proactive alerts for critical situations
 5. **Adapts to user certainty** - Direct action vs. draft-then-approve based on context
+6. **Controls variants** - Full control over Mini PARWA, PARWA, and PARWA High
 
 ---
 
-## 2. Jarvis Lifecycle
+## 2. Jarvis = UI + Superpowers
 
-### 2.1 Jarvis Across User Journey
+### 2.1 The Key Concept
+
+**Jarvis can do EVERYTHING the Dashboard UI can do, PLUS more.**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              UI AND JARVIS = SAME BACKEND                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────┐      ┌─────────────────────┐           │
+│  │      DASHBOARD UI    │      │       JARVIS        │           │
+│  │   (Click/Type)       │      │   (Talk/Chat)       │           │
+│  └──────────┬──────────┘      └──────────┬──────────┘           │
+│             │                             │                      │
+│             │         SAME ACTIONS        │                      │
+│             │    ═══════════════════      │                      │
+│             │                             │                      │
+│             ▼                             ▼                      │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                    PARWA BACKEND                          │   │
+│  │                                                           │   │
+│  │  • Control Mini PARWA / PARWA / PARWA High               │   │
+│  │  • Create/Assign/Close tickets                           │   │
+│  │  • Pause/Resume AI agents                                │   │
+│  │  • View analytics & reports                              │   │
+│  │  • Manage integrations                                   │   │
+│  │  • Send SMS/Email                                        │   │
+│  │  • Everything UI can do                                  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 What Jarvis Has That UI Doesn't
+
+| Feature | Dashboard UI | Jarvis |
+|---------|--------------|--------|
+| **Control variants** | ✅ | ✅ |
+| **Create/assign tickets** | ✅ | ✅ |
+| **Send SMS/Email** | ✅ | ✅ |
+| **Manage integrations** | ✅ | ✅ |
+| **View analytics** | ✅ | ✅ |
+| **Full Awareness** | ❌ You have to look | ✅ Jarvis tells you |
+| **Memory** | ❌ Doesn't remember | ✅ Remembers everything |
+| **Proactive Alerts** | ❌ Won't tell you | ✅ Alerts you first |
+| **Smart Suggestions** | ❌ No suggestions | ✅ Recommends actions |
+| **Pattern Detection** | ❌ Manual analysis | ✅ Finds trends |
+| **Natural Language** | ❌ Click buttons | ✅ Just talk |
+
+### 2.3 Example: Same Action - UI vs JARVIS
+
+| Action | UI Way | Jarvis Way |
+|--------|--------|------------|
+| Pause AI | Click "Pause" button | "Jarvis, pause AI" |
+| View tickets | Go to Tickets page | "Jarvis, show me open tickets" |
+| Create ticket | Click "New Ticket" form | "Jarvis, create ticket for John about his order" |
+| Assign ticket | Click ticket → Select assignee | "Jarvis, assign ticket #123 to Sarah" |
+| Send SMS | Go to Messages → Compose | "Jarvis, send SMS to +1234567890 about their delivery" |
+| Check capacity | View Dashboard stats | "Jarvis, how's our capacity?" |
+| View analytics | Go to Analytics page | "Jarvis, show me today's performance" |
+| Approve refund | Click "Approve" in queue | "Jarvis, approve the refund for order #999" |
+
+---
+
+## 3. Jarvis Lifecycle
+
+### 3.1 Jarvis Across User Journey
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -80,7 +150,7 @@ Unlike traditional chatbots, Jarvis:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Stage Details
+### 3.2 Stage Details
 
 | Stage | When | Awareness Level | Control Level |
 |-------|------|-----------------|---------------|
@@ -90,9 +160,9 @@ Unlike traditional chatbots, Jarvis:
 
 ---
 
-## 3. Awareness System
+## 4. Awareness System
 
-### 3.1 What Jarvis Tracks
+### 4.1 What Jarvis Tracks
 
 Jarvis maintains real-time awareness of:
 
@@ -118,6 +188,14 @@ Jarvis maintains real-time awareness of:
 | **Errors** | Last 5 AI mistakes, correction status |
 | **Performance** | Resolution rate, response time, accuracy |
 
+#### Variant Awareness (NEW)
+
+| Variant | What Jarvis Tracks |
+|---------|-------------------|
+| **Mini PARWA** | Capacity (200/day), escalations to PARWA, ticket status |
+| **PARWA** | Capacity (300/day), concurrent calls (3), escalations to High |
+| **PARWA High** | Capacity (500+/day), concurrent calls (5), VIP handling, video |
+
 #### Integration Health
 
 | Integration | Status Tracked |
@@ -137,13 +215,14 @@ Jarvis maintains real-time awareness of:
 | Team | Active users, roles, permissions |
 | Limits | Ticket limit %, storage %, API calls % |
 
-### 3.2 Awareness Query Examples
+### 4.2 Awareness Query Examples
 
 **User:** "What's happening today?"
 ```
 Jarvis Response:
 "Hey! 👋 Pretty good day so far. You've handled 89 tickets with a 94% 
-resolution rate. You've got 4 approvals waiting - nothing urgent though. 
+resolution rate. Your PARWA agent is at 65% capacity (195/300 tickets).
+You've got 4 approvals waiting - nothing urgent though. 
 Your AI has been learning from 2 corrections this morning. Anything 
 specific you want to check?"
 ```
@@ -167,11 +246,64 @@ there's one approval that's been waiting for 3 hours - might want to
 check on that."
 ```
 
+**User:** "How's PARWA High doing?"
+```
+Jarvis Response:
+"Your PARWA High agent is handling things well! Currently at 40% capacity 
+(200/500 tickets), 2 concurrent calls active, no VIP escalations today. 
+It's processed 3 complex refund cases with 96% confidence. Want me to 
+show you the details?"
+```
+
 ---
 
-## 4. Control Capabilities
+## 5. Control Capabilities
 
-### 4.1 Action Categories
+### 5.1 Dual-Mode System
+
+Jarvis operates in TWO modes:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     JARVIS DUAL-MODE SYSTEM                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  🟢 MODE 1: FULL HUMAN ADMIN (Direct Execute)                    │
+│  ───────────────────────────────────────────────                 │
+│  Jarvis acts like a real human manager - just does it!          │
+│                                                                  │
+│  • Create tickets ✅                                            │
+│  • Assign tickets ✅                                            │
+│  • Close tickets ✅                                             │
+│  • Manage team members ✅                                       │
+│  • Send SMS/Email (single) ✅                                   │
+│  • Pause/Resume AI ✅                                           │
+│  • Undo actions ✅                                              │
+│  • Upload knowledge docs ✅                                     │
+│  • Generate reports ✅                                          │
+│  • Update settings ✅                                           │
+│  • View revenue, analytics ✅                                   │
+│  • Manage integrations ✅                                       │
+│                                                                  │
+│  ════════════════════════════════════════════════════════════   │
+│                                                                  │
+│  🟡 MODE 2: SMART ASSISTANT (Draft → Human Approves → Execute)   │
+│  ───────────────────────────────────────────────────────────     │
+│  Jarvis prepares everything, shows to human, waits for OK       │
+│                                                                  │
+│  • Refunds/Returns 💰                                           │
+│  • Financial decisions 💰                                       │
+│  • Bulk SMS/Email (100+ people) 📧                              │
+│  • Account security changes 🔒                                  │
+│  • Policy exceptions ⚠️                                         │
+│  • VIP customer actions 👑                                      │
+│  • Delete knowledge base 🗑️                                     │
+│  • Change pricing/subscription 💳                               │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Action Categories
 
 #### Communication Actions
 
@@ -183,12 +315,14 @@ check on that."
 | Bulk Email | "Email all customers about new feature" | Draft first |
 | Generate Response | "Draft a reply for ticket #456" | Draft |
 
-#### AI Control Actions
+#### AI & Variant Control Actions
 
 | Action | Command Example | Direct/Draft |
 |--------|-----------------|--------------|
 | Pause AI | "Pause all AI activity" | Direct |
 | Resume AI | "Resume AI operations" | Direct |
+| Pause Variant | "Pause Mini PARWA" | Direct |
+| Check Variant Status | "How's PARWA High doing?" | Direct |
 | Pause Channel | "Pause refunds only" | Direct |
 | Undo Action | "Undo the last refund" | Direct |
 | Switch Mode | "Switch to supervised mode" | Direct |
@@ -237,7 +371,7 @@ check on that."
 | Export Data | "Export last month's tickets" | Direct |
 | View Analytics | "Show me analytics dashboard" | Direct |
 
-### 4.2 Direct vs. Draft Decision Logic
+### 5.3 Direct vs. Draft Decision Logic
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -276,7 +410,7 @@ check on that."
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 4.3 Draft Workflow
+### 5.4 Draft Workflow
 
 When Jarvis creates a draft:
 
@@ -312,9 +446,92 @@ When Jarvis creates a draft:
 
 ---
 
-## 5. Intelligence & Decision Making
+## 6. Variant Integration
 
-### 5.1 Context Understanding
+### 6.1 Jarvis Controls All Variants
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              JARVIS + VARIANTS CONNECTION                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  CLIENT: Acme Corp (PARWA - $2,499/mo)                          │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                      PARWA AGENT                          │   │
+│  │  • Handles 300 tickets/day                                │   │
+│  │  • 3 concurrent calls                                     │   │
+│  │  • Can ask PARWA High for help                           │   │
+│  │  • Makes recommendations (doesn't execute refunds)        │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                          ↑                                       │
+│                          │ monitors & controls                   │
+│                          │                                       │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                         JARVIS                             │   │
+│  │  • Knows client has PARWA tier                           │   │
+│  │  • Tracks: 195/300 tickets used today (65%)              │   │
+│  │  • Tracks: 2/3 concurrent calls active                   │   │
+│  │  • Tracks: 5 escalations to PARWA High today             │   │
+│  │  • Can pause/resume the agent                            │   │
+│  │  • Alerts when near capacity (80%+)                      │   │
+│  │  • Recommends upgrade if consistently over capacity      │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 Variant-Specific Awareness
+
+| What Jarvis Tracks | Mini PARWA ($999) | PARWA ($2,499) | PARWA High ($3,999) |
+|--------------------|-------------------|----------------|---------------------|
+| **Ticket Capacity** | 200/day | 300/day | 500+/day |
+| **Concurrent Calls** | 0 | 3 | 5 + Video |
+| **Escalation Path** | → PARWA | → PARWA High | → Human |
+| **Peer Review** | Can ask PARWA | Can ask High | Reviews others |
+| **Fraud Detection** | Basic | Standard | Advanced |
+| **VIP Handling** | ❌ | ❌ | ✅ |
+
+### 6.3 Variant Commands
+
+| Command | Example | Action |
+|---------|---------|--------|
+| Check capacity | "How much capacity left?" | Shows tickets/calls used for active variant |
+| Check escalations | "How many escalations today?" | Shows escalation flow |
+| Upgrade variant | "I need more capacity" | Recommends upgrade |
+| Pause variant | "Pause PARWA" | Stops the specific variant agent |
+| Resume variant | "Resume PARWA" | Starts the variant agent |
+| Variant status | "How's Mini PARWA doing?" | Shows variant-specific metrics |
+
+### 6.4 Escalation Tracking
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ESCALATION FLOW                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Mini PARWA ──escalates──▶ PARWA ──escalates──▶ PARWA High      │
+│      │                         │                      │         │
+│      │                         │                      │         │
+│      ▼                         ▼                      ▼         │
+│  Jarvis tracks:            Jarvis tracks:        Jarvis tracks: │
+│  • Escalations to PARWA    • Escalations to      • Escalations  │
+│  • Reason for escalate     PARWA High            to Human       │
+│  • Time taken              • Complex cases       • VIP issues   │
+│                            • VIP flagged                        │
+│                                                                  │
+│  JARVIS ALERTS:                                                 │
+│  "3 tickets escalated from Mini PARWA to PARWA today.          │
+│   All were refund requests. Want me to show details?"          │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 7. Intelligence & Decision Making
+
+### 7.1 Context Understanding
 
 Jarvis uses multiple signals to understand context:
 
@@ -325,8 +542,9 @@ Jarvis uses multiple signals to understand context:
 | Error history | Recent integration errors | Proactive status updates |
 | User patterns | Always checks approvals first | Anticipates needs |
 | Tone analysis | User seems frustrated | More helpful, less chatty |
+| Variant tier | Client has PARWA High | Offers advanced features |
 
-### 5.2 Intent Recognition
+### 7.2 Intent Recognition
 
 | User Says | Jarvis Understands | Action |
 |-----------|-------------------|--------|
@@ -335,8 +553,9 @@ Jarvis uses multiple signals to understand context:
 | "Fix it" | Action request based on context | Execute appropriate fix |
 | "I need to..." | User is planning | Offer assistance |
 | "Can you..." | Capability inquiry | Confirm and offer to help |
+| "How's the variant?" | Variant status check | Show variant metrics |
 
-### 5.3 Smart Suggestions
+### 7.3 Smart Suggestions
 
 Jarvis can suggest actions based on patterns:
 
@@ -357,24 +576,41 @@ Jarvis can suggest actions based on patterns:
 │  SUGGESTION: "You have 15 approvals waiting. I can help      │
 │               batch-process similar ones if you'd like."     │
 │                                                              │
+│  PATTERN DETECTED: Variant at 80% capacity                   │
+│  SUGGESTION: "Your PARWA agent is at 80% capacity.          │
+│               Want me to show you upgrade options?"          │
+│                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 6. Memory System
+## 8. Memory System (OpenClaw-Inspired)
 
-### 6.1 Memory Categories
+### 8.1 OpenClaw Architecture Inspiration
 
-| Category | Retention | Storage |
-|----------|-----------|---------|
-| Today's Tasks | Until midnight | Redis (fast access) |
-| Recent Conversations | 7 days | PostgreSQL |
-| User Preferences | Permanent | PostgreSQL |
-| Action History | 90 days | PostgreSQL |
-| Full Context | 30 days | PostgreSQL |
+Jarvis's memory system is inspired by OpenClaw's multi-layered architecture:
 
-### 6.2 What Jarvis Remembers
+| OpenClaw Component | Jarvis Equivalent | Purpose |
+|--------------------|-------------------|---------|
+| **MEMORY.md** | Long-term Memory | Durable facts, preferences, decisions |
+| **JSONL transcripts** | Audit Log | Full conversation replay |
+| **AGENTS.md** | Personality Config | Operational rules |
+| **SOUL.md** | Personality Core | Behavioral constraints |
+| **TOOLS.md** | Tools Registry | Available actions |
+
+### 8.2 Memory Categories
+
+| Category | Retention | Storage | Description |
+|----------|-----------|---------|-------------|
+| Today's Tasks | Until midnight | Redis (fast access) | Current session actions |
+| Recent Conversations | 7 days | PostgreSQL | Chat history |
+| User Preferences | Permanent | PostgreSQL | User settings, habits |
+| Action History | 90 days | PostgreSQL | All executed actions |
+| Full Context | 30 days | PostgreSQL | Complete state |
+| Variant Memory | 90 days | PostgreSQL | Variant-specific metrics |
+
+### 8.3 What Jarvis Remembers
 
 #### Session Memory (Today)
 
@@ -394,6 +630,7 @@ Jarvis can suggest actions based on patterns:
 │  Current Context:                                            │
 │  - Working on: Approval queue management                     │
 │  - Last interest: Integration health                         │
+│  - Active variant: PARWA ($2,499)                           │
 │  - Mood: Productive                                          │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
@@ -406,8 +643,9 @@ Jarvis can suggest actions based on patterns:
 - Team structure (who's who)
 - Recurring questions and answers
 - Past decisions and outcomes
+- Variant usage patterns
 
-### 6.3 Memory Access Examples
+### 8.4 Memory Access Examples
 
 **User:** "What did I do this morning?"
 ```
@@ -429,9 +667,9 @@ Want me to show you the current policy settings?"
 
 ---
 
-## 7. Personality & Communication Style
+## 9. Personality & Communication Style
 
-### 7.1 Core Personality Traits
+### 9.1 Core Personality Traits
 
 | Trait | Description |
 |-------|-------------|
@@ -441,7 +679,7 @@ Want me to show you the current policy settings?"
 | **Empathetic** | Understands user frustration and adjusts tone |
 | **Efficient** | Provides relevant info without unnecessary detail |
 
-### 7.2 Communication Guidelines
+### 9.2 Communication Guidelines
 
 #### Greetings
 
@@ -480,7 +718,7 @@ Want me to show you the current policy settings?"
 "Error: Email delivery failed. Contact administrator."
 ```
 
-### 7.3 Tone Adaptation
+### 9.3 Tone Adaptation
 
 | User State | Jarvis Tone |
 |------------|-------------|
@@ -490,7 +728,7 @@ Want me to show you the current policy settings?"
 | Exploring | Helpful, suggestive |
 | Learning | Patient, educational |
 
-### 7.4 Example Conversations
+### 9.4 Example Conversations
 
 #### Example 1: Status Check
 
@@ -502,9 +740,9 @@ Jarvis: "Hey! 👋 Good to see you. What's up?"
 User: "How's everything?"
 
 Jarvis: "Pretty solid! You've handled 89 tickets today with a 94% 
-resolution rate. You've got 4 approvals waiting - nothing urgent. 
-All your integrations are healthy. Anything specific you want to 
-dive into?"
+resolution rate. Your PARWA agent is at 65% capacity. You've got 4 
+approvals waiting - nothing urgent. All your integrations are healthy. 
+Anything specific you want to dive into?"
 ```
 
 #### Example 2: Action Request
@@ -520,16 +758,15 @@ to review first..."
 "Take a look - want me to change anything before sending?"
 ```
 
-#### Example 3: Information Query
+#### Example 3: Variant Status
 
 ```
-User: "What did Sarah do today?"
+User: "How's PARWA High doing?"
 
-Jarvis: "Sarah's been busy! She logged in at 8:30am, processed 23 
-tickets - all resolved without escalation. She also approved 5 
-refund requests and rejected 1 that looked suspicious. Around 
-11am she updated the knowledge base with 2 new shipping FAQs. 
-Want more details on any of that?"
+Jarvis: "Your PARWA High agent is doing great! Currently at 40% capacity 
+(200/500 tickets), 2 concurrent calls active, no VIP escalations today. 
+It's processed 3 complex refund cases with 96% confidence this morning. 
+Want me to show you the details?"
 ```
 
 #### Example 4: Problem Solving
@@ -545,9 +782,9 @@ a detailed breakdown?"
 
 ---
 
-## 8. Proactive Alert System
+## 10. Proactive Alert System
 
-### 8.1 When Jarvis Speaks Up
+### 10.1 When Jarvis Speaks Up
 
 Jarvis normally stays quiet and waits to be asked. But for IMPORTANT situations, Jarvis will proactively reach out:
 
@@ -557,12 +794,14 @@ Jarvis normally stays quiet and waits to be asked. But for IMPORTANT situations,
 | **Error Rate Spike** | Error rate >5% | High |
 | **Integration Down** | Any integration disconnects | High |
 | **Ticket Limit Warning** | 80% of monthly limit used | Medium |
+| **Variant Capacity Warning** | Variant at 80%+ capacity | Medium |
 | **VIP Customer Issue** | Flagged customer has problem | High |
 | **Unusual Spike** | Ticket volume >2x normal | Medium |
 | **AI Confidence Drop** | Average confidence <70% | High |
 | **Security Alert** | Unusual access pattern | Critical |
+| **Escalation Surge** | More than 5 escalations/hour | Medium |
 
-### 8.2 Alert Examples
+### 10.2 Alert Examples
 
 #### Integration Down
 
@@ -579,6 +818,13 @@ been there over 2 hours. Want me to batch the similar ones to speed
 things up?"
 ```
 
+#### Variant Capacity Warning
+
+```
+Jarvis: "Your PARWA agent is at 82% capacity (246/300 tickets). At this 
+rate, you might hit the limit today. Want me to show you upgrade options?"
+```
+
 #### Ticket Limit Warning
 
 ```
@@ -587,7 +833,7 @@ At this rate, you'll hit it in about 8 days. Want me to show you
 upgrade options?"
 ```
 
-### 8.3 Alert Delivery
+### 10.3 Alert Delivery
 
 | Channel | Use Case |
 |---------|----------|
@@ -598,12 +844,12 @@ upgrade options?"
 
 ---
 
-## 9. Variant Tiers & Features
+## 11. Variant Tiers & Features
 
-### 9.1 Tier Comparison
+### 11.1 Tier Comparison
 
-| Feature | PARWA Starter ($999) | PARWA Growth ($2,499) | PARWA High ($3,999) |
-|---------|---------------------|----------------------|---------------------|
+| Feature | Mini PARWA ($999) | PARWA ($2,499) | PARWA High ($3,999) |
+|---------|-------------------|----------------|---------------------|
 | **Basic Jarvis Chat** | ✅ | ✅ | ✅ |
 | **System Awareness** | ✅ Basic | ✅ Full | ✅ Full + Deep Insights |
 | **Memory (Today's Tasks)** | ✅ | ✅ | ✅ |
@@ -616,23 +862,26 @@ upgrade options?"
 | **Predictive Analytics** | ❌ | ❌ | ✅ |
 | **Priority Response** | ❌ | ❌ | ✅ |
 | **Custom Training** | ❌ | ❌ | ✅ |
+| **Variant Monitoring** | ✅ Basic | ✅ Full | ✅ Full + Peer Review |
 
-### 9.2 Tier-Specific Behaviors
+### 11.2 Tier-Specific Behaviors
 
-#### PARWA Starter ($999)
+#### Mini PARWA ($999)
 
 - Basic awareness: Tickets, errors, system status
 - Limited memory: Today's tasks only
 - No bulk actions
 - Basic alerts only (integration down, error spike)
+- Escalates to PARWA for complex issues
 
-#### PARWA Growth ($2,499)
+#### PARWA ($2,499)
 
 - Full awareness: Everything happening in system
 - Extended memory: 7-day conversation history
 - Bulk actions with draft approval
 - Full alert suite
 - SMS/Email control via Jarvis
+- Can escalate to PARWA High
 
 #### PARWA High ($3,999)
 
@@ -641,12 +890,13 @@ upgrade options?"
 - Smart suggestions before problems occur
 - Priority response time
 - Custom training for company-specific knowledge
+- Can review Mini PARWA and PARWA decisions
 
 ---
 
-## 10. Technical Architecture
+## 12. Technical Architecture
 
-### 10.1 System Components
+### 12.1 System Components
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -668,15 +918,15 @@ upgrade options?"
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
 │  │                        INTEGRATION LAYER                             │    │
 │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐   │    │
-│  │  │ Twilio  │  │  Brevo  │  │ Shopify │  │  LLM    │  │ Custom  │   │    │
-│  │  │  SMS    │  │  Email  │  │ Orders  │  │ Router  │  │   API   │   │    │
+│  │  │ Twilio  │  │  Brevo  │  │ Shopify │  │  LLM    │  │ Variant │   │    │
+│  │  │  SMS    │  │  Email  │  │ Orders  │  │ Router  │  │ Control │   │    │
 │  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘  └─────────┘   │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 10.2 Component Details
+### 12.2 Component Details
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
@@ -686,8 +936,9 @@ upgrade options?"
 | **History Store** | PostgreSQL | Long-term memory, conversation history |
 | **Socket.io** | Node.js | Real-time chat, proactive alerts |
 | **LLM Integration** | OpenRouter/Smart Router | Natural language understanding |
+| **Variant Control** | Python | Control Mini PARWA, PARWA, PARWA High |
 
-### 10.3 Data Flow
+### 12.3 Data Flow
 
 ```
 1. User Message → Frontend
@@ -696,19 +947,20 @@ upgrade options?"
 4. Jarvis Service:
    a. Load user context from Redis
    b. Load relevant history from PostgreSQL
-   c. Send to LLM for intent recognition
-   d. Determine action (direct/draft)
-   e. Execute action or prepare draft
-   f. Store interaction in history
-   g. Update context in Redis
+   c. Load variant context (which variant, capacity, etc.)
+   d. Send to LLM for intent recognition
+   e. Determine action (direct/draft)
+   f. Execute action or prepare draft
+   g. Store interaction in history
+   h. Update context in Redis
 5. Response → Frontend (via API or Socket.io)
 ```
 
 ---
 
-## 11. API Reference
+## 13. API Reference
 
-### 11.1 Chat Endpoints
+### 13.1 Chat Endpoints
 
 ```
 POST /api/jarvis/chat
@@ -739,7 +991,7 @@ Response:
 }
 ```
 
-### 11.2 Action Endpoints
+### 13.2 Action Endpoints
 
 ```
 POST /api/jarvis/action/execute
@@ -759,7 +1011,7 @@ POST /api/jarvis/action/cancel
 - Draft ID required
 ```
 
-### 11.3 Context Endpoints
+### 13.3 Context Endpoints
 
 ```
 GET /api/jarvis/context
@@ -775,7 +1027,27 @@ GET /api/jarvis/memory/today
 - From Redis (fast)
 ```
 
-### 11.4 Alert Endpoints
+### 13.4 Variant Endpoints
+
+```
+GET /api/jarvis/variant/status
+- Get current variant status
+- Returns capacity, usage, escalations
+
+POST /api/jarvis/variant/pause
+- Pause specific variant
+- Variant ID required
+
+POST /api/jarvis/variant/resume
+- Resume specific variant
+- Variant ID required
+
+GET /api/jarvis/variant/escalations
+- Get escalation history
+- Shows flow between variants
+```
+
+### 13.5 Alert Endpoints
 
 ```
 GET /api/jarvis/alerts
@@ -789,9 +1061,9 @@ POST /api/jarvis/alerts/dismiss
 
 ---
 
-## 12. Database Schema
+## 14. Database Schema
 
-### 12.1 jarvis_conversations
+### 14.1 jarvis_conversations
 
 ```sql
 CREATE TABLE jarvis_conversations (
@@ -804,7 +1076,7 @@ CREATE TABLE jarvis_conversations (
 );
 ```
 
-### 12.2 jarvis_messages
+### 14.2 jarvis_messages
 
 ```sql
 CREATE TABLE jarvis_messages (
@@ -819,7 +1091,7 @@ CREATE TABLE jarvis_messages (
 );
 ```
 
-### 12.3 jarvis_drafts
+### 14.3 jarvis_drafts
 
 ```sql
 CREATE TABLE jarvis_drafts (
@@ -835,7 +1107,7 @@ CREATE TABLE jarvis_drafts (
 );
 ```
 
-### 12.4 jarvis_memory
+### 14.4 jarvis_memory
 
 ```sql
 CREATE TABLE jarvis_memory (
@@ -852,7 +1124,7 @@ CREATE TABLE jarvis_memory (
 );
 ```
 
-### 12.5 jarvis_alerts
+### 14.5 jarvis_alerts
 
 ```sql
 CREATE TABLE jarvis_alerts (
@@ -870,11 +1142,30 @@ CREATE TABLE jarvis_alerts (
 );
 ```
 
+### 14.6 jarvis_variant_tracking
+
+```sql
+CREATE TABLE jarvis_variant_tracking (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID NOT NULL REFERENCES companies(id),
+    variant_type VARCHAR(50) NOT NULL, -- 'mini_parwa', 'parwa', 'parwa_high'
+    tickets_used INT DEFAULT 0,
+    tickets_capacity INT NOT NULL,
+    concurrent_calls INT DEFAULT 0,
+    concurrent_capacity INT NOT NULL,
+    escalations_out INT DEFAULT 0,
+    escalations_in INT DEFAULT 0,
+    date_recorded DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(company_id, variant_type, date_recorded)
+);
+```
+
 ---
 
-## 13. Integration Points
+## 15. Integration Points
 
-### 13.1 Twilio Integration
+### 15.1 Twilio Integration
 
 ```python
 class JarvisTwilioIntegration:
@@ -888,7 +1179,7 @@ class JarvisTwilioIntegration:
         """Get recent SMS history"""
 ```
 
-### 13.2 Brevo Integration
+### 15.2 Brevo Integration
 
 ```python
 class JarvisBrevoIntegration:
@@ -902,7 +1193,7 @@ class JarvisBrevoIntegration:
         """Check email delivery status"""
 ```
 
-### 13.3 Dashboard Integration
+### 15.3 Dashboard Integration
 
 ```python
 class JarvisDashboardIntegration:
@@ -919,7 +1210,27 @@ class JarvisDashboardIntegration:
         """Get recent AI errors"""
 ```
 
-### 13.4 AI System Integration
+### 15.4 Variant Control Integration
+
+```python
+class JarvisVariantIntegration:
+    async def get_variant_status(self, variant_type: str):
+        """Get status of Mini PARWA, PARWA, or PARWA High"""
+        
+    async def pause_variant(self, variant_type: str, reason: str):
+        """Pause specific variant"""
+        
+    async def resume_variant(self, variant_type: str):
+        """Resume specific variant"""
+        
+    async def get_escalations(self, variant_type: str):
+        """Get escalations for/from variant"""
+        
+    async def check_capacity(self, variant_type: str):
+        """Check variant capacity"""
+```
+
+### 15.5 AI System Integration
 
 ```python
 class JarvisAIIntegration:
@@ -938,17 +1249,18 @@ class JarvisAIIntegration:
 
 ---
 
-## 14. Example Conversations
+## 16. Example Conversations
 
-### 14.1 Morning Check-in
+### 16.1 Morning Check-in
 
 ```
 User: "Hey Jarvis, good morning!"
 
 Jarvis: "Morning! ☀️ Good to see you. Quick rundown - you've got 8 approvals 
-waiting, 3 tickets that need attention, and your AI has been handling 
-things smoothly overnight with 94% resolution rate. The Shopify integration 
-synced successfully at 6am. What would you like to tackle first?"
+waiting, 3 tickets that need attention, and your PARWA agent has been handling 
+things smoothly overnight with 94% resolution rate. Your PARWA agent is at 
+45% capacity (135/300 tickets). Shopify integration synced successfully at 6am. 
+What would you like to tackle first?"
 
 User: "Show me the urgent tickets"
 
@@ -961,7 +1273,32 @@ Jarvis: "Got it. Here are the 3 tickets that need attention:"
 "Want me to pull up the details on any of these?"
 ```
 
-### 14.2 Bulk Email Campaign
+### 16.2 Variant Status Check
+
+```
+User: "How's PARWA High doing?"
+
+Jarvis: "Your PARWA High agent is performing well! Here's the status:
+
+📊 Today's Metrics:
+- Capacity: 180/500 tickets (36%)
+- Concurrent calls: 2/5 active
+- Resolution rate: 96%
+- Avg confidence: 94%
+
+🔄 Escalations:
+- 3 tickets escalated from PARWA today
+- All handled successfully
+- 0 escalations to human
+
+VIP Handling:
+- 2 VIP customers assisted
+- Both cases resolved with high satisfaction
+
+Want more details on any specific area?"
+```
+
+### 16.3 Bulk Email Campaign
 
 ```
 User: "I need to email customers who bought last month about our new product"
@@ -998,7 +1335,7 @@ Jarvis: "Sending to 1,234 customers now... Done! ✅ I'll let you know if there
 are any delivery issues. The first emails should land in about 5 minutes."
 ```
 
-### 14.3 System Troubleshooting
+### 16.4 System Troubleshooting
 
 ```
 User: "Something feels off with the AI today"
@@ -1007,6 +1344,7 @@ Jarvis: "Let me check... Actually, you're right. I'm seeing a few things:
 - Resolution rate dropped from 94% to 87% in the last 4 hours
 - 3 more rejections than usual
 - Average confidence is down to 76%
+- Mini PARWA escalated 5 tickets to PARWA (higher than normal)
 
 Looking at the details, it seems like there's been a spike in complex tickets 
 about the new product line - questions the AI hasn't seen much before. 
@@ -1020,7 +1358,7 @@ or do you want me to help draft some FAQs based on the questions we've been
 getting? I've collected 23 unique questions about the new products."
 ```
 
-### 14.4 Team Activity Review
+### 16.5 Team Activity Review
 
 ```
 User: "What has the team been up to?"
@@ -1049,27 +1387,22 @@ Anything specific you want to dive into?"
 User: "Why did John have more escalations?"
 
 Jarvis: "Looking at John's escalations - they were all product-related questions 
-about the new line. The AI wasn't confident on those, so they got routed to him. 
-Actually, this matches what we discussed earlier - might be worth adding some 
-knowledge base content about the new products."
+about the new line. These are complex cases that PARWA couldn't handle 
+confidently, so they were escalated. Want me to add these to the training 
+queue for Agent Lightning?"
 ```
 
 ---
 
-## 15. Summary
+## Summary
 
-Jarvis is the heart of PARWA's user experience. It transforms PARWA from a simple AI customer support tool into a complete command center where users have:
+Jarvis is PARWA's intelligent control system that:
 
-1. **Full Visibility** - Know everything happening in their system
-2. **Total Control** - Execute any action through natural conversation
-3. **Intelligent Assistance** - Get smart suggestions and proactive alerts
-4. **Persistent Memory** - Never lose context of what's been done
-5. **Human-like Interaction** - Friendly, professional, and natural communication
+1. **Equals UI Capabilities** - Everything you can do in the dashboard, you can do through Jarvis
+2. **Adds Superpowers** - Awareness, memory, proactive alerts, and smart suggestions
+3. **Controls Variants** - Full control over Mini PARWA, PARWA, and PARWA High
+4. **Tracks Escalations** - Monitors the flow from Mini → PARWA → High → Human
+5. **Remembers Everything** - OpenClaw-inspired memory system
+6. **Speaks Human** - Friendly, professional, human-like communication
 
-The three-tier structure (Starter, Growth, High) ensures Jarvis scales with customer needs, from basic awareness and alerts to full predictive analytics and custom training.
-
----
-
-*Document Version: 1.0*  
-*Last Updated: April 2025*  
-*Author: PARWA Development Team*
+The three-tier structure (Mini PARWA, PARWA, PARWA High) ensures Jarvis scales with customer needs, from basic awareness and alerts to full predictive analytics and custom training.
