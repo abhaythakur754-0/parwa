@@ -238,17 +238,16 @@ export class JarvisOrchestrator {
 
     // Initialize Awareness Engine
     this.awarenessEngine = await createAwarenessEngine({
-      organizationId: this.config.organizationId,
+      tenant_id: this.config.organizationId,
       variant: this.config.variant,
-      debug: this.config.debug,
     });
 
     // Initialize Command Processor
-    this.commandProcessor = await createCommandProcessor({
-      organizationId: this.config.organizationId,
+    this.commandProcessor = createCommandProcessor({
+      tenant_id: this.config.organizationId,
       variant: this.config.variant,
-      debug: this.config.debug,
     });
+    await this.commandProcessor.initialize();
 
     this.isInitialized = true;
 
@@ -322,10 +321,12 @@ export class JarvisOrchestrator {
 
       // Update context with request context
       if (request.context) {
-        session.commandContext.currentPage = request.context.currentPage;
-        session.commandContext.activeTicketId = request.context.activeTicketId;
-        session.commandContext.activeCustomerId = request.context.activeCustomerId;
-        session.commandContext.filters = request.context.filters || {};
+        session.commandContext.page_context = request.context.currentPage || session.commandContext.page_context;
+        session.commandContext.current_ticket = request.context.activeTicketId || session.commandContext.current_ticket;
+        session.commandContext.current_customer = request.context.activeCustomerId || session.commandContext.current_customer;
+        if (request.context.filters) {
+          session.commandContext.active_filters = request.context.filters;
+        }
       }
 
       // Check cache for similar commands
@@ -333,13 +334,10 @@ export class JarvisOrchestrator {
       const cachedContext = this.cacheManager.get<{ result: CommandResult }>('commands', cacheKey);
 
       // Process command through Command Processor
-      const commandResult = await this.commandProcessor!.processCommand({
-        command: request.command,
-        sessionId,
-        userId: request.userId,
-        userRole: request.userRole,
+      const commandResult = await this.commandProcessor!.process({
+        text: request.command,
+        session_id: sessionId,
         context: session.commandContext,
-        forceMode: request.forceMode,
       });
 
       // Update session metrics
@@ -351,26 +349,28 @@ export class JarvisOrchestrator {
         sessionId,
         userId: request.userId,
         command: request.command,
-        commandId: commandResult.commandId || sessionId,
-        result: commandResult.success ? 'success' : 'failure',
-        executionMode: commandResult.mode === 'direct' ? 'direct' : 'draft',
+        commandId: commandResult.command?.id || sessionId,
+        result: commandResult.command?.status === 'completed' ? 'success' : 'failure',
+        executionMode: commandResult.approval_required ? 'draft' : 'direct',
       });
 
       // Create response
       const response: ProcessJarvisCommandResponse = {
         sessionId,
-        commandId: commandResult.commandId || sessionId,
-        success: commandResult.success,
+        commandId: commandResult.command?.id || sessionId,
+        success: commandResult.command?.status === 'completed',
         message: commandResult.message || 'Command processed',
-        resultType: commandResult.mode === 'direct' ? 'direct_execution' : 'draft_created',
-        result: commandResult.result,
-        suggestions: this.generateSuggestions(commandResult, session),
-        awarenessUpdates: await this.getAwarenessUpdates(session),
+        resultType: commandResult.approval_required ? 'draft_created' : 'direct_execution',
+        suggestions: commandResult.suggestions?.map((s, i) => ({
+          type: 'command' as const,
+          label: typeof s === 'string' ? s : (s.description || s.intent),
+          priority: i + 1,
+        })) || [],
         timestamp: new Date(),
       };
 
       // Add draft details if created
-      if (commandResult.mode === 'draft' && commandResult.draft) {
+      if (commandResult.draft) {
         response.draft = this.createDraftPreview(commandResult.draft);
         session.activeDrafts.set(commandResult.draft.id, commandResult.draft);
       }
@@ -429,7 +429,6 @@ export class JarvisOrchestrator {
       success: result.success,
       message: result.message || 'Draft approved and executed',
       resultType: 'direct_execution',
-      result: result.result,
       timestamp: new Date(),
     };
   }
@@ -454,7 +453,7 @@ export class JarvisOrchestrator {
     }
 
     // Reject draft
-    await this.commandProcessor!.rejectDraft(draftId, userId, reason);
+    this.commandProcessor!.rejectDraft(draftId, userId, reason || 'No reason provided');
 
     // Update session
     session.activeDrafts.delete(draftId);
@@ -548,7 +547,7 @@ export class JarvisOrchestrator {
   async getPendingAlerts(): Promise<Alert[]> {
     if (!this.awarenessEngine) return [];
     const state = await this.awarenessEngine.getState();
-    return state?.alerts || [];
+    return (state as any)?.active_alerts || (state as any)?.alerts || [];
   }
 
   /**
@@ -563,7 +562,7 @@ export class JarvisOrchestrator {
 
     const result = await this.awarenessEngine.acknowledgeAlert(alertId, userId);
 
-    if (result) {
+    if (result !== null) {
       this.auditLogger.logAlert({
         organizationId: this.config.organizationId,
         sessionId,
@@ -571,9 +570,10 @@ export class JarvisOrchestrator {
         alertId,
         action: 'acknowledge',
       });
+      return true;
     }
 
-    return result;
+    return false;
   }
 
   /**
@@ -667,8 +667,8 @@ export class JarvisOrchestrator {
   // ── Private Methods ─────────────────────────────────────────────
 
   private async createSession(sessionId: string, userId: string): Promise<void> {
-    const awarenessState = await this.awarenessEngine!.getState();
-    const commandContext = await this.commandProcessor!.getContext(sessionId);
+    const awarenessState = await this.awarenessEngine?.getState();
+    const commandContext = this.getDefaultCommandContext(sessionId);
 
     this.sessionManager.create(
       sessionId,
@@ -688,18 +688,35 @@ export class JarvisOrchestrator {
 
   private getDefaultAwarenessState(): AwarenessState {
     return {
-      organizationId: this.config.organizationId,
+      tenant_id: this.config.organizationId,
+      variant: this.config.variant,
       health: {
         status: 'healthy',
         components: [],
-        lastCheck: new Date(),
+        last_check: new Date(),
         incidents: [],
       },
-      alerts: [],
-      activities: [],
-      sentiments: [],
-      metrics: [],
-    };
+      active_alerts: [],
+      recent_activities: [],
+      sentiment_summary: null,
+      aggregated_metrics: [],
+    } as unknown as AwarenessState;
+  }
+
+  private getDefaultCommandContext(sessionId: string): CommandContext {
+    return {
+      session_id: sessionId,
+      tenant_id: this.config.organizationId,
+      variant: this.config.variant,
+      conversation_history: [],
+      page_context: null,
+      current_ticket: null,
+      current_customer: null,
+      active_filters: {},
+      user_preferences: {},
+      created_at: new Date(),
+      last_activity: new Date(),
+    } as unknown as CommandContext;
   }
 
   private generateSessionId(): string {
@@ -774,9 +791,10 @@ export class JarvisOrchestrator {
     const state = await this.awarenessEngine.getState();
     if (!state) return undefined;
 
-    // Find new alerts
+    // Find new alerts - use active_alerts or alerts depending on type
+    const alerts = (state as any).active_alerts || (state as any).alerts || [];
     const existingIds = new Set(session.pendingAlerts.map(a => a.id));
-    const newAlerts = state.alerts.filter(a => !existingIds.has(a.id));
+    const newAlerts = alerts.filter((a: Alert) => !existingIds.has(a.id));
 
     if (newAlerts.length > 0) {
       session.pendingAlerts.push(...newAlerts);
@@ -787,23 +805,37 @@ export class JarvisOrchestrator {
   }
 
   private createDraftPreview(draft: Draft): DraftPreview {
+    // Draft has a preview property with the actual preview data
+    // Return the preview directly or construct from draft
+    if (draft.preview) {
+      return {
+        id: draft.id,
+        command: draft.command_id,
+        changes: draft.preview.changes.map(c => ({
+          field: c.field,
+          currentValue: c.current_value,
+          newValue: c.new_value,
+          description: c.description,
+        })),
+        affectedItems: draft.preview.affected_items.map(i => ({
+          type: (i.type === 'automation' ? 'team' : i.type) as 'ticket' | 'customer' | 'agent' | 'team' | 'billing',
+          id: i.id,
+          label: i.name || i.id,
+          impactLevel: draft.preview.estimated_impact as 'info' | 'warning' | 'critical',
+        })),
+        riskLevel: draft.preview.estimated_impact,
+        expiresAt: draft.expires_at,
+      };
+    }
+    
+    // Fallback for drafts without preview
     return {
       id: draft.id,
-      command: draft.command,
-      changes: draft.changes.map(c => ({
-        field: c.field,
-        currentValue: c.currentValue,
-        newValue: c.newValue,
-        description: c.description,
-      })),
-      affectedItems: draft.affectedItems.map(i => ({
-        type: i.type,
-        id: i.id,
-        label: i.label,
-        impactLevel: i.impactLevel,
-      })),
-      riskLevel: draft.riskLevel,
-      expiresAt: draft.expiresAt,
+      command: draft.command_id,
+      changes: [],
+      affectedItems: [],
+      riskLevel: 'medium',
+      expiresAt: draft.expires_at,
     };
   }
 
@@ -829,8 +861,9 @@ export class JarvisOrchestrator {
   private async checkAwarenessHealth(): Promise<ComponentHealthStatus> {
     try {
       const state = await this.awarenessEngine?.getState();
+      const healthStatus = (state as any)?.health?.status || 'healthy';
       return {
-        status: state?.health?.status || 'healthy',
+        status: healthStatus,
         lastCheck: new Date(),
       };
     } catch {
@@ -844,7 +877,7 @@ export class JarvisOrchestrator {
 
   private async checkCommandHealth(): Promise<ComponentHealthStatus> {
     try {
-      const available = await this.commandProcessor?.getAvailableCommands();
+      const available = this.commandProcessor?.getAvailableCommands();
       return {
         status: available && available.length > 0 ? 'healthy' : 'degraded',
         lastCheck: new Date(),

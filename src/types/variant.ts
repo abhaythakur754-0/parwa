@@ -6,6 +6,9 @@
 
 export type VariantType = 'mini_parwa' | 'parwa' | 'high_parwa';
 
+// Alias for JARVIS compatibility (uses parwa_high instead of high_parwa)
+export type Variant = 'mini_parwa' | 'parwa' | 'parwa_high';
+
 export interface VariantLimits {
   monthly_tickets: number;
   ai_agents: number;

@@ -5,7 +5,7 @@
  * Provides unified types for connecting Awareness Engine and Command Processing.
  */
 
-import type { Variant } from '@/types/variant';
+import type { Variant as VariantType } from '@/types/variant';
 import type { AwarenessState, Alert, SystemHealth, SentimentAnalysis } from '@/types/awareness';
 import type {
   Command,
@@ -15,6 +15,9 @@ import type {
   ApprovalRequest,
   CommandContext
 } from '@/types/command';
+
+// Re-export Variant for use in other integration modules
+export type Variant = VariantType;
 
 // ── Integration Configuration ─────────────────────────────────────
 

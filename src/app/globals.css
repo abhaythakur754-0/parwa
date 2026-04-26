@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* ── Base Styles ───────────────────────────────────────────────────── */
 
@@ -11,19 +9,22 @@ html {
 
 body {
   overflow-x: hidden;
-  @apply bg-[#0A0A0A] text-gray-100 antialiased;
+  background-color: #0A0A0A;
+  color: #f3f4f6;
+  -webkit-font-smoothing: antialiased;
   background: radial-gradient(circle at 50% 0%, #1A1A1A 0%, #0A0A0A 100%);
   min-height: 100vh;
 }
 
 * {
-  @apply border-orange-500/10;
+  border-color: rgba(249, 115, 22, 0.1);
 }
 
 input:focus,
 textarea:focus,
 select:focus {
-  @apply outline-none ring-2 ring-emerald-600/20 ring-offset-0;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2);
 }
 
 /* ── Component Styles ──────────────────────────────────────────────── */
