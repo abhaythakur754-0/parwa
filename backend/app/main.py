@@ -19,12 +19,13 @@ from contextlib import asynccontextmanager
 import os
 import sys
 
-# Bug Fix Day 4: Ensure the backend/app directory is on PYTHONPATH so that
-# bare ``shared`` imports resolve to ``app.shared``.  This must run before
-# any application code imports from ``shared.*``.
-_app_dir = os.path.dirname(os.path.abspath(__file__))
-if _app_dir not in sys.path:
-    sys.path.insert(0, _app_dir)
+# Ensure the backend/ directory is on PYTHONPATH so that
+# ``from app.config`` and ``from shared.*`` resolve correctly.
+# In production, uvicorn runs from backend/ so this is a no-op.
+# In tests/CI, pytest runs from the project root so this is essential.
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
 
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware

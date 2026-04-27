@@ -48,6 +48,7 @@ jobs:
 
       - name: Run Unit Tests (No DB Required)
         env:
+          PYTHONPATH: .
           ENVIRONMENT: test
           SECRET_KEY: fake_secret
           DATABASE_URL: sqlite:///./test.db
