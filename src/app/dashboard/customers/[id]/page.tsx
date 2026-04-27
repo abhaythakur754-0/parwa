@@ -38,7 +38,7 @@ export default function CustomerDetailPage() {
   if (error || !customer) return <div className="min-h-screen bg-[#0a0a0a] p-6"><p className="text-red-400">{error || 'Customer not found'}</p></div>;
 
   const channelIcon = (type: string) => {
-    const icons: Record<string, string> = { email: 'E', chat: 'C', sms: 'S', voice: 'V', phone: 'P', whatsapp: 'W', webchat: 'W' };
+    const icons: Record<string, string> = { email: 'E', chat: 'C', sms: 'S', voice: 'V', phone: 'P', slack: 'Sl', webchat: 'W' };
     return icons[type.toLowerCase()] || type.charAt(0).toUpperCase();
   };
 

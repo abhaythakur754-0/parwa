@@ -103,7 +103,7 @@ const descriptions: Record<TicketPriority, string> = {
 // ── Ticket Generation ───────────────────────────────────────────────────
 
 const statuses: TicketStatus[] = ['open', 'in_progress', 'awaiting_customer', 'awaiting_agent', 'escalated', 'resolved', 'closed', 'spam'];
-const channels: TicketChannel[] = ['email', 'chat', 'sms', 'whatsapp', 'messenger', 'twitter', 'instagram'];
+const channels: TicketChannel[] = ['email', 'chat', 'sms', 'voice', 'slack', 'webchat'];
 const sentiments: TicketSentiment[] = ['positive', 'neutral', 'negative', 'mixed'];
 const gsdStates: GSDState[] = ['greeting', 'understanding', 'resolution', 'confirmation', 'closing'];
 const techniques: AITechnique[] = ['knowledge_base', 'sentiment_match', 'intent_classification', 'entity_extraction', 'conversation_flow', 'escalation_trigger', 'template_response', 'fallback'];

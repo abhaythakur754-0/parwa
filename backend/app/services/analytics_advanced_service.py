@@ -545,7 +545,7 @@ def _get_channel_split(
     db: Session, company_id: str, start: datetime, end: datetime,
 ) -> Dict[str, Dict[str, Any]]:
     """Get AI vs human split by channel."""
-    channels = ["email", "chat", "sms", "whatsapp", "voice", "widget"]
+    channels = ["email", "chat", "sms", "voice", "slack", "webchat"]
     result = {}
 
     for channel in channels:

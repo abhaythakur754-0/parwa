@@ -365,8 +365,7 @@ describe('priorityConfig', () => {
 describe('channelIcons', () => {
   it('should have icons for all required channels', () => {
     const requiredChannels = [
-      'email', 'chat', 'sms', 'voice', 'whatsapp',
-      'messenger', 'twitter', 'instagram', 'telegram', 'slack'
+      'email', 'chat', 'sms', 'voice', 'slack', 'webchat'
     ];
     requiredChannels.forEach((channel) => {
       expect(channelIcons[channel as keyof typeof channelIcons]).toBeDefined();
@@ -513,7 +512,7 @@ describe('TicketFiltersBar Component', () => {
     render(<TicketFiltersBar filters={defaultFilters} onChange={onChange} />);
     expect(screen.getByText('Email')).toBeInTheDocument();
     expect(screen.getByText('Chat')).toBeInTheDocument();
-    expect(screen.getByText('WhatsApp')).toBeInTheDocument();
+    expect(screen.getByText('Slack')).toBeInTheDocument();
   });
 
   it('should toggle status filter on click', () => {

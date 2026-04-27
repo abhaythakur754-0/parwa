@@ -412,9 +412,6 @@ _channels = [
     ("F-251", "Chat Channel AI", "routing", 1, None, {}),
     ("F-252", "SMS Channel AI", "routing", 2, None, {}),
     ("F-253", "Voice Channel AI", "routing", 3, None, {}),
-    ("F-254", "Social Media Channel AI",
-     "routing", 2, None, {}),
-    ("F-255", "WhatsApp Channel AI", "routing", 2, None, {}),
 ]
 for fid, name, cat, lvl, tt, cfg in _channels:
     FEATURE_REGISTRY[fid] = {

@@ -248,6 +248,18 @@ class ProviderFactory:
                     "api_secret": getattr(settings, "VONAGE_API_SECRET", ""),
                     "from_number": getattr(settings, "VONAGE_FROM_NUMBER", ""),
                 }
+            elif provider_name == "plivo":
+                return {
+                    "auth_id": getattr(settings, "PLIVO_AUTH_ID", ""),
+                    "auth_token": getattr(settings, "PLIVO_AUTH_TOKEN", ""),
+                    "from_number": getattr(settings, "PLIVO_FROM_NUMBER", ""),
+                }
+            elif provider_name == "sinch":
+                return {
+                    "service_plan_id": getattr(settings, "SINCH_SERVICE_PLAN_ID", ""),
+                    "api_token": getattr(settings, "SINCH_API_TOKEN", ""),
+                    "from_number": getattr(settings, "SINCH_FROM_NUMBER", ""),
+                }
         
         # Voice providers
         elif type_key == "voice":
@@ -256,6 +268,12 @@ class ProviderFactory:
                     "account_sid": getattr(settings, "TWILIO_ACCOUNT_SID", ""),
                     "auth_token": getattr(settings, "TWILIO_AUTH_TOKEN", ""),
                     "phone_number": getattr(settings, "TWILIO_PHONE_NUMBER", ""),
+                }
+            elif provider_name == "vonage":
+                return {
+                    "api_key": getattr(settings, "VONAGE_API_KEY", ""),
+                    "api_secret": getattr(settings, "VONAGE_API_SECRET", ""),
+                    "application_id": getattr(settings, "VONAGE_APPLICATION_ID", ""),
                 }
         
         # Chat providers
@@ -267,6 +285,13 @@ class ProviderFactory:
             elif provider_name == "discord":
                 return {
                     "bot_token": getattr(settings, "DISCORD_BOT_TOKEN", ""),
+                }
+            elif provider_name == "teams":
+                return {
+                    "webhook_url": getattr(settings, "TEAMS_WEBHOOK_URL", ""),
+                    "tenant_id": getattr(settings, "TEAMS_TENANT_ID", ""),
+                    "client_id": getattr(settings, "TEAMS_CLIENT_ID", ""),
+                    "client_secret": getattr(settings, "TEAMS_CLIENT_SECRET", ""),
                 }
         
         return {}

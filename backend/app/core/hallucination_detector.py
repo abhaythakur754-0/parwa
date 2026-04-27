@@ -153,7 +153,7 @@ KNOWN_FEATURE_PHRASES: Set[str] = {
     "brand voice", "response personalization", "auto-summarization",
     "human handoff", "escalation", "context window",
     "conversation thread", "email channel", "chat channel",
-    "sms channel", "voice channel", "whatsapp",
+    "sms channel", "voice channel",
     "ticket routing", "urgency detection", "language detection",
     "spam detection", "complexity scoring", "emotion analysis",
     "topic classification", "customer tier",

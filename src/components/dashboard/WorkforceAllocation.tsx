@@ -45,9 +45,9 @@ const CHANNEL_ICONS: Record<string, { icon: string; label: string }> = {
   email: { icon: 'Email', label: 'Email' },
   chat: { icon: 'Chat', label: 'Chat' },
   sms: { icon: 'SMS', label: 'SMS' },
-  whatsapp: { icon: 'WA', label: 'WhatsApp' },
+  slack: { icon: 'Slack', label: 'Slack' },
   voice: { icon: 'Voice', label: 'Voice' },
-  widget: { icon: 'Widget', label: 'Widget' },
+  webchat: { icon: 'Webchat', label: 'Webchat' },
 };
 
 // ── WorkforceAllocation Component ─────────────────────────────────────

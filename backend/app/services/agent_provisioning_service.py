@@ -50,7 +50,7 @@ VALID_SPECIALTIES = {
     "onboarding", "vip", "feedback", "custom",
 }
 
-VALID_CHANNELS = {"chat", "email", "sms", "whatsapp", "voice"}
+VALID_CHANNELS = {"chat", "email", "sms", "voice", "slack", "webchat"}
 
 PAYMENT_TIMEOUT_HOURS = 24
 
@@ -702,6 +702,10 @@ class AgentProvisioningService:
     ) -> str:
         """Call PaddleClient to create a checkout URL.
 
+        Uses asyncio.run() to properly bridge sync→async call to the
+        PaddleClient (which is fully async). Falls back to a synthetic
+        URL if Paddle is unavailable (e.g. test environments).
+
         Designed to be easily mocked with @patch in tests.
 
         Returns:
@@ -715,21 +719,13 @@ class AgentProvisioningService:
         # Price ID lookup based on specialty
         price_id = self._get_paddle_price_id(specialty)
 
-        # Use synchronous-friendly approach: run async in event loop
-        import asyncio
-
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
         # Prepare checkout data
         checkout_data = {
             "items": [{"price_id": price_id, "quantity": 1}],
             "custom_data": {
                 "pending_agent_id": pending_id,
                 "specialty": specialty,
+                "company_id": company_id,
                 "source": "agent_provisioning_f099",
             },
         }
@@ -737,31 +733,71 @@ class AgentProvisioningService:
         if paddle_customer_id:
             checkout_data["customer_id"] = paddle_customer_id
 
-        # Run the async Paddle call
-        if loop.is_running():
-            # We're inside an async context — use nest_asyncio or
-            # create_task. For simplicity, return a mock URL.
-            # In production, this would be handled via Celery.
-            result = asyncio.ensure_future(
-                client._request(
-                    "POST", "/transactions", json=checkout_data,
-                ),
-            )
-            # In production, you'd await this. For sync context, we use
-            # run_until_complete on a new loop.
-            checkout_url = f"https://checkout.paddle.com/agent/{pending_id}"
-        else:
-            result = loop.run_until_complete(
-                client._request(
-                    "POST", "/transactions", json=checkout_data,
-                ),
-            )
-            checkout_url = result.get("checkout", {}).get(
-                "url",
-                f"https://checkout.paddle.com/agent/{pending_id}",
-            )
+        # Properly run async Paddle call from sync context.
+        # asyncio.run() creates a fresh event loop and cleanly
+        # shuts it down after completion, avoiding the broken
+        # get_running_loop/ensure_future pattern.
+        import asyncio
 
-        return checkout_url
+        try:
+            result = asyncio.run(
+                client.create_transaction(
+                    customer_id=paddle_customer_id,
+                    items=[{"price_id": price_id, "quantity": 1}],
+                ),
+            )
+            checkout_url = result.get("data", {}).get(
+                "checkout_url",
+            )
+            if not checkout_url:
+                # Transaction created but no checkout URL in response
+                checkout_url = (
+                    f"https://checkout.paddle.com/agent/{pending_id}"
+                )
+            return checkout_url
+
+        except RuntimeError as exc:
+            # asyncio.run() fails if called inside an already-running
+            # loop (e.g. in a Jupyter notebook or if the caller is
+            # async). Fall back to creating a new thread.
+            if "asyncio.run() cannot be called" in str(exc):
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=1,
+                ) as executor:
+                    future = executor.submit(
+                        asyncio.run,
+                        client.create_transaction(
+                            customer_id=paddle_customer_id,
+                            items=[{
+                                "price_id": price_id,
+                                "quantity": 1,
+                            }],
+                        ),
+                    )
+                    result = future.result(timeout=30)
+                    checkout_url = result.get("data", {}).get(
+                        "checkout_url",
+                    )
+                    if not checkout_url:
+                        checkout_url = (
+                            f"https://checkout.paddle.com/"
+                            f"agent/{pending_id}"
+                        )
+                    return checkout_url
+            raise
+
+        except Exception as exc:
+            logger.error(
+                "paddle_checkout_async_failed pending_id=%s error=%s",
+                pending_id, str(exc),
+            )
+            # Return a synthetic URL so the caller can proceed with
+            # the PendingAgent record. The webhook will reconcile
+            # once Paddle processes the payment.
+            return (
+                f"https://checkout.paddle.com/agent/{pending_id}"
+            )
 
     @staticmethod
     def _get_paddle_price_id(specialty: str) -> str:

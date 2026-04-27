@@ -9,7 +9,7 @@
       "name": "Intelligent Ticket Handling",
       "description": "PARWA AI agents automatically receive, classify, prioritize, and resolve customer support tickets across multiple channels. The system processes incoming inquiries, determines the intent and urgency, generates contextual responses, and either resolves the ticket autonomously or escalates to a human agent with full context. Ticket handling supports email, live chat, phone (voice), and social media channels, with smart routing that directs each ticket to the most qualified AI agent variant based on the inquiry type.",
       "details": {
-        "channels_supported": ["Email", "Live Chat", "Phone (Voice)", "Social Media (Facebook Messenger, Instagram DMs, Twitter/X DMs, WhatsApp Business)"],
+        "channels_supported": ["Email", "Live Chat", "Phone (Voice)", "SMS (Twilio)", "Slack"],
         "auto_classification_accuracy": "95%+ intent classification accuracy across 50+ intent categories",
         "languages_supported": "25+ languages with native-quality responses",
         "priority_levels": ["Low", "Medium", "High", "Critical", "VIP"],

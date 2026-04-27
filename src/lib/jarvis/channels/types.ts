@@ -5,14 +5,12 @@
  * - Email (Brevo)
  * - SMS (Twilio)
  * - Chat (Socket.io)
- * - Social (Twitter/X, Instagram, Facebook)
- *
  * Note: Voice integration excluded per project requirements
  */
 
 // ── Channel Types ───────────────────────────────────────────────────
 
-export type ChannelType = 'email' | 'sms' | 'chat' | 'social_twitter' | 'social_instagram' | 'social_facebook';
+export type ChannelType = 'email' | 'sms' | 'chat';
 
 export type ChannelStatus = 'connected' | 'disconnected' | 'error' | 'pending' | 'rate_limited';
 
@@ -20,7 +18,7 @@ export type MessageDirection = 'inbound' | 'outbound';
 
 export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'bounced';
 
-export type SocialPlatform = 'twitter' | 'instagram' | 'facebook';
+export type SocialPlatform = never;
 
 // ── Message Types ────────────────────────────────────────────────────
 
@@ -106,29 +104,10 @@ export interface ChatChannelConfig {
   idleTimeout: number;
 }
 
-export interface SocialChannelConfig {
-  enabled: boolean;
-  platform: SocialPlatform;
-  accessToken?: string;
-  accessTokenSecret?: string;
-  appId?: string;
-  appSecret?: string;
-  webhookSecret?: string;
-  pageId?: string;
-  accountId?: string;
-  rateLimitPerHour: number;
-  rateLimitPerDay: number;
-  autoReply: boolean;
-  dmHandling: boolean;
-  commentHandling: boolean;
-  mentionHandling: boolean;
-}
-
 export interface ChannelsConfig {
   email: EmailChannelConfig;
   sms: SmsChannelConfig;
   chat: ChatChannelConfig;
-  social: SocialChannelConfig[];
 }
 
 // ── Channel Health ───────────────────────────────────────────────────
@@ -226,10 +205,7 @@ export interface ChatSendOptions extends SendOptions {
   parentMessageId?: string;
 }
 
-export interface SocialSendOptions extends SendOptions {
-  inReplyToId?: string;
-  mediaIds?: string[];
-}
+// SocialSendOptions removed — social channels have been deprecated
 
 // ── Receive Payloads ─────────────────────────────────────────────────
 
@@ -266,18 +242,7 @@ export interface ChatReceivePayload {
   metadata?: Record<string, unknown>;
 }
 
-export interface SocialReceivePayload {
-  platform: SocialPlatform;
-  fromId: string;
-  fromHandle: string;
-  toId: string;
-  message: string;
-  messageId: string;
-  messageType: 'dm' | 'mention' | 'comment';
-  parentMessageId?: string;
-  receivedAt: Date;
-  mediaUrls?: string[];
-}
+// SocialReceivePayload removed — social channels have been deprecated
 
 // ── Channel Statistics ───────────────────────────────────────────────
 

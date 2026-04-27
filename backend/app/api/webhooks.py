@@ -451,6 +451,9 @@ async def get_webhook_status(
 ):
     """Check the processing status of a webhook event.
 
+    BC-001: Only allows viewing events belonging to the
+    authenticated user's company_id (tenant isolation).
+
     Args:
         event_db_id: Webhook event database record ID.
 
@@ -461,6 +464,25 @@ async def get_webhook_status(
         event = webhook_service.get_webhook_event(
             event_db_id,
         )
+        # BC-001: Tenant isolation — reject if event belongs
+        # to a different company.
+        event_company_id = event.get("company_id")
+        if event_company_id and str(user.company_id) != str(event_company_id):
+            logger.warning(
+                "webhook_status_tenant_mismatch "
+                "user_company=%s event_company=%s event_id=%s",
+                user.company_id, event_company_id, event_db_id,
+            )
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {
+                        "code": "FORBIDDEN",
+                        "message": "Access denied",
+                        "details": None,
+                    }
+                },
+            )
         return event
     except ValueError as exc:
         return JSONResponse(
@@ -488,6 +510,9 @@ async def retry_webhook(
     Resets the event to 'pending' and re-dispatches
     to the Celery webhook queue.
 
+    BC-001: Only allows retrying events belonging to the
+    authenticated user's company_id (tenant isolation).
+
     Args:
         event_db_id: Webhook event database record ID.
 
@@ -495,6 +520,28 @@ async def retry_webhook(
         Updated event status.
     """
     try:
+        # BC-001: Verify tenant ownership before retry
+        event = webhook_service.get_webhook_event(
+            event_db_id,
+        )
+        event_company_id = event.get("company_id")
+        if event_company_id and str(user.company_id) != str(event_company_id):
+            logger.warning(
+                "webhook_retry_tenant_mismatch "
+                "user_company=%s event_company=%s event_id=%s",
+                user.company_id, event_company_id, event_db_id,
+            )
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {
+                        "code": "FORBIDDEN",
+                        "message": "Access denied",
+                        "details": None,
+                    }
+                },
+            )
+
         result = webhook_service.retry_failed_webhook(
             event_db_id,
         )

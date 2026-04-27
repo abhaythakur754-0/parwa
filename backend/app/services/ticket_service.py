@@ -13,14 +13,16 @@ BC-001: All queries are tenant-isolated via company_id.
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import and_, desc, func, or_, update as sa_update
 from sqlalchemy.orm import Session
 
 from app.exceptions import (
+    ConflictError,
     NotFoundError,
     AuthorizationError,
     ValidationError,
@@ -279,8 +281,13 @@ class TicketService:
         subject: Optional[str] = None,
         user_id: Optional[str] = None,
         reason: Optional[str] = None,
+        retry_count: int = 3,
     ) -> Ticket:
-        """Update ticket fields.
+        """Update ticket fields with optimistic locking.
+
+        Uses a ``version`` column to detect concurrent modifications.
+        On version mismatch, retries with exponential backoff up to
+        ``retry_count`` times (max 3).
 
         Args:
             ticket_id: Ticket ID
@@ -292,6 +299,7 @@ class TicketService:
             subject: New subject
             user_id: ID of user making the change
             reason: Reason for change
+            retry_count: Max retries on version conflict (default 3).
 
         Returns:
             Updated Ticket object
@@ -299,49 +307,98 @@ class TicketService:
         Raises:
             NotFoundError: If ticket not found
             ValidationError: If validation fails
+            ConflictError: If version mismatch persists after retries
         """
-        ticket = self.get_ticket(ticket_id)
+        retry_count = min(max(retry_count, 0), 3)
+        last_error: Optional[Exception] = None
 
-        old_status = ticket.status
+        for attempt in range(retry_count + 1):
+            # 1. Read current ticket and its version
+            ticket = self.db.query(Ticket).filter(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+            ).with_for_update(skip_locked=True).first()
 
-        # Track status change
-        if status and status != old_status:
-            self._validate_status_transition(old_status, status)
-            self._record_status_change(
-                ticket_id, old_status, status, user_id, reason
+            if not ticket:
+                raise NotFoundError(f"Ticket {ticket_id} not found")
+
+            read_version = ticket.version or 1
+            old_status = ticket.status
+
+            # Track status change
+            if status and status != old_status:
+                self._validate_status_transition(old_status, status)
+                self._record_status_change(
+                    ticket_id, old_status, status, user_id, reason
+                )
+
+            # 2. Build update values
+            update_values: Dict[str, Any] = {
+                "version": read_version + 1,
+                "updated_at": datetime.now(timezone.utc),
+            }
+
+            if priority is not None:
+                update_values["priority"] = priority
+
+            if category is not None:
+                update_values["category"] = category
+
+            if tags is not None:
+                update_values["tags"] = json.dumps(tags)
+
+            if status is not None:
+                update_values["status"] = status
+                if status == TicketStatus.closed.value:
+                    update_values["closed_at"] = datetime.now(timezone.utc)
+                elif status == TicketStatus.reopened.value:
+                    update_values["reopen_count"] = (ticket.reopen_count or 0) + 1
+
+            if assigned_to is not None:
+                update_values["assigned_to"] = assigned_to
+
+            if subject is not None:
+                update_values["subject"] = subject
+
+            # 3. Optimistic locking: UPDATE WHERE version = read_version
+            result = self.db.execute(
+                sa_update(Ticket.__table__)
+                .where(
+                    Ticket.id == ticket_id,
+                    Ticket.company_id == self.company_id,
+                    Ticket.version == read_version,
+                )
+                .values(**update_values)
             )
 
-        # Update fields
-        if priority is not None:
-            ticket.priority = priority
+            if result.rowcount == 0:
+                # Version mismatch — another process updated the row
+                last_error = ConflictError(
+                    message=(
+                        f"Ticket {ticket_id} was modified by another process "
+                        f"(expected version {read_version}). "
+                        f"Attempt {attempt + 1}/{retry_count + 1}."
+                    ),
+                    details={
+                        "ticket_id": ticket_id,
+                        "expected_version": read_version,
+                        "attempt": attempt + 1,
+                        "max_retries": retry_count,
+                    },
+                )
+                self.db.rollback()
+                if attempt < retry_count:
+                    backoff = 0.05 * (2 ** attempt)  # 50ms, 100ms, 200ms
+                    time.sleep(backoff)
+                continue
 
-        if category is not None:
-            ticket.category = category
+            # Success — commit and refresh
+            self.db.commit()
+            self.db.refresh(ticket)
+            return ticket
 
-        if tags is not None:
-            ticket.tags = json.dumps(tags)
-
-        if status is not None:
-            ticket.status = status
-
-            # Handle status-specific logic
-            if status == TicketStatus.closed.value:
-                ticket.closed_at = datetime.now(timezone.utc)
-            elif status == TicketStatus.reopened.value:
-                ticket.reopen_count = (ticket.reopen_count or 0) + 1
-
-        if assigned_to is not None:
-            ticket.assigned_to = assigned_to
-
-        if subject is not None:
-            ticket.subject = subject
-
-        ticket.updated_at = datetime.now(timezone.utc)
-
-        self.db.commit()
-        self.db.refresh(ticket)
-
-        return ticket
+        # All retries exhausted
+        raise last_error  # type: ignore[misc]
 
     # ── DELETE ─────────────────────────────────────────────────────────────
 
@@ -393,6 +450,8 @@ class TicketService:
     ) -> Ticket:
         """Assign a ticket to an agent.
 
+        Uses optimistic locking to prevent race conditions.
+
         Args:
             ticket_id: Ticket ID
             assignee_id: Agent ID (None for unassignment)
@@ -405,18 +464,53 @@ class TicketService:
 
         Raises:
             NotFoundError: If ticket not found
+            ConflictError: If version mismatch after retries
         """
-        ticket = self.get_ticket(ticket_id)
+        ticket = self.db.query(Ticket).filter(
+            Ticket.id == ticket_id,
+            Ticket.company_id == self.company_id,
+        ).first()
 
+        if not ticket:
+            raise NotFoundError(f"Ticket {ticket_id} not found")
+
+        read_version = ticket.version or 1
         previous_assignee = ticket.assigned_to
 
         # Update ticket
-        ticket.assigned_to = assignee_id
-        ticket.updated_at = datetime.now(timezone.utc)
+        update_values: Dict[str, Any] = {
+            "assigned_to": assignee_id,
+            "updated_at": datetime.now(timezone.utc),
+            "version": read_version + 1,
+        }
 
         # If assigning, update status
         if assignee_id and ticket.status == TicketStatus.open.value:
-            ticket.status = TicketStatus.assigned.value
+            update_values["status"] = TicketStatus.assigned.value
+
+        # Optimistic locking: UPDATE WHERE version = read_version
+        result = self.db.execute(
+            sa_update(Ticket.__table__)
+            .where(
+                Ticket.id == ticket_id,
+                Ticket.company_id == self.company_id,
+                Ticket.version == read_version,
+            )
+            .values(**update_values)
+        )
+
+        if result.rowcount == 0:
+            self.db.rollback()
+            raise ConflictError(
+                message=(
+                    f"Ticket {ticket_id} was modified by another process "
+                    f"during assignment (expected version {read_version})."
+                ),
+                details={
+                    "ticket_id": ticket_id,
+                    "expected_version": read_version,
+                },
+            )
 
         # Record assignment history
         assignment = TicketAssignment(

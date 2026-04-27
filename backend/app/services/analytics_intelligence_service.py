@@ -199,7 +199,9 @@ def _check_channel_usage(
         ("email", "Email"),
         ("chat", "Chat Widget"),
         ("sms", "SMS"),
-        ("whatsapp", "WhatsApp"),
+        ("voice", "Voice"),
+        ("slack", "Slack"),
+        ("webchat", "Webchat"),
     ]
 
     for channel_key, channel_name in channels:

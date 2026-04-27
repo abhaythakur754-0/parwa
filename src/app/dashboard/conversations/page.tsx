@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { dashboardApi, type Conversation } from '@/lib/dashboard-api';
 
 const PAGE_SIZE = 25;
-const CHANNEL_TABS = ['all', 'email', 'chat', 'sms', 'voice', 'social'];
+const CHANNEL_TABS = ['all', 'email', 'chat', 'sms', 'voice', 'slack', 'webchat'];
 
 export default function ConversationsPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -38,12 +38,12 @@ export default function ConversationsPage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const channelIcon = (ch: string) => {
-    const map: Record<string, string> = { email: 'E', chat: 'C', sms: 'S', voice: 'V', social: 'S' };
+    const map: Record<string, string> = { email: 'E', chat: 'C', sms: 'S', voice: 'V', slack: 'Sl', webchat: 'W' };
     return map[ch.toLowerCase()] || ch.charAt(0).toUpperCase();
   };
 
   const channelColor = (ch: string) => {
-    const map: Record<string, string> = { email: 'bg-blue-500/10 text-blue-400', chat: 'bg-emerald-500/10 text-emerald-400', sms: 'bg-purple-500/10 text-purple-400', voice: 'bg-amber-500/10 text-amber-400', social: 'bg-pink-500/10 text-pink-400' };
+    const map: Record<string, string> = { email: 'bg-blue-500/10 text-blue-400', chat: 'bg-emerald-500/10 text-emerald-400', sms: 'bg-purple-500/10 text-purple-400', voice: 'bg-amber-500/10 text-amber-400', slack: 'bg-indigo-500/10 text-indigo-400', webchat: 'bg-cyan-500/10 text-cyan-400' };
     return map[ch.toLowerCase()] || 'bg-zinc-800 text-zinc-400';
   };
 

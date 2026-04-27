@@ -30,7 +30,7 @@ VALID_STATUSES = {"active", "inactive", "warming", "suspended"}
 
 VALID_CHANNELS = {
     "email", "chat", "sms", "voice",
-    "social", "whatsapp", "web",
+    "slack", "webchat",
 }
 
 VARIANT_PRIORITY = {

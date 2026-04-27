@@ -45,7 +45,7 @@
       ],
       "talking_points": [
         "Real-time carrier API integration with FedEx, UPS, USPS, DHL, and 50+ regional carriers",
-        "Sub-second order lookup from any channel (web chat, WhatsApp, email, social)",
+        "Sub-second order lookup from any channel (web chat, email, SMS, voice)",
         "Proactive delivery alerts reduce 'where is my order' (WISMO) tickets by up to 60%",
         "Multi-channel delivery notifications maintain customer engagement across touchpoints",
         "Context-aware responses understand urgency and prioritize accordingly"

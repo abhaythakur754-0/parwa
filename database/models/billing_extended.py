@@ -275,6 +275,7 @@ class PaymentFailure(Base):
     currency = Column(String(3), default="USD")
     service_stopped_at = Column(DateTime, nullable=True)
     service_resumed_at = Column(DateTime, nullable=True)
+    grace_period_ends_at = Column(DateTime, nullable=True)  # 7-day grace period deadline
     notification_sent = Column(Boolean, default=False)
     resolved = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())

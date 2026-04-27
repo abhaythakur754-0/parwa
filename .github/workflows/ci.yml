@@ -27,10 +27,10 @@ jobs:
           rm -f ~/.docker/config.json 2>/dev/null || true
           docker logout 2>/dev/null || true
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: "pip"
 
       - name: Install Dependencies
@@ -101,7 +101,8 @@ jobs:
           echo "JWT_SECRET_KEY=fake_jwt" >> .env
 
           # Run unit tests only (no Docker services needed)
-          python -m pytest tests/unit/ -v --tb=short -x --ignore=tests/unit/test_database.py --ignore=tests/unit/test_auth_core.py --ignore=tests/unit/test_billing_service.py --ignore=tests/unit/test_compliance_service.py --ignore=tests/unit/test_escalation_service.py --ignore=tests/unit/test_license_manager.py --ignore=tests/unit/test_license_service.py --ignore=tests/unit/test_licenses.py --ignore=tests/unit/test_mcp_client.py --ignore=tests/unit/test_models.py --ignore=tests/unit/test_monitoring.py --ignore=tests/unit/test_notification_service.py --ignore=tests/unit/test_onboarding_service.py --ignore=tests/unit/test_schemas.py --ignore=tests/unit/test_security.py --ignore=tests/unit/test_sla_service.py --ignore=tests/unit/test_support_service.py --ignore=tests/unit/test_user_service.py || true
+          # NOTE: If any test file fails, fix the test — do not re-add --ignore flags.
+          python -m pytest tests/unit/ -v --tb=short -x
 
       - name: Test Summary
         if: always()
@@ -118,7 +119,7 @@ jobs:
       - name: Check Frontend Exists
         id: check-frontend
         run: |
-          if [ -f "frontend/package.json" ]; then
+          if [ -f "package.json" ]; then
             echo "frontend_exists=true" >> $GITHUB_OUTPUT
             echo "Frontend found"
           else
@@ -134,27 +135,19 @@ jobs:
 
       - name: Install Dependencies
         if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: |
-          cd frontend
-          bun install
+        run: bun install
 
       - name: Run Linter
         if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: |
-          cd frontend
-          bun run lint || true
+        run: bun run lint
 
       - name: Build Frontend
         if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: |
-          cd frontend
-          bun run build
+        run: bun run build
 
       - name: Run Tests
         if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: |
-          cd frontend
-          bun test || echo "No tests configured yet"
+        run: bun test || echo "No tests configured yet"
 
       - name: Frontend Test Summary
         if: always()
@@ -176,7 +169,7 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0'  # Don't fail the build on vulnerabilities
+          exit-code: '1'
           format: 'table'
           ignore-unfixed: true
 
@@ -186,7 +179,7 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           severity: 'CRITICAL'
-          exit-code: '0'
+          exit-code: '1'
           format: 'sarif'
           output: 'trivy-results.sarif'
           ignore-unfixed: true

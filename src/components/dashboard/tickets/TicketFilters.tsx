@@ -24,10 +24,9 @@ const channelOptions: { value: TicketChannel; label: string }[] = [
   { value: 'email', label: 'Email' },
   { value: 'chat', label: 'Chat' },
   { value: 'sms', label: 'SMS' },
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'messenger', label: 'Messenger' },
-  { value: 'twitter', label: 'Twitter' },
-  { value: 'instagram', label: 'Instagram' },
+  { value: 'voice', label: 'Voice' },
+  { value: 'slack', label: 'Slack' },
+  { value: 'webchat', label: 'Webchat' },
 ];
 
 const priorityOptions: { value: TicketPriority; label: string; color: string }[] = [

@@ -1319,9 +1319,10 @@ def _trigger_payment_failure_stop(
     currency: str = "USD",
 ) -> None:
     """
-    Day 3.5: Trigger immediate service stop on payment failure.
+    Day 3.5: Trigger payment failure with 7-day grace period.
 
-    Netflix-style: No grace period, no dunning, immediate stop.
+    Sets subscription to 'past_due' and starts a 7-day grace period.
+    Full service suspension happens after grace period expires (via cron).
     """
     import asyncio
     from decimal import Decimal
@@ -1337,12 +1338,12 @@ def _trigger_payment_failure_stop(
         except Exception:
             amount_decimal = Decimal("0.00")
 
-        # Run async handler
+        # Run async handler with grace period
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
             result = loop.run_until_complete(
-                service.handle_payment_failure(
+                service.handle_payment_failure_with_grace_period(
                     company_id=company_id,
                     paddle_transaction_id=transaction_id,
                     failure_code=error_code or "payment_declined",
@@ -1356,7 +1357,7 @@ def _trigger_payment_failure_stop(
             loop.close()
 
         logger.info(
-            "payment_failure_triggered company_id=%s transaction_id=%s result=%s",
+            "payment_failure_grace_triggered company_id=%s transaction_id=%s result=%s",
             company_id,
             transaction_id,
             result.get("status"),

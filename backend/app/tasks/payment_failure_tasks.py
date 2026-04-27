@@ -512,6 +512,52 @@ def send_service_resumed_notification(
     base=ParwaBaseTask,
     bind=True,
     queue="billing",
+    name="app.tasks.payment_failure.suspend_expired_grace_periods",
+    max_retries=2,
+    soft_time_limit=300,
+    time_limit=600,
+    retry_backoff=True,
+)
+def suspend_expired_grace_periods(self) -> dict:
+    """
+    Check all companies with expired grace periods and suspend them.
+
+    Runs daily via Celery Beat. For any company whose grace period
+    has expired without a successful payment, escalates to full
+    suspension (status=payment_failed) and triggers service stop.
+
+    Returns:
+        Dict with suspension summary
+    """
+    try:
+        import asyncio
+        from app.services.payment_failure_service import get_payment_failure_service
+
+        service = get_payment_failure_service()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            results = loop.run_until_complete(
+                service.check_and_suspend_expired_grace_periods()
+            )
+        finally:
+            loop.close()
+
+        return results
+
+    except Exception as exc:
+        logger.error(
+            "suspend_expired_grace_periods_failed error=%s",
+            str(exc)[:200],
+        )
+        raise
+
+
+@app.task(
+    base=ParwaBaseTask,
+    bind=True,
+    queue="billing",
     name="app.tasks.payment_failure.check_stopped_services",
     max_retries=2,
     soft_time_limit=300,

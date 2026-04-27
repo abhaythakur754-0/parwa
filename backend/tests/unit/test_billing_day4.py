@@ -100,7 +100,7 @@ class TestCancelFeedbackSave:
             result = service.save_cancel_feedback(
                 company_id=company_id,
                 reason="missing_features",
-                feedback="Need WhatsApp integration.",
+                feedback="Need additional integrations.",
             )
 
         assert result["status"] == "feedback_saved"

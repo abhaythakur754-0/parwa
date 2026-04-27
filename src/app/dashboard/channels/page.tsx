@@ -21,11 +21,6 @@ const channelMeta: ChannelMeta[] = [
   { type: 'chat', name: 'Live Chat', description: 'Real-time chat widget on your website', emoji: '\uD83D\uDCAC' },
   { type: 'sms', name: 'SMS', description: 'Text messaging via Twilio', emoji: '\uD83D\uDCF1' },
   { type: 'voice', name: 'Voice', description: 'AI-powered voice calls via Twilio', emoji: '\uD83C\uDF99\uFE0F' },
-  { type: 'whatsapp', name: 'WhatsApp', description: 'WhatsApp Business API integration', emoji: '\uD83D\uDCAC' },
-  { type: 'messenger', name: 'Messenger', description: 'Facebook Messenger integration', emoji: '\uD83D\uDCAC' },
-  { type: 'twitter', name: 'X (Twitter)', description: 'Twitter/X DMs and mentions', emoji: '\uD83D\uDC26' },
-  { type: 'instagram', name: 'Instagram', description: 'Instagram DMs integration', emoji: '\uD83D\uDCF8' },
-  { type: 'telegram', name: 'Telegram', description: 'Telegram bot integration', emoji: '\u2708\uFE0F' },
   { type: 'slack', name: 'Slack', description: 'Slack workspace integration', emoji: '\uD83D\uDCA1' },
   { type: 'webchat', name: 'Webchat', description: 'Embeddable web chat widget', emoji: '\uD83C\uDF10' },
 ];

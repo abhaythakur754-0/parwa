@@ -9,6 +9,12 @@ access via ``require_platform_admin`` dependency. This checks
 ``PLATFORM_ADMIN_EMAILS`` env var first, then falls back to
 ``role="owner"`` for backward compatibility.
 
+TENANT ISOLATION NOTE: Admin endpoints are INTENTIONALLY cross-tenant.
+The ``require_platform_admin`` guard is the sole access control.
+Path parameters (company_id) are validated for UUID format.
+Global resources (API providers, webhook retry) use "platform" as
+the audit company_id since they are not tenant-scoped.
+
 TODO (Alembic Migration): Add an ``is_platform_admin`` boolean column
 to the User model. Once the migration is created and applied, the
 guard should check ``user.is_platform_admin`` directly instead of
@@ -21,6 +27,7 @@ All responses use structured JSON (BC-012).
 import json
 import math
 import os
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -44,6 +51,28 @@ from database.models.ai_pipeline import APIProvider
 from database.models.core import Company, User
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+# Sentinel for audit logs on global (non-tenant) resources
+_PLATFORM_AUDIT_COMPANY_ID = "platform"
+
+# UUID format pattern for path validation
+_UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _validate_uuid(value: str, param_name: str = "id") -> None:
+    """Validate that a path parameter is a valid UUID.
+
+    Raises NotFoundError for invalid format to avoid leaking
+    information about whether a resource exists.
+    """
+    if not value or not _UUID_PATTERN.match(value):
+        raise NotFoundError(
+            message=f"Invalid {param_name} format",
+            details={param_name: value},
+        )
 
 
 # A7: Platform admin email allowlist.
@@ -203,6 +232,7 @@ def get_client_detail(
     db: Session = Depends(get_db),
 ) -> dict:
     """Get single client detail."""
+    _validate_uuid(company_id, "company_id")
     company = db.query(Company).filter(
         Company.id == company_id,
     ).first()
@@ -230,6 +260,7 @@ def update_client(
     db: Session = Depends(get_db),
 ) -> dict:
     """Update client details."""
+    _validate_uuid(company_id, "company_id")
     company = db.query(Company).filter(
         Company.id == company_id,
     ).first()
@@ -278,6 +309,7 @@ def update_subscription(
     db: Session = Depends(get_db),
 ) -> dict:
     """Change subscription tier/status."""
+    _validate_uuid(company_id, "company_id")
     company = db.query(Company).filter(
         Company.id == company_id,
     ).first()
@@ -374,7 +406,7 @@ def create_api_provider(
     db.refresh(provider)
 
     log_audit(
-        company_id=user.company_id,
+        company_id=_PLATFORM_AUDIT_COMPANY_ID,
         actor_id=user.id,
         actor_type="user",
         action="create",
@@ -418,7 +450,7 @@ def update_api_provider(
     db.refresh(provider)
 
     log_audit(
-        company_id=user.company_id,
+        company_id=_PLATFORM_AUDIT_COMPANY_ID,
         actor_id=user.id,
         actor_type="user",
         action="update",
@@ -452,7 +484,7 @@ def delete_api_provider(
     db.commit()
 
     log_audit(
-        company_id=user.company_id,
+        company_id=_PLATFORM_AUDIT_COMPANY_ID,
         actor_id=user.id,
         actor_type="user",
         action="delete",
@@ -496,7 +528,7 @@ def retry_failed_webhook_endpoint(
         result = retry_failed_webhook(webhook_id)
 
         log_audit(
-            company_id=user.company_id,
+            company_id=_PLATFORM_AUDIT_COMPANY_ID,
             actor_id=user.id,
             actor_type="user",
             action="retry",
@@ -515,7 +547,7 @@ def retry_failed_webhook_endpoint(
         )
     except Exception as exc:
         log_audit(
-            company_id=user.company_id,
+            company_id=_PLATFORM_AUDIT_COMPANY_ID,
             actor_id=user.id,
             actor_type="user",
             action="retry_failed",

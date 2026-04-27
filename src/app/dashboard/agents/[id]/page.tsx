@@ -89,7 +89,7 @@ function confidenceColor(c: number): string {
 }
 
 function channelIcon(channel: string): string {
-  const map: Record<string, string> = { email: 'E', chat: 'C', sms: 'S', voice: 'V', whatsapp: 'W' };
+  const map: Record<string, string> = { email: 'E', chat: 'C', sms: 'S', voice: 'V', slack: 'Sl' };
   return map[channel] || channel.charAt(0).toUpperCase();
 }
 

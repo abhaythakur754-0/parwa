@@ -1,0 +1,202 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: parwa-backend-policy
+  namespace: parwa
+  labels:
+    app: parwa-backend
+    component: backend
+spec:
+  podSelector:
+    matchLabels:
+      component: backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from the Ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+    # Allow traffic from frontend pods
+    - from:
+        - podSelector:
+            matchLabels:
+              component: frontend
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow traffic to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              component: cache
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow traffic to PostgreSQL (RDS — external, via public/private IP)
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow traffic to AWS S3 / external services
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: parwa-frontend-policy
+  namespace: parwa
+  labels:
+    app: parwa-frontend
+    component: frontend
+spec:
+  podSelector:
+    matchLabels:
+      component: frontend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Only allow external traffic (via Ingress controller)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow frontend to talk to backend
+    - to:
+        - podSelector:
+            matchLabels:
+              component: backend
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: parwa-redis-policy
+  namespace: parwa
+  labels:
+    app: parwa-redis
+    component: cache
+spec:
+  podSelector:
+    matchLabels:
+      component: cache
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Only allow backend and celery workers to talk to Redis
+    - from:
+        - podSelector:
+            matchLabels:
+              component: backend
+        - podSelector:
+            matchLabels:
+              component: worker
+        - podSelector:
+            matchLabels:
+              component: scheduler
+      ports:
+        - protocol: TCP
+          port: 6379
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: parwa-celery-policy
+  namespace: parwa
+  labels:
+    component: worker
+spec:
+  podSelector:
+    matchLabels:
+      component: worker
+  policyTypes:
+    - Egress
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow workers to talk to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              component: cache
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow workers to talk to PostgreSQL (RDS)
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow outbound HTTPS (S3, external APIs)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443

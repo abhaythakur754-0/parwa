@@ -110,7 +110,7 @@ class TestConstants:
         assert len(VALID_SPECIALTIES) == 9
 
     def test_valid_channels(self):
-        assert VALID_CHANNELS == {"chat", "email", "sms", "whatsapp", "voice"}
+        assert VALID_CHANNELS == {"chat", "email", "sms", "voice", "slack", "webchat"}
 
     def test_payment_timeout_hours(self):
         assert PAYMENT_TIMEOUT_HOURS == 24

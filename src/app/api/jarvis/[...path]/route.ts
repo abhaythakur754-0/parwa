@@ -942,7 +942,7 @@ function getKeywordResponse(message: string, session: any): string {
       `🛡️ Your data is safe with PARWA.\n\n📜 GDPR + SOC 2 certified\n🔐 Encrypted at rest & in transit\n🏢 Full isolation between clients\n\nAny specific compliance question?`,
     ],
     integrations: [
-      `🔗 PARWA plugs into your existing stack:\n\n- E-commerce: Shopify, WooCommerce, Magento\n- Support: Zendesk, Intercom, Freshdesk\n- Comms: Slack, WhatsApp, Email\n- CRM: Salesforce, HubSpot\n\n~5 minutes per integration. Which tools are you using?`,
+      `🔗 PARWA plugs into your existing stack:\n\n- E-commerce: Shopify, WooCommerce, Magento\n- Support: Zendesk, Intercom, Freshdesk\n- Comms: Slack, Email, SMS\n- CRM: Salesforce, HubSpot\n\n~5 minutes per integration. Which tools are you using?`,
       `✅ We integrate with 20+ tools out of the box.\n\n⚙️ OAuth or API key setup\n⏱️ Usually under 5 minutes each\n🔌 Custom APIs & webhooks also supported\n\nWhich integrations matter most to you?`,
     ],
     models_variants: [

@@ -35,7 +35,7 @@ VALID_SETUP_STEPS = (
     "configuration", "training", "integration_setup",
     "permission_config", "testing", "activation",
 )
-VALID_CHANNELS = ("chat", "email", "sms", "whatsapp", "voice")
+VALID_CHANNELS = ("chat", "email", "sms", "voice", "slack", "webchat")
 
 
 class AgentCreateRequest(BaseModel):

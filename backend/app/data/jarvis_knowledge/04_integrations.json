@@ -202,7 +202,7 @@
             "Seamless handoff to human agents with full conversation transcript and AI summary",
             "Intercom customer data enrichment using contact attributes and company data",
             "Article suggestion and knowledge base surfacing within chat conversations",
-            "Multi-channel conversation support (in-app messenger, email, Instagram, WhatsApp)"
+            "Multi-channel conversation support (in-app messenger, email, Slack)"
           ],
           "data_flow_description": "PARWA integrates with Intercom via its REST API and real-time conversation webhooks. Incoming Intercom conversations trigger a webhook to PARWA, which generates a response. If the conversation is within PARWA's resolution confidence, it posts the reply directly. If human handoff is needed, PARWA adds an internal note with the conversation summary and assigns the conversation to the appropriate team. Intercom contact data (name, email, custom attributes, company) flows to PARWA for personalized interactions. Conversation data is processed in real time and not stored in PARWA's database.",
           "security_notes": "Intercom OAuth tokens are stored with hardware-level encryption. PARWA respects Intercom's data permission model and only accesses conversations within the configured scope. Customer personal data is handled per Intercom's data processing agreement and GDPR requirements. All API communication is encrypted with TLS 1.3. The integration has been reviewed for compliance with Intercom's security standards."
@@ -298,33 +298,27 @@
           "security_notes": "SMTP credentials are encrypted at rest with AES-256 and transmitted only over TLS. PARWA supports STARTTLS and SSL/TLS for secure email transmission. Email content is processed in memory and not stored in PARWA's database after response generation. Attachments are scanned with ClamAV before processing. PARWA supports and recommends configuring SPF, DKIM, and DMARC for email authentication. The email infrastructure complies with CAN-SPAM and GDPR email marketing regulations."
         },
         {
-          "name": "WhatsApp Business",
+          "name": "SMS (Twilio)",
           "type": "communication",
           "category": "Communication",
-          "what_connects": "Enables PARWA AI agents to respond to customer inquiries via WhatsApp using the WhatsApp Business API for conversational support on the world's most popular messaging platform.",
-          "setup_difficulty": "Moderate",
-          "setup_time_estimate": "30 minutes",
+          "what_connects": "Enables PARWA AI agents to respond to customer inquiries via SMS using Twilio for conversational support on mobile messaging channels.",
+          "setup_difficulty": "Easy",
+          "setup_time_estimate": "15 minutes",
           "setup_steps": [
-            "Apply for a WhatsApp Business API account through Meta Business Manager",
-            "Verify your business phone number with WhatsApp",
-            "Navigate to PARWA Integrations and select WhatsApp Business",
-            "Enter your WhatsApp Business Account ID and phone number ID",
-            "Configure the WhatsApp Business API access token from Meta Developer Portal",
-            "Set up the webhook endpoint URL in Meta Developer Portal pointing to PARWA",
-            "Configure message templates for session windows per WhatsApp Business policies",
-            "Test the integration by sending a WhatsApp message to your business number"
+            "Sign up for a Twilio account and obtain your Account SID and Auth Token",
+            "Navigate to PARWA Integrations and select SMS (Twilio)",
+            "Enter your Twilio Account SID, Auth Token, and a phone number",
+            "Configure the webhook endpoint URL in Twilio Console pointing to PARWA",
+            "Test the integration by sending an SMS message to your Twilio number"
           ],
           "capabilities": [
-            "AI-powered conversational responses to customer WhatsApp messages",
-            "Rich message support including text, images, documents, quick replies, and list messages",
-            "Automated session management within WhatsApp's 24-hour conversation window",
-            "WhatsApp-approved message templates for proactive notifications (order updates, appointment reminders)",
-            "Multi-language support for global customer bases via WhatsApp",
-            "Media message handling including photo, video, and document processing",
-            "Interactive message buttons for guided customer self-service flows"
+            "AI-powered conversational responses to customer SMS messages",
+            "Automated session management with conversation context",
+            "Multi-language support for global customer bases via SMS",
+            "Media message handling including photo and document processing"
           ],
-          "data_flow_description": "PARWA integrates with WhatsApp Business Platform via Meta's Cloud API using webhook-based event handling. Incoming WhatsApp messages are received via webhook, processed by the AI agent, and responses are sent back through the WhatsApp API. Message templates are pre-approved per WhatsApp Business policies for outbound notifications. PARWA manages the 24-hour session window automatically, using free-form text within the window and pre-approved templates outside the window. Conversation context is maintained across messages within the session.",
-          "security_notes": "WhatsApp Business API tokens are encrypted with HSM-level protection. PARWA complies with WhatsApp Business Messaging Policy including opt-in requirements and message template rules. End-to-end encryption provided by WhatsApp is maintained — PARWA processes message content on its servers for response generation. Message data is not stored after processing. PARWA respects WhatsApp's rate limits and quality rating requirements to maintain high delivery rates."
+          "data_flow_description": "PARWA integrates with Twilio for SMS-based customer support. Incoming SMS messages are received via webhook, processed by the AI agent, and responses are sent back through the Twilio API. Conversation context is maintained across messages within the session.",
+          "security_notes": "Twilio API credentials are encrypted with HSM-level protection. PARWA complies with Twilio usage policies and rate limits. Message data is not stored after processing."
         }
       ]
     },

@@ -44,7 +44,8 @@ const CHANNEL_OPTIONS: { value: string; label: string }[] = [
   { value: 'chat', label: 'Chat' },
   { value: 'sms', label: 'SMS' },
   { value: 'voice', label: 'Voice' },
-  { value: 'social', label: 'Social' },
+  { value: 'slack', label: 'Slack' },
+  { value: 'webchat', label: 'Webchat' },
 ];
 
 const PRIORITY_OPTIONS: { value: string; label: string }[] = [
@@ -101,7 +102,8 @@ const CHANNEL_ICONS: Record<string, { icon: string; color: string }> = {
   chat: { icon: '💬', color: 'text-emerald-400' },
   sms: { icon: '📱', color: 'text-purple-400' },
   voice: { icon: '📞', color: 'text-amber-400' },
-  social: { icon: '🌐', color: 'text-pink-400' },
+  slack: { icon: '💡', color: 'text-indigo-400' },
+  webchat: { icon: '🌐', color: 'text-cyan-400' },
 };
 
 // ── Helper: Relative Time ───────────────────────────────────────────────

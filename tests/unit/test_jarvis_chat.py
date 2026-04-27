@@ -188,7 +188,7 @@ class TestHelperFunctions:
         msg = jarvis_service._get_integration_step_message()
         assert "Connect" in msg
         assert "skip" in msg.lower()
-        assert "Email" in msg or "WhatsApp" in msg
+        assert "Email" in msg or "SMS" in msg
 
     def test_get_kb_step_message(self):
         msg = jarvis_service._get_kb_step_message()

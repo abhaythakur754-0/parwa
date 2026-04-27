@@ -327,30 +327,57 @@ class SubscriptionService:
                         company_id,
                         str(e),
                     )
-                    # Continue without Paddle subscription in test/dev
+                    # CRITICAL FIX: Mark subscription as payment_failed
+                    # instead of silently continuing as 'active' when Paddle
+                    # has no record. Store failure details in metadata_json.
+                    paddle_subscription_id = None
+
+            # Determine subscription status based on Paddle success
+            # If Paddle call was attempted (company has customer + payment)
+            # but failed, the subscription must NOT be marked active.
+            paddle_sync_pending = False
+            if company.paddle_customer_id and payment_method_id and paddle_subscription_id is None:
+                # Paddle was required but failed — do not grant active access
+                effective_status = SubscriptionStatus.PAYMENT_FAILED.value
+                paddle_sync_pending = True
+            else:
+                # No Paddle call attempted (no customer/payment yet)
+                # or Paddle succeeded — safe to proceed
+                effective_status = SubscriptionStatus.ACTIVE.value
 
             # Calculate billing period
             now = datetime.now(timezone.utc)
             period_end = self._calculate_period_end(now, billing_frequency)
             period_days = self._calculate_period_days_for_range(now, period_end)
 
+            # Build metadata JSON with Paddle sync info
+            metadata = None
+            if paddle_sync_pending:
+                metadata = _json.dumps({
+                    "paddle_sync_pending": True,
+                    "paddle_creation_failed": True,
+                    "note": "Paddle subscription creation failed; "
+                           "retry via reconciliation or manual setup",
+                })
+
             # Create subscription record
             subscription = Subscription(
                 company_id=str(company_id),
                 tier=variant,
-                status=SubscriptionStatus.ACTIVE.value,
+                status=effective_status,
                 current_period_start=now,
                 current_period_end=period_end,
                 paddle_subscription_id=paddle_subscription_id,
                 billing_frequency=billing_frequency,
                 days_in_period=period_days,
+                metadata_json=metadata,
             )
 
             db.add(subscription)
 
             # Update company subscription info
             company.subscription_tier = variant
-            company.subscription_status = SubscriptionStatus.ACTIVE.value
+            company.subscription_status = effective_status
             if paddle_subscription_id:
                 company.paddle_subscription_id = paddle_subscription_id
 

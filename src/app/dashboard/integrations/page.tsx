@@ -1182,11 +1182,6 @@ function ChannelQuickStatus({ configs }: { configs: ChannelConfig[] }) {
     chat: '💬',
     sms: '📱',
     voice: '📞',
-    whatsapp: '💬',
-    messenger: '💬',
-    twitter: '🐦',
-    instagram: '📷',
-    telegram: '✈️',
     slack: '💡',
     webchat: '🌐',
   };

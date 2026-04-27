@@ -1,21 +1,6 @@
 """
 F-200: LangGraph Workflow Engine (Week 10 Day 12)
 
-# TODO: Integrate LangGraph for workflow persistence
-# TODO(Day6 — I4): LangGraph is planned but not yet fully integrated into the
-# production pipeline.  The `from langgraph.graph import StateGraph, END` import
-# inside _build_langgraph_stategraph() is the only real usage; when the
-# ``langgraph`` pip package is missing the engine falls back to sequential
-# simulation.  Once LangGraph is installed and configured, replace the
-# simulation path with the compiled graph's ainvoke() for persistent,
-# checkpointable workflow execution.
-# NOTE: This module implements a custom StateGraph-based workflow that
-# behaves LIKE LangGraph but does NOT currently depend on the langgraph
-# pip package for core execution.  When the real langgraph package is
-# installed, _build_langgraph_stategraph() builds an actual
-# StateGraph for persistent workflow execution.  Until then, the
-# engine falls back to a simulation mode (BC-008).
-
 Orchestrates the AI response generation pipeline by building a
 StateGraph with nodes for each pipeline step. Three variant tiers:
 
@@ -25,6 +10,24 @@ StateGraph with nodes for each pipeline step. Three variant tiers:
 
 Each step is a node in the graph. The engine executes steps
 sequentially, tracks per-step results, and handles timeouts.
+
+Checkpointing:
+  The workflow uses ``langgraph.checkpoint.memory.MemorySaver`` by
+  default for in-process checkpoint persistence.  For production
+  deployments, swap to one of:
+
+    - ``langgraph-checkpoint-postgres``  (PostgreSQL-backed)
+    - ``langgraph-checkpoint-redis``      (Redis-backed)
+
+  Thread IDs are derived from ``conversation_id`` or ``ticket_id``
+  so that each conversation gets its own checkpoint history.
+
+Quality Gate Self-Correction Loop:
+  After the ``quality_gate`` step, a conditional edge checks whether
+  the confidence score meets the configured threshold.  If it falls
+  below the threshold the graph routes back to ``generate`` for a
+  retry (up to a configurable max-retry cap).  Otherwise execution
+  continues to ``format``.
 
 BC-001: All public methods take company_id as the first parameter.
 BC-008: Every public method is wrapped in try/except; never crashes.
@@ -43,6 +46,12 @@ from app.logger import get_logger
 
 logger = get_logger("langgraph_workflow")
 
+# Production checkpointing backends (uncomment and configure as needed):
+#   from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+#   from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+# For development / single-process the in-memory checkpointer is sufficient.
+_CHECKPOINT_BACKENDS_COMMENT = "see langgraph-checkpoint-postgres / langgraph-checkpoint-redis"
+
 
 # ══════════════════════════════════════════════════════════════════
 # CONSTANTS
@@ -50,6 +59,15 @@ logger = get_logger("langgraph_workflow")
 
 _WORKFLOW_TIMEOUT_SECONDS: float = 30.0
 _DEFAULT_MAX_TOKENS: int = 1500
+
+# Maximum number of quality-gate retries before falling through to format.
+# Prevents infinite self-correction loops.
+_QUALITY_GATE_MAX_RETRIES: int = 3
+
+# Default confidence threshold for the quality-gate conditional edge.
+# If the quality_gate output score is below this value the graph routes
+# back to ``generate`` for a retry.
+_QUALITY_GATE_CONFIDENCE_THRESHOLD: float = 0.7
 
 WORKFLOW_STEP_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     "classify": {
@@ -170,6 +188,12 @@ class WorkflowConfig:
     enable_context_health_check: bool = False
     max_pipeline_time_seconds: float = 30.0
     max_tokens: int = 1500
+    # Checkpointer backend: "memory" (default), "postgres", or "redis".
+    checkpointer_backend: str = "memory"
+    # Confidence threshold for quality-gate self-correction loop.
+    quality_gate_confidence_threshold: float = _QUALITY_GATE_CONFIDENCE_THRESHOLD
+    # Maximum retries when quality gate fails.
+    quality_gate_max_retries: int = _QUALITY_GATE_MAX_RETRIES
 
 
 @dataclass
@@ -264,12 +288,78 @@ class LangGraphWorkflow:
         self._graph: Any = None  # lazy-built StateGraph
         self._steps: List[WorkflowStep] = []
         self._langgraph_available: Optional[bool] = None
+        self._checkpointer: Any = None
+
+        # Initialise the checkpointer based on config.
+        self._init_checkpointer()
 
         logger.info(
             "workflow_engine_initialized",
             variant_type=self._config.variant_type,
             company_id=self._config.company_id,
+            checkpointer_backend=self._config.checkpointer_backend,
+            has_checkpointer=self._checkpointer is not None,
         )
+
+    # ── Checkpointer Initialisation ─────────────────────────────
+
+    def _init_checkpointer(self) -> None:
+        """Initialise the LangGraph checkpointer.
+
+        Uses ``MemorySaver`` (in-process, no external deps) by default.
+        If the ``langgraph`` package is not installed the checkpointer
+        stays ``None`` and execution degrades to the simulation path
+        (BC-008).
+
+        Production alternatives (set ``checkpointer_backend`` in config):
+          - ``"postgres"`` → ``AsyncPostgresSaver`` from ``langgraph-checkpoint-postgres``
+          - ``"redis"``   → ``AsyncRedisSaver``   from ``langgraph-checkpoint-redis``
+        """
+        backend = self._config.checkpointer_backend.lower()
+
+        if backend == "memory":
+            try:
+                from langgraph.checkpoint.memory import MemorySaver
+                self._checkpointer = MemorySaver()
+                logger.info("checkpoint_memory_saver_initialized")
+            except ImportError:
+                logger.info(
+                    "checkpoint_memory_saver_unavailable",
+                    detail="langgraph not installed; checkpointing disabled",
+                )
+                self._checkpointer = None
+        elif backend == "postgres":
+            try:
+                from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+                self._checkpointer = AsyncPostgresSaver.from_conn_string(
+                    "",  # Caller must call setup() with the real DSN
+                )
+                logger.info("checkpoint_postgres_saver_initialized")
+            except ImportError:
+                logger.warning(
+                    "checkpoint_postgres_saver_unavailable",
+                    detail="langgraph-checkpoint-postgres not installed; falling back to memory",
+                )
+                self._init_checkpointer()  # recurse into "memory"
+        elif backend == "redis":
+            try:
+                from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+                self._checkpointer = AsyncRedisSaver.from_url(
+                    "",  # Caller must call setup() with the real URL
+                )
+                logger.info("checkpoint_redis_saver_initialized")
+            except ImportError:
+                logger.warning(
+                    "checkpoint_redis_saver_unavailable",
+                    detail="langgraph-checkpoint-redis not installed; falling back to memory",
+                )
+                self._init_checkpointer()  # recurse into "memory"
+        else:
+            logger.warning(
+                "checkpoint_unknown_backend",
+                backend=backend,
+                detail="No checkpointer initialised",
+            )
 
     # ── Graph Construction ─────────────────────────────────────
 
@@ -305,8 +395,16 @@ class LangGraphWorkflow:
         """Attempt to build a real LangGraph StateGraph.
 
         Creates nodes for each pipeline step and wires them with
-        sequential edges. Falls back gracefully when langgraph is
-        not installed (BC-008).
+        sequential edges.  When a ``quality_gate`` step is present
+        a conditional edge is added that routes back to ``generate``
+        if the confidence score is below the configured threshold,
+        creating a self-correction loop (capped at
+        ``quality_gate_max_retries``).
+
+        Compiles with the configured checkpointer (MemorySaver by
+        default) so that every node execution is persisted as a
+        checkpoint keyed by ``thread_id``.  Falls back gracefully
+        when langgraph is not installed (BC-008).
         """
         try:
             from langgraph.graph import StateGraph, END
@@ -323,6 +421,7 @@ class LangGraphWorkflow:
                 final_response: str
                 total_tokens: int
                 errors: list
+                quality_retries: int  # counter for self-correction loop
 
             builder = StateGraph(WorkflowState)
 
@@ -366,7 +465,7 @@ class LangGraphWorkflow:
                             step_results=reconstructed,
                         )
 
-                        return {
+                        node_return: Dict[str, Any] = {
                             "step_outputs": {
                                 _sid: {
                                     "status": step_result.status,
@@ -390,6 +489,12 @@ class LangGraphWorkflow:
                                 else state.get("errors", [])
                             ),
                         }
+
+                        # Increment quality_retries when re-entering generate
+                        if _sid == "generate":
+                            node_return["quality_retries"] = state.get("quality_retries", 0) + 1
+
+                        return node_return
                     except Exception as exc:
                         logger.warning(
                             "langgraph_node_error",
@@ -405,20 +510,88 @@ class LangGraphWorkflow:
 
                 builder.add_node(step_id, _node_fn)
 
-            # Wire edges sequentially
-            for i in range(len(step_ids) - 1):
-                builder.add_edge(step_ids[i], step_ids[i + 1])
-            # Last step → END
-            if step_ids:
-                builder.add_edge(step_ids[-1], END)
+            # Wire edges sequentially, with conditional edge after quality_gate
+            has_quality_gate = "quality_gate" in step_ids
+            generate_idx = step_ids.index("generate") if "generate" in step_ids else -1
 
-            self._graph = builder.compile()
+            for i in range(len(step_ids) - 1):
+                src = step_ids[i]
+                dst = step_ids[i + 1]
+
+                # If this is the quality_gate step, use a conditional edge
+                # instead of a direct edge to the next step.
+                if src == "quality_gate" and has_quality_gate:
+                    # Find the node that follows quality_gate (usually "format")
+                    next_after_qg = step_ids[i + 1]
+
+                    def _quality_gate_router(state: dict) -> str:
+                        """Route based on quality gate confidence score.
+
+                        If the score is below the threshold AND we have not
+                        exceeded max retries, route back to ``generate``.
+                        Otherwise continue to the next step (e.g. ``format``).
+                        """
+                        qg_output = state.get("step_outputs", {}).get("quality_gate", {})
+                        score = qg_output.get("output", {}).get("score", 1.0) if isinstance(qg_output, dict) else 1.0
+                        retries = state.get("quality_retries", 0)
+                        threshold = self._config.quality_gate_confidence_threshold
+                        max_retries = self._config.quality_gate_max_retries
+
+                        if score < threshold and retries < max_retries:
+                            logger.info(
+                                "quality_gate_retry",
+                                score=round(score, 3),
+                                threshold=threshold,
+                                retries=retries,
+                                max_retries=max_retries,
+                            )
+                            return "generate"
+                        return next_after_qg
+
+                    builder.add_conditional_edges(
+                        "quality_gate",
+                        _quality_gate_router,
+                        {"generate": "generate", next_after_qg: next_after_qg},
+                    )
+                    # Skip the normal sequential edge for quality_gate
+                    # (the conditional edge handles routing).
+                    continue
+
+                builder.add_edge(src, dst)
+
+            # Last step → END  (only if it wasn't already handled above)
+            if step_ids and step_ids[-1] != "quality_gate":
+                builder.add_edge(step_ids[-1], END)
+            elif has_quality_gate:
+                # quality_gate is the last step — its conditional edge
+                # already routes to the next node or generate; the
+                # last non-conditional step needs an END edge.
+                # Find the step after quality_gate in the original list.
+                qg_idx = step_ids.index("quality_gate")
+                if qg_idx + 1 < len(step_ids):
+                    # The next step (e.g. format) should connect to END
+                    builder.add_edge(step_ids[qg_idx + 1], END)
+
+            # ── Compile with checkpointer ────────────────────────
+            compile_kwargs: Dict[str, Any] = {}
+            if self._checkpointer is not None:
+                compile_kwargs["checkpointer"] = self._checkpointer
+                logger.info(
+                    "checkpoint_compile_with_checkpointer",
+                    checkpointer_type=type(self._checkpointer).__name__,
+                )
+            else:
+                logger.info("checkpoint_compile_without_checkpointer")
+
+            self._graph = builder.compile(**compile_kwargs)
             self._langgraph_available = True
             logger.info(
                 "langgraph_stategraph_built",
                 company_id=self._config.company_id,
                 variant_type=self._config.variant_type,
                 node_count=len(step_ids),
+                has_checkpointer=self._checkpointer is not None,
+                has_quality_gate_loop=has_quality_gate,
             )
         except ImportError:
             self._langgraph_available = False
@@ -535,6 +708,14 @@ class LangGraphWorkflow:
         variant = self._config.variant_type
         pipeline_start = time.monotonic()
 
+        # Derive thread_id from conversation_id or ticket_id for checkpointing.
+        # Falls back to a new UUID if neither is provided (one-shot execution).
+        thread_id = (
+            kwargs.get("conversation_id")
+            or kwargs.get("ticket_id")
+            or f"wf-{workflow_id}"
+        )
+
         try:
             # Lazy-build graph if not yet built
             if not self._steps:
@@ -575,6 +756,7 @@ class LangGraphWorkflow:
                     max_time=max_time,
                     pipeline_start=pipeline_start,
                     workflow_id=workflow_id,
+                    thread_id=thread_id,
                     **kwargs,
                 )
                 if graph_result is not None:
@@ -791,6 +973,7 @@ class LangGraphWorkflow:
         max_time: float,
         pipeline_start: float,
         workflow_id: str,
+        thread_id: str = "",
         **kwargs: Any,
     ) -> Optional[WorkflowResult]:
         """Execute the pipeline using the compiled LangGraph StateGraph.
@@ -799,6 +982,9 @@ class LangGraphWorkflow:
         as it leverages the graph's built-in state management and error
         handling. Falls back to sequential execution if graph invocation
         fails (BC-008).
+
+        The ``thread_id`` is used as the checkpoint key so that the
+        workflow can be resumed later for the same conversation.
         """
         try:
             initial_state = {
@@ -810,11 +996,31 @@ class LangGraphWorkflow:
                 "final_response": "",
                 "total_tokens": 0,
                 "errors": [],
+                "quality_retries": 0,
             }
 
-            # Invoke the compiled graph
-            config = {"configurable": {"workflow_id": workflow_id}}
+            # Build checkpoint config with thread_id for persistence
+            config: Dict[str, Any] = {
+                "configurable": {
+                    "workflow_id": workflow_id,
+                    "thread_id": thread_id,
+                },
+            }
+
+            logger.info(
+                "checkpoint_invoking_graph",
+                workflow_id=workflow_id,
+                thread_id=thread_id,
+                has_checkpointer=self._checkpointer is not None,
+            )
+
             final_state = await self._graph.ainvoke(initial_state, config)
+
+            logger.info(
+                "checkpoint_graph_invocation_complete",
+                workflow_id=workflow_id,
+                thread_id=thread_id,
+            )
 
             # Parse results from graph state
             step_outputs = final_state.get("step_outputs", {})
@@ -848,6 +1054,7 @@ class LangGraphWorkflow:
                 "langgraph_execution_completed",
                 workflow_id=workflow_id,
                 company_id=company_id,
+                thread_id=thread_id,
                 status=overall_status,
                 steps_completed=len(steps_completed),
                 total_tokens=total_tokens,
@@ -871,6 +1078,7 @@ class LangGraphWorkflow:
                 error=str(exc),
                 workflow_id=workflow_id,
                 company_id=company_id,
+                thread_id=thread_id,
             )
             return None  # Signals caller to fall back to sequential execution
 
@@ -1520,6 +1728,208 @@ class LangGraphWorkflow:
 
         return {"raw_output": True}, tokens
 
+    # ── Checkpoint / State Query Methods ────────────────────────
+
+    async def get_workflow_state(
+        self, thread_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Retrieve the current checkpointed workflow state for a thread.
+
+        Uses the checkpointer's ``aget_tuple`` to load the latest
+        checkpoint for the given ``thread_id``.  Returns ``None`` if
+        no checkpoint exists or the checkpointer is not configured.
+
+        Args:
+            thread_id: The conversation / ticket thread identifier
+                (same value used during ``execute()``).
+
+        Returns:
+            Dictionary with ``values`` (current state) and ``metadata``,
+            or ``None`` if no checkpoint is available.
+        """
+        try:
+            if self._checkpointer is None:
+                logger.debug(
+                    "checkpoint_get_state_no_checkpointer",
+                    thread_id=thread_id,
+                )
+                return None
+
+            config: Dict[str, Any] = {
+                "configurable": {"thread_id": thread_id},
+            }
+
+            # MemorySaver exposes aget_tuple directly.
+            if hasattr(self._checkpointer, "aget_tuple"):
+                checkpoint_tuple = await self._checkpointer.aget_tuple(config)
+                if checkpoint_tuple is None:
+                    logger.info(
+                        "checkpoint_get_state_no_checkpoint",
+                        thread_id=thread_id,
+                    )
+                    return None
+
+                state_values = checkpoint_tuple.values
+                metadata = checkpoint_tuple.metadata or {}
+                logger.info(
+                    "checkpoint_state_loaded",
+                    thread_id=thread_id,
+                    checkpoint_ns=metadata.get("source", "unknown"),
+                )
+                return {
+                    "values": state_values,
+                    "metadata": metadata,
+                    "thread_id": thread_id,
+                }
+
+            logger.warning(
+                "checkpoint_get_state_unsupported_checkpointer",
+                checkpointer_type=type(self._checkpointer).__name__,
+            )
+            return None
+        except Exception as exc:
+            logger.warning(
+                "checkpoint_get_state_error",
+                thread_id=thread_id,
+                error=str(exc),
+            )
+            return None
+
+    async def resume_workflow(
+        self,
+        thread_id: str,
+        state_updates: Optional[Dict[str, Any]] = None,
+    ) -> Optional[WorkflowResult]:
+        """Resume a previously checkpointed workflow from its last state.
+
+        Loads the latest checkpoint for ``thread_id``, optionally merges
+        ``state_updates`` into the loaded state, and continues graph
+        execution from the last completed node.
+
+        This is useful for:
+          - Recovering from a mid-pipeline failure
+          - Injecting new context (e.g. updated knowledge) after a pause
+          - Human-in-the-loop approval patterns
+
+        Args:
+            thread_id: The conversation / ticket thread identifier.
+            state_updates: Optional dict of state fields to merge into
+                the loaded checkpoint before resuming.
+
+        Returns:
+            WorkflowResult if the graph was successfully resumed, or
+            ``None`` if no checkpoint exists or resumption failed.
+        """
+        try:
+            if self._checkpointer is None or self._graph is None:
+                logger.info(
+                    "checkpoint_resume_unavailable",
+                    thread_id=thread_id,
+                    has_checkpointer=self._checkpointer is not None,
+                    has_graph=self._graph is not None,
+                )
+                return None
+
+            config: Dict[str, Any] = {
+                "configurable": {"thread_id": thread_id},
+            }
+
+            # Load the existing checkpoint
+            checkpoint_state = await self.get_workflow_state(thread_id)
+            if checkpoint_state is None:
+                logger.info(
+                    "checkpoint_resume_no_state",
+                    thread_id=thread_id,
+                )
+                return None
+
+            # Merge state updates if provided
+            current_values = checkpoint_state.get("values", {})
+            if state_updates:
+                merged = dict(current_values)
+                for key, value in state_updates.items():
+                    # Merge step_outputs dicts, replace everything else
+                    if key == "step_outputs" and isinstance(merged.get(key), dict) and isinstance(value, dict):
+                        merged[key] = {**merged[key], **value}
+                    else:
+                        merged[key] = value
+                input_state = merged
+            else:
+                input_state = None  # None means "resume from last checkpoint"
+
+            workflow_id = f"resume-{str(uuid.uuid4())[:8]}"
+            pipeline_start = time.monotonic()
+
+            logger.info(
+                "checkpoint_resuming_workflow",
+                thread_id=thread_id,
+                workflow_id=workflow_id,
+                has_updates=state_updates is not None,
+            )
+
+            # Resume: pass None as input to continue from checkpoint,
+            # or the merged state if updates were provided.
+            if input_state is not None:
+                final_state = await self._graph.ainvoke(input_state, config)
+            else:
+                final_state = await self._graph.ainvoke(None, config)
+
+            # Parse results (same logic as _execute_via_langgraph)
+            step_outputs = final_state.get("step_outputs", {})
+            step_results: Dict[str, WorkflowStepResult] = {}
+            steps_completed: List[str] = []
+            total_tokens = final_state.get("total_tokens", 0)
+            final_response = final_state.get("final_response", "")
+            errors = final_state.get("errors", [])
+            overall_status = "success"
+
+            for step_id, output in step_outputs.items():
+                step_results[step_id] = WorkflowStepResult(
+                    step_id=step_id,
+                    status=output.get("status", "unknown"),
+                    tokens_used=output.get("tokens_used", 0),
+                    duration_ms=output.get("duration_ms", 0.0),
+                    error=output.get("error"),
+                    output=output.get("output", {}),
+                )
+                if output.get("status") == "success":
+                    steps_completed.append(step_id)
+                elif output.get("status") in ("error", "timeout"):
+                    overall_status = "partial"
+
+            if errors:
+                overall_status = "partial"
+
+            total_duration_ms = round((time.monotonic() - pipeline_start) * 1000, 2)
+
+            logger.info(
+                "checkpoint_resume_completed",
+                thread_id=thread_id,
+                workflow_id=workflow_id,
+                status=overall_status,
+                steps_completed=len(steps_completed),
+                duration_ms=total_duration_ms,
+            )
+
+            return WorkflowResult(
+                workflow_id=workflow_id,
+                variant_type=self._config.variant_type,
+                status=overall_status,
+                steps_completed=steps_completed,
+                step_results=step_results,
+                final_response=final_response,
+                total_tokens_used=total_tokens,
+                total_duration_ms=total_duration_ms,
+            )
+
+        except Exception as exc:
+            logger.warning(
+                "checkpoint_resume_error",
+                thread_id=thread_id,
+                error=str(exc),
+            )
+            return None
+
     # ── Query Methods ──────────────────────────────────────────
 
     def get_step(
@@ -1606,6 +2016,8 @@ class LangGraphWorkflow:
             self._graph = None
             self._steps = []
             self._langgraph_available = None
+            # Re-initialise a fresh checkpointer (clears MemorySaver state).
+            self._init_checkpointer()
             logger.info("workflow_engine_reset")
         except Exception as exc:
             logger.warning(

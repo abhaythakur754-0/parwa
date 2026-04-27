@@ -3,6 +3,10 @@ Alembic environment configuration.
 
 Imports all models so autogenerate detects them.
 Works with both PostgreSQL (production) and SQLite (CI tests).
+
+Bug Fix Day 4: script_location can be overridden via ALEMBIC_MIGRATIONS_DIR
+environment variable.  When set, it replaces the path from alembic.ini.
+Defaults to the current ``alembic/`` relative path for backward compatibility.
 """
 
 from logging.config import fileConfig
@@ -35,9 +39,16 @@ from database.base import Base
 
 config = context.config
 
+# Bug Fix Day 4: Allow ALEMBIC_MIGRATIONS_DIR to override script_location.
+# This supports deploying from different directory structures (Docker,
+# CI, bare metal) without modifying alembic.ini.
+import os
+_migrations_dir = os.environ.get("ALEMBIC_MIGRATIONS_DIR", "")
+if _migrations_dir:
+    config.set_main_option("script_location", _migrations_dir)
+
 # Override sqlalchemy.url from DATABASE_URL environment variable
 # This is required for Docker deployments where the URL comes from env
-import os
 _database_url = os.environ.get("DATABASE_URL", "")
 if _database_url:
     config.set_main_option("sqlalchemy.url", _database_url)

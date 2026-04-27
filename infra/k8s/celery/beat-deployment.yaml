@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parwa-celery-beat
+  namespace: parwa
+  labels:
+    app: parwa-celery-beat
+    component: scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: parwa-celery-beat
+  template:
+    metadata:
+      labels:
+        app: parwa-celery-beat
+        component: scheduler
+    spec:
+      containers:
+        - name: celery-beat
+          image: {{ECR_REGISTRY}}/parwa-backend:latest
+          command:
+            - celery
+            - -A
+            - app.celery_app
+            - beat
+            - --loglevel=info
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: APP_ENV
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: LOG_LEVEL
+            - name: CELERY_BROKER_URL
+              value: "redis://parwa-redis.parwa.svc.cluster.local:6379/0"
+            - name: CELERY_RESULT_BACKEND
+              value: "redis://parwa-redis.parwa.svc.cluster.local:6379/1"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-backend-secrets
+                  key: database-url
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-backend-secrets
+                  key: secret-key
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: beat-schedule
+              mountPath: /tmp/celerybeat-schedule
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: beat-schedule
+          emptyDir: {}

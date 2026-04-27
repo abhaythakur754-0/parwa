@@ -19,7 +19,9 @@ on:
         default: ''
 
 jobs:
-  rollback:
+  rollback-backend:
+    name: Rollback Backend (ECS)
+    if: inputs.component == 'backend' || inputs.component == 'both'
     runs-on: ubuntu-latest
     environment: production
 
@@ -27,7 +29,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Need full history for rollback
+          fetch-depth: 0
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -40,103 +42,286 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Get previous image tag
-        id: get-previous-tag
-        if: inputs.target_tag == ''
-        run: |
-          # Get the previous successful deployment tag from parameter store
-          PREV_TAG=$(aws ssm get-parameter --name "/parwa/${{ inputs.component }}/previous-tag" --with-decryption --query 'Parameter.Value' --output text 2>/dev/null || echo "")
-          
-          if [ -z "$PREV_TAG" ]; then
-            # Fallback: get second-to-last commit on main
-            PREV_TAG=$(git rev-parse HEAD~1)
-          fi
-          
-          echo "rollback_tag=${PREV_TAG}" >> $GITHUB_OUTPUT
-          echo "Rolling back to: ${PREV_TAG}"
-
-      - name: Set target tag
-        id: set-tag
+      - name: Resolve rollback tag
+        id: resolve-tag
         run: |
           if [ -n "${{ inputs.target_tag }}" ]; then
-            echo "target_tag=${{ inputs.target_tag }}" >> $GITHUB_OUTPUT
+            ROLLBACK_TAG="${{ inputs.target_tag }}"
           else
-            echo "target_tag=${{ steps.get-previous-tag.outputs.rollback_tag }}" >> $GITHUB_OUTPUT
+            # Try SSM Parameter Store for the previous known-good tag
+            ROLLBACK_TAG=$(aws ssm get-parameter \
+              --name "/parwa/backend/previous-tag" \
+              --with-decryption \
+              --query 'Parameter.Value' \
+              --output text 2>/dev/null) || true
+
+            if [ -z "$ROLLBACK_TAG" ]; then
+              # Fallback: second-to-last commit on main
+              ROLLBACK_TAG=$(git rev-parse HEAD~1)
+              echo "::warning::No SSM previous-tag found, falling back to HEAD~1: ${ROLLBACK_TAG}"
+            fi
           fi
 
-      - name: Rollback Backend
-        if: inputs.component == 'backend' || inputs.component == 'both'
+          # Validate the tag/image exists in ECR
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          IMAGE="${ECR_REGISTRY}/parwa-backend:${ROLLBACK_TAG}"
+          if ! aws ecr describe-images --repository-name parwa-backend --image-ids imageTag="${ROLLBACK_TAG}" >/dev/null 2>&1; then
+            echo "::error::Image ${IMAGE} not found in ECR. Cannot rollback to ${ROLLBACK_TAG}."
+            exit 1
+          fi
+
+          echo "rollback_tag=${ROLLBACK_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Rolling back backend to: ${ROLLBACK_TAG}"
+
+      - name: Rollback ECS service
         run: |
-          TARGET_TAG=${{ steps.set-tag.outputs.target_tag }}
-          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          
-          echo "Rolling backend to tag: ${TARGET_TAG}"
-          
-          # Update ECS service to use previous task definition
-          # or create new task definition with the previous image
+          TARGET_TAG=${{ steps.resolve-tag.outputs.rollback_tag }}
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          IMAGE="${ECR_REGISTRY}/parwa-backend:${TARGET_TAG}"
+
+          echo "Deploying image: ${IMAGE}"
+
+          # Retrieve the current task definition, patch the image, and redeploy
+          CURRENT_TD=$(aws ecs describe-services \
+            --cluster parwa-prod \
+            --services parwa-backend \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          echo "Current task definition: ${CURRENT_TD}"
+
+          # Render a new task definition with the rollback image
+          aws ecs describe-task-definition \
+            --task-definition "${CURRENT_TD}" \
+            --query 'taskDefinition' \
+          | sed "s|\"image\":.*parwa-backend.*|\"image\": \"${IMAGE}\"|" \
+          > rollback-task-def.json
+
+          NEW_TD=$(aws ecs register-task-definition \
+            --cli-input-json file://rollback-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "Registered new task definition: ${NEW_TD}"
+
           aws ecs update-service \
             --cluster parwa-prod \
             --service parwa-backend \
-            --force-new-deployment \
-            --task-definition parwa-backend:${TARGET_TAG} || \
-          echo "Rollback command executed (task definition may not exist yet)"
+            --task-definition "${NEW_TD}" \
+            --force-new-deployment
 
-      - name: Rollback Frontend
-        if: inputs.component == 'frontend' || inputs.component == 'both'
+          echo "Backend service update initiated. Waiting for stability..."
+
+      - name: Wait for backend service stability
         run: |
-          TARGET_TAG=${{ steps.set-tag.outputs.target_tag }}
-          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          
-          echo "Rolling frontend to tag: ${TARGET_TAG}"
-          
-          # Update ECS service to use previous task definition
-          aws ecs update-service \
+          aws ecs wait services-stable \
             --cluster parwa-prod \
-            --service parwa-frontend \
-            --force-new-deployment \
-            --task-definition parwa-frontend:${TARGET_TAG} || \
-          echo "Rollback command executed (task definition may not exist yet)"
+            --services parwa-backend
 
-      - name: Wait for service stability
-        if: inputs.component == 'backend' || inputs.component == 'frontend'
+          echo "Backend service is stable."
+
+      - name: Backend smoke test
         run: |
-          if [ "${{ inputs.component }}" = "backend" ] || [ "${{ inputs.component }}" = "both" ]; then
-            echo "Waiting for backend service stability..."
-            aws ecs wait services-stable --cluster parwa-prod --services parwa-backend || true
+          sleep 15
+          HEALTH_URL="https://parwa.ai/api/health"
+          HTTP_CODE=$(curl -sf -o /dev/null -w '%{http_code}' "${HEALTH_URL}" || echo "000")
+
+          if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 400 ]; then
+            echo "Backend smoke test PASSED (HTTP ${HTTP_CODE})"
+          else
+            echo "::error::Backend smoke test FAILED (HTTP ${HTTP_CODE})"
+            exit 1
           fi
-          
-          if [ "${{ inputs.component }}" = "frontend" ] || [ "${{ inputs.component }}" = "both" ]; then
-            echo "Waiting for frontend service stability..."
-            aws ecs wait services-stable --cluster parwa-prod --services parwa-frontend || true
-          fi
 
-      - name: Run smoke tests
-        run: |
-          echo "Running smoke tests against rolled-back deployment..."
-          
-          # Wait for service to be ready
-          sleep 30
-          
-          # Basic health check
-          curl -f https://parwa.ai/health || echo "Health check warning"
-          curl -f https://parwa.ai/api/health || echo "API health check warning"
-
-      - name: Notify rollback
-        if: always()
-        run: |
-          echo "## Rollback Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Component:** ${{ inputs.component }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Target Tag:** ${{ steps.set-tag.outputs.target_tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-
-      - name: Create rollback record
+      - name: Update SSM tags after successful rollback
         if: success()
         run: |
-          # Store current tag before rollback for future reference
-          CURRENT_TAG=$(git rev-parse HEAD)
+          CURRENT_TAG=$(aws ssm get-parameter \
+            --name "/parwa/backend/current-tag" \
+            --query 'Parameter.Value' \
+            --output text 2>/dev/null) || true
+
+          if [ -n "${CURRENT_TAG}" ]; then
+            aws ssm put-parameter \
+              --name "/parwa/backend/rolled-back-from" \
+              --value "${CURRENT_TAG}" \
+              --type "String" \
+              --overwrite
+          fi
+
           aws ssm put-parameter \
-            --name "/parwa/${{ inputs.component }}/rolled-back-from" \
-            --value "${CURRENT_TAG}" \
+            --name "/parwa/backend/current-tag" \
+            --value "${{ steps.resolve-tag.outputs.rollback_tag }}" \
             --type "String" \
-            --overwrite || echo "Could not store rollback record"
+            --overwrite
+
+  rollback-frontend:
+    name: Rollback Frontend (S3/CloudFront)
+    if: inputs.component == 'frontend' || inputs.component == 'both'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve rollback tag
+        id: resolve-tag
+        run: |
+          if [ -n "${{ inputs.target_tag }}" ]; then
+            ROLLBACK_TAG="${{ inputs.target_tag }}"
+          else
+            # Try SSM Parameter Store for the previous known-good tag
+            ROLLBACK_TAG=$(aws ssm get-parameter \
+              --name "/parwa/frontend/previous-tag" \
+              --with-decryption \
+              --query 'Parameter.Value' \
+              --output text 2>/dev/null) || true
+
+            if [ -z "$ROLLBACK_TAG" ]; then
+              ROLLBACK_TAG=$(git rev-parse HEAD~1)
+              echo "::warning::No SSM previous-tag found, falling back to HEAD~1: ${ROLLBACK_TAG}"
+            fi
+          fi
+
+          # Validate the commit/tag exists in the repo
+          if ! git cat-file -t "${ROLLBACK_TAG}" >/dev/null 2>&1; then
+            echo "::error::Git ref ${ROLLBACK_TAG} not found. Cannot rollback."
+            exit 1
+          fi
+
+          echo "rollback_tag=${ROLLBACK_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Rolling back frontend to: ${ROLLBACK_TAG}"
+
+      - name: Checkout rollback commit
+        run: |
+          git checkout "${{ steps.resolve-tag.outputs.rollback_tag }}"
+          echo "Checked out: $(git rev-parse HEAD)"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Build Frontend
+        run: bun run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'https://parwa.ai' }}
+          NEXT_PUBLIC_PADDLE_KEY: ${{ secrets.NEXT_PUBLIC_PADDLE_KEY || '' }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Sync to S3 Bucket
+        run: |
+          BUCKET="${{ secrets.FRONTEND_BUCKET_NAME }}"
+
+          if [ -z "$BUCKET" ]; then
+            echo "::error::FRONTEND_BUCKET_NAME secret is not set."
+            exit 1
+          fi
+
+          # Verify S3 bucket exists
+          if ! aws s3 ls "s3://${BUCKET}" >/dev/null 2>&1; then
+            echo "::error::S3 bucket s3://${BUCKET} not found or not accessible."
+            exit 1
+          fi
+
+          echo "Syncing .next/standalone/ to s3://${BUCKET} ..."
+          aws s3 sync .next/standalone/ "s3://${BUCKET}" --delete
+          echo "S3 sync complete."
+
+      - name: Invalidate CloudFront Cache
+        run: |
+          DISTRIBUTION_ID="${{ secrets.CF_DISTRIBUTION_ID }}"
+
+          if [ -z "$DISTRIBUTION_ID" ]; then
+            echo "::error::CF_DISTRIBUTION_ID secret is not set."
+            exit 1
+          fi
+
+          echo "Invalidating CloudFront distribution: ${DISTRIBUTION_ID}"
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "${DISTRIBUTION_ID}" \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+
+          echo "Invalidation created: ${INVALIDATION_ID}"
+
+          # Wait for invalidation to complete (max ~25 min default)
+          aws cloudfront wait invalidation-completed \
+            --id "${INVALIDATION_ID}" \
+            --distribution-id "${DISTRIBUTION_ID}"
+
+          echo "CloudFront invalidation completed."
+
+      - name: Frontend smoke test
+        run: |
+          sleep 10
+          HTTP_CODE=$(curl -sf -o /dev/null -w '%{http_code}' "https://parwa.ai" || echo "000")
+
+          if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 400 ]; then
+            echo "Frontend smoke test PASSED (HTTP ${HTTP_CODE})"
+          else
+            echo "::error::Frontend smoke test FAILED (HTTP ${HTTP_CODE})"
+            exit 1
+          fi
+
+      - name: Update SSM tags after successful rollback
+        if: success()
+        run: |
+          CURRENT_TAG=$(aws ssm get-parameter \
+            --name "/parwa/frontend/current-tag" \
+            --query 'Parameter.Value' \
+            --output text 2>/dev/null) || true
+
+          if [ -n "${CURRENT_TAG}" ]; then
+            aws ssm put-parameter \
+              --name "/parwa/frontend/rolled-back-from" \
+              --value "${CURRENT_TAG}" \
+              --type "String" \
+              --overwrite
+          fi
+
+          aws ssm put-parameter \
+            --name "/parwa/frontend/current-tag" \
+            --value "${{ steps.resolve-tag.outputs.rollback_tag }}" \
+            --type "String" \
+            --overwrite
+
+  rollback-summary:
+    name: Rollback Summary
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [rollback-backend, rollback-frontend]
+    environment: production
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Rollback Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Component | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|--------|" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ inputs.component }}" == "backend" ] || [ "${{ inputs.component }}" == "both" ]; then
+            echo "| Backend | \`${{ needs.rollback-backend.result }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${{ inputs.component }}" == "frontend" ] || [ "${{ inputs.component }}" == "both" ]; then
+            echo "| Frontend | \`${{ needs.rollback-frontend.result }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by:** @${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> "$GITHUB_STEP_SUMMARY"

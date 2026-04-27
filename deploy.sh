@@ -16,6 +16,9 @@ set -e
 COMPOSE_FILE="docker-compose.yml"
 COMPOSE_CMD="docker compose"
 
+# Bug Fix Day 4: Ensure shared/ module is importable by adding backend/app to PYTHONPATH
+export PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}$(cd "$(dirname "$0")/backend/app" 2>/dev/null && pwd)"
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

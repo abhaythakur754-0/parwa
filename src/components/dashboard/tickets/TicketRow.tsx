@@ -32,12 +32,8 @@ const channelIcons: Record<TicketChannel, string> = {
   chat: '💬',
   sms: '📱',
   voice: '🎙️',
-  whatsapp: '🟢',
-  messenger: '🙋',
-  twitter: '🐦',
-  instagram: '📷',
-  telegram: '✈️',
   slack: '💡',
+  webchat: '🌐',
 };
 
 function timeAgo(dateStr: string): string {

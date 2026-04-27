@@ -1,19 +1,6 @@
 """
 DSPy Framework Integration (F-061)
 
-# TODO: DSPy is planned but not yet fully integrated into the pipeline.
-# TODO(Day6 — I4): DSPy is planned but NOT yet integrated into the main AI
-# pipeline.  The ``import dspy`` below is guarded by try/except ImportError
-# and will fall back to stub implementations.  When DSPy is fully wired,
-# ai_pipeline.py's _stage_response_generation should delegate to
-# DSPyIntegration.optimize_response() for prompt optimization.  Until
-# then, all DSPy operations degrade gracefully to stub defaults (BC-008).
-# NOTE: This module provides DSPy signature definitions, module creation,
-# and optimization utilities, but the main AI pipeline (ai_pipeline.py) does
-# NOT currently call DSPy for response generation.  When DSPy is integrated,
-# ai_pipeline.py's _stage_response_generation should delegate to
-# DSPyIntegration.optimize_response() for prompt optimization.
-
 Provides DSPy module wrappers for PARWA techniques with:
 - Signature definitions for common AI tasks
 - Optimizer integration (BootstrapFewShot, MIPROv2)
@@ -21,6 +8,13 @@ Provides DSPy module wrappers for PARWA techniques with:
 - DSPy adapter bridging ConversationState with DSPy modules
 - Fallback mechanism (graceful degradation when DSPy unavailable)
 - Per-tenant configuration
+
+Wiring: ai_pipeline.py's ``_stage_response_generation`` calls
+``DSPyIntegration.optimize_response()`` when the ``DSPY_ENABLED``
+environment variable is set to ``true`` (default: ``false``).
+The optimization intercepts the response *after* standard generation
+but *before* the CLARA quality gate.  On any DSPy failure the
+original response is preserved (BC-008 graceful degradation).
 
 DSPy may not be installed. This module uses try/except ImportError
 to gracefully degrade to stub implementations.

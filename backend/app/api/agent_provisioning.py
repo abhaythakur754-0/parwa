@@ -52,7 +52,7 @@ class CreateCheckoutRequest(BaseModel):
     )
     channels: List[str] = Field(
         ...,
-        description="List of channels (chat, email, sms, whatsapp, voice)",
+        description="List of channels (chat, email, sms, voice, slack, webchat)",
     )
 
 

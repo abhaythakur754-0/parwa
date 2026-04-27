@@ -23,11 +23,12 @@ Usage:
 """
 
 import asyncio
+import fnmatch
 import json
 import re
 import threading
 import time
-from typing import Any, List, Optional
+from typing import Any, Callable, Coroutine, List, Optional
 
 import redis.asyncio as aioredis
 
@@ -46,6 +47,13 @@ _redis_client: Optional[aioredis.Redis] = None
 # sync accessor, so this lock is a defensive placeholder.
 _redis_thread_lock = threading.Lock()
 _redis_init_lock = asyncio.Lock()
+
+# Pub/sub state for cache invalidation (Bug Fix Day 4)
+_pubsub_client: Optional[aioredis.Redis] = None
+_pubsub_thread: Optional[threading.Thread] = None
+_pubsub_running = False
+_pubsub_lock = threading.Lock()
+_invalidation_callbacks: List[Callable[[str, str], Coroutine[Any, Any, None]]] = []
 
 # NOTE: No sync get_redis() or get_redis_sync() exists in this module.
 # If one is added in the future, it MUST acquire _redis_thread_lock
@@ -308,6 +316,8 @@ async def close_redis() -> None:
     global _redis_client  # noqa: PLW0603
     if _redis_client is not None:
         try:
+            # Stop cache invalidation listener before closing Redis
+            await stop_invalidation_listener()
             await _redis_client.aclose()
             logger.info("redis_disconnected")
         except Exception as exc:
@@ -413,3 +423,227 @@ async def cache_delete(company_id: str, key: str) -> bool:
         return True
     except Exception:
         return False
+
+
+# ════════════════════════════════════════════════════════════════════
+# CACHE INVALIDATION PUB/SUB (Bug Fix Day 4)
+# ════════════════════════════════════════════════════════════════════
+
+
+async def publish_invalidation(
+    company_id: str,
+    key_pattern: str,
+) -> bool:
+    """Publish a cache invalidation event to the tenant's channel.
+
+    Other workers/subscribers listening on ``parwa:cache_invalidation:{company_id}``
+    will receive the event and delete matching cache keys.
+
+    Args:
+        company_id: Tenant identifier (BC-001).
+        key_pattern: Glob pattern to match cache keys (e.g., ``knowledge_*``).
+
+    Returns:
+        True if publish succeeded, False otherwise.
+    """
+    try:
+        client = await get_redis()
+        channel = f"parwa:cache_invalidation:{company_id}"
+        payload = json.dumps({
+            "company_id": company_id,
+            "key_pattern": key_pattern,
+            "timestamp": time.time(),
+        })
+        await client.publish(channel, payload)
+        logger.info(
+            "cache_invalidation_published",
+            extra={
+                "company_id": company_id,
+                "key_pattern": key_pattern,
+            },
+        )
+        return True
+    except Exception as exc:
+        logger.warning(
+            "cache_invalidation_publish_failed",
+            error=str(exc),
+        )
+        return False
+
+
+def subscribe_invalidations(
+    callback: Callable[[str, str], Coroutine[Any, Any, None]],
+) -> None:
+    """Register an async callback for cache invalidation events.
+
+    The callback receives ``(company_id, key_pattern)`` whenever a
+    ``publish_invalidation`` event is received.
+
+    Args:
+        callback: Async function(company_id, key_pattern) to call on events.
+    """
+    with _pubsub_lock:
+        _invalidation_callbacks.append(callback)
+    logger.info(
+        "cache_invalidation_subscriber_registered",
+        extra={"callback": getattr(callback, "__name__", str(callback))},
+    )
+
+
+async def _handle_invalidation_message(
+    company_id: str,
+    key_pattern: str,
+) -> None:
+    """Process an invalidation message: delete matching cache keys.
+
+    Scans all keys in the tenant's cache namespace and deletes those
+    matching the provided glob pattern.
+
+    Args:
+        company_id: Tenant identifier.
+        key_pattern: Glob pattern to match against key suffixes.
+    """
+    try:
+        client = await get_redis()
+        prefix = make_key(company_id, "cache", "")
+        pattern = f"{prefix}{key_pattern}"
+        matched_keys = []
+
+        # Use SCAN to find matching keys (non-blocking)
+        async for key in client.scan_iter(match=pattern, count=100):
+            matched_keys.append(key)
+
+        if matched_keys:
+            await client.delete(*matched_keys)
+            logger.info(
+                "cache_invalidation_applied",
+                extra={
+                    "company_id": company_id,
+                    "key_pattern": key_pattern,
+                    "keys_deleted": len(matched_keys),
+                },
+            )
+
+        # Also fire registered callbacks
+        for cb in _invalidation_callbacks:
+            try:
+                await cb(company_id, key_pattern)
+            except Exception as exc:
+                logger.warning(
+                    "cache_invalidation_callback_error",
+                    error=str(exc),
+                    callback=getattr(cb, "__name__", str(cb)),
+                )
+
+    except Exception as exc:
+        logger.warning(
+            "cache_invalidation_handle_failed",
+            error=str(exc),
+            company_id=company_id,
+        )
+
+
+async def _pubsub_listener() -> None:
+    """Async loop that listens for cache invalidation pub/sub messages.
+
+    Subscribes to ``parwa:cache_invalidation:*`` channels and dispatches
+    messages to ``_handle_invalidation_message``.
+    """
+    global _pubsub_running
+    try:
+        client = await get_redis()
+        pubsub = client.pubsub()
+        await pubsub.psubscribe("parwa:cache_invalidation:*")
+
+        logger.info("cache_invalidation_pubsub_started")
+
+        async for message in pubsub.listen():
+            if not _pubsub_running:
+                break
+            if message["type"] == "pmessage":
+                try:
+                    data = json.loads(message["data"])
+                    company_id = data.get("company_id", "")
+                    key_pattern = data.get("key_pattern", "")
+                    if company_id and key_pattern:
+                        await _handle_invalidation_message(
+                            company_id, key_pattern,
+                        )
+                except (json.JSONDecodeError, TypeError) as exc:
+                    logger.warning(
+                        "cache_invalidation_malformed_message",
+                        error=str(exc),
+                    )
+    except asyncio.CancelledError:
+        pass
+    except Exception as exc:
+        logger.warning(
+            "cache_invalidation_pubsub_error",
+            error=str(exc),
+        )
+
+
+async def start_invalidation_listener() -> None:
+    """Start the cache invalidation pub/sub listener.
+
+    Call this during application startup (lifespan).  Safe to call
+    multiple times — only one listener runs at a time.
+
+    BC-012: Fail-open — errors are logged, never crash.
+    """
+    global _pubsub_running, _pubsub_thread
+    with _pubsub_lock:
+        if _pubsub_running:
+            return
+        _pubsub_running = True
+
+    try:
+        # Create a new event loop for the listener thread
+        loop = asyncio.new_event_loop()
+        _pubsub_thread = threading.Thread(
+            target=loop.run_until_complete,
+            args=(_pubsub_listener(),),
+            daemon=True,
+            name="redis_invalidation_listener",
+        )
+        _pubsub_thread.start()
+        logger.info("cache_invalidation_listener_thread_started")
+    except Exception as exc:
+        _pubsub_running = False
+        logger.warning(
+            "cache_invalidation_listener_start_failed",
+            error=str(exc),
+        )
+
+
+async def stop_invalidation_listener() -> None:
+    """Stop the cache invalidation pub/sub listener.
+
+    Call this during application shutdown.  Safe to call if not running.
+    """
+    global _pubsub_running, _pubsub_thread
+    with _pubsub_lock:
+        _pubsub_running = False
+        if _pubsub_thread and _pubsub_thread.is_alive():
+            _pubsub_thread.join(timeout=5)
+        _pubsub_thread = None
+    logger.info("cache_invalidation_listener_stopped")
+
+
+async def invalidate_knowledge_cache(company_id: str) -> bool:
+    """Convenience method: invalidate all knowledge-base cache for a tenant.
+
+    Publishes an invalidation for the ``knowledge_*`` key pattern and
+    also directly deletes matching keys on this worker.
+
+    Args:
+        company_id: Tenant identifier (BC-001).
+
+    Returns:
+        True if publish succeeded, False otherwise.
+    """
+    pattern = "knowledge_*"
+    # Delete locally first
+    await _handle_invalidation_message(company_id, pattern)
+    # Then broadcast to other workers
+    return await publish_invalidation(company_id, pattern)

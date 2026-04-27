@@ -327,11 +327,11 @@ async def handle_payment_failed_webhook(
         webhook.failure_code,
     )
 
-    # Process immediately
+    # Process immediately with grace period flow
     service = get_payment_failure_service()
 
     try:
-        result = await service.handle_payment_failure(
+        result = await service.handle_payment_failure_with_grace_period(
             company_id=UUID(webhook.company_id),
             paddle_transaction_id=webhook.paddle_transaction_id,
             failure_code=webhook.failure_code,
@@ -340,15 +340,6 @@ async def handle_payment_failed_webhook(
             paddle_subscription_id=webhook.paddle_subscription_id,
             currency=webhook.currency,
         )
-
-        # Trigger background tasks for service stop
-        if result.get("status") == "stopped":
-            from app.tasks.payment_failure_tasks import stop_service_immediately
-            stop_service_immediately.delay(
-                company_id=webhook.company_id,
-                failure_id=result["failure_id"],
-                failure_reason=webhook.failure_reason,
-            )
 
         return result
 
@@ -442,14 +433,16 @@ async def get_billing_status(company_id: str):
 
         service = get_payment_failure_service()
         service_stopped = await service.is_service_stopped(UUID(company_id))
+        in_grace = await service.is_in_grace_period(UUID(company_id))
         active_failure = await service.get_active_failure(UUID(company_id))
+        grace_status = await service.get_grace_period_status(UUID(company_id))
         history = await service.get_payment_failure_history(UUID(company_id), limit=1)
 
     return BillingStatusResponse(
         company_id=company_id,
         subscription_status=company.subscription_status or "none",
-        service_stopped=service_stopped,
-        active_failure=active_failure,
+        service_stopped=service_stopped or in_grace,  # Also consider grace period as "not fully operational"
+        active_failure=grace_status or active_failure,
         last_payment_failure=history[0] if history else None,
     )
 
@@ -461,7 +454,11 @@ async def _process_payment_failed(
     event_id: str,
     data: Dict[str, Any],
 ):
-    """Process payment failed event in background."""
+    """Process payment failed event in background.
+
+    Uses the 7-day grace period flow: sets subscription to 'past_due'
+    and starts a grace period instead of immediately stopping service.
+    """
     try:
         service = get_payment_failure_service()
 
@@ -478,7 +475,8 @@ async def _process_payment_failed(
         elif data.get("total"):
             amount = Decimal(str(data["total"]))
 
-        result = await service.handle_payment_failure(
+        # Use grace period flow: past_due + 7-day grace period
+        result = await service.handle_payment_failure_with_grace_period(
             company_id=UUID(company_id),
             paddle_transaction_id=transaction_id,
             failure_code=failure_code,
@@ -486,14 +484,6 @@ async def _process_payment_failed(
             amount_attempted=amount,
             paddle_subscription_id=subscription_id,
         )
-
-        if result.get("status") == "stopped":
-            from app.tasks.payment_failure_tasks import stop_service_immediately
-            stop_service_immediately.delay(
-                company_id=company_id,
-                failure_id=result["failure_id"],
-                failure_reason=failure_reason,
-            )
 
         logger.info(
             "payment_failed_processed company_id=%s event_id=%s status=%s",

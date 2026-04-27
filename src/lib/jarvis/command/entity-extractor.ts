@@ -161,8 +161,7 @@ const ENTITY_PATTERNS: EntityPattern[] = [
       /\b(chat|live\s*chat|webchat)\b/gi,
       /\b(phone|call|voice)\b/gi,
       /\b(sms|text|message)\b/gi,
-      /\b(whatsapp|wa)\b/gi,
-      /\b(social|twitter|facebook|instagram)\b/gi,
+      /\b(slack|webchat)\b/gi,
     ],
     normalization: (v) => {
       const lower = v.toLowerCase();
@@ -170,8 +169,8 @@ const ENTITY_PATTERNS: EntityPattern[] = [
       if (/chat/.test(lower)) return 'chat';
       if (/phone|call|voice/.test(lower)) return 'phone';
       if (/sms|text/.test(lower)) return 'sms';
-      if (/whatsapp|wa/.test(lower)) return 'whatsapp';
-      if (/social|twitter|facebook|instagram/.test(lower)) return 'social';
+      if (/slack/.test(lower)) return 'slack';
+      if (/webchat/.test(lower)) return 'webchat';
       return lower;
     },
     priority: 6,

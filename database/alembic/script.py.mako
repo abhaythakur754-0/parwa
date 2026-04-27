@@ -4,6 +4,8 @@ Revision ID: ${up_revision}
 Revises: ${down_revision | comma,n}
 Create Date: ${create_date}
 
+Bug Fix Day 4: Migration paths are configurable via ALEMBIC_MIGRATIONS_DIR
+environment variable. See alembic/env.py for details.
 """
 
 from alembic import op

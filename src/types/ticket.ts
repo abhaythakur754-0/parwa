@@ -23,12 +23,8 @@ export type TicketChannel =
   | 'chat'
   | 'sms'
   | 'voice'
-  | 'whatsapp'
-  | 'messenger'
-  | 'twitter'
-  | 'instagram'
-  | 'telegram'
-  | 'slack';
+  | 'slack'
+  | 'webchat';
 
 export type TicketSentiment = 'positive' | 'neutral' | 'negative' | 'mixed';
 

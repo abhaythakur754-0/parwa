@@ -39,12 +39,7 @@ DEFAULT_CHANNELS = [
     {"name": "chat", "channel_type": "chat", "description": "Live chat widget"},
     {"name": "sms", "channel_type": "sms", "description": "SMS/Messaging"},
     {"name": "voice", "channel_type": "voice", "description": "Voice/Phone calls"},
-    {"name": "whatsapp", "channel_type": "social", "description": "WhatsApp Business"},
-    {"name": "messenger", "channel_type": "social", "description": "Facebook Messenger"},
-    {"name": "twitter", "channel_type": "social", "description": "Twitter/X DMs"},
-    {"name": "instagram", "channel_type": "social", "description": "Instagram DMs"},
-    {"name": "telegram", "channel_type": "social", "description": "Telegram"},
-    {"name": "slack", "channel_type": "chat", "description": "Slack integration"},
+    {"name": "slack",  "channel_type": "chat", "description": "Slack integration"},
     {"name": "webchat", "channel_type": "chat", "description": "Web chat widget"},
 ]
 
@@ -54,11 +49,6 @@ CHANNEL_CHAR_LIMITS = {
     "chat": 4000,
     "sms": 1600,  # 10 SMS segments
     "voice": 500,  # Brief summaries
-    "whatsapp": 4096,
-    "messenger": 2000,
-    "twitter": 10000,  # Twitter DM limit
-    "instagram": 1000,
-    "telegram": 4096,
     "slack": 40000,
     "webchat": 4000,
 }
@@ -261,11 +251,6 @@ class ChannelService:
             if not config_data.get("provider") and not config_data.get("twilio_sid"):
                 result["success"] = False
                 result["message"] = "SMS configuration incomplete: missing provider settings"
-
-        elif channel_type in ["whatsapp", "messenger", "instagram"]:
-            if not config_data.get("page_id") and not config_data.get("business_id"):
-                result["success"] = False
-                result["message"] = f"{channel_type} configuration incomplete: missing page/business ID"
 
         elif channel_type == "slack":
             if not config_data.get("bot_token") and not config_data.get("webhook_url"):

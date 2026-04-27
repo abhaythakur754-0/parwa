@@ -409,8 +409,8 @@ class TestCustomerChannelCreate:
         from backend.app.schemas.customer import CustomerChannelCreate
         link = CustomerChannelCreate(
             customer_id="cust_123",
-            channel_type="whatsapp",
+            channel_type="sms",
             external_id="+1234567890"
         )
-        assert link.channel_type == "whatsapp"
+        assert link.channel_type == "sms"
         assert link.is_verified is False  # default

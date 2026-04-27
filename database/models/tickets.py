@@ -195,6 +195,11 @@ class Ticket(Base):
     updated_at = Column(DateTime, default=lambda: datetime.utcnow())
     closed_at = Column(DateTime)
 
+    # ── Optimistic Locking (Bug Fix Day 4) ─────────────────────────
+    # Incremented on every update to detect race conditions.
+    # Read current version, modify row, UPDATE ... WHERE version = read_version.
+    version = Column(Integer, default=1, nullable=False)
+
     # Relationships
     messages = relationship(
         "TicketMessage", back_populates="ticket",

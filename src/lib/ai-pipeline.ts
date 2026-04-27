@@ -366,7 +366,7 @@ const KNOWLEDGE_INDEX: KnowledgeIndex[] = [
   {
     keywords: ['integration', 'integrate', 'connect', 'shopify', 'zendesk', 'slack', 'salesforce', 'hubspot', 'api', 'webhook'],
     source: '04_integrations',
-    content: `Integrations: E-commerce (Shopify, WooCommerce, Magento, BigCommerce), Support (Zendesk, Freshdesk, Intercom, Help Scout), Communication (Slack, WhatsApp, Email), CRM (Salesforce, HubSpot), Custom (REST API, GraphQL, Webhooks). Setup takes ~5 minutes per integration.`,
+    content: `Integrations: E-commerce (Shopify, WooCommerce, Magento, BigCommerce), Support (Zendesk, Freshdesk, Intercom, Help Scout), Communication (Slack, Email, SMS), CRM (Salesforce, HubSpot), Custom (REST API, GraphQL, Webhooks). Setup takes ~5 minutes per integration.`,
     relevance: 0.8,
   },
   // Capabilities

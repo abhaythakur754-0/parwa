@@ -131,7 +131,7 @@ async def create_agent(
 
     # Validate channels
     channels = body.get("channels", ["chat"])
-    valid_channels = {"chat", "email", "sms", "whatsapp", "voice"}
+    valid_channels = {"chat", "email", "sms", "voice"}
     for ch in channels:
         if ch not in valid_channels:
             raise ValidationError(

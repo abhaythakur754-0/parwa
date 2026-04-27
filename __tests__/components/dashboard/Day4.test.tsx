@@ -76,10 +76,10 @@ const mockNudgeData: GrowthNudgeResponse = {
       nudge_id: 'nudge-3',
       nudge_type: 'feature_discovery',
       severity: 'info',
-      title: 'WhatsApp channel has no recent activity',
-      message: 'No tickets received via WhatsApp in the last 7 days.',
+      title: 'SMS channel has no recent activity',
+      message: 'No tickets received via SMS in the last 7 days.',
       action_label: 'Configure Channel',
-      action_url: '/settings/channels/whatsapp',
+      action_url: '/settings/channels/sms',
       dismissed: false,
       detected_at: '2026-04-15T10:00:00Z',
     },
@@ -149,7 +149,7 @@ describe('GrowthNudge Component (F-042)', () => {
       render(<GrowthNudge initialData={mockNudgeData} />);
       expect(screen.getByText('SLA breach rate is high')).toBeInTheDocument();
       expect(screen.getByText('Ticket volume is growing fast')).toBeInTheDocument();
-      expect(screen.getByText('WhatsApp channel has no recent activity')).toBeInTheDocument();
+      expect(screen.getByText('SMS channel has no recent activity')).toBeInTheDocument();
     });
 
     it('renders severity badges', () => {

@@ -940,4 +940,4 @@ def valid_categories():
 @pytest.fixture
 def valid_channels():
     """Valid channel types."""
-    return ["email", "chat", "sms", "voice", "twitter", "instagram", "facebook"]
+    return ["email", "chat", "sms", "voice", "slack", "webchat"]

@@ -644,7 +644,7 @@ export class JarvisAIEngine {
   private buildIntegrationsResponse(session: SessionLike): string {
     const integrations = this.kb.integrations;
     if (!integrations) {
-      return "PARWA integrates with popular platforms:\n\n- **E-commerce**: Shopify, WooCommerce, Magento, BigCommerce\n- **Help Desk**: Zendesk, Freshdesk, Intercom, Help Scout\n- **Communication**: Slack, Email, WhatsApp\n- **Payment**: Stripe, Razorpay\n- **Custom**: REST API, Webhooks, SDKs\n\nSetup takes 10-45 minutes depending on complexity. Which integrations do you use?";
+      return "PARWA integrates with popular platforms:\n\n- **E-commerce**: Shopify, WooCommerce, Magento, BigCommerce\n- **Help Desk**: Zendesk, Freshdesk, Intercom, Help Scout\n- **Communication**: Slack, Email, SMS\n- **Payment**: Stripe, Razorpay\n- **Custom**: REST API, Webhooks, SDKs\n\nSetup takes 10-45 minutes depending on complexity. Which integrations do you use?";
     }
 
     const categories = integrations.integration_categories || [];

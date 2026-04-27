@@ -93,6 +93,19 @@ class RateLimitError(ParwaBaseError):
         )
 
 
+class ConflictError(ParwaBaseError):
+    """409 Conflict — raised on optimistic locking version mismatch."""
+    def __init__(
+        self,
+        message: str = "Resource conflict — version mismatch",
+        details: Optional[Any] = None,
+    ) -> None:
+        super().__init__(
+            message=message, error_code="CONFLICT",
+            status_code=409, details=details,
+        )
+
+
 class InternalError(ParwaBaseError):
     def __init__(
         self, message: str = "An internal error occurred",

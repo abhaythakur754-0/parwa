@@ -31,11 +31,6 @@ const channelIcons: Record<string, string> = {
   chat: '\uD83D\uDCAC',
   sms: '\uD83D\uDCF1',
   voice: '\uD83C\uDFA4',
-  whatsapp: '\uD83D\uDCAC',
-  messenger: '\uD83D\uDCE8',
-  twitter: '\uD83D\uDC26',
-  instagram: '\uD83D\uDCF8',
-  telegram: '\u2708\uFE0F',
   slack: '\uD83D\uDCE1',
   webchat: '\uD83C\uDF10',
 };
@@ -45,7 +40,6 @@ const channelCategoryColors: Record<string, string> = {
   chat: 'bg-green-500/15 text-green-400 border-green-500/25',
   sms: 'bg-purple-500/15 text-purple-400 border-purple-500/25',
   voice: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
-  social: 'bg-pink-500/15 text-pink-400 border-pink-500/25',
 };
 
 // ── Props ──────────────────────────────────────────────────────────────

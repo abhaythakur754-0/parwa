@@ -24,7 +24,7 @@ export type TicketStatus =
 
 export type TicketPriority = 'critical' | 'high' | 'medium' | 'low';
 
-export type TicketChannel = 'email' | 'chat' | 'sms' | 'voice' | 'social';
+export type TicketChannel = 'email' | 'chat' | 'sms' | 'voice' | 'slack' | 'webchat';
 
 export type TicketCategory =
   | 'tech_support'

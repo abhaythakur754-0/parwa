@@ -499,9 +499,9 @@ class TestGAP11ChannelAuthorization:
         msg = MessageCreate(
             content="Test",
             role="customer",
-            channel="whatsapp_business"  # Premium feature
+            channel="sms"  # Business channel
         )
-        assert msg.channel == "whatsapp_business"
+        assert msg.channel == "sms"
         # NOTE: Service MUST validate channel is enabled for company
 
 

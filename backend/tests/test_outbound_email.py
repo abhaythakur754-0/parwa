@@ -672,7 +672,7 @@ class TestChannelDispatcher:
         from app.core.channel_dispatcher import ChannelDispatcher
 
         company_id = _make_company_id()
-        ticket = _make_ticket(company_id, channel="whatsapp")
+        ticket = _make_ticket(company_id, channel="webchat")
 
         db = _make_mock_db()
         mock_q = MagicMock()
@@ -694,7 +694,7 @@ class TestChannelDispatcher:
                 ai_response_html="<p>Hello</p>",
             )
             assert result["status"] == "stored"
-            assert result["channel"] == "whatsapp"
+            assert result["channel"] == "webchat"
 
 
 # ══════════════════════════════════════════════════════════════

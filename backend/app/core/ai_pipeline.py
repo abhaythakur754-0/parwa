@@ -30,11 +30,25 @@ BC-013: AI Technique Routing (3-Tier)
 
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("parwa.ai_pipeline")
+
+# ── DSPy Integration (guarded import — BC-008) ────────────────────
+# DSPy is OFF by default.  Set the env var DSPY_ENABLED=true to
+# activate prompt/response optimization via DSPyIntegration.
+# When OFF or when the dspy_integration module is unavailable,
+# the pipeline works exactly as before.
+_DSPY_ENABLED = os.getenv("DSPY_ENABLED", "false").lower() in ("1", "true", "yes")
+_DSPy_INTEGRATION_AVAILABLE = False
+try:
+    from app.core.dspy_integration import DSPyIntegration
+    _DSPY_INTEGRATION_AVAILABLE = True
+except ImportError:
+    DSPyIntegration = None  # type: ignore[assignment,misc]
 
 
 # ── Pipeline Data Classes ─────────────────────────────────────────
@@ -221,6 +235,7 @@ class AIPipeline:
         self._confidence_engine = None
         self._brand_voice_svc = None
         self._langgraph_workflow = None  # Lazy-initialized LangGraphWorkflow instance
+        self._dspy_integration = None  # Lazy-initialized DSPyIntegration instance
 
     # ── Lazy Service Initialization ───────────────────────────
 
@@ -380,6 +395,22 @@ class AIPipeline:
             return BrandVoiceService
         except ImportError:
             return None
+
+    def _get_dspy_integration(self):
+        """Lazy-initialize DSPyIntegration (BC-008).
+
+        Returns ``None`` when DSPy is not installed *or* when the
+        ``DSPY_ENABLED`` env var is not set to ``true``.
+        """
+        if not _DSPY_ENABLED or not _DSPY_INTEGRATION_AVAILABLE:
+            return None
+        if self._dspy_integration is None:
+            try:
+                self._dspy_integration = DSPyIntegration()
+                logger.info("DSPyIntegration initialized for pipeline")
+            except Exception as exc:
+                logger.warning("DSPyIntegration init failed (BC-008): %s", exc)
+        return self._dspy_integration
 
     def _get_langgraph_workflow(self, company_id: str, variant_type: str):
         """Lazy-initialize a LangGraphWorkflow instance (BC-008).
@@ -1081,7 +1112,15 @@ class AIPipeline:
     # ── Stage 9: Response Generation ──────────────────────────
 
     async def _stage_response_generation(self, ctx: PipelineContext) -> None:
-        """Generate AI response using selected model and technique."""
+        """Generate AI response using selected model and technique.
+
+        When ``DSPY_ENABLED=true`` and the DSPy integration module is
+        available, the generated response is passed through
+        :meth:`DSPyIntegration.optimize_response` *after* generation
+        but *before* the CLARA quality gate (Stage 10).  If DSPy throws
+        an error the original response is kept (graceful degradation,
+        BC-008).
+        """
         generator = self._get_response_generator()
         if not generator:
             # Fallback: use raw response from a basic template
@@ -1143,6 +1182,69 @@ class AIPipeline:
                 ctx.response_text = self._get_template_response(ctx)
 
         ctx.generation_time_ms = (time.time() - gen_start) * 1000
+
+        # ── DSPy Optimization (intercepts response before CLARA) ──
+        # Only runs when DSPY_ENABLED=true AND the integration module
+        # loaded successfully.  On any failure the original response
+        # is preserved unchanged (BC-008 graceful degradation).
+        dspy_int = self._get_dspy_integration()
+        if dspy_int is not None and ctx.response_text:
+            try:
+                dspy_start = time.time()
+                logger.info(
+                    "DSPy optimization starting: company_id=%s",
+                    ctx.company_id,
+                )
+                dspy_updates = dspy_int.optimize_response(
+                    company_id=ctx.company_id,
+                    query=ctx.query,
+                    context=ctx,
+                    rag_context=ctx.rag_context or None,
+                )
+                dspy_elapsed = (time.time() - dspy_start) * 1000
+
+                # Apply DSPy-optimized response if it returned one
+                dspy_response = dspy_updates.get("final_response")
+                if dspy_response and isinstance(dspy_response, str) and dspy_response.strip():
+                    ctx.raw_response = dspy_response
+                    ctx.response_text = dspy_response
+                    ctx.stages_completed.append("dspy_optimization")
+                    logger.info(
+                        "DSPy optimization applied: company_id=%s, "
+                        "original_len=%d, optimized_len=%d, latency_ms=%.1f",
+                        ctx.company_id,
+                        len(ctx.raw_response) if ctx.raw_response else 0,
+                        len(dspy_response),
+                        dspy_elapsed,
+                    )
+                else:
+                    # DSPy returned no usable response — keep original
+                    logger.info(
+                        "DSPy optimization returned empty, "
+                        "keeping original response: company_id=%s",
+                        ctx.company_id,
+                    )
+
+                # Surface DSPy confidence if provided
+                dspy_conf = dspy_updates.get("signals_confidence")
+                if dspy_conf is not None:
+                    try:
+                        ctx.confidence_score = max(
+                            ctx.confidence_score, float(dspy_conf),
+                        )
+                    except (ValueError, TypeError):
+                        pass
+
+            except Exception as exc:
+                # BC-008: Log and fall back to the standard response.
+                # The pipeline continues normally with the original
+                # response_text that was generated above.
+                logger.warning(
+                    "DSPy optimization failed, using original response "
+                    "(BC-008 graceful degradation): company_id=%s, "
+                    "error=%s",
+                    ctx.company_id, exc,
+                )
 
     # ── Stage 10: CLARA Quality Gate ──────────────────────────
 

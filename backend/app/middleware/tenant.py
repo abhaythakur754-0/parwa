@@ -12,6 +12,8 @@ so all downstream code (DB auto-injection, Redis key scoping, Celery task header
 can access the current tenant without explicit parameter passing.
 """
 
+import logging
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -19,6 +21,8 @@ from app.core.tenant_context import (
     clear_tenant_context,
     set_tenant_context,
 )
+
+logger = logging.getLogger("parwa.tenant_middleware")
 
 # BC-001: Max allowed length for company_id
 MAX_COMPANY_ID_LENGTH = 128
@@ -76,6 +80,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
         # Reject empty or whitespace-only company_id (BC-001)
         if not company_id or not company_id.strip():
+            logger.warning("tenant_blocked_no_company_id path=%s", path)
             return Response(
                 content=(
                     '{"error":{"code":"AUTHORIZATION_ERROR",'
@@ -91,6 +96,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
         # BC-001: Validate company_id length and format
         if len(company_id) > MAX_COMPANY_ID_LENGTH:
+            logger.warning("tenant_blocked_id_too_long path=%s company_id_len=%d", path, len(company_id))
             return Response(
                 content=(
                     '{"error":{"code":"BAD_REQUEST",'
@@ -103,6 +109,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
         # Reject company_id with control characters or null bytes
         if any(ord(c) < 32 for c in company_id):
+            logger.warning("tenant_blocked_invalid_format path=%s", path)
             return Response(
                 content=(
                     '{"error":{"code":"BAD_REQUEST",'

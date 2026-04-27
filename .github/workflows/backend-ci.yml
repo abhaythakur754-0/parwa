@@ -1,0 +1,245 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - "database/**"
+      - "shared/**"
+      - "security/**"
+      - "requirements.txt"
+      - "alembic.ini"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "database/**"
+      - "shared/**"
+      - "security/**"
+      - "requirements.txt"
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort mypy
+          pip install -r requirements.txt
+
+      - name: Flake8 (lint)
+        run: flake8 backend/ --count --show-source --statistics --max-line-length=120 --ignore=E501,W503
+
+      - name: Black (format check)
+        run: black --check backend/ shared/ security/ database/
+
+      - name: isort (import sort check)
+        run: isort --check-only --profile black backend/ shared/ security/
+
+      - name: mypy (type check)
+        run: mypy backend/app --ignore-missing-imports --no-strict-optional
+        continue-on-error: true
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: parwa_test
+          POSTGRES_PASSWORD: test_password_32_chars_ok
+          POSTGRES_DB: parwa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run unit tests
+        env:
+          ENVIRONMENT: test
+          SECRET_KEY: ci_test_secret_key_for_github_actions_32
+          DATABASE_URL: postgresql+asyncpg://parwa_test:test_password_32_chars_ok@localhost:5432/parwa_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET_KEY: ci_jwt_secret_key_for_github_actions_testing
+          DATA_ENCRYPTION_KEY: ci_encryption_key_32chars_length_ok!!
+          CELERY_BROKER_URL: redis://localhost:6379/1
+          CELERY_RESULT_BACKEND: redis://localhost:6379/2
+          CORS_ORIGINS: http://localhost:3000
+          FRONTEND_URL: http://localhost:3000
+        run: |
+          cd backend
+          python -m pytest tests/unit/ -v --tb=short --cov=app --cov-report=xml --cov-report=term-missing -x
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: parwa_test
+          POSTGRES_PASSWORD: test_password_32_chars_ok
+          POSTGRES_DB: parwa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run database migrations
+        env:
+          ENVIRONMENT: test
+          SECRET_KEY: ci_test_secret_key_for_github_actions_32
+          DATABASE_URL: postgresql+asyncpg://parwa_test:test_password_32_chars_ok@localhost:5432/parwa_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET_KEY: ci_jwt_secret_key_for_github_actions_testing
+          DATA_ENCRYPTION_KEY: ci_encryption_key_32chars_length_ok!!
+        run: |
+          cd database
+          alembic upgrade head
+
+      - name: Run integration tests
+        env:
+          ENVIRONMENT: test
+          SECRET_KEY: ci_test_secret_key_for_github_actions_32
+          DATABASE_URL: postgresql+asyncpg://parwa_test:test_password_32_chars_ok@localhost:5432/parwa_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET_KEY: ci_jwt_secret_key_for_github_actions_testing
+          DATA_ENCRYPTION_KEY: ci_encryption_key_32chars_length_ok!!
+          CELERY_BROKER_URL: redis://localhost:6379/1
+          CELERY_RESULT_BACKEND: redis://localhost:6379/2
+        run: |
+          cd backend
+          python -m pytest tests/integration/ -v --tb=short -x
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety
+
+      - name: Bandit (security lint)
+        run: bandit -r backend/app -ll --ignore B101,B608 -x backend/app/tests
+        continue-on-error: true
+
+      - name: Safety (dependency vulnerabilities)
+        run: safety check -r requirements.txt
+        continue-on-error: true
+
+  build-check:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infra/docker/backend.Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: parwa-backend:ci-check
+
+      - name: Build worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infra/docker/worker.Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: parwa-worker:ci-check

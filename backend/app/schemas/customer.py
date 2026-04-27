@@ -48,10 +48,6 @@ class ChannelType(str, Enum):
 
     EMAIL = "email"
     PHONE = "phone"
-    WHATSAPP = "whatsapp"
-    MESSENGER = "messenger"
-    TELEGRAM = "telegram"
-    TWITTER = "twitter"
     SLACK = "slack"
     WEBCHAT = "webchat"
 

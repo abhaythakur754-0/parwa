@@ -140,33 +140,10 @@ class TestIdentityResolutionService:
 
     # ── SOCIAL ID MATCHING ─────────────────────────────────────────────────────
 
-    def test_match_by_social_id(self, service, mock_db):
-        """Test social media ID matching."""
-        channel = Mock(spec=CustomerChannel)
-        channel.customer_id = "customer-1"
-        channel.channel_type = "twitter"
-
-        mock_db.query.return_value.filter.return_value.first.return_value = channel
-
-        result = service._match_by_social_id("twitter-123")
-
-        assert result is not None
-        assert result["customer_id"] == "customer-1"
-        assert result["method"] == "social"
-        assert result["confidence"] == 0.7
-
-    def test_match_by_social_id_whatsapp(self, service, mock_db):
-        """Test WhatsApp ID matching."""
-        channel = Mock(spec=CustomerChannel)
-        channel.customer_id = "customer-1"
-        channel.channel_type = "whatsapp"
-
-        mock_db.query.return_value.filter.return_value.first.return_value = channel
-
-        result = service._match_by_social_id("whatsapp-456")
-
-        assert result is not None
-        assert result["customer_id"] == "customer-1"
+    def test_match_by_social_id_no_social_channels(self, service):
+        """Social media channels removed — method returns None."""
+        result = service._match_by_social_id("any-social-id")
+        assert result is None
 
     # ── RESOLVE IDENTITY ────────────────────────────────────────────────────────
 

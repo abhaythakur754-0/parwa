@@ -201,8 +201,8 @@
           "description": "AI-powered voice support for inbound customer calls with IVR routing and call transcription"
         },
         {
-          "name": "Social Media",
-          "description": "Automated responses across Facebook Messenger, Instagram DMs, Twitter/X DMs, and WhatsApp Business"
+          "name": "SMS",
+          "description": "Automated SMS responses via Twilio with TCPA compliance"
         }
       ],
       "knowledge_base": {
@@ -227,7 +227,7 @@
           "Slack",
           "Stripe",
           "Razorpay",
-          "WhatsApp Business"
+          "Twilio SMS"
         ],
         "custom": true,
         "custom_description": "Unlimited custom integrations with full engineering support from PARWA team"
@@ -263,7 +263,7 @@
       "features": [
         "Unlimited AI agent variants",
         "20,000 ticket resolution per month",
-        "All channels: Email, Live Chat, Phone, Social Media (Facebook, Instagram, Twitter/X, WhatsApp)",
+        "All channels: Email, Live Chat, Phone, SMS, Slack",
         "Advanced knowledge base (unlimited articles) with continuous auto-learning",
         "Premium response quality with advanced sentiment and tone adaptation",
         "24/7 priority support with 1-hour response SLA",

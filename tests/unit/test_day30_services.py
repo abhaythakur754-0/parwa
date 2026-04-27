@@ -598,7 +598,7 @@ class TestIdentityResolutionService:
                 }):
                     with patch.object(identity_service, '_match_by_device_id', return_value=None):
                         result = identity_service.resolve_identity(
-                            social_id="twitter_12345",
+                            social_id="email_user_12345",
                             auto_create=False,
                         )
 

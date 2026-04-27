@@ -275,11 +275,6 @@ export type ChannelType =
   | 'chat'
   | 'sms'
   | 'voice'
-  | 'whatsapp'
-  | 'messenger'
-  | 'twitter'
-  | 'instagram'
-  | 'telegram'
   | 'slack'
   | 'webchat';
 

@@ -17,6 +17,14 @@ Main FastAPI app with:
 
 from contextlib import asynccontextmanager
 import os
+import sys
+
+# Bug Fix Day 4: Ensure the backend/app directory is on PYTHONPATH so that
+# bare ``shared`` imports resolve to ``app.shared``.  This must run before
+# any application code imports from ``shared.*``.
+_app_dir = os.path.dirname(os.path.abspath(__file__))
+if _app_dir not in sys.path:
+    sys.path.insert(0, _app_dir)
 
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +34,7 @@ from app.config import get_settings
 from app.exceptions import (
     AuthenticationError,
     AuthorizationError,
+    ConflictError,
     NotFoundError,
     ParwaBaseError,
     RateLimitError,
@@ -472,6 +481,26 @@ async def validation_error_handler(
             "error": {
                 "code": "VALIDATION_ERROR",
                 "message": "Request validation failed",
+                "details": None,
+            }
+        },
+    )
+
+
+@app.exception_handler(409)
+async def conflict_error_handler(
+    request: Request, exc: Exception,
+) -> JSONResponse:
+    """Handle 409 conflict errors — optimistic locking version mismatch."""
+    return JSONResponse(
+        status_code=409,
+        content={
+            "error": {
+                "code": "CONFLICT",
+                "message": (
+                    "The resource was modified by another process. "
+                    "Please refresh and try again."
+                ),
                 "details": None,
             }
         },

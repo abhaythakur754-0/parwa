@@ -195,38 +195,41 @@ services:
 
   # ───────────────────────────────────────────────────────────────
   # MCP Server (Production)
+  # TODO: Re-enable once MCP server implements actual MCP protocol
+  #      endpoints (tools listing, tool invocation, etc.).
+  #      See mcp_server/main.py — currently only /health and / exist.
   # ───────────────────────────────────────────────────────────────
-  mcp:
-    build:
-      context: .
-      dockerfile: infra/docker/mcp.Dockerfile
-    image: parwa/mcp:${VERSION:-latest}
-    container_name: parwa_prod_mcp
-    restart: always
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-      - ENVIRONMENT=production
-    env_file:
-      - .env.prod
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    depends_on:
-      - db
-      - redis
-    networks:
-      - backend_network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
-    security_opt:
-      - no-new-privileges:true
+  # mcp:
+  #   build:
+  #     context: .
+  #     dockerfile: infra/docker/mcp.Dockerfile
+  #   image: parwa/mcp:${VERSION:-latest}
+  #   container_name: parwa_prod_mcp
+  #   restart: always
+  #   environment:
+  #     - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+  #     - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+  #     - ENVIRONMENT=production
+  #   env_file:
+  #     - .env.prod
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   depends_on:
+  #     - db
+  #     - redis
+  #   networks:
+  #     - backend_network
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 512M
+  #       reservations:
+  #         memory: 256M
+  #   security_opt:
+  #     - no-new-privileges:true
 
   # ───────────────────────────────────────────────────────────────
   # Frontend - Next.js (Production)

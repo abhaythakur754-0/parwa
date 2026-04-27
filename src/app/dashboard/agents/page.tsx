@@ -52,8 +52,9 @@ const CHANNEL_OPTIONS = [
   { value: 'chat', label: 'Chat' },
   { value: 'email', label: 'Email' },
   { value: 'sms', label: 'SMS' },
-  { value: 'whatsapp', label: 'WhatsApp' },
   { value: 'voice', label: 'Voice' },
+  { value: 'slack', label: 'Slack' },
+  { value: 'webchat', label: 'Webchat' },
 ];
 
 const STATUS_FILTER_OPTIONS = [
@@ -105,7 +106,8 @@ function channelIcon(channel: string): { icon: string; label: string } {
     chat: { icon: 'C', label: 'Chat' },
     email: { icon: 'E', label: 'Email' },
     sms: { icon: 'S', label: 'SMS' },
-    whatsapp: { icon: 'W', label: 'WhatsApp' },
+    slack: { icon: 'Sl', label: 'Slack' },
+    webchat: { icon: 'W', label: 'Webchat' },
     voice: { icon: 'V', label: 'Voice' },
   };
   return map[channel] || { icon: '?', label: channel };

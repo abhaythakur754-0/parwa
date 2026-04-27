@@ -223,11 +223,17 @@ def process_with_idempotency(
     request_body: Optional[Dict] = None,
 ) -> Dict[str, Any]:
     """
-    Process a webhook with idempotency guarantees.
+    Process a webhook with idempotency guarantees (atomic lock + body verification).
 
-    If this event has been processed before (within expiry window),
-    returns the cached response. Otherwise, calls the processor
-    and stores the result.
+    Uses a single database session with ``SELECT ... FOR UPDATE`` to atomically
+    check *and* store the idempotency key, eliminating the TOCTOU race condition
+    that existed when ``check_idempotency_key`` and ``store_idempotency_key``
+    ran in separate sessions.
+
+    On duplicate detection the incoming ``request_body`` hash is compared against
+    the ``request_body_hash`` stored on the original record.  If the hashes
+    differ a tampered-body security warning is logged and an error response is
+    returned instead of the cached payload.
 
     Args:
         provider: Webhook provider (e.g., 'paddle')
@@ -242,51 +248,123 @@ def process_with_idempotency(
     key = generate_idempotency_key(provider, event_id)
     resource_type = f"{provider}_webhook"
 
-    # Check for existing key
-    existing = check_idempotency_key(key, resource_type)
+    # Compute request hash upfront so we can compare on duplicates
+    incoming_hash = _compute_hash(request_body) if request_body else None
 
-    if existing:
-        logger.info(
-            "webhook_duplicate_skipped key=%s event_id=%s",
-            key, event_id,
-        )
-        return {
-            "status": "duplicate",
-            "duplicate": True,
-            "response_status": existing["status"],
-            "response_body": existing["body"],
-        }
-
-    # Compute request hash if body provided
-    request_hash = _compute_hash(request_body) if request_body else None
-
-    # Process the webhook
+    # ── Single session: check + store is atomic via FOR UPDATE ────────
+    db: Session = SessionLocal()
     try:
+        now = datetime.now(timezone.utc)
+
+        # SELECT ... FOR UPDATE acquires an exclusive row-level lock so no
+        # concurrent transaction can insert the same key between check & store.
+        record = (
+            db.query(IdempotencyKey)
+            .filter(
+                and_(
+                    IdempotencyKey.idempotency_key == key,
+                    IdempotencyKey.resource_type == resource_type,
+                    IdempotencyKey.expires_at > now,
+                )
+            )
+            .with_for_update()
+            .first()
+        )
+
+        if record:
+            # ── Duplicate: verify body hash integrity ─────────────────
+            if (
+                incoming_hash is not None
+                and record.request_body_hash is not None
+                and not hmac.compare_digest(incoming_hash, record.request_body_hash)
+            ):
+                logger.security_warning(
+                    "webhook_body_hash_mismatch key=%s event_id=%s "
+                    "incoming_hash=%s stored_hash=%s — possible tampering, "
+                    "rejecting cached response",
+                    key,
+                    event_id,
+                    incoming_hash[:16],
+                    record.request_body_hash[:16],
+                )
+                return {
+                    "status": "error",
+                    "error": "request_body_hash_mismatch",
+                    "error_detail": (
+                        "Duplicate webhook detected but request body hash does not "
+                        "match the originally processed event. This may indicate "
+                        "tampering. The cached response will NOT be returned."
+                    ),
+                    "duplicate": True,
+                    "response_status": 409,
+                    "response_body": json.dumps(
+                        {
+                            "error": "request_body_hash_mismatch",
+                            "message": (
+                                "Event ID already processed with a different "
+                                "request body. Possible tampering detected."
+                            ),
+                        }
+                    ),
+                }
+
+            logger.info(
+                "webhook_duplicate_skipped key=%s event_id=%s",
+                key,
+                event_id,
+            )
+            return {
+                "status": "duplicate",
+                "duplicate": True,
+                "response_status": record.response_status,
+                "response_body": record.response_body,
+            }
+
+        # ── No existing key: process and store atomically ────────────
         result = processor()
 
-        # Store the result
         response_status = result.get("status_code", 200)
         response_body = json.dumps(result, default=str) if result else None
 
-        store_idempotency_key(
-            key=key,
+        # Truncate if needed
+        if response_body:
+            response_body = _truncate_response_body(response_body)
+
+        new_record = IdempotencyKey(
+            idempotency_key=key,
             resource_type=resource_type,
-            response_status=response_status,
-            response_body=response_body,
             resource_id=event_id,
             company_id=company_id,
-            request_body_hash=request_hash,
+            request_body_hash=incoming_hash,
+            response_status=response_status,
+            response_body=response_body,
+            expires_at=now + timedelta(days=IDEMPOTENCY_KEY_EXPIRY_DAYS),
+        )
+
+        db.add(new_record)
+        db.commit()
+        db.refresh(new_record)
+
+        logger.info(
+            "idempotency_key_stored key=%s resource_type=%s expires=%s",
+            key,
+            resource_type,
+            new_record.expires_at.isoformat(),
         )
 
         result["duplicate"] = False
         return result
 
     except Exception as e:
+        db.rollback()
         logger.error(
             "webhook_processor_error key=%s error=%s",
-            key, str(e),
+            key,
+            str(e),
         )
         raise
+    finally:
+        db.close()
 
 
 def cleanup_expired_idempotency_keys() -> int:

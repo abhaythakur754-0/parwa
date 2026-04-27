@@ -9,7 +9,7 @@ import { ChatWidget } from '@/components/chat/ChatWidget';
 import { BookDemoModal } from '@/components/demo/BookDemoModal';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  Star, Check, Phone, Mail, MessageSquare, Instagram, Facebook,
+  Star, Check, Phone, Mail, MessageSquare,
   Hash, Video, ShoppingCart, Cloud, Truck, Briefcase,
   ArrowRight, Zap, Shield, TrendingUp, Sparkles,
   CalendarClock, CreditCard, Info, XCircle, X,
@@ -130,7 +130,7 @@ const commonFeaturesByVariant: Record<VariantId, string[]> = {
   high: [
     'Up to 15 AI agents',
     '15,000 tickets/month',
-    'All channels including Social Media',
+    'All channels including Webchat',
     'Quality coaching system',
     'Churn prediction & proactive retention',
     'Video support & screen sharing',
@@ -172,7 +172,7 @@ const uniqueFeaturesByIndustry: Record<Industry, Record<VariantId, string[]>> = 
 
 const variantData: Record<Industry, VariantData[]> = {
   ecommerce: [
-    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking 'Where\\'s my order?' PARWA Starter answers instantly, checks Shopify, and texts them the tracking link.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Instagram DMs', icon: <Instagram className="w-3.5 h-3.5" /> }, { label: 'Facebook DMs', icon: <Facebook className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'WooCommerce'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'E-commerce SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking 'Where\\'s my order?' PARWA Starter answers instantly, checks Shopify, and texts them the tracking link.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Webchat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'WooCommerce'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'E-commerce SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
     { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "Customer's product won't work. PARWA walks them through 5 troubleshooting steps, determines it's a real defect, creates a return label, and recommends a $30 refund.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'CRM', 'Analytics'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.growth, keyAdvantage: 'Cuts review time by 80%, detects cart abandonment patterns', smartDecisions: 'Recommends refunds based on policy; flags fraud patterns', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'E-commerce SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
     { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated order issues. PARWA High reviews their history, detects a product flaw pattern, offers a $50 credit, and alerts your product team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'CRM', 'Analytics', 'Marketing'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.high, keyAdvantage: 'Approves returns up to $50, predicts churn, coordinates with marketing', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'E-commerce SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
   ],

@@ -258,21 +258,8 @@ class IdentityResolutionService:
         Returns:
             Match dict or None
         """
-        channel = self.db.query(CustomerChannel).filter(
-            CustomerChannel.company_id == self.company_id,
-            CustomerChannel.external_id == social_id,
-            CustomerChannel.channel_type.in_([
-                "twitter", "messenger", "whatsapp", "telegram", "instagram"
-            ]),
-        ).first()
-
-        if channel:
-            return {
-                "customer_id": channel.customer_id,
-                "method": "social",
-                "confidence": self.CONFIDENCE_SOCIAL,
-            }
-
+        # Social media channels have been removed; this method is kept
+        # for backward compatibility but will not match any records.
         return None
 
     def _match_by_device_id(self, device_id: str) -> Optional[Dict[str, Any]]:

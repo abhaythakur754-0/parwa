@@ -103,7 +103,7 @@ const PARWA_MODELS: ParwaModel[] = [
     aiResolution: 0.88,
     agents: 15,
     ticketCapacity: '15K tickets/mo',
-    channels: ['Email', 'Chat', 'SMS', 'Voice', 'Social', 'Video'],
+    channels: ['Email', 'Chat', 'SMS', 'Voice', 'Slack', 'Webchat', 'Video'],
     description:
       'Your most experienced senior agent. Handles complex cases, provides strategic insights, predicts churn, and manages up to 15 AI agents across all channels.',
     bestFor: 'Enterprise teams with complex cases, strategic support operations',
@@ -185,7 +185,9 @@ function getChannelIcon(channel: string) {
       return <Phone className="w-3 h-3" />;
     case 'Voice':
       return <Headphones className="w-3 h-3" />;
-    case 'Social':
+    case 'Slack':
+      return <MessageSquare className="w-3 h-3" />;
+    case 'Webchat':
       return <Globe className="w-3 h-3" />;
     case 'Video':
       return <Video className="w-3 h-3" />;
@@ -254,7 +256,7 @@ function getRecommendedModel(
       );
     }
     reasons.push(
-      `High's 88% AI resolution and full channel support (Social + Video) are ideal for your ${industryLabel} operation.`
+      `High's 88% AI resolution and full channel support (Webchat + Video) are ideal for your ${industryLabel} operation.`
     );
     reasons.push(
       `Enterprise features like churn prediction and strategic insights drive long-term ROI.`

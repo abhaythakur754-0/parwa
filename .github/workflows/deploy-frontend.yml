@@ -5,70 +5,116 @@ on:
     branches:
       - main
     paths:
-      - 'frontend/**'
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'next.config.*'
+      - 'tailwind.config.*'
+      - 'postcss.config.*'
+      - 'tsconfig.json'
+      - 'prisma/**'
+      - 'infra/docker/frontend.prod.Dockerfile'
       - '.github/workflows/deploy-frontend.yml'
 
+env:
+  NODE_VERSION: '20'
+  AWS_REGION: us-east-1
+
 jobs:
-  deploy:
+  build-and-deploy:
+    name: Build & Deploy Frontend
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      - name: Check Frontend Exists
-        id: check-frontend
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Run Linter
+        run: bun run lint
+
+      - name: Build Next.js
+        run: bun run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'https://parwa.ai' }}
+          NEXT_PUBLIC_PADDLE_KEY: ${{ secrets.NEXT_PUBLIC_PADDLE_KEY || '' }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync to S3 Bucket
         run: |
-          if [ -f "frontend/package.json" ]; then
-            echo "frontend_exists=true" >> $GITHUB_OUTPUT
+          echo "Syncing .next/standalone/ to S3..."
+          aws s3 sync .next/standalone/ s3://${{ secrets.FRONTEND_BUCKET_NAME }} --delete
+          echo "Sync complete."
+
+      - name: Invalidate CloudFront Cache
+        run: |
+          DISTRIBUTION_ID=${{ secrets.CF_DISTRIBUTION_ID }}
+          echo "Invalidating CloudFront distribution: ${DISTRIBUTION_ID}"
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "${DISTRIBUTION_ID}" \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          echo "Invalidation created: ${INVALIDATION_ID}"
+
+          # Wait for invalidation to complete (max 5 min)
+          aws cloudfront wait invalidation-completed \
+            --id "${INVALIDATION_ID}" \
+            --distribution-id "${DISTRIBUTION_ID}" || \
+          echo "Invalidation wait timed out — it will complete in the background"
+
+      - name: Run Smoke Tests
+        run: |
+          echo "Running smoke tests against deployed frontend..."
+          sleep 10
+
+          URL="https://parwa.ai"
+          HTTP_CODE=$(curl -sf -o /dev/null -w '%{http_code}' "${URL}" || echo "000")
+          echo "Homepage returned HTTP ${HTTP_CODE}"
+
+          if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 400 ]; then
+            echo "Smoke test PASSED"
           else
-            echo "frontend_exists=false" >> $GITHUB_OUTPUT
-            echo "No frontend/package.json found, skipping frontend build"
+            echo "Smoke test FAILED (HTTP ${HTTP_CODE})"
+            exit 1
           fi
 
-      - name: Install Dependencies
-        if: steps.check-frontend.outputs.frontend_exists == 'true'
+      - name: Store deployment tag in SSM
+        if: success()
         run: |
-          cd frontend
-          bun install
-
-      - name: Build Static Assets
-        if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: |
-          cd frontend
-          bun run build
-
-      - name: Configure AWS Credentials (Placeholder)
-        if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: echo "Configuring AWS credentials..."
-        # uses: aws-actions/configure-aws-credentials@v4
-        # with:
-        #   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        #   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        #   aws-region: us-east-1
-
-      - name: Sync to S3 Bucket (Placeholder)
-        if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: |
-          echo "Syncing dist folder to S3..."
-          # aws s3 sync frontend/.next/standalone/ s3://${{ secrets.FRONTEND_BUCKET_NAME }} --delete
-
-      - name: Invalidate CloudFront Cache (Placeholder)
-        if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: |
-          echo "Invalidating CloudFront CDN cache..."
-          # aws cloudfront create-invalidation --distribution-id ${{ secrets.CF_DISTRIBUTION_ID }} --paths "/*"
+          # Save current tag so rollback.yml can reference it
+          CURRENT_TAG=$(aws ssm get-parameter --name "/parwa/frontend/current-tag" --query 'Parameter.Value' --output text 2>/dev/null || echo "")
+          if [ -n "${CURRENT_TAG}" ]; then
+            aws ssm put-parameter \
+              --name "/parwa/frontend/previous-tag" \
+              --value "${CURRENT_TAG}" \
+              --type "String" \
+              --overwrite
+          fi
+          aws ssm put-parameter \
+            --name "/parwa/frontend/current-tag" \
+            --value "${GITHUB_SHA}" \
+            --type "String" \
+            --overwrite
 
       - name: Deployment Notification
         if: always()
-        run: echo "Frontend deployment completed with status ${{ job.status }}."
+        run: |
+          echo "## Frontend Deployment ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Bucket:** \`${{ secrets.FRONTEND_BUCKET_NAME }}\`" >> $GITHUB_STEP_SUMMARY

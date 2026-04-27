@@ -91,9 +91,10 @@ class TestConstants:
         assert "chat" in VALID_CHANNELS
         assert "email" in VALID_CHANNELS
         assert "sms" in VALID_CHANNELS
-        assert "whatsapp" in VALID_CHANNELS
         assert "voice" in VALID_CHANNELS
-        assert len(VALID_CHANNELS) == 5
+        assert "slack" in VALID_CHANNELS
+        assert "webchat" in VALID_CHANNELS
+        assert len(VALID_CHANNELS) == 6
 
     def test_payment_timeout_hours(self):
         from app.services.agent_provisioning_service import (
@@ -223,10 +224,10 @@ class TestCreateCheckout:
                 company_id=company_id,
                 agent_name="Bot",
                 specialty="billing",
-                channels=["chat", "telegram"],
+                channels=["chat", "tiktok"],
             )
         assert "Invalid channels" in str(exc_info.value)
-        assert "telegram" in str(exc_info.value.details.get(
+        assert "tiktok" in str(exc_info.value.details.get(
             "invalid_channels", [],
         ))
 

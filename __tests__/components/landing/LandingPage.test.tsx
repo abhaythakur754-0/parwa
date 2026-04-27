@@ -248,7 +248,7 @@ describe('Footer', () => {
   });
 
   it('should have social media links', () => {
-    const socialLinks = ['twitter', 'linkedin', 'github'];
+    const socialLinks = ['linkedin', 'github', 'wechat'];
     expect(socialLinks.length).toBeGreaterThan(0);
   });
 });
