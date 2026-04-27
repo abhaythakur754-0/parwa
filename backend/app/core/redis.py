@@ -549,7 +549,6 @@ async def _pubsub_listener() -> None:
     Subscribes to ``parwa:cache_invalidation:*`` channels and dispatches
     messages to ``_handle_invalidation_message``.
     """
-    global _pubsub_running
     try:
         client = await get_redis()
         pubsub = client.pubsub()
