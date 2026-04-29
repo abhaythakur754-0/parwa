@@ -14,6 +14,17 @@ BC-001: Tenant isolation via company_id
 BC-012: Structured JSON error responses
 """
 
+import os
+
+# Set test environment BEFORE importing app modules
+os.environ["ENVIRONMENT"] = "test"
+os.environ["SECRET_KEY"] = "test_secret_key_for_testing_only_not_prod"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["REDIS_URL"] = "redis://localhost:6379/0"
+os.environ["JWT_SECRET_KEY"] = "test_jwt_secret_key_not_prod"
+os.environ["DATA_ENCRYPTION_KEY"] = "12345678901234567890123456789012"
+os.environ["REFRESH_TOKEN_PEPPER"] = "test_refresh_token_pepper_for_testing_only_32chars"
+
 import pytest
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -24,30 +35,32 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from starlette.middleware import Middleware
 
-from backend.app.api.billing import router
-from backend.app.schemas.billing import (
+from app.api.billing import router
+from app.api.deps import get_current_user, get_company_id
+from app.schemas.billing import (
     SubscriptionInfo,
     SubscriptionStatus,
     VariantType,
     ProrationResult,
 )
+from database.base import init_db
+
+# Initialize test database
+init_db()
+
+
+# ── Mock User for Testing ──────────────────────────────────────────────────
+
+class MockUser:
+    """Mock user for authentication bypass."""
+    def __init__(self, user_id: UUID, company_id: UUID, role: str = "owner"):
+        self.id = str(user_id)
+        self.company_id = str(company_id)
+        self.role = role
+        self.email = "test@test.com"
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────
-
-@pytest.fixture
-def app():
-    """Create FastAPI app with billing router."""
-    app = FastAPI()
-    app.include_router(router)
-    return app
-
-
-@pytest.fixture
-def client(app):
-    """Create test client."""
-    return TestClient(app)
-
 
 @pytest.fixture
 def sample_company_id():
@@ -62,12 +75,43 @@ def sample_user_id():
 
 
 @pytest.fixture
+def mock_user(sample_user_id, sample_company_id):
+    """Mock authenticated user."""
+    return MockUser(sample_user_id, sample_company_id, role="owner")
+
+
+@pytest.fixture
+def app(mock_user):
+    """Create FastAPI app with billing router and auth override."""
+    app = FastAPI()
+    
+    # Override authentication dependencies
+    def override_get_current_user():
+        return mock_user
+    
+    def override_get_company_id():
+        return mock_user.company_id
+    
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_company_id] = override_get_company_id
+    
+    app.include_router(router)
+    return app
+
+
+@pytest.fixture
+def client(app):
+    """Create test client."""
+    return TestClient(app)
+
+
+@pytest.fixture
 def sample_subscription_info(sample_company_id):
     """Sample subscription info."""
     return SubscriptionInfo(
         id=uuid4(),
         company_id=sample_company_id,
-        variant=VariantType.GROWTH,
+        variant=VariantType.PARWA,
         status=SubscriptionStatus.ACTIVE,
         current_period_start=datetime.now(timezone.utc),
         current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
@@ -144,7 +188,7 @@ class TestGetSubscription:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
@@ -164,7 +208,7 @@ class TestGetSubscription:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
@@ -189,7 +233,7 @@ class TestCreateSubscription:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
@@ -206,7 +250,7 @@ class TestCreateSubscription:
         self, app, sample_company_id, mock_subscription_service
     ):
         """Test creating subscription with invalid variant."""
-        from backend.app.services.subscription_service import InvalidVariantError
+        from app.services.subscription_service import InvalidVariantError
 
         async def raise_invalid_variant(*args, **kwargs):
             raise InvalidVariantError("Invalid variant: enterprise")
@@ -218,7 +262,7 @@ class TestCreateSubscription:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
@@ -240,18 +284,18 @@ class TestUpdateSubscription:
         self, app, sample_company_id, sample_subscription_info, mock_subscription_service
     ):
         """Test upgrading a subscription."""
-        sample_subscription_info.variant = VariantType.HIGH
+        sample_subscription_info.variant = VariantType.HIGH_PARWA
         middleware = set_company_id_middleware(sample_company_id)
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
             response = client.patch(
                 "/api/billing/subscription",
-                json={"variant": "high"},
+                json={"variant": "high_parwa"},
             )
 
             assert response.status_code == 200
@@ -263,17 +307,17 @@ class TestUpdateSubscription:
     ):
         """Test downgrading a subscription."""
         # Set up for downgrade
-        sample_subscription_info.variant = VariantType.STARTER
+        sample_subscription_info.variant = VariantType.MINI_PARWA
         mock_subscription_service.get_subscription = AsyncMock(
             return_value=sample_subscription_info
         )
-        sample_subscription_info.variant = VariantType.GROWTH  # Current is growth
+        sample_subscription_info.variant = VariantType.PARWA  # Current is growth
 
         middleware = set_company_id_middleware(sample_company_id)
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
@@ -298,7 +342,7 @@ class TestCancelSubscription:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
@@ -330,7 +374,7 @@ class TestCancelSubscription:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
@@ -358,7 +402,7 @@ class TestReactivateSubscription:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
@@ -379,15 +423,15 @@ class TestProrationPreview:
         mock_subscription_service, mock_proration_service
     ):
         """Test getting proration preview."""
-        sample_subscription_info.variant = VariantType.STARTER
+        sample_subscription_info.variant = VariantType.MINI_PARWA
         sample_subscription_info.current_period_start = datetime.now(timezone.utc)
         sample_subscription_info.current_period_end = datetime.now(timezone.utc) + timedelta(days=30)
 
-        from backend.app.schemas.billing import ProrationResult
+        from app.schemas.billing import ProrationResult
 
         mock_proration_result = ProrationResult(
-            old_variant=VariantType.STARTER,
-            new_variant=VariantType.GROWTH,
+            old_variant=VariantType.MINI_PARWA,
+            new_variant=VariantType.PARWA,
             old_price=Decimal("999.00"),
             new_price=Decimal("2499.00"),
             days_remaining=15,
@@ -408,10 +452,10 @@ class TestProrationPreview:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ), patch(
-            "backend.app.api.billing.get_proration_service",
+            "app.api.billing.get_proration_service",
             return_value=mock_proration_service
         ):
             client = TestClient(app)
@@ -440,7 +484,7 @@ class TestProrationHistory:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_proration_service",
+            "app.api.billing.get_proration_service",
             return_value=mock_proration_service
         ):
             client = TestClient(app)
@@ -463,7 +507,7 @@ class TestProrationHistory:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_proration_service",
+            "app.api.billing.get_proration_service",
             return_value=mock_proration_service
         ):
             client = TestClient(app)
@@ -485,7 +529,7 @@ class TestBillingStatus:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
@@ -506,7 +550,7 @@ class TestBillingStatus:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
@@ -529,7 +573,7 @@ class TestErrorHandling:
         # Without middleware, the endpoint will fail to get company_id
         # which should raise HTTPException(401)
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app, raise_server_exceptions=False)
@@ -543,7 +587,7 @@ class TestErrorHandling:
         self, app, sample_company_id, mock_subscription_service
     ):
         """Test handling SubscriptionNotFoundError."""
-        from backend.app.services.subscription_service import SubscriptionNotFoundError
+        from app.services.subscription_service import SubscriptionNotFoundError
 
         mock_subscription_service.cancel_subscription = AsyncMock(
             side_effect=SubscriptionNotFoundError("No subscription found")
@@ -552,7 +596,7 @@ class TestErrorHandling:
         app.middleware("http")(middleware)
 
         with patch(
-            "backend.app.api.billing.get_subscription_service",
+            "app.api.billing.get_subscription_service",
             return_value=mock_subscription_service
         ):
             client = TestClient(app)
