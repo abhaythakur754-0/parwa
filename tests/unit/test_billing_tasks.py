@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from tests.unit.test_day22_setup import setup_day22_tests  # noqa: E402
 setup_day22_tests()
-from backend.app.tasks.billing_tasks import (  # noqa: E402
+from app.tasks.billing_tasks import (  # noqa: E402
     daily_overage_charge,
     invoice_sync,
     subscription_check,
