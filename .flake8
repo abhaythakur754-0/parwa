@@ -1,13 +1,15 @@
 [flake8]
 max-line-length = 120
 extend-ignore =
-    E501,  # line too long
-    W503,  # line break before binary operator
-    W504,  # line break after binary operator
-    E402,  # module level import not at top of file
-    E741,  # ambiguous variable name
-    E131,  # continuation line unaligned for hanging indent
-    F841,  # local variable assigned but never used (common in tests)
+    E501,
+    W503,
+    W504,
+    E402,
+    E741,
+    E131,
+    F841
+per-file-ignores =
+    backend/tests/test_jarvis_service_comprehensive.py: F401
 exclude =
     .git,
     __pycache__,
