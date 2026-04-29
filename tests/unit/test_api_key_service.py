@@ -341,7 +341,8 @@ class TestRotateKey:
         )
         db_session.commit()
         assert old_after.grace_ends_at is not None
-        assert grace == old_after.grace_ends_at
+        # Compare timestamps (grace is timezone-aware, grace_ends_at may be naive from DB)
+        assert grace.replace(tzinfo=None) == old_after.grace_ends_at
 
     def test_rotate_new_key_format(self, db_session):
         from backend.app.services.api_key_service import (

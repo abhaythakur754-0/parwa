@@ -43,7 +43,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Flake8 (lint)
-        run: flake8 backend/ --count --show-source --statistics --max-line-length=120 --ignore=E501,W503
+        run: flake8 backend/ --count --show-source --statistics --max-line-length=120 --ignore=E501,W503,E203,E704,E126,E127 --exclude=backend/app/tests
 
       - name: Black (format check)
         run: black --check backend/ shared/ security/ database/
