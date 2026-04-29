@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backend.app.core.auth import (
+from app.core.auth import (
     JWT_ALGORITHM,
     create_access_token,
     generate_refresh_token,
@@ -21,7 +21,7 @@ from backend.app.core.auth import (
     hash_refresh_token,
     verify_access_token,
 )
-from backend.app.exceptions import AuthenticationError
+from app.exceptions import AuthenticationError
 
 
 class TestCreateAccessToken:
@@ -145,7 +145,7 @@ class TestVerifyAccessToken:
             os.environ["JWT_SECRET_KEY"] = "secret_B"
             # Need to reimport to pick up new secret
             from importlib import reload
-            import backend.app.core.auth as auth_mod
+            import app.core.auth as auth_mod
             reload(auth_mod)
             with pytest.raises(AuthenticationError):
                 auth_mod.verify_access_token(token)
