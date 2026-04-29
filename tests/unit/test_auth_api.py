@@ -498,7 +498,7 @@ class TestMeEndpoint:
 class TestGoogleEndpoint:
     """Tests for POST /api/auth/google."""
 
-    @patch("backend.app.services.auth_service._verify_google_token")
+    @patch("app.services.auth_service._verify_google_token")
     def test_google_new_user(self, mock_verify, client):
         """New Google user gets registered and gets tokens."""
         mock_verify.return_value = {
@@ -518,10 +518,10 @@ class TestGoogleEndpoint:
         assert data["user"]["is_verified"] is True
         assert data["is_new_user"] is True
 
-    @patch("backend.app.services.auth_service._verify_google_token")
+    @patch("app.services.auth_service._verify_google_token")
     def test_google_verification_fails(self, mock_verify, client):
         """Failed Google verification returns 401."""
-        from backend.app.exceptions import AuthenticationError
+        from app.exceptions import AuthenticationError
 
         mock_verify.side_effect = AuthenticationError(
             message="Google token verification failed"
